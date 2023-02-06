@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: ByteIR
+message: >-
+  If you use this repo, please cite it.
+type: generic
+authors:
+  - given-names: Chengji
+    family-names: Yao
+    email: chengji.yao@bytedance.com
+    affiliation: ByteDance
+  - given-names: Li-Wen
+    family-names: Chang
+    email: liwen.chang@bytedance.com
+    affiliation: ByteDance
+
+
+repository-code: 'https://github.com//bytedance/byteir'
+abstract: >-
+  The ByteIR Project is a ByteDance model compilation solution.
+keywords:
+  - 'byteir, mlir'
+license: Apache License v2.0
+license-url: https://github.com/bytedance/byteir/blob/main/LICENSE
+version: '0.0.1'
+date-released: '2023-02-066'
+identifiers:
+  - type: url
+    value: "https://github.com/bytedance/byteir"
+    description: The GitHub URL
