@@ -1,16 +1,88 @@
 cff-version: 1.2.0
 title: ByteIR
 message: >-
-  If you use this repo, please cite it.
+  If you find this repository useful, please consider citing.
 type: generic
 authors:
-  - given-names: Chengji
-    family-names: Yao
-    email: chengji.yao@bytedance.com
+  - given-names: Honghua
+    family-names: Cao
+    email: shenchao.0@bytedance.com
     affiliation: ByteDance
   - given-names: Li-Wen
     family-names: Chang
     email: liwen.chang@bytedance.com
+    affiliation: ByteDances
+  - given-names: Chongsong
+    family-names: Chen
+    email: chongsong.chen@bytedance.com
+    affiliation: ByteDance
+  - given-names: Chengquan
+    family-names: Jiang
+    email: jiangchengquan@bytedance.com
+    affiliation: ByteDance
+  - given-names: Ziheng
+    family-names: Jiang
+    email: ziheng.jiang@bytedance.com
+    affiliation: ByteDance
+  - given-names: Liyang
+    family-names: Liu
+    email: liuliyang.louis@bytedance.com
+    affiliation: ByteDance
+  - given-names: Yuan
+    family-names: Liu
+    email: liuyuan.leo@bytedance.com
+    affiliation: ByteDance
+  - given-names: Yuanqiang
+    family-names: Liu
+    email: liuyuanqiang.yqliu@bytedance.com
+    affiliation: ByteDance
+  - given-names: Chao
+    family-names: Shen
+    email: shenchao.0@bytedance.com
+    affiliation: ByteDance
+  - given-names: Haoran
+    family-names: Wang
+    email: wanghaoran.bj@bytedance.com
+    affiliation: ByteDance
+  - given-names: Jianzhe
+    family-names: Xiao
+    email: jianzhe.xiao@bytedance.com
+    affiliation: ByteDance
+  - given-names: Chengji
+    family-names: Yao
+    email: chengji.yao@bytedance.com
+    affiliation: ByteDance
+  - given-names: Hangjian
+    family-names: Yuan
+    email: yuanhangjian@bytedance.com
+    affiliation: ByteDance
+  - given-names: Fucheng
+    family-names: Zhang
+    email: zhangfucheng.jason@bytedance.com
+    affiliation: ByteDance
+  - given-names: Ru
+    family-names: Zhang
+    email: zhangru.1994@bytedance.com
+    affiliation: ByteDance
+  - given-names: Xuanrun
+    family-names: Zhang
+    email: zhangxuanrun@bytedance.com
+    affiliation: ByteDance
+  - given-names: Zhekun
+    family-names: Zhang
+    email: zhekun.zhang@bytedance.com
+    affiliation: ByteDance
+  - given-names: Zhiwei
+    family-names: Zhang
+    email: zhangzhiwei.177@bytedance.com
+    affiliation: ByteDance
+  - given-names: Hongyu
+    family-names: Zhu
+    email: zhuhongyu.11@bytedance.com
+    affiliation: ByteDance
+  - given-names: Xin
+    family-names: Liu
+    email: liuxin.ai@bytedance.com
     affiliation: ByteDance
 
 
@@ -22,7 +94,7 @@ keywords:
 license: Apache License v2.0
 license-url: https://github.com/bytedance/byteir/blob/main/LICENSE
 version: '0.0.1'
-date-released: '2023-02-066'
+date-released: '2023-02-06'
 identifiers:
   - type: url
     value: "https://github.com/bytedance/byteir"
