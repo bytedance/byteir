@@ -1,0 +1,18 @@
+import lit.llvm
+
+config.llvm_tools_dir = r"@LLVM_TOOLS_DIR@"
+config.byteir_tools_dir = r"@BYTEIR_TOOLS_DIR@"
+config.byteir_test_build_dir = r"@BYTEIR_TEST_BUILD_DIR@"
+config.lit_tools_dir = config.llvm_tools_dir
+
+try:
+    config.llvm_tools_dir = config.llvm_tools_dir % lit_config.params
+except KeyError:
+    e = sys.exc_info()[1]
+    key, = e.args
+    lit_config.fatal("unable to find %r parameter, use '--param=%s=VALUE'" % (key,key))
+
+lit.llvm.initialize(lit_config, config)
+
+# Let the main config do the real work.
+lit_config.load_config(config, r"@BYTEIR_TEST_SOURCE_DIR@/lit.cfg.py")

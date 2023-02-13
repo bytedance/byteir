@@ -1,0 +1,60 @@
+//===- InsertTieShape.cpp ------------------------------------------ C++ --===//
+//
+// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//===----------------------------------------------------------------------===//
+
+#include "byteir/Dialect/Shape/Transforms/InsertTieShape.h"
+
+#include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+
+#include "PassDetail.h"
+
+using namespace mlir;
+
+namespace {
+
+struct InsertTieShapePass : public InsertTieShapeBase<InsertTieShapePass> {
+  void runOnOperation() override {
+    func::FuncOp funcOp = getOperation();
+    OpBuilder builder(funcOp);
+    funcOp.walk([&](Operation *op) {
+      for (Value result : op->getResults()) {
+        builder.setInsertionPointAfter(op);
+        if (auto shape = result.getType().dyn_cast<RankedTensorType>()) {
+          if (!shape.hasStaticShape()) {
+            SmallVector<Value> dims;
+            for (int64_t i = 0; i < shape.getRank(); ++i) {
+              if (shape.isDynamicDim(i)) {
+                dims.push_back(
+                    builder.create<tensor::DimOp>(op->getLoc(), result, i));
+              }
+            }
+            if (dims.size() > 0)
+              builder.create<shape_ext::TieOp>(op->getLoc(), result, dims);
+          }
+        }
+      }
+    });
+  }
+};
+
+} // namespace
+
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createInsertTieShapePass() {
+  return std::make_unique<InsertTieShapePass>();
+}

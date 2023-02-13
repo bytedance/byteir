@@ -1,0 +1,60 @@
+//===- Passes.td - Transforms pass definition file -------*--- tablegen -*-===//
+//
+// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef BYTEIR_DIALECT_TRANSFORM_PASSES
+#define BYTEIR_DIALECT_TRANSFORM_PASSES
+
+include "mlir/Pass/PassBase.td"
+
+//===----------------------------------------------------------------------===//
+// TransformDialectInterpreter
+//===----------------------------------------------------------------------===//
+
+def TransformDialectInterpreter : Pass<"transform-dialect-interpreter", "ModuleOp"> {
+  let summary = "Apply transform dialect operations one by one";
+  let constructor = "mlir::createTransformDialectInterpreter()";
+  let options = [
+    Option<"eraseAfter", "erase-after", "bool",
+            /*default=*/"false",
+            "Erase after applied">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// TransformInsertion
+//===----------------------------------------------------------------------===//
+
+def TransformInsertion : Pass<"transform-insertion", "ModuleOp"> {
+  let summary = "Insert transform IR to device functions.";
+  let constructor = "mlir::createTransformInsertionPass()";
+  let options = [
+    Option<"funcAnchorAttr", "func-anchor", "std::string",
+            /*default=*/"",
+            "An optional Unit attribute anchoring on target functions.">,
+    Option<"matchPrefix", "match-prefix", "std::string",
+            /*default=*/"",
+            "An optional match prefix attribute on target ops.">,
+    Option<"tileSizeAttrName", "tile-size-attr-name", "std::string",
+            /*default=*/"",
+            "Tile size attribute name.">,
+    Option<"tileInterchangeAttrName", "tile-interchange-attr-name", "std::string",
+            /*default=*/"",
+            "Tile interchange attribute name.">,
+  ];
+}
+
+#endif // BYTEIR_DIALECT_TRANSFORM_PASSES
