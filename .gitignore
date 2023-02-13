@@ -1,0 +1,48 @@
+#==============================================================================#
+# This file specifies intentionally untracked files that git should ignore.
+# See: http://www.kernel.org/pub/software/scm/git/docs/gitignore.html
+#
+# This file is intentionally different from the output of `git svn show-ignore`,
+# as most of those are useless.
+#==============================================================================#
+
+#==============================================================================#
+# File extensions to be ignored anywhere in the tree.
+#==============================================================================#
+# Temp files created by most text editors.
+*~
+# Merge files created by git.
+*.orig
+# Byte compiled python modules.
+*.pyc
+# vim swap files
+.*.sw?
+.sw?
+#OS X specific files.
+.DS_store
+
+# Nested build directory
+build/
+
+# bazel
+**/bazel*
+
+# prebuilt llvm in CI
+llvm_install*
+llvm_build/
+llvm_build_rtti/
+
+# byteir artifact in CI
+byre_install*
+byre_install/
+onnx_frontend_download/
+
+# Local Test
+local_test*
+*local_test*
+*Local_test*
+
+# VS and VSCode config files.
+.vscode/
+
+/compile_commands.json

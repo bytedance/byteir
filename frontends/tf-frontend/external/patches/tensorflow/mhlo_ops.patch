@@ -1,0 +1,16 @@
+diff --git a/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc b/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc
+index 8728bd5714f..56c2c59296c 100644
+--- a/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc
++++ b/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc
+@@ -7072,8 +7072,9 @@ static Attribute CompareFolder(CompareOp op, ArrayRef<Attribute> attrs) {
+ 
+   SmallVector<bool, 6> values;
+   values.reserve(lhs.getNumElements());
+-  for (const auto zip :
+-       llvm::zip(lhs.getValues<SrcType>(), rhs.getValues<SrcType>())) {
++  auto zips = llvm::to_vector(
++      llvm::zip(lhs.getValues<SrcType>(), rhs.getValues<SrcType>()));
++  for (const auto zip : zips) {
+     values.push_back(
+         Convert()(addSign(std::get<0>(zip), lhs.getElementType()),
+                   addSign(std::get<1>(zip), rhs.getElementType())));

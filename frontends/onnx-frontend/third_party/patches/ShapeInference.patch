@@ -1,0 +1,15 @@
+diff --git a/src/Transform/ONNX/ShapeInferencePass.cpp b/src/Transform/ONNX/ShapeInferencePass.cpp
+index f763f779..93966d58 100644
+--- a/src/Transform/ONNX/ShapeInferencePass.cpp
++++ b/src/Transform/ONNX/ShapeInferencePass.cpp
+@@ -123,9 +123,7 @@ public:
+         // Attempt to infer the shape of the produced output(s).
+         if (failed(shape_op.inferShapes(doShapeInference)))
+           return op.emitError("shape inference failed");
+-      } else if (!llvm::dyn_cast<CallOpInterface>(op))
+-        return op.emitError("unable to infer shape of operation without shape "
+-                            "inference interface");
++      }
+     }
+     return success();
+   }
