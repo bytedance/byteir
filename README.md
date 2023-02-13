@@ -9,9 +9,9 @@ each component technically can perform independently.
 
 ## Project Status
 ByteIR is still in its early phase. 
-In this phase, we are aiming to provide well-defined, necessary building blocks and infrastructure support for model compilation in a wide-ranage of deep learning accelerators as well as general-purpose CPUs and GPUs.
-Therefore, highly-tuned kernels for specific achiecture might not have been prioritized. 
-For sure, any feedback for prioritizing specific achiecture or correpsonding contribution are wellcome.
+In this phase, we are aiming to provide well-defined, necessary building blocks and infrastructure support for model compilation in a wide-range of deep learning accelerators as well as general-purpose CPUs and GPUs.
+Therefore, highly-tuned kernels for specific architecture might not have been prioritized. 
+For sure, any feedback for prioritizing specific architecture or corresponding contribution are welcome.
 
 ## [Compiler](compiler/README.md)
 
@@ -33,7 +33,7 @@ There are pre-defined communication interface between components.
 ### MHLO between frontends and compiler
 ByteIR frontends and ByteIR compiler communicates through mhlo dialect, which version might be updated during development.
 
-This also implies whatever frontend generating mhlo with a compatible verison can work with ByteIR compiler, and also whatever compiler consuming mhlo with a compatible verison can work with ByteIR frontends.
+This also implies whatever frontend generating mhlo with a compatible version can work with ByteIR compiler, and also whatever compiler consuming mhlo with a compatible version can work with ByteIR frontends.
 
 ### ByRE between compiler and runtime
 
@@ -44,6 +44,17 @@ currently supporting a textual form for ByteIR compiler and runtime.
 The bytecode form of ByRE dialect with versioning will come very soon.
 Other ByRE formats are under development.
 
+
+## Citation
+If you find this repository useful, please consider citing.
+``` 
+@misc{byteir2023,
+title = {{ByteIR}},
+author = {Cao, Honghua and Chang, Li-Wen and Chen, Chongsong and Jiang, Chengquan and Jiang, Ziheng and Liu, Liyang and Liu, Yuan and Liu, Yuanqiang and Shen, Chao and Wang, Haoran and Xiao, Jianzhe and Yao, Chengji and Yuan, Hangjian and Zhang, Fucheng and Zhang, Ru and Zhang, Xuanrun and Zhang, Zhekun and Zhang, Zhiwei and Zhu, Hongyu and Liu, Xin},
+url = {https://github.com//bytedance/byteir},
+year = {2023}
+}
+```
 
 ## [License](LICENSE)
 

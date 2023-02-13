@@ -1,0 +1,39 @@
+pytorch1.10:ì
+Þ
+input_0
+input_1output_0Concat_0"Concat*
+axisþÿÿÿÿÿÿÿÿ 2—export_onnx.py(88): forward
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/nn/modules/module.py(1090): _slow_forward
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/nn/modules/module.py(1102): _call_impl
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/jit/_trace.py(118): wrapper
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/jit/_trace.py(132): forward
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/nn/modules/module.py(1102): _call_impl
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/jit/_trace.py(1166): _get_trace_graph
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/onnx/utils.py(388): _trace_and_get_graph_from_model
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/onnx/utils.py(437): _create_jit_graph
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/onnx/utils.py(493): _model_to_graph
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/onnx/utils.py(729): _export
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/onnx/utils.py(111): export
+/data00/home/chongsong.chen/anaconda3/envs/torch1100/lib/python3.7/site-packages/torch/onnx/__init__.py(320): export
+export_onnx.py(61): export_onnx
+export_onnx.py(110): <module>
+torch-jit-exportZ&
+input_0
+
+batch
+
+
+Z&
+input_1
+
+batch
+
+
+b'
+output_0
+
+batch
+
+
+
+B
