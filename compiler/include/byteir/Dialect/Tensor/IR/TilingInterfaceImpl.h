@@ -1,4 +1,4 @@
-//===- AffineUtils.h ----------------------------------------------- C++---===//
+//===- TilingInterfaceImpl.h - --------------------------------------------===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,26 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_UTILS_AFFINEUTILS_H
-#define BYTEIR_UTILS_AFFINEUTILS_H
+#ifndef BYTEIR_DIALECT_TENSOR_IR_TILINGINTERFACEIMPL_H
+#define BYTEIR_DIALECT_TENSOR_IR_TILINGINTERFACEIMPL_H
 
-#include "mlir/IR/AffineMap.h"
-#include "mlir/Support/LogicalResult.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/Dialect.h"
 
 namespace mlir {
 
-/// find iteration index through dim and inversePermutation
-/// E.g. if affineMap = (d0, d1, d2)-> (d0, d2), dim = 1
-/// return 2  (from d2)
-FailureOr<unsigned> getIterAxisFromDim(AffineMap affineMap, unsigned dimIndex);
+namespace tensor {
+class CollapseShapeOp;
+class ExpandShapeOp;
+} // namespace tensor
 
-AffineMap getFlattenAffineMap(mlir::MLIRContext *,
-                              ArrayRef<int64_t> staticShape);
+namespace tensor_ext {
 
+/// Registers external models for Tiling interface for tensor ops not
+/// implemented in upstream.
+void registerTilingInterfaceExternalModels(mlir::DialectRegistry &registry);
+
+} // namespace tensor_ext
 } // namespace mlir
 
-#endif // BYTEIR_UTILS_AFFINEUTILS_H
+#endif // BYTEIR_DIALECT_TENSOR_IR_TILINGINTERFACEIMPL_H

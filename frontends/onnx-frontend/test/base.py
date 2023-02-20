@@ -22,6 +22,7 @@ CUSTOM_CALL_OPS = [
     "layer_norm",
     "erf",
     "gelu",
+    "instance_norm",
     "l2_norm",
     "quantize",
     "dequantize",
@@ -61,12 +62,6 @@ class TestBase:
             cmd_opts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         out, err = p.stdout, p.stderr
         assert not err, str(err)
-
-        # TODO: try to remove these
-        out = re.sub(r'mhlo.clamp\s(.*)\s:', r'"mhlo.clamp"(\1) :', out)
-        out = re.sub(r'mhlo.reshape\s(.*)\s:', r'"mhlo.reshape"(\1) :', out)
-        out = re.sub(r'mhlo.compare\s\s(.*),\s(.*),\s(.*),\s\s(.*)\s:', r'"mhlo.compare"(\2, \3) {compare_type = #mhlo<comparison_type \4>, comparison_direction = #mhlo<comparison_direction \1>} :', out)
-        out = re.sub(r'mhlo.return\s(%\d*)\s:\s(.*)\n', r'"mhlo.return"(\1) : (\2) -> ()\n', out)
         with open(mhlo_ir_path, "w") as f:
             f.write(out)
 

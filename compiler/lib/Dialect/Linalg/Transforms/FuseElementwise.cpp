@@ -61,7 +61,7 @@ static FailureOr<linalg::GenericOp> getAliasGeneric(OpBuilder &b, Value val) {
   SmallVector<OpFoldResult> sizes;
   sizes.reserve(tensorTy.getRank());
   for (int64_t i = 0; i < tensorTy.getRank(); ++i) {
-    sizes.push_back(linalg_ext::getDim(b, loc, val, i));
+    sizes.push_back(getDim(b, loc, val, i));
   }
 
   auto empty = b.create<tensor::EmptyOp>(loc, sizes, tensorTy.getElementType());

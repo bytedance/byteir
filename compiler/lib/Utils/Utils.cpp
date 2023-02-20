@@ -19,6 +19,8 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
@@ -26,6 +28,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include <assert.h>
 
 using namespace llvm;
@@ -328,4 +331,63 @@ int mlir::userCount(Value val) {
     }
   }
   return count.size();
+}
+
+Value mlir::getDimValue(OpBuilder &builder, Location loc, Value v,
+                        int64_t dim) {
+  return TypeSwitch<Type, Value>(v.getType())
+      .Case<RankedTensorType>([&](RankedTensorType t) -> Value {
+        return builder.create<tensor::DimOp>(loc, v, dim);
+      })
+      .Case<MemRefType>([&](MemRefType t) -> Value {
+        return builder.create<memref::DimOp>(loc, v, dim);
+      })
+      .Default([&](Type t) { return Value(); });
+}
+
+OpFoldResult mlir::getDim(OpBuilder &builder, Location loc, Value v,
+                          int64_t dim) {
+  auto t = v.getType().cast<ShapedType>();
+  if (!t.hasRank() || t.isDynamicDim(dim)) {
+    return getDimValue(builder, loc, v, dim);
+  }
+  return builder.getI64IntegerAttr(t.getDimSize(dim));
+}
+
+Value mlir::getSlice(OpBuilder &b, Location loc, Value source,
+                     ArrayRef<OpFoldResult> offsets,
+                     ArrayRef<OpFoldResult> sizes,
+                     ArrayRef<OpFoldResult> strides) {
+  return TypeSwitch<Type, Value>(source.getType())
+      .Case<RankedTensorType>([&](RankedTensorType t) -> Value {
+        return b.create<tensor::ExtractSliceOp>(loc, source, offsets, sizes,
+                                                strides);
+      })
+      .Case<MemRefType>([&](MemRefType type) -> Value {
+        return b.create<memref::SubViewOp>(loc, source, offsets, sizes,
+                                           strides);
+      })
+      .Default([&](Type t) { return nullptr; });
+}
+
+OpFoldResult mlir::canonicalizeOpFoldResult(OpFoldResult ofr, bool enableFold) {
+  if (auto val = ofr.dyn_cast<Value>()) {
+    SmallVector<Value> foldResults;
+    if (enableFold) {
+      OpBuilder builder(val.getContext());
+      Operation *op = val.getDefiningOp();
+      if (op && !failed(builder.tryFold(val.getDefiningOp(), foldResults))) {
+        val = foldResults[0];
+      }
+    }
+    return getAsOpFoldResult(val);
+  }
+  return ofr;
+}
+
+SmallVector<OpFoldResult>
+mlir::canonicalizeOpFoldResult(ArrayRef<OpFoldResult> ofrs, bool enableFold) {
+  return llvm::to_vector(llvm::map_range(ofrs, [&](OpFoldResult ofr) {
+    return canonicalizeOpFoldResult(ofr, enableFold);
+  }));
 }

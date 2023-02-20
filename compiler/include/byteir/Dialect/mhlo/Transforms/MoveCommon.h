@@ -55,24 +55,24 @@ struct HloMoveDownPattern : public OpRewritePattern<OTy> {
 
   /*
   //  multiUser  = true,  AllMultiUser = false
-  case 1
+  case 2
             S
             |
             OTy
           /   \
           A     B
-  ==>        S
+  ==>       S
             /  \
           A    B
           |    |
           OTy  OTy
-  case 2
+  case 3
             S
             |
             OTy
           /  |  \
           A   B   IllegalC
-  ==>         S
+  ==>       S
             / |  \
           A  B  OTy
           |  |   |
@@ -81,7 +81,7 @@ struct HloMoveDownPattern : public OpRewritePattern<OTy> {
 
   /*
   //  AllMultiUser = true,  multiUser = true/false/don't care
-  case 1
+    case 2
             S
             |
             OTy

@@ -47,3 +47,14 @@ func.func @convert_concat_statc(%arg0: memref<1x2xf32>, %arg1: memref<1x4xf32>, 
 //     CHECK-SAME: strides = dense<1>
 //   CHECK-NEXT: memref.copy
 //   CHECK-NEXT: return
+
+func.func @convert_reshape_to_arg(%arg0: memref<4x128x64xf32>) {
+  %alloc = memref.alloc() : memref<2x2x128x64xf32>
+  "lmhlo.reshape"(%alloc, %arg0) : (memref<2x2x128x64xf32>, memref<4x128x64xf32>) -> ()
+  return
+}
+// CHECK-LABEL: func.func @convert_reshape_to_arg
+//   CHECK-SAME: %[[ARG:.*]]: memref<4x128x64xf32>
+//   CHECK-NEXT: %[[ALLOC:.*]] = memref.alloc()
+//   CHECK-NEXT: %[[RESHAPE:.*]] = "lace.reshape"(%[[ALLOC]])
+//   CHECK-NEXT: memref.copy %[[RESHAPE]], %[[ARG]]

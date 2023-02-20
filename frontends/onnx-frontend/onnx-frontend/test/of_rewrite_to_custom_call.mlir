@@ -1,4 +1,4 @@
-// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax" -canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,instance_norm" -canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_arg_max(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   %0 = "onnx.ArgMax"(%arg0) {axis = 3 : si64, keepdims = 0 : si64, onnx_node_name = "ArgMax_0"} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
@@ -127,4 +127,18 @@ func.func @test_softmax(%9: tensor<1x10xf32>) -> tensor<1x10xf32> {
 // CHECK-LABEL:  func.func @test_softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x10xf32>) -> tensor<1x10xf32> {
 // CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
+}
+
+func.func @test_instance_norm(%116: tensor<1x32x3xf32>, %67: tensor<32xf32>, %68: tensor<32xf32>) -> tensor<1x32x3xf32> {
+  %117 = "onnx.InstanceNormalization"(%116, %67, %68) {epsilon = 9.99999997E-7 : f32, onnx_node_name = "InstanceNormalization_5"} : (tensor<1x32x3xf32>, tensor<32xf32>, tensor<32xf32>) -> tensor<1x32x3xf32>
+  return %117 : tensor<1x32x3xf32>
+// CHECK-LABEL:  func.func @test_instance_norm
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x32x3xf32>, [[PARAM_1_:%.+]]: tensor<32xf32>, [[PARAM_2_:%.+]]: tensor<32xf32>) -> tensor<1x32x3xf32> {
+// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.constant dense<1.000000e+00> : tensor<3xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<3xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}} : (tensor<1x32x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x32x3xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.reshape [[PARAM_1_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
+// CHECK-NEXT:   [[VAR_4_:%.+]] = mhlo.reshape [[PARAM_2_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
+// CHECK-NEXT:   [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_3_]]) : (tensor<1x32x3xf32>, tensor<1x32x1xf32>) -> tensor<1x32x3xf32>
+// CHECK-NEXT:   [[VAR_6_:%.+]] = "onnx.Add"([[VAR_5_]], [[VAR_4_]]) : (tensor<1x32x3xf32>, tensor<1x32x1xf32>) -> tensor<1x32x3xf32>
 }

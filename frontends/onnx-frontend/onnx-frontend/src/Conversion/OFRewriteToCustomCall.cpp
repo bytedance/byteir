@@ -32,10 +32,11 @@ namespace {
     func(arg_min, ArgMin)          \
     func(erf, Erf)                 \
     func(dequantize, Dequantize)   \
+    func(gelu, Gelu)               \
+    func(instance_norm, InstanceNorm) \
     func(l2_norm, L2Norm)          \
     func(layer_norm, LayerNorm)    \
     func(quantize, Quantize)       \
-    func(gelu, Gelu)               \
     func(softmax, Softmax)
 
 #define GEN_FUNCNAME(call_target_name, func_name)                            \
@@ -234,6 +235,66 @@ Value createSoftmax(PatternRewriter &rewriter, Location loc, Value input,
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
 
   return customCallOp.getResults()[0];
+}
+
+//===----------------------------------------------------------------------===//
+// InstanceNorm
+//===----------------------------------------------------------------------===//
+Value createLayerNormAndAffine(PatternRewriter &rewriter, Location loc,
+                               Value input, Value scale, Value B,
+                               FloatAttr epsilon_attr) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "Input type must be ranked");
+  int64_t rank = inputType.getRank(); // N, C, D1, D2, ..., Dn
+  assert(rank >= 3 && "Input type must be of rank >= 3");
+
+  SmallVector<int64_t> spatialDims;
+  SmallVector<int64_t> spatialShape;
+  for (int64_t axis = 2; axis < rank; axis++) {
+    spatialDims.emplace_back(axis);
+    assert(inputType.getShape()[axis] != ShapedType::kDynamic &&
+           "InstanceNormalization: input with dynamic spatial dimension not "
+           "supported");
+    spatialShape.emplace_back(inputType.getShape()[axis]);
+  }
+
+  Type elemType = inputType.getElementType();
+  Type WeightBiasType = mlir::RankedTensorType::get(spatialShape, elemType);
+  Value weight = rewriter.create<mhlo::ConstantOp>(
+      loc, DenseElementsAttr::get(WeightBiasType,
+                                  rewriter.getFloatAttr(elemType, 1.0)));
+  Value bias = rewriter.create<mhlo::ConstantOp>(
+      loc,
+      DenseElementsAttr::get(WeightBiasType, rewriter.getZeroAttr(elemType)));
+  std::string call_target_name = getLayerNormNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{inputType},
+      llvm::ArrayRef<Value>{input, weight, bias}, call_target_name, false,
+      rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("epsilon", rewriter.getF64FloatAttr(
+                               epsilon_attr.getValue().convertToDouble()));
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr(spatialDims));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+
+  SmallVector<int64_t> WeightBiasShape{1, inputType.getShape()[1]};
+  for (int64_t axis = 2; axis < rank; axis++) {
+    WeightBiasShape.emplace_back(1);
+  }
+  scale = rewriter.create<mhlo::ReshapeOp>(
+      loc, RankedTensorType::get(WeightBiasShape, elemType), scale);
+  B = rewriter.create<mhlo::ReshapeOp>(
+      loc, RankedTensorType::get(WeightBiasShape, elemType), B);
+
+  Value result = customCallOp.getResults()[0];
+  result = rewriter.create<ONNXMulOp>(loc, result, scale);
+  result = rewriter.create<ONNXAddOp>(loc, result, B);
+  return result;
 }
 
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.inc"
@@ -504,6 +565,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteDequantize>(context));
     validOpSet[getSoftmaxName()].emplace_back(
         std::make_unique<RewriteSoftmax>(context));
+    validOpSet[getInstanceNormName()].emplace_back(
+        std::make_unique<RewriteInstanceNorm>(context));
     validOpSet[getGeluName()].emplace_back(
         std::make_unique<RewriteGelu>(context, 7));
     validOpSet[getLayerNormName()].emplace_back(

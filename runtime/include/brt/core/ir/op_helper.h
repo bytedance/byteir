@@ -1,4 +1,4 @@
-//===- AffineUtils.h ----------------------------------------------- C++---===//
+//===- op_helper.h --------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,27 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_UTILS_AFFINEUTILS_H
-#define BYTEIR_UTILS_AFFINEUTILS_H
+#pragma once
 
-#include "mlir/IR/AffineMap.h"
-#include "mlir/Support/LogicalResult.h"
+#include "byteir/Dialect/Byre/ByreDialect.h"
 
-namespace mlir {
+namespace brt {
 
-/// find iteration index through dim and inversePermutation
-/// E.g. if affineMap = (d0, d1, d2)-> (d0, d2), dim = 1
-/// return 2  (from d2)
-FailureOr<unsigned> getIterAxisFromDim(AffineMap affineMap, unsigned dimIndex);
+bool IsLocalAlias(mlir::Operation *op);
 
-AffineMap getFlattenAffineMap(mlir::MLIRContext *,
-                              ArrayRef<int64_t> staticShape);
+bool IsArgAlias(mlir::Operation *op);
 
-} // namespace mlir
+bool IsAliasOp(mlir::Operation *op);
 
-#endif // BYTEIR_UTILS_AFFINEUTILS_H
+size_t GetAliasOffsetInByte(mlir::Operation *op);
+
+bool IsAllocOp(mlir::Operation *op);
+
+// return whether op is dynamic allocation, corresponding dynamic sizes will be
+// set if true
+bool IsDynamicAllocOp(mlir::Operation *op,
+                      std::vector<mlir::Value> &dynamicSizes);
+
+bool IsShapeComputeOp(mlir::Operation *op);
+
+} // namespace brt

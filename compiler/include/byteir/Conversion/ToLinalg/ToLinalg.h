@@ -1,4 +1,4 @@
-//===- HloToLinalg.h ---------------------------------------------- C++ -*-===//
+//===- ToLinalg.h ------------------------------------------------- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_CONVERSION_HLOTOLINALG_H
-#define BYTEIR_CONVERSION_HLOTOLINALG_H
+#ifndef BYTEIR_CONVERSION_TOLINALG_TOLINALG_H
+#define BYTEIR_CONVERSION_TOLINALG_TOLINALG_H
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "mlir/Pass/Pass.h"
@@ -24,12 +24,18 @@
 #include <string>
 
 namespace mlir {
+class RewriterBase;
 namespace func {
 class FuncOp;
 } // namespace func
 
+LogicalResult simplifyTensorReshapeLikeOp(RewriterBase &rewriter,
+                                          Operation *op);
+
 void populateUnrealizedCastToLinalgConversionPattern(
-    MLIRContext *context, RewritePatternSet &patterns);
+    RewritePatternSet &patterns);
+
+void populateTensorToLinalgConversionPatterns(RewritePatternSet &patterns);
 
 void populateHloToLinalgExtConversionPattern(MLIRContext *context,
                                              RewritePatternSet &patterns);
@@ -40,6 +46,8 @@ createHloFusionToLinalgPass(llvm::StringRef anchorTag = "",
 
 std::unique_ptr<OperationPass<func::FuncOp>> createUnrealizedCastToLinalgPass();
 
+std::unique_ptr<OperationPass<func::FuncOp>> createTensorToLinalgPass();
+
 } // namespace mlir
 
-#endif // BYTEIR_CONVERSION_HLOTOLINALG_H
+#endif // BYTEIR_CONVERSION_TOLINALG_TOLINALG_H

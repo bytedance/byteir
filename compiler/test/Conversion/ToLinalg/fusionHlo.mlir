@@ -71,3 +71,16 @@ func.func @softmax(%arg0: tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x10
 // NOTAG: %[[FILLACCUM:.*]] = linalg.fill ins(%[[CST0]] : f32) outs(%[[ACCUM]]
 // NOTAG: linalg_ext.softmax dimension(3)
 // NOTAG-SAME: ins(%[[ARG0]] : tensor<128x16x1024x1024xf32>) outs(%[[OUT]], %[[FILLMAX]], %[[FILLACCUM]], %[[SCALE]]
+
+
+func.func @linalg_ext_batch_matmul(%arg0: tensor<128x16x1024x256xf32>, %arg1: tensor<128x16x256x1024xf32>) -> tensor<128x16x1024x1024xf32> {
+  %0 = "mhlo.dot_general"(%arg0, %arg1) 
+        {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0, 1], 
+                                           rhs_batching_dimensions = [0, 1], 
+                                           lhs_contracting_dimensions = [3], 
+                                           rhs_contracting_dimensions = [2]>} : 
+        (tensor<128x16x1024x256xf32>, tensor<128x16x256x1024xf32>) -> tensor<128x16x1024x1024xf32>
+  return %0 : tensor<128x16x1024x1024xf32>
+}
+// CHECK-LABEL: func.func @linalg_ext_batch_matmul
+// CHECK: linalg_ext.batch_matmul

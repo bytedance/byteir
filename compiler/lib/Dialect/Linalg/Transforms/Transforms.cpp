@@ -44,6 +44,9 @@
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "linalg-transforms"
 
 using namespace llvm;
 using namespace mlir;
@@ -191,12 +194,12 @@ replaceTensorDim(RewriterBase &rewriter, tensor::DimOp dimOp, size_t offset,
 LogicalResult
 mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
                                                   Operation *op) {
-  auto mayIndexingMapArray = getIndexingMapsArray(op);
-  if (failed(mayIndexingMapArray)) {
+  auto maybeIndexingMapArray = getIndexingMapsArray(op);
+  if (failed(maybeIndexingMapArray)) {
     return failure();
   }
 
-  AffineMap concatMap = concatAffineMaps(*mayIndexingMapArray);
+  AffineMap concatMap = concatAffineMaps(maybeIndexingMapArray.value());
   DenseMap<AffineExpr, std::tuple<Value, int64_t>> exprToTensorAndDim;
 
   unsigned offset = 0;
@@ -232,11 +235,6 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
 
   offset = 0;
   bool isSucceeded = false;
-  auto applyReplaceTensorDim = [&](tensor::DimOp dimOp, unsigned rank) {
-    return replaceTensorDim(rewriter, dimOp, offset, concatMap,
-                            exprToTensorAndDim);
-  };
-
   auto applyReplaceTensorDimAndUpdateOffset = [&](Value tensor) {
     if (auto shapeTy = tensor.getType().dyn_cast<ShapedType>()) {
       unsigned rank = shapeTy.getRank();
@@ -838,6 +836,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   while (!candidates.empty()) {
     // 2a. Traverse the slices in BFS fashion.
     tensor::ExtractSliceOp candidateSliceOp = candidates.front();
+    LLVM_DEBUG(llvm::dbgs() << "deque candidate " << candidateSliceOp << "\n");
     candidates.pop_front();
 
     // 2b. Get the producer of the source (potentially walking through
@@ -846,6 +845,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
         getUntiledProducerFromSliceSource(&candidateSliceOp->getOpOperand(0),
                                           tileAndFuseResult.loops);
     if (!fusibleProducer) {
+      LLVM_DEBUG(llvm::dbgs() << "skip since no fusibleProducer\n");
       continue;
     }
 
@@ -857,34 +857,49 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
                                                      fusibleProducer);
 
     if (failed(fusedProducerValue)) {
+      LLVM_DEBUG(llvm::dbgs() << "skip since no ExtractSlice of producuer for "
+                              << fusibleProducer << "\n");
       continue;
     }
 
     Operation *fusedProducerOp = fusedProducerValue->getDefiningOp();
     if (failed(confirmValidFusion(rewriter, fusibleProducer, fusedProducerOp,
                                   candidateSliceOp))) {
+      LLVM_DEBUG(llvm::dbgs() << "skip since failing confirmValidFusion\n");
       continue;
     }
 
     rewriter.replaceOp(candidateSliceOp, *fusedProducerValue);
 
+    // Don't need the following steps if it's tensor.expand_shape or
+    // tesnor.collapse_shape
+    if (isa<tensor::ExpandShapeOp, tensor::CollapseShapeOp>(
+            fusibleProducer.getOwner())) {
+      addCandidateSlices(fusedProducerOp, candidates);
+      continue;
+    }
+
     // Always create result slices here
     // Later in step 3, we will remove redundant ones
+
     if (failed(createResultSlices(
             rewriter, fusibleProducer.getOwner(), fusedProducerOp,
             candidateSliceOp, tileAndFuseResult.loops,
             tileAndFuseResult.replacements, destinationIterArg))) {
+      LLVM_DEBUG(llvm::dbgs() << "skip since failing createResultSlices\n");
       continue;
     }
-
-    // put fused one in tileAndFuseResult
-    if (!tileAndFuseResult.fusedProducers.contains(fusibleProducer.getOwner()))
-      tileAndFuseResult.fusedProducers.insert(fusibleProducer.getOwner());
 
     // 2d. The operands of the fused producer might themselved be slices of
     //     values produced by operations that implement the `TilingInterface`.
     //     Add these operations to the worklist.
-    tileAndFuseResult.tiledAndFusedOps.insert(fusedProducerOp);
+    // put fused one in tileAndFuseResult
+    if (!tileAndFuseResult.fusedProducers.contains(
+            fusibleProducer.getOwner())) {
+      tileAndFuseResult.fusedProducers.insert(fusibleProducer.getOwner());
+      // insert tiledAndFusedOps only when
+      tileAndFuseResult.tiledAndFusedOps.insert(fusedProducerOp);
+    }
     addCandidateSlices(fusedProducerOp, candidates);
 
     // 2e. If the slice is for a destination operand, for example,
@@ -1034,6 +1049,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
 
         auto iterArg = forOp.getRegionIterArg(resultOffset + i);
         auto iterOperand = forOp.getIterOperands()[resultOffset + i];
+
         if (isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseGeneral,
                                   confirmedAllParallel)) {
           iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
@@ -1049,10 +1065,11 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
             return isa<tensor::ExtractSliceOp>(use.getOwner());
           });
         }
+
       } // int64_t loopIdx > 0
     }   // for i < unfusedOp->getNumResults()
     resultOffset += numResult;
-  }
+  } // en : llvm::enumerate(tileAndFuseResult.tiledAndFusedOps)
 
   return tileAndFuseResult;
 }

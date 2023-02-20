@@ -32,7 +32,8 @@
 // limitations under the License.
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Conversion/HloToLinalg/HloToLinalg.h"
+#include "byteir/Conversion/ToLinalg/ToLinalg.h"
+
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -134,13 +135,13 @@ public:
     Value output = getInitTensor(rewriter, loc, resultTy, dynSizes);
 
     // Create indexing maps.
-    AffineMap scalar_map = AffineMap::get(nloops, 0, rewriter.getContext());
-    AffineMap id_map = rewriter.getMultiDimIdentityMap(nloops);
+    AffineMap scalarMap = AffineMap::get(nloops, 0, rewriter.getContext());
+    AffineMap idMap = rewriter.getMultiDimIdentityMap(nloops);
     SmallVector<AffineMap, 4> maps;
     for (Value v : adaptor.getOperands()) {
-      maps.push_back(isScalar(v) ? scalar_map : id_map);
+      maps.push_back(isScalar(v) ? scalarMap : idMap);
     }
-    maps.push_back(id_map);
+    maps.push_back(idMap);
 
     // Build `linalg.generic` op.
     auto linalgOp = rewriter.create<linalg::GenericOp>(
@@ -190,7 +191,7 @@ struct UnrealizedCastToLinalgPass
                    op.getResult(0).getType().isa<TensorType>());
         });
 
-    populateUnrealizedCastToLinalgConversionPattern(&ctx, patterns);
+    populateUnrealizedCastToLinalgConversionPattern(patterns);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPartialConversion(func, target, frozenPatterns))) {
       signalPassFailure();
@@ -201,8 +202,8 @@ struct UnrealizedCastToLinalgPass
 } // namespace
 
 void mlir::populateUnrealizedCastToLinalgConversionPattern(
-    MLIRContext *context, RewritePatternSet &patterns) {
-  patterns.add<UnrealizedCastToLinalgConverter>(context);
+    RewritePatternSet &patterns) {
+  patterns.add<UnrealizedCastToLinalgConverter>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

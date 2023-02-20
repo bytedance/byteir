@@ -64,4 +64,11 @@ def RewriteSoftmax : Pat<
   (ONNXSoftmaxOp $input, $axis_attr),
   (NativeCodeCall<"createSoftmax($_builder, $_loc, $0, $1)"> $input, $axis_attr)>;
 
+//===----------------------------------------------------------------------===//
+// InstanceNorm Pattern
+//===----------------------------------------------------------------------===//
+def RewriteInstanceNorm : Pat<
+  (ONNXInstanceNormalizationOp $input, $scale, $B, $epsilon_attr),
+  (NativeCodeCall<"createLayerNormAndAffine($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $B, $epsilon_attr)>;
+
 #endif // ONNX_FRONTEND_SRC_CONVERSION_OF_CUSTOM_CALL_TD

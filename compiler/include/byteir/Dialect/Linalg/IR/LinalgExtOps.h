@@ -40,14 +40,6 @@
 // some util func
 namespace mlir {
 namespace linalg_ext {
-//
-/// Returns a `memref.dim` or `tensor.dim` operation to get the shape of `v` at
-/// `dim`.
-Value getDimValue(OpBuilder &builder, Location loc, Value v, int64_t dim);
-
-/// Returns a `memref.dim` or `tensor.dim` operation to get the shape of `v` at
-/// `dim`. If the shape is constant, returns the shape as an `IntegerAttr`.
-OpFoldResult getDim(OpBuilder &builder, Location loc, Value v, int64_t dim);
 
 bool involveReduction(Operation &tiled, ArrayRef<mlir::AffineMap> indexingMaps,
                       ArrayRef<utils::IteratorType> loopIteratorTypes);

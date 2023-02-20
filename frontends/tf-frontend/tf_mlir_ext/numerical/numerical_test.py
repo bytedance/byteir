@@ -28,7 +28,7 @@ def get_config(config: str):
                 "main": [
                     np.random.randn(4, 5).astype(np.float32),
                     np.random.randn(4, 5).astype(np.float32),
-                    np.random.randint(0, 2, size=(4, 10)).astype(np.bool),
+                    np.random.randint(0, 2, size=(4, 10)).astype(np.bool_),
                     np.random.randint(0, 2, size=(4,)).astype(np.int32),
                 ]
             }

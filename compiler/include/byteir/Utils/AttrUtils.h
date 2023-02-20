@@ -22,7 +22,6 @@
 #include <optional>
 
 namespace mlir {
-class DenseElementsAttr;
 class ElementsAttr;
 class Operation;
 class ShapedType;
@@ -42,12 +41,6 @@ reshapeSplatElementsAttr(ElementsAttr attr, llvm::ArrayRef<int64_t> newShape);
 
 std::optional<ElementsAttr> reshapeSplatElementsAttr(ElementsAttr attr,
                                                      ShapedType newShape);
-
-DenseElementsAttr reshapeDenseElementsAttr(DenseElementsAttr attr,
-                                           llvm::ArrayRef<int64_t> newShape);
-
-DenseElementsAttr reshapeDenseElementsAttr(DenseElementsAttr attr,
-                                           ShapedType newShape);
 
 std::optional<ElementsAttr> cloneSplatElementsAttr(ElementsAttr attr,
                                                    ShapedType newShape);

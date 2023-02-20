@@ -812,6 +812,19 @@ LogicalResult mlir::mhlo::foldConsecutiveConvertOp(mhlo::ConvertOp op,
   return failure();
 }
 
+namespace {
+// this function copied from mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
+DenseElementsAttr reshape(DenseElementsAttr attr, ShapedType newType) {
+  // TODO(b/232866626): DenseElementsAttr::reshape is broken for bool splats.
+  // Once that ticket is fixed, we can remove this conditional.
+  if (attr.isSplat() && newType.getElementType().isInteger(/*width=*/1)) {
+    auto splatValue = attr.getValues<bool>()[0];
+    return DenseElementsAttr::get(newType, {splatValue});
+  }
+  return attr.reshape(newType);
+}
+} // namespace
+
 LogicalResult
 mlir::mhlo::canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
                                             PatternRewriter &rewriter) {
@@ -838,7 +851,7 @@ mlir::mhlo::canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
   }
   auto newValueType =
       RankedTensorType::get(newValueShape, valueType.getElementType());
-  valueAttr = reshapeDenseElementsAttr(valueAttr, newValueType);
+  valueAttr = reshape(valueAttr, newValueType);
   constOp.setValueAttr(valueAttr);
   constOp.getOutput().setType(newValueType);
   op.setBroadcastDimensionsAttr(rewriter.getI64TensorAttr(newBroadcastDims));

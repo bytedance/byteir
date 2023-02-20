@@ -17,7 +17,7 @@
 
 #include "byteir/Pipelines/LinalgTensorOpt.h"
 
-#include "byteir/Conversion/HloToLinalg/HloToLinalg.h"
+#include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/Linalg/Transforms/FuseElementwise.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"

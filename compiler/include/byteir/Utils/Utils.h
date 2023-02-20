@@ -171,6 +171,30 @@ inline Location getFusedLoc(ArrayRef<Operation *> ops, OpBuilder &op_builder) {
   return op_builder.getFusedLoc(locs);
 }
 
+/// Returns a `memref.dim` or `tensor.dim` operation to get the shape of `v` at
+/// `dim`.
+Value getDimValue(OpBuilder &builder, Location loc, Value v, int64_t dim);
+
+/// Returns a `memref.dim` or `tensor.dim` operation to get the shape of `v` at
+/// `dim`. If the shape is constant, returns the shape as an `IntegerAttr`.
+OpFoldResult getDim(OpBuilder &builder, Location loc, Value v, int64_t dim);
+
+/// Returns a memref.subview or a tensor.extract_slice based on the type of the
+/// `source`.
+Value getSlice(OpBuilder &b, Location loc, Value source,
+               ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes,
+               ArrayRef<OpFoldResult> strides);
+
+/// Given a type of OpFoldResult, try to extract a constant Attribute if it's a
+/// Value. If not, return the original ofr.
+OpFoldResult canonicalizeOpFoldResult(OpFoldResult ofr,
+                                      bool enableFold = false);
+
+/// Given an array of OpFoldResult, try to extract a constant Attribute from
+/// each value if it's a Value. If not, return the original ofr.
+SmallVector<OpFoldResult> canonicalizeOpFoldResult(ArrayRef<OpFoldResult> ofrs,
+                                                   bool enableFold = false);
+
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_UTILS_H
