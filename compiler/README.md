@@ -82,6 +82,3 @@ It is a runtime IR and the major format for the ByteIR runtime.
 
 ## Passes
 Useful Pass Description [doc/passes.md](doc/passes.md)
-
-### Examples
-Mhlo-to-NVVM pass pipeline [doc/mhlo-to-nvvm.md](doc/mhlo-to-nvvm.md)

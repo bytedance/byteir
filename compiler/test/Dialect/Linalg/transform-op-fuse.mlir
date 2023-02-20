@@ -463,11 +463,8 @@ func.func @fuse_2_matmul_add(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf3
   %3 = linalg.matmul  ins(%arg2, %arg3: tensor<1024x32xf32>, tensor<32x512xf32>)
                      outs(%2: tensor<1024x512xf32>)
     -> tensor<1024x512xf32>
-
-
   %5 = linalg.elemwise_binary {__root__} ins(%1, %3 : tensor<1024x512xf32>, tensor<1024x512xf32>)
                              outs(%4: tensor<1024x512xf32>) -> tensor<1024x512xf32>
-  
   return %5: tensor<1024x512xf32>
 }
 

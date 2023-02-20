@@ -37,6 +37,7 @@
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/LoopUtils.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
@@ -199,7 +200,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
     return failure();
   }
 
-  AffineMap concatMap = concatAffineMaps(maybeIndexingMapArray.value());
+  AffineMap concatMap = concatAffineMaps(*maybeIndexingMapArray);
   DenseMap<AffineExpr, std::tuple<Value, int64_t>> exprToTensorAndDim;
 
   unsigned offset = 0;
@@ -391,6 +392,7 @@ FailureOr<bool> getLocalComputation(Operation *op) {
 FailureOr<IteratorTypes>
 mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
                                        ArrayRef<scf::ForOp> loops) {
+
   // early termination if no TilingInterface
   if (!isa<TilingInterface>(op)) {
     return failure();
@@ -400,7 +402,10 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
       getIndexingMapsArray(op);
   // early termination if no indexingMaps
   // TODO: relax this, by making indexingMaps all reduce
+  // TODO: support tensor::expand_shape or collapse_shape
   if (failed(indexingMaps)) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "skip getLoopIteratorTypes due to no indexingMaps\n");
     return failure();
   }
 
@@ -408,6 +413,8 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
   // early termination if no indexingMaps
   // TODO: relax this, by making localComputation false.
   if (failed(localComputation)) {
+    LLVM_DEBUG(llvm::dbgs() << "skip getLoopIteratorTypes due to no support of "
+                            << op << "\n");
     return failure();
   }
 
@@ -425,10 +432,25 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
   for (const auto &en : llvm::enumerate(op->getOperands())) {
     llvm::SmallVector<::mlir::OpFoldResult, 4> mixedOffsets;
 
+    IteratorTypes anotherIterTys;
+
     if (auto sliceOp = en.value().getDefiningOp<tensor::ExtractSliceOp>()) {
       mixedOffsets = sliceOp.getMixedOffsets();
     } else if (auto subviewOp = en.value().getDefiningOp<memref::SubViewOp>()) {
       mixedOffsets = subviewOp.getMixedOffsets();
+    } else if (auto defOp = en.value().getDefiningOp()) {
+      // only allow some op doing recursion
+      if (!isa<linalg::BroadcastOp, linalg::TransposeOp, linalg::FillOp>(
+              defOp)) {
+        continue;
+      }
+      // handle recursive
+      auto maybeIterTypes = getLoopIteratorTypes(defOp, loops);
+      if (succeeded(maybeIterTypes)) {
+        anotherIterTys = *maybeIterTypes;
+        mergeLoopIteratorTypes(anotherIterTys, retIterTys);
+      }
+      continue;
     } else {
       continue;
     }
@@ -437,8 +459,25 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
     for (const auto &en2 : llvm::enumerate(mixedOffsets)) {
       Value argVal = en2.value().dyn_cast<Value>();
 
-      if (!argVal || loopIV2Idx.count(argVal) == 0) {
-        // skip when argVal folded to a const or not in loopIV2Idx
+      if (!argVal) {
+        // skip when argVal folded to a const
+        // implying not a loop iv
+        continue;
+      }
+
+      // handle apply case
+      if (auto apply = argVal.getDefiningOp<AffineApplyOp>()) {
+        // supporting 1D case for now
+        // TODO: extend to n-D cases
+        if (apply.getAffineMap().getNumDims() == 1 &&
+            apply.getMapOperands().size() == 1) {
+          // update argVal to AffineApplyOp's input
+          argVal = apply.getMapOperands()[0];
+        }
+      }
+
+      if (loopIV2Idx.count(argVal) == 0) {
+        // skip when not in loopIV2Idx
         // implying not a loop iv
         continue;
       }
@@ -809,6 +848,10 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   if (tileAndFuseResult.loops.empty())
     return tileAndFuseResult;
 
+  llvm::SmallVector<std::pair<Operation *, Operation *>> fusedOps;
+  fusedOps.emplace_back(consumer.getOperation(),
+                        tileAndFuseResult.tiledAndFusedOps.back());
+
   // 2. Typically, the operands of the tiled operation are slices of the
   //    operands of the untiled operation. These are expressed in IR using
   //    `tensor.extract_slice` operations with source being the operands of the
@@ -894,12 +937,13 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     //     values produced by operations that implement the `TilingInterface`.
     //     Add these operations to the worklist.
     // put fused one in tileAndFuseResult
+    // insert tiledAndFusedOps only when it is not in it.
     if (!tileAndFuseResult.fusedProducers.contains(
             fusibleProducer.getOwner())) {
       tileAndFuseResult.fusedProducers.insert(fusibleProducer.getOwner());
-      // insert tiledAndFusedOps only when
       tileAndFuseResult.tiledAndFusedOps.insert(fusedProducerOp);
     }
+    fusedOps.emplace_back(fusibleProducer.getOwner(), fusedProducerOp);
     addCandidateSlices(fusedProducerOp, candidates);
 
     // 2e. If the slice is for a destination operand, for example,
@@ -990,33 +1034,37 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   }
 
   assert(tileAndFuseResult.loops.size() > 0);
-
   // check getLoopIteratorTypes for each fusedOp
   // if parallel, corresponding getRegionIterArgs will be simplified
   unsigned resultOffset = 0;
-  for (const auto &en : llvm::enumerate(tileAndFuseResult.tiledAndFusedOps)) {
-    auto fusedOp = en.value();
-    bool isConsumer = en.index() == 0;
-    auto unfusedOp = isConsumer
-                         ? consumer.getOperation()
-                         : tileAndFuseResult.fusedProducers[en.index() - 1];
+  for (const auto &p : fusedOps) {
+    auto unfusedOp = p.first;
+    auto fusedOp = p.second;
     auto numResult = fusedOp->getNumResults();
 
     // analyze LoopIteratorTypes before using
     auto loopIterTypes = getLoopIteratorTypes(fusedOp, tileAndFuseResult.loops);
     if (failed(loopIterTypes)) {
+      LLVM_DEBUG(llvm::dbgs() << "skip clean-up due to no loopIterTypes for "
+                              << fusedOp << "\n");
       resultOffset += numResult;
       continue;
     }
 
     for (unsigned i = 0; i < unfusedOp->getNumResults(); ++i) {
       auto result = unfusedOp->getResult(i);
+
       auto effectiveUseCnt =
-          llvm::count_if(result.getUsers(),
-                         [](Operation *op) { return !isa<tensor::DimOp>(op); });
+          llvm::count_if(result.getUses(), [](OpOperand &opOperand) {
+            if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(
+                    opOperand.getOwner())) {
+              return !dstOp.isDpsInit(&opOperand);
+            }
+            return !isa<tensor::DimOp>(opOperand.getOwner());
+          });
 
       bool hasOneOrZeroUseGeneral =
-          isConsumer ? effectiveUseCnt < 1 : effectiveUseCnt <= 1;
+          unfusedOp == consumer ? effectiveUseCnt < 1 : effectiveUseCnt <= 1;
 
       bool hasOneOrZeroUseForExtract = effectiveUseCnt <= 1;
 
@@ -1044,7 +1092,6 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
                                            opCollection, valCollection);
 
         auto &forOp = tileAndFuseResult.loops[loopIdx];
-
         bool confirmedAllParallel = confirmAllParallel(loopIdx);
 
         auto iterArg = forOp.getRegionIterArg(resultOffset + i);
@@ -1065,11 +1112,10 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
             return isa<tensor::ExtractSliceOp>(use.getOwner());
           });
         }
-
       } // int64_t loopIdx > 0
     }   // for i < unfusedOp->getNumResults()
     resultOffset += numResult;
-  } // en : llvm::enumerate(tileAndFuseResult.tiledAndFusedOps)
+  } // for (const auto &p : fusedOps)
 
   return tileAndFuseResult;
 }
