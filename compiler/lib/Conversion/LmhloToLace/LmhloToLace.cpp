@@ -36,17 +36,22 @@ struct ConvertReshape : public OpConversionPattern<lmhlo::ReshapeOp> {
   LogicalResult
   matchAndRewrite(lmhlo::ReshapeOp op, lmhlo::ReshapeOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // handles static shape only
-    auto allocOp = adaptor.getOutput().getDefiningOp<memref::AllocOp>();
-    if (!allocOp)
-      return failure();
+    if (auto allocOp = adaptor.getOutput().getDefiningOp<memref::AllocOp>()) {
+      auto newReshapeOp = rewriter.create<lace::ReshapeOp>(
+          op.getLoc(), adaptor.getOutput().getType(), adaptor.getOperand());
+      rewriter.replaceOp(allocOp, newReshapeOp.getResult());
+      rewriter.eraseOp(op);
+      return success();
+    } else if (adaptor.getOutput().isa<BlockArgument>()) {
+      auto newReshapeOp = rewriter.create<lace::ReshapeOp>(
+          op.getLoc(), adaptor.getOutput().getType(), adaptor.getOperand());
+      rewriter.create<memref::CopyOp>(op.getLoc(), newReshapeOp.getTarget(),
+                                      adaptor.getOutput());
+      rewriter.eraseOp(op);
+      return success();
+    }
 
-    auto newReshapeOp = rewriter.create<lace::ReshapeOp>(
-        op.getLoc(), adaptor.getOutput().getType(), adaptor.getOperand());
-    rewriter.replaceOp(allocOp, newReshapeOp.getResult());
-    rewriter.eraseOp(op);
-
-    return success();
+    return failure();
   }
 };
 

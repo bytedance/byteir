@@ -193,3 +193,123 @@ func.func @batch_matmul_3d(%ta3: tensor<8x32x128xf32>, %tb3: tensor<8x128x64xf32
 // CHECK: scf.yield
 
 // -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0
+  %1, %loops = transform.structured.tile_ext %0 [4]
+}
+
+func.func @expand_shape_simple(%arg0: tensor<128x1024x4096xf32>) -> tensor<128x1024x16x256xf32> {
+  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x16x256xf32>
+  return %expanded : tensor<128x1024x16x256xf32>
+}
+// CHECK-LABEL: func.func @expand_shape_simple
+// CHECK: scf.for
+// CHECK:   tensor.extract_slice {{.*}} [4, 1024, 4096]
+// CHECK:   tensor.expand_shape
+// CHECK:   tensor.insert_slice
+// CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0
+  %1, %loops:2 = transform.structured.tile_ext %0 [4, 0, 4]
+}
+
+func.func @expand_shape_tiling_on_expanded_dim(%arg0: tensor<128x1024x4096xf32>) -> tensor<128x1024x512x8xf32> {
+  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
+  return %expanded : tensor<128x1024x512x8xf32>
+}
+// CHECK-LABEL: func.func @expand_shape_tiling_on_expanded_dim
+// CHECK: scf.for
+// CHECK:   scf.for
+// CHECK:     tensor.extract_slice {{.*}} tensor<128x1024x4096xf32> to tensor<4x1024x32xf32>
+// CHECK:     tensor.expand_shape {{.*}} tensor<4x1024x32xf32> into tensor<4x1024x4x8xf32>
+// CHECK:     tensor.insert_slice {{.*}} tensor<4x1024x4x8xf32> into tensor<128x1024x512x8xf32>
+// CHECK:     scf.yield
+// CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0
+  %1, %loops:2 = transform.structured.tile_ext %0 [4, 0, 8]
+}
+
+func.func @expand_shape_tiling_on_dynamic_dim(%arg0: tensor<128x?xf32>) -> tensor<128x1x?x1xf32> {
+  %expanded = tensor.expand_shape %arg0 [[0], [1, 2, 3]] {__root__} : tensor<128x?xf32> into tensor<128x1x?x1xf32>
+  return %expanded : tensor<128x1x?x1xf32>
+}
+// CHECK-LABEL: func.func @expand_shape_tiling_on_dynamic_dim
+// CHECK: scf.for
+// CHECK:   scf.for
+// CHECK:     tensor.extract_slice {{.*}} tensor<128x?xf32> to tensor<4x?xf32>
+// CHECK:     tensor.expand_shape {{.*}} tensor<4x?xf32> into tensor<4x1x?x1xf32>
+// CHECK:     tensor.insert_slice {{.*}} tensor<4x1x?x1xf32> into tensor<128x1x?x1xf32>
+// CHECK:     scf.yield
+// CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0
+  %1, %loops = transform.structured.tile_ext %0 [4]
+}
+
+func.func @collapse_shape_simple(%arg0: tensor<128x16x1xf32>) ->tensor<128x16xf32> {
+  %collapsed = tensor.collapse_shape %arg0 [[0], [1, 2]] {__root__} : tensor<128x16x1xf32> into tensor<128x16xf32>
+  return %collapsed : tensor<128x16xf32>
+}
+// CHECK-LABEL: func.func @collapse_shape_simple
+// CHECK: scf.for
+// CHECK:   tensor.extract_slice {{.*}} [4, 16, 1]
+// CHECK:   tensor.collapse_shape {{.*}} tensor<4x16x1xf32> into tensor<4x16xf32>
+// CHECK:   tensor.insert_slice
+// CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0
+  %1, %loops:2 = transform.structured.tile_ext %0 [8, 4]
+}
+
+func.func @collapse_shape_tiling_on_collapse_dim(%arg0: tensor<128x1x8x2xf32>) ->tensor<128x16xf32> {
+  %collapsed = tensor.collapse_shape %arg0 [[0], [1, 2, 3]] {__root__} : tensor<128x1x8x2xf32> into tensor<128x16xf32>
+  return %collapsed : tensor<128x16xf32>
+}
+// CHECK-LABEL: func.func @collapse_shape_tiling_on_collapse_dim
+// CHECK: scf.for
+// CHECK:   scf.for
+// CHECK:     tensor.extract_slice {{.*}} tensor<128x1x8x2xf32> to tensor<8x1x2x2xf32>
+// CHECK:     tensor.collapse_shape {{.*}} tensor<8x1x2x2xf32> into tensor<8x4xf32>
+// CHECK:     tensor.insert_slice {{.*}} tensor<8x4xf32> into tensor<128x16xf32>
+// CHECK:     scf.yield
+// CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0
+  %1, %loops:2 = transform.structured.tile_ext %0 [8, 4]
+}
+
+func.func @collapse_shape_tiling_on_dynamic_dim(%arg0: tensor<128x1x?x1xf32>) ->tensor<128x?xf32> {
+  %collapsed = tensor.collapse_shape %arg0 [[0], [1, 2, 3]] {__root__} : tensor<128x1x?x1xf32> into tensor<128x?xf32>
+  return %collapsed : tensor<128x?xf32>
+}
+// CHECK-LABEL: func.func @collapse_shape_tiling_on_dynamic_dim
+// CHECK: scf.for
+// CHECK:   scf.for
+// CHECK:     tensor.extract_slice {{.*}} tensor<128x1x?x1xf32> to tensor<8x1x?x1xf32>
+// CHECK:     tensor.collapse_shape {{.*}} tensor<8x1x?x1xf32> into tensor<8x?xf32>
+// CHECK:     tensor.insert_slice {{.*}} tensor<8x?xf32> into tensor<128x?xf32>
+// CHECK:     scf.yield
+// CHECK:   scf.yield

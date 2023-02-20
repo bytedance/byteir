@@ -17,7 +17,7 @@
 
 #include "byteir/Pipelines/GPU/LinalgMemrefGPU.h"
 
-#include "byteir/Conversion/HloToLinalg/HloToLinalg.h"
+#include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"

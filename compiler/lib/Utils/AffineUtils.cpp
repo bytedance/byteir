@@ -79,3 +79,28 @@ FailureOr<unsigned> mlir::getIterAxisFromDim(AffineMap affineMap,
   }
   return iterAxes[0];
 }
+
+AffineMap mlir::getFlattenAffineMap(mlir::MLIRContext *ctx,
+                                    ArrayRef<int64_t> staticShape) {
+  SmallVector<int64_t> strides;
+  unsigned numDim = staticShape.size();
+  strides.reserve(numDim);
+  int64_t prod = 1;
+  for (auto it = staticShape.rbegin(); it != staticShape.rend(); ++it) {
+    strides.push_back(prod);
+    prod *= *it;
+  }
+  strides = llvm::to_vector(llvm::reverse(strides));
+
+  AffineExpr result = staticShape[0] > 1 ? getAffineDimExpr(0, ctx) * strides[0]
+                                         : getAffineDimExpr(0, ctx) * 0;
+  for (unsigned i = 1; i < numDim; ++i) {
+    if (staticShape[i] > 1) {
+      AffineExpr x = getAffineDimExpr(i, ctx);
+      result = result + x * strides[i];
+    }
+  }
+  SmallVector<AffineExpr, 2> results;
+  results.push_back(result);
+  return AffineMap::get(numDim, 0, results, ctx);
+}

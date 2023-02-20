@@ -15,9 +15,7 @@ brt_add_object_library(brt_framework ${brt_framework_srcs})
 
 brt_add_include_to_target(brt_framework brt_common brt_ir)
 set_target_properties(brt_framework PROPERTIES FOLDER "Brt")
-target_link_libraries(brt_framework ${BYRE_ALL_EXTERNAL_LIBS} brt_ir brt_common)
-
-#add_dependencies(brt_framework ${brt_EXTERNAL_DEPENDENCIES})
+target_link_libraries(brt_framework brt_ir brt_common)
 
 # In order to find the shared provider libraries we need to add the origin to the rpath for all executables we build
 # For the shared brt library, this is set in brt.cmake through CMAKE_SHARED_LINKER_FLAGS

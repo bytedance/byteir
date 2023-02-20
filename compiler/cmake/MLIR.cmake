@@ -1,13 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # Modification Copyright 2022 ByteDance Ltd. and/or its affiliates. 
 
-find_package(MLIR REQUIRED CONFIG)
+if (BYTEIR_BUILD_EMBEDDED)
+  # build byteir as part of another project
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${BYTEIR_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${BYTEIR_BINARY_DIR}/lib)
+else()
+  # build byteir compiler as top-level project
+  find_package(MLIR REQUIRED CONFIG)
 
-message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
+
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+endif()
 
 include(TableGen)
 include(AddLLVM)
@@ -21,12 +31,6 @@ add_definitions(${LLVM_DEFINITIONS})
 
 set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
 message(STATUS "BUILD_SHARED_LIBS       : " ${BUILD_SHARED_LIBS})
-
-# ONNX uses exceptions, so LLVM_REQUIRES_EH might need ON, so that
-# the functions from HandleLLVMOptions and AddLLVM don't disable exceptions.
-# We currently disable exception and RTTI until we start supporting ONNX
-#set(LLVM_REQUIRES_EH ON)
-message(STATUS "LLVM_REQUIRES_EH        : " ${LLVM_REQUIRES_EH})
 
 # If CMAKE_INSTALL_PREFIX was not provided explicitly and we are not using an install of
 # LLVM and a CMakeCache.txt exists,

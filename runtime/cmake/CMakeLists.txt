@@ -35,12 +35,8 @@ option(brt_USE_CUDA "Build with CUDA support" OFF)
 option(brt_BUILD_UNIT_TESTS "Build Runtime unit tests" ON)
 option(brt_CROSS_COMPILING "Cross compiling for another platform" OFF)
 
-# Parameters for LLVM and BYRE
-option(LLVM_INSTALL_PATH "The path to the installed LLVM library")
-option(BYRE_INSTALL_PATH "The path to the installed BYRE library")
-
-set(LLVM_SRC_PATH "" CACHE STRING "The path to the LLVM source")
-set(BYRE_SRC_PATH "" CACHE STRING "The path to the BYRE source")
+# Parameters for LLVM
+set(LLVM_INSTALL_PATH "" CACHE STRING "The path to the installed LLVM library")
 
 # Optimizations Related
 option(brt_ENABLE_LTO "Enable LTO" OFF)
@@ -448,36 +444,6 @@ endif()
 
 message(STATUS "CMAKE_CUDA_FLAGS ${CMAKE_CUDA_FLAGS}")
 
-set(brt_EXTERNAL_DEPENDENCIES)
-
-# include MLIR/LLVM and BYRE
-get_filename_component(LLVM_INSTALL_PATH "${LLVM_INSTALL_PATH}" ABSOLUTE)
-get_filename_component(BYRE_INSTALL_PATH "${BYRE_INSTALL_PATH}" ABSOLUTE)
-set(LLVM_INCLUDE_DIRS "${LLVM_INSTALL_PATH}/include")
-set(BYRE_INCLUDE_DIRS "${BYRE_INSTALL_PATH}/include")
-
-if(NOT ${LLVM_SRC_PATH} STREQUAL "")
-  get_filename_component(LLVM_SRC_PATH "${LLVM_SRC_PATH}" ABSOLUTE)
-  list(APPEND LLVM_INCLUDE_DIRS 
-     "${LLVM_SRC_PATH}/llvm/include"
-     "${LLVM_SRC_PATH}/mlir/include"
-     "${LLVM_INSTALL_PATH}/tools/mlir/include")
-endif()
-
-if(NOT ${BYRE_SRC_PATH} STREQUAL "")
-  get_filename_component(BYRE_SRC_PATH "${BYRE_SRC_PATH}" ABSOLUTE)
-  list(APPEND BYRE_INCLUDE_DIRS 
-       "${BYRE_SRC_PATH}/include")
-endif()
-
-if(MSVC)
-  set(LLVM_BIN_LIB_DIR "${LLVM_INSTALL_PATH}/Release/lib")
-  set(BYRE_BIN_LIB_DIR "${BYRE_INSTALL_PATH}/lib/Release")
-else()
-  set(LLVM_BIN_LIB_DIR "${LLVM_INSTALL_PATH}/lib")
-  set(BYRE_BIN_LIB_DIR "${BYRE_INSTALL_PATH}/lib")
-endif()
-
 #names in this var must match the directory names under brt/core/providers
 #build all existing targets
 set(BRT_TARGETS
@@ -486,7 +452,7 @@ set(BRT_TARGETS
     brt_framework
     brt_device_cpu
     brt_provider_cpu)
-#set(BRT_TARGETS brt_common brt_framework brt_util brt_provider_cpu brt_session)
+
 if(brt_USE_CUDA)
   list(APPEND BRT_TARGETS brt_device_cuda)
   list(APPEND BRT_TARGETS brt_provider_cuda)

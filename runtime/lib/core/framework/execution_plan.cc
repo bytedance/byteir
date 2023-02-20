@@ -17,12 +17,12 @@
 
 #include "brt/core/framework/execution_plan.h"
 
-#include "brt/core/common/utils/op_helper.h"
 #include "brt/core/context/work_queue.h"
 #include "brt/core/framework/event.h"
 #include "brt/core/framework/execution_provider.h"
 #include "brt/core/framework/op_kernel_info.h"
 #include "brt/core/ir/ir.h"
+#include "brt/core/ir/op_helper.h"
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include <unordered_set>

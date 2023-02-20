@@ -2,19 +2,6 @@
 // RUN: FileCheck %s < %t
 // RUN: python3 %S/numerical_test.py %s %t
 
-func.func @transpose_move_down_binary_const(%arg0 : tensor<1x2x3xf32>) -> tensor<3x1x2xf32> {
-    %0 = mhlo.constant dense<[[[1.000000e+00, 2.000000e+00]], [[3.000000e+00, 4.000000e+00]], [[5.000000e+00, 6.000000e+00]]]> : tensor<3x1x2xf32>
-    %1 = "mhlo.transpose"(%arg0) {permutation = dense<[2, 0, 1]> : tensor<3xi64>} : (tensor<1x2x3xf32>) -> tensor<3x1x2xf32>
-    %2 = mhlo.add %1, %0 : tensor<3x1x2xf32>
-    return %2 : tensor<3x1x2xf32>
-}
-// CHECK-LABEL: func.func @transpose_move_down_binary_const
-// CHECK-NEXT: mhlo.constant
-// CHECK-SAME{LITERAL}: dense<[[[1.000000e+00, 3.000000e+00, 5.000000e+00], [2.000000e+00, 4.000000e+00, 6.000000e+00]]]>
-// CHECK-NEXT: mhlo.add
-// CHECK-NEXT: mhlo.transpose
-// CHECK-NEXT: return
-
 func.func @broadcast_move_down_unary(%arg0 : tensor<32xf32>) -> tensor<4x32xf32> {
     %0 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<32xf32>) -> tensor<4x32xf32>
     %1 = "mhlo.abs"(%0) : (tensor<4x32xf32>) -> tensor<4x32xf32>

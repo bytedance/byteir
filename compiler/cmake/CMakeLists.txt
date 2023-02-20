@@ -34,29 +34,38 @@ else()
   add_compile_options(-fno-operator-names)
 endif()
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 option(BYTEIR_INCLUDE_TESTS "Generate build targets for the ByteIR unit tests." ON)
 if (BYTEIR_INCLUDE_TESTS)
   add_definitions(-DBYTEIR_INCLUDE_TESTS)
 endif()
 
+option(BYTEIR_BUILD_EMBEDDED "Build byteir as part of another project" OFF)
 
 # Set Path
-set(REPO_ROOT_DIR ${PROJECT_SOURCE_DIR}/..)
-get_filename_component(REPO_ROOT_DIR "${REPO_ROOT_DIR}" ABSOLUTE)
-message("REPO_ROOT_DIR = ${REPO_ROOT_DIR}")
+set(BYTEIR_SRC_DIR ${PROJECT_SOURCE_DIR}/..)
+get_filename_component(BYTEIR_SRC_DIR "${BYTEIR_SRC_DIR}" ABSOLUTE)
+message("BYTEIR_SRC_DIR = ${BYTEIR_SRC_DIR}")
+
+if(BYTEIR_BUILD_EMBEDDED)
+  set(BYTEIR_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+else()
+  set(BYTEIR_BINARY_DIR ${CMAKE_BINARY_DIR})
+endif()
+get_filename_component(BYTEIR_BINARY_DIR "${BYTEIR_BINARY_DIR}" ABSOLUTE)
+message("BYTEIR_BINARY_DIR = ${BYTEIR_BINARY_DIR}")
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${BYTEIR_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${BYTEIR_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BYTEIR_BINARY_DIR}/bin)
 
 ## Build the off tree projects
-set(BYTEIR_SRC_INCLUDE_DIR ${REPO_ROOT_DIR}/include)
-set(BYTEIR_BIN_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include)
+set(BYTEIR_SRC_INCLUDE_DIR ${BYTEIR_SRC_DIR}/include)
+set(BYTEIR_BIN_INCLUDE_DIR ${BYTEIR_BINARY_DIR}/include)
 
 if(MSVC)
-  set(BYTEIR_BIN_LIB_DIR ${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE})
+  set(BYTEIR_BIN_LIB_DIR ${BYTEIR_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE})
 else()
-  set(BYTEIR_BIN_LIB_DIR ${CMAKE_BINARY_DIR}/lib)
+  set(BYTEIR_BIN_LIB_DIR ${BYTEIR_BINARY_DIR}/lib)
 endif()
 
 option(LLVM_INSTALL_PATH "The path to the built LLVM library")
@@ -73,9 +82,6 @@ if(NOT DEFINED LLVM_EXTERNAL_LIT)
   set(LLVM_EXTERNAL_LIT "${LLVM_TOOLS_DIR}/llvm-lit.py" CACHE PATH "PATH to llvm-lit")
 endif()
 
-set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
-set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
-
 set(MLIR_DIR "${LLVM_INSTALL_DIR}/lib/cmake/mlir")
 include(MLIR.cmake)
 include(mhlo.cmake)
@@ -84,16 +90,16 @@ include_directories(${BYTEIR_SRC_INCLUDE_DIR})
 include_directories(${BYTEIR_BIN_INCLUDE_DIR})
 
 ## Build all lib and include
-add_subdirectory(${REPO_ROOT_DIR}/lib ${CMAKE_BINARY_DIR}/lib)
-add_subdirectory(${REPO_ROOT_DIR}/include ${CMAKE_BINARY_DIR}/include)
+add_subdirectory(${BYTEIR_SRC_DIR}/lib ${BYTEIR_BINARY_DIR}/lib)
+add_subdirectory(${BYTEIR_SRC_DIR}/include ${BYTEIR_BINARY_DIR}/include)
 
 # Build tools
-add_subdirectory(${REPO_ROOT_DIR}/tools ${CMAKE_BINARY_DIR}/tools)
+add_subdirectory(${BYTEIR_SRC_DIR}/tools ${BYTEIR_BINARY_DIR}/tools)
 
 if(MSVC)
-  set(BYTEIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
+  set(BYTEIR_TOOLS_DIR ${BYTEIR_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE})
 else()
-  set(BYTEIR_TOOLS_DIR ${CMAKE_BINARY_DIR}/bin)
+  set(BYTEIR_TOOLS_DIR ${BYTEIR_BINARY_DIR}/bin)
 endif()
 message(STATUS "BYTEIR_TOOLS_DIR ${BYTEIR_TOOLS_DIR}")
 
@@ -127,13 +133,14 @@ if(NOT LLVM_ENABLE_IDE)
                            COMPONENT byteir-headers)
 endif()
 
-## Add unit tests
-set(BYTEIR_TEST_BUILD_DIR "${CMAKE_BINARY_DIR}/test")
-set(BYTEIR_TEST_SOURCE_DIR "${REPO_ROOT_DIR}/test")
-add_subdirectory(${BYTEIR_TEST_SOURCE_DIR} ${BYTEIR_TEST_BUILD_DIR})
+if (BYTEIR_INCLUDE_TESTS)
+  ## Add unit tests
+  set(BYTEIR_TEST_BUILD_DIR "${BYTEIR_BINARY_DIR}/test")
+  set(BYTEIR_TEST_SOURCE_DIR "${BYTEIR_SRC_DIR}/test")
+  add_subdirectory(${BYTEIR_TEST_SOURCE_DIR} ${BYTEIR_TEST_BUILD_DIR})
 
-## Add numerical tests
-set(BYTEIR_NUMERICAL_BUILD_DIR "${CMAKE_BINARY_DIR}/numerical")
-set(BYTEIR_NUMERICAL_SOURCE_DIR "${REPO_ROOT_DIR}/numerical")
-add_subdirectory(${BYTEIR_NUMERICAL_SOURCE_DIR} ${BYTEIR_NUMERICAL_BUILD_DIR})
-
+  ## Add numerical tests
+  set(BYTEIR_NUMERICAL_BUILD_DIR "${BYTEIR_BINARY_DIR}/numerical")
+  set(BYTEIR_NUMERICAL_SOURCE_DIR "${BYTEIR_SRC_DIR}/numerical")
+  add_subdirectory(${BYTEIR_NUMERICAL_SOURCE_DIR} ${BYTEIR_NUMERICAL_BUILD_DIR})
+endif()

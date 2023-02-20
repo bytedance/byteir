@@ -25,6 +25,7 @@
 #include "byteir/Dialect/SCF/Passes.h"
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/Shape/Passes.h"
+#include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
@@ -142,6 +143,7 @@ int main(int argc, char **argv) {
   // register extension
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
+  tensor_ext::registerTilingInterfaceExternalModels(registry);
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "ByteIR pass driver\n", registry,

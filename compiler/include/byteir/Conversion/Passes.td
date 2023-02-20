@@ -55,7 +55,7 @@ def ConvertHloToLHlo : Pass<"convert-hlo-to-lhlo", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// HloToLinalg
+// ToLinalg
 //===----------------------------------------------------------------------===//
 
 def HloFusionToLinalg : Pass<"hlo-fusion-to-linalg", "func::FuncOp"> {
@@ -79,6 +79,14 @@ def HloFusionToLinalg : Pass<"hlo-fusion-to-linalg", "func::FuncOp"> {
 def UnrealizedCastToLinalg : Pass<"unrealized-cast-to-linalg", "func::FuncOp"> {
   let summary = "Convert UnrealizedCast op generated from hlo lowering to Linalg";
   let constructor = "mlir::createUnrealizedCastToLinalgPass()";
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect",
+  ];
+}
+
+def TensorToLinalg : Pass<"tensor-to-linalg", "func::FuncOp"> {
+  let summary = "Convert Tensor ops to Linalg";
+  let constructor = "mlir::createTensorToLinalgPass()";
   let dependentDialects = [
     "mlir::linalg::LinalgDialect",
   ];

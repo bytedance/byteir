@@ -17,6 +17,7 @@
 
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
 #include "byteir/Dialect/Byre/Common.h"
+#include "byteir/Dialect/MemRef/Transforms/RemoveCopy.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -148,10 +149,13 @@ struct CollectFuncToLLVMPass
 
     OpPassManager pm(m.getOperationName());
     pm.addPass(createSymbolDCEPass());
-    OpPassManager sub = pm.nest<ModuleOp>();
+    OpPassManager &sub = pm.nest<ModuleOp>();
     sub.addPass(bufferization::createBufferResultsToOutParamsPass());
+    sub.addNestedPass<func::FuncOp>(createRemoveCopyPass());
     sub.addNestedPass<func::FuncOp>(
         bufferization::createPromoteBuffersToStackPass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        bufferization::createBufferDeallocationPass());
     if (mlir::failed(runPipeline(pm, m))) {
       m->emitError("Postprocess in CollectFuncToLLVMPass failed");
       return signalPassFailure();

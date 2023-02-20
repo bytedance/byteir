@@ -1,5 +1,6 @@
-add_byteir_conversion_library(ByteIRHloToLinalg
+add_byteir_conversion_library(ByteIRToLinalg
   HloFusionToLinalg.cpp
+  TensorToLinalg.cpp
   UnrealizedCastToLinalg.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -8,6 +9,7 @@ add_byteir_conversion_library(ByteIRHloToLinalg
   DEPENDS
   ByteIRConversionPassIncGen
   ByteIRConversionCommon
+  HloToLinalgUtils
 
   LINK_LIBS PUBLIC
   MLIRIR
@@ -20,4 +22,5 @@ add_byteir_conversion_library(ByteIRHloToLinalg
   MLIRSCFDialect
   MLIRTransforms
   ByteIRConversionCommon
+  HloToLinalgUtils
   )

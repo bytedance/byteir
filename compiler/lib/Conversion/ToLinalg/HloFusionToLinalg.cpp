@@ -32,10 +32,11 @@
 // limitations under the License.
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Conversion/HloToLinalg/HloToLinalg.h"
+#include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mhlo/transforms/rewriters.h"
+#include "mhlo/utils/legalize_to_linalg_utils.h"
 #include "mhlo/utils/type_conversion.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -64,6 +65,30 @@ namespace {
 
 bool isSplatValue(DenseIntElementsAttr attr, uint64_t value) {
   return attr.isSplat() && attr.getSplatValue<uint64_t>() == value;
+}
+
+bool verifyHloOpBufferOrTensorSemantics(Operation *op) {
+  auto verifyType = [&](Value val) -> bool {
+    return val.getType().isa<RankedTensorType>();
+  };
+  if (!llvm::all_of(op->getOperands(), verifyType))
+    return false;
+  return llvm::all_of(op->getResults(), verifyType);
+}
+
+Value fillTensorWithZeros(OpBuilder &builder, Location loc, Value tensor) {
+  auto type = tensor.getType().cast<ShapedType>();
+  Value zero;
+  // Complex numbers are a special case.
+  if (auto complexType = type.getElementType().dyn_cast<ComplexType>()) {
+    auto zeroElement = builder.getZeroAttr(complexType.getElementType());
+    auto zeroAttr = builder.getArrayAttr({zeroElement, zeroElement});
+    zero = builder.create<complex::ConstantOp>(loc, complexType, zeroAttr);
+  } else {
+    auto zeroAttr = builder.getZeroAttr(type.getElementType());
+    zero = builder.create<arith::ConstantOp>(loc, zeroAttr);
+  }
+  return builder.create<linalg::FillOp>(loc, zero, tensor).result();
 }
 
 struct ReduceWindowOpConversion
@@ -345,6 +370,83 @@ public:
   }
 };
 
+class DotGeneralLinalgExtBatchMatMulOpConversion
+    : public OpConversionPattern<mhlo::DotGeneralOp> {
+public:
+  using OpConversionPattern<mhlo::DotGeneralOp>::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(mhlo::DotGeneralOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    if (!verifyHloOpBufferOrTensorSemantics(op)) {
+      return failure();
+    }
+    int64_t rank = op.getType().cast<RankedTensorType>().getRank();
+    if (rank < 4) {
+      return rewriter.notifyMatchFailure(
+          op, "expected a batch matmul of rank >= 4");
+    }
+
+    auto isSeqFromZero = [](ArrayRef<int64_t> seq) {
+      int64_t cnt = 0;
+      for (int64_t v : seq) {
+        if (v != cnt)
+          return false;
+        cnt++;
+      }
+      return true;
+    };
+
+    mhlo::DotDimensionNumbersAttr dimNumbers = op.getDotDimensionNumbers();
+    ArrayRef<int64_t> lhsBatchingDims = dimNumbers.getLhsBatchingDimensions();
+    ArrayRef<int64_t> rhsBatchingDims = dimNumbers.getRhsBatchingDimensions();
+    ArrayRef<int64_t> lhsContractingDims =
+        dimNumbers.getLhsContractingDimensions();
+    ArrayRef<int64_t> rhsContractingDims =
+        dimNumbers.getRhsContractingDimensions();
+    if (!isSeqFromZero(lhsBatchingDims) &&
+        static_cast<int64_t>(lhsBatchingDims.size()) != rank - 2)
+      return rewriter.notifyMatchFailure(
+          op,
+          "expected lhs batching dimensions as a sequence from zero: [0, 1, "
+          "2, ..., rank-2]");
+    if (!isSeqFromZero(rhsBatchingDims) &&
+        static_cast<int64_t>(rhsBatchingDims.size()) != rank - 2)
+      return rewriter.notifyMatchFailure(
+          op,
+          "expected lhs batching dimensions as a sequence from zero: [0, 1, "
+          "2, ..., rank-2]");
+    if (lhsContractingDims.size() != 1) {
+      return rewriter.notifyMatchFailure(
+          op, "expected lhs contracting dimensions size of 1");
+    }
+    if (rhsContractingDims.size() != 1) {
+      return rewriter.notifyMatchFailure(
+          op, "expected rhs contracting dimensions size of 1");
+    }
+
+    std::string layout = "nn";
+    if (lhsContractingDims[0] == rank - 2)
+      layout[0] = 't';
+    if (rhsContractingDims[0] == rank - 1)
+      layout[0] = 't';
+
+    Location loc = op.getLoc();
+    // Convert unsigned to signed. This works because signed and unsigned
+    // integer matmul is the same operation in two's complement.
+    auto outputType =
+        typeConverter->convertType(op.getType()).cast<ShapedType>();
+    Value emptyTensor =
+        getEmptyTensorFor(rewriter, loc, outputType, op, adaptor.getOperands());
+    Value zeroTensor = fillTensorWithZeros(rewriter, loc, emptyTensor);
+    Operation *linalgOp = rewriter.create<linalg_ext::BatchMatmulOp>(
+        loc, adaptor.getLhs(), adaptor.getRhs(), zeroTensor, layout,
+        linalg::getPrunedAttributeList(op));
+
+    rewriter.replaceOp(op, linalgOp->getResults());
+    return success();
+  }
+};
+
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
@@ -385,6 +487,8 @@ struct HloFusionToLinalgPass
                                                enablePrimitiveOps);
     patterns.add<ReduceWindowOpConversion>(*typeConverter, &ctx,
                                            PatternBenefit(2));
+    patterns.add<DotGeneralLinalgExtBatchMatMulOpConversion>(
+        *typeConverter, &ctx, PatternBenefit(2));
 
     populateHloToLinalgExtConversionPattern(&ctx, patterns);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));

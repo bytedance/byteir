@@ -61,7 +61,11 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/SMLoc.h"
+
+#define DEBUG_TYPE "linalg-ext-ops"
+#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -98,24 +102,6 @@ static AffineMap getMultiDimIdentityMapWithSkip(unsigned numDims, unsigned skip,
   }
   return AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, dimExprs,
                         context);
-}
-
-/// Returns a memref.subview or a tensor.extract_slice based on the type of the
-/// `source`.
-static Value getSlice(OpBuilder &b, Location loc, Value source,
-                      ArrayRef<OpFoldResult> offsets,
-                      ArrayRef<OpFoldResult> sizes,
-                      ArrayRef<OpFoldResult> strides) {
-  return TypeSwitch<Type, Value>(source.getType())
-      .Case<RankedTensorType>([&](RankedTensorType t) -> Value {
-        return b.create<tensor::ExtractSliceOp>(loc, source, offsets, sizes,
-                                                strides);
-      })
-      .Case<MemRefType>([&](MemRefType type) -> Value {
-        return b.create<memref::SubViewOp>(loc, source, offsets, sizes,
-                                           strides);
-      })
-      .Default([&](Type t) { return nullptr; });
 }
 
 // TODO: delete this after LinalgExtOp interface inherits from LinalgOp
@@ -429,27 +415,6 @@ FailureOr<Value> commonGenerateResultTileValue(Operation *op, OpBuilder &b,
 //===----------------------------------------------------------------------===//
 // Global Utils
 //===----------------------------------------------------------------------===//
-
-Value mlir::linalg_ext::getDimValue(OpBuilder &builder, Location loc, Value v,
-                                    int64_t dim) {
-  return TypeSwitch<Type, Value>(v.getType())
-      .Case<RankedTensorType>([&](RankedTensorType t) -> Value {
-        return builder.create<tensor::DimOp>(loc, v, dim);
-      })
-      .Case<MemRefType>([&](MemRefType t) -> Value {
-        return builder.create<memref::DimOp>(loc, v, dim);
-      })
-      .Default([&](Type t) { return Value(); });
-}
-
-OpFoldResult mlir::linalg_ext::getDim(OpBuilder &builder, Location loc, Value v,
-                                      int64_t dim) {
-  auto t = v.getType().cast<ShapedType>();
-  if (t.isDynamicDim(dim)) {
-    return getDimValue(builder, loc, v, dim);
-  }
-  return builder.getI64IntegerAttr(t.getDimSize(dim));
-}
 
 /// Return whether if involved iterAxes includes dim,
 bool mlir::linalg_ext::involveReduction(

@@ -73,3 +73,20 @@ class TestOpsNN(TestBase):
         self.run(model_filename="average_pool.onnx",
                  model_onnx_pb=proto,
                  input_shape_dtype=input_shape_dtype)
+
+    def test_instance_normalization(self):
+        input_shape_dtype = [
+            ["input", (1, 5, 3), "float32"],
+            ["scale", (5,), "float32"],
+            ["B", (5,), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (1, 5, 3), "float32"],
+        ]
+        proto = build_onnx(
+            "InstanceNormalization", input_shape_dtype, output_shape_dtype,
+            epsilon=9.999999974752427e-7
+        )
+        self.run(model_filename="instance_norm.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)
