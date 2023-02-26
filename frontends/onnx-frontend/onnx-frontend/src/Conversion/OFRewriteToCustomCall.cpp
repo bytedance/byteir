@@ -37,6 +37,7 @@ namespace {
     func(l2_norm, L2Norm)          \
     func(layer_norm, LayerNorm)    \
     func(quantize, Quantize)       \
+    func(resize, Resize)           \
     func(softmax, Softmax)
 
 #define GEN_FUNCNAME(call_target_name, func_name)                            \
@@ -295,6 +296,52 @@ Value createLayerNormAndAffine(PatternRewriter &rewriter, Location loc,
   result = rewriter.create<ONNXMulOp>(loc, result, scale);
   result = rewriter.create<ONNXAddOp>(loc, result, B);
   return result;
+}
+
+//===----------------------------------------------------------------------===//
+// Resize
+//===----------------------------------------------------------------------===//
+Value createResize(PatternRewriter &rewriter, Location loc, Value input,
+                   Value scale, Value size,
+                   StringAttr coordinate_transformation_mode, StringAttr mode,
+                   StringAttr nearest_mode, Value output) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "Resize input type must be ranked");
+
+  Value target;
+  StringAttr target_mode;
+  if (size.getType().isa<NoneType>()) {
+    assert(!scale.getType().isa<NoneType>() &&
+           "One of size/scale must be of NoneType");
+    target = scale;
+    target_mode = rewriter.getStringAttr("scale");
+  } else {
+    assert(scale.getType().isa<NoneType>() &&
+           "One of size/scale must be of NoneType");
+    target = size;
+    target_mode = rewriter.getStringAttr("size");
+  }
+  std::string call_target_name = getResizeNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{output.getType()},
+      llvm::ArrayRef<Value>{input, target}, call_target_name, false,
+      rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("coordinate_transformation_mode",
+                coordinate_transformation_mode);
+  attrs.setAttr("mode", mode);
+  attrs.setAttr("target_mode", target_mode);
+  if (mode.getValue() == "nearest") {
+    assert(nearest_mode.getValue() == "floor" &&
+           "Only support 'floor' mode for nearest resize currently");
+  }
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+  return customCallOp.getResults()[0];
 }
 
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.inc"
@@ -567,6 +614,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteSoftmax>(context));
     validOpSet[getInstanceNormName()].emplace_back(
         std::make_unique<RewriteInstanceNorm>(context));
+    validOpSet[getResizeName()].emplace_back(
+        std::make_unique<RewriteResize>(context));
     validOpSet[getGeluName()].emplace_back(
         std::make_unique<RewriteGelu>(context, 7));
     validOpSet[getLayerNormName()].emplace_back(

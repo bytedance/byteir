@@ -109,69 +109,67 @@ bufferizeDestinationStyleOpInterface(RewriterBase &rewriter,
   return success();
 }
 
-/// Bufferization of linalg.generic. Replace with a new linalg.generic that
-/// operates entirely on memrefs.
-template <typename OpTy>
-struct LinalgExtOpInterface
-    : public BufferizableOpInterface::ExternalModel<LinalgExtOpInterface<OpTy>,
-                                                    OpTy> {
-  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
-                              const AnalysisState & /* state*/) const {
-    // Operand is read if it is used in the computation.
-    if (auto linalgExtOp = dyn_cast<linalg_ext::LinalgExtOp>(op)) {
-      return linalgExtOp.isOperandRead(opOperand.getOperandNumber());
-    } else if (auto linalgOp = dyn_cast<linalg::LinalgOp>(op)) {
-      return linalgOp.payloadUsesValueFromOperand(&opOperand);
-    }
-    return false;
-  }
-
-  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
-                               const AnalysisState &state) const {
-    // Operand is written to if it has an aliasing OpResult.
-    auto bufferizableOp = cast<BufferizableOpInterface>(op);
-    return !bufferizableOp.getAliasingOpResult(opOperand, state).empty();
-  }
-
-  SmallVector<OpOperand *> getAliasingOpOperand(Operation *op,
-                                                OpResult opResult,
-                                                const AnalysisState &) const {
-    auto genericOp = cast<DestinationStyleOpInterface>(op);
-
-    // The i-th OpResult may alias with the i-th "out" tensor.
-    return {genericOp.getDpsInitOperand(opResult.getResultNumber())};
-  }
-
-  SmallVector<OpResult> getAliasingOpResult(Operation *op, OpOperand &opOperand,
-                                            const AnalysisState &) const {
-    auto genericOp = cast<DestinationStyleOpInterface>(op);
-
-    // The i-th "out" tensor may alias with the i-th OpResult.
-    if (genericOp.isDpsInit(&opOperand))
-      return {genericOp.getTiedOpResult(&opOperand)};
-    return {};
-  }
-
-  BufferRelation bufferRelation(Operation *op, OpResult opResult,
-                                const AnalysisState &state) const {
-    return BufferRelation::Equivalent;
-  }
-
-  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
-    return bufferizeDestinationStyleOpInterface(
-        rewriter, cast<DestinationStyleOpInterface>(op), options);
-  }
-};
-
 /// Helper structure that iterates over all LinalgOps in `OpTys` and registers
 /// the `BufferizableOpInterface` with each of them.
 template <typename... Ops> struct LinalgExtOpInterfaceHelper {
   static void registerOpInterface(MLIRContext *ctx) {
-    (Ops::template attachInterface<LinalgExtOpInterface<Ops>>(*ctx), ...);
+    (Ops::template attachInterface<LinalgExtBufferizableOpInterface<Ops>>(*ctx),
+     ...);
   }
 };
 } // namespace
+
+namespace mlir::linalg_ext {
+bool LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryRead(
+    Operation *op, OpOperand &opOperand,
+    const AnalysisState & /* state*/) const {
+  // Operand is read if it is used in the computation.
+  if (auto linalgExtOp = dyn_cast<linalg_ext::LinalgExtOp>(op)) {
+    return linalgExtOp.isOperandRead(opOperand.getOperandNumber());
+  } else if (auto linalgOp = dyn_cast<linalg::LinalgOp>(op)) {
+    return linalgOp.payloadUsesValueFromOperand(&opOperand);
+  }
+  return false;
+}
+
+bool LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryWrite(
+    Operation *op, OpOperand &opOperand, const AnalysisState &state) const {
+  // Operand is written to if it has an aliasing OpResult.
+  auto bufferizableOp = cast<BufferizableOpInterface>(op);
+  return !bufferizableOp.getAliasingOpResult(opOperand, state).empty();
+}
+
+SmallVector<OpOperand *>
+LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperand(
+    Operation *op, OpResult opResult, const AnalysisState &) const {
+  auto genericOp = cast<DestinationStyleOpInterface>(op);
+
+  // The i-th OpResult may alias with the i-th "out" tensor.
+  return {genericOp.getDpsInitOperand(opResult.getResultNumber())};
+}
+
+SmallVector<OpResult> LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResult(
+    Operation *op, OpOperand &opOperand, const AnalysisState &) const {
+  auto genericOp = cast<DestinationStyleOpInterface>(op);
+
+  // The i-th "out" tensor may alias with the i-th OpResult.
+  if (genericOp.isDpsInit(&opOperand))
+    return {genericOp.getTiedOpResult(&opOperand)};
+  return {};
+}
+
+BufferRelation LinalgExtBufferizableOpInterfaceImpl::bufferRelation(
+    Operation *op, OpResult opResult, const AnalysisState &state) const {
+  return BufferRelation::Equivalent;
+}
+
+LogicalResult LinalgExtBufferizableOpInterfaceImpl::bufferize(
+    Operation *op, RewriterBase &rewriter,
+    const BufferizationOptions &options) const {
+  return bufferizeDestinationStyleOpInterface(
+      rewriter, cast<DestinationStyleOpInterface>(op), options);
+}
+} // namespace mlir::linalg_ext
 
 void mlir::linalg_ext::registerBufferizableOpInterfaceExternalModels(
     DialectRegistry &registry) {

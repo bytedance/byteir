@@ -313,3 +313,35 @@ func.func @collapse_shape_tiling_on_dynamic_dim(%arg0: tensor<128x1x?x1xf32>) ->
 // CHECK:     tensor.insert_slice {{.*}} tensor<8x?xf32> into tensor<128x?xf32>
 // CHECK:     scf.yield
 // CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg1: !pdl.operation):
+  %0 = transform.structured.match ops{["linalg_ext.scatter"]} in %arg1
+  %1, %loops:3 = transform.structured.tile_ext %0 [2, 4, 8] {interchange = [1, 2, 0]}
+}
+
+func.func @scatter(%src: tensor<2x3x32x64xf32>, %indices: tensor<100x2xi64>, %update: tensor<100x32x64xf32>) -> (tensor<2x3x32x64xf32>)
+{
+  %res = linalg_ext.scatter
+    ins(%indices, %update: tensor<100x2xi64>, tensor<100x32x64xf32>)
+    outs(%src: tensor<2x3x32x64xf32>) {
+      ^bb0(%arg0: f32, %arg1: f32):
+        %0 = arith.addf %arg0, %arg1 : f32
+        linalg_ext.yield %0 : f32
+      } -> tensor<2x3x32x64xf32>
+  return %res : tensor<2x3x32x64xf32>
+}
+// CHECK-LABEL: func.func @scatter
+// CHECK: scf.for
+// CHECK:   scf.for
+// CHECK:     scf.for
+// CHECK:       tensor.extract_slice
+// CHECK:       tensor.extract_slice
+// CHECK:       tensor.extract_slice
+// CHECK:       linalg_ext.scatter
+// CHECK:       tensor.insert_slice
+// CHECK:     scf.yield
+// CHECK:   scf.yield
+// CHECK: scf.yield

@@ -18,10 +18,51 @@
 #ifndef BYTEIR_DIALECT_LINALG_TRANSFORMS_BUFFERIZABLEOPINTERFACEIMPL_H
 #define BYTEIR_DIALECT_LINALG_TRANSFORMS_BUFFERIZABLEOPINTERFACEIMPL_H
 
+#include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
+
 namespace mlir {
 class DialectRegistry;
 
 namespace linalg_ext {
+
+struct LinalgExtBufferizableOpInterfaceImpl {
+  bool
+  bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
+                         const bufferization::AnalysisState & /* state*/) const;
+
+  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
+                               const bufferization::AnalysisState &state) const;
+
+  SmallVector<OpOperand *>
+  getAliasingOpOperand(Operation *op, OpResult opResult,
+                       const bufferization::AnalysisState &) const;
+
+  SmallVector<OpResult>
+  getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                      const bufferization::AnalysisState &) const;
+
+  bufferization::BufferRelation
+  bufferRelation(Operation *op, OpResult opResult,
+                 const bufferization::AnalysisState &state) const;
+
+  LogicalResult
+  bufferize(Operation *op, RewriterBase &rewriter,
+            const bufferization::BufferizationOptions &options) const;
+};
+
+template <typename OpTy>
+struct LinalgExtBufferizableOpInterface
+    : public bufferization::BufferizableOpInterface::ExternalModel<
+          LinalgExtBufferizableOpInterface<OpTy>, OpTy>,
+      public LinalgExtBufferizableOpInterfaceImpl {
+  using LinalgExtBufferizableOpInterfaceImpl::bufferize;
+  using LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryRead;
+  using LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryWrite;
+  using LinalgExtBufferizableOpInterfaceImpl::bufferRelation;
+  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperand;
+  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResult;
+};
+
 void registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry);
 } // namespace linalg_ext
 } // namespace mlir

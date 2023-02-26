@@ -349,6 +349,103 @@ def LinalgExt_ScanOp : LinalgExt_Op<"scan",
   }];
 }
 
+def LinalgExt_ScatterOp : LinalgExt_Op<"scatter",
+    [DeclareOpInterfaceMethods<LinalgExtInterface,
+      ["isValidTiledProducerOp",
+       "isResultLoopInvariant",
+       "isOperandRead"]>,
+     DeclareOpInterfaceMethods<TilingInterface,
+      ["generateResultTileValue",
+       "getIterationDomain",
+       "getLoopIteratorTypes",
+       "getResultTilePosition",
+       "getTiledImplementation",
+       "generateScalarImplementation"]>]> {
+  let summary = "scatter operator";
+  let description = [{
+    Foreach scatter index vector I iterated over frist `rank(indices) - 1`
+    dimensions along `indices`, the `batch_indexes` was defined in:
+
+    batch_indexes = (b[0], b[1], ..., b[rank(indices) - 2]) and it is a
+    `rank(indices) - 1`-length vector
+
+    `src` would be updated with `update` as follow:
+
+      let I = indices[batch_indexes] is a 1D vector
+      let U = update[batch_indexes] is a `rank(update) - rank(indices) + 1`D tensor
+      let S = src[I] is a `rank(src) - rank(indices) + 1`D tensor
+      let `compute` be the computation function defined in op region
+      S = compute(S, U)
+
+    therefore it meets the following requirements:
+
+      1. `indices`, `update` and `src` are all ranked tensors or memrefs
+      2. the first `rank(indices) - 1` dimensions of `indices` and `update`
+         are compatible
+      3. the last `rank(update) - rank(indices) + 1` dimensions of `update` and `src`
+         are compatible
+      4. the last dimension of the indices, denoted as dim(indices, rank(indices) - 1),
+         should be static and the rank of `src` is equal to
+         `dim(indices, rank(indices) - 1) + rank(update) - rank(indices) + 1`
+
+
+    For example:
+
+      linalg_ext.scatter
+        ins(%indices, %update: tensor<100x2xi64>, tensor<100x32x64xf32>)
+        outs(%src: tensor<2x3x32x64xf32>) {
+          ^bb0(%arg0: f32, %arg1: f32):
+            %0 = arith.addf %arg0, %arg1 : f32
+            linalg_ext.yield %0 : f32
+        } -> tensor<2x3x32x64xf32>
+  }];
+  let arguments = (ins
+    Variadic<AnyRankedTensorOrMemRefType>:$inputs,
+    Variadic<AnyRankedTensorOrMemRefType>:$outputs
+    // TODO: support unique indices
+  );
+
+  let results = (outs Variadic<AnyRankedTensor>:$results);
+
+  let regions = (region SizedRegion<1>:$region);
+  let assemblyFormat = [{
+    attr-dict
+    `ins` `(` $inputs `:` type($inputs) `)`
+    `outs` `(` $outputs `:` type($outputs) `)`
+    $region (`->` type($results)^)?
+  }];
+
+  let extraClassDeclaration = extraLinalgExtOpClassDeclaration # [{
+    Value indices() {
+      return getInputOperand(0)->get();
+    }
+    Value update() {
+      return getInputOperand(1)->get();
+    }
+    Value src() {
+      return getOutputOperand(0)->get();
+    }
+    ShapedType getUpdateType() {
+      return update().getType().cast<ShapedType>();
+    }
+    ShapedType getIndicesType() {
+      return indices().getType().cast<ShapedType>();
+    }
+    ShapedType getSrcType() {
+      return src().getType().cast<ShapedType>();
+    }
+    int64_t getUpdateRank() {
+      return getUpdateType().getRank();
+    }
+    int64_t getIndicesRank() {
+      return getIndicesType().getRank();
+    }
+    int64_t getSrcRank() {
+      return getSrcType().getRank();
+    }
+  }];
+}
+
 def LinalgExt_TopkOp : LinalgExt_Op<"topk",
     [DeclareOpInterfaceMethods<LinalgExtInterface,
       ["isValidTiledProducerOp",

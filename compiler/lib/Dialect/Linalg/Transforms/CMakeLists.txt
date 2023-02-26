@@ -3,6 +3,7 @@ add_mlir_dialect_library(ByteIRLinalgPasses
   Bufferize.cpp
   FuseElementwise.cpp
   LinalgDataPlace.cpp
+  LinalgExtToLoops.cpp
   LinalgPrefetch.cpp
   Tiling.cpp
   ScopeTiling.cpp

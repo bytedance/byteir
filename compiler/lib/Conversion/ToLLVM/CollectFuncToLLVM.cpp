@@ -115,6 +115,11 @@ struct CollectFuncToLLVMPass
 
   CollectFuncToLLVMPass() : CollectFuncToLLVMBase() {}
 
+  void getDependentDialects(DialectRegistry &registry) const override {
+    CollectFuncToLLVMBase::getDependentDialects(registry);
+    bufferization::registerAllocationOpInterfaceExternalModels(registry);
+  }
+
   void runOnOperation() override {
     ModuleOp m = getOperation();
 
@@ -154,7 +159,7 @@ struct CollectFuncToLLVMPass
     sub.addNestedPass<func::FuncOp>(createRemoveCopyPass());
     sub.addNestedPass<func::FuncOp>(
         bufferization::createPromoteBuffersToStackPass());
-    pm.addNestedPass<mlir::func::FuncOp>(
+    sub.addNestedPass<mlir::func::FuncOp>(
         bufferization::createBufferDeallocationPass());
     if (mlir::failed(runPipeline(pm, m))) {
       m->emitError("Postprocess in CollectFuncToLLVMPass failed");

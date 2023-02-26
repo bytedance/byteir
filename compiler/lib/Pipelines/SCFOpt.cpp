@@ -17,6 +17,7 @@
 
 #include "byteir/Pipelines/SCFOpt.h"
 
+#include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"
@@ -33,6 +34,7 @@ void mlir::createSCFOptPipeline(OpPassManager &pm) {
   invokeOpPassPipelineBuilder(
       [](OpPassManager &pm) {
         pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
+        pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
         // lower affine.apply in case there is some
         pm.addPass(memref::createFoldMemRefAliasOpsPass());
         pm.addPass(createLowerAffinePass());

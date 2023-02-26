@@ -22,7 +22,7 @@
 include "mlir/Pass/PassBase.td"
 
 //===----------------------------------------------------------------------===//
-// LinalgDataPlace
+// LinalgExtBufferize
 //===----------------------------------------------------------------------===//
 
 def LinalgExtBufferize : Pass<"linalg-ext-bufferize", "func::FuncOp"> {
@@ -34,6 +34,21 @@ def LinalgExtBufferize : Pass<"linalg-ext-bufferize", "func::FuncOp"> {
     "linalg::LinalgDialect",
     "linalg_ext::LinalgExtDialect",
     "memref::MemRefDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LinalgExtLowerToLoops
+//===----------------------------------------------------------------------===//
+
+def LinalgExtLowerToLoops : Pass<"convert-linalg-ext-to-loops", "func::FuncOp"> {
+  let summary = "Lower the operations from the linalg ext dialect into loops";
+  let constructor = "mlir::createConvertLinalgExtToLoopsPass()";
+  let dependentDialects = [
+    "linalg_ext::LinalgExtDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "AffineDialect"
   ];
 }
 

@@ -1,4 +1,4 @@
-// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,instance_norm" -canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,instance_norm,resize" -canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_arg_max(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   %0 = "onnx.ArgMax"(%arg0) {axis = 3 : si64, keepdims = 0 : si64, onnx_node_name = "ArgMax_0"} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
@@ -141,4 +141,28 @@ func.func @test_instance_norm(%116: tensor<1x32x3xf32>, %67: tensor<32xf32>, %68
 // CHECK-NEXT:   [[VAR_4_:%.+]] = mhlo.reshape [[PARAM_2_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
 // CHECK-NEXT:   [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_3_]]) : (tensor<1x32x3xf32>, tensor<1x32x1xf32>) -> tensor<1x32x3xf32>
 // CHECK-NEXT:   [[VAR_6_:%.+]] = "onnx.Add"([[VAR_5_]], [[VAR_4_]]) : (tensor<1x32x3xf32>, tensor<1x32x1xf32>) -> tensor<1x32x3xf32>
+}
+
+func.func @test_resize_nearest_by_scale(%268: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
+  %108 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+  %269 = "onnx.NoValue"() {value} : () -> none
+  %270 = "onnx.NoValue"() {value} : () -> none
+  %271 = "onnx.Resize"(%268, %269, %108, %270) {coordinate_transformation_mode = "asymmetric", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor", onnx_node_name = "Resize_236"} : (tensor<1x3x4x4xf32>, none, tensor<4xf32>, none) -> tensor<1x3x8x8xf32>
+  return %271 : tensor<1x3x8x8xf32>
+// CHECK-LABEL:  func.func @test_resize
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
+// CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.custom_call @byteir.resize([[PARAM_0_]], [[VAR_0_]]) {backend_config = "", byteir_attrs = {coordinate_transformation_mode = "asymmetric", mode = "nearest", target_mode = "scale"}} : (tensor<1x3x4x4xf32>, tensor<4xf32>) -> tensor<1x3x8x8xf32>
+}
+
+func.func @test_resize_linear_by_size(%214: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {
+  %219 = onnx.Constant dense<[1, 1, 30, 40]> : tensor<4xi64>
+  %220 = "onnx.NoValue"() {value} : () -> none
+  %221 = "onnx.NoValue"() {value} : () -> none
+  %222 = "onnx.Resize"(%214, %220, %221, %219) {coordinate_transformation_mode = "pytorch_half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "linear", nearest_mode = "floor", onnx_node_name = "Resize_147"} : (tensor<1x1x15x20xf32>, none, none, tensor<4xi64>) -> tensor<1x1x30x40xf32>
+  return %222 : tensor<1x1x30x40xf32>
+// CHECK-LABEL:  func.func @test_resize_linear_by_size
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {
+// CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<[1, 1, 30, 40]> : tensor<4xi64>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.custom_call @byteir.resize(%arg0, %0) {backend_config = "", byteir_attrs = {coordinate_transformation_mode = "pytorch_half_pixel", mode = "linear", target_mode = "size"}} : (tensor<1x1x15x20xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
 }
