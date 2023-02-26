@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- TilingInterfaceToSCFFor.h ----------------------------------- C++ --===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_LINALG_PASSES_H
-#define BYTEIR_DIALECT_LINALG_PASSES_H
+#ifndef BYTEIR_DIALECT_SCF_TRANSFORMS_TILINGINTERFACETOSCFFOR_H
+#define BYTEIR_DIALECT_SCF_TRANSFORMS_TILINGINTERFACETOSCFFOR_H
 
-#include "byteir/Dialect/Linalg/Transforms/Bufferize.h"
-#include "byteir/Dialect/Linalg/Transforms/FuseElementwise.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgDataPlace.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgPrefetch.h"
-#include "byteir/Dialect/Linalg/Transforms/Tiling.h"
+#include <functional>
 
 namespace mlir {
+class RewritePatternSet;
+class Operation;
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/Linalg/Passes.h.inc"
+namespace scf {
+void populateTilingInterfaceToSCFForPattern(
+    RewritePatternSet &patterns, std::function<bool(Operation *)> opFilter);
+} // namespace scf
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_LINALG_PASSES_H
+#endif // BYTEIR_DIALECT_SCF_TRANSFORMS_TILINGINTERFACETOSCFFOR_H

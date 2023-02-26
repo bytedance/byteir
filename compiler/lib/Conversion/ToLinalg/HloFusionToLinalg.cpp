@@ -34,6 +34,7 @@
 
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
+#include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mhlo/transforms/rewriters.h"
 #include "mhlo/utils/legalize_to_linalg_utils.h"
@@ -51,6 +52,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "../PassDetail.h"
 
@@ -62,10 +64,6 @@ namespace {
 
 /// Code below is copied from legalize_to_linalg.cc
 /// Remove this when upstream supports general float type reduce pattern
-
-bool isSplatValue(DenseIntElementsAttr attr, uint64_t value) {
-  return attr.isSplat() && attr.getSplatValue<uint64_t>() == value;
-}
 
 bool verifyHloOpBufferOrTensorSemantics(Operation *op) {
   auto verifyType = [&](Value val) -> bool {
@@ -89,6 +87,105 @@ Value fillTensorWithZeros(OpBuilder &builder, Location loc, Value tensor) {
     zero = builder.create<arith::ConstantOp>(loc, zeroAttr);
   }
   return builder.create<linalg::FillOp>(loc, zero, tensor).result();
+}
+
+inline Value mapMhloOpToScalarOp(Operation *op, Type resultType,
+                                 ValueRange operands, OpBuilder &builder) {
+#define CASE(MHLO_OP)                                                          \
+  .Case<MHLO_OP>([&](MHLO_OP mhloOp) {                                         \
+    return mhlo::MhloOpToStdScalarOp::mapOp(mhloOp, resultType, operands,      \
+                                            &builder);                         \
+  })
+  // clang-format off
+  return llvm::TypeSwitch<Operation *, Value>(op)
+    CASE(mhlo::AbsOp)
+    CASE(mhlo::AddOp)
+    CASE(mhlo::AndOp)
+    CASE(mhlo::Atan2Op)
+    CASE(mhlo::BitcastConvertOp)
+    CASE(mhlo::CbrtOp)
+    CASE(mhlo::CeilOp)
+    CASE(mhlo::ClampOp)
+    CASE(mhlo::ClzOp)
+    CASE(mhlo::CompareOp)
+    CASE(mhlo::ComplexOp)
+    CASE(mhlo::ConvertOp)
+    CASE(mhlo::CopyOp)
+    CASE(mhlo::CosineOp)
+    CASE(mhlo::DivOp)
+    CASE(mhlo::ExpOp)
+    CASE(mhlo::Expm1Op)
+    CASE(mhlo::FloorOp)
+    CASE(mhlo::ImagOp)
+    CASE(mhlo::IsFiniteOp)
+    CASE(mhlo::Log1pOp)
+    CASE(mhlo::LogOp)
+    CASE(mhlo::LogisticOp)
+    CASE(mhlo::MaxOp)
+    CASE(mhlo::MinOp)
+    CASE(mhlo::MulOp)
+    CASE(mhlo::NegOp)
+    CASE(mhlo::NotOp)
+    CASE(mhlo::OrOp)
+    CASE(mhlo::PopulationCountOp)
+    CASE(mhlo::PowOp)
+    CASE(mhlo::RealOp)
+    CASE(mhlo::ReducePrecisionOp)
+    CASE(mhlo::RemOp)
+    CASE(mhlo::RoundNearestEvenOp)
+    CASE(mhlo::RoundOp)
+    CASE(mhlo::RsqrtOp)
+    CASE(mhlo::SelectOp)
+    CASE(mhlo::ShiftLeftOp)
+    CASE(mhlo::ShiftRightArithmeticOp)
+    CASE(mhlo::ShiftRightLogicalOp)
+    CASE(mhlo::SignOp)
+    CASE(mhlo::SineOp)
+    CASE(mhlo::SqrtOp)
+    CASE(mhlo::SubtractOp)
+    CASE(mhlo::TanhOp)
+    CASE(mhlo::XorOp)
+  .Default([](Operation *) { return Value(); });
+  // clang-format on
+#undef CASE
+}
+
+inline LogicalResult
+remappingRegionFromMhloToLinalgExt(ConversionPatternRewriter &rewriter,
+                                   Region &oldRegion, Region &newRegion) {
+  Block *oldBlock = &oldRegion.front();
+  SmallVector<Type> newBlockArgTypes =
+      llvm::to_vector(llvm::map_range(oldBlock->getArgumentTypes(), [](Type t) {
+        return t.cast<ShapedType>().getElementType();
+      }));
+  SmallVector<Location> newBlockArgLocs = llvm::to_vector(llvm::map_range(
+      oldBlock->getArguments(), [](Value v) { return v.getLoc(); }));
+
+  Block *newBlock =
+      rewriter.createBlock(&newRegion, {}, newBlockArgTypes, newBlockArgLocs);
+
+  BlockAndValueMapping bvm;
+  for (auto &&[oldArg, newArg] :
+       llvm::zip(oldBlock->getArguments(), newBlock->getArguments())) {
+    bvm.map(oldArg, newArg);
+  }
+  for (auto &&op : oldBlock->without_terminator()) {
+    SmallVector<Value> newOperands = llvm::to_vector(llvm::map_range(
+        op.getOperands(), [&](Value v) { return bvm.lookup(v); }));
+    Value newValue = mapMhloOpToScalarOp(
+        &op, op.getResult(0).getType().cast<ShapedType>().getElementType(),
+        newOperands, rewriter);
+    if (!newValue) {
+      return failure();
+    }
+    bvm.map(op.getResult(0), newValue);
+  }
+  Operation *oldTerminator = oldBlock->getTerminator();
+  rewriter.create<linalg_ext::YieldOp>(
+      oldTerminator->getLoc(),
+      llvm::to_vector(llvm::map_range(oldTerminator->getOperands(),
+                                      [&](Value v) { return bvm.lookup(v); })));
+  return success();
 }
 
 struct ReduceWindowOpConversion
@@ -447,6 +544,123 @@ public:
   }
 };
 
+class ScatterOpConversion : public OpConversionPattern<mhlo::ScatterOp> {
+public:
+  using OpConversionPattern<mhlo::ScatterOp>::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(mhlo::ScatterOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    // TODO: batched scattering is not supported now
+    if (adaptor.getUpdates().size() != 1 || adaptor.getInputs().size() != 1)
+      return failure();
+
+    Value indices = adaptor.getScatterIndices(),
+          update = adaptor.getUpdates()[0], src = adaptor.getInputs()[0];
+    auto isRankedTensorType = [](Value v) {
+      if (auto tensorType = v.getType().dyn_cast_or_null<TensorType>()) {
+        if (tensorType.hasRank()) {
+          return true;
+        }
+      }
+      return false;
+    };
+    // all of operands should be ranked tensor
+    if (!(isRankedTensorType(indices) && isRankedTensorType(update) &&
+          isRankedTensorType(src)))
+      return failure();
+
+    Location loc = op.getLoc();
+    ShapedType indicesType = indices.getType().cast<ShapedType>(),
+               updateType = update.getType().cast<ShapedType>(),
+               srcType = src.getType().cast<ShapedType>();
+
+    mhlo::ScatterDimensionNumbersAttr scatterDimensionNumbers =
+        adaptor.getScatterDimensionNumbers();
+
+    int64_t indicesRank = indicesType.getRank(),
+            updateRank = updateType.getRank(), srcRank = srcType.getRank(),
+            indexVectorDim = scatterDimensionNumbers.getIndexVectorDim();
+    bool implicitTrailingOne = indexVectorDim == indicesRank;
+    if ((!implicitTrailingOne) && indicesType.isDynamicDim(indicesRank - 1)) {
+      return failure();
+    }
+    int64_t indicesDepth =
+        implicitTrailingOne ? 1 : indicesType.getDimSize(indicesRank - 1);
+    ArrayRef<int64_t> updateWindowDims =
+                          scatterDimensionNumbers.getUpdateWindowDims(),
+                      insertedWindowDims =
+                          scatterDimensionNumbers.getInsertedWindowDims(),
+                      scatterDimsToOperandDims =
+                          scatterDimensionNumbers.getScatterDimsToOperandDims();
+    int64_t updateWindowRank = srcRank - insertedWindowDims.size();
+    if (updateWindowRank + indicesRank - 1 + implicitTrailingOne != updateRank)
+      return failure();
+
+    // check scatter to first `indicesDepth` dimensinos
+    if (!llvm::equal(scatterDimsToOperandDims,
+                     llvm::seq<int64_t>(0, indicesDepth)))
+      return failure();
+
+    // check insert window to first `indicesDepth` dimensinos
+    if (!llvm::equal(insertedWindowDims, llvm::seq<int64_t>(0, indicesDepth)))
+      return failure();
+
+    // window dimensions should be the last `updateWindowRank` dimensions of
+    // update
+    if (!llvm::equal(
+            updateWindowDims,
+            llvm::seq<int64_t>(updateRank - updateWindowRank, updateRank)))
+      return failure();
+
+    if (!llvm::equal(updateType.getShape().take_back(updateWindowRank),
+                     srcType.getShape().take_back(updateWindowRank)))
+      return failure();
+
+    Value newIndices = indices;
+    if (implicitTrailingOne) {
+      // expand indices's shape with implicit trailing one
+      SmallVector<int64_t> newShape(indicesType.getShape());
+      newShape.push_back(1);
+      ShapedType targetType = indicesType.clone(newShape);
+      SmallVector<ReassociationIndices> reassociations =
+          llvm::to_vector(llvm::map_range(
+              llvm::seq<int64_t>(0, indicesRank),
+              [](int64_t index) { return ReassociationIndices{index}; }));
+      reassociations.back().push_back(indicesRank);
+      newIndices = rewriter.create<tensor::ExpandShapeOp>(
+          loc, targetType, indices, reassociations);
+    }
+
+    // Copy src to newly allocated src for out-of-place scattering
+    // TODO: copy if src RAW happens or src is a constant, otherwise
+    // scattering could be applied inplace
+    SmallVector<Value> dynamicSizes;
+    for (int64_t i = 0; i < srcType.getRank(); ++i) {
+      if (srcType.isDynamicDim(i)) {
+        dynamicSizes.push_back(getDimValue(rewriter, loc, src, i));
+      }
+    }
+    Value empty = rewriter.create<tensor::EmptyOp>(loc, srcType, dynamicSizes)
+                      .getResult();
+    Value newSrc =
+        rewriter.create<linalg::CopyOp>(loc, src, empty)->getResult(0);
+
+    // TODO: respect indices_are_sorted
+    auto scatterOp = rewriter.create<linalg_ext::ScatterOp>(
+        loc, TypeRange{newSrc.getType()},
+        /* inputs */ ValueRange{newIndices, update},
+        /* outputs */ ValueRange{newSrc});
+
+    // convert mhlo region to linalg_ext region
+    if (failed(remappingRegionFromMhloToLinalgExt(
+            rewriter, op.getUpdateComputation(), scatterOp.getRegion())))
+      return failure();
+
+    rewriter.replaceOp(op, scatterOp->getResults());
+    return success();
+  }
+};
+
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
@@ -497,12 +711,12 @@ struct HloFusionToLinalgPass
     }
   }
 };
-
 } // namespace
 
 void mlir::populateHloToLinalgExtConversionPattern(
     MLIRContext *context, RewritePatternSet &patterns) {
   patterns.add<SoftmaxCustomCallConverter>(context);
+  patterns.add<ScatterOpConversion>(context);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

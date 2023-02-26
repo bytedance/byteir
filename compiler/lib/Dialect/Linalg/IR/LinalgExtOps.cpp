@@ -121,7 +121,7 @@ static FailureOr<Value> commonGenerateResultTileValueForLinalgExtOp(
 
   auto indexingMaps = llvm::to_vector(
       linalgExtOp.getIndexingMaps().getAsValueRange<AffineMapAttr>());
-  auto indexingMap = indexingMaps[1 + resultNumber]; // 1 from input
+  auto indexingMap = indexingMaps[linalgExtOp.getNumInputs() + resultNumber];
 
   if (!indexingMap.isProjectedPermutation()) {
     return op->emitOpError(
@@ -765,6 +765,302 @@ LogicalResult mlir::linalg_ext::ScanOp::isValidTiledProducerOp(
       return failure();
     }
   }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ScatterOp
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult mlir::linalg_ext::ScatterOp::verify() {
+  Operation *op = getOperation();
+  if (getNumInputs() != 2) {
+    return op->emitOpError("expected two input operands indices/update");
+  }
+  if (getNumOutputs() != 1) {
+    return op->emitOpError("expected one output operands src");
+  }
+  if (!llvm::all_of(op->getOperandTypes(), [](Type t) {
+        return t.isa<ShapedType>() && t.cast<ShapedType>().hasRank();
+      })) {
+    return op->emitOpError("expected ranked ShapedType for all operands");
+  }
+
+  ShapedType indicesType = getIndicesType(), srcType = getSrcType(),
+             updateType = getUpdateType();
+
+  // check element types
+  if (updateType.getElementType() != srcType.getElementType()) {
+    return op->emitOpError("expected update/src element types to be identical");
+  }
+  if (!indicesType.getElementType().isIntOrIndex()) {
+    return op->emitOpError("expected indices element type to be int or index");
+  }
+
+  int64_t indicesRank = indicesType.getRank(), srcRank = srcType.getRank(),
+          updateRank = updateType.getRank();
+  ArrayRef<int64_t> indicesShape = indicesType.getShape(),
+                    srcShape = srcType.getShape(),
+                    updateShape = updateType.getShape();
+  if (indicesRank < 1) {
+    return op->emitOpError("the rank of indices must at least be one");
+  }
+
+  if (updateRank < indicesRank - 1 ||
+      failed(verifyCompatibleShape(indicesShape.drop_back(),
+                                   updateShape.take_front(indicesRank - 1)))) {
+    return op->emitOpError("expected the first `indicesRank - 1` dimensions of "
+                           "indices/update to be compatible");
+  }
+
+  if (srcRank < updateRank - indicesRank + 1 ||
+      failed(verifyCompatibleShape(
+          updateShape.drop_front(indicesRank - 1),
+          srcShape.take_back(updateRank - indicesRank + 1)))) {
+    return op->emitOpError("expected the last `updateRank - indicesRank +1` "
+                           "dimensions of update/src to be compatible");
+  }
+
+  if (indicesType.isDynamicDim(indicesRank - 1)) {
+    return op->emitOpError("the last dimension of indices must be static");
+  }
+
+  if (indicesShape[indicesRank - 1] + updateRank - indicesRank + 1 != srcRank) {
+    return op->emitOpError("expected rank of src to be equal to"
+                           "`dim(indices, rank(indices) - 1) + rank(update) "
+                           "- rank(indices) + 1`");
+  }
+
+  Block *body = &this->getRegion().front();
+  if (body->getNumArguments() != 2) {
+    return op->emitOpError("expected body to have two arguments");
+  }
+  if (body->getArgument(0).getType() != srcType.getElementType() ||
+      body->getArgument(1).getType() != updateType.getElementType()) {
+    return op->emitOpError(
+        "expected body arguments to be the same element type with src/update");
+  }
+
+  auto terminator = body->getTerminator();
+  if (!isa<linalg_ext::YieldOp>(terminator)) {
+    return op->emitOpError("expected body terminator to be linalg_ext.yield");
+  }
+
+  if (terminator->getNumOperands() != 1) {
+    return op->emitOpError("epxected body terminator has exactly one operand");
+  }
+
+  if (terminator->getOperand(0).getType() != srcType.getElementType()) {
+    return op->emitOpError(
+        "expected body terminator to be the same element type with src");
+  }
+
+  return success();
+}
+
+FailureOr<Value> mlir::linalg_ext::ScatterOp::generateResultTileValue(
+    OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  return commonGenerateResultTileValueForLinalgExtOp(
+      getOperation(), b, resultNumber, offsets, sizes, getUpdateRank());
+}
+
+SmallVector<utils::IteratorType>
+mlir::linalg_ext::ScatterOp::getLoopIteratorTypes() {
+  int64_t batches = getIndicesRank() - 1;
+  // tiling the first rank(indices) - 1 dimensions, `src` could be updated in
+  // parallel iff all indices are unique
+  SmallVector<utils::IteratorType> iteratorTypes(
+      batches, utils::IteratorType::reduction); // TODO: unique indices
+  // tiling the rest dimensions in update, `src` could be updated in parallel
+  iteratorTypes.insert(iteratorTypes.end(), getUpdateRank() - batches,
+                       utils::IteratorType::parallel);
+  return iteratorTypes;
+}
+
+ArrayAttr mlir::linalg_ext::ScatterOp::getIndexingMaps() {
+  int64_t updateRank = getUpdateRank();
+  int64_t batches = getIndicesRank() - 1;
+  int64_t dataRank = updateRank - batches;
+  SmallVector<AffineMap> maps;
+  MLIRContext *ctx = getContext();
+
+  // indices
+  maps.push_back(AffineMap::getMultiDimIdentityMap(batches, ctx));
+
+  // update
+  maps.push_back(AffineMap::getMultiDimIdentityMap(updateRank, ctx));
+
+  // src
+  maps.push_back(AffineMap::getMultiDimIdentityMap(dataRank, ctx));
+
+  return Builder(ctx).getAffineMapArrayAttr(maps);
+}
+
+SmallVector<Range> mlir::linalg_ext::ScatterOp::getIterationDomain(
+    class mlir::OpBuilder &builder) {
+  int64_t operandRank = getUpdateRank();
+  SmallVector<Range> loopBounds(operandRank);
+  Location loc = getLoc();
+  Attribute zeroAttr = builder.getIndexAttr(0);
+  Attribute oneAttr = builder.getIndexAttr(1);
+  Value updateValue = update();
+  for (auto dim : llvm::seq<int64_t>(0, operandRank)) {
+    loopBounds[dim].offset = zeroAttr;
+    loopBounds[dim].size = getDim(builder, loc, updateValue, dim);
+    loopBounds[dim].stride = oneAttr;
+  }
+  return loopBounds;
+}
+
+SmallVector<Operation *> mlir::linalg_ext::ScatterOp::getTiledImplementation(
+    OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  auto zeroAttr = builder.getI64IntegerAttr(0),
+       oneAttr = builder.getI64IntegerAttr(1);
+  int64_t updateRank = getUpdateRank();
+  int64_t indicesRank = getIndicesRank();
+  int64_t srcRank = getSrcRank();
+  int64_t batches = indicesRank - 1;
+  int64_t dataRank = updateRank - batches;
+  Location loc = getLoc();
+
+  // tiled indices
+  Value oldIndices = indices();
+  SmallVector<OpFoldResult> indicesOffsets, indicesSizes,
+      indicesStrides(indicesRank, oneAttr);
+  indicesOffsets.reserve(indicesRank);
+  indicesSizes.reserve(indicesRank);
+  for (int64_t i = 0; i < batches; ++i) {
+    indicesOffsets.push_back(offsets[i]);
+    indicesSizes.push_back(sizes[i]);
+  }
+  indicesOffsets.push_back(zeroAttr);
+  auto indicesShape = getIndicesType().getShape();
+  // In verify(), it has already checked that the last dimension of indices was
+  // static known
+  assert(!ShapedType::isDynamic(indicesShape[indicesRank - 1]));
+  indicesSizes.push_back(
+      builder.getI64IntegerAttr(indicesShape[indicesRank - 1]));
+  Value newIndices = getSlice(builder, loc, oldIndices, indicesOffsets,
+                              indicesSizes, indicesStrides);
+
+  // tiled update
+  SmallVector<OpFoldResult> updateOffsets, updateSizes,
+      updateStrides(updateRank, oneAttr);
+  updateOffsets.reserve(updateRank);
+  updateSizes.reserve(updateRank);
+  for (int64_t i = 0; i < batches; ++i) {
+    updateOffsets.push_back(offsets[i]);
+    updateSizes.push_back(sizes[i]);
+  }
+  for (int64_t i = 0; i < dataRank; ++i) {
+    updateOffsets.push_back(offsets[batches + i]);
+    updateSizes.push_back(sizes[batches + i]);
+  }
+  Value newUpdate = getSlice(builder, loc, update(), updateOffsets, updateSizes,
+                             updateStrides);
+
+  // tiled src
+  SmallVector<OpFoldResult> srcOffsets, srcSizes, srcStrides(srcRank, oneAttr);
+  if (failed(getResultTilePosition(builder, 0, offsets, sizes, srcOffsets,
+                                   srcSizes))) {
+    return {};
+  }
+  Value newSrc =
+      getSlice(builder, loc, src(), srcOffsets, srcSizes, srcStrides);
+
+  // tiled scatter op
+  Operation *newOp = mlir::clone(
+      builder, getOperation(),
+      hasTensorSemantics() ? TypeRange(newSrc.getType()) : TypeRange(),
+      {newIndices, newUpdate, newSrc});
+  return {newOp};
+}
+
+LogicalResult mlir::linalg_ext::ScatterOp::getResultTilePosition(
+    OpBuilder &builder, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, SmallVector<OpFoldResult> &resultOffsets,
+    SmallVector<OpFoldResult> &resultSizes) {
+  if (resultNumber == 0) {
+    Value srcValue = src();
+    int64_t updateRank = getUpdateRank();
+    int64_t batches = getIndicesRank() - 1;
+    int64_t dataRank = updateRank - batches;
+
+    auto loc = getLoc();
+    Attribute zeroAttr = builder.getIndexAttr(0);
+    for (int64_t i = 0; i < getSrcRank() - dataRank; ++i) {
+      resultOffsets.push_back(zeroAttr);
+      resultSizes.push_back(getDim(builder, loc, srcValue, i));
+    }
+    for (int64_t i = 0; i < dataRank; ++i) {
+      resultOffsets.push_back(offsets[i + batches]);
+      resultSizes.push_back(sizes[i + batches]);
+    }
+    return success();
+  }
+  return failure();
+}
+
+bool mlir::linalg_ext::ScatterOp::isOperandRead(unsigned number) {
+  // both indices, update and src are read
+  return true;
+}
+
+bool mlir::linalg_ext::ScatterOp::isResultLoopInvariant(int64_t number,
+                                                        bool hasOneOrZeroUse,
+                                                        bool allLoopParallel) {
+  assert(number == 0);
+  return allLoopParallel;
+}
+
+LogicalResult mlir::linalg_ext::ScatterOp::isValidTiledProducerOp(
+    Operation * /*fusibleProducer*/, unsigned consumerOperandNumber) {
+  // TODO
+  return failure();
+}
+
+LogicalResult ScatterOp::generateScalarImplementation(OpBuilder &builder,
+                                                      Location loc,
+                                                      ValueRange ivs) {
+  int64_t updateRank = getUpdateRank();
+  int64_t indicesRank = getIndicesRank();
+  int64_t srcRank = getSrcRank();
+  int64_t batches = indicesRank - 1;
+  int64_t dataRank = updateRank - batches;
+
+  SmallVector<Value> srcIndex;
+  SmallVector<Value> loadIndices = ivs.take_front(batches);
+  loadIndices.push_back(Value());
+
+  auto indicesShape = getIndicesType().getShape();
+  for (int64_t i = 0; i < indicesShape[indicesRank - 1]; ++i) {
+    loadIndices.back() = builder.create<arith::ConstantIndexOp>(loc, i);
+    Value idx = builder.create<memref::LoadOp>(loc, indices(), loadIndices);
+    srcIndex.push_back(
+        builder.create<arith::IndexCastOp>(loc, builder.getIndexType(), idx));
+  }
+
+  for (int64_t i = 0; i < dataRank; ++i) {
+    srcIndex.push_back(ivs[batches + i]);
+  }
+
+  auto srcValue = src();
+  Value lhs = builder.create<memref::LoadOp>(loc, srcValue, srcIndex);
+
+  BlockAndValueMapping bvm;
+  Block &block = getRegion().front();
+  Value rhs = builder.create<memref::LoadOp>(loc, update(), ivs);
+  bvm.map(block.getArgument(0), lhs);
+  bvm.map(block.getArgument(1), rhs);
+  for (auto &blockOp : block.without_terminator()) {
+    builder.clone(blockOp, bvm);
+  }
+
+  builder.create<memref::StoreOp>(
+      loc, bvm.lookupOrDefault(block.getTerminator()->getOperand(0)), srcValue,
+      srcIndex);
   return success();
 }
 
@@ -1616,6 +1912,7 @@ static void getEffectsImpl(
 DEFINE_OP_GET_EFFECTS(CustomOp)
 DEFINE_OP_GET_EFFECTS(DiagOp)
 DEFINE_OP_GET_EFFECTS(ScanOp)
+DEFINE_OP_GET_EFFECTS(ScatterOp)
 DEFINE_OP_GET_EFFECTS(SoftmaxOp)
 DEFINE_OP_GET_EFFECTS(TopkOp)
 

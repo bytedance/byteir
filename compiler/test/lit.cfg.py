@@ -37,14 +37,17 @@ tool_dirs = [
 tool_names = [
     'byteir-opt',
     'byteir-stat',
-    'byteir-translate'
+    'byteir-translate',
+    'byteir-cpu-runner'
 ]
 tools = [ToolSubst(s, unresolved='ignore') for s in tool_names]
+tools.extend([ToolSubst('%mlir_lib_dir', config.mlir_lib_dir, unresolved='ignore')])
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 # where to find the thrid_party dir
 config.substitutions.append(('%third_party_path',
                             os.path.join(config.test_source_root, '..', 'third_party')))
+config.substitutions.append(('%shlibext', config.llvm_shlib_ext))
 
 # for PTX tests
 llvm_config.with_system_environment(['CUDA_HOME'])

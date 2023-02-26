@@ -1,5 +1,6 @@
 add_mlir_dialect_library(ByteIRSCFPasses
   Transforms/InsertTrivialSCFLoop.cpp
+  Transforms/TilingInterfaceToSCFFor.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/SCF
@@ -14,6 +15,7 @@ add_mlir_dialect_library(ByteIRSCFPasses
   MLIRIR
   MLIRMemRefDialect
   MLIRSCFDialect
+  MLIRSCFTransforms
   MLIRSideEffectInterfaces
   MLIRSupport
   )

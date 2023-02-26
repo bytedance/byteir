@@ -7,6 +7,12 @@ Although all ByteIR components (compiler/runtime/frontends) are together to prov
 all under the same umbrella of this repository, 
 each component technically can perform independently.
 
+## The name ByteIR
+The name, ByteIR, comes from a legacy purpose internally.   
+The ByteIR project is NOT an IR spec definition project. 
+Instead, in most scenarios, ByteIR directly uses several upstream MLIR dialects and Google Mhlo.
+Most of ByteIR compiler passes are compatible with the selected upstream MLIR dialects and Google Mhlo.
+
 ## Project Status
 ByteIR is still in its early phase. 
 In this phase, we are aiming to provide well-defined, necessary building blocks and infrastructure support for model compilation in a wide-range of deep learning accelerators as well as general-purpose CPUs and GPUs.

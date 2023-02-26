@@ -84,3 +84,39 @@ func.func @linalg_ext_batch_matmul(%arg0: tensor<128x16x1024x256xf32>, %arg1: te
 }
 // CHECK-LABEL: func.func @linalg_ext_batch_matmul
 // CHECK: linalg_ext.batch_matmul
+
+func.func @linalg_ext_scatter(%arg0: tensor<512x128xf32>, %arg1: tensor<128x1xi64>, %arg2: tensor<128x128xf32>) -> tensor<512x128xf32> {
+  %0 = "mhlo.scatter"(%arg0, %arg1, %arg2) ({
+    ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
+      %1 = "mhlo.add"(%arg3, %arg4) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+      "mhlo.return"(%1) : (tensor<f32>) -> ()
+    }) {indices_are_sorted = false, scatter_dimension_numbers = #mhlo.scatter<update_window_dims = [1], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false} : (tensor<512x128xf32>, tensor<128x1xi64>, tensor<128x128xf32>) -> tensor<512x128xf32>
+  return %0 : tensor<512x128xf32>
+}
+// NOTAG-LABEL: func.func @linalg_ext_scatter
+//   NOTAG-SAME: %[[ARG0:.*]]: tensor<512x128xf32>, %[[ARG1:.*]]: tensor<128x1xi64>, %[[ARG2:.*]]: tensor<128x128xf32>
+//   NOTAG: %[[EMPTY:.*]] = tensor.empty() : tensor<512x128xf32>
+//   NOTAG: %[[COPY:.*]] = linalg.copy ins(%[[ARG0]] : tensor<512x128xf32>) outs(%[[EMPTY]] : tensor<512x128xf32>)
+//   NOTAG: %[[SCATTER:.*]] = linalg_ext.scatter ins(%[[ARG1]], %[[ARG2]] : tensor<128x1xi64>, tensor<128x128xf32>) outs(%[[COPY]] : tensor<512x128xf32>)
+//     NOTAG: arith.addf
+//     NOTAG: linalg_ext.yield
+//   NOTAG: return %[[SCATTER]]
+
+
+func.func @linalg_ext_scatter_with_trailing_one(%arg0: tensor<51200xi32>, %arg1: tensor<100x1296xi32>, %arg2: tensor<100x1296xi32>) -> tensor<51200xi32> {
+  %0 = "mhlo.scatter"(%arg0, %arg1, %arg2) ({
+    ^bb0(%arg3: tensor<i32>, %arg4: tensor<i32>):
+      %1 = mhlo.add %arg3, %arg4 : tensor<i32>
+      mhlo.return %1 : tensor<i32>
+    }) {indices_are_sorted = false, scatter_dimension_numbers = #mhlo.scatter<inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 2>, unique_indices = false} : (tensor<51200xi32>, tensor<100x1296xi32>, tensor<100x1296xi32>) -> tensor<51200xi32>
+  return %0 : tensor<51200xi32>
+}
+// NOTAG-LABEL: func.func @linalg_ext_scatter_with_trailing_one
+//   NOTAG-SAME: %[[ARG0:.*]]: tensor<51200xi32>, %[[ARG1:.*]]: tensor<100x1296xi32>, %[[ARG2:.*]]: tensor<100x1296xi32>
+//   NOTAG: %[[EXPAND:.*]] = tensor.expand_shape %[[ARG1]] {{\[}}[0], [1, 2]{{\]}} : tensor<100x1296xi32> into tensor<100x1296x1xi32>
+//   NOTAG: %[[EMPTY:.*]] = tensor.empty() : tensor<51200xi32>
+//   NOTAG: %[[COPY:.*]] = linalg.copy ins(%[[ARG0]] : tensor<51200xi32>) outs(%[[EMPTY]] : tensor<51200xi32>)
+//   NOTAG: %[[SCATTER:.*]] = linalg_ext.scatter ins(%[[EXPAND]], %[[ARG2]] : tensor<100x1296x1xi32>, tensor<100x1296xi32>) outs(%[[COPY]] : tensor<51200xi32>)
+//     NOTAG: arith.addi
+//     NOTAG: linalg_ext.yield
+//   NOTAG: return %[[SCATTER]]

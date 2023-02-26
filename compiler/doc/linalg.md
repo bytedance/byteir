@@ -38,7 +38,7 @@ Note this tile label transformation also work with existing linalg tile and fuse
 * to support intermediates as outputs within a fusion,
 * to support intermediate tensor dim simplification.
 
-Here shows the difference when there is an intermediate as as output.
+Here shows the difference when tiling along a reduction axis.
 ```
 // input.mlir
 func.func @tiled_matmul(%arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>) -> tensor<128x128xf32> {
@@ -85,7 +85,7 @@ func.func @tile_matmul(%arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>) -
 
 ```
 
-Here shows the difference when tiling along a reduction axis.
+Here shows the difference when there is an intermediate as as output.
 ```
 // input.mlir
 func.func @fuse_element(%arg0: tensor<512x128xf32>, %arg1: tensor<512x128xf32>) -> (tensor<512x128xf32>, tensor<512x128xf32>) {
@@ -299,6 +299,21 @@ Spec:
 - Inits/Results:
   - output: Tensor with a dim of N
   - accumulator: Tensor with a dim of N - 1
+
+### Scatter Op
+Linalg-ext scatter op is introduced to present a scatter pattern
+It is a structured op.
+
+Spec:
+- Operands:
+  - indices: Tensor 
+  - updates: Tensor 
+- Inits/Results:
+  - src: Tensor 
+
+Here, the first `rank(indices) - 1` dimensions of `indices` and `update` are compatible. 
+The last `rank(update) - rank(indices) + 1` dimensions of `update` and `src` are compatible. 
+The last dimension of the indices, denoted as `dim(indices, rank(indices) - 1)`, should be static and the rank of `src` is equal to `dim(indices, rank(indices) - 1) + rank(update) - rank(indices) + 1`
 
 
 ### Softmax Op

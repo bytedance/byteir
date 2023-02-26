@@ -167,3 +167,27 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - axis: I64Attr (Optional, channel axis index, required only for per-channel dequantization)
 - Results:
   - output: FloatTensor
+
+### byteir.resize
+- Operands:
+  - input: Tensor
+  - target (scale/size): FloatTensor/IntTensor (respectively)
+- Attrs:
+  - target_mode: StringAttr
+    - `scale`
+    - `size`
+  - mode: StringAttr
+    - `nearest`
+    - `linear`
+  - coordinate_transformation_mode: StringAttr
+    - Denote scale = length_resized / length_original, the transformation can be described as following.
+
+| coordinate_transformation_mode | x_original = |
+| ------------------------------ | :----------  |
+| `asymmetric` | x_resized / scale |
+| `pytorch_half_pixel`| length_resized > 1 ? (x_resized + 0.5) / scale - 0.5 : 0 |
+| `half_pixel` | (x_resized + 0.5) / scale - 0.5 |
+| `align_corners`| x_resized * (length_original - 1) / (length_resized - 1) |
+
+- Results:
+  - output: Tensor

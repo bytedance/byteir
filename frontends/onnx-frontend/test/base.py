@@ -20,12 +20,13 @@ CUSTOM_CALL_OPS = [
     "arg_max",
     "arg_min",
     "layer_norm",
+    "dequantize",
     "erf",
     "gelu",
     "instance_norm",
     "l2_norm",
     "quantize",
-    "dequantize",
+    "resize",
     "softmax",
 ]
 class TestBase:

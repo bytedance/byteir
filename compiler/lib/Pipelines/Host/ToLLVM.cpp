@@ -19,6 +19,7 @@
 
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
@@ -79,6 +80,7 @@ void mlir::createToLLVMPipeline(OpPassManager &pm) {
         pm.addPass(createCanonicalizerPass());
         pm.addPass(arith::createArithExpandOpsPass());
         pm.addPass(memref::createExpandStridedMetadataPass());
+        pm.addPass(createLowerAffinePass());
         pm.addPass(createMemRefToLLVMConversionPass());
         pm.addPass(createConvertMathToLLVMPass());
         pm.addPass(createConvertFuncToLLVMPass());
