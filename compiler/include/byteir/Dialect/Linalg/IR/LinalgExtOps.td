@@ -543,6 +543,84 @@ def LinalgExt_CustomOp : LinalgExt_Op<"custom",
   }];
 }
 
+def LinalgExt_LayerNormOp : LinalgExt_Op<"layer_norm", 
+    [DeclareOpInterfaceMethods<LinalgExtInterface, 
+        ["isValidTiling"]>,
+     DeclareOpInterfaceMethods<TilingInterface,
+        ["generateResultTileValue",
+         "getIterationDomain",
+         "getLoopIteratorTypes",
+         "getResultTilePosition",
+         "getTiledImplementation"]>]> {
+  let summary = "Layer normalization";
+  let description = [{
+    Applies Layer Normalization over a mini-batch of inputs.
+
+    - Operands:
+    - input: Tensor
+    - weight: Optional<Tensor>
+    - bias: Optional<Tensor>
+
+    - Results(1 or 3):
+    - output: Tensor 
+    - mean: Optional<Tensor>
+    - inv_std_dev: Optional<Tensor>
+
+    output = (x - E[x])/sqrt(Var[x] + epsilon) * weight + bias
+  }];
+
+  let arguments = (ins
+      Variadic<AnyRankedTensorOrMemRefType>:$inputs,
+      Variadic<AnyRankedTensorOrMemRefType>:$outputs,
+      I64ArrayAttr:$axis,
+      F64Attr:$epsilon
+  );
+
+  let results = (outs Variadic<AnyRankedTensor>:$results);
+
+  let assemblyFormat = [{
+    attr-dict 
+    `axis` `(` $axis `)`
+    `epsilon` `(` $epsilon `)`
+    (`ins` `(` $inputs^ `:` type($inputs) `)`)?
+    (`outs` `(` $outputs^ `:` type($outputs) `)`)?
+    (`:` type($results)^)?
+  }];
+
+  let extraClassDeclaration = extraLinalgExtOpClassDeclaration # [{
+    Value input() {
+      return getInputOperand(0)->get();
+    }
+    Value weight() {
+      return getInputOperand(1)->get();
+    }
+    Value bias() {
+      return getInputOperand(2)->get();
+    }
+    Value output() {
+      return getOutputOperand(0)->get();
+    }
+    Value mean() {
+      return getOutputOperand(1)->get();
+    }
+    Value rstd() {
+      return getOutputOperand(2)->get();
+    }
+    ShapedType getOperandType(int64_t idx) {
+      return getInputOperand(idx)->get().getType().cast<ShapedType>();
+    }
+    int64_t getOperandRank(int64_t idx) {
+      return getOperandType(idx).getRank();
+    }
+    SmallVector<int64_t> getIntAxis(){
+      auto axises = llvm::to_vector(llvm::map_range(
+        getAxis().getAsRange<IntegerAttr>(),
+        [&](IntegerAttr intAttr) { return intAttr.getInt(); }));
+      return axises;
+    }
+  }];
+}
+
 def LinalgExt_BatchMatmulOp : LinalgExtStructuredBase_Op<"batch_matmul", 
     [DeclareOpInterfaceMethods<TilingInterface,
         ["generateResultTileValue",

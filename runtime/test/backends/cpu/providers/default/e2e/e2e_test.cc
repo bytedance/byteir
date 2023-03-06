@@ -33,9 +33,9 @@ using namespace brt::test;
 using namespace mlir;
 using namespace std;
 
-static std::string test_file_llvmjit = "test/test_files/llvmjit.mlir";
+static std::string test_file_case0 = "test/test_files/LLJIT/Case0/entry.mlir";
 
-TEST(CPUTestE2E, LLVMJIT) {
+TEST(CPUE2ETest, LLVMJITCase0) {
   Session session;
 
   auto status_allocator = CPUAllocatorFactory(&session);
@@ -44,7 +44,7 @@ TEST(CPUTestE2E, LLVMJIT) {
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  auto status_load = session.Load(test_file_llvmjit, "byre");
+  auto status_load = session.Load(test_file_case0, "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;

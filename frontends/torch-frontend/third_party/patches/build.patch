@@ -1,0 +1,36 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 790fcfeb..f0eaff10 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -36,6 +36,7 @@ macro(torch_mlir_add_llvm_external_project name identifier location)
+   set(LLVM_EXTERNAL_PROJECTS ${LLVM_EXTERNAL_PROJECTS} CACHE STRING "" FORCE)
+ endmacro()
+ 
++option(TORCH_MLIR_BUILD_EMBEDDED "Build torch mlir as part of another project" OFF)
+ option(TORCH_MLIR_ENABLE_STABLEHLO "Add stablehlo dialect" ON)
+ if(TORCH_MLIR_ENABLE_STABLEHLO)
+   add_definitions(-DTORCH_MLIR_ENABLE_STABLEHLO)
+@@ -119,7 +120,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR TORCH_MLIR_OUT_OF_TREE_
+   set(TORCH-MLIR_BUILT_STANDALONE 1)
+   set(BACKEND_PACKAGE_STRING "LLVM ${LLVM_PACKAGE_VERSION}")
+   add_subdirectory(externals/llvm-external-projects/torch-mlir-dialects)
+-else()
++elseif(NOT TORCH_MLIR_BUILD_EMBEDDED)
+   message(STATUS "Torch-MLIR in-tree build.")
+   # In-tree build with LLVM_EXTERNAL_PROJECTS=torch-mlir
+ 
+@@ -130,10 +131,14 @@ else()
+   set(MLIR_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/../mlir/include)
+   set(MLIR_GENERATED_INCLUDE_DIR ${LLVM_BINARY_DIR}/tools/mlir/include)
+   set(MLIR_INCLUDE_DIRS "${MLIR_INCLUDE_DIR};${MLIR_GENERATED_INCLUDE_DIR}")
++else()
++  message(STATUS "Torch-MLIR embedded build.")
++  add_subdirectory(externals/llvm-external-projects/torch-mlir-dialects)
+ endif()
+ 
+ if (TORCH_MLIR_ENABLE_STABLEHLO)
+   set(STABLEHLO_BUILD_EMBEDDED ON)
++  set(MHLO_ENABLE_BINDINGS_PYTHON ON)
+   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/mlir-hlo
+     ${CMAKE_CURRENT_BINARY_DIR}/mlir-hlo
+     EXCLUDE_FROM_ALL)

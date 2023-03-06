@@ -28,6 +28,9 @@ public:
 
   ~LLVMJITOpKernel();
 
+  common::Status ProloguePerFrame(const ExecutionContext &ctx) override;
+  common::Status EpiloguePerFrame(const ExecutionContext &ctx) override;
+
   common::Status RunImpl(const ExecutionContext &ctx) override;
 
 private:

@@ -17,6 +17,7 @@
 #include "third_party/onnx-mlir/src/Compiler/CompilerUtils.hpp"
 #include "third_party/onnx-mlir/src/Pass/Passes.hpp"
 
+#include "onnx-frontend/src/Compiler/OFCompilerOptions.hpp"
 #include "onnx-frontend/src/Compiler/OFCompilerPipelines.hpp"
 #include "onnx-frontend/src/Conversion/OFPasses.hpp"
 
@@ -24,7 +25,18 @@ namespace onnx_frontend {
 
 void addCustomizedONNXToMhloPasses(
     mlir::PassManager &pm, const std::vector<std::string> &customCallOps) {
+
+  // Statically add passes for shape inference
+  for (int i = 0; i < onnx_frontend::ofRepeatStatic; i++) {
+    pm.addPass(onnx_mlir::createShapeInferencePass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_mlir::createShapeInferencePass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass());
+  }
   pm.addPass(onnx_mlir::createShapeInferencePass());
+
+  // convert coarse-grained onnx ops to byteir.xxx custom calls
   pm.addNestedPass<mlir::func::FuncOp>(
       onnx_frontend::createOFRewriteToCustomCallPass(customCallOps));
 
@@ -38,14 +50,13 @@ void addCustomizedONNXToMhloPasses(
   pm.addNestedPass<mlir::func::FuncOp>(
       onnx_mlir::createConstPropONNXToONNXPass());
 
-  if (onnx_mlir::onnxOpTransformThreshold > 0) {
+  if (onnx_frontend::ofRepeatDynamicMax > 0) {
     // Dynamic iterate in ONNXOpTransformPass
     pm.addPass(onnx_mlir::createONNXOpTransformPass(
-        onnx_mlir::onnxOpTransformThreshold, onnx_mlir::onnxOpTransformReport,
-        false, false));
+        onnx_frontend::ofRepeatStatic, /*report=*/false, false, false));
   } else {
     // Statically add extra passes
-    for (int i = 0; i < onnx_mlir::repeatOnnxTransform; i++) {
+    for (int i = 0; i < onnx_frontend::ofRepeatStatic; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addPass(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<mlir::func::FuncOp>(

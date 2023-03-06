@@ -1,0 +1,100 @@
+diff --git a/src/Transform/ONNX/ConstProp.cpp b/src/Transform/ONNX/ConstProp.cpp
+index 5e170bb0..23c6807a 100644
+--- a/src/Transform/ONNX/ConstProp.cpp
++++ b/src/Transform/ONNX/ConstProp.cpp
+@@ -159,6 +159,11 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
+   static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
+ };
+ 
++template <typename T>
++struct ElementWiseBinaryOpImpl<ONNXEqualOp, T> {
++  static bool eval(T lhs, T rhs) { return lhs == rhs; }
++};
++
+ template <typename ElementwiseBinaryOp>
+ constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
+   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
+@@ -843,6 +848,26 @@ Value ConstPropReshape(
+       .getResult();
+ }
+ 
++//===----------------------------------------------------------------------===//
++// Code to perform constant propagation for ConstantOfShape.
++//===----------------------------------------------------------------------===//
++
++Value ConstPropConstantOfShape(
++    PatternRewriter &rewriter, Value replacingValue, Value shape, Attribute value) {
++  ConstPropCounters::count("ConstantOfShape", {shape});
++  llvm::SmallVector<int64_t, 4> shapeVector;
++  ElementsAttr shapeAttr = getONNXConstantOp(shape).getValueAttr().cast<ElementsAttr>();
++  for (mlir::IntegerAttr dim : shapeAttr.getValues<IntegerAttr>())
++      shapeVector.push_back(dim.getInt());
++
++  ElementsAttr constElements = value.cast<ElementsAttr>();
++  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
++  ElementsAttr expandedElements =
++      elementsBuilder.expand(constElements, shapeVector);
++  return createReplacingConstantOp(rewriter, replacingValue, expandedElements)
++      .getResult();
++}
++
+ //===----------------------------------------------------------------------===//
+ // Pattern definition.
+ //===----------------------------------------------------------------------===//
+diff --git a/src/Transform/ONNX/ConstProp.td b/src/Transform/ONNX/ConstProp.td
+index 4dee9fbb..68761209 100644
+--- a/src/Transform/ONNX/ConstProp.td
++++ b/src/Transform/ONNX/ConstProp.td
+@@ -106,6 +106,9 @@ def CreateMulOfTwoConst :
+ def CreateDivOfTwoConst :
+    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
+ 
++def CreateEqualOfTwoConst :
++   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXEqualOp>($_builder, $0, $1, $2)">;
++
+ def CreateWhereOfThreeConst :
+    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
+ 
+@@ -148,6 +151,9 @@ def CreateGatherOfConst:
+ def CreateReshapeOfConst:
+    NativeCodeCall<"ConstPropReshape($_builder, $0, $1)">;
+ 
++def CreateConstantOfShapeOfConst:
++   NativeCodeCall<"ConstPropConstantOfShape($_builder, $0, $1, $2)">;
++
+ //===----------------------------------------------------------------------===//
+ // Patterns to enable opportunities with elementwise ADD operations.
+ //===----------------------------------------------------------------------===//
+@@ -350,6 +356,16 @@ def DivConstProp : Pat<
+     // Division constraints
+     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+ 
++// Constant Propagation for Equal
++def EqualConstProp : Pat<
++    // From equal(c1, c2).
++    (ONNXEqualOp:$equalOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
++                          (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
++    // To c1 == c2
++    (CreateEqualOfTwoConst $equalOp, $lhs, $rhs),
++    // constraints
++    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
++
+ 
+ //===----------------------------------------------------------------------===//
+ // Patterns for Where.
+@@ -532,4 +548,15 @@ def ReshapeofConst :  Pat<
+     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
+      (HasStaticShape:$resOp)]>;
+ 
++//===----------------------------------------------------------------------===//
++// Patterns to enable opportunities with ConstantOfShape operations.
++//===----------------------------------------------------------------------===//
++
++def ConstantOfShapeofConst :  Pat<
++    // From ConstantOfShape (shape, x)
++    (ONNXConstantOfShapeOp:$resOp (ONNXConstantOp:$shape $_, $_, $_, $_, $_, $_, $_, $_), $value),
++    // To c where c is the expanded value.
++    (CreateConstantOfShapeOfConst $resOp, $shape, $value),
++    [(IsFromDenseONNXConstantOp:$shape)]>;
++
+ #endif // ONNX_CONSTPROP

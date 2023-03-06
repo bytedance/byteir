@@ -26,6 +26,7 @@ def IsOneSizeElements : Constraint<And<[
     CPred<" $0.isa<ElementsAttr>() ">,
     CPred<" $0.cast<ElementsAttr>().size() == 1 ">]>, "is a DenseElementsAttr of size one">;
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
+def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are actually the same">;
 
 //===----------------------------------------------------------------------===//
 // L2Norm Pattern
@@ -78,5 +79,113 @@ def RewriteResize : Pat<
   (ONNXResizeOp:$output $input, $roi, $scale, $size, $coordinate_transformation_mode, $cubic_coeff_a,
                 $exclude_outside, $exttrapolation_value, $mode, $nearest_mode),
   (NativeCodeCall<"createResize($_builder, $_loc, $0, $1, $2, $3, $4, $5, $6)"> $input, $scale, $size, $coordinate_transformation_mode, $mode, $nearest_mode, $output)>;
+
+//===----------------------------------------------------------------------===//
+// LayerNorm Pattern
+//===----------------------------------------------------------------------===//
+def RewriteLayerNorm : Pat<
+  (ONNXAddOp
+    (ONNXMulOp
+      (ONNXDivOp
+        (ONNXSubOp:$input_zero_mean_0
+          $input,
+          (ONNXReduceMeanOp $input, $axis_attr_0, $_)
+        ),
+        (ONNXSqrtOp
+          (ONNXAddOp
+            (ONNXReduceMeanOp
+              (ONNXPowOp
+                $input_zero_mean_1,
+                (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)
+              ), $axis_attr_1, $_
+            ),
+            (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
+          )
+        )
+      ),
+      (ONNXConstantOp:$scale $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+  ),
+  (NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $scale, $B, $axis_attr_1, $epsilon_attr),
+  [(IsOneSizeElements $epsilon_attr),
+   (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
+   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+   (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+  ]>;
+
+def RewriteLayerNormWithoutLastAdd : Pat<
+  (ONNXMulOp
+    (ONNXDivOp
+      (ONNXSubOp:$input_zero_mean_0
+        $input,
+        (ONNXReduceMeanOp $input, $axis_attr_0, $_)
+      ),
+      (ONNXSqrtOp
+        (ONNXAddOp
+          (ONNXReduceMeanOp
+            (ONNXPowOp
+              $input_zero_mean_1,
+              (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)
+            ), $axis_attr_1, $_
+          ),
+          (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
+        )
+      )
+    ),
+    (ONNXConstantOp:$scale $_, $_, $_, $_, $_, $_, $_, $_)
+  ),
+  (NativeCodeCall<"createLayerNormWithoutLastAdd($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $axis_attr_1, $epsilon_attr),
+  [(IsOneSizeElements $epsilon_attr),
+   (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
+   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+   (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+  ]>;
+
+//===----------------------------------------------------------------------===//
+// GeLU Pattern
+//===----------------------------------------------------------------------===//
+def ValueSqrtTwo : Constraint<CPred<"isSplatFPCloseTo($0, std::sqrt(2))">, "value attr is not splat value of sqrt 2">;
+def ValueOne : Constraint<CPred<"isSplatFP($0, 1.0)">, "value attr is not splat value of 1.0">;
+def ValueHalf : Constraint<CPred<"isSplatFPCloseTo($0, 0.5)">, "value attr is not splat value of 0.5">;
+
+def RewriteGeLU : Pat<
+  (ONNXMulOp
+    (ONNXMulOp
+      $input,
+      (ONNXAddOp
+        (ONNXErfOp
+          (ONNXDivOp
+            $input,
+            (ONNXConstantOp $_, $sqrt_two, $_, $_, $_, $_, $_, $_)
+          )
+        ),
+        (ONNXConstantOp $_, $one, $_, $_, $_, $_, $_, $_)
+      )
+    ),
+    (ONNXConstantOp $_, $half, $_, $_, $_, $_, $_, $_)
+  ),
+  (NativeCodeCall<"createGeLU($_builder, $_loc, $0)"> $input),
+  [(IsOneSizeElements $sqrt_two), (IsOneSizeElements $one), (IsOneSizeElements $half),
+   (ValueSqrtTwo $sqrt_two), (ValueOne $one), (ValueHalf $half)
+   ]>;
+
+def RewriteGeLUWithoutLastMul : Pat<
+  (ONNXMulOp
+    $input,
+    (ONNXAddOp
+      (ONNXErfOp
+        (ONNXDivOp
+          $input,
+          (ONNXConstantOp $_, $sqrt_two, $_, $_, $_, $_, $_, $_)
+        )
+      ),
+      (ONNXConstantOp $_, $one, $_, $_, $_, $_, $_, $_)
+    )
+  ),
+  (NativeCodeCall<"createGeLUWithoutLastMul($_builder, $_loc, $0)"> $input),
+  [(IsOneSizeElements $sqrt_two), (IsOneSizeElements $one),
+   (ValueSqrtTwo $sqrt_two), (ValueOne $one)
+   ]>;
 
 #endif // ONNX_FRONTEND_SRC_CONVERSION_OF_CUSTOM_CALL_TD

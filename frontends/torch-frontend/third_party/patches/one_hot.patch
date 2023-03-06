@@ -1,0 +1,27 @@
+diff --git a/lib/Dialect/Torch/Transforms/AbstractInterpLibrary.cpp b/lib/Dialect/Torch/Transforms/AbstractInterpLibrary.cpp
+index feacc499..30581c86 100644
+--- a/lib/Dialect/Torch/Transforms/AbstractInterpLibrary.cpp
++++ b/lib/Dialect/Torch/Transforms/AbstractInterpLibrary.cpp
+@@ -6131,6 +6131,21 @@ StringRef mlir::torch::Torch::getAbstractInterpLibrary() {
+ "    } : (!torch.int, !torch.bool) -> ()\n"
+ "    return %2 : !torch.list<int>\n"
+ "  }\n"
++"  func.func @\"__torch_mlir_shape_fn.aten.one_hot\"(%arg0: !torch.list<int>, %arg1: !torch.int) -> !torch.list<int> {\n"
++"    %none = torch.constant.none\n"
++"    %str = torch.constant.str \"AssertionError: getting num_classes from tensor contents is not supported\"\n"
++"    %int-1 = torch.constant.int -1\n"
++"    %0 = torch.aten.ne.int %arg1, %int-1 : !torch.int, !torch.int -> !torch.bool\n"
++"    torch.prim.If %0 -> () {\n"
++"      torch.prim.If.yield\n"
++"    } else {\n"
++"      torch.prim.RaiseException %str, %none : !torch.str, !torch.none\n"
++"      torch.prim.If.yield\n"
++"    }\n"
++"    %1 = torch.prim.ListConstruct %arg1 : (!torch.int) -> !torch.list<int>\n"
++"    %2 = torch.aten.add.t %arg0, %1 : !torch.list<int>, !torch.list<int> -> !torch.list<int>\n"
++"    return %2 : !torch.list<int>\n"
++"  }\n"
+ "  func.func @\"__torch_mlir_shape_fn.aten.any.dim\"(%arg0: !torch.list<int>, %arg1: !torch.int, %arg2: !torch.bool) -> !torch.list<int> {\n"
+ "    %0 = call @__torch__._reduce_along_dim(%arg0, %arg1, %arg2) : (!torch.list<int>, !torch.int, !torch.bool) -> !torch.list<int>\n"
+ "    return %0 : !torch.list<int>\n"
+ 

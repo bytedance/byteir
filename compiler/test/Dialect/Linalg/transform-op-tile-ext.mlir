@@ -344,4 +344,57 @@ func.func @scatter(%src: tensor<2x3x32x64xf32>, %indices: tensor<100x2xi64>, %up
 // CHECK:       tensor.insert_slice
 // CHECK:     scf.yield
 // CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match ops{["linalg_ext.layer_norm"]} in %arg0
+  %1:2, %loop = transform.structured.tile_ext %0 [4, 8] 
+}
+
+func.func @layer_norm_3d(%arg0: tensor<8x32x128xf32>, %arg1: tensor<128xf32>, %arg2: tensor<128xf32>) -> (tensor<8x32x128xf32>) {
+  %0 = tensor.empty() : tensor<8x32x128xf32>
+  %1 = linalg_ext.layer_norm
+                    axis([2])
+                    epsilon(9.9999999747524271E-7)
+                    ins(%arg0, %arg1, %arg2: tensor<8x32x128xf32>, tensor<128xf32>, tensor<128xf32>)
+                    outs(%0: tensor<8x32x128xf32>) : tensor<8x32x128xf32>
+  return %1 : tensor<8x32x128xf32>
+}
+
+// CHECK-LABEL: func.func @layer_norm_3d
+// CHECK: scf.for
+// CHECK:   scf.for
+// CHECK:     tensor.extract_slice
+// CHECK:     tensor.extract_slice
+// CHECK:     linalg_ext.layer_norm
+// CHECK:     tensor.insert_slice
+// CHECK:     scf.yield
+// CHECK:   scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match ops{["linalg_ext.layer_norm"]} in %arg0
+  %1, %loop = transform.structured.tile_ext %0 [4] 
+}
+
+func.func @layer_norm_3d_axis_2d(%arg0: tensor<8x32x128xf32>, %arg1: tensor<32x128xf32>, %arg2: tensor<32x128xf32>) -> (tensor<8x32x128xf32>) {
+  %0 = tensor.empty() : tensor<8x32x128xf32>
+  %1 = linalg_ext.layer_norm
+                    axis([1, 2])
+                    epsilon(9.9999999747524271E-7)
+                    ins(%arg0, %arg1, %arg2: tensor<8x32x128xf32>, tensor<32x128xf32>, tensor<32x128xf32>)
+                    outs(%0: tensor<8x32x128xf32>) : tensor<8x32x128xf32>
+  return %1 : tensor<8x32x128xf32>
+}
+
+// CHECK-LABEL: func.func @layer_norm_3d_axis_2d
+// CHECK: scf.for
+// CHECK:   tensor.extract_slice
+// CHECK:   tensor.extract_slice
+// CHECK:   linalg_ext.layer_norm
+// CHECK:   tensor.insert_slice
 // CHECK: scf.yield

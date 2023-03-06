@@ -1,4 +1,4 @@
-//===- init_symbols.h -----------------------------------------*--- C++ -*-===//
+//===- Passes.h ----------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,14 +14,18 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-
 #pragma once
 
-namespace brt {
-namespace cpu {
-class LLVMJIT;
+#include "mlir-c/Support.h"
 
-void InitJITKernelRTSymbols(LLVMJIT *jit);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-} // namespace cpu
-} // namespace brt
+MLIR_CAPI_EXPORTED void torchFrontendRegisterAllPipelines();
+
+MLIR_CAPI_EXPORTED void torchFrontendRegisterConversionPasses();
+
+#ifdef __cplusplus
+}
+#endif

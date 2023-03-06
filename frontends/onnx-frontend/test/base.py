@@ -10,7 +10,6 @@ import numpy.typing as npt
 from mhlo_tools.ir_executor import Interpreter
 import numpy as np
 import onnx
-from onnxsim import simplify
 import onnxruntime as ort
 import pickle
 
@@ -34,27 +33,13 @@ class TestBase:
         self.data_dir = dir
         self.tmp_dir = str(tmpdir_factory.mktemp(dir.replace("/", "_")))
 
-    def convert_onnx_to_onnx_sim(self, onnx_path, onnx_sim_path, input_data):
-        input_shapes = {
-            k: list(v.shape) for k, v in input_data.items()
-        }
-
-        model_original = onnx.load(onnx_path)
-        model_sim, check = simplify(
-            model_original,
-            # check_n=1,
-            perform_optimization=True,
-            input_shapes=input_shapes)
-        # assert check, "Failed to simplify onnx model"
-
-        onnx.save(model_sim, onnx_sim_path)
-
-    def convert_onnx_sim_to_mhlo_ir(self, onnx_path, mhlo_ir_path):
+    def convert_onnx_to_mhlo_ir(self, onnx_path, mhlo_ir_path, batch_size):
         if not osp.exists(onnx_path):
             raise ValueError("onnx_path {} not exists".format(onnx_path))
 
         cmd_opts = [ONNX_FRONTEND_PATH]
         cmd_opts.append(onnx_path)
+        cmd_opts.append(f"-batch-size={batch_size}")
         cmd_opts.append(f"-custom-call-ops={','.join(CUSTOM_CALL_OPS)}")
         cmd_opts.append("-invokeOnnxVersionConverter")
         cmd_opts.append("-mlir-print-op-generic")
@@ -89,7 +74,8 @@ class TestBase:
             model_onnx_pb = None,
             input_data: Optional[Dict[str, npt.NDArray]] = None,
             input_filename: Optional[str] = None,
-            input_shape_dtype: Optional[List[List]] = None):
+            input_shape_dtype: Optional[List[List]] = None,
+            batch_size: int = 1):
         assert self.data_dir is not None, "self.data_dir not initialized in derived class"
         assert osp.isdir(self.data_dir), "self.data_dir (" + \
             self.data_dir + ") is not a directory"
@@ -116,20 +102,14 @@ class TestBase:
                 base_filename = model_filename[:-len(".onnx")]
 
                 onnx_path = osp.join(self.data_dir, model_filename)  # to read from data_dir
-                onnx_sim_path = osp.join(self.tmp_dir, base_filename + "_sim.onnx")
                 mhlo_ir_path = osp.join(self.tmp_dir, base_filename + ".mhlo.mlir")
 
-                if model_onnx_pb is None:
-                    self.convert_onnx_to_onnx_sim(onnx_path, onnx_sim_path, input_data)
-                else:
-                    # skip onnx-simplifier
+                if model_onnx_pb is not None:
                     onnx_path = osp.join(self.tmp_dir, model_filename)
-                    onnx_sim_path = osp.join(self.tmp_dir, base_filename + "_sim.onnx")
                     # save onnx pb to tmp_dir
                     onnx.save(model_onnx_pb, onnx_path)
-                    onnx.save(model_onnx_pb, onnx_sim_path)
 
-                self.convert_onnx_sim_to_mhlo_ir(onnx_sim_path, mhlo_ir_path)
+                self.convert_onnx_to_mhlo_ir(onnx_path, mhlo_ir_path, batch_size)
                 self.onnx_mhlo_test_helper(onnx_path, mhlo_ir_path, input_data)
             else:
                 raise ValueError(

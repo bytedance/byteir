@@ -1,9 +1,7 @@
 lit>=14.0.0
 numpy>=1.21.6
-onnx==1.12.0
-onnxruntime==1.11.1
-onnx-simplifier==0.3.10
-onnxoptimizer==0.2.7
-protobuf==3.20.1
+onnx==1.13.0
+onnxruntime==1.13.1
+# protobuf==3.20.1
 pytest>=7.1.2
 torch>=1.12.0

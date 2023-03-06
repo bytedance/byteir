@@ -30,7 +30,7 @@ using namespace brt::test;
 using namespace brt::cpu;
 using namespace std;
 
-static std::string test_file_llvmjit = "test/test_files/add.ll";
+static std::string test_file_llvmjit = "test/test_files/LLJIT/add.ll";
 
 namespace {
 extern "C" {
@@ -39,7 +39,7 @@ void print() { std::cout << "testtesttest." << std::endl; }
 } // namespace
 
 TEST(LLVMJITTest, ADD) {
-  auto llvmjit = LLVMJIT::Instance();
+  auto llvmjit = LLVMJIT::Create();
   ASSERT_TRUE(llvmjit->RegisterSymbol("print", reinterpret_cast<void *>(&print))
                   .IsOK());
   ASSERT_TRUE(llvmjit->LoadFromFile(test_file_llvmjit).IsOK());

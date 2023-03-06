@@ -68,10 +68,10 @@ index ec5a9f2b..abb33e72 100644
  void populateLoweringONNXShapeOpToMhloPattern(
 diff --git a/src/Conversion/ONNXToMhlo/Tensor/Pad.cpp b/src/Conversion/ONNXToMhlo/Tensor/Pad.cpp
 new file mode 100644
-index 00000000..a4646c76
+index 00000000..9b668832
 --- /dev/null
 +++ b/src/Conversion/ONNXToMhlo/Tensor/Pad.cpp
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,99 @@
 +/*
 + * SPDX-License-Identifier: Apache-2.0
 + */
@@ -87,6 +87,7 @@ index 00000000..a4646c76
 +//===----------------------------------------------------------------------===//
 +
 +#include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
++#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 +#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 +#include "src/Support/TypeUtilities.hpp"
 +
@@ -118,11 +119,15 @@ index 00000000..a4646c76
 +    int64_t rank = inputType.getRank();
 +
 +    Type outputType = *op->result_type_begin();
-+    if (!constantValue || constantValue.getType().isa<NoneType>()) {
++    if (!constantValue || isFromNone(constantValue)) {
 +      // Pad with zeros by default
 +      constantValue = rewriter.create<mhlo::ConstantOp>(
 +          loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
 +              rewriter.getZeroAttr(elemType)));
++    } else {
++      // constantValue might be 1D tensor, reshape it to scalar
++      constantValue = rewriter.create<mhlo::ReshapeOp>(
++        loc, RankedTensorType::get({}, elemType), constantValue);
 +    }
 +    SmallVector<int64_t> edgePaddingLowVec(rank, 0);
 +    SmallVector<int64_t> edgePaddingHighVec(rank, 0);

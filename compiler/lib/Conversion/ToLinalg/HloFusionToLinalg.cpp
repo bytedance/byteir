@@ -50,6 +50,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -657,6 +658,65 @@ public:
       return failure();
 
     rewriter.replaceOp(op, scatterOp->getResults());
+
+    return success();
+  }
+};
+
+class LayerNormCustomCallConverter
+    : public OpConversionPattern<mhlo::CustomCallOp> {
+public:
+  using OpConversionPattern<mhlo::CustomCallOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::CustomCallOp op, mhlo::CustomCallOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    if (op.getCallTargetName() != getLayerNormName())
+      return failure();
+
+    auto attr = op->getAttrOfType<DictionaryAttr>(getCustomCallAttrName());
+    auto axisAttr = attr.getAs<ArrayAttr>("axis");
+    assert(axisAttr && "LayerNorm custom call axis attribute not found.");
+
+    auto epsAttr = attr.getAs<FloatAttr>("epsilon");
+    assert(epsAttr && "LayerNorm custom call epsilon attribute not found.");
+
+    rewriter.setInsertionPoint(op);
+    auto resultType =
+        op->getResult(0).getType().dyn_cast_or_null<RankedTensorType>();
+    assert(resultType && "Dynamic shape not supported yet.");
+    assert(resultType.getElementType().isIntOrFloat());
+
+    auto loc = op->getLoc();
+    auto numResults = op->getNumResults();
+
+    auto output = rewriter.create<tensor::EmptyOp>(loc, resultType.getShape(),
+                                                   resultType.getElementType());
+    if (numResults > 1) {
+      auto meanType =
+          op->getResult(1).getType().dyn_cast_or_null<RankedTensorType>();
+      assert(meanType && "Dynamic shape not supported yet.");
+      auto rstdType =
+          op->getResult(2).getType().dyn_cast_or_null<RankedTensorType>();
+      assert(rstdType && "Dynamic shape not supported yet.");
+      auto mean = rewriter.create<tensor::EmptyOp>(loc, meanType.getShape(),
+                                                   resultType.getElementType());
+      auto rstd = rewriter.create<tensor::EmptyOp>(loc, rstdType.getShape(),
+                                                   resultType.getElementType());
+
+      auto layerNorm = rewriter.create<linalg_ext::LayerNormOp>(
+          loc,
+          TypeRange{output.getResult().getType(), mean.getResult().getType(),
+                    rstd.getResult().getType()},
+          op->getOperands(), ValueRange{output, mean, rstd}, axisAttr, epsAttr);
+      rewriter.replaceOp(op, layerNorm.getResult(0));
+    } else {
+      auto layerNorm = rewriter.create<linalg_ext::LayerNormOp>(
+          loc, TypeRange{output.getResult().getType()}, op->getOperands(),
+          ValueRange{output}, axisAttr, epsAttr);
+      rewriter.replaceOp(op, layerNorm.getResult(0));
+    }
+
     return success();
   }
 };
@@ -697,6 +757,9 @@ struct HloFusionToLinalgPass
 
     auto typeConverter = createHloToLinalgTypeConverter();
 
+    mhlo::populateScalarHloToArithmeticConversionPatterns(
+        &ctx, *typeConverter, &patterns,
+        [](Operation *op) { return isInBodyOfLinalgOps(op); });
     mhlo::populateHloToLinalgConversionPattern(&ctx, *typeConverter, &patterns,
                                                enablePrimitiveOps);
     patterns.add<ReduceWindowOpConversion>(*typeConverter, &ctx,
@@ -717,6 +780,7 @@ void mlir::populateHloToLinalgExtConversionPattern(
     MLIRContext *context, RewritePatternSet &patterns) {
   patterns.add<SoftmaxCustomCallConverter>(context);
   patterns.add<ScatterOpConversion>(context);
+  patterns.add<LayerNormCustomCallConverter>(context);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

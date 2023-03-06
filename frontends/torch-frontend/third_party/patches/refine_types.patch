@@ -1,0 +1,52 @@
+diff --git a/lib/Dialect/Torch/Transforms/RefineTypes.cpp b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
+index b86178fc..c2a56c80 100644
+--- a/lib/Dialect/Torch/Transforms/RefineTypes.cpp
++++ b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
+@@ -674,7 +674,8 @@ void TypeAnalysis::visitOperation(Operation *op,
+           AtenMaskedFillTensorOp, AtenRollOp, AtenPowTensorTensorOp,
+           AtenLiftFreshCopyOp, AtenIndexTensorHackedTwinOp,
+           AtenUpsampleNearest2dOp, AtenMishOp, AtenRoundOp, AtenFillTensorOp,
+-          AtenUpsampleNearest2dBackwardOp, AtenLeakyReluBackwardOp>(op)) {
++          AtenUpsampleNearest2dBackwardOp, AtenLeakyReluBackwardOp,
++          AtenOneHotOp>(op)) {
+     return incorporateKnowledge(op->getResult(0), operands[0]->getValue());
+   }
+ 
+@@ -861,9 +862,8 @@ void TypeAnalysis::visitOperation(Operation *op,
+   }
+ 
+   // 3 results take dtype from first operand.
+-  if (isa<AtenNativeLayerNormOp, AtenNativeBatchNormOp,
+-          AtenConvolutionBackwardOp, AtenConvolutionBackwardOverrideableOp>(
+-          op)) {
++  if (isa<AtenNativeBatchNormOp, AtenConvolutionBackwardOp,
++          AtenConvolutionBackwardOverrideableOp>(op)) {
+     auto self = operands[0]->getValue();
+     auto result0Knowledge =
+         ValueKnowledge::getTensorPessimisticValueState(op->getContext());
+@@ -880,6 +880,25 @@ void TypeAnalysis::visitOperation(Operation *op,
+     return;
+   }
+ 
++  if (isa<AtenNativeLayerNormOp>(op)) {
++    auto self = operands[0]->getValue();
++    auto result0Knowledge =
++        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
++    result0Knowledge.dtype = self.dtype;
++    auto result1Knowledge =
++        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
++    // mean is fp32
++    result1Knowledge.dtype = Float32Type::get(op->getContext());
++    auto result2Knowledge =
++        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
++    // rstd is fp32
++    result2Knowledge.dtype = Float32Type::get(op->getContext());
++    incorporateKnowledge(op->getResult(0), result0Knowledge);
++    incorporateKnowledge(op->getResult(1), result1Knowledge);
++    incorporateKnowledge(op->getResult(2), result1Knowledge);
++    return;
++  }
++
+   if (isa<AtenMaxPool2dWithIndicesOp>(op)) {
+     auto self = operands[0]->getValue();
+     auto result0Knowledge =

@@ -1,4 +1,4 @@
-//===- op_helper.h --------------------------------------------*--- C++ -*-===//
+//===- ConvertTorchToStablehloExt.h ---------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,27 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOSTABLEHLOEXT_H
+#define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOSTABLEHLOEXT_H
 
-#include "byteir/Dialect/Byre/ByreDialect.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
-namespace brt {
+namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-bool IsLocalAlias(mlir::Operation *op);
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToStablehloExt();
 
-bool IsArgAlias(mlir::Operation *op);
+} // namespace mlir
 
-bool IsAliasOp(mlir::Operation *op);
-
-size_t GetAliasOffsetInByte(mlir::Operation *op);
-
-bool IsAllocOp(mlir::Operation *op);
-
-// return whether op is dynamic allocation, corresponding dynamic sizes will be
-// set if true
-bool IsDynamicAllocOp(mlir::Operation *op,
-                      std::vector<mlir::Value> &dynamicSizes);
-
-bool IsShapeComputeOp(mlir::Operation *op);
-
-} // namespace brt
+#endif // TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOSTABLEHLOEXT_H

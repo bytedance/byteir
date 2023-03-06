@@ -33,7 +33,7 @@ using namespace brt::test;
 
 static std::string test_file_add_2 = "test/test_files/add2_cpu.mlir";
 static std::string test_file_add_2_dynamic =
-    "test/test_files/add2_cpu_dynamic.mlir";
+    "test/test_files/DynamicShapes/Add2/entry.mlir";
 
 static void CheckCPUResult(void *h_ptr, size_t size, char val) {
   char *h_char_ptr = (char *)h_ptr;
