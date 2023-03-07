@@ -1,0 +1,57 @@
+diff --git a/lib/Dialect/Torch/IR/TorchOps.cpp b/lib/Dialect/Torch/IR/TorchOps.cpp
+index a0136d5f..d0c82a23 100644
+--- a/lib/Dialect/Torch/IR/TorchOps.cpp
++++ b/lib/Dialect/Torch/IR/TorchOps.cpp
+@@ -877,6 +877,9 @@ LogicalResult rewrite0DBinaryTensorOp(Operation *op,
+     return rewriter.notifyMatchFailure(
+         op, "only int scalar lhs or rhs is supported");
+   }
++  if (isa<AtenRsubScalarOp>(op)) {
++    std::swap(lhs, rhs);
++  }
+   if (isa<AtenSubTensorOp, AtenSubScalarOp, AtenAddTensorOp, AtenAddScalarOp>(
+           op)) {
+     Value alpha = getScalarValue(op->getOperand(2), loc, rewriter);
+@@ -935,7 +938,7 @@ LogicalResult rewrite0DBinaryTensorOp(Operation *op,
+   // Other Add/Sub/Mul ops
+   if (isa<AtenAddTensorOp, AtenAddScalarOp>(op)) {
+     result = rewriter.create<AtenAddIntOp>(loc, lhs, rhs);
+-  } else if (isa<AtenSubScalarOp, AtenSubTensorOp>(op)) {
++  } else if (isa<AtenSubScalarOp, AtenSubTensorOp, AtenRsubScalarOp>(op)) {
+     result = rewriter.create<AtenSubIntOp>(loc, lhs, rhs);
+   } else if (isa<AtenMulScalarOp, AtenMulTensorOp>(op)) {
+     result = rewriter.create<AtenMulIntOp>(loc, lhs, rhs);
+@@ -1015,6 +1018,33 @@ void AtenDivTensorModeOp::getCanonicalizationPatterns(
+ }
+ 
+ //===----------------------------------------------------------------------===//
++// AtenRSubScalarOp
++//===----------------------------------------------------------------------===//
++void AtenRsubScalarOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
++                                                   MLIRContext *context) {
++  patterns.add(+[](AtenRsubScalarOp op, PatternRewriter &rewriter) {
++    return rewrite0DBinaryTensorOp(op, rewriter);
++  });
++}
++
++//===----------------------------------------------------------------------===//
++// AtenScalarImplicitOp
++//===----------------------------------------------------------------------===//
++void AtenScalarImplicitOp::getCanonicalizationPatterns(
++    RewritePatternSet &patterns, MLIRContext *context) {
++  patterns.add(+[](AtenScalarImplicitOp op, PatternRewriter &rewriter) {
++    Location loc = op.getLoc();
++    Value a = op.getA();
++    auto outType = op.getResult().getType();
++    Value scalarValue = getScalarValue(a, loc, rewriter);
++    if (!scalarValue)
++      return failure();
++    rewriter.replaceOpWithNewOp<Torch::DerefineOp>(op, outType, scalarValue);
++    return success();
++  });
++}
++
++//===----------------------------------------------------------------------===//
+ // AtenSizeOp
+ //===----------------------------------------------------------------------===//
+ 

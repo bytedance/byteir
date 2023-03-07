@@ -18,6 +18,7 @@
 #pragma once
 
 #include "brt/core/common/common.h"
+#include "brt/core/context/execution_context.h"
 #include <memory>
 #include <ostream>
 #include <string>
@@ -32,7 +33,7 @@ public:
   LLVMJIT();
   ~LLVMJIT();
 
-  static LLVMJIT *Instance();
+  static std::unique_ptr<LLVMJIT> Create();
 
   common::Status LoadFromFile(const std::string &path);
 
@@ -55,5 +56,13 @@ private:
   std::unique_ptr<LLVMJITImpl> impl;
 };
 
+// get LLJIT attached on given execution context
+LLVMJIT *GetLLJIT(const brt::ExecutionContext &ctx);
+
+// create a LLJIT instance and attach it to \p ctx
+common::Status CreateLLJIT(const brt::ExecutionContext &ctx);
+
+// delete LLJIT attached on given execution context
+common::Status DeleteLLJIT(const brt::ExecutionContext &ctx);
 } // namespace cpu
 } // namespace brt

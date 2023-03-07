@@ -56,19 +56,17 @@ inline void unpack_call(void *fptr, void **args, size_t argn) {
     BRT_THROW("too many arguments in llvm jit op");
   }
 }
+
+std::string parent_path(std::string path) {
+  if (path[0] != '/')
+    path = "./" + path;
+  size_t pos = path.rfind('/');
+  return path.substr(0, pos + 1);
+}
 } // namespace
 
-ShapeCompute::ShapeCompute(const OpKernelInfo &info) : OpKernel(info) {
-  OpAccessor accessor(info);
-  auto jit = LLVMJIT::Instance();
-  auto file_name = accessor.GetAttrAsString("llvm_file_name");
-  auto kernel_name = accessor.GetAttrAsString("shape_fn");
-  auto symbol_name = "_mlir_ciface_" + kernel_name;
-  if (!jit->Lookup(symbol_name, &symbol).IsOK()) { // symbol not found
-    BRT_ENFORCE(jit->LoadFromFile(file_name).IsOK());
-    BRT_ENFORCE(jit->Lookup(symbol_name, &symbol).IsOK());
-  }
-}
+ShapeCompute::ShapeCompute(const OpKernelInfo &info)
+    : OpKernel(info, false, false, true, true) {}
 
 ShapeCompute::~ShapeCompute() = default;
 
@@ -94,6 +92,27 @@ common::Status ShapeCompute::RunImpl(const ExecutionContext &ctx) {
       return status;
   }
   return Status::OK();
+}
+common::Status ShapeCompute::ProloguePerFrame(const ExecutionContext &ctx) {
+  auto status = CreateLLJIT(ctx);
+  if (!status.IsOK())
+    return status;
+
+  OpAccessor accessor(info_, ctx.exec_frame);
+  std::string file_path = parent_path(info_.GetIRPath());
+  file_path += accessor.GetAttrAsString("llvm_file_name");
+  auto kernel_name = accessor.GetAttrAsString("shape_fn");
+  auto symbol_name = "_mlir_ciface_" + kernel_name;
+  auto jit = GetLLJIT(ctx);
+  if (!jit->Lookup(symbol_name, &symbol).IsOK()) { // symbol not found
+    BRT_ENFORCE(jit->LoadFromFile(file_path).IsOK());
+    BRT_ENFORCE(jit->Lookup(symbol_name, &symbol).IsOK());
+  }
+  return Status::OK();
+}
+
+common::Status ShapeCompute::EpiloguePerFrame(const ExecutionContext &ctx) {
+  return DeleteLLJIT(ctx);
 }
 
 } // namespace cpu

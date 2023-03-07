@@ -249,3 +249,16 @@ func.func @batch_matmul_3d_memref(%ta3: memref<8x32x128xf32>, %tb3: memref<8x128
   return %tc3 : memref<8x32x64xf32>
 }
 //CHECK-LABEL: func.func @batch_matmul_3d_memref
+
+func.func @layer_norm_3d_tensor(%arg0: tensor<8x32x128xf32>, %arg1: tensor<128xf32>, %arg2: tensor<128xf32>, %arg3: tensor<8x32x128xf32>) -> tensor<8x32x128xf32> {
+  %res = linalg_ext.layer_norm axis([2]) epsilon(9.9999999747524271E-7) ins(%arg0, %arg1, %arg2 : tensor<8x32x128xf32>, tensor<128xf32>, tensor<128xf32>) outs(%arg3 : tensor<8x32x128xf32>) : tensor<8x32x128xf32>
+  return %res : tensor<8x32x128xf32>
+}
+//CHECK-LABEL: func.func @layer_norm_3d_tensor
+
+func.func @layer_norm_3d_memref(%arg0: memref<8x32x128xf32>, %arg1: memref<128xf32>, %arg2: memref<128xf32>) -> memref<8x32x128xf32> {
+  %0 = memref.alloc() : memref<8x32x128xf32>
+  linalg_ext.layer_norm axis([2]) epsilon(9.9999999747524271E-7) ins(%arg0, %arg1, %arg2 : memref<8x32x128xf32>, memref<128xf32>, memref<128xf32>) outs(%0 : memref<8x32x128xf32>)
+  return %0 : memref<8x32x128xf32>
+}
+//CHECK-LABEL: func.func @layer_norm_3d_memref

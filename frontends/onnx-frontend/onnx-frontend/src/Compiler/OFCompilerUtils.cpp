@@ -72,9 +72,16 @@ void SetBatchSize(onnx::ModelProto &model) {
                               << dim->dim_value() << "\n");
     }
   }
-  // Do shape inference on onnx pb
-  onnx::shape_inference::InferShapes(model);
+  // onnx::shape_inference::InferShapes(model);  // shape inference on pb
 }
+
+namespace {
+std::string dirName(llvm::StringRef inputFilename) {
+  llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
+  llvm::sys::path::remove_filename(path);
+  return std::string(path.data(), path.size());
+}
+} // namespace
 
 // Return 0 on success, error number on failure.
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
@@ -96,6 +103,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
   options.useOnnxModelTypes = onnx_mlir::useOnnxModelTypes;
   options.invokeOnnxVersionConverter = onnx_mlir::invokeOnnxVersionConverter;
   options.shapeInformation = onnx_mlir::shapeInformation;
+  options.externalDataDir = dirName(inputFilename);
 
   onnx::ModelProto model;
   std::fstream input(inputFilename, std::ios::in | std::ios::binary);

@@ -168,3 +168,39 @@ class TestOpsTensor(TestBase):
         )
         input_shape_dtype = [input_shape_dtype[0]]
         self.run(model_filename="resize_linear_align_corners.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_constant_of_shape_1(self):
+        input_shape_dtype = [
+            ["shape", None, None],
+        ]
+        output_shape_dtype = [
+            ["output", (1, 3, 5, 5), "float32"],
+        ]
+        shape_tensor = onnx.helper.make_tensor(
+            "shape", onnx.TensorProto.INT64, [4], np.array([1, 3, 5, 5]))
+        proto = build_onnx(
+            "ConstantOfShape", input_shape_dtype, output_shape_dtype,
+            initializer=[shape_tensor],
+        )
+        input_shape_dtype = []
+        self.run(model_filename="constant_of_shape_1.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_constant_of_shape_2(self):
+        input_shape_dtype = [
+            ["shape", None, None],
+        ]
+        output_shape_dtype = [
+            ["output", (1, 3, 5, 5), "int32"],
+        ]
+        shape_tensor = onnx.helper.make_tensor(
+            "shape", onnx.TensorProto.INT64, [4], np.array([1, 3, 5, 5]))
+        value_tensor = onnx.helper.make_tensor(
+            "value", onnx.TensorProto.INT32, [1], [10]
+        )
+        proto = build_onnx(
+            "ConstantOfShape", input_shape_dtype, output_shape_dtype,
+            initializer=[shape_tensor],
+            value=value_tensor
+        )
+        input_shape_dtype = []
+        self.run(model_filename="constant_of_shape_2.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)

@@ -15,16 +15,18 @@ class TestLargeModel(TestBase):
         input_shape_dtype = [
             ["image", (1, 1, 28, 28), "float32"],
         ]
-        self.run(model_filename="mnist_sim.onnx", input_shape_dtype=input_shape_dtype)
+        # bs=1 in mnist.onnx
+        self.run(model_filename="mnist.onnx", input_shape_dtype=input_shape_dtype)
 
     def test_resnet(self):
         input_shape_dtype = [
             ["data", (8, 3, 224, 224), "float32"],
         ]
-        self.run(model_filename="resnet50-v1-7_sim.onnx", input_shape_dtype=input_shape_dtype)
+        # bs=8 in resnet50-v1-7.onnx
+        self.run(model_filename="resnet50-v1-7.onnx", input_shape_dtype=input_shape_dtype)
 
     def test_transformer(self):
         input_shape_dtype = [
-            ["fbank", (16, 128, 80), "float32"],
+            ["fbank", (2, 128, 80), "float32"],
         ]
-        self.run(model_filename="transformer_encoder_sim.onnx", input_shape_dtype=input_shape_dtype)
+        self.run(model_filename="transformer_encoder_-1x128x80.onnx", input_shape_dtype=input_shape_dtype, batch_size=2)

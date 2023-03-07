@@ -17,7 +17,6 @@
 
 #include "./jit.h"
 
-#include "./init_symbols.h"
 #include "brt/backends/cpu/device/llvm/jit.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/engine_util.h"
@@ -71,34 +70,8 @@ inline std::string gen_uniq_llvm_module_identifier() {
 }
 } // namespace
 
-LLVMJITOpKernel::LLVMJITOpKernel(const OpKernelInfo &info) : OpKernel(info) {
-  OpAccessor accessor(info);
-  auto jit = LLVMJIT::Instance();
-  InitJITKernelRTSymbols(jit);
-  std::string file_path = parent_path(info.GetIRPath());
-  file_path += accessor.GetAttrAsString("llvm_file_name");
-  auto kernel_name = accessor.GetAttrAsString("kernel_name");
-  auto symbol_name = "_mlir_ciface_" + kernel_name;
-  auto lookup_symbol_fn = [&] {
-    if (accessor.GetNumArgs() < 8) {
-      return jit->Lookup(symbol_name, &symbol);
-    } else {
-      return jit->LookupPacked(symbol_name, &symbol);
-    }
-  };
-  if (!lookup_symbol_fn().IsOK()) { // symbol not found
-    BRT_ENFORCE(jit->LoadFromFile(file_path).IsOK());
-    BRT_ENFORCE(lookup_symbol_fn().IsOK());
-#if BRT_LLJIT_DEBUG
-    // enable this to print optimized llvm module and dump compiled object to
-    // the disk
-    std::ofstream optimized(file_path + ".opt");
-    jit->PrintOptimizedModule(file_path, optimized);
-    std::ofstream obj(file_path + ".o");
-    jit->DumpObject(file_path, obj);
-#endif
-  }
-}
+LLVMJITOpKernel::LLVMJITOpKernel(const OpKernelInfo &info)
+    : OpKernel(info, false, false, true, true) {}
 
 LLVMJITOpKernel::~LLVMJITOpKernel() = default;
 
@@ -118,5 +91,41 @@ common::Status LLVMJITOpKernel::RunImpl(const ExecutionContext &ctx) {
   return common::Status::OK();
 }
 
+common::Status LLVMJITOpKernel::ProloguePerFrame(const ExecutionContext &ctx) {
+  auto status = CreateLLJIT(ctx);
+  if (!status.IsOK())
+    return status;
+
+  OpAccessor accessor(info_, ctx.exec_frame);
+  std::string file_path = parent_path(info_.GetIRPath());
+  file_path += accessor.GetAttrAsString("llvm_file_name");
+  auto kernel_name = accessor.GetAttrAsString("kernel_name");
+  auto symbol_name = "_mlir_ciface_" + kernel_name;
+  auto jit = GetLLJIT(ctx);
+  auto lookup_symbol_fn = [&] {
+    if (accessor.GetNumArgs() < 8) {
+      return jit->Lookup(symbol_name, &symbol);
+    } else {
+      return jit->LookupPacked(symbol_name, &symbol);
+    }
+  };
+  if (!lookup_symbol_fn().IsOK()) { // symbol not found
+    BRT_ENFORCE(jit->LoadFromFile(file_path).IsOK());
+    BRT_ENFORCE(lookup_symbol_fn().IsOK());
+#if BRT_LLJIT_DEBUG
+    // enable this to print optimized llvm module and dump compiled object to
+    // the disk
+    std::ofstream optimized(file_path + ".opt");
+    jit->PrintOptimizedModule(file_path, optimized);
+    std::ofstream obj(file_path + ".o");
+    jit->DumpObject(file_path, obj);
+#endif
+  }
+  return Status::OK();
+}
+
+common::Status LLVMJITOpKernel::EpiloguePerFrame(const ExecutionContext &ctx) {
+  return DeleteLLJIT(ctx);
+}
 } // namespace cpu
 } // namespace brt

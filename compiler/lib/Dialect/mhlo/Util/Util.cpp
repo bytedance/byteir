@@ -130,7 +130,9 @@ parsePoolLayout(size_t rank, const SmallVector<int64_t> &window_dimensions,
   } else if (window_dimensions[0] == 1 && window_dimensions[1] == 1 &&
              strides[0] == 1 && strides[1] == 1 && padding[0] == 0 &&
              padding[1] == 0 && padding[2] == 0 && padding[3] == 0) {
-    if (rank == 4) {
+    if (rank == 3) {
+      layout = byteir::NamedLayout::NCW;
+    } else if (rank == 4) {
       layout = byteir::NamedLayout::NCHW;
     } else if (rank == 5) {
       layout = byteir::NamedLayout::NCDHW;
@@ -166,8 +168,8 @@ byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
                                    padding_.getValues<int64_t>().end());
   }
 
-  if (rank != 4 && rank != 5) {
-    assert(false && "expected dimension number to be 4 or 5");
+  if (rank != 3 && rank != 4 && rank != 5) {
+    assert(false && "expected dimension number to be 3, 4 or 5");
   }
   return parsePoolLayout(rank, window_dimensions, strides, padding);
 }

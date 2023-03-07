@@ -38,6 +38,7 @@ func.func @fusion_broadcast_notag(%arg0: tensor<6x12x96xf32>, %arg1: tensor<6x12
 // NOTAG-LABEL: bad_case_0
 func.func @bad_case_0(%arg0: tensor<1x1xi64>) -> tensor<1x1xi32> {
   // NOTAG: linalg.generic
+  // NOTAG-NOT: mhlo.add
   %0 = mhlo.constant dense<0> : tensor<i32>
   %1 = mhlo.constant dense<0> : tensor<1x12xi32>
   %2 = mhlo.constant dense<[[1, 10001, 20001, 16001, 80004, 52, 20052, 10061, 80053, 80054, 9, 20010]]> : tensor<1x12xi32>
@@ -120,3 +121,10 @@ func.func @linalg_ext_scatter_with_trailing_one(%arg0: tensor<51200xi32>, %arg1:
 //     NOTAG: arith.addi
 //     NOTAG: linalg_ext.yield
 //   NOTAG: return %[[SCATTER]]
+
+func.func @linalg_ext_layer_norm(%arg0: tensor<8x32x128xf32>, %arg1: tensor<128xf32>, %arg2: tensor<128xf32>) -> (tensor<8x32x128xf32>) {
+  %0 = "mhlo.custom_call"(%arg0, %arg1, %arg2) {api_version = 1 : i32, backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}, call_target_name = "byteir.layer_norm", called_computations = [], has_side_effect = false} : (tensor<8x32x128xf32>, tensor<128xf32>, tensor<128xf32>) -> tensor<8x32x128xf32>
+  return %0 : tensor<8x32x128xf32>
+}
+// CHECK-LABEL: func.func @linalg_ext_layer_norm
+// CHECK: linalg_ext.layer_norm

@@ -23,6 +23,4 @@ bool EndsWith(const std::string &x, const std::string &y) {
   return x.size() > y.size() && x.substr(x.size() - y.size(), y.size()) == y;
 }
 
-bool CloseTo(float x, float y, float eps) { return fabs(x - y) < eps; }
-
 } // namespace onnx_frontend
