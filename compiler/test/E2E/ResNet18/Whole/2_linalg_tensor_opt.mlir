@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -linalg-tensor-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @main
+
 module @IrToMhlo.2452 {
   func.func private @Unknown0(%arg0: tensor<4x3x224x224xf32>) -> tensor<4x3x224x224xf16> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 : (tensor<4x3x224x224xf32>) -> tensor<4x3x224x224xf16>
@@ -1166,4 +1167,3 @@ module @IrToMhlo.2452 {
     return %175, %176, %172#1, %172#2, %177, %166#1, %166#2, %178, %162#1, %162#2, %179, %158#1, %158#2, %180, %154#1, %154#2, %181, %147#1, %147#2, %182, %143#1, %143#2, %183, %150#1, %150#2, %184, %139#1, %139#2, %185, %135#1, %135#2, %186, %128#1, %128#2, %187, %124#1, %124#2, %188, %131#1, %131#2, %189, %120#1, %120#2, %190, %116#1, %116#2, %191, %109#1, %109#2, %192, %105#1, %105#2, %193, %112#1, %112#2, %194, %101#1, %101#2, %195, %97#1, %97#2, %197, %198 : tensor<f32>, tensor<64x3x7x7xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<128x64x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x128x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x64x1x1xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x128x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x128x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<256x128x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x256x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x128x1x1xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x256x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x256x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<512x256x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x512x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x256x1x1xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x512x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x512x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<1000x512xf32>, tensor<1000xf32>
   }
 }
-

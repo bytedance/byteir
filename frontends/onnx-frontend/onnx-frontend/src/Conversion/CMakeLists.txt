@@ -7,6 +7,7 @@ mlir_tablegen(OFRewriteToCustomCall.inc -gen-rewriters "-I${ONNX_FRONTEND_SRC_RO
 add_public_tablegen_target(OFRewriteToCustomCallIncGen)
 
 add_onnx_frontend_library(OFConversion
+  OFCanonicalizer.cpp
   OFModifyEntryPoint.cpp
   OFRewriteToCustomCall.cpp
 

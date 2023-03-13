@@ -75,7 +75,10 @@ def CanonicalizeExt : Pass<"canonicalize-ext"> {
            "Seed the worklist in general top-down order">,
     Option<"maxIterations", "max-iterations", "int64_t",
            /*default=*/"10",
-           "Seed the worklist in general top-down order">
+           "Seed the worklist in general top-down order">,
+    Option<"blindFold", "blind-fold", "bool",
+           /*default=*/"false",
+           "Fold constants even if it may finally bloat the compilation result">
   ] # RewritePassUtils.options;
 }
 

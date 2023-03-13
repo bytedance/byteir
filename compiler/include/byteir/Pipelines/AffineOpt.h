@@ -23,11 +23,20 @@
 
 namespace mlir {
 
-void createAffineOptPipeline(OpPassManager &pm);
+struct AffineOptPipelineOptions
+    : public PassPipelineOptions<AffineOptPipelineOptions> {
+  Option<std::string> target{
+      *this, "target",
+      llvm::cl::desc("An optional attribute to speicify target."),
+      llvm::cl::init("")};
+};
+
+void createAffineOptPipeline(OpPassManager &pm,
+                             const AffineOptPipelineOptions &options);
 
 inline void registerAffineOptPipeline() {
-  PassPipelineRegistration<>("affine-opt", "Affine Opt Pipeline",
-                             createAffineOptPipeline);
+  PassPipelineRegistration<AffineOptPipelineOptions>(
+      "affine-opt", "Affine Opt Pipeline", createAffineOptPipeline);
 }
 
 } // namespace mlir

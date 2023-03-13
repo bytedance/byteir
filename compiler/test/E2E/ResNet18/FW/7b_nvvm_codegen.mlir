@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -nvvm-codegen | FileCheck %s
 
 // CHECK-LABEL: gpu.module @unified
+
 module attributes {byre.container_module, gpu.container_module} {
   gpu.module @unified {
     gpu.func @Unknown100(%arg0: memref<512xf32>, %arg1: memref<512xf32>, %arg2: memref<512xf32>) kernel {
@@ -2924,4 +2925,3 @@ module attributes {byre.container_module, gpu.container_module} {
     return
   }
 }
-

@@ -133,12 +133,13 @@ namespace {
 
 struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
   CanonicalizeExtPass() = default;
-  CanonicalizeExtPass(const GreedyRewriteConfig &config,
+  CanonicalizeExtPass(const GreedyRewriteConfig &config, bool blindFold,
                       ArrayRef<std::string> disabledPatterns,
                       ArrayRef<std::string> enabledPatterns) {
     this->topDownProcessingEnabled = config.useTopDownTraversal;
     this->enableRegionSimplification = config.enableRegionSimplification;
     this->maxIterations = config.maxIterations;
+    this->blindFold = blindFold;
     this->disabledPatterns = disabledPatterns;
     this->enabledPatterns = enabledPatterns;
   }
@@ -151,7 +152,7 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(owningPatterns, context);
 
-    mhlo::getCanonicalizationExtPatterns(owningPatterns, context);
+    mhlo::getCanonicalizationExtPatterns(owningPatterns, context, blindFold);
     // put conditional canonicalizer too
     populateCondCanonicalizePatterns(owningPatterns);
     // put func canonicalizerExt too
@@ -209,8 +210,9 @@ std::unique_ptr<Pass> mlir::createCanonicalizeExtPass() {
 
 std::unique_ptr<Pass>
 mlir::createCanonicalizeExtPass(const GreedyRewriteConfig &config,
+                                bool blindFold,
                                 ArrayRef<std::string> disabledPatterns,
                                 ArrayRef<std::string> enabledPatterns) {
-  return std::make_unique<CanonicalizeExtPass>(config, disabledPatterns,
-                                               enabledPatterns);
+  return std::make_unique<CanonicalizeExtPass>(
+      config, blindFold, disabledPatterns, enabledPatterns);
 }

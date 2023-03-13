@@ -1,6 +1,7 @@
-// RUN: byteir-translate %s -gen-ptx -dump-ptx | FileCheck %s
+// RUN: byteir-translate %s -gen-ptx -o-ptx device_output -dump-ptx | FileCheck %s
 
 // CHECK-LABEL: .visible .entry Unknown
+
 module attributes {byre.container_module, gpu.container_module} {
   gpu.module @unified {
     llvm.func @Unknown98(%arg0: !llvm.ptr<f16>, %arg1: !llvm.ptr<f16>, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64, %arg7: i64, %arg8: i64, %arg9: i64, %arg10: i64, %arg11: !llvm.ptr<f32>, %arg12: !llvm.ptr<f32>, %arg13: i64, %arg14: i64, %arg15: i64, %arg16: i64, %arg17: i64, %arg18: i64, %arg19: i64, %arg20: i64, %arg21: i64) attributes {gpu.kernel, nvvm.kernel} {
@@ -3387,4 +3388,3 @@ module attributes {byre.container_module, gpu.container_module} {
     }
   }
 }
-

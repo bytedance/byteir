@@ -29,7 +29,7 @@ void addCustomizedONNXToMhloPasses(
   // Statically add passes for shape inference
   for (int i = 0; i < onnx_frontend::ofRepeatStatic; i++) {
     pm.addPass(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_frontend::createOFCanonicalizerPass());
     pm.addPass(onnx_mlir::createShapeInferencePass());
     pm.addNestedPass<mlir::func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
@@ -43,7 +43,7 @@ void addCustomizedONNXToMhloPasses(
   pm.addNestedPass<mlir::func::FuncOp>(
       onnx_mlir::createDecomposeONNXToONNXPass("mhlo"));
   pm.addPass(onnx_mlir::createShapeInferencePass());
-  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(onnx_frontend::createOFCanonicalizerPass());
   pm.addPass(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
@@ -57,7 +57,7 @@ void addCustomizedONNXToMhloPasses(
   } else {
     // Statically add extra passes
     for (int i = 0; i < onnx_frontend::ofRepeatStatic; i++) {
-      pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(onnx_frontend::createOFCanonicalizerPass());
       pm.addPass(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<mlir::func::FuncOp>(
           onnx_mlir::createConstPropONNXToONNXPass());
@@ -69,7 +69,7 @@ void addCustomizedONNXToMhloPasses(
 
   pm.addPass(onnx_frontend::createOFModifyEntryPointPass());
   pm.addPass(onnx_mlir::createLowerToMhloPass());
-  pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(onnx_frontend::createOFCanonicalizerPass());
   mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 }

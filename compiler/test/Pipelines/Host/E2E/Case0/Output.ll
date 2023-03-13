@@ -11,54 +11,48 @@ define void @Unknown1(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6, i6
   br label %37
 
 37:                                               ; preds = %40, %36
-  %38 = phi i64 [ %57, %40 ], [ 0, %36 ]
+  %38 = phi i64 [ %54, %40 ], [ 0, %36 ]
   %39 = icmp slt i64 %38, 128
-  br i1 %39, label %40, label %58
+  br i1 %39, label %40, label %55
 
 40:                                               ; preds = %37
-  %41 = icmp slt i64 %38, 0
-  %42 = add i64 %38, 128
-  %43 = select i1 %41, i64 %42, i64 %38
-  %44 = add i64 0, %43
-  %45 = getelementptr i32, ptr @__constant_1x128xi32, i64 %44
-  %46 = load i32, ptr %45, align 4
-  %47 = load i64, ptr %11, align 4
-  %48 = load i64, ptr %1, align 4
-  %49 = load i64, ptr %6, align 4
-  %50 = add i64 %48, %49
-  %51 = add i64 %47, %50
-  %52 = trunc i64 %51 to i32
-  %53 = icmp slt i32 %46, %52
-  %54 = zext i1 %53 to i32
-  %55 = add i64 0, %43
-  %56 = getelementptr i32, ptr %23, i64 %55
-  store i32 %54, ptr %56, align 4
-  %57 = add i64 %38, 1
+  %41 = add i64 0, %38
+  %42 = getelementptr i32, ptr @__constant_1x128xi32, i64 %41
+  %43 = load i32, ptr %42, align 4
+  %44 = load i64, ptr %11, align 4
+  %45 = load i64, ptr %1, align 4
+  %46 = load i64, ptr %6, align 4
+  %47 = add i64 %45, %46
+  %48 = add i64 %44, %47
+  %49 = trunc i64 %48 to i32
+  %50 = icmp slt i32 %43, %49
+  %51 = zext i1 %50 to i32
+  %52 = add i64 0, %38
+  %53 = getelementptr i32, ptr %23, i64 %52
+  store i32 %51, ptr %53, align 4
+  %54 = add i64 %38, 1
   br label %37
 
-58:                                               ; preds = %61, %37
-  %59 = phi i64 [ %74, %61 ], [ 0, %37 ]
-  %60 = icmp slt i64 %59, 128
-  br i1 %60, label %61, label %75
+55:                                               ; preds = %37
+  br label %56
 
-61:                                               ; preds = %58
-  %62 = icmp slt i64 %59, 0
-  %63 = add i64 %59, 128
-  %64 = select i1 %62, i64 %63, i64 %59
-  %65 = add i64 0, %64
-  %66 = getelementptr i32, ptr %23, i64 %65
-  %67 = load i32, ptr %66, align 4
-  %68 = add i64 0, %64
-  %69 = getelementptr i32, ptr %16, i64 %68
-  %70 = load i32, ptr %69, align 4
-  %71 = mul i32 %67, %70
-  %72 = add i64 0, %64
-  %73 = getelementptr i32, ptr %30, i64 %72
-  store i32 %71, ptr %73, align 4
-  %74 = add i64 %59, 1
-  br label %58
+56:                                               ; preds = %59, %55
+  %57 = phi i64 [ %66, %59 ], [ 0, %55 ]
+  %58 = icmp slt i64 %57, 128
+  br i1 %58, label %59, label %67
 
-75:                                               ; preds = %58
+59:                                               ; preds = %56
+  %60 = getelementptr i32, ptr %23, i64 %57
+  %61 = load i32, ptr %60, align 4
+  %62 = getelementptr i32, ptr %16, i64 %57
+  %63 = load i32, ptr %62, align 4
+  %64 = mul i32 %61, %63
+  %65 = getelementptr i32, ptr %30, i64 %57
+  store i32 %64, ptr %65, align 4
+  %66 = add i64 %57, 1
+  br label %56
+
+67:                                               ; preds = %56
   ret void
 }
 

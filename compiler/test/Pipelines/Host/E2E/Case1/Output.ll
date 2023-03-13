@@ -14,168 +14,114 @@ define void @Unknown6(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i6
   br label %20
 
 20:                                               ; preds = %23, %18
-  %21 = phi i64 [ %52, %23 ], [ 0, %18 ]
+  %21 = phi i64 [ %28, %23 ], [ 0, %18 ]
   %22 = icmp slt i64 %21, 388800
-  br i1 %22, label %23, label %53
+  br i1 %22, label %23, label %29
 
 23:                                               ; preds = %20
-  %24 = srem i64 %21, 3
-  %25 = sdiv i64 %21, 3
-  %26 = srem i64 %25, 48
-  %27 = sdiv i64 %25, 48
-  %28 = srem i64 %27, 27
-  %29 = sdiv i64 %27, 27
-  %30 = srem i64 %29, 100
-  %31 = sdiv i64 %29, 100
-  %32 = mul i64 %31, 388800
-  %33 = mul i64 %30, 3888
-  %34 = add i64 %32, %33
-  %35 = mul i64 %28, 144
-  %36 = add i64 %34, %35
-  %37 = mul i64 %26, 3
-  %38 = add i64 %36, %37
-  %39 = add i64 %38, %24
-  %40 = getelementptr float, ptr %1, i64 %39
-  %41 = load float, ptr %40, align 4
-  %42 = fptosi float %41 to i32
-  %43 = mul i64 %31, 388800
-  %44 = mul i64 %30, 3888
-  %45 = add i64 %43, %44
-  %46 = mul i64 %28, 144
-  %47 = add i64 %45, %46
-  %48 = mul i64 %26, 3
-  %49 = add i64 %47, %48
-  %50 = add i64 %49, %24
-  %51 = getelementptr i32, ptr %19, i64 %50
-  store i32 %42, ptr %51, align 4
-  %52 = add i64 %21, 1
+  %24 = getelementptr float, ptr %1, i64 %21
+  %25 = load float, ptr %24, align 4
+  %26 = fptosi float %25 to i32
+  %27 = getelementptr i32, ptr %19, i64 %21
+  store i32 %26, ptr %27, align 4
+  %28 = add i64 %21, 1
   br label %20
 
-53:                                               ; preds = %20
-  %54 = call ptr @malloc(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 129600) to i64))
-  br label %55
+29:                                               ; preds = %20
+  %30 = call ptr @malloc(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 129600) to i64))
+  br label %31
 
-55:                                               ; preds = %58, %53
-  %56 = phi i64 [ %125, %58 ], [ 0, %53 ]
-  %57 = icmp slt i64 %56, 129600
-  br i1 %57, label %58, label %126
+31:                                               ; preds = %34, %29
+  %32 = phi i64 [ %71, %34 ], [ 0, %29 ]
+  %33 = icmp slt i64 %32, 129600
+  br i1 %33, label %34, label %72
 
-58:                                               ; preds = %55
-  %59 = srem i64 %56, 1296
-  %60 = sdiv i64 %56, 1296
-  %61 = icmp slt i64 %60, 0
-  %62 = sub i64 -1, %60
-  %63 = select i1 %61, i64 %62, i64 %60
-  %64 = sdiv i64 %63, 100
-  %65 = sub i64 -1, %64
-  %66 = select i1 %61, i64 %65, i64 %64
-  %67 = srem i64 %60, 100
-  %68 = icmp slt i64 %67, 0
-  %69 = add i64 %67, 100
-  %70 = select i1 %68, i64 %69, i64 %67
-  %71 = icmp slt i64 %59, 0
-  %72 = sub i64 -1, %59
-  %73 = select i1 %71, i64 %72, i64 %59
-  %74 = sdiv i64 %73, 48
-  %75 = sub i64 -1, %74
-  %76 = select i1 %71, i64 %75, i64 %74
-  %77 = srem i64 %59, 48
-  %78 = icmp slt i64 %77, 0
-  %79 = add i64 %77, 48
-  %80 = select i1 %78, i64 %79, i64 %77
-  %81 = mul i64 %66, 388800
-  %82 = mul i64 %70, 3888
-  %83 = add i64 %81, %82
-  %84 = mul i64 %76, 144
-  %85 = add i64 %83, %84
-  %86 = mul i64 %80, 3
-  %87 = add i64 %85, %86
-  %88 = add i64 %87, 2
-  %89 = getelementptr i32, ptr %19, i64 %88
-  %90 = load i32, ptr %89, align 4
-  %91 = mul i64 %66, 388800
-  %92 = mul i64 %70, 3888
-  %93 = add i64 %91, %92
-  %94 = mul i64 %76, 144
-  %95 = add i64 %93, %94
-  %96 = mul i64 %80, 3
-  %97 = add i64 %95, %96
-  %98 = add i64 %97, 0
-  %99 = getelementptr i32, ptr %19, i64 %98
-  %100 = load i32, ptr %99, align 4
-  %101 = mul i64 %66, 388800
-  %102 = mul i64 %70, 3888
-  %103 = add i64 %101, %102
-  %104 = mul i64 %76, 144
-  %105 = add i64 %103, %104
-  %106 = mul i64 %80, 3
-  %107 = add i64 %105, %106
-  %108 = add i64 %107, 1
-  %109 = getelementptr i32, ptr %19, i64 %108
-  %110 = load i32, ptr %109, align 4
-  %111 = getelementptr i32, ptr @__constant_100xi32, i64 %60
-  %112 = load i32, ptr %111, align 4
-  %113 = ashr i32 %110, 5
-  %114 = shl i32 %113, 3
-  %115 = ashr i32 %100, 5
-  %116 = shl i32 %115, 6
-  %117 = add i32 %116, %114
-  %118 = ashr i32 %90, 5
-  %119 = add i32 %118, %117
-  %120 = add i32 %119, %112
-  %121 = mul i64 %60, 1296
-  %122 = add i64 %121, %59
-  %123 = add i64 %122, 0
-  %124 = getelementptr i32, ptr %54, i64 %123
-  store i32 %120, ptr %124, align 4
-  %125 = add i64 %56, 1
-  br label %55
+34:                                               ; preds = %31
+  %35 = srem i64 %32, 1296
+  %36 = sdiv i64 %32, 1296
+  %37 = mul i64 %36, 3888
+  %38 = add i64 %37, 2
+  %39 = mul i64 %35, 3
+  %40 = add i64 %38, %39
+  %41 = add i64 %40, 0
+  %42 = getelementptr i32, ptr %19, i64 %41
+  %43 = load i32, ptr %42, align 4
+  %44 = mul i64 %36, 3888
+  %45 = mul i64 %35, 3
+  %46 = add i64 %44, %45
+  %47 = add i64 %46, 0
+  %48 = getelementptr i32, ptr %19, i64 %47
+  %49 = load i32, ptr %48, align 4
+  %50 = mul i64 %36, 3888
+  %51 = add i64 %50, 1
+  %52 = mul i64 %35, 3
+  %53 = add i64 %51, %52
+  %54 = add i64 %53, 0
+  %55 = getelementptr i32, ptr %19, i64 %54
+  %56 = load i32, ptr %55, align 4
+  %57 = getelementptr i32, ptr @__constant_100xi32, i64 %36
+  %58 = load i32, ptr %57, align 4
+  %59 = ashr i32 %56, 5
+  %60 = shl i32 %59, 3
+  %61 = ashr i32 %49, 5
+  %62 = shl i32 %61, 6
+  %63 = add i32 %62, %60
+  %64 = ashr i32 %43, 5
+  %65 = add i32 %64, %63
+  %66 = add i32 %65, %58
+  %67 = mul i64 %36, 1296
+  %68 = add i64 %67, %35
+  %69 = add i64 %68, 0
+  %70 = getelementptr i32, ptr %30, i64 %69
+  store i32 %66, ptr %70, align 4
+  %71 = add i64 %32, 1
+  br label %31
 
-126:                                              ; preds = %55
+72:                                               ; preds = %31
   call void @free(ptr %19)
-  br label %127
+  br label %73
 
-127:                                              ; preds = %130, %126
-  %128 = phi i64 [ %134, %130 ], [ 0, %126 ]
-  %129 = icmp slt i64 %128, 51200
-  br i1 %129, label %130, label %135
+73:                                               ; preds = %76, %72
+  %74 = phi i64 [ %80, %76 ], [ 0, %72 ]
+  %75 = icmp slt i64 %74, 51200
+  br i1 %75, label %76, label %81
 
-130:                                              ; preds = %127
-  %131 = getelementptr i32, ptr @__constant_51200xi32, i64 %128
-  %132 = load i32, ptr %131, align 4
-  %133 = getelementptr i32, ptr %14, i64 %128
-  store i32 %132, ptr %133, align 4
-  %134 = add i64 %128, 1
-  br label %127
+76:                                               ; preds = %73
+  %77 = getelementptr i32, ptr @__constant_51200xi32, i64 %74
+  %78 = load i32, ptr %77, align 4
+  %79 = getelementptr i32, ptr %14, i64 %74
+  store i32 %78, ptr %79, align 4
+  %80 = add i64 %74, 1
+  br label %73
 
-135:                                              ; preds = %138, %127
-  %136 = phi i64 [ %155, %138 ], [ 0, %127 ]
-  %137 = icmp slt i64 %136, 129600
-  br i1 %137, label %138, label %156
+81:                                               ; preds = %84, %73
+  %82 = phi i64 [ %101, %84 ], [ 0, %73 ]
+  %83 = icmp slt i64 %82, 129600
+  br i1 %83, label %84, label %102
 
-138:                                              ; preds = %135
-  %139 = srem i64 %136, 1296
-  %140 = sdiv i64 %136, 1296
-  %141 = mul i64 %140, 1296
-  %142 = add i64 %141, %139
-  %143 = add i64 %142, 0
-  %144 = getelementptr i32, ptr %54, i64 %143
-  %145 = load i32, ptr %144, align 4
-  %146 = sext i32 %145 to i64
-  %147 = getelementptr i32, ptr %14, i64 %146
-  %148 = load i32, ptr %147, align 4
-  %149 = mul i64 %140, 1296
-  %150 = add i64 %149, %139
-  %151 = getelementptr i32, ptr @__constant_100x1296xi32, i64 %150
-  %152 = load i32, ptr %151, align 4
-  %153 = add i32 %148, %152
-  %154 = getelementptr i32, ptr %14, i64 %146
-  store i32 %153, ptr %154, align 4
-  %155 = add i64 %136, 1
-  br label %135
+84:                                               ; preds = %81
+  %85 = srem i64 %82, 1296
+  %86 = sdiv i64 %82, 1296
+  %87 = mul i64 %86, 1296
+  %88 = add i64 %87, %85
+  %89 = add i64 %88, 0
+  %90 = getelementptr i32, ptr %30, i64 %89
+  %91 = load i32, ptr %90, align 4
+  %92 = sext i32 %91 to i64
+  %93 = getelementptr i32, ptr %14, i64 %92
+  %94 = load i32, ptr %93, align 4
+  %95 = mul i64 %86, 1296
+  %96 = add i64 %95, %85
+  %97 = getelementptr i32, ptr @__constant_100x1296xi32, i64 %96
+  %98 = load i32, ptr %97, align 4
+  %99 = add i32 %94, %98
+  %100 = getelementptr i32, ptr %14, i64 %92
+  store i32 %99, ptr %100, align 4
+  %101 = add i64 %82, 1
+  br label %81
 
-156:                                              ; preds = %135
-  call void @free(ptr %54)
+102:                                              ; preds = %81
+  call void @free(ptr %30)
   ret void
 }
 

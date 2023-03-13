@@ -17,6 +17,7 @@
 #include "byteir/Dialect/Affine/Passes.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Passes.h"
+#include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Passes.h"
@@ -134,6 +135,7 @@ int main(int argc, char **argv) {
   // register ByteIR's dialects here
   registry.insert<mlir::ace::AceDialect>();
   registry.insert<mlir::byre::ByreDialect>();
+  registry.insert<mlir::ccl::CclDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::lace::LaceDialect>();
   registry.insert<mlir::lmhlo::LmhloDialect>();

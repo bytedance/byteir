@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -byre-host="device-file-name=your_file target=cuda" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
+
 module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
   gpu.module @unified {
     gpu.func @Unknown165(%arg0: memref<1000x512xf16>, %arg1: memref<1000x512xf32>) kernel {
@@ -4388,4 +4389,3 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
     return
   }
 }
-

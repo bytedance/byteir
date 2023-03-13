@@ -48,9 +48,37 @@ namespace {
 constexpr static llvm::StringRef llvmJittedObjbufferSuffix =
     "-jitted-objectbuffer";
 
-inline void consumeLLVMError(llvm::Error err) {
-  // use CAPI to avoid involving VTable of llvm::ErrorInfoBase
-  LLVMConsumeError(llvm::wrap(std::move(err)));
+inline std::string errorToString(llvm::Error err) {
+  char *errMsg = LLVMGetErrorMessage(llvm::wrap(std::move(err)));
+  std::string ret(errMsg);
+  LLVMDisposeErrorMessage(errMsg);
+  return ret;
+}
+
+inline Status LLVMErrorToBRTStatus(llvm::Error err,
+                                   const char *errMsg = nullptr) {
+  if (err) {
+    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
+                          errMsg ? errMsg + errorToString(std::move(err))
+                                 : errorToString(std::move(err)));
+  }
+  return Status::OK();
+}
+
+template <typename T>
+T checkAndThrow(llvm::Expected<T> ValOrErr, const char *errMsg = nullptr) {
+  if (ValOrErr)
+    return std::move(*ValOrErr);
+
+  else {
+    if (!errMsg)
+      errMsg = "failed on checkAndThrow";
+
+    std::string buf;
+    llvm::raw_string_ostream OS(buf);
+    OS << errMsg << " : " << errorToString(ValOrErr.takeError());
+    BRT_THROW(OS.str().c_str());
+  }
 }
 
 inline std::optional<llvm::OptimizationLevel>
@@ -298,21 +326,24 @@ private:
 
 LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
   if (opt.debug) {
-    jit = llvm::cantFail(llvm::orc::LLJITBuilder()
-                             .setObjectLinkingLayerCreator(
-                                 createRTDyldObjectLinkingLayerWithGDBListner)
-                             .create());
+    jit = checkAndThrow(llvm::orc::LLJITBuilder()
+                            .setObjectLinkingLayerCreator(
+                                createRTDyldObjectLinkingLayerWithGDBListner)
+                            .create(),
+                        "failed to create lljit builder");
   } else {
-    jit = llvm::cantFail(llvm::orc::LLJITBuilder().create());
+    jit = checkAndThrow(llvm::orc::LLJITBuilder().create(),
+                        "failed to create lljit builder");
   }
 
   // Make sure that our process symbols are visible to JIT'd code.
-  jit->getMainJITDylib().addGenerator(llvm::cantFail(
+  jit->getMainJITDylib().addGenerator(checkAndThrow(
       llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           jit->getDataLayout().getGlobalPrefix(),
           [this](const llvm::orc::SymbolStringPtr &name) {
             return rt_libcalls.count(name);
-          })));
+          }),
+      "failed to create DynamicLibrarySearchGenerator for current process"));
 
   jit->getIRTransformLayer().setTransform(
       [this](llvm::orc::ThreadSafeModule TSM,
@@ -320,9 +351,11 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
           -> llvm::Expected<llvm::orc::ThreadSafeModule> {
         TSM.withModuleDo([&](llvm::Module &M) {
           if (options.optLevel.has_value()) {
-            auto JTMB = llvm::cantFail(
-                llvm::orc::JITTargetMachineBuilder::detectHost());
-            auto TM = llvm::cantFail(JTMB.createTargetMachine());
+            auto JTMB = checkAndThrow(
+                llvm::orc::JITTargetMachineBuilder::detectHost(),
+                "failed to create JITTargetMachineBuilder for the host system");
+            auto TM = checkAndThrow(JTMB.createTargetMachine(),
+                                    "failed to create target machine");
             runLLVMDefaultOptimizationPipeline(M, options.optLevel.value(),
                                                TM.get());
           }
@@ -357,12 +390,7 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
 common::Status LLVMJITImpl::LoadTSM(llvm::orc::ThreadSafeModule &&tsm) {
   tsm.withModuleDo([&](llvm::Module &M) { packFunctionArguments(&M); });
   auto err = jit->addIRModule(std::move(tsm));
-  if (err) {
-    consumeLLVMError(std::move(err));
-    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Load TSM failed");
-  }
-  return common::Status::OK();
+  return LLVMErrorToBRTStatus(std::move(err), "Load TSM failed");
 }
 
 common::Status LLVMJITImpl::ParseIRFile(const std::string &path) {
@@ -383,9 +411,8 @@ common::Status LLVMJITImpl::Lookup(const std::string &symbolName,
                                    void **symbol) {
   auto expectedSymbol = jit->lookup(symbolName);
   if (!expectedSymbol) {
-    consumeLLVMError(expectedSymbol.takeError());
-    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Unexpected symbol in llvm module");
+    return LLVMErrorToBRTStatus(expectedSymbol.takeError(),
+                                "Unexpected symbol in llvm module");
   }
   if (symbol) {
     *symbol = expectedSymbol->toPtr<void *>();
@@ -401,12 +428,7 @@ common::Status LLVMJITImpl::RegisterSymbol(const std::string &symbol,
   llvm::orc::SymbolMap symbolMap;
   symbolMap[interner(symbol)] = llvm::JITEvaluatedSymbol::fromPointer(addr);
   auto err = mainJitDylib.define(llvm::orc::absoluteSymbols(symbolMap));
-  if (err) {
-    consumeLLVMError(std::move(err));
-    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Failed to register symbol");
-  }
-  return common::Status::OK();
+  return LLVMErrorToBRTStatus(std::move(err), "Failed to register symbol");
 }
 
 common::Status LLVMJITImpl::PrintOptimizedModule(const std::string &identifier,

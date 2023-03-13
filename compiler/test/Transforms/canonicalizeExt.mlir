@@ -1,4 +1,5 @@
 // RUN: byteir-opt %s -canonicalize-ext | FileCheck %s
+// RUN: byteir-opt %s -canonicalize-ext="blind-fold=true" | FileCheck %s -check-prefix BLIND
 
 func.func @dead_custom_call() -> tensor<128xf32> {
   %c0 = mhlo.constant dense<0.000000e+00> : tensor<128xf32>
@@ -124,3 +125,13 @@ func.func private @empty() {
 }
 // CHECK-LABEL: remove_empty
 // CHECK-NOT: call @empty
+
+func.func @slice_fold_large_outputs() -> tensor<999998xi64> {
+  %0 = mhlo.constant dense<1> : tensor<1000000xi64>
+  %1 = "mhlo.slice"(%0) { limit_indices = dense<[999999]> : tensor<1xi64>, start_indices = dense<[1]> : tensor<1xi64>, strides = dense<1> : tensor<1xi64>} : (tensor<1000000xi64>) -> (tensor<999998xi64>)
+  func.return %1 : tensor<999998xi64>
+}
+// CHECK-LABEL: slice_fold_large_outputs
+// CHECK: mhlo.slice
+// BLIND-LABEL: slice_fold_large_outputs
+// BLIND-NOT: mhlo.slice

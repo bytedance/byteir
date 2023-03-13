@@ -20,6 +20,15 @@
 
 include "mlir/Pass/PassBase.td"
 
+def OFCanonicalizer : Pass<"of-canonicalize", "mlir::ModuleOp"> {
+  let summary = "canonicalization and func dialect type conversion";
+  let constructor = "onnx_frontend::createOFCanonicalizerPass()";
+  let options = [
+    Option<"testConvergence", "test-convergence", "bool", /*default=*/"false",
+           "Test only: Fail pass on non-convergence to detect cyclic pattern">
+  ];
+}
+
 def OFRewriteToCustomCall: Pass<"rewrite-to-custom-call", "mlir::func::FuncOp"> {
   let summary = "convert some ops to mhlo.custom_call";
   let constructor = "onnx_frontend::createOFRewriteToCustomCallPass()";

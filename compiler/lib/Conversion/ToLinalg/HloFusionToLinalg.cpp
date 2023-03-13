@@ -721,6 +721,102 @@ public:
   }
 };
 
+class GeLUCustomCallConverter : public OpConversionPattern<mhlo::CustomCallOp> {
+public:
+  using OpConversionPattern<mhlo::CustomCallOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::CustomCallOp op, mhlo::CustomCallOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    if (op.getCallTargetName() != getGeLUName())
+      return failure();
+
+    auto attr = op->getAttrOfType<DictionaryAttr>(getCustomCallAttrName());
+    if (!attr)
+      return failure();
+
+    auto approximateAttr = attr.getAs<StringAttr>("approximate");
+    if (!approximateAttr)
+      return failure();
+
+    llvm::StringRef approximate = approximateAttr.getValue();
+    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilder = nullptr;
+
+    if (approximate == "erf") {
+      bodyBuilder = [&](OpBuilder &builder, Location loc, ValueRange args) {
+        // 0.5x * (1 + erf(x/sqrt(2)))
+        auto x = args[0];
+        auto elementType = x.getType();
+        ImplicitLocOpBuilder b(loc, builder);
+        Value sqrt1_2 = b.create<arith::ConstantOp>(
+            b.getFloatAttr(elementType, 0.707106781f));
+        Value erf_arg = b.create<arith::MulFOp>(x, sqrt1_2);
+        Value erf = b.create<math::ErfOp>(erf_arg);
+        Value constant_one =
+            b.create<arith::ConstantOp>(b.getFloatAttr(elementType, 1.f));
+        Value erf_plu_one = b.create<arith::AddFOp>(erf, constant_one);
+        Value constant_half =
+            b.create<arith::ConstantOp>(b.getFloatAttr(elementType, .5f));
+        Value x_half = b.create<arith::MulFOp>(constant_half, x);
+        Value result = b.create<arith::MulFOp>(x_half, erf_plu_one);
+        b.create<linalg::YieldOp>(result);
+      };
+    } else if (approximate == "tanh") {
+      bodyBuilder = [&](OpBuilder &builder, Location loc, ValueRange args) {
+        // 0.5x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+        auto x = args[0];
+        auto elementType = x.getType();
+        ImplicitLocOpBuilder b(loc, builder);
+        Value x2 = b.create<arith::MulFOp>(x, x);
+        Value x3 = b.create<arith::MulFOp>(x2, x);
+        Value coeff0 =
+            b.create<arith::ConstantOp>(b.getFloatAttr(elementType, 0.044715f));
+        Value y0 = b.create<arith::MulFOp>(coeff0, x3);
+        Value y1 = b.create<arith::AddFOp>(x, y0);
+        Value coeff1 = b.create<arith::ConstantOp>(
+            b.getFloatAttr(elementType, 0.79788456f)); // sqrt(2/pi)
+        Value y2 = b.create<arith::MulFOp>(coeff1, y1);
+        Value tanh = b.create<math::TanhOp>(y2);
+        Value constant_one =
+            b.create<arith::ConstantOp>(b.getFloatAttr(elementType, 1.f));
+        Value tanh_plus_one = b.create<arith::AddFOp>(constant_one, tanh);
+        Value constant_half =
+            b.create<arith::ConstantOp>(b.getFloatAttr(elementType, .5f));
+        Value x_half = b.create<arith::MulFOp>(constant_half, x);
+        Value result = b.create<arith::MulFOp>(x_half, tanh_plus_one);
+        b.create<linalg::YieldOp>(result);
+      };
+    }
+
+    if (!bodyBuilder)
+      return failure();
+
+    auto loc = op.getLoc();
+    auto input = adaptor.getInputs()[0];
+    auto inputType = input.getType().cast<ShapedType>();
+    auto rank = inputType.getRank();
+    SmallVector<AffineMap> affineMaps(2, rewriter.getMultiDimIdentityMap(rank));
+    SmallVector<utils::IteratorType> iteratorTypes(
+        rank, utils::IteratorType::parallel);
+    Value emptyTensor =
+        rewriter
+            .create<tensor::EmptyOp>(
+                loc,
+                llvm::to_vector(llvm::map_range(llvm::seq<int64_t>(0, rank),
+                                                [&](int64_t dim) {
+                                                  return getDim(rewriter, loc,
+                                                                input, dim);
+                                                })),
+                inputType.getElementType())
+            .getResult();
+    rewriter.replaceOpWithNewOp<linalg::GenericOp>(
+        op, TypeRange{emptyTensor.getType()}, ValueRange{adaptor.getOperands()},
+        ValueRange{emptyTensor}, affineMaps, iteratorTypes, bodyBuilder,
+        linalg::getPrunedAttributeList(op));
+    return success();
+  }
+};
+
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
@@ -781,6 +877,7 @@ void mlir::populateHloToLinalgExtConversionPattern(
   patterns.add<SoftmaxCustomCallConverter>(context);
   patterns.add<ScatterOpConversion>(context);
   patterns.add<LayerNormCustomCallConverter>(context);
+  patterns.add<GeLUCustomCallConverter>(context);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

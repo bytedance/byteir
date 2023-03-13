@@ -1,4 +1,4 @@
-// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,instance_norm,resize" -canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,instance_norm,resize" -of-canonicalize -constprop-onnx -of-canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_arg_max(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   %0 = "onnx.ArgMax"(%arg0) {axis = 3 : si64, keepdims = 0 : si64, onnx_node_name = "ArgMax_0"} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
@@ -102,6 +102,33 @@ func.func @test_gelu(%37: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
 
 // -----
 
+func.func @test_gelu_without_last_mul(%arg0: tensor<1x3x5x5xf32>, %arg1: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
+  %38 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  %39 = "onnx.Add"(%arg0, %38) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
+  %40 = "onnx.Constant"() {value = dense<1.41421354> : tensor<f32>} : () -> tensor<f32>
+  %41 = "onnx.Div"(%39, %40) {onnx_node_name = "Div_32"} : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
+  %42 = "onnx.Erf"(%41) {onnx_node_name = "Erf_33"} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+  %43 = "onnx.Constant"() {value = dense<1.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  %44 = "onnx.Add"(%42, %43) {onnx_node_name = "Add_35"} : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
+  %45 = "onnx.Mul"(%39, %44) {onnx_node_name = "Mul_36"} : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+  // The two ONNXMulOp below has been reordered
+  %46 = "onnx.Mul"(%arg1, %45) : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+  %47 = "onnx.Constant"() {value = dense<5.000000e-01> : tensor<f32>} : () -> tensor<f32>
+  %48 = "onnx.Mul"(%46, %47) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
+  return %48 : tensor<1x3x5x5xf32>
+// CHECK-LABEL:  @test_gelu_without_last_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xf32>, [[PARAM_1_:%.+]]: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
+// CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<f32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.gelu([[VAR_1_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = "onnx.Mul"([[PARAM_1_]], [[VAR_2_]]) : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+// CHECK-NEXT:   [[VAR_4_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<f32>
+// CHECK-NEXT:   [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_3_]], [[VAR_4_]]) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
+// CHECK-NEXT:   return [[VAR_5_]] : tensor<1x3x5x5xf32>
+}
+
+// -----
+
 func.func @test_l2_norm(%267: tensor<16x128xf32>) -> tensor<16x128xf32> {
   %5 = "onnx.Constant"() {value = dense<9.99999996E-13> : tensor<f32>} : () -> tensor<f32>
   %126 = "onnx.Constant"() {value = dense<[16, 128]> : tensor<2xi64>} : () -> tensor<2xi64>
@@ -188,24 +215,4 @@ func.func @test_resize_linear_by_size(%214: tensor<1x1x15x20xf32>) -> tensor<1x1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {
 // CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<[1, 1, 30, 40]> : tensor<4xi64>
 // CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.custom_call @byteir.resize(%arg0, %0) {backend_config = "", byteir_attrs = {coordinate_transformation_mode = "pytorch_half_pixel", mode = "linear", target_mode = "size"}} : (tensor<1x1x15x20xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
-}
-
-// -----
-
-func.func @test_gelu_without_last_mul(%arg0: tensor<1x3x5x5xf32>, %arg1: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
-  %38 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
-  %39 = "onnx.Add"(%arg0, %38) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
-  %40 = "onnx.Constant"() {value = dense<1.41421354> : tensor<f32>} : () -> tensor<f32>
-  %41 = "onnx.Div"(%39, %40) {onnx_node_name = "Div_32"} : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
-  %42 = "onnx.Erf"(%41) {onnx_node_name = "Erf_33"} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
-  %43 = "onnx.Constant"() {value = dense<1.000000e+00> : tensor<f32>} : () -> tensor<f32>
-  %44 = "onnx.Add"(%42, %43) {onnx_node_name = "Add_35"} : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
-  %45 = "onnx.Mul"(%39, %44) {onnx_node_name = "Mul_36"} : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
-  // The two ONNXMulOp below has been reordered
-  %46 = "onnx.Mul"(%arg1, %45) : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
-  %47 = "onnx.Constant"() {value = dense<5.000000e-01> : tensor<f32>} : () -> tensor<f32>
-  %48 = "onnx.Mul"(%46, %47) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
-  return %48 : tensor<1x3x5x5xf32>
-// CHECK-LABEL:  @test_gelu_without_last_mul
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
 }

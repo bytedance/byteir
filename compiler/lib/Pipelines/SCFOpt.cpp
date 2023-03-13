@@ -17,6 +17,7 @@
 
 #include "byteir/Pipelines/SCFOpt.h"
 
+#include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
@@ -30,17 +31,42 @@
 
 using namespace mlir;
 
-void mlir::createSCFOptPipeline(OpPassManager &pm) {
-  invokeOpPassPipelineBuilder(
-      [](OpPassManager &pm) {
-        pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
-        pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
-        // lower affine.apply in case there is some
-        pm.addPass(memref::createFoldMemRefAliasOpsPass());
-        pm.addPass(createLowerAffinePass());
-        pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
-        pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
-        addCleanUpExtPassPipeline(pm);
-      },
-      pm);
+namespace {
+void addGenericSCFOptPasses(OpPassManager &pm) {
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
+  // lower affine.apply in case there is some
+  pm.addPass(memref::createFoldMemRefAliasOpsPass());
+  pm.addPass(createLowerAffinePass());
+  pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
+  pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
+  addCleanUpExtPassPipeline(pm);
+}
+
+void addCPUSCFOptPasses(OpPassManager &pm) {
+  // collapse consecutive loops which mapping to contiguous dimensions for all
+  // operands into one loop
+  pm.addNestedPass<func::FuncOp>(createLinalgCollapseLoops());
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
+  // lower affine.apply in case there is some
+  // pm.addPass(memref::createFoldMemRefAliasOpsPass());
+  pm.addPass(createLowerAffinePass());
+  pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
+  pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
+  addCleanUpExtPassPipeline(pm);
+}
+
+void createSCFOptPipelineImpl(OpPassManager &pm, const std::string &target) {
+  if (target == "CPU") {
+    addCPUSCFOptPasses(pm);
+  } else {
+    addGenericSCFOptPasses(pm);
+  }
+}
+} // namespace
+
+void mlir::createSCFOptPipeline(OpPassManager &pm,
+                                const SCFOptPipelineOptions &options) {
+  invokeOpPassPipelineBuilder(createSCFOptPipelineImpl, pm, options.target);
 }

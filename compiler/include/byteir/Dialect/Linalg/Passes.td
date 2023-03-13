@@ -152,4 +152,17 @@ def LinalgScopeTiling : Pass<"linalg-scope-tile", "func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// LinalgCollapseLoops
+//===----------------------------------------------------------------------===//
+
+def LinalgCollapseLoops : Pass<"linalg-collapse-loops", "func::FuncOp"> {
+  let summary = "Collapse loops on linalg.generic ops";
+  let dependentDialects = [
+    "linalg::LinalgDialect",
+    "tensor::TensorDialect",
+    "memref::MemRefDialect"
+  ];
+}
+
 #endif // BYTEIR_DIALECT_LINALG_PASSES
