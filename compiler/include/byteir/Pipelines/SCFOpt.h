@@ -18,16 +18,27 @@
 #ifndef BYTEIR_PIPELINES_SCFOPT_H
 #define BYTEIR_PIPELINES_SCFOPT_H
 
+#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
+#include <memory>
+#include <string>
 
 namespace mlir {
+struct SCFOptPipelineOptions
+    : public PassPipelineOptions<SCFOptPipelineOptions> {
+  Option<std::string> target{
+      *this, "target",
+      llvm::cl::desc("An optional attribute to speicify target."),
+      llvm::cl::init("")};
+};
 
-void createSCFOptPipeline(OpPassManager &pm);
+void createSCFOptPipeline(OpPassManager &pm,
+                          const SCFOptPipelineOptions &options);
 
 inline void registerSCFOptPipeline() {
-  PassPipelineRegistration<>("scf-opt", "SCF Opt Pipeline",
-                             createSCFOptPipeline);
+  PassPipelineRegistration<SCFOptPipelineOptions>("scf-opt", "SCF Opt Pipeline",
+                                                  createSCFOptPipeline);
 }
 
 } // namespace mlir

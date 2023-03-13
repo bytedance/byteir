@@ -290,6 +290,11 @@ def ShapeReification : Pass<"byteir-shape-reification", "func::FuncOp"> {
 def StaticShapeInference : Pass<"static-shape-infer", "func::FuncOp"> {
   let summary = "Static shape inference";
   let constructor = "mlir::createStaticShapeInferencePass()";
+  let options = [
+    Option<"overrideShape", "override-shape", 
+           "bool", /*default=*/"true",
+           "whether to override shape with infered shape">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//

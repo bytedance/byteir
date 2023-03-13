@@ -46,6 +46,10 @@ void SetBatchSize(onnx::ModelProto &model) {
     const std::string &initializerName = initializer.name();
     initializerNames.insert(initializerName);
   }
+  std::map<std::string, int> valueInfoNameToIdx;
+  for (int i = 0; i < graph->value_info_size(); i++) {
+    valueInfoNameToIdx[graph->value_info(i).name()] = i;
+  }
   for (auto &input : *(graph->mutable_input())) {
     if (initializerNames.count(input.name()))
       continue;
@@ -58,15 +62,20 @@ void SetBatchSize(onnx::ModelProto &model) {
       continue;
     }
     onnx::TensorShapeProto *shape = tensorType->mutable_shape();
-    if (shape->dim_size() < 1) {
+    if (shape->dim_size() == 0) {
       continue;
     }
     auto *dim = shape->mutable_dim(0);
     bool isDynamic = !dim->has_dim_value() || dim->dim_value() <= 0;
     if (isDynamic) {
       dim->set_dim_value(batchSize);
+      dim->clear_dim_param();
       LLVM_DEBUG(llvm::dbgs() << "bs of " << input.name() << " set to "
                               << batchSize << "\n");
+      if (valueInfoNameToIdx.count(input.name())) {
+        int index = valueInfoNameToIdx[input.name()];
+        graph->mutable_value_info(index)->CopyFrom(input);
+      }
     } else {
       LLVM_DEBUG(llvm::dbgs() << "bs of " << input.name() << " remains "
                               << dim->dim_value() << "\n");

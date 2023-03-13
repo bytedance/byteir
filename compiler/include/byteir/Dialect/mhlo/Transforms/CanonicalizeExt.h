@@ -36,6 +36,7 @@ class DynamicBroadcastInDimOp;
 class DynamicConvOp;
 class DynamicGatherOp;
 class ReshapeOp;
+class SliceOp;
 
 // Most of these will push back to upstream
 // So this file only includes patterns, not a pass.
@@ -92,12 +93,28 @@ LogicalResult canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
 LogicalResult simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
                                       PatternRewriter &rewriter);
 
+struct FoldSlice : public OpRewritePattern<SliceOp> {
+  FoldSlice(MLIRContext *context, bool blind = false,
+            PatternBenefit benefit = 1)
+      : OpRewritePattern(context, benefit), blind(blind) {}
+
+  LogicalResult matchAndRewrite(SliceOp sliceOp,
+                                PatternRewriter &rewriter) const override;
+
+private:
+  /// Fold it even if the final IR bloats
+  bool blind;
+};
+
 // populate canonicalizeExt patterns
-void populateCanonicalizeExtPatterns(RewritePatternSet &patterns);
+void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
+                                     MLIRContext *context,
+                                     bool blindFold = false);
 
 // Get all canonicalizationExt on top of canoncialization
 void getCanonicalizationExtPatterns(RewritePatternSet &results,
-                                    MLIRContext *context);
+                                    MLIRContext *context,
+                                    bool blindFold = false);
 
 } // namespace mhlo
 } // namespace mlir

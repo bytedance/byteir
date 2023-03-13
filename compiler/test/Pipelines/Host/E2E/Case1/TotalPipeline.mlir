@@ -1,9 +1,8 @@
-// RUN: byteir-opt %s -hlo-opt="target=CPU" -linalg-tensor-opt="target=CPU" -byteir-bufferize-opt -scf-opt --host-opt -byre-opt --to-llvm \ 
-// RUN:  | byteir-translate -mlir-to-llvmir \
-// RUN:  | FileCheck %s
+// RUN: byteir-opt %s --hlo-opt="target=CPU" --linalg-tensor-opt="target=CPU" --byteir-bufferize-opt --scf-opt="target=CPU" --host-opt --byre-opt --to-llvm | byteir-translate --mlir-to-llvmir | FileCheck %s
 
 // CHECK-LABEL: constant
 // CHECK-LABEL: define void @_mlir_ciface_Unknown
+
 module {
   func.func @main(%arg0: tensor<1x100x27x48x3xf32>) -> tensor<51200xi32> {
     %0 = mhlo.constant dense<1> : tensor<100x1296xi32>

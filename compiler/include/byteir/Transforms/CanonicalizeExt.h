@@ -43,6 +43,7 @@ std::unique_ptr<Pass> createCanonicalizeExtPass();
 /// Creates an instance of the CanonicalizeExt pass with the specified config.
 std::unique_ptr<Pass>
 createCanonicalizeExtPass(const GreedyRewriteConfig &config,
+                          bool blindFold = false,
                           ArrayRef<std::string> disabledPatterns = std::nullopt,
                           ArrayRef<std::string> enabledPatterns = std::nullopt);
 

@@ -813,6 +813,120 @@ LogicalResult mlir::mhlo::foldConsecutiveConvertOp(mhlo::ConvertOp op,
 }
 
 namespace {
+
+// This is an upper limit on how many elements can be folded by an op folder.
+// This limit doesn't apply to some special cases like adding a zero,
+// multiplying by one, doing many operations with splats.
+constexpr int64_t kFoldOpEltLimit = 65536;
+
+// this function copied from mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
+template <typename I, typename E>
+static void sliceElements(I values, ArrayRef<int64_t> sizes,
+                          ArrayRef<int64_t> starts, ArrayRef<int64_t> limits,
+                          ArrayRef<int64_t> strides,
+                          llvm::SmallVectorImpl<E> *outValues) {
+  assert(starts.size() == limits.size());
+  assert(starts.size() == strides.size());
+  if (starts.empty())
+    return;
+
+  int64_t start = starts.front();
+  int64_t limit = limits.front();
+  int64_t stride = strides.front();
+  if (starts.size() == 1) {
+    for (int i = start; i < limit; i += stride) {
+      outValues->push_back(*(values + i));
+    }
+    return;
+  }
+
+  for (; start < limit; start += stride) {
+    auto begin = values + start * sizes.front();
+    sliceElements<I, E>(begin, sizes.drop_front(), starts.drop_front(),
+                        limits.drop_front(), strides.drop_front(), outValues);
+  }
+}
+
+// this function modified from mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
+template <typename I, typename E>
+static Attribute foldSlice(SliceOp *op, I values, bool blind) {
+  auto start = llvm::to_vector<6>(op->getStartIndices().getValues<int64_t>());
+  auto limit = llvm::to_vector<6>(op->getLimitIndices().getValues<int64_t>());
+  auto stride = llvm::to_vector<6>(op->getStrides().getValues<int64_t>());
+
+  // TODO(b/235903849): This should be op->getType().case<ShapedType>().
+  auto resultType = op->getOperand().getType().cast<ShapedType>();
+  if (!resultType.hasStaticShape())
+    return {};
+
+  auto shape = resultType.getShape();
+  int64_t count = resultType.getNumElements();
+  if (count == 0) {
+    return DenseElementsAttr::get<E>(
+        op->getResult().getType().cast<ShapedType>(),
+        /*list=*/{});
+  }
+
+  // Compute the striding for each dimension.
+  llvm::SmallVector<int64_t, 6> sizes;
+  sizes.reserve(shape.size());
+  for (auto v : shape) {
+    count = count / v;
+    sizes.push_back(count);
+  }
+
+  // Prevent folding if the result is too large.
+  if (!blind && resultType.getNumElements() > kFoldOpEltLimit)
+    return {};
+
+  llvm::SmallVector<E, 6> outValues;
+  outValues.reserve(resultType.getNumElements());
+  sliceElements<I, E>(values, sizes, start, limit, stride, &outValues);
+
+  return DenseElementsAttr::get(op->getResult().getType().cast<ShapedType>(),
+                                outValues);
+}
+
+} // namespace
+
+LogicalResult
+mlir::mhlo::FoldSlice::matchAndRewrite(mhlo::SliceOp op,
+                                       PatternRewriter &rewriter) const {
+  if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
+          op.getOperand().getDefiningOp())) {
+    return failure();
+  }
+  DenseElementsAttr elements = op.getOperand()
+                                   .getDefiningOp<mhlo::ConstantOp>()
+                                   .getValue()
+                                   .dyn_cast<DenseElementsAttr>();
+
+  if (!elements)
+    return failure();
+
+  auto etype = elements.getType().getElementType();
+  if (etype.isa<IntegerType>()) {
+    Attribute folded = foldSlice<DenseElementsAttr::IntElementIterator, APInt>(
+        &op, elements.value_begin<APInt>(), blind);
+    if (!folded)
+      return failure();
+    rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
+    return success();
+  }
+  if (etype.isa<FloatType>()) {
+    Attribute folded =
+        foldSlice<DenseElementsAttr::FloatElementIterator, APFloat>(
+            &op, elements.value_begin<APFloat>(), blind);
+    if (!folded)
+      return failure();
+    rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
+    return success();
+  }
+
+  return failure();
+}
+
+namespace {
 // this function copied from mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
 DenseElementsAttr reshape(DenseElementsAttr attr, ShapedType newType) {
   // TODO(b/232866626): DenseElementsAttr::reshape is broken for bool splats.
@@ -872,7 +986,9 @@ LogicalResult mlir::mhlo::simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
   return failure();
 }
 
-void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns) {
+void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
+                                                 MLIRContext *ctx,
+                                                 bool blindFold) {
   patterns.add(mlir::mhlo::foldBroadcastInDim);
   patterns.add(mlir::mhlo::foldConcatWithContinuousSlices);
   patterns.add(mlir::mhlo::simplifyDynamicConvToConv);
@@ -891,10 +1007,12 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns) {
   patterns.add(mlir::mhlo::foldConsecutiveConvertOp);
   patterns.add(mlir::mhlo::canonicalizeBroadcastInDimConst);
   patterns.add(mlir::mhlo::simplifyByteIRAddNToAdd);
+  patterns.add<mlir::mhlo::FoldSlice>(ctx, blindFold);
 }
 
 void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
-                                                MLIRContext *ctx) {
+                                                MLIRContext *ctx,
+                                                bool blindFold) {
 
   // add dialect level getCanonicalizationPatterns
   auto mhloDailect = ctx->getOrLoadDialect<mhlo::MhloDialect>();
@@ -911,5 +1029,5 @@ void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
   }
 
   // add our extension
-  populateCanonicalizeExtPatterns(patterns);
+  populateCanonicalizeExtPatterns(patterns, ctx, blindFold);
 }

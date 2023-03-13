@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -byre-host="device-file-name=your_file target=cpu" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
+
 module attributes {byre.container_module} {
   module attributes {byteir.llvm_module} {
     memref.global "private" constant @__constant_100x1296xi32 : memref<100x1296xi32> = dense<1>
@@ -12,70 +13,42 @@ module attributes {byre.container_module} {
       %c5_i32 = arith.constant 5 : i32
       %c51200 = arith.constant 51200 : index
       %c1296 = arith.constant 1296 : index
-      %c3 = arith.constant 3 : index
-      %c48 = arith.constant 48 : index
-      %c27 = arith.constant 27 : index
+      %c388800 = arith.constant 388800 : index
       %c1 = arith.constant 1 : index
       %c0 = arith.constant 0 : index
-      %c2 = arith.constant 2 : index
-      %c-1 = arith.constant -1 : index
-      %c100 = arith.constant 100 : index
       %c129600 = arith.constant 129600 : index
-      %c388800 = arith.constant 388800 : index
       %0 = memref.get_global @__constant_51200xi32 : memref<51200xi32>
       %1 = memref.get_global @__constant_100xi32 : memref<100xi32>
       %2 = memref.get_global @__constant_100x1296xi32 : memref<100x1296xi32>
       %alloc = memref.alloc() : memref<1x100x27x48x3xi32>
+      %collapse_shape = memref.collapse_shape %arg0 [[0, 1, 2, 3, 4]] : memref<1x100x27x48x3xf32> into memref<388800xf32>
+      %collapse_shape_0 = memref.collapse_shape %alloc [[0, 1, 2, 3, 4]] : memref<1x100x27x48x3xi32> into memref<388800xi32>
       scf.for %arg2 = %c0 to %c388800 step %c1 {
-        %3 = arith.remsi %arg2, %c3 : index
-        %4 = arith.divsi %arg2, %c3 : index
-        %5 = arith.remsi %4, %c48 : index
-        %6 = arith.divsi %4, %c48 : index
-        %7 = arith.remsi %6, %c27 : index
-        %8 = arith.divsi %6, %c27 : index
-        %9 = arith.remsi %8, %c100 : index
-        %10 = arith.divsi %8, %c100 : index
-        %11 = memref.load %arg0[%10, %9, %7, %5, %3] : memref<1x100x27x48x3xf32>
-        %12 = arith.fptosi %11 : f32 to i32
-        memref.store %12, %alloc[%10, %9, %7, %5, %3] : memref<1x100x27x48x3xi32>
+        %3 = memref.load %collapse_shape[%arg2] : memref<388800xf32>
+        %4 = arith.fptosi %3 : f32 to i32
+        memref.store %4, %collapse_shape_0[%arg2] : memref<388800xi32>
       }
-      %alloc_0 = memref.alloc() : memref<100x1296x1xi32>
+      %collapse_shape_1 = memref.collapse_shape %alloc [[0, 1], [2, 3], [4]] : memref<1x100x27x48x3xi32> into memref<100x1296x3xi32>
+      %subview = memref.subview %collapse_shape_1[0, 0, 0] [100, 1296, 1] [1, 1, 1] : memref<100x1296x3xi32> to memref<100x1296x1xi32, strided<[3888, 3, 1]>>
+      %subview_2 = memref.subview %collapse_shape_1[0, 0, 1] [100, 1296, 1] [1, 1, 1] : memref<100x1296x3xi32> to memref<100x1296x1xi32, strided<[3888, 3, 1], offset: 1>>
+      %subview_3 = memref.subview %collapse_shape_1[0, 0, 2] [100, 1296, 1] [1, 1, 1] : memref<100x1296x3xi32> to memref<100x1296x1xi32, strided<[3888, 3, 1], offset: 2>>
+      %alloc_4 = memref.alloc() : memref<100x1296x1xi32>
       scf.for %arg2 = %c0 to %c129600 step %c1 {
         %3 = arith.remsi %arg2, %c1296 : index
         %4 = arith.divsi %arg2, %c1296 : index
-        %5 = arith.cmpi slt, %4, %c0 : index
-        %6 = arith.subi %c-1, %4 : index
-        %7 = arith.select %5, %6, %4 : index
-        %8 = arith.divsi %7, %c100 : index
-        %9 = arith.subi %c-1, %8 : index
-        %10 = arith.select %5, %9, %8 : index
-        %11 = arith.remsi %4, %c100 : index
-        %12 = arith.cmpi slt, %11, %c0 : index
-        %13 = arith.addi %11, %c100 : index
-        %14 = arith.select %12, %13, %11 : index
-        %15 = arith.cmpi slt, %3, %c0 : index
-        %16 = arith.subi %c-1, %3 : index
-        %17 = arith.select %15, %16, %3 : index
-        %18 = arith.divsi %17, %c48 : index
-        %19 = arith.subi %c-1, %18 : index
-        %20 = arith.select %15, %19, %18 : index
-        %21 = arith.remsi %3, %c48 : index
-        %22 = arith.cmpi slt, %21, %c0 : index
-        %23 = arith.addi %21, %c48 : index
-        %24 = arith.select %22, %23, %21 : index
-        %25 = memref.load %alloc[%10, %14, %20, %24, %c2] : memref<1x100x27x48x3xi32>
-        %26 = memref.load %alloc[%10, %14, %20, %24, %c0] : memref<1x100x27x48x3xi32>
-        %27 = memref.load %alloc[%10, %14, %20, %24, %c1] : memref<1x100x27x48x3xi32>
-        %28 = memref.load %1[%4] : memref<100xi32>
-        %29 = arith.shrsi %27, %c5_i32 : i32
-        %30 = arith.shli %29, %c3_i32 : i32
-        %31 = arith.shrsi %26, %c5_i32 : i32
-        %32 = arith.shli %31, %c6_i32 : i32
-        %33 = arith.addi %32, %30 : i32
-        %34 = arith.shrsi %25, %c5_i32 : i32
-        %35 = arith.addi %34, %33 : i32
-        %36 = arith.addi %35, %28 : i32
-        memref.store %36, %alloc_0[%4, %3, %c0] : memref<100x1296x1xi32>
+        %5 = memref.load %subview_3[%4, %3, %c0] : memref<100x1296x1xi32, strided<[3888, 3, 1], offset: 2>>
+        %6 = memref.load %subview[%4, %3, %c0] : memref<100x1296x1xi32, strided<[3888, 3, 1]>>
+        %7 = memref.load %subview_2[%4, %3, %c0] : memref<100x1296x1xi32, strided<[3888, 3, 1], offset: 1>>
+        %8 = memref.load %1[%4] : memref<100xi32>
+        %9 = arith.shrsi %7, %c5_i32 : i32
+        %10 = arith.shli %9, %c3_i32 : i32
+        %11 = arith.shrsi %6, %c5_i32 : i32
+        %12 = arith.shli %11, %c6_i32 : i32
+        %13 = arith.addi %12, %10 : i32
+        %14 = arith.shrsi %5, %c5_i32 : i32
+        %15 = arith.addi %14, %13 : i32
+        %16 = arith.addi %15, %8 : i32
+        memref.store %16, %alloc_4[%4, %3, %c0] : memref<100x1296x1xi32>
       }
       memref.dealloc %alloc : memref<1x100x27x48x3xi32>
       scf.for %arg2 = %c0 to %c51200 step %c1 {
@@ -85,14 +58,14 @@ module attributes {byre.container_module} {
       scf.for %arg2 = %c0 to %c129600 step %c1 {
         %3 = arith.remsi %arg2, %c1296 : index
         %4 = arith.divsi %arg2, %c1296 : index
-        %5 = memref.load %alloc_0[%4, %3, %c0] : memref<100x1296x1xi32>
+        %5 = memref.load %alloc_4[%4, %3, %c0] : memref<100x1296x1xi32>
         %6 = arith.index_cast %5 : i32 to index
         %7 = memref.load %arg1[%6] : memref<51200xi32>
         %8 = memref.load %2[%4, %3] : memref<100x1296xi32>
         %9 = arith.addi %7, %8 : i32
         memref.store %9, %arg1[%6] : memref<51200xi32>
       }
-      memref.dealloc %alloc_0 : memref<100x1296x1xi32>
+      memref.dealloc %alloc_4 : memref<100x1296x1xi32>
       return
     }
   }

@@ -32,11 +32,8 @@
 
 #define DEBUG_TYPE "translate-to-cpp"
 
-using namespace byteir;
+using namespace ::byteir;
 using namespace mlir;
-using namespace mlir::arith;
-using namespace mlir::emitc;
-using namespace mlir::memref;
 using llvm::formatv;
 
 #define RETURN_IF_FAILED(call)                                                 \
@@ -46,64 +43,64 @@ using llvm::formatv;
 
 namespace {
 
-static StringRef getCmpIOpString(CmpIPredicate predicate) {
+static StringRef getCmpIOpString(arith::CmpIPredicate predicate) {
   switch (predicate) {
   default:
     return "<<Invalid CmpIOp>>";
-  case CmpIPredicate::eq:
+  case arith::CmpIPredicate::eq:
     return "==";
-  case CmpIPredicate::ne:
+  case arith::CmpIPredicate::ne:
     return "!=";
 
-  case CmpIPredicate::slt: // Fall-through
-  case CmpIPredicate::ult:
+  case arith::CmpIPredicate::slt: // Fall-through
+  case arith::CmpIPredicate::ult:
     return "<";
 
-  case CmpIPredicate::sle: // Fall-through
-  case CmpIPredicate::ule:
+  case arith::CmpIPredicate::sle: // Fall-through
+  case arith::CmpIPredicate::ule:
     return "<=";
 
-  case CmpIPredicate::sgt: // Fall-through
-  case CmpIPredicate::ugt:
+  case arith::CmpIPredicate::sgt: // Fall-through
+  case arith::CmpIPredicate::ugt:
     return ">";
 
-  case CmpIPredicate::sge: // Fall-through
-  case CmpIPredicate::uge:
+  case arith::CmpIPredicate::sge: // Fall-through
+  case arith::CmpIPredicate::uge:
     return ">=";
   }
 }
 
-static StringRef getCmpFOpString(CmpFPredicate predicate) {
+static StringRef getCmpFOpString(arith::CmpFPredicate predicate) {
   switch (predicate) {
   default:
     return "<<Invalid CmpFOp>>";
 
-  case CmpFPredicate::OEQ: // Fall-through
-  case CmpFPredicate::UEQ:
+  case arith::CmpFPredicate::OEQ: // Fall-through
+  case arith::CmpFPredicate::UEQ:
     return "==";
 
-  case CmpFPredicate::OGT: // Fall-through
-  case CmpFPredicate::UGT:
+  case arith::CmpFPredicate::OGT: // Fall-through
+  case arith::CmpFPredicate::UGT:
     return ">";
 
-  case CmpFPredicate::OGE: // Fall-through
-  case CmpFPredicate::UGE:
+  case arith::CmpFPredicate::OGE: // Fall-through
+  case arith::CmpFPredicate::UGE:
     return ">=";
 
-  case CmpFPredicate::OLT: // Fall-through
-  case CmpFPredicate::ULT:
+  case arith::CmpFPredicate::OLT: // Fall-through
+  case arith::CmpFPredicate::ULT:
     return "<";
 
-  case CmpFPredicate::OLE: // Fall-through
-  case CmpFPredicate::ULE:
+  case arith::CmpFPredicate::OLE: // Fall-through
+  case arith::CmpFPredicate::ULE:
     return "<=";
 
-  case CmpFPredicate::ONE: // Fall-through
-  case CmpFPredicate::UNE:
+  case arith::CmpFPredicate::ONE: // Fall-through
+  case arith::CmpFPredicate::UNE:
     return "!=";
 
-  case CmpFPredicate::ORD:
-  case CmpFPredicate::UNO: // Fall-through
+  case arith::CmpFPredicate::ORD:
+  case arith::CmpFPredicate::UNO: // Fall-through
     return "<<Unsupported CmpFPredicate>>";
   }
 }
@@ -705,7 +702,8 @@ static LogicalResult printOperation(CppEmitter &emitter,
   return success();
 }
 
-static LogicalResult printOperation(CppEmitter &emitter, LoadOp loadOp) {
+static LogicalResult printOperation(CppEmitter &emitter,
+                                    memref::LoadOp loadOp) {
   MemRefType memRefType = loadOp.getMemRefType();
   RETURN_IF_FAILED(checkMemRefType(memRefType));
   auto indices = loadOp.getIndices();
@@ -720,7 +718,8 @@ static LogicalResult printOperation(CppEmitter &emitter, LoadOp loadOp) {
   return printMemRefAccess(emitter, memref, memRefType, indices);
 }
 
-static LogicalResult printOperation(CppEmitter &emitter, StoreOp storeOp) {
+static LogicalResult printOperation(CppEmitter &emitter,
+                                    memref::StoreOp storeOp) {
   raw_ostream &os = emitter.ostream();
   MemRefType memRefType = storeOp.getMemRefType();
   RETURN_IF_FAILED(checkMemRefType(memRefType));
@@ -989,26 +988,30 @@ LogicalResult CppEmitter::emitOperation(Operation &op, bool trailingSemicolon) {
           .Case<scf::ForOp, scf::IfOp, scf::YieldOp>(
               [&](auto op) { return printOperation(*this, op); })
           // Memref ops
-          .Case<LoadOp, StoreOp>(
+          .Case<memref::LoadOp, memref::StoreOp>(
               [&](auto op) { return printOperation(*this, op); })
           // ControlFlow ops
           .Case<cf::BranchOp, cf::CondBranchOp>(
               [&](auto op) { return printOperation(*this, op); })
           // Func Ops
-          .Case<func::CallOp, func::ConstantOp, func::FuncOp, ModuleOp,
+          .Case<func::CallOp, func::ConstantOp, func::FuncOp, mlir::ModuleOp,
                 func::ReturnOp>(
               [&](auto op) { return printOperation(*this, op); })
           // Arith ConstantOp
           .Case<arith::ConstantOp>(
               [&](auto op) { return printOperation(*this, op); })
           // Arith binary ops
-          .Case<AddIOp, AddFOp, SubIOp, SubFOp, MulIOp, MulFOp, DivUIOp,
-                DivSIOp, DivFOp, RemUIOp, RemSIOp, AndIOp, OrIOp, XOrIOp,
-                ShLIOp, ShRUIOp, ShRSIOp, CmpIOp, CmpFOp>(
+          .Case<arith::AddIOp, arith::AddFOp, arith::SubIOp, arith::SubFOp,
+                arith::MulIOp, arith::MulFOp, arith::DivUIOp, arith::DivSIOp,
+                arith::DivFOp, arith::RemUIOp, arith::RemSIOp, arith::AndIOp,
+                arith::OrIOp, arith::XOrIOp, arith::ShLIOp, arith::ShRUIOp,
+                arith::ShRSIOp, arith::CmpIOp, arith::CmpFOp>(
               [&](auto op) { return printArithBinaryOp(*this, op); })
           // SimpleCast
-          .Case<ExtFOp, TruncIOp, TruncFOp, IndexCastOp, SIToFPOp, FPToSIOp,
-                FPToUIOp, UIToFPOp, UnrealizedConversionCastOp>(
+          .Case<arith::ExtFOp, arith::TruncIOp, arith::TruncFOp,
+                arith::IndexCastOp, arith::SIToFPOp, arith::FPToSIOp,
+                arith::FPToUIOp, arith::UIToFPOp,
+                mlir::UnrealizedConversionCastOp>(
               [&](auto op) { return printSimpleCastOp(*this, op); })
           .Default([&](Operation *) {
             return op.emitOpError("unable to find printer for op");

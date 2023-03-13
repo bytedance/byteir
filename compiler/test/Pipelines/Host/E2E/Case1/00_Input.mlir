@@ -1,6 +1,7 @@
-// RUN: byteir-opt %s -hlo-opt="target=CPU" -linalg-tensor-opt="target=CPU" -byteir-bufferize-opt -scf-opt | FileCheck %s
+// RUN: byteir-opt %s --hlo-opt="target=CPU" --linalg-tensor-opt="target=CPU" --byteir-bufferize-opt --scf-opt="target=CPU" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
+
 module {
   func.func @main(%arg0: tensor<1x100x27x48x3xf32>) -> tensor<51200xi32> {
     %0 = mhlo.constant dense<1> : tensor<100x1296xi32>
@@ -35,4 +36,3 @@ module {
     return %24 : tensor<51200xi32>
   }
 }
-

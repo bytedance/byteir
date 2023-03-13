@@ -114,7 +114,7 @@ struct BoundedShapeInferencePass
     SmallVector<Type> newFuncArgTypes;
     if (failed(constructNewArgumentTypes(funcOp, newArgumentTypes,
                                          newFuncArgTypes, builder))) {
-      return;
+      return signalPassFailure();
     }
 
     func::ReturnOp returnOp;
@@ -158,7 +158,7 @@ struct BoundedShapeInferencePass
           }
         }
         if (isa<func::ReturnOp>(op)) {
-          returnOp = dyn_cast<func::ReturnOp>(op);
+          returnOp = cast<func::ReturnOp>(op);
         }
       });
     }

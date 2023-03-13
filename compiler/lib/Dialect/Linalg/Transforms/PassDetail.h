@@ -53,6 +53,10 @@ namespace scf {
 class SCFDialect;
 } // namespace scf
 
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
+
 namespace transform {
 class TransformDialect;
 } // namespace transform

@@ -2,14 +2,6 @@ diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/
 index af7d2e37..72db6888 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -3340,6 +3340,7 @@ def Torch_AtenRsubScalarOp : Torch_Op<"aten.rsub.Scalar", [
-       printDefaultTorchOp(printer, *this, 3, 1);
-     }
-   }];
-+  let hasCanonicalizer = 1;
- }
- 
- def Torch_AtenGeluOp : Torch_Op<"aten.gelu", [
 @@ -6188,6 +6189,30 @@ def Torch_AtenArgmaxOp : Torch_Op<"aten.argmax", [
    }];
  }
@@ -41,11 +33,3 @@ index af7d2e37..72db6888 100644
  def Torch_AtenBucketizeTensorOp : Torch_Op<"aten.bucketize.Tensor", [
      AllowsTypeRefinement,
      HasValueSemantics,
-@@ -10494,6 +10519,7 @@ def Torch_AtenScalarImplicitOp : Torch_Op<"aten.ScalarImplicit", [
-       printDefaultTorchOp(printer, *this, 1, 1);
-     }
-   }];
-+  let hasCanonicalizer = 1;
- }
- 
- def Torch_Aten_SoftmaxBackwardDataOp : Torch_Op<"aten._softmax_backward_data", [

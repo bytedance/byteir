@@ -19,6 +19,7 @@
 
 #include "mlir/Pass/Pass.h"
 
+#include "onnx-frontend/src/Conversion/OFCanonicalizer.hpp"
 #include "onnx-frontend/src/Conversion/OFModifyEntryPoint.hpp"
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.hpp"
 

@@ -26,19 +26,6 @@
 
 namespace mlir {
 
-constexpr StringRef getBoundedShapeDenseAttrName() {
-  return "byteir.bounded_shape_dense";
-}
-//===----------------------------------------------------------------------===//
-// runShapeInference
-//===----------------------------------------------------------------------===//
-
-// This could be used for both bounded shape inference and static shape
-// inference. Return failure if a shape mismatch occurs.
-LogicalResult runShapeInference(func::FuncOp funcOp,
-                                bool isBoundedShapeInfer = false,
-                                bool overrideOldShape = false);
-
 //===----------------------------------------------------------------------===//
 // ReifyReturnTypeShapes Registration
 //===----------------------------------------------------------------------===//

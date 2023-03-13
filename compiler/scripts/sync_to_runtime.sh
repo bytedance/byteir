@@ -19,6 +19,11 @@ cp ../test/E2E/ResNet18/Whole/host_output.mlir ../../runtime/test/test_files/res
 sed -i 's/your_file/test\/test_files\/resnet18_fw_bw_device.ptx/g' ../../runtime/test/test_files/resnet18_fw_bw_host_cuda.mlir
 cp ../test/E2E/ResNet18/Whole/device_output.ptx ../../runtime/test/test_files/resnet18_fw_bw_device.ptx
 
+cp ../test/Pipelines/Host/E2E/Case0/Output.mlir ../../runtime/test/test_files/LLJIT/Case0/entry.mlir
+cp ../test/Pipelines/Host/E2E/Case0/Output.ll   ../../runtime/test/test_files/LLJIT/Case0/host_kernels.ll
+
+cp ../test/Pipelines/Host/E2E/TypeCvt/Output.ll   ../../runtime/test/test_files/LLJIT/typecvt.ll
+
 # cp ../test/E2E/BertTiny/host_output.mlir ../../runtime/test/test_files/bert_tiny_host_cuda.mlir
 # sed -i 's/your_file/test\/test_files\/bert_tiny_device.ptx/g' ../../runtime/test/test_files/bert_tiny_host_cuda.mlir
 # cp ../test/E2E/BertTiny/device_output.ptx ../../runtime/test/test_files/bert_tiny_device.ptx

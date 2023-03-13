@@ -18,6 +18,7 @@
 #include "byteir/Pipelines/AffineOpt.h"
 
 #include "byteir/Dialect/Affine/Passes.h"
+#include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"
@@ -30,16 +31,40 @@
 
 using namespace mlir;
 
-void mlir::createAffineOptPipeline(OpPassManager &pm) {
-  invokeOpPassPipelineBuilder(
-      [](OpPassManager &pm) {
-        pm.addNestedPass<func::FuncOp>(createConvertLinalgToAffineLoopsPass());
-        pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
-        pm.addNestedPass<func::FuncOp>(createSimplifyAffineStructuresPass());
-        pm.addPass(memref::createFoldMemRefAliasOpsPass());
-        pm.addPass(createLowerAffinePass());
-        pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
-        addCleanUpExtPassPipeline(pm);
-      },
-      pm);
+namespace {
+void addGenericAffineOptPasses(OpPassManager &pm) {
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgToAffineLoopsPass());
+  pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
+  pm.addNestedPass<func::FuncOp>(createSimplifyAffineStructuresPass());
+  pm.addPass(memref::createFoldMemRefAliasOpsPass());
+  pm.addPass(createLowerAffinePass());
+  pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
+  addCleanUpExtPassPipeline(pm);
+}
+
+void addCPUAffineOptPasses(OpPassManager &pm) {
+  // collapse consecutive loops which mapping to contiguous dimensions for all
+  // operands into one loop
+  pm.addNestedPass<func::FuncOp>(createLinalgCollapseLoops());
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgToAffineLoopsPass());
+  pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
+  pm.addNestedPass<func::FuncOp>(createSimplifyAffineStructuresPass());
+  // pm.addPass(memref::createFoldMemRefAliasOpsPass());
+  pm.addPass(createLowerAffinePass());
+  pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
+  addCleanUpExtPassPipeline(pm);
+}
+
+void createAffineOptPipelineImpl(OpPassManager &pm, const std::string &target) {
+  if (target == "CPU") {
+    addCPUAffineOptPasses(pm);
+  } else {
+    addGenericAffineOptPasses(pm);
+  }
+}
+} // namespace
+
+void mlir::createAffineOptPipeline(OpPassManager &pm,
+                                   const AffineOptPipelineOptions &options) {
+  invokeOpPassPipelineBuilder(createAffineOptPipelineImpl, pm, options.target);
 }

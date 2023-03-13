@@ -57,7 +57,7 @@ else()
 endif()
 
 if (brt_LLJIT_DEBUG)
-  add_definitions(-DBRT_LLJIT_DEBUG=1)
+  add_definitions(-DBRT_LLJIT_DEBUG)
 endif()
 
 ## configure files for tests

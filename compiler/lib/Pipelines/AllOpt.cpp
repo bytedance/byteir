@@ -50,7 +50,9 @@ void createByteIRAllOptPipelineImpl(OpPassManager &pm,
   bufferizeOptions.target = target;
   createByteIRBufferizeOptPipeline(pm, bufferizeOptions);
 
-  createAffineOptPipeline(pm);
+  AffineOptPipelineOptions affineOptions;
+  affineOptions.target = target;
+  createAffineOptPipeline(pm, affineOptions);
   // optional, alternative to affine-opt
   // createSCFOptPipeline(pm);
 

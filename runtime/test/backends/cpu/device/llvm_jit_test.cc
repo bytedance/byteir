@@ -19,9 +19,12 @@
 #include "brt/core/common/status.h"
 #include "brt/core/ir/engine_util.h"
 #include "brt/test/common/util.h"
+#include "half/half.hpp"
 #include "gtest/gtest.h"
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
+#include <immintrin.h>
 #include <string>
 
 using namespace brt;
@@ -30,11 +33,32 @@ using namespace brt::test;
 using namespace brt::cpu;
 using namespace std;
 
-static std::string test_file_llvmjit = "test/test_files/LLJIT/add.ll";
+static std::string test_file_add = "test/test_files/LLJIT/add.ll";
+static std::string test_file_typecvt = "test/test_files/LLJIT/typecvt.ll";
 
 namespace {
 extern "C" {
 void print() { std::cout << "testtesttest." << std::endl; }
+}
+
+inline __attribute__((always_inline)) void
+TypecvtKernelF32ToF16(const void *src_, void *dst_, const size_t N) {
+  const float *src = reinterpret_cast<const float *>(src_);
+  __m128i *dst = reinterpret_cast<__m128i *>(dst_);
+  size_t i;
+  for (i = 0; i < (N / 8) * 8; i += 8) {
+    __m128i rst = _mm256_cvtps_ph(_mm256_loadu_ps(src), 0);
+    _mm_storeu_si128(dst, rst);
+    src += 8;
+    dst++;
+  }
+
+  half_float::half *dst2 = reinterpret_cast<half_float::half *>(dst);
+  for (; i < N; ++i) {
+    *dst2 = static_cast<half_float::half>(*src);
+    src++;
+    dst2++;
+  }
 }
 } // namespace
 
@@ -42,7 +66,7 @@ TEST(LLVMJITTest, ADD) {
   auto llvmjit = LLVMJIT::Create();
   ASSERT_TRUE(llvmjit->RegisterSymbol("print", reinterpret_cast<void *>(&print))
                   .IsOK());
-  ASSERT_TRUE(llvmjit->LoadFromFile(test_file_llvmjit).IsOK());
+  ASSERT_TRUE(llvmjit->LoadFromFile(test_file_add).IsOK());
   int length = 128;
   std::vector<int> a(length), b(length), c(length);
   {
@@ -74,10 +98,42 @@ TEST(LLVMJITTest, ADD) {
 #if BRT_LLJIT_DEBUG
   // enable this to print optimized llvm module and dump compiled object to the
   // disk
-  std::ofstream optimized(test_file_llvmjit + ".opt");
-  ASSERT_TRUE(
-      llvmjit->PrintOptimizedModule(test_file_llvmjit, optimized).IsOK());
-  std::ofstream objs(test_file_llvmjit + ".o");
-  ASSERT_TRUE(llvmjit->DumpObject(test_file_llvmjit, objs).IsOK());
+  std::ofstream optimized(test_file_add + ".opt");
+  ASSERT_TRUE(llvmjit->PrintOptimizedModule(test_file_add, optimized).IsOK());
+  std::ofstream objs(test_file_add + ".o");
+  ASSERT_TRUE(llvmjit->DumpObject(test_file_add, objs).IsOK());
 #endif
+}
+
+TEST(LLVMJITTest, TypeCvt) {
+  auto llvmjit = LLVMJIT::Create();
+  ASSERT_TRUE(llvmjit->LoadFromFile(test_file_typecvt).IsOK());
+  std::vector<int64_t> shape{1, 224, 224, 3};
+  int length = 224 * 224 * 3;
+  std::vector<float> input_buf(length);
+  std::vector<half_float::half> output_buf(length);
+  {
+    void *fn;
+    ASSERT_TRUE(llvmjit->Lookup("_mlir_ciface_Unknown0", &fn).IsOK());
+    RandCPUBuffer(input_buf.data(), length);
+    MLIREngineMemRefDescriptor input(input_buf.data(), shape),
+        output(output_buf.data(), shape);
+    auto start_time = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < 10000; ++i) {
+      // TypecvtKernelF32ToF16(input_buf.data(), output_buf.data(), length);
+      (*reinterpret_cast<void (*)(void *, void *)>(fn))(input.GetMemrefPtr(),
+                                                        output.GetMemrefPtr());
+    }
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    std::cout << "Duration :"
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     end_time - start_time)
+                     .count()
+              << std::endl;
+    for (int i = 0; i < length; ++i) {
+      ASSERT_NEAR(static_cast<half_float::half>(input_buf[i]), output_buf[i],
+                  1e-6);
+    }
+  }
 }

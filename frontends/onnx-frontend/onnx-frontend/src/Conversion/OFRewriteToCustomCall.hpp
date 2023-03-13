@@ -26,4 +26,3 @@ std::unique_ptr<mlir::Pass> createOFRewriteToCustomCallPass(
     const std::vector<std::string>& customCallOps = {});
 
 }  // namespace onnx_frontend
-

@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -linalg-tensor-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @main
+
 module {
   func.func private @Unknown0(%arg0: tensor<1x512xf16>, %arg1: tensor<1x512x7x7xf16>) -> tensor<1x512x7x7xf16> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.constant dense<4.900000e+01> : tensor<1x512x7x7xf16>
@@ -699,4 +700,3 @@ module {
     return %79#2, %79#1, %81, %83, %86, %73#2, %73#1, %69#2, %69#1, %87, %88, %65#2, %65#1, %61#2, %61#1, %89, %90, %54#2, %54#1, %50#2, %50#1, %91, %92, %93, %57#2, %57#1, %46#2, %46#1, %42#2, %42#1, %94, %95, %35#2, %35#1, %31#2, %31#1, %96, %97, %98, %38#2, %38#1, %27#2, %27#1, %23#2, %23#1, %99, %100, %16#2, %16#1, %12#2, %12#1, %101, %102, %103, %19#2, %19#1, %8#2, %8#1, %4#2, %4#1, %104, %105 : tensor<64xf32>, tensor<64xf32>, tensor<64x3x7x7xf32>, tensor<1000xf32>, tensor<1000x512xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64x64x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x64x3x3xf32>, tensor<128x128x3x3xf32>, tensor<128x64x1x1xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x128x3x3xf32>, tensor<128x128x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x128x3x3xf32>, tensor<256x256x3x3xf32>, tensor<256x128x1x1xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x256x3x3xf32>, tensor<256x256x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x256x3x3xf32>, tensor<512x512x3x3xf32>, tensor<512x256x1x1xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x512x3x3xf32>, tensor<512x512x3x3xf32>
   }
 }
-

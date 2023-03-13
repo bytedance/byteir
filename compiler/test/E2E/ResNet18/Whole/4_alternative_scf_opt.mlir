@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -scf-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @main
+
 #map = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2, d3)>
 #map1 = affine_map<(d0, d1) -> (d0, d1)>
 #map2 = affine_map<(d0) -> (d0)>
@@ -1989,4 +1990,3 @@ module @IrToMhlo.2452 {
     return %143, %144, %141#1, %141#2, %145, %136#1, %136#2, %146, %132#1, %132#2, %147, %128#1, %128#2, %148, %124#1, %124#2, %149, %117#1, %117#2, %150, %113#1, %113#2, %151, %120#1, %120#2, %152, %109#1, %109#2, %153, %105#1, %105#2, %154, %98#1, %98#2, %155, %94#1, %94#2, %156, %101#1, %101#2, %157, %90#1, %90#2, %158, %86#1, %86#2, %159, %79#1, %79#2, %160, %75#1, %75#2, %161, %82#1, %82#2, %162, %71#1, %71#2, %163, %67#1, %67#2, %165, %alloc_31 : memref<f32>, memref<64x3x7x7xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<128x64x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128x64x1x1xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<256x128x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256x128x1x1xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<512x256x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512x256x1x1xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<1000x512xf32>, memref<1000xf32>
   }
 }
-
