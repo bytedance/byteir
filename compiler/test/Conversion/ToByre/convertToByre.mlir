@@ -133,6 +133,14 @@ module {
   // CHECK-LABEL: mhlo_gather
   // CHECK-NEXT: byre.compute @IndexSelectOp
 
+  func.func @mhlo_gather_2D_index(%arg0: memref<30522x128xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<2x128xi64> {__placeholder__byre.argname = "B"}) -> (memref<2x128x128xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
+    %0 = memref.alloc() : memref<2x128x128xf32>
+    "lmhlo.gather"(%arg0, %arg1, %0) {dimension_numbers = #mhlo.gather<offset_dims = [2], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 2>, indices_are_sorted = false, slice_sizes = dense<[1, 128]> : tensor<2xi64>} : (memref<30522x128xf32>, memref<2x128xi64>, memref<2x128x128xf32>) -> ()
+    return %0 : memref<2x128x128xf32>
+  }
+  // CHECK-LABEL: mhlo_gather_2D_index
+  // CHECK-NEXT: byre.compute @IndexSelectOp
+
   func.func @mhlo_slice_both_arg(%arg0: memref<1x512xi64> {__placeholder__byre.argname = "A"}) -> (memref<1x128xi64> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<1x128xi64>
     "lmhlo.slice"(%arg0, %0) {limit_indices = dense<[1, 128]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (memref<1x512xi64>, memref<1x128xi64>) -> ()

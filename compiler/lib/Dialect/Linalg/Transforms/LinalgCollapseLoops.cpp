@@ -31,7 +31,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Dialect/Linalg/Passes.h"
+#include "byteir/Dialect/Linalg/Transforms/LinalgCollapseLoops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -144,6 +144,15 @@ static bool isEligibleForCollapse(linalg::GenericOp genericOp) {
   // benchmark, so we disable it.
   if (genericOp.hasIndexSemantics())
     return false;
+
+  if (!llvm::all_of(genericOp->getOperandTypes(), [](Type t) {
+        if (auto memrefType = t.dyn_cast_or_null<MemRefType>()) {
+          return memrefType.getLayout().isIdentity();
+        }
+        return true;
+      })) {
+    return false;
+  }
 
   return true;
 }
@@ -548,3 +557,7 @@ struct LinalgCollapseLoopsPass
   }
 };
 } // namespace
+
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createLinalgCollapseLoops() {
+  return std::make_unique<LinalgCollapseLoopsPass>();
+}

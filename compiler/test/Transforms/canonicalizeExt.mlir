@@ -1,5 +1,4 @@
-// RUN: byteir-opt %s -canonicalize-ext | FileCheck %s
-// RUN: byteir-opt %s -canonicalize-ext="blind-fold=true" | FileCheck %s -check-prefix BLIND
+// RUN: byteir-opt %s -canonicalize-ext="blind-fold=true" | FileCheck %s
 
 func.func @dead_custom_call() -> tensor<128xf32> {
   %c0 = mhlo.constant dense<0.000000e+00> : tensor<128xf32>
@@ -77,14 +76,14 @@ func.func @concat_const_folding_with_dup_value() -> tensor<3x2xi64> {
 // CHECK: %0 = mhlo.constant dense<{{\[}}[1, 1], [2, 3], [2, 3]{{\]}}> : tensor<3x2xi64>
 // CHECK: return %0 : tensor<3x2xi64>
 
-func.func @const_const_folding_case1(%arg0: tensor<1x2xi64>) -> tensor<5x2xi64> {
+func.func @concat_const_folding_case1(%arg0: tensor<1x2xi64>) -> tensor<5x2xi64> {
   %0 = mhlo.constant dense<1> : tensor<1x2xi64>
   %1 = mhlo.constant dense<[[2, 3]]> : tensor<1x2xi64>
   %2 = mhlo.constant dense<[[3, 4]]> : tensor<1x2xi64>
   %4 = "mhlo.concatenate"(%0, %1, %arg0, %2, %2) {dimension = 0 : i64} : (tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>) -> tensor<5x2xi64>
   return %4 : tensor<5x2xi64>
 }
-// CHECK-LABEL: const_const_folding_case1
+// CHECK-LABEL: concat_const_folding_case1
 // CHECK:  %0 = mhlo.constant dense<{{\[}}[1, 1], [2, 3]{{\]}}> : tensor<2x2xi64>
 // CHECK:  %1 = mhlo.constant dense<{{\[}}[3, 4], [3, 4]{{\]}}> : tensor<2x2xi64>
 
@@ -132,6 +131,13 @@ func.func @slice_fold_large_outputs() -> tensor<999998xi64> {
   func.return %1 : tensor<999998xi64>
 }
 // CHECK-LABEL: slice_fold_large_outputs
-// CHECK: mhlo.slice
-// BLIND-LABEL: slice_fold_large_outputs
-// BLIND-NOT: mhlo.slice
+// CHECK-NOT: mhlo.slice
+
+func.func @multiply_zero(%arg0: tensor<2x128x128xf32>) -> tensor<2x128x128xf32> {
+  %c0 = "mhlo.constant"() {value = dense<0.000000e+00> : tensor<2x128x128xf32>} : () -> tensor<2x128x128xf32>
+  %1 = "mhlo.multiply"(%arg0, %c0) : (tensor<2x128x128xf32>, tensor<2x128x128xf32>) -> tensor<2x128x128xf32>
+  return %1: tensor<2x128x128xf32>
+}
+// CHECK-LABEL: multiply_zero
+// CHECK: mhlo.constant
+// CHECK-NOT: mhlo.multiply

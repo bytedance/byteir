@@ -1,5 +1,6 @@
 add_byteir_conversion_library(ByteIRToLinalg
-  HloFusionToLinalg.cpp
+  HloToLinalg.cpp
+  LinalgExtToLinalg.cpp
   TensorToLinalg.cpp
   UnrealizedCastToLinalg.cpp
 

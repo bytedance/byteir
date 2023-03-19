@@ -21,6 +21,7 @@
 #include "byteir/Transforms/CondCanonicalize.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
@@ -131,6 +132,60 @@ void mlir::shape::populateCanonicalizeExtPatterns(RewritePatternSet &patterns) {
 
 namespace {
 
+bool isZero(arith::ConstantOp cstOp) {
+  auto op = cstOp.getOperation();
+  if (auto cstFOp = dyn_cast<arith::ConstantFloatOp>(op)) {
+    return cstFOp.value().isZero();
+  } else if (auto cstIOp = dyn_cast<arith::ConstantIntOp>(op)) {
+    return cstIOp.value() == 0;
+  } else if (auto cstIdxOp = dyn_cast<arith::ConstantIndexOp>(op)) {
+    return cstIdxOp.value() == 0;
+  }
+  return false;
+}
+
+template <typename Op>
+LogicalResult foldMultiplyZero(Op op, PatternRewriter &rewriter) {
+  auto lhsOp = op.getLhs().template getDefiningOp<arith::ConstantOp>();
+  auto rhsOp = op.getRhs().template getDefiningOp<arith::ConstantOp>();
+  if (!lhsOp && !rhsOp)
+    return failure();
+
+  auto checkZeroThenReplace = [&](arith::ConstantOp cstOp) {
+    if (!cstOp)
+      return false;
+
+    if (isZero(cstOp)) {
+      rewriter.replaceOp(op, cstOp.getResult());
+      return true;
+    }
+    return false;
+  };
+
+  if (checkZeroThenReplace(lhsOp)) {
+    return success();
+  } else if (checkZeroThenReplace(rhsOp)) {
+    return success();
+  }
+
+  return failure();
+}
+} // namespace
+
+void arith::foldMultiplyZeroPatterns(RewritePatternSet &patterns) {
+  patterns.add(foldMultiplyZero<arith::MulFOp>);
+  patterns.add(foldMultiplyZero<arith::MulIOp>);
+  patterns.add(foldMultiplyZero<arith::MulSIExtendedOp>);
+  patterns.add(foldMultiplyZero<arith::MulUIExtendedOp>);
+}
+
+void mlir::populateFoldMultiplyZeroPatterns(RewritePatternSet &patterns) {
+  patterns.add(mlir::mhlo::foldMultiplyZero);
+  arith::foldMultiplyZeroPatterns(patterns);
+}
+
+namespace {
+
 struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
   CanonicalizeExtPass() = default;
   CanonicalizeExtPass(const GreedyRewriteConfig &config, bool blindFold,
@@ -161,6 +216,9 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     shape::populateCanonicalizeExtPatterns(owningPatterns);
     // put tensor fold empty too
     tensor::populateFoldTensorEmptyPatterns(owningPatterns);
+
+    // tentatively put fold multiply zero
+    populateFoldMultiplyZeroPatterns(owningPatterns);
 
     patterns = FrozenRewritePatternSet(std::move(owningPatterns),
                                        disabledPatterns, enabledPatterns);
@@ -204,8 +262,10 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createCanonicalizeExtPass() {
-  return std::make_unique<CanonicalizeExtPass>();
+std::unique_ptr<Pass> mlir::createCanonicalizeExtPass(bool blindFold) {
+  GreedyRewriteConfig config;
+  return std::make_unique<CanonicalizeExtPass>(config, blindFold, std::nullopt,
+                                               std::nullopt);
 }
 
 std::unique_ptr<Pass>

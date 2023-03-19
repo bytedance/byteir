@@ -44,9 +44,9 @@ TEST(IRTest, IterateNode) {
   auto status_iterate_final = hdl.IterateNode([&](Operation *op) {
     if (auto byre_op = dyn_cast<byre::ByreOp>(op)) {
       auto key = ByREHandle::GetKey(byre_op);
-      if (key != "AddOpf32f32f32") {
+      if (key != "AddOp_f32f32_f32") {
         status_iterate_internal =
-            Status(BRT, FAIL, "Expect get AddOpf32f32f32 but get " + key);
+            Status(BRT, FAIL, "Expect get AddOp_f32f32_f32 but get " + key);
         return WalkResult::interrupt();
       }
       for (auto opArg : byre_op->getOperands()) {

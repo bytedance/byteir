@@ -88,7 +88,6 @@ template <>
 LogicalResult ConvertToByrePattern<lmhlo::GatherOp>::matchAndRewrite(
     lmhlo::GatherOp op, typename lmhlo::GatherOp::Adaptor adaptor,
     ConversionPatternRewriter &rewriter) const {
-
   auto found = srcToCallee.find(op.getOperation()->getName().getStringRef());
   if (found == srcToCallee.end()) {
     return op->emitOpError() << "can not find matched byre_compute_name";
@@ -115,9 +114,9 @@ LogicalResult ConvertToByrePattern<lmhlo::GatherOp>::matchAndRewrite(
   }
 
   // Index select only works across a single dimension.
-  if (startIndicesTy.getShape().empty() || startIndicesTy.getRank() != 1) {
+  if (startIndicesTy.getShape().empty()) {
     return rewriter.notifyMatchFailure(
-        op, "start_indices index vector dimension not 1");
+        op, "empty start_indices index vector dimension");
   }
 
   // Only support the default case for start_index_map.
@@ -166,13 +165,21 @@ LogicalResult ConvertToByrePattern<lmhlo::GatherOp>::matchAndRewrite(
     return rewriter.notifyMatchFailure(op, "collapsed_slice_dims != [0]");
   }
 
-  auto key = getByreKey(found->second, op->getOperandTypes(), appendArgTypes);
+  SmallVector<Type, 2> inputTypes{adaptor.getOperand().getType(),
+                                  adaptor.getStartIndices().getType()};
+  SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+  auto key = getByreKey(found->second, inputTypes, outputTypes, appendArgTypes);
 
   auto computeOp =
       replaceLmhloOpWithByreComputeOp(rewriter, op, key, adaptor.getOperands());
 
-  // FIXME: currently only support select on dim0
-  computeOp->setAttr("dim", rewriter.getI32IntegerAttr(0));
+  // FIXME: currently only support select starting from 0
+  SmallVector<int32_t> dimensions;
+  dimensions.reserve(indexVectorDim);
+  for (int32_t i = 0; i < indexVectorDim; ++i) {
+    dimensions.push_back(i);
+  }
+  computeOp->setAttr("dimensions", rewriter.getI32TensorAttr(dimensions));
 
   return success();
 }
@@ -199,7 +206,11 @@ LogicalResult ConvertToByrePattern<lmhlo::ScatterOp>::matchAndRewrite(
     return rewriter.notifyMatchFailure(op, "unsupported block in scatter");
   }
 
-  auto key = getByreKey(found->second, op->getOperandTypes(), appendArgTypes);
+  SmallVector<Type, 3> inputTypes{adaptor.getOperand().getType(),
+                                  adaptor.getScatterIndices().getType(),
+                                  adaptor.getUpdates().getType()};
+  SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+  auto key = getByreKey(found->second, inputTypes, outputTypes, appendArgTypes);
 
   // TODO support inplace
   auto newOp =
@@ -314,7 +325,7 @@ public:
   matchAndRewrite(func::CallOp op, func::CallOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
 
-    auto funcOp = getFuncOp(op);
+    func::FuncOp funcOp = getFuncOp(op);
     if (funcOp == nullptr) {
       return failure();
     }
@@ -371,8 +382,11 @@ public:
         memoryEffectsAttr = rewriter.getArrayAttr(memoryEffectAttrs);
       }
     }
-
-    auto key = getByreKey(nameAttr.getValue(), op->getOperandTypes(),
+    SmallVector<Type> argTypes;
+    for (auto val : funcOp.getArguments())
+      argTypes.push_back(val.getType());
+    auto resTypes = funcOp.getResultTypes();
+    auto key = getByreKey(nameAttr.getValue(), argTypes, resTypes,
                           effectiveAppendArgTypes);
 
     mlir::byre::ComputeOp computeOp =
@@ -445,7 +459,11 @@ public:
     assert(dotDimensionNumbers.getRhsContractingDimensions().size() == 1);
     if (dotDimensionNumbers.getLhsBatchingDimensions().size() == 0) {
       // convert to MatmulOp
-      auto key = getByreKey("MatmulOp", op->getOperandTypes(), appendArgTypes);
+      SmallVector<Type, 2> inputTypes{adaptor.getLhs().getType(),
+                                      adaptor.getRhs().getType()};
+      SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+      auto key =
+          getByreKey("MatmulOp", inputTypes, outputTypes, appendArgTypes);
 
       auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                        adaptor.getOperands());
@@ -476,8 +494,11 @@ public:
                << "can not handle unregular batching_dimensions";
       }
 
+      SmallVector<Type, 2> inputTypes{adaptor.getLhs().getType(),
+                                      adaptor.getRhs().getType()};
+      SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
       auto key =
-          getByreKey("BatchMatmulOp", op->getOperandTypes(), appendArgTypes);
+          getByreKey("BatchMatmulOp", inputTypes, outputTypes, appendArgTypes);
       auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                        adaptor.getOperands());
 
@@ -519,7 +540,10 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     NamedAttrList attrs;
     handleConvAttribute(attrs, op, rewriter);
-    auto key = getByreKey("ConvOp", op->getOperandTypes(), appendArgTypes);
+    SmallVector<Type, 2> inputTypes{adaptor.getLhs().getType(),
+                                    adaptor.getRhs().getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+    auto key = getByreKey("ConvOp", inputTypes, outputTypes, appendArgTypes);
     auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                      adaptor.getOperands());
     addAttrs(computeOp.getOperation(), attrs.getAttrs());
@@ -645,11 +669,11 @@ public:
     // TODO: more SelectAndScatterOp supported
     std::string poolingGradOp = "PoolMaxGradOp";
 
-    SmallVector<Type, 2> operandTypes{adaptor.getOperand().getType(),
-                                      adaptor.getSource().getType(),
-                                      adaptor.getOut().getType()};
-
-    auto key = getByreKey(poolingGradOp, operandTypes, appendArgTypes);
+    SmallVector<Type, 2> inputTypes{adaptor.getOperand().getType(),
+                                    adaptor.getSource().getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOut().getType()};
+    auto key =
+        getByreKey(poolingGradOp, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, key, ValueRange{adaptor.getOperand(), adaptor.getSource()},
@@ -764,10 +788,9 @@ public:
             op, "only consecutive dimensions were support");
     }
 
-    SmallVector<Type, 2> operandTypes{adaptor.getInputs()[0].getType(),
-                                      adaptor.getOut()[0].getType()};
-
-    auto key = getByreKey(ReduceOp, operandTypes, appendArgTypes);
+    SmallVector<Type, 1> inputTypes{adaptor.getInputs()[0].getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOut()[0].getType()};
+    auto key = getByreKey(ReduceOp, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, key, ValueRange{adaptor.getInputs()[0]},
@@ -867,10 +890,9 @@ public:
         })) {
       return failure();
     }
-    SmallVector<Type, 2> operandTypes{adaptor.getInputs()[0].getType(),
-                                      adaptor.getOut()[0].getType()};
-
-    auto key = getByreKey(ReduceWinOp, operandTypes, appendArgTypes);
+    SmallVector<Type, 1> inputTypes{adaptor.getInputs()[0].getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOut()[0].getType()};
+    auto key = getByreKey(ReduceWinOp, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, key, ValueRange{adaptor.getInputs()[0]},

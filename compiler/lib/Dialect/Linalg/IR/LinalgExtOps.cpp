@@ -91,25 +91,6 @@ void mlir::linalg_ext::LinalgExtDialect::initialize() {
 
 namespace {
 
-// move to affine util
-static AffineMap getMultiDimIdentityMapWithSkips(unsigned numDims,
-                                                 SmallVector<int64_t> skips,
-                                                 MLIRContext *context) {
-  SmallVector<AffineExpr, 4> dimExprs;
-  dimExprs.reserve(numDims);
-  for (unsigned i = 0; i < numDims; ++i) {
-    bool skip = false;
-    for (unsigned dim : skips) {
-      skip = skip || dim == i;
-    }
-    if (skip)
-      continue;
-    dimExprs.push_back(mlir::getAffineDimExpr(i, context));
-  }
-  return AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, dimExprs,
-                        context);
-}
-
 // TODO: delete this after LinalgExtOp interface inherits from LinalgOp
 // interface
 static FailureOr<Value> commonGenerateResultTileValueForLinalgExtOp(
@@ -158,8 +139,9 @@ static FailureOr<Value> commonGenerateResultTileValueForLinalgExtOp(
   return tiledOp[0]->getResult(resultNumber);
 }
 
+// TODO: move to AffineUtils
 static AffineMap getMultiDimIdentityMapWithTargets(int64_t numDims,
-                                                   SmallVector<int64_t> targets,
+                                                   ArrayRef<int64_t> targets,
                                                    MLIRContext *context) {
   AffineMap result =
       AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, context);
@@ -1039,7 +1021,6 @@ LogicalResult ScatterOp::generateScalarImplementation(OpBuilder &builder,
                                                       ValueRange ivs) {
   int64_t updateRank = getUpdateRank();
   int64_t indicesRank = getIndicesRank();
-  int64_t srcRank = getSrcRank();
   int64_t batches = indicesRank - 1;
   int64_t dataRank = updateRank - batches;
 
@@ -1824,7 +1805,7 @@ ArrayAttr mlir::linalg_ext::BatchMatmulOp::getIndexingMaps() {
 
   // outputs
   maps.push_back(
-      getMultiDimIdentityMapWithSkips(fullRank, {unsigned(fullRank - 1)}, ctx));
+      getMultiDimIdentityMapWithSkips(fullRank, {fullRank - 1}, ctx));
 
   return Builder(ctx).getAffineMapArrayAttr(maps);
 }

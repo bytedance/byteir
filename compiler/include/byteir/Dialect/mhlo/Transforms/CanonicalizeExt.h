@@ -36,6 +36,7 @@ class DynamicBroadcastInDimOp;
 class DynamicConvOp;
 class DynamicGatherOp;
 class ReshapeOp;
+class MulOp;
 class SliceOp;
 
 // Most of these will push back to upstream
@@ -51,7 +52,7 @@ class SliceOp;
 ///   broadcast_in_dim  const
 ///       \              /
 ///             mul
-LogicalResult foldBroadcastInDim(BroadcastInDimOp op,
+LogicalResult foldBroadcastInDim(mhlo::BroadcastInDimOp op,
                                  PatternRewriter &rewriter);
 
 ///
@@ -59,6 +60,9 @@ LogicalResult foldBroadcastInDim(BroadcastInDimOp op,
 ///
 LogicalResult foldConcatWithContinuousSlices(mhlo::ConcatenateOp op,
                                              PatternRewriter &rewriter);
+
+// fold multi op with zero
+LogicalResult foldMultiplyZero(mhlo::MulOp op, PatternRewriter &rewriter);
 
 // fold binary op with large constant op
 template <typename Op, template <typename> typename Func>
@@ -93,18 +97,7 @@ LogicalResult canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
 LogicalResult simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
                                       PatternRewriter &rewriter);
 
-struct FoldSlice : public OpRewritePattern<SliceOp> {
-  FoldSlice(MLIRContext *context, bool blind = false,
-            PatternBenefit benefit = 1)
-      : OpRewritePattern(context, benefit), blind(blind) {}
-
-  LogicalResult matchAndRewrite(SliceOp sliceOp,
-                                PatternRewriter &rewriter) const override;
-
-private:
-  /// Fold it even if the final IR bloats
-  bool blind;
-};
+LogicalResult foldLargeSliceOp(mhlo::SliceOp op, PatternRewriter &rewriter);
 
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,

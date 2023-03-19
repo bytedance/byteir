@@ -18,12 +18,12 @@
 #ifndef BYTEIR_CONVERSION_TOLINALG_TOLINALG_H
 #define BYTEIR_CONVERSION_TOLINALG_TOLINALG_H
 
-#include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "mlir/Pass/Pass.h"
 #include <memory>
 #include <string>
 
 namespace mlir {
+class TypeConverter;
 class RewriterBase;
 namespace func {
 class FuncOp;
@@ -37,7 +37,9 @@ void populateUnrealizedCastToLinalgConversionPattern(
 
 void populateTensorToLinalgConversionPatterns(RewritePatternSet &patterns);
 
-void populateHloToLinalgExtConversionPattern(MLIRContext *context,
+void populateLinalgExtToLinalgConversionPatterns(RewritePatternSet &patterns);
+
+void populateHloToLinalgExtConversionPattern(TypeConverter &typeConverter,
                                              RewritePatternSet &patterns);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
@@ -47,6 +49,8 @@ createHloFusionToLinalgPass(llvm::StringRef anchorTag = "",
 std::unique_ptr<OperationPass<func::FuncOp>> createUnrealizedCastToLinalgPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createTensorToLinalgPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>> createLinalgExtToLinalgPass();
 
 } // namespace mlir
 

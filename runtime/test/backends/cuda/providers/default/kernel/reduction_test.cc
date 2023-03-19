@@ -216,15 +216,15 @@ void CheckNanPropagation(std::string op_name) {
 } // namespace
 
 TEST(CUDATestReductionOp, ReduceSum) {
-  CheckReduction<ReduceSumOp<float>>("ReduceSumOpf32f32");
+  CheckReduction<ReduceSumOp<float>>("ReduceSumOp_f32_f32");
 }
 
 TEST(CUDATestReductionOp, ReduceMax) {
-  CheckReduction<ReduceMaxOp<float>>("ReduceMaxOpf32f32");
+  CheckReduction<ReduceMaxOp<float>>("ReduceMaxOp_f32_f32");
   // TODO(liuyuanqiang): add fp16 test and resolve precision problem.
 }
 
 TEST(CUDATestReductionOp, NanPropagation) {
-  CheckNanPropagation("ReduceSumOpf32f32");
-  CheckNanPropagation("ReduceMaxOpf32f32");
+  CheckNanPropagation("ReduceSumOp_f32_f32");
+  CheckNanPropagation("ReduceMaxOp_f32_f32");
 }

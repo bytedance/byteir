@@ -7,7 +7,7 @@ module {
     return %1 : memref<4xf32>
   }
 // CHECK-LABEL:  func.func @mhlo_add
-// CHECK-NEXT:     byre.compute @AddOpf32f32f32
+// CHECK-NEXT:     byre.compute @AddOp_f32f32_f32
 
   func.func @mhlo_add_splat_const(%arg0: memref<4xf32>) -> memref<4xf32> attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<4xf32>
@@ -19,7 +19,7 @@ module {
 // CHECK-LABEL: func.func @mhlo_add_splat_const
 // CHECK-NEXT: memref.alloc()
 // CHECK-NEXT: byre.compute @FillOp
-// CHECK-NEXT: byre.compute @AddOpf32f32f32
+// CHECK-NEXT: byre.compute @AddOp_f32f32_f32
 
   func.func @mhlo_matmul(%arg0: memref<128x64xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<64x32xf32> {__placeholder__byre.argname = "B"}) -> (memref<128x32xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<128x32xf32>
@@ -27,7 +27,7 @@ module {
     return %0 : memref<128x32xf32>
   }
 // CHECK-LABEL: func.func @mhlo_matmul
-// CHECK: byre.compute @MatmulOpf32f32f32
+// CHECK: byre.compute @MatmulOp_f32f32_f32
 
   func.func @mhlo_matmul1(%arg0: memref<128x64xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<64x32xf32> {__placeholder__byre.argname = "B"}) -> (memref<128x32xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<128x32xf32>
@@ -35,7 +35,7 @@ module {
     return %0 : memref<128x32xf32>
   }
 // CHECK-LABEL: func.func @mhlo_matmul1
-// CHECK: byre.compute @MatmulOpf32f32f32
+// CHECK: byre.compute @MatmulOp_f32f32_f32
 
   func.func @mhlo_batch_matmul(%arg0: memref<3x128x64xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<3x64x32xf32> {__placeholder__byre.argname = "B"}) -> (memref<3x128x32xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<3x128x32xf32>
@@ -43,7 +43,7 @@ module {
     return %0 : memref<3x128x32xf32>
   }
 // CHECK-LABEL: func.func @mhlo_batch_matmul
-// CHECK: byre.compute @BatchMatmulOpf32f32f32
+// CHECK: byre.compute @BatchMatmulOp_f32f32_f32
 
   func.func @mhlo_scatter(%arg0: memref<512x128xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<128x1xi64> {__placeholder__byre.argname = "B"}, %arg2: memref<128x128xf32> {__placeholder__byre.argname = "C"}) -> (memref<512x128xf32> {__placeholder__byre.argname = "D"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<512x128xf32>
@@ -55,7 +55,7 @@ module {
     return %0 : memref<512x128xf32>
   }
   // CHECK-LABEL: mhlo_scatter
-  // CHECK-NEXT: byre.compute @IndexPutOpf32i64f32f32
+  // CHECK-NEXT: byre.compute @IndexPutOp_f32i64f32_f32
 
   func.func @mhlo_gather(%arg0: memref<30522x128xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<128xui32> {__placeholder__byre.argname = "B"}) -> (memref<128x128xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
     %2 = memref.alloc() : memref<128x128xf32>
@@ -63,7 +63,7 @@ module {
     return %2 : memref<128x128xf32>
   }
   // CHECK-LABEL: mhlo_gather
-  // CHECK-NEXT: byre.compute @IndexSelectOpf32ui32f32
+  // CHECK-NEXT: byre.compute @IndexSelectOp_f32ui32_f32
 
   func.func @mhlo_slice_input(%arg0: memref<1x512xi64> {__placeholder__byre.argname = "A"}) -> (memref<1x128xi64> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<1x128xi64>
@@ -75,7 +75,7 @@ module {
   // CHECK-LABEL: mhlo_slice_input
   // CHECK-NEXT: memref.alloc
   // CHECK-NEXT: byre.compute @AliasOp
-  // CHECK-NEXT: byre.compute @AddOpi64i64i64
+  // CHECK-NEXT: byre.compute @AddOp_i64i64_i64
 
   func.func @mhlo_reduce(%arg0: memref<1x128x128xf32> {__placeholder__byre.argname = "A"}) -> (memref<128xf32> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<f32>
@@ -89,7 +89,7 @@ module {
     return %1 : memref<128xf32>
   }
   // CHECK-LABEL: mhlo_reduce
-  // CHECK-NEXT: byre.compute @ReduceSumOpf32f32(%arg0, %arg1)
+  // CHECK-NEXT: byre.compute @ReduceSumOp_f32_f32(%arg0, %arg1)
   //   CHECK-DAG: dimensions = dense<[0, 1]>
 
   func.func @mhlo_reduce_consecutive_dims(%arg0: memref<2x128x128xf32> {__placeholder__byre.argname = "A"}) -> (memref<128xf32> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {
@@ -104,7 +104,7 @@ module {
     return %1 : memref<128xf32>
   }
   // CHECK-LABEL: mhlo_reduce_consecutive_dims
-  // CHECK-NEXT: byre.compute @ReduceSumOpf32f32(%arg0, %arg1)
+  // CHECK-NEXT: byre.compute @ReduceSumOp_f32_f32(%arg0, %arg1)
   //   CHECK-DAG: dimensions = dense<[0, 1]>
 
   func.func @reduce_window(%arg: memref<1x64x112x112xf32> {__placeholder__byre.argname = "A"}) -> (memref<1x64x56x56xf32> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {
@@ -124,7 +124,7 @@ module {
     return %1 : memref<1x64x56x56xf32>  
   }
   // CHECK-LABEL: reduce_window
-  // CHECK-NEXT: byre.compute @PoolMaxOpf32f32(%arg0, %arg1)
+  // CHECK-NEXT: byre.compute @PoolMaxOp_f32_f32(%arg0, %arg1)
 
   func.func @select_and_scatter(%arg0: memref<32x64x112x112xf16>  {__placeholder__byre.argname = "A"}, %arg1: memref<32x64x56x56xf16> {__placeholder__byre.argname = "B"}) -> (memref<32x64x112x112xf16> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<32x64x112x112xf16>
@@ -142,7 +142,7 @@ module {
     return %0 : memref<32x64x112x112xf16>
   }
   // CHECK-LABEL: select_and_scatter
-  // CHECK-NEXT: byre.compute @PoolMaxGradOpf16f16f16(%arg0, %arg1, %arg2)
+  // CHECK-NEXT: byre.compute @PoolMaxGradOp_f16f16_f16(%arg0, %arg1, %arg2)
 
     func.func @convert(%arg0: memref<3x4xf32> {__placeholder__byre.argname = "A"}) -> (memref<3x4xf16> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {
     %0 = memref.alloc() : memref<3x4xf16>
@@ -150,7 +150,7 @@ module {
     return %0 : memref<3x4xf16>
   }
   // CHECK-LABEL: convert
-  // CHECK-NEXT: byre.compute @Typecvtf32f16
+  // CHECK-NEXT: byre.compute @Typecvt_f32_f16
 
   func.func @test_call(%arg0: memref<4xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<4xf32> {__placeholder__byre.argname = "B"}) -> (memref<4xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point } {
     %0 = call @some_func(%arg0, %arg1) : (memref<4xf32>, memref<4xf32>) -> memref<4xf32>
@@ -165,7 +165,7 @@ module {
     return %1 : memref<4xf32>
   }
   // CHECK-LABEL: test_call
-  // CHECK-NEXT: byre.compute @customAddOpf32f32f32
+  // CHECK-NEXT: byre.compute @customAddOp_f32f32_f32
 
     func.func @test_call_codegen(%arg0: memref<4xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<4xf32> {__placeholder__byre.argname = "B"}) -> (memref<4xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point } {
     %0 = call @some_func_2(%arg0, %arg1) : (memref<4xf32>, memref<4xf32>) -> memref<4xf32>

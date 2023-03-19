@@ -26,13 +26,13 @@ namespace cuda {
 
 void RegisterIndexingOps(KernelRegistry *registry) {
   registry->Register(
-      "IndexSelectOpf32ui32f32",
+      "IndexSelectOp_f32ui32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<IndexSelect<float>>(info);
       });
 
   registry->Register(
-      "IndexPutOpf32i64f32f32",
+      "IndexPutOp_f32i64f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<IndexPut<float>>(info);
       });

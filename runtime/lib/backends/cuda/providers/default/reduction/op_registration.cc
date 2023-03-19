@@ -27,22 +27,22 @@ namespace cuda {
 void RegisterReductionOps(KernelRegistry *registry) {
 
   registry->Register(
-      "ReduceSumOpf16f16",
+      "ReduceSumOp_f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<ReduceSum<__half>>(info);
       });
   registry->Register(
-      "ReduceSumOpf32f32",
+      "ReduceSumOp_f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<ReduceSum<float>>(info);
       });
   registry->Register(
-      "ReduceMaxOpf32f32",
+      "ReduceMaxOp_f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<ReduceMax<float>>(info);
       });
   registry->Register(
-      "ReduceMaxOpf16f16",
+      "ReduceMaxOp_f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<ReduceMax<__half>>(info);
       });
