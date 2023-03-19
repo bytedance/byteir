@@ -30,11 +30,8 @@ func.func @mhlo_element_broadcast(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, 
 // CHECK-LABEL: func.func @mhlo_element_broadcast
 // CHECK-NEXT:  mhlo.fusion
 // CHECK-NEXT:    mhlo.add
-// CHECK-NEXT:    mhlo.abs
-// CHECK-NEXT:    mhlo.return
-// CHECK: {__byteir_elementwise_fusion__}
-// CHECK:       mhlo.fusion
 // CHECK-NEXT:    mhlo.broadcast_in_dim
+// CHECK-NEXT:    mhlo.abs
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.broadcast_in_dim
 // CHECK-NEXT:    mhlo.add
@@ -80,6 +77,7 @@ func.func @shared_constant(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 :
 // CHECK: {__byteir_elementwise_fusion__}
 // CHECK:  return
 
+// test not crash
 func.func private @empty(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 : tensor<3x4xf32>) -> tensor<3x4xf32>
 // CHECK-LABEL: func.func private @empty
 
@@ -93,6 +91,20 @@ func.func @mhlo_single_op(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>) -> tenso
 // CHECK-SINGLE-LABEL: func.func @mhlo_single_op
 //   CHECK-SINGLE: mhlo.fusion
 //     CHECK-SINGLE-NEXT: mhlo.add
+//     CHECK-SINGLE-NEXT: mhlo.return
+//   CHECK-SINGLE: {__byteir_elementwise_fusion__}
+//   CHECK-SINGLE: return
+
+func.func @mhlo_single_broadcast(%arg0 : tensor<1x128xi64>) -> tensor<2x128xi64> {
+  %1 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<1x128xi64>) -> tensor<2x128xi64>
+  return %1 : tensor<2x128xi64>
+}
+// CHECK-LABEL: func.func @mhlo_single_broadcast
+//   CHECK-NEXT: mhlo.broadcast_in_dim
+//   CHECK-NEXT: return
+// CHECK-SINGLE-LABEL: func.func @mhlo_single_broadcast
+//   CHECK-SINGLE: mhlo.fusion
+//     CHECK-SINGLE-NEXT: mhlo.broadcast_in_dim
 //     CHECK-SINGLE-NEXT: mhlo.return
 //   CHECK-SINGLE: {__byteir_elementwise_fusion__}
 //   CHECK-SINGLE: return

@@ -1,4 +1,4 @@
-//===- HloFusionToLinalg.cpp ----------------------------------*--- C++ -*-===//
+//===- HloToLinalg.cpp ----------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,6 +33,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
+#include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
@@ -391,9 +392,8 @@ struct ReduceWindowOpConversion
   }
 };
 
-class SoftmaxCustomCallConverter
+struct SoftmaxCustomCallConverter
     : public OpConversionPattern<mhlo::CustomCallOp> {
-public:
   using OpConversionPattern<mhlo::CustomCallOp>::OpConversionPattern;
 
   LogicalResult
@@ -468,9 +468,8 @@ public:
   }
 };
 
-class DotGeneralLinalgExtBatchMatMulOpConversion
+struct DotGeneralLinalgExtBatchMatMulOpConversion
     : public OpConversionPattern<mhlo::DotGeneralOp> {
-public:
   using OpConversionPattern<mhlo::DotGeneralOp>::OpConversionPattern;
   LogicalResult
   matchAndRewrite(mhlo::DotGeneralOp op, OpAdaptor adaptor,
@@ -858,12 +857,8 @@ struct HloFusionToLinalgPass
         [](Operation *op) { return isInBodyOfLinalgOps(op); });
     mhlo::populateHloToLinalgConversionPattern(&ctx, *typeConverter, &patterns,
                                                enablePrimitiveOps);
-    patterns.add<ReduceWindowOpConversion>(*typeConverter, &ctx,
-                                           PatternBenefit(2));
-    patterns.add<DotGeneralLinalgExtBatchMatMulOpConversion>(
-        *typeConverter, &ctx, PatternBenefit(2));
+    populateHloToLinalgExtConversionPattern(*typeConverter, patterns);
 
-    populateHloToLinalgExtConversionPattern(&ctx, patterns);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPartialConversion(func, target, frozenPatterns))) {
       signalPassFailure();
@@ -873,11 +868,15 @@ struct HloFusionToLinalgPass
 } // namespace
 
 void mlir::populateHloToLinalgExtConversionPattern(
-    MLIRContext *context, RewritePatternSet &patterns) {
-  patterns.add<SoftmaxCustomCallConverter>(context);
-  patterns.add<ScatterOpConversion>(context);
-  patterns.add<LayerNormCustomCallConverter>(context);
-  patterns.add<GeLUCustomCallConverter>(context);
+    TypeConverter &typeConverter, RewritePatternSet &patterns) {
+  auto ctx = patterns.getContext();
+  patterns.add<ReduceWindowOpConversion>(typeConverter, ctx, PatternBenefit(2));
+  patterns.add<DotGeneralLinalgExtBatchMatMulOpConversion>(typeConverter, ctx,
+                                                           PatternBenefit(2));
+  patterns.add<SoftmaxCustomCallConverter>(ctx);
+  patterns.add<ScatterOpConversion>(ctx);
+  patterns.add<LayerNormCustomCallConverter>(ctx);
+  patterns.add<GeLUCustomCallConverter>(ctx);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

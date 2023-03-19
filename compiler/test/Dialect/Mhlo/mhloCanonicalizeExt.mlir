@@ -91,14 +91,14 @@ func.func @concat_const_folding_with_dup_value() -> tensor<3x2xi64> {
 // CHECK: %0 = mhlo.constant dense<{{\[}}[1, 1], [2, 3], [2, 3]{{\]}}> : tensor<3x2xi64>
 // CHECK: return %0 : tensor<3x2xi64>
 
-func.func @const_const_folding_case1(%arg0: tensor<1x2xi64>) -> tensor<5x2xi64> {
+func.func @concat_const_folding_case1(%arg0: tensor<1x2xi64>) -> tensor<5x2xi64> {
   %0 = mhlo.constant dense<1> : tensor<1x2xi64>
   %1 = mhlo.constant dense<[[2, 3]]> : tensor<1x2xi64>
   %2 = mhlo.constant dense<[[3, 4]]> : tensor<1x2xi64>
   %4 = "mhlo.concatenate"(%0, %1, %arg0, %2, %2) {dimension = 0 : i64} : (tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>) -> tensor<5x2xi64>
   return %4 : tensor<5x2xi64>
 }
-// CHECK-LABEL: const_const_folding_case1
+// CHECK-LABEL: concat_const_folding_case1
 // CHECK:  %0 = mhlo.constant dense<{{\[}}[1, 1], [2, 3]{{\]}}> : tensor<2x2xi64>
 // CHECK:  %1 = mhlo.constant dense<{{\[}}[3, 4], [3, 4]{{\]}}> : tensor<2x2xi64>
 
@@ -129,3 +129,4 @@ func.func @simplify_byteir_addn(%arg0: tensor<150x768xf16>, %arg1: tensor<150x76
 // CHECK-LABEL: simplify_byteir_addn
 // CHECK-NOT: mhlo.custom_call
 // CHECK: mhlo.add
+

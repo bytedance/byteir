@@ -64,20 +64,34 @@ void appendElementTypeToString(Type type, std::string &out) {
 
 } // namespace
 
-std::string mlir::getByreKey(StringRef original, TypeRange types,
-                             bool appendArgTypes) {
+std::string mlir::getByreKey(StringRef original, TypeRange in_types,
+                             TypeRange out_types, bool appendArgTypes) {
 
   if (!appendArgTypes)
     return original.str();
 
   std::string out = original.str();
 
-  for (auto type : types) {
+  // separate byre func name from input types
+  out += "_";
+  for (auto type : in_types) {
     if (auto memref = type.dyn_cast<mlir::MemRefType>()) {
       Type elementType = memref.getElementType();
       appendElementTypeToString(elementType, out);
     } else {
       out += "unsupport";
+    }
+  }
+  // separate input types from output types
+  out += "_";
+  if (out_types.size() > 0) {
+    for (auto type : out_types) {
+      if (auto memref = type.dyn_cast<mlir::MemRefType>()) {
+        Type elementType = memref.getElementType();
+        appendElementTypeToString(elementType, out);
+      } else {
+        out += "unsupport";
+      }
     }
   }
   return out;

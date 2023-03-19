@@ -158,6 +158,7 @@ def LinalgScopeTiling : Pass<"linalg-scope-tile", "func::FuncOp"> {
 
 def LinalgCollapseLoops : Pass<"linalg-collapse-loops", "func::FuncOp"> {
   let summary = "Collapse loops on linalg.generic ops";
+  let constructor = "mlir::createLinalgCollapseLoops()";
   let dependentDialects = [
     "linalg::LinalgDialect",
     "tensor::TensorDialect",

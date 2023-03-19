@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- LinalgCollapseLoops.h ----------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_LINALG_PASSES_H
-#define BYTEIR_DIALECT_LINALG_PASSES_H
+#ifndef BYTEIR_DIALECT_LINALG_TRANSFORMS_LINALGCOLLAPSELOOPS_H
+#define BYTEIR_DIALECT_LINALG_TRANSFORMS_LINALGCOLLAPSELOOPS_H
 
-#include "byteir/Dialect/Linalg/Transforms/Bufferize.h"
-#include "byteir/Dialect/Linalg/Transforms/FuseElementwise.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgCollapseLoops.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgDataPlace.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
-#include "byteir/Dialect/Linalg/Transforms/LinalgPrefetch.h"
-#include "byteir/Dialect/Linalg/Transforms/Tiling.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/Linalg/Passes.h.inc"
+std::unique_ptr<OperationPass<func::FuncOp>> createLinalgCollapseLoops();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_LINALG_PASSES_H
+#endif // BYTEIR_DIALECT_LINALG_TRANSFORMS_LINALGCOLLAPSELOOPS_H

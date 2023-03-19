@@ -12,8 +12,8 @@ But each frontend will be guaranteed to generate compatible mhlo format with the
 ## [TensorFlow](tf-frontend/README.md)
 tf graph --> tf dialect --> mhlo dialect pipeline
 
-## [PyTorch]()
-TBD
+## [PyTorch](torch-frontend/README.md)
+PyTorch --> torch dialect --> mhlo dialect pipeline
 
 ## [ONNX](onnx-frontend/README.md)
 onnx graph --> onnx dialect --> mhlo dialect

@@ -32,28 +32,28 @@ namespace cuda {
 
 void RegisterMathOps(KernelRegistry *registry) {
   registry->Register(
-      "AddOpf32f32f32",
+      "AddOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new cuda::Add<float>(info));
         return kernel;
       });
 
   registry->Register(
-      "MatmulOpf16f16f16",
+      "MatmulOp_f16f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new cuda::Matmul<__half>(info));
         return kernel;
       });
 
   registry->Register(
-      "MatmulOpf32f32f32",
+      "MatmulOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new cuda::Matmul<float>(info));
         return kernel;
       });
 
   registry->Register(
-      "BatchMatmulOpf32f32f32",
+      "BatchMatmulOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::BatchMatmul<float>(info));
@@ -61,21 +61,21 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "ConvOpf32f32f32",
+      "ConvOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new cuda::Conv<float>(info));
         return kernel;
       });
 
   registry->Register(
-      "ConvOpf16f16f16",
+      "ConvOp_f16f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new cuda::Conv<__half>(info));
         return kernel;
       });
 
   registry->Register(
-      "ConvBackwardDataOpf32f32f32",
+      "ConvBackwardDataOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::ConvBackwardData<float>(info));
@@ -83,7 +83,7 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "ConvBackwardDataOpf16f16f16",
+      "ConvBackwardDataOp_f16f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::ConvBackwardData<__half>(info));
@@ -91,7 +91,7 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "ConvBackwardFilterOpf32f32f32",
+      "ConvBackwardFilterOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(
             new cuda::ConvBackwardFilter<float>(info));
@@ -99,7 +99,7 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "ConvBackwardFilterOpf16f16f16",
+      "ConvBackwardFilterOp_f16f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(
             new cuda::ConvBackwardFilter<__half>(info));
@@ -107,14 +107,14 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "PoolMaxOpf32f32",
+      "PoolMaxOp_f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new cuda::PoolMax<float>(info));
         return kernel;
       });
 
   registry->Register(
-      "PoolMaxOpf16f16",
+      "PoolMaxOp_f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::PoolMax<__half>(info));
@@ -122,7 +122,7 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "PoolMaxGradOpf32f32f32",
+      "PoolMaxGradOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::PoolMaxGrad<float>(info));
@@ -130,7 +130,7 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "PoolMaxGradOpf16f16f16",
+      "PoolMaxGradOp_f16f16_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::PoolMaxGrad<__half>(info));

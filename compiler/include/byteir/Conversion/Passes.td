@@ -92,6 +92,11 @@ def TensorToLinalg : Pass<"tensor-to-linalg", "func::FuncOp"> {
   ];
 }
 
+def LinalgExtToLinalg : Pass<"linalg-ext-to-linalg", "func::FuncOp"> {
+  let summary = "Convert LinalgExt ops to Linalg";
+  let constructor = "mlir::createLinalgExtToLinalgPass()";
+}
+
 //===----------------------------------------------------------------------===//
 // LmhloToLace
 //===----------------------------------------------------------------------===//

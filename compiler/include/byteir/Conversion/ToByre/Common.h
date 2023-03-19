@@ -27,8 +27,8 @@
 
 namespace mlir {
 
-std::string getByreKey(StringRef original, TypeRange types,
-                       bool appendArgTypes);
+std::string getByreKey(StringRef original, TypeRange in_types,
+                       TypeRange out_types, bool appendArgTypes);
 
 template <typename OpTy>
 std::enable_if_t<OpTy::template hasTrait<MemoryEffectOpInterface::Trait>(),
@@ -72,7 +72,16 @@ public:
       return failure();
     }
 
-    auto key = getByreKey(found->second, op->getOperandTypes(), appendArgTypes);
+    SmallVector<Type> inputTypes, outputTypes;
+    if (auto iface = llvm::cast<MemoryEffectOpInterface>(op.getOperation()))
+      for (auto operand : op->getOperands()) {
+        if (iface.template getEffectOnValue<MemoryEffects::Read>(operand))
+          inputTypes.push_back(operand.getType());
+        if (iface.template getEffectOnValue<MemoryEffects::Write>(operand))
+          outputTypes.push_back(operand.getType());
+      }
+    auto key =
+        getByreKey(found->second, inputTypes, outputTypes, appendArgTypes);
 
     // Note all attrs will be removed
     replaceLmhloOpWithByreComputeOp(rewriter, op, key, adaptor.getOperands());
@@ -104,7 +113,16 @@ public:
       return failure();
     }
 
-    auto key = getByreKey(found->second, op->getOperandTypes(), appendArgTypes);
+    SmallVector<Type> inputTypes, outputTypes;
+    if (auto iface = llvm::cast<MemoryEffectOpInterface>(op.getOperation()))
+      for (auto operand : op->getOperands()) {
+        if (iface.template getEffectOnValue<MemoryEffects::Read>(operand))
+          inputTypes.push_back(operand.getType());
+        if (iface.template getEffectOnValue<MemoryEffects::Write>(operand))
+          outputTypes.push_back(operand.getType());
+      }
+    auto key =
+        getByreKey(found->second, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                      adaptor.getOperands());

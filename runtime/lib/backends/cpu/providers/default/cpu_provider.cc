@@ -42,27 +42,27 @@ namespace {
 BRT_STATIC_KERNEL_REGISTRATION(
     DeviceKind::CPU, ProviderType::BRT, [](KernelRegistry *registry) {
       registry->Register(
-          "AddOpf32f32f32",
+          "AddOp_f32f32_f32",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             auto kernel = std::shared_ptr<OpKernel>(new cpu::Add<float>(info));
             return kernel;
           });
       registry->Register(
-          "Typecvti64i32",
+          "Typecvt_i64_i32",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             auto kernel = std::shared_ptr<OpKernel>(
                 new cpu::Typecvt<DTypeEnum::Int64, DTypeEnum::Int32>(info));
             return kernel;
           });
       registry->Register(
-          "Typecvtf32f16",
+          "Typecvt_f32_f16",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             auto kernel = std::shared_ptr<OpKernel>(
                 new cpu::Typecvt<DTypeEnum::Float32, DTypeEnum::Float16>(info));
             return kernel;
           });
       registry->Register(
-          "Typecvtf16f32",
+          "Typecvt_f16_f32",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             auto kernel = std::shared_ptr<OpKernel>(
                 new cpu::Typecvt<DTypeEnum::Float16, DTypeEnum::Float32>(info));

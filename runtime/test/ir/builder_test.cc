@@ -78,7 +78,7 @@ TEST(IRBuilderTest, ProgressiveBuildMethod1) {
     SmallVector<Value> inputs{entry_block->getArgument(0),
                               entry_block->getArgument(1)};
     SmallVector<Value> outputs{entry_block->getArgument(2)};
-    op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "AddOpf32f32f32",
+    op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "AddOp_f32f32_f32",
                                        inputs, outputs);
   }
 
@@ -147,7 +147,7 @@ TEST(IRBuilderTest, ProgressiveBuildMethod2) {
                               entry_block->getArgument(1)};
     SmallVector<Value> outputs{entry_block->getArgument(2)};
     auto op = op_builder.create<byre::ComputeOp>(
-        UnknownLoc::get(ctx), "AddOpf32f32f32", inputs, outputs);
+        UnknownLoc::get(ctx), "AddOp_f32f32_f32", inputs, outputs);
     byre_builder.RecordOperation(op);
   }
 

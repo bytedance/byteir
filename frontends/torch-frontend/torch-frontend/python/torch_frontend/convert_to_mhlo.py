@@ -36,6 +36,6 @@ def convert_to_mhlo_via_torch_mlir(
     )
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
-        pm.run(module)
+        pm.run(module.operation)
     return module
 

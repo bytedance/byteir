@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -canonicalize-ext -o %t
+// RUN: byteir-opt %s -canonicalize-ext="blind-fold=true" -o %t
 // RUN: FileCheck %s < %t
 // RUN: python3 %S/numerical_test.py %s %t
 

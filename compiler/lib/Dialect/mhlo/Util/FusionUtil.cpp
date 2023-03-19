@@ -351,6 +351,8 @@ void mlir::ProducerFusionPlanner::run() {
 
     // fusion check  when fuseTrigger is true
     if (!fuseTrigger(op)) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "skip fusing due to not triggered: " << *op << "\n");
       continue;
     }
 

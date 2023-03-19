@@ -183,7 +183,7 @@ def LinalgExt_SoftmaxOp : LinalgExt_Op<"softmax",
       max_new = max(max_old, max(data along dimension)).
       accum_new = accum_old * exp(max_old - max_new) + sum(exp(data - max_new)). 
       scale = accum_old * exp(max_old - max_new) / accum_new.
-      resutl = exp(data - max_new)/ accum_new.
+      result = exp(data - max_new)/ accum_new.
   }];
 
   let arguments = (ins

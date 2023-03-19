@@ -53,9 +53,7 @@ bool isFusibleTrigger(Operation *op) {
   }
 
   if (isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op)) {
-    auto val = op->getOperand(0);
-    auto def_op = val.getDefiningOp();
-    return def_op && isMhloConstantLike(def_op);
+    return true;
   }
 
   return false;
@@ -71,7 +69,8 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) {
 
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-         op->hasTrait<hlo::OpTrait::BroadcastingElementwise>();
+         op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op);
 }
 
 static GenericFuserConfig config{

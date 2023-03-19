@@ -7,6 +7,7 @@ Although all ByteIR components (compiler/runtime/frontends) are together to prov
 all under the same umbrella of this repository, 
 each component technically can perform independently.
 
+
 ## The name ByteIR
 The name, ByteIR, comes from a legacy purpose internally.   
 The ByteIR project is NOT an IR spec definition project. 
@@ -51,8 +52,14 @@ The bytecode form of ByRE dialect with versioning will come very soon.
 Other ByRE formats are under development.
 
 
-## Citation
-If you find this repository useful, please consider citing.
+## Publication and Citation
+
+ByteIR is the product of many great researchers and interns in ByteDance. Below is a list of our publications:
+
+* [Linalg is All You Need to Optimize Attention](compiler/paper/c4ml23_poster.pdf) -- C4ML'23
+
+
+If you find ByteIR useful, please consider citing.
 ``` 
 @misc{byteir2023,
 title = {{ByteIR}},
