@@ -108,6 +108,26 @@ func.func @torch.aten.topk(%arg0: !torch.vtensor<[3,10],f32>) -> (!torch.vtensor
 }
 // CHECK-LABEL: func.func @torch.aten.topk
 // CHECK: mhlo.custom_call
-// CHECK-SMAE: @byteir.top_k
+// CHECK-SAME: @byteir.top_k
 // CHECK: byteir_attrs = {axis = [1], k = 3 : i64, sorted = true}
 // CHECH-NOT: torch.aten.topk
+
+func.func @torch.custom.dynamic_partition(%arg0: !torch.vtensor<[10,5],f32>, %arg1: !torch.vtensor<[10],si64>) -> (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>) {
+  %value0, %value1 = "torch.custom_op"(%arg0, %arg1) {custom_op_attrs = {num_partitions = 2 : i64}, custom_op_name = "dynamic_partition"} : (!torch.vtensor<[10,5],f32>, !torch.vtensor<[10],si64>) -> (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>)
+  return %value0, %value1 : !torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>
+}
+// CHECK-LABEL: func.func @torch.custom.dynamic_partition
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @tf.DynamicPartition
+// CHECK: byteir_attrs = {num_partitions = 2 : i64}
+// CHECH-NOT: torch.custom_op
+
+func.func @torch.custom.dynamic_stitch(%arg0: !torch.vtensor<[?],si64>, %arg1: !torch.vtensor<[?,?],f32>) -> (!torch.vtensor<[?,?],f32>) {
+  %0 = "torch.custom_op"(%arg0, %arg1) {custom_op_attrs = {}, custom_op_name = "dynamic_stitch"} : (!torch.vtensor<[?],si64>, !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],f32>
+  return %0 : !torch.vtensor<[?,?],f32>
+}
+// CHECK-LABEL: func.func @torch.custom.dynamic_stitch
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @tf.DynamicStitch
+// CHECK: byteir_attrs = {}
+// CHECH-NOT: torch.custom_op

@@ -498,13 +498,14 @@ module {
     %0 = mhlo.convert %arg0 : (tensor<1x1000xf16>) -> tensor<1x1000xf32>
     return %0 : tensor<1x1000xf32>
   }
-  func.func private @Unknown79(%arg0: tensor<1000x512xf16>) -> tensor<1000x512xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown79(%arg0: tensor<1000xf32>) -> tensor<1000xf32> attributes {__byteir_elementwise_fusion__} {
+    %0 = mhlo.convert %arg0 : (tensor<1000xf32>) -> tensor<1000xf16>
+    %1 = mhlo.convert %0 : (tensor<1000xf16>) -> tensor<1000xf32>
+    return %1 : tensor<1000xf32>
+  }
+  func.func private @Unknown80(%arg0: tensor<1000x512xf16>) -> tensor<1000x512xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 : (tensor<1000x512xf16>) -> tensor<1000x512xf32>
     return %0 : tensor<1000x512xf32>
-  }
-  func.func private @Unknown80(%arg0: tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
-    %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
-    return %0 : tensor<64x64x3x3xf32>
   }
   func.func private @Unknown81(%arg0: tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
@@ -518,63 +519,67 @@ module {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
     return %0 : tensor<64x64x3x3xf32>
   }
-  func.func private @Unknown84(%arg0: tensor<128x64x3x3xf16>) -> tensor<128x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown84(%arg0: tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+    %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
+    return %0 : tensor<64x64x3x3xf32>
+  }
+  func.func private @Unknown85(%arg0: tensor<128x64x3x3xf16>) -> tensor<128x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<128x64x3x3xf16>) -> tensor<128x64x3x3xf32>
     return %0 : tensor<128x64x3x3xf32>
   }
-  func.func private @Unknown85(%arg0: tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown86(%arg0: tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
     return %0 : tensor<128x128x3x3xf32>
   }
-  func.func private @Unknown86(%arg0: tensor<128x64x1x1xf16>) -> tensor<128x64x1x1xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown87(%arg0: tensor<128x64x1x1xf16>) -> tensor<128x64x1x1xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<128x64x1x1xf16>) -> tensor<128x64x1x1xf32>
     return %0 : tensor<128x64x1x1xf32>
-  }
-  func.func private @Unknown87(%arg0: tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
-    %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
-    return %0 : tensor<128x128x3x3xf32>
   }
   func.func private @Unknown88(%arg0: tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
     return %0 : tensor<128x128x3x3xf32>
   }
-  func.func private @Unknown89(%arg0: tensor<256x128x3x3xf16>) -> tensor<256x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown89(%arg0: tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+    %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
+    return %0 : tensor<128x128x3x3xf32>
+  }
+  func.func private @Unknown90(%arg0: tensor<256x128x3x3xf16>) -> tensor<256x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<256x128x3x3xf16>) -> tensor<256x128x3x3xf32>
     return %0 : tensor<256x128x3x3xf32>
   }
-  func.func private @Unknown90(%arg0: tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown91(%arg0: tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
     return %0 : tensor<256x256x3x3xf32>
   }
-  func.func private @Unknown91(%arg0: tensor<256x128x1x1xf16>) -> tensor<256x128x1x1xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown92(%arg0: tensor<256x128x1x1xf16>) -> tensor<256x128x1x1xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<256x128x1x1xf16>) -> tensor<256x128x1x1xf32>
     return %0 : tensor<256x128x1x1xf32>
-  }
-  func.func private @Unknown92(%arg0: tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
-    %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
-    return %0 : tensor<256x256x3x3xf32>
   }
   func.func private @Unknown93(%arg0: tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
     return %0 : tensor<256x256x3x3xf32>
   }
-  func.func private @Unknown94(%arg0: tensor<512x256x3x3xf16>) -> tensor<512x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown94(%arg0: tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+    %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
+    return %0 : tensor<256x256x3x3xf32>
+  }
+  func.func private @Unknown95(%arg0: tensor<512x256x3x3xf16>) -> tensor<512x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<512x256x3x3xf16>) -> tensor<512x256x3x3xf32>
     return %0 : tensor<512x256x3x3xf32>
   }
-  func.func private @Unknown95(%arg0: tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown96(%arg0: tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
     return %0 : tensor<512x512x3x3xf32>
   }
-  func.func private @Unknown96(%arg0: tensor<512x256x1x1xf16>) -> tensor<512x256x1x1xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown97(%arg0: tensor<512x256x1x1xf16>) -> tensor<512x256x1x1xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<512x256x1x1xf16>) -> tensor<512x256x1x1xf32>
     return %0 : tensor<512x256x1x1xf32>
   }
-  func.func private @Unknown97(%arg0: tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown98(%arg0: tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
     return %0 : tensor<512x512x3x3xf32>
   }
-  func.func private @Unknown98(%arg0: tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown99(%arg0: tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %0 = mhlo.convert %arg0 {minor_to_major = dense<[0, 1, 3, 2]> : tensor<4xindex>} : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
     return %0 : tensor<512x512x3x3xf32>
   }
@@ -658,12 +663,12 @@ module {
     %76 = call @Unknown73(%68, %74) : (tensor<1x64x56x56xf16>, tensor<1x64x56x56xf16>) -> tensor<1x64x56x56xf16>
     %77 = "mhlo.select_and_scatter"(%arg83, %76, %1) ({
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
-      %106 = mhlo.compare  GE, %arg142, %arg143 : (tensor<f16>, tensor<f16>) -> tensor<i1>
-      mhlo.return %106 : tensor<i1>
+      %107 = mhlo.compare  GE, %arg142, %arg143 : (tensor<f16>, tensor<f16>) -> tensor<i1>
+      mhlo.return %107 : tensor<i1>
     }, {
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
-      %106 = mhlo.add %arg142, %arg143 : tensor<f16>
-      mhlo.return %106 : tensor<f16>
+      %107 = mhlo.add %arg142, %arg143 : tensor<f16>
+      mhlo.return %107 : tensor<f16>
     }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (tensor<1x64x112x112xf16>, tensor<1x64x56x56xf16>, tensor<f16>) -> tensor<1x64x112x112xf16>
     %78 = call @Unknown74(%arg83, %77) : (tensor<1x64x112x112xf16>, tensor<1x64x112x112xf16>) -> tensor<1x64x112x112xf16>
     %79:3 = call @BatchNormGradOp75(%arg82, %arg1, %78) : (tensor<1x64x112x112xf16>, tensor<64xf32>, tensor<1x64x112x112xf16>) -> (tensor<1x64x112x112xf16>, tensor<64xf32>, tensor<64xf32>)
@@ -672,31 +677,32 @@ module {
     %82 = call @Unknown78(%arg141) : (tensor<1x1000xf16>) -> tensor<1x1000xf32>
     %83 = mhlo.reduce(%82 init: %0) across dimensions = [0] : (tensor<1x1000xf32>, tensor<f32>) -> tensor<1000xf32>
      reducer(%arg142: tensor<f32>, %arg143: tensor<f32>)  {
-      %106 = mhlo.add %arg142, %arg143 : tensor<f32>
-      mhlo.return %106 : tensor<f32>
+      %107 = mhlo.add %arg142, %arg143 : tensor<f32>
+      mhlo.return %107 : tensor<f32>
     }
-    %84 = mhlo.reshape %arg141 : (tensor<1x1000xf16>) -> tensor<1000x1xf16>
-    %85 = "mhlo.dot"(%84, %arg139) {precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<1000x1xf16>, tensor<1x512xf16>) -> tensor<1000x512xf16>
-    %86 = call @Unknown79(%85) : (tensor<1000x512xf16>) -> tensor<1000x512xf32>
-    %87 = call @Unknown80(%75) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
-    %88 = call @Unknown81(%71) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
-    %89 = call @Unknown82(%67) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
-    %90 = call @Unknown83(%63) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
-    %91 = call @Unknown84(%56) : (tensor<128x64x3x3xf16>) -> tensor<128x64x3x3xf32>
-    %92 = call @Unknown85(%52) : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
-    %93 = call @Unknown86(%59) : (tensor<128x64x1x1xf16>) -> tensor<128x64x1x1xf32>
-    %94 = call @Unknown87(%48) : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
-    %95 = call @Unknown88(%44) : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
-    %96 = call @Unknown89(%37) : (tensor<256x128x3x3xf16>) -> tensor<256x128x3x3xf32>
-    %97 = call @Unknown90(%33) : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
-    %98 = call @Unknown91(%40) : (tensor<256x128x1x1xf16>) -> tensor<256x128x1x1xf32>
-    %99 = call @Unknown92(%29) : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
-    %100 = call @Unknown93(%25) : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
-    %101 = call @Unknown94(%18) : (tensor<512x256x3x3xf16>) -> tensor<512x256x3x3xf32>
-    %102 = call @Unknown95(%14) : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
-    %103 = call @Unknown96(%21) : (tensor<512x256x1x1xf16>) -> tensor<512x256x1x1xf32>
-    %104 = call @Unknown97(%10) : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
-    %105 = call @Unknown98(%6) : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
-    return %79#2, %79#1, %81, %83, %86, %73#2, %73#1, %69#2, %69#1, %87, %88, %65#2, %65#1, %61#2, %61#1, %89, %90, %54#2, %54#1, %50#2, %50#1, %91, %92, %93, %57#2, %57#1, %46#2, %46#1, %42#2, %42#1, %94, %95, %35#2, %35#1, %31#2, %31#1, %96, %97, %98, %38#2, %38#1, %27#2, %27#1, %23#2, %23#1, %99, %100, %16#2, %16#1, %12#2, %12#1, %101, %102, %103, %19#2, %19#1, %8#2, %8#1, %4#2, %4#1, %104, %105 : tensor<64xf32>, tensor<64xf32>, tensor<64x3x7x7xf32>, tensor<1000xf32>, tensor<1000x512xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64x64x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x64x3x3xf32>, tensor<128x128x3x3xf32>, tensor<128x64x1x1xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x128x3x3xf32>, tensor<128x128x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x128x3x3xf32>, tensor<256x256x3x3xf32>, tensor<256x128x1x1xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x256x3x3xf32>, tensor<256x256x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x256x3x3xf32>, tensor<512x512x3x3xf32>, tensor<512x256x1x1xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x512x3x3xf32>, tensor<512x512x3x3xf32>
+    %84 = call @Unknown79(%83) : (tensor<1000xf32>) -> tensor<1000xf32>
+    %85 = mhlo.reshape %arg141 : (tensor<1x1000xf16>) -> tensor<1000x1xf16>
+    %86 = "mhlo.dot"(%85, %arg139) {precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<1000x1xf16>, tensor<1x512xf16>) -> tensor<1000x512xf16>
+    %87 = call @Unknown80(%86) : (tensor<1000x512xf16>) -> tensor<1000x512xf32>
+    %88 = call @Unknown81(%75) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
+    %89 = call @Unknown82(%71) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
+    %90 = call @Unknown83(%67) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
+    %91 = call @Unknown84(%63) : (tensor<64x64x3x3xf16>) -> tensor<64x64x3x3xf32>
+    %92 = call @Unknown85(%56) : (tensor<128x64x3x3xf16>) -> tensor<128x64x3x3xf32>
+    %93 = call @Unknown86(%52) : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
+    %94 = call @Unknown87(%59) : (tensor<128x64x1x1xf16>) -> tensor<128x64x1x1xf32>
+    %95 = call @Unknown88(%48) : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
+    %96 = call @Unknown89(%44) : (tensor<128x128x3x3xf16>) -> tensor<128x128x3x3xf32>
+    %97 = call @Unknown90(%37) : (tensor<256x128x3x3xf16>) -> tensor<256x128x3x3xf32>
+    %98 = call @Unknown91(%33) : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
+    %99 = call @Unknown92(%40) : (tensor<256x128x1x1xf16>) -> tensor<256x128x1x1xf32>
+    %100 = call @Unknown93(%29) : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
+    %101 = call @Unknown94(%25) : (tensor<256x256x3x3xf16>) -> tensor<256x256x3x3xf32>
+    %102 = call @Unknown95(%18) : (tensor<512x256x3x3xf16>) -> tensor<512x256x3x3xf32>
+    %103 = call @Unknown96(%14) : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
+    %104 = call @Unknown97(%21) : (tensor<512x256x1x1xf16>) -> tensor<512x256x1x1xf32>
+    %105 = call @Unknown98(%10) : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
+    %106 = call @Unknown99(%6) : (tensor<512x512x3x3xf16>) -> tensor<512x512x3x3xf32>
+    return %79#2, %79#1, %81, %84, %87, %73#2, %73#1, %69#2, %69#1, %88, %89, %65#2, %65#1, %61#2, %61#1, %90, %91, %54#2, %54#1, %50#2, %50#1, %92, %93, %94, %57#2, %57#1, %46#2, %46#1, %42#2, %42#1, %95, %96, %35#2, %35#1, %31#2, %31#1, %97, %98, %99, %38#2, %38#1, %27#2, %27#1, %23#2, %23#1, %100, %101, %16#2, %16#1, %12#2, %12#1, %102, %103, %104, %19#2, %19#1, %8#2, %8#1, %4#2, %4#1, %105, %106 : tensor<64xf32>, tensor<64xf32>, tensor<64x3x7x7xf32>, tensor<1000xf32>, tensor<1000x512xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64x64x3x3xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64x64x3x3xf32>, tensor<64x64x3x3xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x64x3x3xf32>, tensor<128x128x3x3xf32>, tensor<128x64x1x1xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128xf32>, tensor<128x128x3x3xf32>, tensor<128x128x3x3xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x128x3x3xf32>, tensor<256x256x3x3xf32>, tensor<256x128x1x1xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256x256x3x3xf32>, tensor<256x256x3x3xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x256x3x3xf32>, tensor<512x512x3x3xf32>, tensor<512x256x1x1xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512xf32>, tensor<512x512x3x3xf32>, tensor<512x512x3x3xf32>
   }
 }

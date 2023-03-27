@@ -842,27 +842,6 @@ mlir::mhlo::foldBeneficialConstantConvertOp(mhlo::ConvertOp op,
   return success();
 }
 
-LogicalResult mlir::mhlo::foldConsecutiveConvertOp(mhlo::ConvertOp op,
-                                                   PatternRewriter &rewriter) {
-  if (!llvm::isa_and_nonnull<mhlo::ConvertOp>(
-          op.getOperand().getDefiningOp())) {
-    return failure();
-  }
-  mhlo::ConvertOp firstConvert =
-      cast<mhlo::ConvertOp>(op.getOperand().getDefiningOp());
-  auto input = firstConvert.getOperand();
-  auto inputTy = getElementTypeOrSelf(input);
-  // fp64->fp32->fp16 to fp64->fp16 is not handled here because it's handled
-  // already by the upstream Only fold the case where two convert can be
-  // cancelled
-  if (inputTy == getElementTypeOrSelf(op.getResult())) {
-    // cancel second convert
-    rewriter.replaceOp(op, input);
-    return success();
-  }
-  return failure();
-}
-
 namespace {
 
 // this function copied from mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
@@ -1046,7 +1025,6 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::foldLargeSliceOp);
   patterns.add(mlir::mhlo::foldTransposeNonSplat);
   patterns.add(mlir::mhlo::foldBeneficialConstantConvertOp);
-  patterns.add(mlir::mhlo::foldConsecutiveConvertOp);
   patterns.add(mlir::mhlo::canonicalizeBroadcastInDimConst);
   patterns.add(mlir::mhlo::simplifyByteIRAddNToAdd);
   if (blindFold) {

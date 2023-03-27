@@ -30,10 +30,15 @@ def convert_to_mhlo_via_torch_mlir(
     module = torch_mlir.compile(
         model,
         example_inputs,
-        output_type=torch_mlir.OutputType.TORCH,
+        output_type=torch_mlir.OutputType.RAW,
         use_tracing=use_tracing,
         verbose=verbose,
     )
+    with module.context:
+        option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
+        pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")
+        pm.run(module.operation)
+
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
         pm.run(module.operation)

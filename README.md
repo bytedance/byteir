@@ -1,5 +1,7 @@
 # The ByteIR Project
 
+English | [中文](README-zh_cn.md)
+
 The ByteIR Project is a ByteDance model compilation solution.
 ByteIR includes compiler, runtime, and frontends, and provides an end-to-end model compilation solution.
 
@@ -7,12 +9,19 @@ Although all ByteIR components (compiler/runtime/frontends) are together to prov
 all under the same umbrella of this repository, 
 each component technically can perform independently.
 
-
 ## The name ByteIR
 The name, ByteIR, comes from a legacy purpose internally.   
 The ByteIR project is NOT an IR spec definition project. 
 Instead, in most scenarios, ByteIR directly uses several upstream MLIR dialects and Google Mhlo.
 Most of ByteIR compiler passes are compatible with the selected upstream MLIR dialects and Google Mhlo.
+
+## Why ByteIR
+* **Enjoy SOTA models:**
+ByteIR maintains the popular frontends to handle lowering many SOTA models into Mhlo, and also provides a model zoo (release soon) for research or benchmarking purposes. 
+* **Just work:**
+ByteIR adopts upstream MLIR dialects and Google Mhlo, and provides compatible passes, utilities, and infrastructure for all compiler builders using upstream MLIR. You can mix using ByteIR passes with upstream MLIR or Mhlo passes, or even your own passes to build your pipeline.  
+* **Bring your own architecture:**
+ByteIR provides rich generic graph-, loop-, tensor-level, optimizations in Mhlo and Linalg, which allow DL ASIC compilers to reuse, and focus only on the last mile for their backends.  
 
 ## Project Status
 ByteIR is still in its early phase. 
@@ -38,9 +47,9 @@ Each ByteIR component technically can perform independently.
 There are pre-defined communication interface between components.
 
 ### MHLO between frontends and compiler
-ByteIR frontends and ByteIR compiler communicates through mhlo dialect, which version might be updated during development.
+ByteIR frontends and ByteIR compiler communicate through Mhlo dialect, which version might be updated during development.
 
-This also implies whatever frontend generating mhlo with a compatible version can work with ByteIR compiler, and also whatever compiler consuming mhlo with a compatible version can work with ByteIR frontends.
+This also implies whatever frontend generating Mhlo with a compatible version can work with ByteIR compiler, and also whatever compiler consuming Mhlo with a compatible version can work with ByteIR frontends.
 
 ### ByRE between compiler and runtime
 

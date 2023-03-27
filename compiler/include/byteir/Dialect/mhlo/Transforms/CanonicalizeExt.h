@@ -84,9 +84,6 @@ LogicalResult foldTransposeNonSplat(mhlo::TransposeOp op,
 LogicalResult foldBeneficialConstantConvertOp(mhlo::ConvertOp op,
                                               PatternRewriter &rewriter);
 
-LogicalResult foldConsecutiveConvertOp(mhlo::ConvertOp op,
-                                       PatternRewriter &rewriter);
-
 LogicalResult foldLargeCompareOp(mhlo::CompareOp op, PatternRewriter &rewriter);
 
 // const + broadcast_in_dim => const + broadcast_in_dim

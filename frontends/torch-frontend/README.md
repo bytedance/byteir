@@ -1,27 +1,32 @@
-# How to
+# Torch Frontend
+torch-frontend is a project to build customized torch model --> torch dialect --> mhlo dialect pipeline, where we could add extended dialect and passes.
 
-## Build torch-frontend
 
-1. git submodule init
+## Quick Start
 
-    $ git submodule update --init --recursive third_party/torch-mlir
+### Build from source code
 
-2. install requirements
+```
+git clone https://github.com/bytedance/byteir.git
+cd byteir
 
-    $ python3 -m pip install requirements.txt
+# prepare python environment and torch-mlir dependency
+bash ./frontends/torch-frontend/scripts/prepare.sh
 
-3. configuration
+cd frontends/torch-frontend
 
-    - configure torch-frontend, llvm in torch-mlir will be built at configure time
+cmake -S . \
+      -B ./build \
+      -GNinja \
+      -DLLVM_EXTERNAL_LIT=$(which lit) \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DCMAKE_C_COMPILER=clang \
+      -DCMAKE_CXX_COMPILER=clang++
 
-      $ cmake -S . -B ./build -GNinja -DLLVM_EXTERNAL_LIT=$(which lit)
+cmake --build ./build --target all
+```
 
-    - [alternative] configure torch-frontend with prebuilt mlir
-
-      $ cmake -S . -B ./build -GNinja -DMLIR_DIR=path/to/installed/mlir -DLLVM_EXTERNAL_LIT=$(which lit)
-
-4. build & run test
-
-    $ cmake --build ./build --target all
-
-    $ PYTHONPATH=./build/python_packages/ python3 -m pytest torch-frontend/python/test
+### Example
+```
+PYTHONPATH=./build/python_packages/ python3 examples/infer_resnet.py
+```

@@ -33,6 +33,12 @@ llvm::cl::opt<int64_t> batchSize(
     llvm::cl::desc("Specify batch size, default value is -1 (not to specify)."),
     llvm::cl::init(-1), llvm::cl::cat(OnnxFrontendOptions));
 
+llvm::cl::opt<bool> forceSetBatchSize(
+    "force-set-batch-size",
+    llvm::cl::desc("override the first dimension with specified batch size, "
+                   "even if it is already set"),
+    llvm::cl::init(false), llvm::cl::cat(OnnxFrontendOptions));
+
 llvm::cl::opt<int>
     ofRepeatStatic("of-repeat-static",
                    llvm::cl::desc("invoke onnx transform pass (shape "

@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -test-dtype-convert --canonicalize -canonicalize-ext -split-input-file | FileCheck %s
+// RUN: byteir-opt %s -test-dtype-convert --canonicalize -split-input-file | FileCheck %s
 
 func.func @convert_foldable_dtypes(%arg0: tensor<4x126x126x16xf32>) -> tensor<4x126x126x16xf32> attributes {__byteir_unit_test__} {
   %0 = "mhlo.add"(%arg0, %arg0) : (tensor<4x126x126x16xf32>, tensor<4x126x126x16xf32>) -> tensor<4x126x126x16xf32>
@@ -110,5 +110,6 @@ func.func @mixp_custom_call2(%arg0: tensor<?xf32>) -> tensor<?xf16> attributes {
 // CHECK-LABEL: func.func @mixp_custom_call2
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?xf32>) -> tensor<?xf16> attributes {__byteir_unit_test__} {
 // CHECK-NEXT:   %[[V0:.*]] = mhlo.convert %[[ARG0]] : (tensor<?xf32>) -> tensor<?xf16>
-// CHECK-NEXT:   %[[V1:.*]] = mhlo.custom_call @mixp_custom_call(%[[ARG0]], %[[V0]]) : (tensor<?xf32>, tensor<?xf16>) -> tensor<?xf16>
-// CHECK-NEXT:   return %[[V1]] : tensor<?xf16>
+// CHECK-NEXT:   %[[V1:.*]] = mhlo.convert %[[V0]] : (tensor<?xf16>) -> tensor<?xf32>
+// CHECK-NEXT:   %[[V2:.*]] = mhlo.custom_call @mixp_custom_call(%[[V1]], %[[V0]]) : (tensor<?xf32>, tensor<?xf16>) -> tensor<?xf16>
+// CHECK-NEXT:   return %[[V2]] : tensor<?xf16>

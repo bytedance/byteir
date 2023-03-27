@@ -35,6 +35,8 @@ int main(int argc, char **argv) {
   mlir::registerTorchFrontendConversionPasses();
   mlir::registerTorchFrontendTransformsPasses();
   mlir::torch_frontend::registerTorchToMhloPipeline();
+  mlir::torch_frontend::registerTorchscriptToTorchPipeline();
+  mlir::torch_frontend::registerTorchFunctionToTorchPipeline();
 
   DialectRegistry registry;
 

@@ -1,8 +1,16 @@
 diff --git a/lib/Dialect/Torch/Transforms/RefineTypes.cpp b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
-index b86178fc..c2a56c80 100644
+index ad668eca..5d23787c 100644
 --- a/lib/Dialect/Torch/Transforms/RefineTypes.cpp
 +++ b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
-@@ -674,7 +674,8 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -69,6 +69,7 @@
+ #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+ #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
+ #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
++#include "torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h"
+ #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
+ 
+ using namespace mlir;
+@@ -658,7 +659,8 @@ void TypeAnalysis::visitOperation(Operation *op,
            AtenMaskedFillTensorOp, AtenRollOp, AtenPowTensorTensorOp,
            AtenLiftFreshCopyOp, AtenIndexTensorHackedTwinOp,
            AtenUpsampleNearest2dOp, AtenMishOp, AtenRoundOp, AtenFillTensorOp,
@@ -12,7 +20,7 @@ index b86178fc..c2a56c80 100644
      return incorporateKnowledge(op->getResult(0), operands[0]->getValue());
    }
  
-@@ -861,9 +862,8 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -845,9 +847,8 @@ void TypeAnalysis::visitOperation(Operation *op,
    }
  
    // 3 results take dtype from first operand.
@@ -24,7 +32,7 @@ index b86178fc..c2a56c80 100644
      auto self = operands[0]->getValue();
      auto result0Knowledge =
          ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-@@ -880,6 +880,25 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -864,6 +865,35 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }
  
@@ -47,6 +55,36 @@ index b86178fc..c2a56c80 100644
 +    return;
 +  }
 +
++  if (isa<AtenTopkOp>(op)) {
++    incorporateKnowledge(op->getResult(0), operands[0]->getValue());
++    auto knowledge =
++        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
++    knowledge.dtype =
++        IntegerType::get(op->getContext(), 64, IntegerType::Signed);
++    incorporateKnowledge(op->getResult(1), knowledge);
++    return;
++  }
++
    if (isa<AtenMaxPool2dWithIndicesOp>(op)) {
      auto self = operands[0]->getValue();
      auto result0Knowledge =
+@@ -1204,6 +1234,19 @@ void TypeAnalysis::visitOperation(Operation *op,
+     return;
+   }
+ 
++  if (auto customOp = dyn_cast<CustomOp>(op)) {
++    std::string opName =
++          customOp->getAttrOfType<StringAttr>(getCustomOpName()).str();
++    if (opName == getDynamicPartitionCustomName()) {
++      for (size_t i = 0; i < op->getNumResults(); i++) {
++        incorporateKnowledge(op->getResult(i), operands[0]->getValue());
++      }
++      return;
++    } else if (opName == getDynamicStitchCustomName()) {
++      return incorporateKnowledge(op->getResult(0), operands[operands.size()-1]->getValue());
++    }
++  }
++
+   // Otherwise, this is an unknown operation, so reset the state.
+   setAllToEntryStates(results);
+   return;

@@ -23,6 +23,7 @@
 #include "torch-mlir/Conversion/Utils/Utils.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+#include "torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h"
 #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
@@ -596,6 +597,97 @@ public:
 };
 } // namespace
 
+// DynamicPartitionCustomOp
+namespace {
+class ConvertDynamicPartitionCustomOp : public OpConversionPattern<CustomOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(CustomOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    std::string opName = op->getAttrOfType<StringAttr>(getCustomOpName()).str();
+    if (opName != getDynamicPartitionCustomName())
+      return rewriter.notifyMatchFailure(op, "op is not dynamic partition");
+
+    if (op->getNumOperands() != 2) {
+      return rewriter.notifyMatchFailure(
+          op, "dynamic partition only has two operands");
+    }
+
+    SmallVector<Value> bufferArgs;
+    for (auto operand : adaptor.getOperands()) {
+      bufferArgs.push_back(operand);
+    }
+
+    SmallVector<Type> resultTypes;
+    for (size_t i = 0; i < op.getNumResults(); i++) {
+      RankedTensorType resultType =
+          getTypeConverter()
+              ->convertType(op->getResult(i).getType())
+              .cast<RankedTensorType>();
+      resultTypes.push_back(resultType);
+    }
+
+    auto attr = op->getAttrOfType<DictionaryAttr>(getCustomOpAttrName());
+    auto numPartitionsAttr = attr.getAs<IntegerAttr>("num_partitions");
+    assert(numPartitionsAttr &&
+           "Dynamic partiton custom op num_partitions attribute not found.");
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("num_partitions"),
+                              numPartitionsAttr);
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getDynamicPartitionName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+} // namespace
+
+// DynamicStitchCustomOp
+namespace {
+class ConvertDynamicStitchCustomOp : public OpConversionPattern<CustomOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(CustomOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    std::string opName = op->getAttrOfType<StringAttr>(getCustomOpName()).str();
+    if (opName != getDynamicStitchCustomName())
+      return rewriter.notifyMatchFailure(op, "op is not dynamic stitch");
+
+    SmallVector<Value> bufferArgs;
+    for (auto operand : adaptor.getOperands()) {
+      bufferArgs.push_back(operand);
+    }
+
+    RankedTensorType resultType = getTypeConverter()
+                                      ->convertType(op->getResult(0).getType())
+                                      .cast<RankedTensorType>();
+
+    std::vector<NamedAttribute> byteir_attrs;
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getDynamicStitchName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+} // namespace
+
 namespace {
 class ConvertTorchToCustomCall
     : public ConvertTorchToCustomCallBase<ConvertTorchToCustomCall> {
@@ -635,6 +727,9 @@ public:
     patterns.add<ConvertAtenOneHotOp>(typeConverter, context);
     target.addIllegalOp<AtenTopkOp>();
     patterns.add<ConvertAtenTopkOp>(typeConverter, context);
+    target.addIllegalOp<CustomOp>();
+    patterns.add<ConvertDynamicPartitionCustomOp>(typeConverter, context);
+    patterns.add<ConvertDynamicStitchCustomOp>(typeConverter, context);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {

@@ -34,8 +34,6 @@ using namespace llvm;
 
 namespace {
 
-const char *DYNAMIC_PARTITION_NAME = "tf.DynamicPartition";
-
 class NodesFinder {
 public:
   NodesFinder(Operation *des, const SmallDenseSet<Operation *> &src)
@@ -110,7 +108,7 @@ struct ConvertDynamicStitchToStatic
       }
     }
     SmallDenseSet<Operation *> parOps =
-        findOpBfs(stitDataOps, DYNAMIC_PARTITION_NAME);
+        findOpBfs(stitDataOps, TF::DynamicPartitionOp::getOperationName());
     NodesFinder finder(stitchOp, parOps);
     SmallDenseSet<Operation *> opsBetween = finder.findAllOpsBetween();
     for (Operation *op : opsBetween) {
@@ -172,15 +170,6 @@ struct ProcessDynamicStitchAsStaticPass
     if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {
       signalPassFailure();
       return;
-    }
-
-    SmallVector<Operation *> needRemoves;
-    for (Operation &op : funcOp.front().without_terminator()) {
-      if (op.getName().getStringRef() == DYNAMIC_PARTITION_NAME)
-        needRemoves.push_back(&op);
-    }
-    for (Operation *op : needRemoves) {
-      op->erase();
     }
   }
 };
