@@ -1,4 +1,4 @@
-//===- OFCompilerOptions.hpp ----------------------------------------------===//
+//===- RewriteCustomOp.h -------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,18 +15,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
-#include "llvm/Support/CommandLine.h"
+#ifndef TORCH_FRONTEND_TRANSFORMS_REWRITECUSTOMOP_H
+#define TORCH_FRONTEND_TRANSFORMS_REWRITECUSTOMOP_H
 
-namespace onnx_frontend {
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Pass/Pass.h"
 
-// Options for onnx-frontend only.
-extern llvm::cl::OptionCategory OnnxFrontendOptions;
+#include <memory>
 
-extern llvm::cl::list<std::string> customCallOps;
-extern llvm::cl::opt<int64_t> batchSize;
-extern llvm::cl::opt<bool> forceSetBatchSize;
-extern llvm::cl::opt<int> ofRepeatStatic;
-extern llvm::cl::opt<int> ofRepeatDynamicMax;
+namespace mlir {
 
-} // namespace onnx_frontend
+std::unique_ptr<OperationPass<func::FuncOp>> createRewriteCustomOp();
+
+} // namespace mlir
+
+#endif // TORCH_FRONTEND_TRANSFORMS_REWRITECUSTOMOP_H

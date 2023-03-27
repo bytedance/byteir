@@ -1546,7 +1546,20 @@ module {
     }
     return %alloc : memref<1x1000xf32>
   }
-  func.func private @Unknown79(%arg0: memref<1000x512xf16>) -> memref<1000x512xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown79(%arg0: memref<1000xf32>) -> memref<1000xf32> attributes {__byteir_elementwise_fusion__} {
+    %c0 = arith.constant 0 : index
+    %c1000 = arith.constant 1000 : index
+    %c1 = arith.constant 1 : index
+    %alloc = memref.alloc() : memref<1000xf32>
+    scf.for %arg1 = %c0 to %c1000 step %c1 {
+      %0 = memref.load %arg0[%arg1] : memref<1000xf32>
+      %1 = arith.truncf %0 : f32 to f16
+      %2 = arith.extf %1 : f16 to f32
+      memref.store %2, %alloc[%arg1] : memref<1000xf32>
+    }
+    return %alloc : memref<1000xf32>
+  }
+  func.func private @Unknown80(%arg0: memref<1000x512xf16>) -> memref<1000x512xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c512000 = arith.constant 512000 : index
     %c1 = arith.constant 1 : index
@@ -1569,51 +1582,6 @@ module {
       memref.store %11, %alloc[%9, %3] : memref<1000x512xf32>
     }
     return %alloc : memref<1000x512xf32>
-  }
-  func.func private @Unknown80(%arg0: memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
-    %c0 = arith.constant 0 : index
-    %c36864 = arith.constant 36864 : index
-    %c1 = arith.constant 1 : index
-    %c3 = arith.constant 3 : index
-    %c-1 = arith.constant -1 : index
-    %c64 = arith.constant 64 : index
-    %alloc = memref.alloc() : memref<64x64x3x3xf32>
-    scf.for %arg1 = %c0 to %c36864 step %c1 {
-      %0 = arith.remsi %arg1, %c3 : index
-      %1 = arith.cmpi slt, %0, %c0 : index
-      %2 = arith.addi %0, %c3 : index
-      %3 = arith.select %1, %2, %0 : index
-      %4 = arith.cmpi slt, %arg1, %c0 : index
-      %5 = arith.subi %c-1, %arg1 : index
-      %6 = arith.select %4, %5, %arg1 : index
-      %7 = arith.divsi %6, %c3 : index
-      %8 = arith.subi %c-1, %7 : index
-      %9 = arith.select %4, %8, %7 : index
-      %10 = arith.remsi %9, %c3 : index
-      %11 = arith.cmpi slt, %10, %c0 : index
-      %12 = arith.addi %10, %c3 : index
-      %13 = arith.select %11, %12, %10 : index
-      %14 = arith.cmpi slt, %9, %c0 : index
-      %15 = arith.subi %c-1, %9 : index
-      %16 = arith.select %14, %15, %9 : index
-      %17 = arith.divsi %16, %c3 : index
-      %18 = arith.subi %c-1, %17 : index
-      %19 = arith.select %14, %18, %17 : index
-      %20 = arith.remsi %19, %c64 : index
-      %21 = arith.cmpi slt, %20, %c0 : index
-      %22 = arith.addi %20, %c64 : index
-      %23 = arith.select %21, %22, %20 : index
-      %24 = arith.cmpi slt, %19, %c0 : index
-      %25 = arith.subi %c-1, %19 : index
-      %26 = arith.select %24, %25, %19 : index
-      %27 = arith.divsi %26, %c64 : index
-      %28 = arith.subi %c-1, %27 : index
-      %29 = arith.select %24, %28, %27 : index
-      %30 = memref.load %arg0[%29, %23, %13, %3] : memref<64x64x3x3xf16>
-      %31 = arith.extf %30 : f16 to f32
-      memref.store %31, %alloc[%29, %23, %13, %3] : memref<64x64x3x3xf32>
-    }
-    return %alloc : memref<64x64x3x3xf32>
   }
   func.func private @Unknown81(%arg0: memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
@@ -1750,7 +1718,52 @@ module {
     }
     return %alloc : memref<64x64x3x3xf32>
   }
-  func.func private @Unknown84(%arg0: memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown84(%arg0: memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+    %c0 = arith.constant 0 : index
+    %c36864 = arith.constant 36864 : index
+    %c1 = arith.constant 1 : index
+    %c3 = arith.constant 3 : index
+    %c-1 = arith.constant -1 : index
+    %c64 = arith.constant 64 : index
+    %alloc = memref.alloc() : memref<64x64x3x3xf32>
+    scf.for %arg1 = %c0 to %c36864 step %c1 {
+      %0 = arith.remsi %arg1, %c3 : index
+      %1 = arith.cmpi slt, %0, %c0 : index
+      %2 = arith.addi %0, %c3 : index
+      %3 = arith.select %1, %2, %0 : index
+      %4 = arith.cmpi slt, %arg1, %c0 : index
+      %5 = arith.subi %c-1, %arg1 : index
+      %6 = arith.select %4, %5, %arg1 : index
+      %7 = arith.divsi %6, %c3 : index
+      %8 = arith.subi %c-1, %7 : index
+      %9 = arith.select %4, %8, %7 : index
+      %10 = arith.remsi %9, %c3 : index
+      %11 = arith.cmpi slt, %10, %c0 : index
+      %12 = arith.addi %10, %c3 : index
+      %13 = arith.select %11, %12, %10 : index
+      %14 = arith.cmpi slt, %9, %c0 : index
+      %15 = arith.subi %c-1, %9 : index
+      %16 = arith.select %14, %15, %9 : index
+      %17 = arith.divsi %16, %c3 : index
+      %18 = arith.subi %c-1, %17 : index
+      %19 = arith.select %14, %18, %17 : index
+      %20 = arith.remsi %19, %c64 : index
+      %21 = arith.cmpi slt, %20, %c0 : index
+      %22 = arith.addi %20, %c64 : index
+      %23 = arith.select %21, %22, %20 : index
+      %24 = arith.cmpi slt, %19, %c0 : index
+      %25 = arith.subi %c-1, %19 : index
+      %26 = arith.select %24, %25, %19 : index
+      %27 = arith.divsi %26, %c64 : index
+      %28 = arith.subi %c-1, %27 : index
+      %29 = arith.select %24, %28, %27 : index
+      %30 = memref.load %arg0[%29, %23, %13, %3] : memref<64x64x3x3xf16>
+      %31 = arith.extf %30 : f16 to f32
+      memref.store %31, %alloc[%29, %23, %13, %3] : memref<64x64x3x3xf32>
+    }
+    return %alloc : memref<64x64x3x3xf32>
+  }
+  func.func private @Unknown85(%arg0: memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c73728 = arith.constant 73728 : index
     %c1 = arith.constant 1 : index
@@ -1795,7 +1808,7 @@ module {
     }
     return %alloc : memref<128x64x3x3xf32>
   }
-  func.func private @Unknown85(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown86(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c147456 = arith.constant 147456 : index
     %c1 = arith.constant 1 : index
@@ -1840,7 +1853,7 @@ module {
     }
     return %alloc : memref<128x128x3x3xf32>
   }
-  func.func private @Unknown86(%arg0: memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown87(%arg0: memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c8192 = arith.constant 8192 : index
     %c1 = arith.constant 1 : index
@@ -1863,51 +1876,6 @@ module {
       memref.store %11, %alloc[%9, %3, %c0, %c0] : memref<128x64x1x1xf32>
     }
     return %alloc : memref<128x64x1x1xf32>
-  }
-  func.func private @Unknown87(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
-    %c0 = arith.constant 0 : index
-    %c147456 = arith.constant 147456 : index
-    %c1 = arith.constant 1 : index
-    %c3 = arith.constant 3 : index
-    %c-1 = arith.constant -1 : index
-    %c128 = arith.constant 128 : index
-    %alloc = memref.alloc() : memref<128x128x3x3xf32>
-    scf.for %arg1 = %c0 to %c147456 step %c1 {
-      %0 = arith.remsi %arg1, %c3 : index
-      %1 = arith.cmpi slt, %0, %c0 : index
-      %2 = arith.addi %0, %c3 : index
-      %3 = arith.select %1, %2, %0 : index
-      %4 = arith.cmpi slt, %arg1, %c0 : index
-      %5 = arith.subi %c-1, %arg1 : index
-      %6 = arith.select %4, %5, %arg1 : index
-      %7 = arith.divsi %6, %c3 : index
-      %8 = arith.subi %c-1, %7 : index
-      %9 = arith.select %4, %8, %7 : index
-      %10 = arith.remsi %9, %c3 : index
-      %11 = arith.cmpi slt, %10, %c0 : index
-      %12 = arith.addi %10, %c3 : index
-      %13 = arith.select %11, %12, %10 : index
-      %14 = arith.cmpi slt, %9, %c0 : index
-      %15 = arith.subi %c-1, %9 : index
-      %16 = arith.select %14, %15, %9 : index
-      %17 = arith.divsi %16, %c3 : index
-      %18 = arith.subi %c-1, %17 : index
-      %19 = arith.select %14, %18, %17 : index
-      %20 = arith.remsi %19, %c128 : index
-      %21 = arith.cmpi slt, %20, %c0 : index
-      %22 = arith.addi %20, %c128 : index
-      %23 = arith.select %21, %22, %20 : index
-      %24 = arith.cmpi slt, %19, %c0 : index
-      %25 = arith.subi %c-1, %19 : index
-      %26 = arith.select %24, %25, %19 : index
-      %27 = arith.divsi %26, %c128 : index
-      %28 = arith.subi %c-1, %27 : index
-      %29 = arith.select %24, %28, %27 : index
-      %30 = memref.load %arg0[%29, %23, %13, %3] : memref<128x128x3x3xf16>
-      %31 = arith.extf %30 : f16 to f32
-      memref.store %31, %alloc[%29, %23, %13, %3] : memref<128x128x3x3xf32>
-    }
-    return %alloc : memref<128x128x3x3xf32>
   }
   func.func private @Unknown88(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
@@ -1954,7 +1922,52 @@ module {
     }
     return %alloc : memref<128x128x3x3xf32>
   }
-  func.func private @Unknown89(%arg0: memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown89(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+    %c0 = arith.constant 0 : index
+    %c147456 = arith.constant 147456 : index
+    %c1 = arith.constant 1 : index
+    %c3 = arith.constant 3 : index
+    %c-1 = arith.constant -1 : index
+    %c128 = arith.constant 128 : index
+    %alloc = memref.alloc() : memref<128x128x3x3xf32>
+    scf.for %arg1 = %c0 to %c147456 step %c1 {
+      %0 = arith.remsi %arg1, %c3 : index
+      %1 = arith.cmpi slt, %0, %c0 : index
+      %2 = arith.addi %0, %c3 : index
+      %3 = arith.select %1, %2, %0 : index
+      %4 = arith.cmpi slt, %arg1, %c0 : index
+      %5 = arith.subi %c-1, %arg1 : index
+      %6 = arith.select %4, %5, %arg1 : index
+      %7 = arith.divsi %6, %c3 : index
+      %8 = arith.subi %c-1, %7 : index
+      %9 = arith.select %4, %8, %7 : index
+      %10 = arith.remsi %9, %c3 : index
+      %11 = arith.cmpi slt, %10, %c0 : index
+      %12 = arith.addi %10, %c3 : index
+      %13 = arith.select %11, %12, %10 : index
+      %14 = arith.cmpi slt, %9, %c0 : index
+      %15 = arith.subi %c-1, %9 : index
+      %16 = arith.select %14, %15, %9 : index
+      %17 = arith.divsi %16, %c3 : index
+      %18 = arith.subi %c-1, %17 : index
+      %19 = arith.select %14, %18, %17 : index
+      %20 = arith.remsi %19, %c128 : index
+      %21 = arith.cmpi slt, %20, %c0 : index
+      %22 = arith.addi %20, %c128 : index
+      %23 = arith.select %21, %22, %20 : index
+      %24 = arith.cmpi slt, %19, %c0 : index
+      %25 = arith.subi %c-1, %19 : index
+      %26 = arith.select %24, %25, %19 : index
+      %27 = arith.divsi %26, %c128 : index
+      %28 = arith.subi %c-1, %27 : index
+      %29 = arith.select %24, %28, %27 : index
+      %30 = memref.load %arg0[%29, %23, %13, %3] : memref<128x128x3x3xf16>
+      %31 = arith.extf %30 : f16 to f32
+      memref.store %31, %alloc[%29, %23, %13, %3] : memref<128x128x3x3xf32>
+    }
+    return %alloc : memref<128x128x3x3xf32>
+  }
+  func.func private @Unknown90(%arg0: memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c294912 = arith.constant 294912 : index
     %c1 = arith.constant 1 : index
@@ -1999,7 +2012,7 @@ module {
     }
     return %alloc : memref<256x128x3x3xf32>
   }
-  func.func private @Unknown90(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown91(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c589824 = arith.constant 589824 : index
     %c1 = arith.constant 1 : index
@@ -2044,7 +2057,7 @@ module {
     }
     return %alloc : memref<256x256x3x3xf32>
   }
-  func.func private @Unknown91(%arg0: memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown92(%arg0: memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c32768 = arith.constant 32768 : index
     %c1 = arith.constant 1 : index
@@ -2067,51 +2080,6 @@ module {
       memref.store %11, %alloc[%9, %3, %c0, %c0] : memref<256x128x1x1xf32>
     }
     return %alloc : memref<256x128x1x1xf32>
-  }
-  func.func private @Unknown92(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
-    %c0 = arith.constant 0 : index
-    %c589824 = arith.constant 589824 : index
-    %c1 = arith.constant 1 : index
-    %c3 = arith.constant 3 : index
-    %c-1 = arith.constant -1 : index
-    %c256 = arith.constant 256 : index
-    %alloc = memref.alloc() : memref<256x256x3x3xf32>
-    scf.for %arg1 = %c0 to %c589824 step %c1 {
-      %0 = arith.remsi %arg1, %c3 : index
-      %1 = arith.cmpi slt, %0, %c0 : index
-      %2 = arith.addi %0, %c3 : index
-      %3 = arith.select %1, %2, %0 : index
-      %4 = arith.cmpi slt, %arg1, %c0 : index
-      %5 = arith.subi %c-1, %arg1 : index
-      %6 = arith.select %4, %5, %arg1 : index
-      %7 = arith.divsi %6, %c3 : index
-      %8 = arith.subi %c-1, %7 : index
-      %9 = arith.select %4, %8, %7 : index
-      %10 = arith.remsi %9, %c3 : index
-      %11 = arith.cmpi slt, %10, %c0 : index
-      %12 = arith.addi %10, %c3 : index
-      %13 = arith.select %11, %12, %10 : index
-      %14 = arith.cmpi slt, %9, %c0 : index
-      %15 = arith.subi %c-1, %9 : index
-      %16 = arith.select %14, %15, %9 : index
-      %17 = arith.divsi %16, %c3 : index
-      %18 = arith.subi %c-1, %17 : index
-      %19 = arith.select %14, %18, %17 : index
-      %20 = arith.remsi %19, %c256 : index
-      %21 = arith.cmpi slt, %20, %c0 : index
-      %22 = arith.addi %20, %c256 : index
-      %23 = arith.select %21, %22, %20 : index
-      %24 = arith.cmpi slt, %19, %c0 : index
-      %25 = arith.subi %c-1, %19 : index
-      %26 = arith.select %24, %25, %19 : index
-      %27 = arith.divsi %26, %c256 : index
-      %28 = arith.subi %c-1, %27 : index
-      %29 = arith.select %24, %28, %27 : index
-      %30 = memref.load %arg0[%29, %23, %13, %3] : memref<256x256x3x3xf16>
-      %31 = arith.extf %30 : f16 to f32
-      memref.store %31, %alloc[%29, %23, %13, %3] : memref<256x256x3x3xf32>
-    }
-    return %alloc : memref<256x256x3x3xf32>
   }
   func.func private @Unknown93(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
@@ -2158,7 +2126,52 @@ module {
     }
     return %alloc : memref<256x256x3x3xf32>
   }
-  func.func private @Unknown94(%arg0: memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown94(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+    %c0 = arith.constant 0 : index
+    %c589824 = arith.constant 589824 : index
+    %c1 = arith.constant 1 : index
+    %c3 = arith.constant 3 : index
+    %c-1 = arith.constant -1 : index
+    %c256 = arith.constant 256 : index
+    %alloc = memref.alloc() : memref<256x256x3x3xf32>
+    scf.for %arg1 = %c0 to %c589824 step %c1 {
+      %0 = arith.remsi %arg1, %c3 : index
+      %1 = arith.cmpi slt, %0, %c0 : index
+      %2 = arith.addi %0, %c3 : index
+      %3 = arith.select %1, %2, %0 : index
+      %4 = arith.cmpi slt, %arg1, %c0 : index
+      %5 = arith.subi %c-1, %arg1 : index
+      %6 = arith.select %4, %5, %arg1 : index
+      %7 = arith.divsi %6, %c3 : index
+      %8 = arith.subi %c-1, %7 : index
+      %9 = arith.select %4, %8, %7 : index
+      %10 = arith.remsi %9, %c3 : index
+      %11 = arith.cmpi slt, %10, %c0 : index
+      %12 = arith.addi %10, %c3 : index
+      %13 = arith.select %11, %12, %10 : index
+      %14 = arith.cmpi slt, %9, %c0 : index
+      %15 = arith.subi %c-1, %9 : index
+      %16 = arith.select %14, %15, %9 : index
+      %17 = arith.divsi %16, %c3 : index
+      %18 = arith.subi %c-1, %17 : index
+      %19 = arith.select %14, %18, %17 : index
+      %20 = arith.remsi %19, %c256 : index
+      %21 = arith.cmpi slt, %20, %c0 : index
+      %22 = arith.addi %20, %c256 : index
+      %23 = arith.select %21, %22, %20 : index
+      %24 = arith.cmpi slt, %19, %c0 : index
+      %25 = arith.subi %c-1, %19 : index
+      %26 = arith.select %24, %25, %19 : index
+      %27 = arith.divsi %26, %c256 : index
+      %28 = arith.subi %c-1, %27 : index
+      %29 = arith.select %24, %28, %27 : index
+      %30 = memref.load %arg0[%29, %23, %13, %3] : memref<256x256x3x3xf16>
+      %31 = arith.extf %30 : f16 to f32
+      memref.store %31, %alloc[%29, %23, %13, %3] : memref<256x256x3x3xf32>
+    }
+    return %alloc : memref<256x256x3x3xf32>
+  }
+  func.func private @Unknown95(%arg0: memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c1179648 = arith.constant 1179648 : index
     %c1 = arith.constant 1 : index
@@ -2203,7 +2216,7 @@ module {
     }
     return %alloc : memref<512x256x3x3xf32>
   }
-  func.func private @Unknown95(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown96(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c2359296 = arith.constant 2359296 : index
     %c1 = arith.constant 1 : index
@@ -2248,7 +2261,7 @@ module {
     }
     return %alloc : memref<512x512x3x3xf32>
   }
-  func.func private @Unknown96(%arg0: memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown97(%arg0: memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c131072 = arith.constant 131072 : index
     %c1 = arith.constant 1 : index
@@ -2272,7 +2285,7 @@ module {
     }
     return %alloc : memref<512x256x1x1xf32>
   }
-  func.func private @Unknown97(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown98(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c2359296 = arith.constant 2359296 : index
     %c1 = arith.constant 1 : index
@@ -2317,7 +2330,7 @@ module {
     }
     return %alloc : memref<512x512x3x3xf32>
   }
-  func.func private @Unknown98(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
+  func.func private @Unknown99(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byteir_elementwise_fusion__} {
     %c0 = arith.constant 0 : index
     %c2359296 = arith.constant 2359296 : index
     %c1 = arith.constant 1 : index
@@ -2446,12 +2459,12 @@ module {
     %alloc_2 = memref.alloc() : memref<1x64x112x112xf16>
     "lmhlo.select_and_scatter"(%arg83, %73, %alloc_0, %alloc_2) ({
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
-      %99 = mhlo.compare  GE, %arg142, %arg143 : (tensor<f16>, tensor<f16>) -> tensor<i1>
-      mhlo.return %99 : tensor<i1>
+      %100 = mhlo.compare  GE, %arg142, %arg143 : (tensor<f16>, tensor<f16>) -> tensor<i1>
+      mhlo.return %100 : tensor<i1>
     }, {
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
-      %99 = mhlo.add %arg142, %arg143 : tensor<f16>
-      mhlo.return %99 : tensor<f16>
+      %100 = mhlo.add %arg142, %arg143 : tensor<f16>
+      mhlo.return %100 : tensor<f16>
     }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (memref<1x64x112x112xf16>, memref<1x64x56x56xf16>, memref<f16>, memref<1x64x112x112xf16>) -> ()
     %74 = call @Unknown74(%arg83, %alloc_2) : (memref<1x64x112x112xf16>, memref<1x64x112x112xf16>) -> memref<1x64x112x112xf16>
     %75:3 = call @BatchNormGradOp75(%arg82, %arg1, %74) : (memref<1x64x112x112xf16>, memref<64xf32>, memref<1x64x112x112xf16>) -> (memref<1x64x112x112xf16>, memref<64xf32>, memref<64xf32>)
@@ -2464,30 +2477,31 @@ module {
       "lmhlo.add"(%arg142, %arg143, %arg144) : (memref<f32>, memref<f32>, memref<f32>) -> ()
       "lmhlo.terminator"() : () -> ()
     }) {dimensions = dense<0> : tensor<1xi64>} : (memref<1x1000xf32>, memref<f32>, memref<1000xf32>) -> ()
+    %79 = call @Unknown79(%alloc_3) : (memref<1000xf32>) -> memref<1000xf32>
     %alloc_4 = memref.alloc() : memref<1000x1xf16>
     "lmhlo.reshape"(%arg141, %alloc_4) : (memref<1x1000xf16>, memref<1000x1xf16>) -> ()
     %alloc_5 = memref.alloc() : memref<1000x512xf16>
     "lmhlo.dot"(%alloc_4, %arg139, %alloc_5) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (memref<1000x1xf16>, memref<1x512xf16>, memref<1000x512xf16>) -> ()
-    %79 = call @Unknown79(%alloc_5) : (memref<1000x512xf16>) -> memref<1000x512xf32>
-    %80 = call @Unknown80(%72) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %81 = call @Unknown81(%68) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %82 = call @Unknown82(%64) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %83 = call @Unknown83(%60) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %84 = call @Unknown84(%53) : (memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32>
-    %85 = call @Unknown85(%49) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
-    %86 = call @Unknown86(%56) : (memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32>
-    %87 = call @Unknown87(%45) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
-    %88 = call @Unknown88(%41) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
-    %89 = call @Unknown89(%34) : (memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32>
-    %90 = call @Unknown90(%30) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
-    %91 = call @Unknown91(%37) : (memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32>
-    %92 = call @Unknown92(%26) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
-    %93 = call @Unknown93(%22) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
-    %94 = call @Unknown94(%15) : (memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32>
-    %95 = call @Unknown95(%11) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
-    %96 = call @Unknown96(%18) : (memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32>
-    %97 = call @Unknown97(%7) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
-    %98 = call @Unknown98(%3) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
-    return %75#2, %75#1, %77, %alloc_3, %79, %70#2, %70#1, %66#2, %66#1, %80, %81, %62#2, %62#1, %58#2, %58#1, %82, %83, %51#2, %51#1, %47#2, %47#1, %84, %85, %86, %54#2, %54#1, %43#2, %43#1, %39#2, %39#1, %87, %88, %32#2, %32#1, %28#2, %28#1, %89, %90, %91, %35#2, %35#1, %24#2, %24#1, %20#2, %20#1, %92, %93, %13#2, %13#1, %9#2, %9#1, %94, %95, %96, %16#2, %16#1, %5#2, %5#1, %1#2, %1#1, %97, %98 : memref<64xf32>, memref<64xf32>, memref<64x3x7x7xf32>, memref<1000xf32>, memref<1000x512xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x64x3x3xf32>, memref<128x128x3x3xf32>, memref<128x64x1x1xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128x128x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x128x3x3xf32>, memref<256x256x3x3xf32>, memref<256x128x1x1xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256x256x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x256x3x3xf32>, memref<512x512x3x3xf32>, memref<512x256x1x1xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512x512x3x3xf32>
+    %80 = call @Unknown80(%alloc_5) : (memref<1000x512xf16>) -> memref<1000x512xf32>
+    %81 = call @Unknown81(%72) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %82 = call @Unknown82(%68) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %83 = call @Unknown83(%64) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %84 = call @Unknown84(%60) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %85 = call @Unknown85(%53) : (memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32>
+    %86 = call @Unknown86(%49) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
+    %87 = call @Unknown87(%56) : (memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32>
+    %88 = call @Unknown88(%45) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
+    %89 = call @Unknown89(%41) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
+    %90 = call @Unknown90(%34) : (memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32>
+    %91 = call @Unknown91(%30) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
+    %92 = call @Unknown92(%37) : (memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32>
+    %93 = call @Unknown93(%26) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
+    %94 = call @Unknown94(%22) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
+    %95 = call @Unknown95(%15) : (memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32>
+    %96 = call @Unknown96(%11) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
+    %97 = call @Unknown97(%18) : (memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32>
+    %98 = call @Unknown98(%7) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
+    %99 = call @Unknown99(%3) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
+    return %75#2, %75#1, %77, %79, %80, %70#2, %70#1, %66#2, %66#1, %81, %82, %62#2, %62#1, %58#2, %58#1, %83, %84, %51#2, %51#1, %47#2, %47#1, %85, %86, %87, %54#2, %54#1, %43#2, %43#1, %39#2, %39#1, %88, %89, %32#2, %32#1, %28#2, %28#1, %90, %91, %92, %35#2, %35#1, %24#2, %24#1, %20#2, %20#1, %93, %94, %13#2, %13#1, %9#2, %9#1, %95, %96, %97, %16#2, %16#1, %5#2, %5#1, %1#2, %1#1, %98, %99 : memref<64xf32>, memref<64xf32>, memref<64x3x7x7xf32>, memref<1000xf32>, memref<1000x512xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x64x3x3xf32>, memref<128x128x3x3xf32>, memref<128x64x1x1xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128x128x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x128x3x3xf32>, memref<256x256x3x3xf32>, memref<256x128x1x1xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256x256x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x256x3x3xf32>, memref<512x512x3x3xf32>, memref<512x256x1x1xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512x512x3x3xf32>
   }
 }

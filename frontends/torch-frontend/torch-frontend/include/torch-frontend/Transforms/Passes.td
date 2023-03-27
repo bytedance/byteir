@@ -32,4 +32,12 @@ def CanonicalizeExt : Pass<"canonicalize-ext"> {
   ];
 }
 
+def RewriteCustomOp : Pass<"torch-rewrite-custom-op", "func::FuncOp"> {
+  let summary = "Rewrite torch custom ops before refine types and shapes";
+  let constructor = "mlir::createRewriteCustomOp()";
+  let description = [{
+    Rewrite custom torch operations to torch.custom_op.
+  }];
+}
+
 #endif // TORCH_FRONTEND_TRANSFORMS_PASSES_TD

@@ -4,6 +4,55 @@
 
 module attributes {byre.container_module, gpu.container_module} {
   gpu.module @unified {
+    gpu.func @Unknown99(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c2359296 = arith.constant 2359296 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c512 = arith.constant 512 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c2359296 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c512 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c512 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c512 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<512x512x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<512x512x3x3xf32>
+      }
+      gpu.return
+    }
     gpu.func @Unknown98(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c2359296 = arith.constant 2359296 : index
@@ -53,56 +102,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown97(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c2359296 = arith.constant 2359296 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c512 = arith.constant 512 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c2359296 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c512 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c512 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c512 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<512x512x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<512x512x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown96(%arg0: memref<512x256x1x1xf16>, %arg1: memref<512x256x1x1xf32>) kernel {
+    gpu.func @Unknown97(%arg0: memref<512x256x1x1xf16>, %arg1: memref<512x256x1x1xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c131072 = arith.constant 131072 : index
       %c256 = arith.constant 256 : index
@@ -130,7 +130,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown95(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
+    gpu.func @Unknown96(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c2359296 = arith.constant 2359296 : index
       %c3 = arith.constant 3 : index
@@ -179,7 +179,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown94(%arg0: memref<512x256x3x3xf16>, %arg1: memref<512x256x3x3xf32>) kernel {
+    gpu.func @Unknown95(%arg0: memref<512x256x3x3xf16>, %arg1: memref<512x256x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c1179648 = arith.constant 1179648 : index
       %c3 = arith.constant 3 : index
@@ -225,6 +225,55 @@ module attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<512x256x3x3xf16>
         %37 = arith.extf %36 : f16 to f32
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<512x256x3x3xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown94(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c589824 = arith.constant 589824 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c256 = arith.constant 256 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c589824 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c256 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c256 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c256 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<256x256x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<256x256x3x3xf32>
       }
       gpu.return
     }
@@ -277,56 +326,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown92(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c589824 = arith.constant 589824 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c256 = arith.constant 256 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c589824 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c256 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c256 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c256 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<256x256x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<256x256x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown91(%arg0: memref<256x128x1x1xf16>, %arg1: memref<256x128x1x1xf32>) kernel {
+    gpu.func @Unknown92(%arg0: memref<256x128x1x1xf16>, %arg1: memref<256x128x1x1xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c32768 = arith.constant 32768 : index
       %c128 = arith.constant 128 : index
@@ -354,7 +354,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown90(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
+    gpu.func @Unknown91(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c589824 = arith.constant 589824 : index
       %c3 = arith.constant 3 : index
@@ -403,7 +403,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown89(%arg0: memref<256x128x3x3xf16>, %arg1: memref<256x128x3x3xf32>) kernel {
+    gpu.func @Unknown90(%arg0: memref<256x128x3x3xf16>, %arg1: memref<256x128x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c294912 = arith.constant 294912 : index
       %c3 = arith.constant 3 : index
@@ -449,6 +449,55 @@ module attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<256x128x3x3xf16>
         %37 = arith.extf %36 : f16 to f32
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<256x128x3x3xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown89(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c147456 = arith.constant 147456 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c128 = arith.constant 128 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c147456 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c128 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c128 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c128 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<128x128x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<128x128x3x3xf32>
       }
       gpu.return
     }
@@ -501,56 +550,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown87(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c147456 = arith.constant 147456 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c128 = arith.constant 128 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c147456 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c128 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c128 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c128 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<128x128x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<128x128x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown86(%arg0: memref<128x64x1x1xf16>, %arg1: memref<128x64x1x1xf32>) kernel {
+    gpu.func @Unknown87(%arg0: memref<128x64x1x1xf16>, %arg1: memref<128x64x1x1xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c8192 = arith.constant 8192 : index
       %c64 = arith.constant 64 : index
@@ -578,7 +578,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown85(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
+    gpu.func @Unknown86(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c147456 = arith.constant 147456 : index
       %c3 = arith.constant 3 : index
@@ -627,7 +627,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown84(%arg0: memref<128x64x3x3xf16>, %arg1: memref<128x64x3x3xf32>) kernel {
+    gpu.func @Unknown85(%arg0: memref<128x64x3x3xf16>, %arg1: memref<128x64x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c73728 = arith.constant 73728 : index
       %c3 = arith.constant 3 : index
@@ -673,6 +673,55 @@ module attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<128x64x3x3xf16>
         %37 = arith.extf %36 : f16 to f32
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<128x64x3x3xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown84(%arg0: memref<64x64x3x3xf16>, %arg1: memref<64x64x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c36864 = arith.constant 36864 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c64 = arith.constant 64 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c36864 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c64 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c64 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c64 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<64x64x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<64x64x3x3xf32>
       }
       gpu.return
     }
@@ -823,56 +872,7 @@ module attributes {byre.container_module, gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown80(%arg0: memref<64x64x3x3xf16>, %arg1: memref<64x64x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c36864 = arith.constant 36864 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c64 = arith.constant 64 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c36864 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c64 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c64 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c64 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<64x64x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<64x64x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown79(%arg0: memref<1000x512xf16>, %arg1: memref<1000x512xf32>) kernel {
+    gpu.func @Unknown80(%arg0: memref<1000x512xf16>, %arg1: memref<1000x512xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c512000 = arith.constant 512000 : index
       %c512 = arith.constant 512 : index
@@ -897,6 +897,22 @@ module attributes {byre.container_module, gpu.container_module} {
         %16 = memref.load %arg0[%15, %9] : memref<1000x512xf16>
         %17 = arith.extf %16 : f16 to f32
         memref.store %17, %arg1[%15, %9] : memref<1000x512xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown79(%arg0: memref<1000xf32>, %arg1: memref<1000xf32>) kernel {
+      %c1000 = arith.constant 1000 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c1000 : index
+      scf.if %5 {
+        %6 = memref.load %arg0[%4] : memref<1000xf32>
+        %7 = arith.truncf %6 : f32 to f16
+        %8 = arith.extf %7 : f16 to f32
+        memref.store %8, %arg1[%4] : memref<1000xf32>
       }
       gpu.return
     }
@@ -1958,7 +1974,7 @@ module attributes {byre.container_module, gpu.container_module} {
     byre.compute @ConvBackwardDataOp_f16f16_f16(%3, %arg133, %5) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x512x7x7xf16>, memref<512x512x3x3xf16>, memref<1x512x7x7xf16>
     %6 = "byre.alias"(%alloc_19) {offset = 0 : i64} : (memref<4718592xi8>) -> memref<512x512x3x3xf16>
     byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg132, %3, %6) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<512x512x3x3xf16>
-    %7 = "byre.alias"(%alloc_15) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x512x7x7xf16>
+    %7 = "byre.alias"(%alloc_14) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<1x512x7x7xf16>
     byre.compute @PTXOp(%1, %5, %arg132, %7) {BlockSize.x = 128 : i32, GridSize.x = 196 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown8", memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32]} : memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>
     byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg129, %arg33, %7, %5, %arg192, %arg191) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x512x7x7xf16>, memref<512xf32>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<512xf32>, memref<512xf32>
     %8 = "byre.alias"(%alloc_16) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x512x7x7xf16>
@@ -1966,44 +1982,44 @@ module attributes {byre.container_module, gpu.container_module} {
     %9 = "byre.alias"(%alloc_18) {offset = 0 : i64} : (memref<4718592xi8>) -> memref<512x512x3x3xf16>
     byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg127, %5, %9) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<512x512x3x3xf16>
     byre.compute @PTXOp(%arg127, %8, %5) {BlockSize.x = 128 : i32, GridSize.x = 196 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown12", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>
-    %10 = "byre.alias"(%alloc_15) {offset = 50176 : i64} : (memref<1605632xi8>) -> memref<1x512x7x7xf16>
+    %10 = "byre.alias"(%alloc_15) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x512x7x7xf16>
     byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg126, %arg31, %5, %10, %arg190, %arg189) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x512x7x7xf16>, memref<512xf32>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<512xf32>, memref<512xf32>
     %11 = "byre.alias"(%alloc_16) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
     byre.compute @ConvBackwardDataOp_f16f16_f16(%10, %arg125, %11) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x512x7x7xf16>, memref<512x256x3x3xf16>, memref<1x256x14x14xf16>
     %12 = "byre.alias"(%alloc_17) {offset = 0 : i64} : (memref<2359296xi8>) -> memref<512x256x3x3xf16>
     byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg124, %10, %12) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x512x7x7xf16>, memref<512x256x3x3xf16>
-    %13 = "byre.alias"(%alloc_14) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<1x512x7x7xf16>
-    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg131, %arg35, %7, %13, %arg197, %arg196) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x512x7x7xf16>, memref<512xf32>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<512xf32>, memref<512xf32>
-    %14 = "byre.alias"(%alloc_16) {offset = 100352 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
-    byre.compute @ConvBackwardDataOp_f16f16_f16(%13, %arg130, %14) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<0> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x512x7x7xf16>, memref<512x256x1x1xf16>, memref<1x256x14x14xf16>
-    %15 = "byre.alias"(%alloc_6) {offset = 0 : i64} : (memref<262144xi8>) -> memref<512x256x1x1xf16>
-    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg124, %13, %15) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<0> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x512x7x7xf16>, memref<512x256x1x1xf16>
-    %16 = "byre.alias"(%alloc_15) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
-    byre.compute @PTXOp(%14, %11, %arg124, %16) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown19", memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
-    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg123, %arg29, %16, %11, %arg186, %arg185) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
-    %17 = "byre.alias"(%alloc_15) {offset = 100352 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
-    byre.compute @ConvBackwardDataOp_f16f16_f16(%11, %arg122, %17) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x256x3x3xf16>, memref<1x256x14x14xf16>
-    %18 = "byre.alias"(%alloc_14) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<256x256x3x3xf16>
-    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg121, %11, %18) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256x256x3x3xf16>
-    byre.compute @PTXOp(%arg121, %17, %11) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown23", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
-    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg120, %arg27, %11, %17, %arg184, %arg183) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
-    %19 = "byre.alias"(%alloc_13) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<1x256x14x14xf16>
-    byre.compute @ConvBackwardDataOp_f16f16_f16(%17, %arg119, %19) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x256x3x3xf16>, memref<1x256x14x14xf16>
-    %20 = "byre.alias"(%alloc_12) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<256x256x3x3xf16>
-    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg118, %17, %20) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256x256x3x3xf16>
-    byre.compute @PTXOp(%16, %19, %arg118, %11) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown27", memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
-    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg115, %arg23, %11, %16, %arg177, %arg176) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
-    byre.compute @ConvBackwardDataOp_f16f16_f16(%16, %arg114, %14) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x256x3x3xf16>, memref<1x256x14x14xf16>
-    %21 = "byre.alias"(%alloc_13) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<256x256x3x3xf16>
-    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg113, %16, %21) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256x256x3x3xf16>
-    byre.compute @PTXOp(%arg113, %14, %16) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown31", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
-    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg112, %arg21, %16, %14, %arg175, %arg174) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
+    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg131, %arg35, %7, %10, %arg197, %arg196) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x512x7x7xf16>, memref<512xf32>, memref<1x512x7x7xf16>, memref<1x512x7x7xf16>, memref<512xf32>, memref<512xf32>
+    %13 = "byre.alias"(%alloc_16) {offset = 100352 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
+    byre.compute @ConvBackwardDataOp_f16f16_f16(%10, %arg130, %13) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<0> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x512x7x7xf16>, memref<512x256x1x1xf16>, memref<1x256x14x14xf16>
+    %14 = "byre.alias"(%alloc_6) {offset = 0 : i64} : (memref<262144xi8>) -> memref<512x256x1x1xf16>
+    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg124, %10, %14) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<0> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x512x7x7xf16>, memref<512x256x1x1xf16>
+    %15 = "byre.alias"(%alloc_15) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
+    byre.compute @PTXOp(%13, %11, %arg124, %15) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown19", memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
+    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg123, %arg29, %15, %11, %arg186, %arg185) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
+    %16 = "byre.alias"(%alloc_15) {offset = 100352 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
+    byre.compute @ConvBackwardDataOp_f16f16_f16(%11, %arg122, %16) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x256x3x3xf16>, memref<1x256x14x14xf16>
+    %17 = "byre.alias"(%alloc_14) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<256x256x3x3xf16>
+    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg121, %11, %17) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256x256x3x3xf16>
+    byre.compute @PTXOp(%arg121, %16, %11) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown23", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
+    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg120, %arg27, %11, %16, %arg184, %arg183) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
+    byre.compute @ConvBackwardDataOp_f16f16_f16(%16, %arg119, %11) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x256x3x3xf16>, memref<1x256x14x14xf16>
+    %18 = "byre.alias"(%alloc_12) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<256x256x3x3xf16>
+    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg118, %16, %18) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256x256x3x3xf16>
+    %19 = "byre.alias"(%alloc_10) {offset = 0 : i64} : (memref<401408xi8>) -> memref<1x256x14x14xf16>
+    byre.compute @PTXOp(%15, %11, %arg118, %19) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown27", memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
+    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg115, %arg23, %19, %11, %arg177, %arg176) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
+    byre.compute @ConvBackwardDataOp_f16f16_f16(%11, %arg114, %15) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x256x3x3xf16>, memref<1x256x14x14xf16>
+    %20 = "byre.alias"(%alloc_13) {offset = 0 : i64} : (memref<1179648xi8>) -> memref<256x256x3x3xf16>
+    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg113, %11, %20) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256x256x3x3xf16>
+    byre.compute @PTXOp(%arg113, %15, %11) {BlockSize.x = 128 : i32, GridSize.x = 392 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown31", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>
+    %21 = "byre.alias"(%alloc_10) {offset = 100352 : i64} : (memref<401408xi8>) -> memref<1x256x14x14xf16>
+    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg112, %arg21, %11, %21, %arg175, %arg174) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
     %22 = "byre.alias"(%alloc_15) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x128x28x28xf16>
-    byre.compute @ConvBackwardDataOp_f16f16_f16(%14, %arg111, %22) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x128x3x3xf16>, memref<1x128x28x28xf16>
+    byre.compute @ConvBackwardDataOp_f16f16_f16(%21, %arg111, %22) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x128x3x3xf16>, memref<1x128x28x28xf16>
     %23 = "byre.alias"(%alloc_11) {offset = 0 : i64} : (memref<589824xi8>) -> memref<256x128x3x3xf16>
-    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg110, %14, %23) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x128x28x28xf16>, memref<1x256x14x14xf16>, memref<256x128x3x3xf16>
+    byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg110, %21, %23) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x128x28x28xf16>, memref<1x256x14x14xf16>, memref<256x128x3x3xf16>
     %24 = "byre.alias"(%alloc_15) {offset = 200704 : i64} : (memref<1605632xi8>) -> memref<1x256x14x14xf16>
-    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg117, %arg25, %11, %24, %arg182, %arg181) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
+    byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg117, %arg25, %19, %24, %arg182, %arg181) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x256x14x14xf16>, memref<256xf32>, memref<1x256x14x14xf16>, memref<1x256x14x14xf16>, memref<256xf32>, memref<256xf32>
     %25 = "byre.alias"(%alloc_16) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x128x28x28xf16>
     byre.compute @ConvBackwardDataOp_f16f16_f16(%24, %arg116, %25) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<0> : tensor<4xi64>, window_strides = dense<2> : tensor<2xi64>} : memref<1x256x14x14xf16>, memref<256x128x1x1xf16>, memref<1x128x28x28xf16>
     %26 = "byre.alias"(%alloc_0) {offset = 0 : i64} : (memref<65536xi8>) -> memref<256x128x1x1xf16>
@@ -2042,7 +2058,7 @@ module attributes {byre.container_module, gpu.container_module} {
     byre.compute @PTXOp(%36, %33, %arg96, %38) {BlockSize.x = 128 : i32, GridSize.x = 1568 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown57", memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>
     byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg95, %arg9, %38, %36, %arg156, %arg155) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<64xf32>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<64xf32>, memref<64xf32>
     byre.compute @ConvBackwardDataOp_f16f16_f16(%36, %arg94, %33) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x64x56x56xf16>, memref<64x64x3x3xf16>, memref<1x64x56x56xf16>
-    %39 = "byre.alias"(%alloc_4) {offset = 0 : i64} : (memref<73728xi8>) -> memref<64x64x3x3xf16>
+    %39 = "byre.alias"(%alloc_1) {offset = 0 : i64} : (memref<73728xi8>) -> memref<64x64x3x3xf16>
     byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg93, %36, %39) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<64x64x3x3xf16>
     byre.compute @PTXOp(%arg93, %33, %36) {BlockSize.x = 128 : i32, GridSize.x = 1568 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown61", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>
     byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg92, %arg7, %36, %33, %arg154, %arg153) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<64xf32>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<64xf32>, memref<64xf32>
@@ -2053,7 +2069,7 @@ module attributes {byre.container_module, gpu.container_module} {
     byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg89, %arg5, %33, %36, %arg150, %arg149) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<64xf32>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<64xf32>, memref<64xf32>
     %41 = "byre.alias"(%alloc_15) {offset = 401408 : i64} : (memref<1605632xi8>) -> memref<1x64x56x56xf16>
     byre.compute @ConvBackwardDataOp_f16f16_f16(%36, %arg88, %41) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x64x56x56xf16>, memref<64x64x3x3xf16>, memref<1x64x56x56xf16>
-    %42 = "byre.alias"(%alloc_1) {offset = 0 : i64} : (memref<73728xi8>) -> memref<64x64x3x3xf16>
+    %42 = "byre.alias"(%alloc_4) {offset = 0 : i64} : (memref<73728xi8>) -> memref<64x64x3x3xf16>
     byre.compute @ConvBackwardFilterOp_f16f16_f16(%arg87, %36, %42) {batch_group_count = 1 : i64, feature_group_count = 1 : i64, input_layout = "NCHW", kernel_layout = "NCHW", memory_effects = [1 : i32, 1 : i32, 2 : i32], output_layout = "NCHW", padding = dense<1> : tensor<4xi64>, window_strides = dense<1> : tensor<2xi64>} : memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<64x64x3x3xf16>
     byre.compute @PTXOp(%arg87, %41, %36) {BlockSize.x = 128 : i32, GridSize.x = 1568 : i32, arg_ranks = [4 : i32, 4 : i32, 4 : i32], kernel_name = "Unknown69", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>
     byre.compute @BatchNormGradOp_f16f32f16_f16f32f32(%arg86, %arg3, %36, %41, %arg148, %arg147) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64, memory_effects = [1 : i32, 1 : i32, 1 : i32, 2 : i32, 2 : i32, 2 : i32]} : memref<1x64x56x56xf16>, memref<64xf32>, memref<1x64x56x56xf16>, memref<1x64x56x56xf16>, memref<64xf32>, memref<64xf32>
@@ -2071,30 +2087,32 @@ module attributes {byre.container_module, gpu.container_module} {
     byre.compute @PTXOp(%46, %arg144) {BlockSize.x = 128 : i32, GridSize.x = 74 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown77", memory_effects = [1 : i32, 2 : i32]} : memref<64x3x7x7xf16>, memref<64x3x7x7xf32>
     %47 = "byre.alias"(%alloc_16) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1x1000xf32>
     byre.compute @PTXOp(%arg141, %47) {BlockSize.x = 128 : i32, GridSize.x = 8 : i32, arg_ranks = [2 : i32, 2 : i32], kernel_name = "Unknown78", memory_effects = [1 : i32, 2 : i32]} : memref<1x1000xf16>, memref<1x1000xf32>
-    byre.compute @ReduceSumOp_f32_f32(%47, %arg145) {dimensions = dense<0> : tensor<1xi64>, memory_effects = [1 : i32, 2 : i32]} : memref<1x1000xf32>, memref<1000xf32>
-    %48 = "byre.alias"(%arg141) {offset = 0 : i64} : (memref<1x1000xf16>) -> memref<1000x1xf16>
-    %49 = "byre.alias"(%alloc_16) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1000x512xf16>
-    byre.compute @MatmulOp_f16f16_f16(%48, %arg139, %49) {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<1000x1xf16>, memref<1x512xf16>, memref<1000x512xf16>
-    byre.compute @PTXOp(%49, %arg146) {BlockSize.x = 128 : i32, GridSize.x = 4000 : i32, arg_ranks = [2 : i32, 2 : i32], kernel_name = "Unknown79", memory_effects = [1 : i32, 2 : i32]} : memref<1000x512xf16>, memref<1000x512xf32>
-    byre.compute @PTXOp(%43, %arg151) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown80", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
-    byre.compute @PTXOp(%42, %arg152) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown81", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
-    byre.compute @PTXOp(%40, %arg157) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown82", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
-    byre.compute @PTXOp(%39, %arg158) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown83", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
-    byre.compute @PTXOp(%34, %arg163) {BlockSize.x = 128 : i32, GridSize.x = 576 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown84", memory_effects = [1 : i32, 2 : i32]} : memref<128x64x3x3xf16>, memref<128x64x3x3xf32>
-    byre.compute @PTXOp(%31, %arg164) {BlockSize.x = 128 : i32, GridSize.x = 1152 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown85", memory_effects = [1 : i32, 2 : i32]} : memref<128x128x3x3xf16>, memref<128x128x3x3xf32>
-    byre.compute @PTXOp(%37, %arg165) {BlockSize.x = 128 : i32, GridSize.x = 64 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown86", memory_effects = [1 : i32, 2 : i32]} : memref<128x64x1x1xf16>, memref<128x64x1x1xf32>
-    byre.compute @PTXOp(%29, %arg172) {BlockSize.x = 128 : i32, GridSize.x = 1152 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown87", memory_effects = [1 : i32, 2 : i32]} : memref<128x128x3x3xf16>, memref<128x128x3x3xf32>
-    byre.compute @PTXOp(%28, %arg173) {BlockSize.x = 128 : i32, GridSize.x = 1152 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown88", memory_effects = [1 : i32, 2 : i32]} : memref<128x128x3x3xf16>, memref<128x128x3x3xf32>
-    byre.compute @PTXOp(%23, %arg178) {BlockSize.x = 128 : i32, GridSize.x = 2304 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown89", memory_effects = [1 : i32, 2 : i32]} : memref<256x128x3x3xf16>, memref<256x128x3x3xf32>
-    byre.compute @PTXOp(%21, %arg179) {BlockSize.x = 128 : i32, GridSize.x = 4608 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown90", memory_effects = [1 : i32, 2 : i32]} : memref<256x256x3x3xf16>, memref<256x256x3x3xf32>
-    byre.compute @PTXOp(%26, %arg180) {BlockSize.x = 128 : i32, GridSize.x = 256 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown91", memory_effects = [1 : i32, 2 : i32]} : memref<256x128x1x1xf16>, memref<256x128x1x1xf32>
-    byre.compute @PTXOp(%20, %arg187) {BlockSize.x = 128 : i32, GridSize.x = 4608 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown92", memory_effects = [1 : i32, 2 : i32]} : memref<256x256x3x3xf16>, memref<256x256x3x3xf32>
-    byre.compute @PTXOp(%18, %arg188) {BlockSize.x = 128 : i32, GridSize.x = 4608 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown93", memory_effects = [1 : i32, 2 : i32]} : memref<256x256x3x3xf16>, memref<256x256x3x3xf32>
-    byre.compute @PTXOp(%12, %arg193) {BlockSize.x = 128 : i32, GridSize.x = 9216 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown94", memory_effects = [1 : i32, 2 : i32]} : memref<512x256x3x3xf16>, memref<512x256x3x3xf32>
-    byre.compute @PTXOp(%9, %arg194) {BlockSize.x = 128 : i32, GridSize.x = 18432 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown95", memory_effects = [1 : i32, 2 : i32]} : memref<512x512x3x3xf16>, memref<512x512x3x3xf32>
-    byre.compute @PTXOp(%15, %arg195) {BlockSize.x = 128 : i32, GridSize.x = 1024 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown96", memory_effects = [1 : i32, 2 : i32]} : memref<512x256x1x1xf16>, memref<512x256x1x1xf32>
-    byre.compute @PTXOp(%6, %arg202) {BlockSize.x = 128 : i32, GridSize.x = 18432 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown97", memory_effects = [1 : i32, 2 : i32]} : memref<512x512x3x3xf16>, memref<512x512x3x3xf32>
-    byre.compute @PTXOp(%4, %arg203) {BlockSize.x = 128 : i32, GridSize.x = 18432 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown98", memory_effects = [1 : i32, 2 : i32]} : memref<512x512x3x3xf16>, memref<512x512x3x3xf32>
+    %48 = "byre.alias"(%alloc_15) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1000xf32>
+    byre.compute @ReduceSumOp_f32_f32(%47, %48) {dimensions = dense<0> : tensor<1xi64>, memory_effects = [1 : i32, 2 : i32]} : memref<1x1000xf32>, memref<1000xf32>
+    byre.compute @PTXOp(%48, %arg145) {BlockSize.x = 128 : i32, GridSize.x = 8 : i32, arg_ranks = [1 : i32, 1 : i32], kernel_name = "Unknown79", memory_effects = [1 : i32, 2 : i32]} : memref<1000xf32>, memref<1000xf32>
+    %49 = "byre.alias"(%arg141) {offset = 0 : i64} : (memref<1x1000xf16>) -> memref<1000x1xf16>
+    %50 = "byre.alias"(%alloc_16) {offset = 0 : i64} : (memref<1605632xi8>) -> memref<1000x512xf16>
+    byre.compute @MatmulOp_f16f16_f16(%49, %arg139, %50) {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<1000x1xf16>, memref<1x512xf16>, memref<1000x512xf16>
+    byre.compute @PTXOp(%50, %arg146) {BlockSize.x = 128 : i32, GridSize.x = 4000 : i32, arg_ranks = [2 : i32, 2 : i32], kernel_name = "Unknown80", memory_effects = [1 : i32, 2 : i32]} : memref<1000x512xf16>, memref<1000x512xf32>
+    byre.compute @PTXOp(%43, %arg151) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown81", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
+    byre.compute @PTXOp(%42, %arg152) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown82", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
+    byre.compute @PTXOp(%40, %arg157) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown83", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
+    byre.compute @PTXOp(%39, %arg158) {BlockSize.x = 128 : i32, GridSize.x = 288 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown84", memory_effects = [1 : i32, 2 : i32]} : memref<64x64x3x3xf16>, memref<64x64x3x3xf32>
+    byre.compute @PTXOp(%34, %arg163) {BlockSize.x = 128 : i32, GridSize.x = 576 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown85", memory_effects = [1 : i32, 2 : i32]} : memref<128x64x3x3xf16>, memref<128x64x3x3xf32>
+    byre.compute @PTXOp(%31, %arg164) {BlockSize.x = 128 : i32, GridSize.x = 1152 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown86", memory_effects = [1 : i32, 2 : i32]} : memref<128x128x3x3xf16>, memref<128x128x3x3xf32>
+    byre.compute @PTXOp(%37, %arg165) {BlockSize.x = 128 : i32, GridSize.x = 64 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown87", memory_effects = [1 : i32, 2 : i32]} : memref<128x64x1x1xf16>, memref<128x64x1x1xf32>
+    byre.compute @PTXOp(%29, %arg172) {BlockSize.x = 128 : i32, GridSize.x = 1152 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown88", memory_effects = [1 : i32, 2 : i32]} : memref<128x128x3x3xf16>, memref<128x128x3x3xf32>
+    byre.compute @PTXOp(%28, %arg173) {BlockSize.x = 128 : i32, GridSize.x = 1152 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown89", memory_effects = [1 : i32, 2 : i32]} : memref<128x128x3x3xf16>, memref<128x128x3x3xf32>
+    byre.compute @PTXOp(%23, %arg178) {BlockSize.x = 128 : i32, GridSize.x = 2304 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown90", memory_effects = [1 : i32, 2 : i32]} : memref<256x128x3x3xf16>, memref<256x128x3x3xf32>
+    byre.compute @PTXOp(%20, %arg179) {BlockSize.x = 128 : i32, GridSize.x = 4608 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown91", memory_effects = [1 : i32, 2 : i32]} : memref<256x256x3x3xf16>, memref<256x256x3x3xf32>
+    byre.compute @PTXOp(%26, %arg180) {BlockSize.x = 128 : i32, GridSize.x = 256 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown92", memory_effects = [1 : i32, 2 : i32]} : memref<256x128x1x1xf16>, memref<256x128x1x1xf32>
+    byre.compute @PTXOp(%18, %arg187) {BlockSize.x = 128 : i32, GridSize.x = 4608 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown93", memory_effects = [1 : i32, 2 : i32]} : memref<256x256x3x3xf16>, memref<256x256x3x3xf32>
+    byre.compute @PTXOp(%17, %arg188) {BlockSize.x = 128 : i32, GridSize.x = 4608 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown94", memory_effects = [1 : i32, 2 : i32]} : memref<256x256x3x3xf16>, memref<256x256x3x3xf32>
+    byre.compute @PTXOp(%12, %arg193) {BlockSize.x = 128 : i32, GridSize.x = 9216 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown95", memory_effects = [1 : i32, 2 : i32]} : memref<512x256x3x3xf16>, memref<512x256x3x3xf32>
+    byre.compute @PTXOp(%9, %arg194) {BlockSize.x = 128 : i32, GridSize.x = 18432 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown96", memory_effects = [1 : i32, 2 : i32]} : memref<512x512x3x3xf16>, memref<512x512x3x3xf32>
+    byre.compute @PTXOp(%14, %arg195) {BlockSize.x = 128 : i32, GridSize.x = 1024 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown97", memory_effects = [1 : i32, 2 : i32]} : memref<512x256x1x1xf16>, memref<512x256x1x1xf32>
+    byre.compute @PTXOp(%6, %arg202) {BlockSize.x = 128 : i32, GridSize.x = 18432 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown98", memory_effects = [1 : i32, 2 : i32]} : memref<512x512x3x3xf16>, memref<512x512x3x3xf32>
+    byre.compute @PTXOp(%4, %arg203) {BlockSize.x = 128 : i32, GridSize.x = 18432 : i32, arg_ranks = [4 : i32, 4 : i32], kernel_name = "Unknown99", memory_effects = [1 : i32, 2 : i32]} : memref<512x512x3x3xf16>, memref<512x512x3x3xf32>
     return
   }
 }

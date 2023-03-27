@@ -20,6 +20,8 @@
 
 void torchFrontendRegisterAllPipelines() {
   mlir::torch_frontend::registerTorchToMhloPipeline();
+  mlir::torch_frontend::registerTorchscriptToTorchPipeline();
+  mlir::torch_frontend::registerTorchFunctionToTorchPipeline();
 }
 
 void torchFrontendRegisterConversionPasses() {

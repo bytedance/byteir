@@ -3,9 +3,9 @@
 func.func @main(%arg0: tensor<4x5xf32>, %arg1: tensor<4x5xf32>, %arg2: tensor<4x10xi1>, %arg3: tensor<4xi32>) -> tensor<?x10xf32> attributes {tf.entry_func.function = {control_outputs = "", inputs = "queries,keys,mask,par", outputs = "Output"}} {
   %cst = "tf.Const"() {value = dense<[4, 5]> : tensor<2xi32>} : () -> tensor<2xi32>
   %cst_0 = "tf.Const"() {value = dense<-1> : tensor<i32>} : () -> tensor<i32>
-  %0:2 = "tf.DynamicPartition"(%arg1, %arg3) {T = f32, device = "", num_partitions = 2 : i64} : (tensor<4x5xf32>, tensor<4xi32>) -> (tensor<?x5xf32>, tensor<?x5xf32>)
-  %1:2 = "tf.DynamicPartition"(%arg2, %arg3) {T = i1, device = "", num_partitions = 2 : i64} : (tensor<4x10xi1>, tensor<4xi32>) -> (tensor<?x10xi1>, tensor<?x10xi1>)
-  %2:2 = "tf.DynamicPartition"(%arg0, %arg3) {T = f32, device = "", num_partitions = 2 : i64} : (tensor<4x5xf32>, tensor<4xi32>) -> (tensor<?x5xf32>, tensor<?x5xf32>)
+  %0:2 = "tf.DynamicPartition"(%arg1, %arg3) {T = f32, device = ""} : (tensor<4x5xf32>, tensor<4xi32>) -> (tensor<?x5xf32>, tensor<?x5xf32>)
+  %1:2 = "tf.DynamicPartition"(%arg2, %arg3) {T = i1, device = ""} : (tensor<4x10xi1>, tensor<4xi32>) -> (tensor<?x10xi1>, tensor<?x10xi1>)
+  %2:2 = "tf.DynamicPartition"(%arg0, %arg3) {T = f32, device = ""} : (tensor<4x5xf32>, tensor<4xi32>) -> (tensor<?x5xf32>, tensor<?x5xf32>)
   %3 = "tf.Shape"(%2#1) {device = ""} : (tensor<?x5xf32>) -> tensor<2xi32>
   %4 = "tf.ConcatV2"(%2#1, %0#1, %cst_0) {device = ""} : (tensor<?x5xf32>, tensor<?x5xf32>, tensor<i32>) -> tensor<?x10xf32>
   %5 = "tf.ZerosLike"(%4) {device = ""} : (tensor<?x10xf32>) -> tensor<?x10xf32>

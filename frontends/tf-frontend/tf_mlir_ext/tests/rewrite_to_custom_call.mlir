@@ -434,13 +434,13 @@ func.func @dynamic_mask_stitch(%arg0: tensor<4x4xf32>, %arg1: tensor<4xi32>) -> 
   %cst_6 = "tf.Const"() {value = dense<[1.56364501, -0.948736965, 0.0843383893, 0.502355933]> : tensor<4xf32>} : () -> tensor<4xf32>
   %0 = "tf.MatMul"(%arg0, %cst) {device = "", transpose_a = false, transpose_b = false} : (tensor<4x4xf32>, tensor<4x4xf32>) -> tensor<4x4xf32>
   %1 = "tf.AddV2"(%cst_0, %0) {device = ""} : (tensor<4xf32>, tensor<4x4xf32>) -> tensor<4x4xf32>
-  %2:2 = "tf.DynamicPartition"(%1, %arg1) {T = f32, device = "", num_partitions = 2 : i64} : (tensor<4x4xf32>, tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>)
+  %2:2 = "tf.DynamicPartition"(%1, %arg1) {T = f32, device = ""} : (tensor<4x4xf32>, tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>)
   %3 = "tf.MatMul"(%2#0, %cst_1) {device = "", transpose_a = false, transpose_b = false} : (tensor<?x4xf32>, tensor<4x4xf32>) -> tensor<?x4xf32>
   %4 = "tf.AddV2"(%cst_2, %3) {device = ""} : (tensor<4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
   %5 = "tf.MatMul"(%2#1, %cst_3) {device = "", transpose_a = false, transpose_b = false} : (tensor<?x4xf32>, tensor<4x4xf32>) -> tensor<?x4xf32>
   %6 = "tf.AddV2"(%cst_4, %5) {device = ""} : (tensor<4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
   %cst_7 = "tf.Const"() {value = dense<[0, 1, 2, 3]> : tensor<4xi32>} : () -> tensor<4xi32>
-  %7:2 = "tf.DynamicPartition"(%cst_7, %arg1) {T = i32, device = "", num_partitions = 2 : i64} : (tensor<4xi32>, tensor<4xi32>) -> (tensor<?xi32>, tensor<?xi32>)
+  %7:2 = "tf.DynamicPartition"(%cst_7, %arg1) {T = i32, device = ""} : (tensor<4xi32>, tensor<4xi32>) -> (tensor<?xi32>, tensor<?xi32>)
   %8 = "tf.DynamicStitch"(%7#0, %7#1, %4, %6) {device = ""} : (tensor<?xi32>, tensor<?xi32>, tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
   %9 = "tf.MatMul"(%8, %cst_5) {device = "", transpose_a = false, transpose_b = false} : (tensor<?x4xf32>, tensor<4x4xf32>) -> tensor<?x4xf32>
   %10 = "tf.AddV2"(%cst_6, %9) {device = ""} : (tensor<4xf32>, tensor<?x4xf32>) -> tensor<?x4xf32>
@@ -455,7 +455,7 @@ func.func @dynamic_mask_stitch(%arg0: tensor<4x4xf32>, %arg1: tensor<4xi32>) -> 
 // CHECK-SAME: byteir_attrs = {}
 
 func.func @dynamic_partition(%1: tensor<4x4xf32>, %arg1: tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>) {
-  %2:2 = "tf.DynamicPartition"(%1, %arg1) {T = f32, device = "", num_partitions = 2 : i64} : (tensor<4x4xf32>, tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>)
+  %2:2 = "tf.DynamicPartition"(%1, %arg1) {T = f32, device = ""} : (tensor<4x4xf32>, tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>)
   return %2#0, %2#1 : tensor<?x4xf32>, tensor<?x4xf32>
 }
 // CHECK-LABEL: func.func @dynamic_partition

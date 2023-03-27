@@ -34,6 +34,10 @@ class Value;
 class TensorType;
 class ModuleOp;
 
+constexpr StringRef getConvertAnchorName() {
+  return "__byteir_dtype_convert__";
+}
+
 // abstract struct for convert rule
 struct DTypeConvertRuleBase {
 

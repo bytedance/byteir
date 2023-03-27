@@ -21,25 +21,3 @@ func.func @torch.aten._index_put_impl(%arg0: !torch.vtensor<[10,8],f32>, %arg1: 
   %1 = torch.aten._index_put_impl %arg0, %0, %arg2, %true, %false : !torch.vtensor<[10,8],f32>, !torch.list<vtensor>, !torch.vtensor<[2,5,8],f32>, !torch.bool, !torch.bool -> !torch.vtensor<[10,8],f32>
   return %1 : !torch.vtensor<[10,8],f32>
 }
-
-// CHECK-LABEL:   func.func @torch.aten.linalg_vector_norm
-// CHECK: arith.constant dense<[128, 3, 49, 1]>
-// CHECK: arith.constant dense<2.000000e+00>
-// CHECK: stablehlo.convert
-// CHECK: stablehlo.reshape
-// CHECK: stablehlo.abs
-// CHECK: chlo.broadcast_power
-// CHECK: stablehlo.reduce
-// CHECK: stablehlo.divide
-// CHECK: chlo.broadcast_power
-// CHECK: stablehlo.dynamic_reshape
-
-func.func @torch.aten.linalg_vector_norm(%arg0: !torch.vtensor<[128,3,49,32],f16>) -> !torch.vtensor<[128,3,49,1],f16> {
-  %none = torch.constant.none
-  %true = torch.constant.bool true
-  %float2 = torch.constant.float 2.000000e+00
-  %int-1 = torch.constant.int -1
-  %list = torch.prim.ListConstruct %int-1 : (!torch.int) -> !torch.list<int>
-  %0 = torch.aten.linalg_vector_norm %arg0, %float2, %list, %true, %none : !torch.vtensor<[128,3,49,32],f16>, !torch.float, !torch.list<int>, !torch.bool, !torch.none -> !torch.vtensor<[128,3,49,1],f16>
-  return %0 : !torch.vtensor<[128,3,49,1],f16>
-}

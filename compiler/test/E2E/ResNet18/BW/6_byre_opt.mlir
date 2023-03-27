@@ -4,6 +4,55 @@
 
 module attributes {gpu.container_module} {
   gpu.module @unified {
+    gpu.func @Unknown99(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c2359296 = arith.constant 2359296 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c512 = arith.constant 512 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c2359296 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c512 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c512 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c512 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<512x512x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<512x512x3x3xf32>
+      }
+      gpu.return
+    }
     gpu.func @Unknown98(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c2359296 = arith.constant 2359296 : index
@@ -53,56 +102,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown97(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c2359296 = arith.constant 2359296 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c512 = arith.constant 512 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c2359296 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c512 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c512 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c512 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<512x512x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<512x512x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown96(%arg0: memref<512x256x1x1xf16>, %arg1: memref<512x256x1x1xf32>) kernel {
+    gpu.func @Unknown97(%arg0: memref<512x256x1x1xf16>, %arg1: memref<512x256x1x1xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c131072 = arith.constant 131072 : index
       %c256 = arith.constant 256 : index
@@ -130,7 +130,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown95(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
+    gpu.func @Unknown96(%arg0: memref<512x512x3x3xf16>, %arg1: memref<512x512x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c2359296 = arith.constant 2359296 : index
       %c3 = arith.constant 3 : index
@@ -179,7 +179,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown94(%arg0: memref<512x256x3x3xf16>, %arg1: memref<512x256x3x3xf32>) kernel {
+    gpu.func @Unknown95(%arg0: memref<512x256x3x3xf16>, %arg1: memref<512x256x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c1179648 = arith.constant 1179648 : index
       %c3 = arith.constant 3 : index
@@ -225,6 +225,55 @@ module attributes {gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<512x256x3x3xf16>
         %37 = arith.extf %36 : f16 to f32
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<512x256x3x3xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown94(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c589824 = arith.constant 589824 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c256 = arith.constant 256 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c589824 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c256 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c256 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c256 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<256x256x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<256x256x3x3xf32>
       }
       gpu.return
     }
@@ -277,56 +326,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown92(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c589824 = arith.constant 589824 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c256 = arith.constant 256 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c589824 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c256 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c256 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c256 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<256x256x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<256x256x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown91(%arg0: memref<256x128x1x1xf16>, %arg1: memref<256x128x1x1xf32>) kernel {
+    gpu.func @Unknown92(%arg0: memref<256x128x1x1xf16>, %arg1: memref<256x128x1x1xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c32768 = arith.constant 32768 : index
       %c128 = arith.constant 128 : index
@@ -354,7 +354,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown90(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
+    gpu.func @Unknown91(%arg0: memref<256x256x3x3xf16>, %arg1: memref<256x256x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c589824 = arith.constant 589824 : index
       %c3 = arith.constant 3 : index
@@ -403,7 +403,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown89(%arg0: memref<256x128x3x3xf16>, %arg1: memref<256x128x3x3xf32>) kernel {
+    gpu.func @Unknown90(%arg0: memref<256x128x3x3xf16>, %arg1: memref<256x128x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c294912 = arith.constant 294912 : index
       %c3 = arith.constant 3 : index
@@ -449,6 +449,55 @@ module attributes {gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<256x128x3x3xf16>
         %37 = arith.extf %36 : f16 to f32
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<256x128x3x3xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown89(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c147456 = arith.constant 147456 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c128 = arith.constant 128 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c147456 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c128 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c128 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c128 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<128x128x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<128x128x3x3xf32>
       }
       gpu.return
     }
@@ -501,56 +550,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown87(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c147456 = arith.constant 147456 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c128 = arith.constant 128 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c147456 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c128 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c128 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c128 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<128x128x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<128x128x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown86(%arg0: memref<128x64x1x1xf16>, %arg1: memref<128x64x1x1xf32>) kernel {
+    gpu.func @Unknown87(%arg0: memref<128x64x1x1xf16>, %arg1: memref<128x64x1x1xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c8192 = arith.constant 8192 : index
       %c64 = arith.constant 64 : index
@@ -578,7 +578,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown85(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
+    gpu.func @Unknown86(%arg0: memref<128x128x3x3xf16>, %arg1: memref<128x128x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c147456 = arith.constant 147456 : index
       %c3 = arith.constant 3 : index
@@ -627,7 +627,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown84(%arg0: memref<128x64x3x3xf16>, %arg1: memref<128x64x3x3xf32>) kernel {
+    gpu.func @Unknown85(%arg0: memref<128x64x3x3xf16>, %arg1: memref<128x64x3x3xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c73728 = arith.constant 73728 : index
       %c3 = arith.constant 3 : index
@@ -673,6 +673,55 @@ module attributes {gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<128x64x3x3xf16>
         %37 = arith.extf %36 : f16 to f32
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<128x64x3x3xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown84(%arg0: memref<64x64x3x3xf16>, %arg1: memref<64x64x3x3xf32>) kernel {
+      %c0 = arith.constant 0 : index
+      %c36864 = arith.constant 36864 : index
+      %c3 = arith.constant 3 : index
+      %c-1 = arith.constant -1 : index
+      %c64 = arith.constant 64 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c36864 : index
+      scf.if %5 {
+        %6 = arith.remsi %4, %c3 : index
+        %7 = arith.cmpi slt, %6, %c0 : index
+        %8 = arith.addi %6, %c3 : index
+        %9 = arith.select %7, %8, %6 : index
+        %10 = arith.cmpi slt, %4, %c0 : index
+        %11 = arith.subi %c-1, %4 : index
+        %12 = arith.select %10, %11, %4 : index
+        %13 = arith.divsi %12, %c3 : index
+        %14 = arith.subi %c-1, %13 : index
+        %15 = arith.select %10, %14, %13 : index
+        %16 = arith.remsi %15, %c3 : index
+        %17 = arith.cmpi slt, %16, %c0 : index
+        %18 = arith.addi %16, %c3 : index
+        %19 = arith.select %17, %18, %16 : index
+        %20 = arith.cmpi slt, %15, %c0 : index
+        %21 = arith.subi %c-1, %15 : index
+        %22 = arith.select %20, %21, %15 : index
+        %23 = arith.divsi %22, %c3 : index
+        %24 = arith.subi %c-1, %23 : index
+        %25 = arith.select %20, %24, %23 : index
+        %26 = arith.remsi %25, %c64 : index
+        %27 = arith.cmpi slt, %26, %c0 : index
+        %28 = arith.addi %26, %c64 : index
+        %29 = arith.select %27, %28, %26 : index
+        %30 = arith.cmpi slt, %25, %c0 : index
+        %31 = arith.subi %c-1, %25 : index
+        %32 = arith.select %30, %31, %25 : index
+        %33 = arith.divsi %32, %c64 : index
+        %34 = arith.subi %c-1, %33 : index
+        %35 = arith.select %30, %34, %33 : index
+        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<64x64x3x3xf16>
+        %37 = arith.extf %36 : f16 to f32
+        memref.store %37, %arg1[%35, %29, %19, %9] : memref<64x64x3x3xf32>
       }
       gpu.return
     }
@@ -823,56 +872,7 @@ module attributes {gpu.container_module} {
       }
       gpu.return
     }
-    gpu.func @Unknown80(%arg0: memref<64x64x3x3xf16>, %arg1: memref<64x64x3x3xf32>) kernel {
-      %c0 = arith.constant 0 : index
-      %c36864 = arith.constant 36864 : index
-      %c3 = arith.constant 3 : index
-      %c-1 = arith.constant -1 : index
-      %c64 = arith.constant 64 : index
-      %0 = gpu.block_id  x
-      %1 = gpu.block_dim  x
-      %2 = gpu.thread_id  x
-      %3 = arith.muli %1, %0 : index
-      %4 = arith.addi %2, %3 : index
-      %5 = arith.cmpi slt, %4, %c36864 : index
-      scf.if %5 {
-        %6 = arith.remsi %4, %c3 : index
-        %7 = arith.cmpi slt, %6, %c0 : index
-        %8 = arith.addi %6, %c3 : index
-        %9 = arith.select %7, %8, %6 : index
-        %10 = arith.cmpi slt, %4, %c0 : index
-        %11 = arith.subi %c-1, %4 : index
-        %12 = arith.select %10, %11, %4 : index
-        %13 = arith.divsi %12, %c3 : index
-        %14 = arith.subi %c-1, %13 : index
-        %15 = arith.select %10, %14, %13 : index
-        %16 = arith.remsi %15, %c3 : index
-        %17 = arith.cmpi slt, %16, %c0 : index
-        %18 = arith.addi %16, %c3 : index
-        %19 = arith.select %17, %18, %16 : index
-        %20 = arith.cmpi slt, %15, %c0 : index
-        %21 = arith.subi %c-1, %15 : index
-        %22 = arith.select %20, %21, %15 : index
-        %23 = arith.divsi %22, %c3 : index
-        %24 = arith.subi %c-1, %23 : index
-        %25 = arith.select %20, %24, %23 : index
-        %26 = arith.remsi %25, %c64 : index
-        %27 = arith.cmpi slt, %26, %c0 : index
-        %28 = arith.addi %26, %c64 : index
-        %29 = arith.select %27, %28, %26 : index
-        %30 = arith.cmpi slt, %25, %c0 : index
-        %31 = arith.subi %c-1, %25 : index
-        %32 = arith.select %30, %31, %25 : index
-        %33 = arith.divsi %32, %c64 : index
-        %34 = arith.subi %c-1, %33 : index
-        %35 = arith.select %30, %34, %33 : index
-        %36 = memref.load %arg0[%35, %29, %19, %9] : memref<64x64x3x3xf16>
-        %37 = arith.extf %36 : f16 to f32
-        memref.store %37, %arg1[%35, %29, %19, %9] : memref<64x64x3x3xf32>
-      }
-      gpu.return
-    }
-    gpu.func @Unknown79(%arg0: memref<1000x512xf16>, %arg1: memref<1000x512xf32>) kernel {
+    gpu.func @Unknown80(%arg0: memref<1000x512xf16>, %arg1: memref<1000x512xf32>) kernel {
       %c0 = arith.constant 0 : index
       %c512000 = arith.constant 512000 : index
       %c512 = arith.constant 512 : index
@@ -897,6 +897,22 @@ module attributes {gpu.container_module} {
         %16 = memref.load %arg0[%15, %9] : memref<1000x512xf16>
         %17 = arith.extf %16 : f16 to f32
         memref.store %17, %arg1[%15, %9] : memref<1000x512xf32>
+      }
+      gpu.return
+    }
+    gpu.func @Unknown79(%arg0: memref<1000xf32>, %arg1: memref<1000xf32>) kernel {
+      %c1000 = arith.constant 1000 : index
+      %0 = gpu.block_id  x
+      %1 = gpu.block_dim  x
+      %2 = gpu.thread_id  x
+      %3 = arith.muli %1, %0 : index
+      %4 = arith.addi %2, %3 : index
+      %5 = arith.cmpi slt, %4, %c1000 : index
+      scf.if %5 {
+        %6 = memref.load %arg0[%4] : memref<1000xf32>
+        %7 = arith.truncf %6 : f32 to f16
+        %8 = arith.extf %7 : f16 to f32
+        memref.store %8, %arg1[%4] : memref<1000xf32>
       }
       gpu.return
     }
@@ -2684,21 +2700,21 @@ module attributes {gpu.container_module} {
     gpu.launch_func  @unified::@Unknown78 blocks in (%c8, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<1x1000xf16>, %alloc : memref<1x1000xf32>)
     return %alloc : memref<1x1000xf32>
   }
-  func.func private @Unknown79(%arg0: memref<1000x512xf16>) -> memref<1000x512xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4000 : i32, __byre__arg_ranks = [2 : i32, 2 : i32], __byre__kernel_name = "Unknown79", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown79(%arg0: memref<1000xf32>) -> memref<1000xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 8 : i32, __byre__arg_ranks = [1 : i32, 1 : i32], __byre__kernel_name = "Unknown79", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+    %c128 = arith.constant 128 : index
+    %c1 = arith.constant 1 : index
+    %c8 = arith.constant 8 : index
+    %alloc = memref.alloc() : memref<1000xf32>
+    gpu.launch_func  @unified::@Unknown79 blocks in (%c8, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<1000xf32>, %alloc : memref<1000xf32>)
+    return %alloc : memref<1000xf32>
+  }
+  func.func private @Unknown80(%arg0: memref<1000x512xf16>) -> memref<1000x512xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4000 : i32, __byre__arg_ranks = [2 : i32, 2 : i32], __byre__kernel_name = "Unknown80", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c4000 = arith.constant 4000 : index
     %alloc = memref.alloc() : memref<1000x512xf32>
-    gpu.launch_func  @unified::@Unknown79 blocks in (%c4000, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<1000x512xf16>, %alloc : memref<1000x512xf32>)
+    gpu.launch_func  @unified::@Unknown80 blocks in (%c4000, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<1000x512xf16>, %alloc : memref<1000x512xf32>)
     return %alloc : memref<1000x512xf32>
-  }
-  func.func private @Unknown80(%arg0: memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 288 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown80", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
-    %c128 = arith.constant 128 : index
-    %c1 = arith.constant 1 : index
-    %c288 = arith.constant 288 : index
-    %alloc = memref.alloc() : memref<64x64x3x3xf32>
-    gpu.launch_func  @unified::@Unknown80 blocks in (%c288, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<64x64x3x3xf16>, %alloc : memref<64x64x3x3xf32>)
-    return %alloc : memref<64x64x3x3xf32>
   }
   func.func private @Unknown81(%arg0: memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 288 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown81", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
@@ -2724,37 +2740,37 @@ module attributes {gpu.container_module} {
     gpu.launch_func  @unified::@Unknown83 blocks in (%c288, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<64x64x3x3xf16>, %alloc : memref<64x64x3x3xf32>)
     return %alloc : memref<64x64x3x3xf32>
   }
-  func.func private @Unknown84(%arg0: memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 576 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown84", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown84(%arg0: memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 288 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown84", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+    %c128 = arith.constant 128 : index
+    %c1 = arith.constant 1 : index
+    %c288 = arith.constant 288 : index
+    %alloc = memref.alloc() : memref<64x64x3x3xf32>
+    gpu.launch_func  @unified::@Unknown84 blocks in (%c288, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<64x64x3x3xf16>, %alloc : memref<64x64x3x3xf32>)
+    return %alloc : memref<64x64x3x3xf32>
+  }
+  func.func private @Unknown85(%arg0: memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 576 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown85", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c576 = arith.constant 576 : index
     %alloc = memref.alloc() : memref<128x64x3x3xf32>
-    gpu.launch_func  @unified::@Unknown84 blocks in (%c576, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x64x3x3xf16>, %alloc : memref<128x64x3x3xf32>)
+    gpu.launch_func  @unified::@Unknown85 blocks in (%c576, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x64x3x3xf16>, %alloc : memref<128x64x3x3xf32>)
     return %alloc : memref<128x64x3x3xf32>
   }
-  func.func private @Unknown85(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1152 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown85", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown86(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1152 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown86", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c1152 = arith.constant 1152 : index
     %alloc = memref.alloc() : memref<128x128x3x3xf32>
-    gpu.launch_func  @unified::@Unknown85 blocks in (%c1152, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x128x3x3xf16>, %alloc : memref<128x128x3x3xf32>)
+    gpu.launch_func  @unified::@Unknown86 blocks in (%c1152, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x128x3x3xf16>, %alloc : memref<128x128x3x3xf32>)
     return %alloc : memref<128x128x3x3xf32>
   }
-  func.func private @Unknown86(%arg0: memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 64 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown86", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown87(%arg0: memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 64 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown87", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c64 = arith.constant 64 : index
     %alloc = memref.alloc() : memref<128x64x1x1xf32>
-    gpu.launch_func  @unified::@Unknown86 blocks in (%c64, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x64x1x1xf16>, %alloc : memref<128x64x1x1xf32>)
+    gpu.launch_func  @unified::@Unknown87 blocks in (%c64, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x64x1x1xf16>, %alloc : memref<128x64x1x1xf32>)
     return %alloc : memref<128x64x1x1xf32>
-  }
-  func.func private @Unknown87(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1152 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown87", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
-    %c128 = arith.constant 128 : index
-    %c1 = arith.constant 1 : index
-    %c1152 = arith.constant 1152 : index
-    %alloc = memref.alloc() : memref<128x128x3x3xf32>
-    gpu.launch_func  @unified::@Unknown87 blocks in (%c1152, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x128x3x3xf16>, %alloc : memref<128x128x3x3xf32>)
-    return %alloc : memref<128x128x3x3xf32>
   }
   func.func private @Unknown88(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1152 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown88", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
@@ -2764,37 +2780,37 @@ module attributes {gpu.container_module} {
     gpu.launch_func  @unified::@Unknown88 blocks in (%c1152, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x128x3x3xf16>, %alloc : memref<128x128x3x3xf32>)
     return %alloc : memref<128x128x3x3xf32>
   }
-  func.func private @Unknown89(%arg0: memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 2304 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown89", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown89(%arg0: memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1152 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown89", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+    %c128 = arith.constant 128 : index
+    %c1 = arith.constant 1 : index
+    %c1152 = arith.constant 1152 : index
+    %alloc = memref.alloc() : memref<128x128x3x3xf32>
+    gpu.launch_func  @unified::@Unknown89 blocks in (%c1152, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<128x128x3x3xf16>, %alloc : memref<128x128x3x3xf32>)
+    return %alloc : memref<128x128x3x3xf32>
+  }
+  func.func private @Unknown90(%arg0: memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 2304 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown90", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c2304 = arith.constant 2304 : index
     %alloc = memref.alloc() : memref<256x128x3x3xf32>
-    gpu.launch_func  @unified::@Unknown89 blocks in (%c2304, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x128x3x3xf16>, %alloc : memref<256x128x3x3xf32>)
+    gpu.launch_func  @unified::@Unknown90 blocks in (%c2304, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x128x3x3xf16>, %alloc : memref<256x128x3x3xf32>)
     return %alloc : memref<256x128x3x3xf32>
   }
-  func.func private @Unknown90(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4608 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown90", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown91(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4608 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown91", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c4608 = arith.constant 4608 : index
     %alloc = memref.alloc() : memref<256x256x3x3xf32>
-    gpu.launch_func  @unified::@Unknown90 blocks in (%c4608, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x256x3x3xf16>, %alloc : memref<256x256x3x3xf32>)
+    gpu.launch_func  @unified::@Unknown91 blocks in (%c4608, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x256x3x3xf16>, %alloc : memref<256x256x3x3xf32>)
     return %alloc : memref<256x256x3x3xf32>
   }
-  func.func private @Unknown91(%arg0: memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 256 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown91", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown92(%arg0: memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 256 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown92", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c256 = arith.constant 256 : index
     %alloc = memref.alloc() : memref<256x128x1x1xf32>
-    gpu.launch_func  @unified::@Unknown91 blocks in (%c256, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x128x1x1xf16>, %alloc : memref<256x128x1x1xf32>)
+    gpu.launch_func  @unified::@Unknown92 blocks in (%c256, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x128x1x1xf16>, %alloc : memref<256x128x1x1xf32>)
     return %alloc : memref<256x128x1x1xf32>
-  }
-  func.func private @Unknown92(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4608 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown92", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
-    %c128 = arith.constant 128 : index
-    %c1 = arith.constant 1 : index
-    %c4608 = arith.constant 4608 : index
-    %alloc = memref.alloc() : memref<256x256x3x3xf32>
-    gpu.launch_func  @unified::@Unknown92 blocks in (%c4608, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x256x3x3xf16>, %alloc : memref<256x256x3x3xf32>)
-    return %alloc : memref<256x256x3x3xf32>
   }
   func.func private @Unknown93(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4608 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown93", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
@@ -2804,37 +2820,37 @@ module attributes {gpu.container_module} {
     gpu.launch_func  @unified::@Unknown93 blocks in (%c4608, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x256x3x3xf16>, %alloc : memref<256x256x3x3xf32>)
     return %alloc : memref<256x256x3x3xf32>
   }
-  func.func private @Unknown94(%arg0: memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 9216 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown94", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown94(%arg0: memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 4608 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown94", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+    %c128 = arith.constant 128 : index
+    %c1 = arith.constant 1 : index
+    %c4608 = arith.constant 4608 : index
+    %alloc = memref.alloc() : memref<256x256x3x3xf32>
+    gpu.launch_func  @unified::@Unknown94 blocks in (%c4608, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<256x256x3x3xf16>, %alloc : memref<256x256x3x3xf32>)
+    return %alloc : memref<256x256x3x3xf32>
+  }
+  func.func private @Unknown95(%arg0: memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 9216 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown95", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c9216 = arith.constant 9216 : index
     %alloc = memref.alloc() : memref<512x256x3x3xf32>
-    gpu.launch_func  @unified::@Unknown94 blocks in (%c9216, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x256x3x3xf16>, %alloc : memref<512x256x3x3xf32>)
+    gpu.launch_func  @unified::@Unknown95 blocks in (%c9216, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x256x3x3xf16>, %alloc : memref<512x256x3x3xf32>)
     return %alloc : memref<512x256x3x3xf32>
   }
-  func.func private @Unknown95(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 18432 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown95", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown96(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 18432 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown96", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c18432 = arith.constant 18432 : index
     %alloc = memref.alloc() : memref<512x512x3x3xf32>
-    gpu.launch_func  @unified::@Unknown95 blocks in (%c18432, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x512x3x3xf16>, %alloc : memref<512x512x3x3xf32>)
+    gpu.launch_func  @unified::@Unknown96 blocks in (%c18432, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x512x3x3xf16>, %alloc : memref<512x512x3x3xf32>)
     return %alloc : memref<512x512x3x3xf32>
   }
-  func.func private @Unknown96(%arg0: memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1024 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown96", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown97(%arg0: memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 1024 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown97", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
     %c1 = arith.constant 1 : index
     %c1024 = arith.constant 1024 : index
     %alloc = memref.alloc() : memref<512x256x1x1xf32>
-    gpu.launch_func  @unified::@Unknown96 blocks in (%c1024, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x256x1x1xf16>, %alloc : memref<512x256x1x1xf32>)
+    gpu.launch_func  @unified::@Unknown97 blocks in (%c1024, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x256x1x1xf16>, %alloc : memref<512x256x1x1xf32>)
     return %alloc : memref<512x256x1x1xf32>
-  }
-  func.func private @Unknown97(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 18432 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown97", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
-    %c128 = arith.constant 128 : index
-    %c1 = arith.constant 1 : index
-    %c18432 = arith.constant 18432 : index
-    %alloc = memref.alloc() : memref<512x512x3x3xf32>
-    gpu.launch_func  @unified::@Unknown97 blocks in (%c18432, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x512x3x3xf16>, %alloc : memref<512x512x3x3xf32>)
-    return %alloc : memref<512x512x3x3xf32>
   }
   func.func private @Unknown98(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 18432 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown98", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c128 = arith.constant 128 : index
@@ -2842,6 +2858,14 @@ module attributes {gpu.container_module} {
     %c18432 = arith.constant 18432 : index
     %alloc = memref.alloc() : memref<512x512x3x3xf32>
     gpu.launch_func  @unified::@Unknown98 blocks in (%c18432, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x512x3x3xf16>, %alloc : memref<512x512x3x3xf32>)
+    return %alloc : memref<512x512x3x3xf32>
+  }
+  func.func private @Unknown99(%arg0: memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32> attributes {__byre__BlockSize.x = 128 : i32, __byre__GridSize.x = 18432 : i32, __byre__arg_ranks = [4 : i32, 4 : i32], __byre__kernel_name = "Unknown99", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+    %c128 = arith.constant 128 : index
+    %c1 = arith.constant 1 : index
+    %c18432 = arith.constant 18432 : index
+    %alloc = memref.alloc() : memref<512x512x3x3xf32>
+    gpu.launch_func  @unified::@Unknown99 blocks in (%c18432, %c1, %c1) threads in (%c128, %c1, %c1) args(%arg0 : memref<512x512x3x3xf16>, %alloc : memref<512x512x3x3xf32>)
     return %alloc : memref<512x512x3x3xf32>
   }
   func.func @main(%arg0: memref<64xf32>, %arg1: memref<64xf32>, %arg2: memref<64xf32>, %arg3: memref<64xf32>, %arg4: memref<64xf32>, %arg5: memref<64xf32>, %arg6: memref<64xf32>, %arg7: memref<64xf32>, %arg8: memref<64xf32>, %arg9: memref<64xf32>, %arg10: memref<128xf32>, %arg11: memref<128xf32>, %arg12: memref<128xf32>, %arg13: memref<128xf32>, %arg14: memref<128xf32>, %arg15: memref<128xf32>, %arg16: memref<128xf32>, %arg17: memref<128xf32>, %arg18: memref<128xf32>, %arg19: memref<128xf32>, %arg20: memref<256xf32>, %arg21: memref<256xf32>, %arg22: memref<256xf32>, %arg23: memref<256xf32>, %arg24: memref<256xf32>, %arg25: memref<256xf32>, %arg26: memref<256xf32>, %arg27: memref<256xf32>, %arg28: memref<256xf32>, %arg29: memref<256xf32>, %arg30: memref<512xf32>, %arg31: memref<512xf32>, %arg32: memref<512xf32>, %arg33: memref<512xf32>, %arg34: memref<512xf32>, %arg35: memref<512xf32>, %arg36: memref<512xf32>, %arg37: memref<512xf32>, %arg38: memref<512xf32>, %arg39: memref<512xf32>, %arg40: memref<64xf32>, %arg41: memref<64xf32>, %arg42: memref<64xf32>, %arg43: memref<64xf32>, %arg44: memref<64xf32>, %arg45: memref<64xf32>, %arg46: memref<64xf32>, %arg47: memref<64xf32>, %arg48: memref<64xf32>, %arg49: memref<64xf32>, %arg50: memref<128xf32>, %arg51: memref<128xf32>, %arg52: memref<128xf32>, %arg53: memref<128xf32>, %arg54: memref<128xf32>, %arg55: memref<128xf32>, %arg56: memref<128xf32>, %arg57: memref<128xf32>, %arg58: memref<128xf32>, %arg59: memref<128xf32>, %arg60: memref<256xf32>, %arg61: memref<256xf32>, %arg62: memref<256xf32>, %arg63: memref<256xf32>, %arg64: memref<256xf32>, %arg65: memref<256xf32>, %arg66: memref<256xf32>, %arg67: memref<256xf32>, %arg68: memref<256xf32>, %arg69: memref<256xf32>, %arg70: memref<512xf32>, %arg71: memref<512xf32>, %arg72: memref<512xf32>, %arg73: memref<512xf32>, %arg74: memref<512xf32>, %arg75: memref<512xf32>, %arg76: memref<512xf32>, %arg77: memref<512xf32>, %arg78: memref<512xf32>, %arg79: memref<512xf32>, %arg80: memref<64x3x7x7xf16>, %arg81: memref<1x3x224x224xf16>, %arg82: memref<1x64x112x112xf16>, %arg83: memref<1x64x112x112xf16>, %arg84: memref<1x64x56x56xf16>, %arg85: memref<64x64x3x3xf16>, %arg86: memref<1x64x56x56xf16>, %arg87: memref<1x64x56x56xf16>, %arg88: memref<64x64x3x3xf16>, %arg89: memref<1x64x56x56xf16>, %arg90: memref<1x64x56x56xf16>, %arg91: memref<64x64x3x3xf16>, %arg92: memref<1x64x56x56xf16>, %arg93: memref<1x64x56x56xf16>, %arg94: memref<64x64x3x3xf16>, %arg95: memref<1x64x56x56xf16>, %arg96: memref<1x64x56x56xf16>, %arg97: memref<128x64x3x3xf16>, %arg98: memref<1x128x28x28xf16>, %arg99: memref<1x128x28x28xf16>, %arg100: memref<128x128x3x3xf16>, %arg101: memref<1x128x28x28xf16>, %arg102: memref<128x64x1x1xf16>, %arg103: memref<1x128x28x28xf16>, %arg104: memref<1x128x28x28xf16>, %arg105: memref<128x128x3x3xf16>, %arg106: memref<1x128x28x28xf16>, %arg107: memref<1x128x28x28xf16>, %arg108: memref<128x128x3x3xf16>, %arg109: memref<1x128x28x28xf16>, %arg110: memref<1x128x28x28xf16>, %arg111: memref<256x128x3x3xf16>, %arg112: memref<1x256x14x14xf16>, %arg113: memref<1x256x14x14xf16>, %arg114: memref<256x256x3x3xf16>, %arg115: memref<1x256x14x14xf16>, %arg116: memref<256x128x1x1xf16>, %arg117: memref<1x256x14x14xf16>, %arg118: memref<1x256x14x14xf16>, %arg119: memref<256x256x3x3xf16>, %arg120: memref<1x256x14x14xf16>, %arg121: memref<1x256x14x14xf16>, %arg122: memref<256x256x3x3xf16>, %arg123: memref<1x256x14x14xf16>, %arg124: memref<1x256x14x14xf16>, %arg125: memref<512x256x3x3xf16>, %arg126: memref<1x512x7x7xf16>, %arg127: memref<1x512x7x7xf16>, %arg128: memref<512x512x3x3xf16>, %arg129: memref<1x512x7x7xf16>, %arg130: memref<512x256x1x1xf16>, %arg131: memref<1x512x7x7xf16>, %arg132: memref<1x512x7x7xf16>, %arg133: memref<512x512x3x3xf16>, %arg134: memref<1x512x7x7xf16>, %arg135: memref<1x512x7x7xf16>, %arg136: memref<512x512x3x3xf16>, %arg137: memref<1x512x7x7xf16>, %arg138: memref<1x512x7x7xf16>, %arg139: memref<1x512xf16>, %arg140: memref<512x1000xf16>, %arg141: memref<1x1000xf16>) -> (memref<64xf32>, memref<64xf32>, memref<64x3x7x7xf32>, memref<1000xf32>, memref<1000x512xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x64x3x3xf32>, memref<128x128x3x3xf32>, memref<128x64x1x1xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128x128x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x128x3x3xf32>, memref<256x256x3x3xf32>, memref<256x128x1x1xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256x256x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x256x3x3xf32>, memref<512x512x3x3xf32>, memref<512x256x1x1xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512x512x3x3xf32>) {
@@ -2928,12 +2952,12 @@ module attributes {gpu.container_module} {
     %alloc_2 = memref.alloc() : memref<1x64x112x112xf16>
     "lmhlo.select_and_scatter"(%arg83, %73, %alloc_0, %alloc_2) ({
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
-      %99 = mhlo.compare  GE, %arg142, %arg143 : (tensor<f16>, tensor<f16>) -> tensor<i1>
-      mhlo.return %99 : tensor<i1>
+      %100 = mhlo.compare  GE, %arg142, %arg143 : (tensor<f16>, tensor<f16>) -> tensor<i1>
+      mhlo.return %100 : tensor<i1>
     }, {
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
-      %99 = mhlo.add %arg142, %arg143 : tensor<f16>
-      mhlo.return %99 : tensor<f16>
+      %100 = mhlo.add %arg142, %arg143 : tensor<f16>
+      mhlo.return %100 : tensor<f16>
     }) {padding = dense<[[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dimensions = dense<[1, 1, 3, 3]> : tensor<4xi64>, window_strides = dense<[1, 1, 2, 2]> : tensor<4xi64>} : (memref<1x64x112x112xf16>, memref<1x64x56x56xf16>, memref<f16>, memref<1x64x112x112xf16>) -> ()
     %74 = call @Unknown74(%arg83, %alloc_2) : (memref<1x64x112x112xf16>, memref<1x64x112x112xf16>) -> memref<1x64x112x112xf16>
     %75:3 = call @BatchNormGradOp75(%arg82, %arg1, %74) : (memref<1x64x112x112xf16>, memref<64xf32>, memref<1x64x112x112xf16>) -> (memref<1x64x112x112xf16>, memref<64xf32>, memref<64xf32>)
@@ -2946,30 +2970,31 @@ module attributes {gpu.container_module} {
       "lmhlo.add"(%arg142, %arg143, %arg144) : (memref<f32>, memref<f32>, memref<f32>) -> ()
       "lmhlo.terminator"() : () -> ()
     }) {dimensions = dense<0> : tensor<1xi64>} : (memref<1x1000xf32>, memref<f32>, memref<1000xf32>) -> ()
+    %79 = call @Unknown79(%alloc_3) : (memref<1000xf32>) -> memref<1000xf32>
     %alloc_4 = memref.alloc() : memref<1000x1xf16>
     "lmhlo.reshape"(%arg141, %alloc_4) : (memref<1x1000xf16>, memref<1000x1xf16>) -> ()
     %alloc_5 = memref.alloc() : memref<1000x512xf16>
     "lmhlo.dot"(%alloc_4, %arg139, %alloc_5) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (memref<1000x1xf16>, memref<1x512xf16>, memref<1000x512xf16>) -> ()
-    %79 = call @Unknown79(%alloc_5) : (memref<1000x512xf16>) -> memref<1000x512xf32>
-    %80 = call @Unknown80(%72) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %81 = call @Unknown81(%68) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %82 = call @Unknown82(%64) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %83 = call @Unknown83(%60) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
-    %84 = call @Unknown84(%53) : (memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32>
-    %85 = call @Unknown85(%49) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
-    %86 = call @Unknown86(%56) : (memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32>
-    %87 = call @Unknown87(%45) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
-    %88 = call @Unknown88(%41) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
-    %89 = call @Unknown89(%34) : (memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32>
-    %90 = call @Unknown90(%30) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
-    %91 = call @Unknown91(%37) : (memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32>
-    %92 = call @Unknown92(%26) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
-    %93 = call @Unknown93(%22) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
-    %94 = call @Unknown94(%15) : (memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32>
-    %95 = call @Unknown95(%11) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
-    %96 = call @Unknown96(%18) : (memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32>
-    %97 = call @Unknown97(%7) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
-    %98 = call @Unknown98(%3) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
-    return %75#2, %75#1, %77, %alloc_3, %79, %70#2, %70#1, %66#2, %66#1, %80, %81, %62#2, %62#1, %58#2, %58#1, %82, %83, %51#2, %51#1, %47#2, %47#1, %84, %85, %86, %54#2, %54#1, %43#2, %43#1, %39#2, %39#1, %87, %88, %32#2, %32#1, %28#2, %28#1, %89, %90, %91, %35#2, %35#1, %24#2, %24#1, %20#2, %20#1, %92, %93, %13#2, %13#1, %9#2, %9#1, %94, %95, %96, %16#2, %16#1, %5#2, %5#1, %1#2, %1#1, %97, %98 : memref<64xf32>, memref<64xf32>, memref<64x3x7x7xf32>, memref<1000xf32>, memref<1000x512xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x64x3x3xf32>, memref<128x128x3x3xf32>, memref<128x64x1x1xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128x128x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x128x3x3xf32>, memref<256x256x3x3xf32>, memref<256x128x1x1xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256x256x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x256x3x3xf32>, memref<512x512x3x3xf32>, memref<512x256x1x1xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512x512x3x3xf32>
+    %80 = call @Unknown80(%alloc_5) : (memref<1000x512xf16>) -> memref<1000x512xf32>
+    %81 = call @Unknown81(%72) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %82 = call @Unknown82(%68) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %83 = call @Unknown83(%64) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %84 = call @Unknown84(%60) : (memref<64x64x3x3xf16>) -> memref<64x64x3x3xf32>
+    %85 = call @Unknown85(%53) : (memref<128x64x3x3xf16>) -> memref<128x64x3x3xf32>
+    %86 = call @Unknown86(%49) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
+    %87 = call @Unknown87(%56) : (memref<128x64x1x1xf16>) -> memref<128x64x1x1xf32>
+    %88 = call @Unknown88(%45) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
+    %89 = call @Unknown89(%41) : (memref<128x128x3x3xf16>) -> memref<128x128x3x3xf32>
+    %90 = call @Unknown90(%34) : (memref<256x128x3x3xf16>) -> memref<256x128x3x3xf32>
+    %91 = call @Unknown91(%30) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
+    %92 = call @Unknown92(%37) : (memref<256x128x1x1xf16>) -> memref<256x128x1x1xf32>
+    %93 = call @Unknown93(%26) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
+    %94 = call @Unknown94(%22) : (memref<256x256x3x3xf16>) -> memref<256x256x3x3xf32>
+    %95 = call @Unknown95(%15) : (memref<512x256x3x3xf16>) -> memref<512x256x3x3xf32>
+    %96 = call @Unknown96(%11) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
+    %97 = call @Unknown97(%18) : (memref<512x256x1x1xf16>) -> memref<512x256x1x1xf32>
+    %98 = call @Unknown98(%7) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
+    %99 = call @Unknown99(%3) : (memref<512x512x3x3xf16>) -> memref<512x512x3x3xf32>
+    return %75#2, %75#1, %77, %79, %80, %70#2, %70#1, %66#2, %66#1, %81, %82, %62#2, %62#1, %58#2, %58#1, %83, %84, %51#2, %51#1, %47#2, %47#1, %85, %86, %87, %54#2, %54#1, %43#2, %43#1, %39#2, %39#1, %88, %89, %32#2, %32#1, %28#2, %28#1, %90, %91, %92, %35#2, %35#1, %24#2, %24#1, %20#2, %20#1, %93, %94, %13#2, %13#1, %9#2, %9#1, %95, %96, %97, %16#2, %16#1, %5#2, %5#1, %1#2, %1#1, %98, %99 : memref<64xf32>, memref<64xf32>, memref<64x3x7x7xf32>, memref<1000xf32>, memref<1000x512xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>, memref<64x64x3x3xf32>, memref<64x64x3x3xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x64x3x3xf32>, memref<128x128x3x3xf32>, memref<128x64x1x1xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128xf32>, memref<128x128x3x3xf32>, memref<128x128x3x3xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x128x3x3xf32>, memref<256x256x3x3xf32>, memref<256x128x1x1xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256xf32>, memref<256x256x3x3xf32>, memref<256x256x3x3xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x256x3x3xf32>, memref<512x512x3x3xf32>, memref<512x256x1x1xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512xf32>, memref<512x512x3x3xf32>, memref<512x512x3x3xf32>
   }
 }

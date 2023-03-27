@@ -21,6 +21,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "torch-frontend/Conversion/Passes.h"
 #include "torch-frontend/Transforms/CanonicalizeExt.h"
+#include "torch-frontend/Transforms/RewriteCustomOp.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
@@ -62,4 +63,24 @@ void mlir::torch_frontend::createTorchToMhloPipeline(OpPassManager &pm) {
   // pipeline.
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
+}
+
+void mlir::torch_frontend::createTorchscriptToTorchPipeline(
+    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  pm.addPass(createSymbolDCEPass());
+  pm.addPass(Torch::createPrepareForGlobalizeObjectGraphPass());
+  pm.addPass(Torch::createGlobalizeObjectGraphPass());
+  pm.addPass(createSymbolDCEPass());
+  pm.addPass(createInlinerPass());
+
+  createTorchFunctionToTorchPipeline(pm, options);
+}
+
+void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
+    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  pm.addPass(Torch::createAdjustCallingConventionsPass());
+  // Rewrite custum ops to Torch.CustomOp
+  pm.addNestedPass<func::FuncOp>(createRewriteCustomOp());
+  pm.addPass(Torch::createLowerToBackendContractPass(
+      options.maxIterations, options.decompose, options.backendLegalOps));
 }

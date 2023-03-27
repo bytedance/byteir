@@ -67,7 +67,7 @@ void SetBatchSize(onnx::ModelProto &model) {
     }
     auto *dim = shape->mutable_dim(0);
     bool isDynamic = !dim->has_dim_value() || dim->dim_value() <= 0;
-    if (isDynamic) {
+    if (isDynamic || forceSetBatchSize) {
       dim->set_dim_value(batchSize);
       dim->clear_dim_param();
       LLVM_DEBUG(llvm::dbgs() << "bs of " << input.name() << " set to "
@@ -81,7 +81,16 @@ void SetBatchSize(onnx::ModelProto &model) {
                               << dim->dim_value() << "\n");
     }
   }
-  // onnx::shape_inference::InferShapes(model);  // shape inference on pb
+  if (forceSetBatchSize) {
+    for (auto &output : *(graph->mutable_output())) {
+      auto *type = output.mutable_type();
+      if (type->value_case() != onnx::TypeProto::kTensorType) {
+        continue;
+      }
+      auto *tensorType = type->mutable_tensor_type();
+      tensorType->clear_shape();
+    }
+  }
 }
 
 namespace {

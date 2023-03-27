@@ -100,6 +100,7 @@ struct DTypeOpConversionPattern : public RewritePattern {
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
     StringRef opName = op->getName().getStringRef();
+    MLIRContext *context = op->getContext();
     if (auto customCall = dyn_cast<mhlo::CustomCallOp>(op)) {
       opName = customCall.getCallTargetName();
     }
@@ -132,6 +133,7 @@ struct DTypeOpConversionPattern : public RewritePattern {
             oldType.cast<TensorType>().cloneWith(std::nullopt, ioTy.first[i]);
         auto convert = rewriter.create<mhlo::ConvertOp>(op->getLoc(), newTy,
                                                         op->getOperand(i));
+        convert->setAttr(getConvertAnchorName(), UnitAttr::get(context));
         op->getOpOperand(i).set(convert.getResult());
         if (hasRegion) {
           Block &body = op->getRegion(0).front();
@@ -153,6 +155,7 @@ struct DTypeOpConversionPattern : public RewritePattern {
         op->getResult(i).setType(newTy);
         auto convert = rewriter.create<mhlo::ConvertOp>(op->getLoc(), oldTy,
                                                         op->getResult(i));
+        convert->setAttr(getConvertAnchorName(), UnitAttr::get(context));
         op->getResult(i).replaceAllUsesExcept(convert.getResult(), convert);
         if (hasRegion) {
           Block &body = op->getRegion(0).front();
@@ -171,6 +174,33 @@ private:
                  std::vector<std::pair<std::vector<Type>, std::vector<Type>>>>
       &rule;
 };
+
+LogicalResult foldConsecutiveConvertOp(mhlo::ConvertOp op,
+                                       PatternRewriter &rewriter) {
+  if (!llvm::isa_and_nonnull<mhlo::ConvertOp>(
+          op.getOperand().getDefiningOp())) {
+    return failure();
+  }
+  if (!op->hasAttrOfType<UnitAttr>(getConvertAnchorName()))
+    return failure();
+
+  mhlo::ConvertOp firstConvert =
+      cast<mhlo::ConvertOp>(op.getOperand().getDefiningOp());
+  if (!firstConvert->hasAttrOfType<UnitAttr>(getConvertAnchorName()))
+    return failure();
+  auto input = firstConvert.getOperand();
+  auto inputTy = getElementTypeOrSelf(input);
+  // fp64->fp32->fp16 to fp64->fp16 is not handled here because it's handled
+  // already by the upstream Only fold the case where two convert can be
+  // cancelled
+  if (inputTy == getElementTypeOrSelf(op.getResult())) {
+    // cancel second convert
+    rewriter.replaceOp(op, input);
+    return success();
+  }
+  return failure();
+}
+
 } // namespace
 
 void DTypeConversionPass::runOnOperation() {
@@ -190,8 +220,15 @@ void DTypeConversionPass::runOnOperation() {
     patterns.add<DTypeOpConversionPattern>(func->getContext(),
                                            collector->convertRules);
 
+    patterns.add(foldConsecutiveConvertOp);
     (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
 
+    func.walk([&](mhlo::ConvertOp op) {
+      // remove convert anchor attr
+      if (op->hasAttrOfType<UnitAttr>(getConvertAnchorName())) {
+        op->removeAttr(getConvertAnchorName());
+      }
+    });
     if (collector->canModifyFuncArg(func)) {
       auto &body = func.getBody().front();
       bool changed = false;

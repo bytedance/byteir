@@ -26,6 +26,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/include/mlir/Interfaces/SideEffectInterfaces.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -514,38 +515,43 @@ struct RewriteDynamicMaskStitch : public OpRewritePattern<TF::DynamicStitchOp> {
   LogicalResult matchAndRewrite(TF::DynamicStitchOp op,
                                 PatternRewriter &rewriter) const override {
     SmallVector<Value> indices = op.getIndices();
-    SmallVector<Operation *> defOps;
+    SmallDenseSet<TF::DynamicPartitionOp> defOps;
     for (Value index : indices) {
       if (!index.hasOneUse())
         return failure();
 
-      Operation *defOp = index.getDefiningOp();
-      // tf.DynamicPartition is not a registered operation in tf dialect
-      if (defOp == nullptr ||
-          defOp->getName().getStringRef() != "tf.DynamicPartition") {
+      auto partitionOp = index.getDefiningOp<TF::DynamicPartitionOp>();
+      if (!partitionOp) {
         return failure();
       }
-      defOps.push_back(defOp);
+      defOps.insert(partitionOp);
     }
-    for (size_t i = 1; i < defOps.size(); ++i) {
-      if (defOps[i] != defOps[0])
-        return failure();
+    // only from one DynamicPartitionOp
+    if (defOps.size() != 1) {
+      return failure();
     }
+    auto defOp = *defOps.begin();
     // check partition is from [0, ..., n - 1]
-    auto cst = defOps[0]->getOperand(0).getDefiningOp<TF::ConstOp>();
+    auto cst = defOp.getData().getDefiningOp<TF::ConstOp>();
     if (!cst) {
       return failure();
     }
     auto cstValue = cst.getValue().cast<DenseIntElementsAttr>();
-    size_t count = 0;
-    if (!llvm::all_of(cstValue.getValues<APInt>(),
-                      [&](APInt x) { return x.getSExtValue() == count++; })) {
-      return failure();
+    for (const auto &it : llvm::enumerate(cstValue.getValues<APInt>())) {
+      if (it.index() != it.value()) {
+        return failure();
+      }
     }
-    // TODO(lyq): check indices' order in tf.DynamicPartition
+    // check indices' order in tf.DynamicPartition
+    for (const auto &it : llvm::enumerate(indices)) {
+      auto index = it.value().cast<OpResult>().getResultNumber();
+      if (index != it.index()) {
+        return failure();
+      }
+    }
 
     SmallVector<Value> newInputs = op.getData();
-    newInputs.push_back(defOps[0]->getOperand(1));
+    newInputs.push_back(defOp.getPartitions());
 
     mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
         op->getLoc(), op->getResultTypes(), newInputs,
@@ -686,10 +692,6 @@ struct RewriteToCustomCallOpsPass
           op->erase();
           return;
         }
-        // TODO(lyq): maybe the tf unregistered op doesn't have NoSideEffect
-        // trait
-        if (op->getName().getStringRef() == "tf.DynamicPartition")
-          op->erase();
       });
 
       // check special pattern and emit warning

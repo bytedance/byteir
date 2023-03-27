@@ -19,11 +19,20 @@
 
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassRegistry.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 
 namespace mlir {
 namespace torch_frontend {
 
 void createTorchToMhloPipeline(OpPassManager &pm);
+
+void createTorchscriptToTorchPipeline(
+    OpPassManager &pm,
+    const torch::Torch::TorchLoweringPipelineOptions &options);
+
+void createTorchFunctionToTorchPipeline(
+    OpPassManager &pm,
+    const torch::Torch::TorchLoweringPipelineOptions &options);
 
 inline void registerTorchToMhloPipeline() {
   PassPipelineRegistration<>("torch-to-mhlo-pipeline",
@@ -31,5 +40,18 @@ inline void registerTorchToMhloPipeline() {
                              createTorchToMhloPipeline);
 }
 
+inline void registerTorchscriptToTorchPipeline() {
+  PassPipelineRegistration<torch::Torch::TorchLoweringPipelineOptions>(
+      "torchscript-to-torch-pipeline",
+      "Torch frontend torchscript to torch pipeline.",
+      createTorchscriptToTorchPipeline);
+}
+
+inline void registerTorchFunctionToTorchPipeline() {
+  PassPipelineRegistration<torch::Torch::TorchLoweringPipelineOptions>(
+      "torch-function-to-torch-pipeline",
+      "Torch frontend torch function to torch pipeline.",
+      createTorchFunctionToTorchPipeline);
+}
 } // namespace torch_frontend
 } // namespace mlir
