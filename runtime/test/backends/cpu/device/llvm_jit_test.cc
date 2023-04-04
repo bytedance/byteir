@@ -35,6 +35,7 @@ using namespace std;
 
 static std::string test_file_add = "test/test_files/LLJIT/add.ll";
 static std::string test_file_typecvt = "test/test_files/LLJIT/typecvt.ll";
+static std::string test_file_tanh = "test/test_files/LLJIT/tanh.ll";
 
 namespace {
 extern "C" {
@@ -134,6 +135,26 @@ TEST(LLVMJITTest, TypeCvt) {
     for (int i = 0; i < length; ++i) {
       ASSERT_NEAR(static_cast<half_float::half>(input_buf[i]), output_buf[i],
                   1e-6);
+    }
+  }
+}
+
+TEST(LLVMJITTest, Tanh) {
+  auto llvmjit = LLVMJIT::Create();
+  ASSERT_TRUE(llvmjit->LoadFromFile(test_file_tanh).IsOK());
+  std::vector<int64_t> shape{32};
+  int length = 32;
+  std::vector<float> input_buf(length), output_buf(length);
+  {
+    void *fn;
+    ASSERT_TRUE(llvmjit->Lookup("_mlir_ciface_Unknown0", &fn).IsOK());
+    RandCPUBuffer(input_buf.data(), length, -0.5, 0.5);
+    MLIREngineMemRefDescriptor input(input_buf.data(), shape),
+        output(output_buf.data(), shape);
+    (*reinterpret_cast<void (*)(void *, void *)>(fn))(input.GetMemrefPtr(),
+                                                      output.GetMemrefPtr());
+    for (int i = 0; i < length; ++i) {
+      ASSERT_NEAR(::tanh(input_buf[i]), output_buf[i], 1e-3);
     }
   }
 }

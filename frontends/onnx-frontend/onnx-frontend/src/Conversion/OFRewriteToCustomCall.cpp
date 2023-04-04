@@ -17,6 +17,8 @@
 
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.hpp"
 
+#include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
@@ -311,13 +313,13 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
 
   Value target;
   StringAttr target_mode;
-  if (size.getType().isa<NoneType>()) {
-    assert(!scale.getType().isa<NoneType>() &&
+  if (onnx_mlir::isFromNone(size)) {
+    assert(!onnx_mlir::isFromNone(scale) &&
            "One of size/scale must be of NoneType");
     target = scale;
     target_mode = rewriter.getStringAttr("scale");
   } else {
-    assert(scale.getType().isa<NoneType>() &&
+    assert(onnx_mlir::isFromNone(scale) &&
            "One of size/scale must be of NoneType");
     target = size;
     target_mode = rewriter.getStringAttr("size");

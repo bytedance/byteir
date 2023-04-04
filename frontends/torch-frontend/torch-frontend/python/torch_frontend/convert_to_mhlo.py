@@ -7,14 +7,14 @@ from torch_mlir.passmanager import PassManager
 from torch_mlir.dialects.mhlo import register_mhlo_dialect
 
 _CUSTOM_OPS_IN_TORCH = [
-    "torch.aten._softmax",
-    "torch.aten._log_softmax",
-    "torch.aten.native_layer_norm",
-    "torch.aten.gelu",
-    "torch.aten.softmax.int",
-    "torch.aten.argmax",
-    "torch.aten.max.dim",
-    "torch.aten.one_hot",
+    "aten._softmax",
+    "aten._log_softmax",
+    "aten.native_layer_norm",
+    "aten.gelu",
+    "aten.softmax.int",
+    "aten.argmax",
+    "aten.max.dim",
+    "aten.one_hot",
 ]
 
 def convert_to_mhlo_via_torch_mlir(

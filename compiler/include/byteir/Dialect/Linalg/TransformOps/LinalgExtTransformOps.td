@@ -100,4 +100,23 @@ def TileExtOp : Op<Transform_Dialect, "structured.tile_ext",
   }];
 }
 
+def SharedOutputToDistributedStyleOp : Op<Transform_Dialect, 
+        "structured.shared_output_to_distributed_style",
+        [DeclareOpInterfaceMethods<TransformOpInterface>,
+         DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
+  let description = [{
+      Convert parallel tiling from shared output style to distributed style.
+  }];
+
+  let arguments = (ins 
+      PDL_Operation:$loop, 
+      PDL_Operation:$init, 
+      PDL_Operation:$merge);
+
+  let results = (outs PDL_Operation:$new_loop,
+                      PDL_Operation:$new_init);
+
+  let hasCustomAssemblyFormat = 1;
+}
+
 #endif // BYTEIR_DIALECT_LINALG_TRANSFORMOPS_LINALG_EXT_TRANSFORMOPS

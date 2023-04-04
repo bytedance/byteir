@@ -83,29 +83,6 @@ bool mlir::isSplatMhloConstantValue(Value val, double splat_val) {
   return isSplatMhloConstantValue(val.getDefiningOp(), splat_val);
 }
 
-template <typename Op> bool mlir::isBlockSingleOp(Block *block) {
-  if (block == nullptr)
-    return false;
-
-  auto ret_op = block->getTerminator();
-  if (!isa<mlir::mhlo::ReturnOp>(ret_op))
-    return false;
-
-  auto mhlo_ret = cast<mlir::mhlo::ReturnOp>(ret_op);
-  if (mhlo_ret.getNumOperands() != 1)
-    return false;
-
-  auto compute_op = mhlo_ret.getOperand(0).getDefiningOp();
-  if (auto add_op = dyn_cast_or_null<Op>(compute_op)) {
-    return (compute_op->getOperand(0) == block->getArgument(0) &&
-            compute_op->getOperand(1) == block->getArgument(1)) ||
-           (compute_op->getOperand(0) == block->getArgument(1) &&
-            compute_op->getOperand(1) == block->getArgument(0));
-  }
-
-  return false;
-}
-
 // instantiate
 template bool mlir::isBlockSingleOp<mhlo::AddOp>(Block *);
 template bool mlir::isBlockSingleOp<mhlo::MaxOp>(Block *);

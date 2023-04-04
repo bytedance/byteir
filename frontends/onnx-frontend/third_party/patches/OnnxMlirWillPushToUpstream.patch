@@ -37,10 +37,64 @@ index c669e5ec..26c392b8 100644
        ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>,
        ONNXElementwiseUnaryOpLoweringToMhlo<ONNXTanhOp>,
 diff --git a/src/Conversion/ONNXToMhlo/Math/Reduction.cpp b/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
-index 3b734e0b..66f6e438 100644
+index 3b734e0b..5d8d393c 100644
 --- a/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
 +++ b/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
-@@ -86,10 +86,9 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
+@@ -24,43 +24,41 @@ namespace {
+ 
+ template <typename Op>
+ Value getIdentityValue(
+-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+   return nullptr;
+ }
+ 
+ template <>
+ Value getIdentityValue<ONNXReduceMaxOp>(
+-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
++  MathBuilder createMath(rewriter, loc);
+   return rewriter.create<mhlo::ConstantOp>(
+-      loc, rewriter.getFloatAttr(
+-               elemType, APFloat::getInf(elemType.getFloatSemantics(),
+-                             /*isNegative=*/true)));
++      loc, createMath.negativeInfAttr(elemType));
+ }
+ 
+ template <>
+ Value getIdentityValue<ONNXReduceMinOp>(
+-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
++  MathBuilder createMath(rewriter, loc);
+   return rewriter.create<mhlo::ConstantOp>(
+-      loc, rewriter.getFloatAttr(
+-               elemType, APFloat::getInf(elemType.getFloatSemantics(),
+-                             /*isNegative=*/false)));
++      loc, createMath.positiveInfAttr(elemType));
+ }
+ 
+ template <>
+ Value getIdentityValue<ONNXReduceSumOp>(
+-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
+ }
+ 
+ template <>
+ Value getIdentityValue<ONNXReduceSumV11Op>(
+-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
+ }
+ 
+ template <>
+ Value getIdentityValue<ONNXReduceMeanOp>(
+-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
+ }
+ 
+@@ -86,10 +84,9 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
    // Assume it is verified that axes are known. Convert DenseElementsAttr to
    // ArrayAttr.
    if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
@@ -53,6 +107,31 @@ index 3b734e0b..66f6e438 100644
      for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
        definedAxes.push_back(element.getInt());
      return definedAxes;
+@@ -273,7 +270,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
+     ShapedType outputType = resultType.cast<ShapedType>();
+     if (outputType == nullptr)
+       return failure();
+-    FloatType elemType = inputType.getElementType().cast<FloatType>();
++    Type elemType = inputType.getElementType();
+     Value identity = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
+     int64_t inRank = inputType.getRank();
+ 
+@@ -311,8 +308,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
+         reduceResult =
+             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
+       } else {
+-        Value ones = rewriter.create<mhlo::ConstantOp>(
+-            loc, rewriter.getFloatAttr(elemType, 1.0));
++        Value ones;
++        if (elemType.isa<IntegerType>())
++          ones = rewriter.create<mhlo::ConstantOp>(
++              loc, rewriter.getIntegerAttr(elemType, 1));
++        else
++          ones = rewriter.create<mhlo::ConstantOp>(
++              loc, rewriter.getFloatAttr(elemType, 1.0));
+         Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
+         Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+             loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
 diff --git a/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp b/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp
 index 910c0d40..49ebfee0 100644
 --- a/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp
@@ -81,10 +160,26 @@ index 910c0d40..49ebfee0 100644
      return success();
    }
 diff --git a/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp b/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
-index 6352e180..5c35110e 100644
+index 6352e180..861c57a4 100644
 --- a/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
 +++ b/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
-@@ -68,10 +68,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
+@@ -53,8 +53,13 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
+     int64_t outputRank = outputShapedType.getRank();
+ 
+     Operation *shapeDefOp = shape.getDefiningOp();
+-    Value ones = rewriter.create<mhlo::ConstantOp>(
+-        loc, rewriter.getFloatAttr(elementType, 1.0));
++    Value ones;
++    if (elementType.isa<IntegerType>())
++      ones = rewriter.create<mhlo::ConstantOp>(
++          loc, rewriter.getIntegerAttr(elementType, 1));
++    else
++      ones = rewriter.create<mhlo::ConstantOp>(
++          loc, rewriter.getFloatAttr(elementType, 1.0));
+     Value broadcastedOnes;
+     if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
+       assert(shapeOp.getData().getType().isa<ShapedType>() &&
+@@ -68,10 +73,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
      } else if (ONNXConstantOp shapeOp =
                     dyn_cast_or_null<ONNXConstantOp>(shapeDefOp)) {
        llvm::SmallVector<int64_t, 4> shapeValues;

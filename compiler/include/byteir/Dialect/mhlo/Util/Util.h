@@ -89,9 +89,6 @@ bool isSplatMhloConstantValue(Value val, int64_t splat_val);
 
 bool isSplatMhloConstantValue(Value val, double splat_val);
 
-// Return ture if block contains single op: AddOp, MaxOp, MinOp
-template <typename Op> bool isBlockSingleOp(Block *block);
-
 // Return layout if success, return UNKNOWN if failed.
 byteir::NamedLayout getPoolLayout(mhlo::ReduceWindowOp op);
 

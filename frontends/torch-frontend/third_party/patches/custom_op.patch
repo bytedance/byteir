@@ -30,7 +30,7 @@ index 00000000..a60a0472
 +} // namespace mlir
 \ No newline at end of file
 diff --git a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
-index f8d3651d..97265bba 100644
+index f8d3651d..bc4c5eba 100644
 --- a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
 +++ b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
 @@ -10,9 +10,14 @@

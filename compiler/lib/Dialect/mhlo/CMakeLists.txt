@@ -22,6 +22,7 @@ add_mlir_dialect_library(ByteIRMhloUtils
 
 
 add_mlir_dialect_library(ByteIRMhloDynamicShapeOpRegister
+  DynamicShapeOpRegister/Concatenate.cpp
   DynamicShapeOpRegister/Convolution.cpp
   DynamicShapeOpRegister/DotLike.cpp 
   DynamicShapeOpRegister/DynamicBroadcastInDim.cpp

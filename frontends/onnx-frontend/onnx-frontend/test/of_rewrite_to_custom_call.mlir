@@ -207,9 +207,9 @@ func.func @test_resize_nearest_by_scale(%268: tensor<1x3x4x4xf32>) -> tensor<1x3
 
 func.func @test_resize_linear_by_size(%214: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {
   %219 = onnx.Constant dense<[1, 1, 30, 40]> : tensor<4xi64>
-  %220 = "onnx.NoValue"() {value} : () -> none
-  %221 = "onnx.NoValue"() {value} : () -> none
-  %222 = "onnx.Resize"(%214, %220, %221, %219) {coordinate_transformation_mode = "pytorch_half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "linear", nearest_mode = "floor", onnx_node_name = "Resize_147"} : (tensor<1x1x15x20xf32>, none, none, tensor<4xi64>) -> tensor<1x1x30x40xf32>
+  %220 = onnx.Constant dense<> : tensor<0xf32>
+  %221 = onnx.Constant dense<> : tensor<0xf32>
+  %222 = "onnx.Resize"(%214, %220, %221, %219) {coordinate_transformation_mode = "pytorch_half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "linear", nearest_mode = "floor", onnx_node_name = "Resize_147"} : (tensor<1x1x15x20xf32>, tensor<0xf32>, tensor<0xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
   return %222 : tensor<1x1x30x40xf32>
 // CHECK-LABEL:  func.func @test_resize_linear_by_size
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {

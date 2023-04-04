@@ -25,6 +25,7 @@
 
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 
+#include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 #include "byteir/Utils/Hoist.h"
@@ -54,6 +55,7 @@ using namespace mlir::scf;
 using namespace mlir::transform;
 
 #define DEBUG_TYPE "linalg-ext-transforms"
+#define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
 
 namespace {
 /// A simple pattern rewriter that implements no special logic.
@@ -554,6 +556,284 @@ void transform::TileExtOp::getEffects(
 }
 
 //===----------------------------------------------------------------------===//
+// SharedOutputToDistributedStyleOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+StringAttr getAllReduceType(linalg::GenericOp mergeOp, linalg::FillOp initOp) {
+  StringAttr reduceType;
+  MLIRContext *ctx = mergeOp.getContext();
+  Block *block = &mergeOp.getRegion().front();
+  if (isBlockSingleOp<arith::AddFOp>(block) ||
+      isBlockSingleOp<arith::AddIOp>(block))
+    reduceType = StringAttr::get(ctx, ccl::getRedOpSumName());
+  else if (isBlockSingleOp<arith::MaxFOp>(block) ||
+           isBlockSingleOp<arith::MaxSIOp>(block) ||
+           isBlockSingleOp<arith::MaxUIOp>(block))
+    reduceType = StringAttr::get(ctx, ccl::getRedOpMaxName());
+  else if (isBlockSingleOp<arith::MinFOp>(block) ||
+           isBlockSingleOp<arith::MinSIOp>(block) ||
+           isBlockSingleOp<arith::MinUIOp>(block))
+    reduceType = StringAttr::get(ctx, ccl::getRedOpMinName());
+  // TODO: support avg / prod all-reduce type
+  else {
+    DBGS() << "operations in the block can't match any reduce type\n";
+    return nullptr;
+  }
+
+  auto constOp = initOp.getInputs()[0].getDefiningOp<arith::ConstantOp>();
+  if (!constOp) {
+    DBGS() << "fill op's input is expected to be type of arith.constant\n";
+    return nullptr;
+  }
+
+  TypedAttr constVal = constOp.getValue();
+  if (auto intVal = dyn_cast<IntegerAttr>(constVal)) {
+    auto value = intVal.getAPSInt();
+    if ((value.isZero() && reduceType.strref() == ccl::getRedOpSumName()) ||
+        (value.isMaxSignedValue() &&
+         reduceType.strref() == ccl::getRedOpMinName()) ||
+        (value.isMinSignedValue() &&
+         reduceType.strref() == ccl::getRedOpMaxName()))
+      return reduceType;
+  } else if (auto floatVal = dyn_cast<FloatAttr>(constVal)) {
+    auto value = floatVal.getValue();
+    if ((value.isZero() && reduceType.strref() == ccl::getRedOpSumName()) ||
+        (value.isInfinity() && !value.isNegative() &&
+         reduceType.strref() == ccl::getRedOpMinName()) ||
+        (value.isInfinity() && value.isNegative() &&
+         reduceType.strref() == ccl::getRedOpMaxName()))
+      return reduceType;
+  }
+
+  return nullptr;
+}
+
+/// Returns an ArrayAttr that contains `nLoops` attributes. All the attributes
+/// are "parallel" except the last `nReduction` elements, where are "reduction"
+/// attributes.
+static SmallVector<utils::IteratorType, 3>
+getParallelAndReductionIterators(unsigned nLoops, unsigned nReduction) {
+  SmallVector<utils::IteratorType, 3> res(nLoops - nReduction,
+                                          utils::IteratorType::parallel);
+  res.append(nReduction, utils::IteratorType::reduction);
+  return res;
+}
+
+static SmallVector<utils::IteratorType, 3>
+getNParallelLoopsAttrs(unsigned nParallelLoops) {
+  return getParallelAndReductionIterators(nParallelLoops, 0);
+}
+
+} // namespace
+
+DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
+    TransformResults &transformResults, TransformState &state) {
+  ArrayRef<Operation *> loops = state.getPayloadOps(getLoop());
+  ArrayRef<Operation *> inits = state.getPayloadOps(getInit());
+  ArrayRef<Operation *> merges = state.getPayloadOps(getMerge());
+
+  if (loops.size() != inits.size() || loops.size() != merges.size()) {
+    DiagnosedSilenceableFailure diag =
+        emitSilenceableError()
+        << "the size of loop, init, merge should be the same";
+    return diag;
+  }
+
+  SmallVector<Operation *> newFillOps;
+  SmallVector<Operation *> newLoopOps;
+  for (size_t i = 0; i < loops.size(); ++i) {
+    // check operation types for each payloads
+    auto loopOp = dyn_cast<scf::ForeachThreadOp>(loops[i]);
+    auto initOp = dyn_cast<linalg::FillOp>(inits[i]);
+    auto mergeOp = dyn_cast<linalg::GenericOp>(merges[i]);
+    if (!loopOp) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "loop op is supposed to be of type scf.foreach_thread op";
+      return diag;
+    }
+    if (!initOp) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "init op is supposed to be of type linalg.fill";
+      return diag;
+    }
+    if (!mergeOp) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "merge op is supposed to be of type linalg.generic";
+      return diag;
+    }
+
+    // other checks for these ops
+    if (!mergeOp.getRegion().hasOneBlock()) {
+      DiagnosedSilenceableFailure diag = emitSilenceableError()
+                                         << "expected to have only one block";
+      return diag;
+    }
+    SmallVector<unsigned> redDims;
+    linalg::LinalgOp linalgOp = cast<LinalgOp>((Operation *)mergeOp);
+    linalgOp.getReductionDims(redDims);
+    if (redDims.size() != 1) {
+      DiagnosedSilenceableFailure diag = emitSilenceableError()
+                                         << "expected 1 reduction dim, but get "
+                                         << redDims.size();
+      return diag;
+    }
+    if (initOp.getInputs().size() != 1) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "fill op is expected to have only one input";
+      return diag;
+    }
+    if (mergeOp.getResultTensors().size() != 1) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "merge op is expected to have only one result";
+      return diag;
+    }
+    if (loopOp->getNumResults() != 1) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "loop op is expected to have only one result";
+      return diag;
+    }
+    BlockArgument loopOutBlockArg = loopOp.getOutputBlockArguments()[0];
+    if (!all_of(loopOutBlockArg.getUsers(), [](Operation *op) {
+          return isa<tensor::ExtractSliceOp, tensor::ParallelInsertSliceOp>(op);
+        })) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError() << "all the users of loop op's block arg are "
+                                    "expected to be tensor.extract_slice or "
+                                    "tensor.parallel_insert_slice";
+      return diag;
+    }
+    Block *block = &loopOp.getRegion().front();
+    auto parallelOp = cast<scf::PerformConcurrentlyOp>(block->getTerminator());
+    SmallVector<tensor::ParallelInsertSliceOp> parallelInsertSliceOps =
+        llvm::to_vector(parallelOp.getOps<tensor::ParallelInsertSliceOp>());
+    if (parallelInsertSliceOps.size() != 1) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "only one tensor.parallel_insert_slice op is expected in the "
+             "region of scf.perform_concurrently op";
+      return diag;
+    }
+
+    // figure out the all-reduce type
+    StringAttr reduceType = getAllReduceType(mergeOp, initOp);
+    if (!reduceType) {
+      DiagnosedSilenceableFailure diag = emitSilenceableError()
+                                         << "fail to get reduce type";
+      return diag;
+    }
+
+    // create new init op, reset the types and replace all the uses
+    OpBuilder builder(initOp);
+    ShapedType retType = mergeOp->getResult(0).getType().dyn_cast<ShapedType>();
+    if (!retType) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError()
+          << "merge op's result is expected to be ShapedType";
+      return diag;
+    }
+    tensor::EmptyOp emptyOp = builder.create<tensor::EmptyOp>(
+        initOp.getLoc(), retType.getShape(), retType.getElementType());
+    linalg::FillOp newFillOp = builder.create<linalg::FillOp>(
+        initOp.getLoc(), initOp.getInputs(), emptyOp.getResult());
+    MutableOperandRange loopOutputs = loopOp.getOutputsMutable();
+    loopOutputs.assign(newFillOp.getResultTensors());
+    loopOp->getResult(0).setType(mergeOp->getResult(0).getType());
+    loopOutBlockArg.setType(mergeOp->getResult(0).getType());
+    for (Operation *op : loopOutBlockArg.getUsers()) {
+      op->getResult(0).replaceAllUsesWith(loopOutBlockArg);
+      op->erase();
+    }
+
+    // create cll.all_reduce op
+    Value retVal = parallelInsertSliceOps[0].getSource();
+    SmallVector<Value> retVals;
+    Block *parallelBlock = &parallelOp.getRegion().front();
+    parallelBlock->clear();
+    builder.setInsertionPointAfterValue(retVal);
+    auto allReduceOp = builder.create<ccl::AllReduceOp>(
+        retVal.getLoc(), retVal, /*dynamic_replica_groups*/ nullptr, reduceType,
+        /*replica_groups*/ nullptr, /*unique_id*/ nullptr);
+
+    // create new merge op
+    SmallVector<AffineMap> maps;
+    MLIRContext *ctx = loopOp.getContext();
+    maps.append(2, AffineMap::getMultiDimIdentityMap(retType.getRank(), ctx));
+    SmallVector<Value> newMergeInputs;
+    SmallVector<Value> newMergeOutputs;
+    newMergeInputs.push_back(allReduceOp.getResult());
+    newMergeOutputs.push_back(mergeOp.getOutputs()[0]);
+    linalg::GenericOp finalMergeOp = builder.create<linalg::GenericOp>(
+        mergeOp->getLoc(), mergeOp->getResultTypes()[0], newMergeInputs,
+        newMergeOutputs, maps, getNParallelLoopsAttrs(retType.getRank()));
+    Region &region = finalMergeOp.getRegion();
+    region.takeBody(mergeOp.getRegion());
+
+    // create tensor.parallel_insert_slice op
+    builder.setInsertionPoint(parallelBlock, parallelBlock->begin());
+    int64_t rank = retType.getRank();
+    SmallVector<OpFoldResult> offsets(rank, builder.getIndexAttr(0));
+    SmallVector<OpFoldResult> sizes;
+    for (int64_t dimSize : retType.getShape())
+      sizes.push_back(builder.getIndexAttr(dimSize));
+    SmallVector<OpFoldResult> strides(rank, builder.getIndexAttr(1));
+    builder.create<tensor::ParallelInsertSliceOp>(
+        retVal.getLoc(), finalMergeOp->getResult(0),
+        loopOp.getOutputBlockArguments()[0], offsets, sizes, strides);
+
+    // replace all uses of original merge op
+    mergeOp->getResult(0).replaceAllUsesWith(loopOp->getResult(0));
+    mergeOp->erase();
+
+    newFillOps.push_back(newFillOp);
+    newLoopOps.push_back(loopOp);
+  }
+  transformResults.set(getNewInit().cast<OpResult>(), newFillOps);
+  transformResults.set(getNewLoop().cast<OpResult>(), newLoopOps);
+  return DiagnosedSilenceableFailure::success();
+}
+
+ParseResult SharedOutputToDistributedStyleOp::parse(OpAsmParser &parser,
+                                                    OperationState &result) {
+  OpAsmParser::UnresolvedOperand loop;
+  OpAsmParser::UnresolvedOperand init;
+  OpAsmParser::UnresolvedOperand merge;
+  auto pdlOperationType = pdl::OperationType::get(parser.getContext());
+
+  if (parser.parseOperand(loop) ||
+      parser.resolveOperand(loop, pdlOperationType, result.operands) ||
+      parser.parseComma() || parser.parseOperand(init) ||
+      parser.resolveOperand(init, pdlOperationType, result.operands) ||
+      parser.parseComma() || parser.parseOperand(merge) ||
+      parser.resolveOperand(merge, pdlOperationType, result.operands))
+    return ParseResult::failure();
+
+  result.addTypes(SmallVector<Type>(2, pdlOperationType));
+  return success();
+}
+
+void SharedOutputToDistributedStyleOp::print(OpAsmPrinter &p) {
+  p << ' ' << getLoop() << ", " << getInit() << ", " << getMerge();
+}
+
+void transform::SharedOutputToDistributedStyleOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
+  consumesHandle(getLoop(), effects);
+  consumesHandle(getInit(), effects);
+  consumesHandle(getMerge(), effects);
+  producesHandle(getNewLoop(), effects);
+  producesHandle(getNewInit(), effects);
+  modifiesPayload(effects);
+}
+
+//===----------------------------------------------------------------------===//
 // Transform op registration
 //===----------------------------------------------------------------------===//
 
@@ -576,6 +856,7 @@ public:
     declareGeneratedDialect<scf::SCFDialect>();
     declareGeneratedDialect<vector::VectorDialect>();
     declareGeneratedDialect<gpu::GPUDialect>();
+    declareGeneratedDialect<ccl::CclDialect>();
 
     registerTransformOps<
 #define GET_OP_LIST

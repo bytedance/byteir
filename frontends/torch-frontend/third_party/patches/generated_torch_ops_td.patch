@@ -1,8 +1,8 @@
 diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-index 2a43ec66..0b4af5ab 100644
+index 103c4bcf..4ead14ef 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -6238,6 +6238,30 @@ def Torch_AtenArgmaxOp : Torch_Op<"aten.argmax", [
+@@ -6173,6 +6173,30 @@ def Torch_AtenArgmaxOp : Torch_Op<"aten.argmax", [
    }];
  }
  
@@ -33,7 +33,23 @@ index 2a43ec66..0b4af5ab 100644
  def Torch_AtenBucketizeTensorOp : Torch_Op<"aten.bucketize.Tensor", [
      AllowsTypeRefinement,
      HasValueSemantics,
-@@ -11296,3 +11320,67 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
+@@ -6367,6 +6391,7 @@ def Torch_AtenDetachOp : Torch_Op<"aten.detach", [
+       printDefaultTorchOp(printer, *this, 1, 1);
+     }
+   }];
++  let hasCanonicalizer = 1;
+ }
+ 
+ def Torch_AtenEmbeddingOp : Torch_Op<"aten.embedding", [
+@@ -10849,6 +10874,7 @@ def Torch_PrimDeviceOp : Torch_Op<"prim.device", [
+       printDefaultTorchOp(printer, *this, 1, 1);
+     }
+   }];
++  let hasCanonicalizer = 1;
+ }
+ 
+ def Torch_PrimDtypeOp : Torch_Op<"prim.dtype", [
+@@ -11231,3 +11257,67 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
    }];
  }
  

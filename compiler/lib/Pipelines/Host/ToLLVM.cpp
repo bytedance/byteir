@@ -22,6 +22,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
+#include "mlir/Conversion/MathToLibm/MathToLibm.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
@@ -83,6 +84,7 @@ void mlir::createToLLVMPipeline(OpPassManager &pm) {
         pm.addPass(createLowerAffinePass());
         pm.addPass(createMemRefToLLVMConversionPass());
         pm.addPass(createConvertMathToLLVMPass());
+        pm.addPass(createConvertMathToLibmPass());
         pm.addPass(createConvertFuncToLLVMPass());
         pm.addPass(createReconcileUnrealizedCastsPass());
 

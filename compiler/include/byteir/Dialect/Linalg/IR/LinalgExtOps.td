@@ -75,7 +75,7 @@ class LinalgExt_Op<string mnemonic, list<Trait> traits = []> :
 
 class LinalgExtStructuredBase_Op<string mnemonic, list<Trait> props>
   : LinalgExt_BaseOp<mnemonic, !listconcat([
-       SingleBlockImplicitTerminator<"::mlir::linalg_ext::YieldOp">,
+       SingleBlockImplicitTerminator<"::mlir::linalg::YieldOp">,
        DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
        DestinationStyleOpInterface,
        LinalgStructuredInterface,
@@ -627,7 +627,11 @@ def LinalgExt_BatchMatmulOp : LinalgExtStructuredBase_Op<"batch_matmul",
          "getIterationDomain",
          "getLoopIteratorTypes",
          "getResultTilePosition",
-         "getTiledImplementation"]>]> {
+         "getTiledImplementation"]>,
+     DeclareOpInterfaceMethods<PartialReductionOpInterface,
+     ["generateInitialTensorForPartialReduction",
+      "tileToPartialReduction",
+      "mergeReductions"]>]> {
   let summary = "Batched matrix multiplication";
   let description = [{
     Performs a batched matrix multiplication of two N-D (N >= 3) inputs.

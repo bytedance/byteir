@@ -7,6 +7,7 @@ add_mlir_dialect_library(MLIRLinalgExt
   MLIRLinalgExtOpsIncGen
 
   LINK_LIBS PUBLIC
+  MLIRAnalysis
   MLIRIR
   MLIRLinalgUtils
   MLIRSupport

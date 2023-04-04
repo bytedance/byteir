@@ -80,6 +80,7 @@ inline void registerAllMhloReifyReturnTypeShapes() {
 //===----------------------------------------------------------------------===//
 // ShapeConstraint Registration
 //===----------------------------------------------------------------------===//
+void registerConcatenateShapeConstraints();
 void registerDotGeneralShapeConstraints();
 void registerDynamicPartitionShapeConstraints();
 void registerDynamicReshapeShapeConstraints();
@@ -87,6 +88,7 @@ void registerEinsumShapeConstraints();
 void registerReshapeShapeConstraints();
 
 inline void registerAllMhloShapeConstraints() {
+  registerConcatenateShapeConstraints();
   registerDotGeneralShapeConstraints();
   registerDynamicPartitionShapeConstraints();
   registerDynamicReshapeShapeConstraints();

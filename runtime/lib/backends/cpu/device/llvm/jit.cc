@@ -310,8 +310,6 @@ public:
   common::Status DumpObject(const std::string &identifier, std::ostream &os);
 
 private:
-  void InitRuntimeLibcalls();
-
   struct DebugInfo {
     // TODO?: multi-threads
     std::unordered_map<std::string, std::string> identifier2mod;
@@ -320,7 +318,6 @@ private:
 
   Options options;
   std::unique_ptr<llvm::orc::LLJIT> jit;
-  llvm::DenseSet<llvm::orc::SymbolStringPtr> rt_libcalls;
   DebugInfo dbgInfo;
 };
 
@@ -339,10 +336,7 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
   // Make sure that our process symbols are visible to JIT'd code.
   jit->getMainJITDylib().addGenerator(checkAndThrow(
       llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-          jit->getDataLayout().getGlobalPrefix(),
-          [this](const llvm::orc::SymbolStringPtr &name) {
-            return rt_libcalls.count(name);
-          }),
+          jit->getDataLayout().getGlobalPrefix()),
       "failed to create DynamicLibrarySearchGenerator for current process"));
 
   jit->getIRTransformLayer().setTransform(
@@ -383,8 +377,6 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
         }
         return std::move(MB);
       });
-
-  InitRuntimeLibcalls();
 }
 
 common::Status LLVMJITImpl::LoadTSM(llvm::orc::ThreadSafeModule &&tsm) {
@@ -453,16 +445,6 @@ common::Status LLVMJITImpl::DumpObject(const std::string &identifier,
   }
   os << iter->second;
   return common::Status::OK();
-}
-
-void LLVMJITImpl::InitRuntimeLibcalls() {
-  llvm::orc::MangleAndInterner mangle(jit->getExecutionSession(),
-                                      jit->getDataLayout());
-#define HANDLE_LIBCALL(code, name)                                             \
-  if (name)                                                                    \
-    rt_libcalls.insert(mangle(name ? name : ""));
-#include "llvm/IR/RuntimeLibcalls.def"
-#undef HANDLE_LIBCALL
 }
 
 #if BRT_LLJIT_DEBUG

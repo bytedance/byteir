@@ -32,22 +32,32 @@ struct InsertTieShapePass : public InsertTieShapeBase<InsertTieShapePass> {
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
     OpBuilder builder(funcOp);
+
+    auto insertTie = [&](Value result) {
+      if (auto shape = result.getType().dyn_cast<RankedTensorType>()) {
+        if (!shape.hasStaticShape()) {
+          SmallVector<Value> dims;
+          for (int64_t i = 0; i < shape.getRank(); ++i) {
+            if (shape.isDynamicDim(i)) {
+              dims.push_back(
+                  builder.create<tensor::DimOp>(result.getLoc(), result, i));
+            }
+          }
+          if (dims.size() > 0)
+            builder.create<shape_ext::TieOp>(result.getLoc(), result, dims);
+        }
+      }
+    };
+
+    for (Value arg : funcOp.getArguments()) {
+      builder.setInsertionPointAfterValue(arg);
+      insertTie(arg);
+    }
+
     funcOp.walk([&](Operation *op) {
       for (Value result : op->getResults()) {
         builder.setInsertionPointAfter(op);
-        if (auto shape = result.getType().dyn_cast<RankedTensorType>()) {
-          if (!shape.hasStaticShape()) {
-            SmallVector<Value> dims;
-            for (int64_t i = 0; i < shape.getRank(); ++i) {
-              if (shape.isDynamicDim(i)) {
-                dims.push_back(
-                    builder.create<tensor::DimOp>(op->getLoc(), result, i));
-              }
-            }
-            if (dims.size() > 0)
-              builder.create<shape_ext::TieOp>(op->getLoc(), result, dims);
-          }
-        }
+        insertTie(result);
       }
     });
   }

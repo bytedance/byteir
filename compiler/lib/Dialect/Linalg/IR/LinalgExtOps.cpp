@@ -33,6 +33,7 @@
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/Utils.h"
+#include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -236,34 +237,6 @@ static ParseResult parseDstStyleOp(
   return success();
 }
 
-static void buildGenericRegion(
-    OpBuilder &builder, Location loc, Region &region, ValueRange inputs,
-    ValueRange outputs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuild) {
-  SmallVector<Type, 4> blockArgTypes;
-  SmallVector<Location, 4> blockArgLocs;
-  for (ValueRange container : {inputs, outputs}) {
-    for (Value v : container) {
-      blockArgTypes.push_back(getElementTypeOrSelf(v));
-      blockArgLocs.push_back(v.getLoc());
-    }
-  }
-
-  OpBuilder::InsertionGuard guard(builder);
-  Block *bodyBlock =
-      builder.createBlock(&region, region.end(), blockArgTypes, blockArgLocs);
-  bodyBuild(builder, loc, bodyBlock->getArguments());
-}
-
-static void buildIdentityRegion(OpBuilder &builder, Location loc,
-                                Region &region, ValueRange inputs,
-                                ValueRange outputs) {
-  buildGenericRegion(builder, loc, region, inputs, outputs,
-                     [](OpBuilder &b, Location loc, ValueRange args) {
-                       b.create<linalg_ext::YieldOp>(loc, args[0]);
-                     });
-}
-
 static void getGenericEffectsImpl(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects,
@@ -413,6 +386,193 @@ FailureOr<Value> commonGenerateResultTileValue(Operation *op, OpBuilder &b,
     return op->emitOpError("failed to generate tiled implementation");
 
   return tiledOp[0]->getResult(resultNumber);
+}
+
+using RegionBuilderFn = llvm::function_ref<void(ImplicitLocOpBuilder &, Block &,
+                                                ArrayRef<NamedAttribute>)>;
+
+/// This function is copied from
+/// llvm-project/mlir/lib/Dialect/Linalg/IR/LinalgOps.cpp.
+/// Fills the region of a structured operation using the provided
+/// `regionBuilder`. The method is used by both named structured ops created by
+/// ods-gen and by manually defined C++ ops. It is called by both builders and
+/// parsers and creates a block with arguments corresponding to the elemental
+/// types of `inputTypes` and `outputTypes`. All output types are asserted to be
+/// ShapedType.
+static void fillStructuredOpRegion(OpBuilder &opBuilder, Region &region,
+                                   TypeRange inputTypes, TypeRange outputTypes,
+                                   ArrayRef<NamedAttribute> attrs,
+                                   RegionBuilderFn regionBuilder) {
+  assert(llvm::all_of(outputTypes, [](Type t) { return t.isa<ShapedType>(); }));
+
+  // TODO: atm all operands go through getElementTypeOrSelf,
+  // reconsider when we have evidence we need to.
+  SmallVector<Type, 8> argTypes;
+  SmallVector<Location, 8> argLocs;
+  for (auto containers : {inputTypes, outputTypes}) {
+    for (auto t : containers) {
+      argTypes.push_back(getElementTypeOrSelf(t));
+
+      // TODO: Pass in a proper location here.
+      argLocs.push_back(opBuilder.getUnknownLoc());
+    }
+  }
+
+  // RAII.
+  OpBuilder::InsertionGuard guard(opBuilder);
+  Block *body =
+      opBuilder.createBlock(&region, /*insertPt=*/{}, argTypes, argLocs);
+
+  opBuilder.setInsertionPointToStart(body);
+  ImplicitLocOpBuilder b(opBuilder.getUnknownLoc(), opBuilder);
+  regionBuilder(b, *body, attrs);
+
+  // indexing_maps is an auto-generated method.
+
+  // iterator_types is an auto-generated method.
+}
+
+FailureOr<Operation *> commonGenerateInitialTensorForPartialReduction(
+    Operation *op, OpBuilder &b, Location loc, ArrayRef<OpFoldResult> sizes,
+    ArrayRef<int> reductionDims) {
+  auto linalgOp = cast<LinalgOp>(op);
+  OpBuilder::InsertionGuard guard(b);
+  assert(reductionDims.size() == 1 &&
+         "only support single reduction right now.");
+  if (linalgOp.hasBufferSemantics())
+    return op->emitOpError("expected operation to have tensor semantics");
+  // Insert the new parallel dimension based on the index of the reduction
+  // loop. This could be controlled by user for more flexibility.
+  int64_t insertSplitDimension = reductionDims[0];
+
+  SmallVector<Operation *, 4> combinerOps;
+  if (!matchReduction(linalgOp.getRegionOutputArgs(), 0, combinerOps) ||
+      combinerOps.size() != 1)
+    return op->emitOpError("Failed to anaysis the reduction operation.");
+
+  Operation *reductionOp = combinerOps[0];
+  Optional<Attribute> identity = getNeutralElement(reductionOp);
+  if (!identity.has_value())
+    return op->emitOpError(
+        "Failed to get an identity value for the reduction operation.");
+
+  // Calculate the new shape, we insert the new dimension based on the index
+  // of the reduction dimension.
+  SmallVector<int64_t> newOutputShape;
+  ArrayRef<int64_t> oldShape = linalgOp.getShape(linalgOp.getDpsInitOperand(0));
+  SmallVector<Value> dynamicDims;
+  for (int64_t idx : llvm::seq<int64_t>(0, oldShape.size() + 1)) {
+    if (idx == insertSplitDimension) {
+      dispatchIndexOpFoldResults(sizes[idx], dynamicDims, newOutputShape);
+      continue;
+    }
+    int64_t oldIdx = idx < insertSplitDimension ? idx : idx - 1;
+    int64_t dim = oldShape[oldIdx];
+    newOutputShape.push_back(dim);
+    if (ShapedType::isDynamic(dim))
+      dynamicDims.push_back(b.createOrFold<tensor::DimOp>(
+          loc, linalgOp.getDpsInitOperand(0)->get(), oldIdx));
+  }
+  Value emptyTensor = b.create<tensor::EmptyOp>(
+      loc, newOutputShape, linalgOp.getRegionOutputArgs()[0].getType(),
+      dynamicDims);
+  Value constantOp = b.create<arith::ConstantOp>(loc, *identity);
+  auto identityTensor = b.create<linalg::FillOp>(loc, constantOp, emptyTensor);
+  return identityTensor.getOperation();
+}
+
+Operation *commonTileToPartialReduction(Operation *op, OpBuilder &b,
+                                        Location loc, ValueRange init,
+                                        ArrayRef<OpFoldResult> offsets,
+                                        ArrayRef<OpFoldResult> sizes,
+                                        ArrayRef<int> reductionDims) {
+  OpBuilder::InsertionGuard guard(b);
+  auto linalgOp = cast<LinalgOp>(op);
+  assert(reductionDims.size() == 1 &&
+         "only support single reduction right now.");
+  int64_t insertSplitDimension = reductionDims[0];
+
+  AffineMap oldOutputMap =
+      linalgOp.getMatchingIndexingMap(linalgOp.getDpsInitOperand(0));
+  SmallVector<AffineExpr> outputExpr;
+  for (auto &[idx, expr] : llvm::enumerate(oldOutputMap.getResults())) {
+    if (static_cast<int64_t>(idx) == insertSplitDimension) {
+      outputExpr.push_back(b.getAffineDimExpr(reductionDims[0]));
+    }
+    outputExpr.push_back(expr);
+  }
+  if (insertSplitDimension == oldOutputMap.getNumResults())
+    outputExpr.push_back(b.getAffineDimExpr(reductionDims[0]));
+
+  // Step 1: Extract a slice of the input operands.
+  SmallVector<Value> valuesToTile = linalgOp.getDpsInputOperands();
+  SmallVector<Value, 4> tiledOperands =
+      makeTiledShapes(b, loc, op, valuesToTile, offsets, sizes, {}, true);
+
+  // Step 2: Extract the accumulator operands
+  SmallVector<OpFoldResult> strides(offsets.size(), b.getIndexAttr(1));
+  SmallVector<OpFoldResult> outOffsets(offsets.size(), b.getIndexAttr(0));
+  // TODO: use SubsetExtractOpInterface once it is available.
+  Value out = b.create<tensor::ExtractSliceOp>(loc, init[0], outOffsets, sizes,
+                                               strides);
+
+  // Step3. create a generic op where the reduction dimension is replaced by a
+  // parallel dimension of the size of reduction.
+  SmallVector<utils::IteratorType> newIteratorTypes =
+      linalgOp.getIteratorTypesArray();
+  newIteratorTypes[reductionDims[0]] = utils::IteratorType::parallel;
+  SmallVector<AffineMap> newMaps = linalgOp.getIndexingMapsArray();
+  newMaps.back() = AffineMap::get(newMaps.back().getNumDims(), 0, outputExpr,
+                                  linalgOp.getContext());
+  auto genericOp =
+      b.create<GenericOp>(loc, TypeRange({out.getType()}), tiledOperands,
+                          ValueRange({out}), newMaps, newIteratorTypes);
+  BlockAndValueMapping mapping;
+  op->getRegion(0).cloneInto(&genericOp.getRegion(),
+                             genericOp.getRegion().begin(), mapping);
+  return genericOp.getOperation();
+}
+
+Operation *commonMergeReductions(Operation *op, OpBuilder &b, Location loc,
+                                 ValueRange partialReduce,
+                                 ArrayRef<int> reductionDims) {
+  auto linalgOp = cast<LinalgOp>(op);
+  assert(reductionDims.size() == 1 &&
+         "only support single reduction right now.");
+  int64_t dimToMerge = reductionDims[0];
+
+  // Then create a new reduction that only reduce the newly added dimension
+  // from the previous op.
+  int64_t intermRank = partialReduce[0].getType().cast<ShapedType>().getRank();
+  AffineMap inputMap = b.getMultiDimIdentityMap(intermRank);
+  SmallVector<utils::IteratorType> reductionIteratorTypes;
+  SmallVector<AffineExpr> exprs;
+  for (int64_t i : llvm::seq<int64_t>(0, intermRank)) {
+    if (dimToMerge == i) {
+      reductionIteratorTypes.push_back(utils::IteratorType::reduction);
+    } else {
+      exprs.push_back(b.getAffineDimExpr(i));
+      reductionIteratorTypes.push_back(utils::IteratorType::parallel);
+    }
+  }
+  AffineMap outputMap = AffineMap::get(intermRank, 0, exprs, op->getContext());
+  SmallVector<AffineMap> reductionMaps = {inputMap, outputMap};
+
+  SmallVector<Operation *, 4> combinerOps;
+  matchReduction(linalgOp.getRegionOutputArgs(), 0, combinerOps);
+  Operation *reductionOp = combinerOps[0];
+
+  auto reduction = b.create<GenericOp>(
+      loc, op->getResultTypes(), ValueRange({partialReduce[0]}),
+      SmallVector<Value>{linalgOp.getDpsInitOperands()}, reductionMaps,
+      reductionIteratorTypes,
+      [reductionOp](OpBuilder &b, Location loc, ValueRange inputs) {
+        Operation *clonedReductionOp = b.clone(*reductionOp);
+        clonedReductionOp->setOperand(0, inputs[0]);
+        clonedReductionOp->setOperand(1, inputs[1]);
+        b.create<linalg::YieldOp>(loc, clonedReductionOp->getResult(0));
+      });
+  return reduction.getOperation();
 }
 
 } // namespace
@@ -1714,9 +1874,11 @@ void mlir::linalg_ext::BatchMatmulOp::build(
   if (initType.isa<RankedTensorType>())
     result.addTypes(initType);
 
-  // TODO: currently the region content is wrong
-  buildIdentityRegion(builder, result.location, *result.addRegion(), {lhs, rhs},
-                      init);
+  // Create and fill the region of the structured operation.
+  Region &region = *result.addRegion();
+  fillStructuredOpRegion(builder, region, {lhs.getType(), rhs.getType()},
+                         init.getType(), result.attributes.getAttrs(),
+                         linalg::BatchMatmulOp::regionBuilder);
 }
 
 void mlir::linalg_ext::BatchMatmulOp::build(
@@ -1741,10 +1903,14 @@ ParseResult mlir::linalg_ext::BatchMatmulOp::parse(OpAsmParser &parser,
           })))
     return failure();
 
+  SmallVector<Type, 1> inputTypes;
+  inputTypes.push_back(result.operands[0].getType());
+  inputTypes.push_back(result.operands[1].getType());
   OpBuilder builder(parser.getContext());
-  buildIdentityRegion(builder, result.location, *result.addRegion(),
-                      /*inputs=*/result.operands,
-                      /*outputs=*/{});
+  Region &region = *result.addRegion();
+  fillStructuredOpRegion(
+      builder, region, inputTypes, result.operands[2].getType(),
+      result.attributes.getAttrs(), linalg::BatchMatmulOp::regionBuilder);
   return success();
 }
 
@@ -1847,6 +2013,29 @@ void mlir::linalg_ext::BatchMatmulOp::getEffects(
         &effects) {
   getGenericEffectsImpl(effects, getOperation()->getResults(),
                         getDpsInputOperands(), getDpsInitOperands());
+}
+
+FailureOr<Operation *>
+mlir::linalg_ext::BatchMatmulOp::generateInitialTensorForPartialReduction(
+    OpBuilder &b, Location loc, ArrayRef<OpFoldResult> sizes,
+    ArrayRef<int> reductionDims) {
+  return commonGenerateInitialTensorForPartialReduction(getOperation(), b, loc,
+                                                        sizes, reductionDims);
+}
+
+Operation *mlir::linalg_ext::BatchMatmulOp::tileToPartialReduction(
+    OpBuilder &b, Location loc, ValueRange init, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, ArrayRef<int> reductionDims) {
+  return commonTileToPartialReduction(getOperation(), b, loc, init, offsets,
+                                      sizes, reductionDims);
+}
+
+Operation *
+mlir::linalg_ext::BatchMatmulOp::mergeReductions(OpBuilder &b, Location loc,
+                                                 ValueRange partialReduce,
+                                                 ArrayRef<int> reductionDims) {
+  return commonMergeReductions(getOperation(), b, loc, partialReduce,
+                               reductionDims);
 }
 
 //===----------------------------------------------------------------------===//

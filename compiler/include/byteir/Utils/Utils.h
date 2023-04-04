@@ -195,6 +195,26 @@ OpFoldResult canonicalizeOpFoldResult(OpFoldResult ofr,
 SmallVector<OpFoldResult> canonicalizeOpFoldResult(ArrayRef<OpFoldResult> ofrs,
                                                    bool enableFold = false);
 
+// Return ture if block contains single op
+template <typename Op> bool isBlockSingleOp(Block *block) {
+  if (block == nullptr)
+    return true;
+
+  Operation *retOp = block->getTerminator();
+  if (retOp->getNumOperands() != 1)
+    return false;
+
+  auto computeOp = retOp->getOperand(0).getDefiningOp();
+  if (isa_and_nonnull<Op>(computeOp)) {
+    return (computeOp->getOperand(0) == block->getArgument(0) &&
+            computeOp->getOperand(1) == block->getArgument(1)) ||
+           (computeOp->getOperand(0) == block->getArgument(1) &&
+            computeOp->getOperand(1) == block->getArgument(0));
+  }
+
+  return false;
+}
+
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_UTILS_H
