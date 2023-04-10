@@ -35,12 +35,12 @@ def TransformDialectInterpreter : Pass<"transform-dialect-interpreter", "ModuleO
 }
 
 //===----------------------------------------------------------------------===//
-// TransformInsertion
+// FuseExtTransformInsertion
 //===----------------------------------------------------------------------===//
 
-def TransformInsertion : Pass<"transform-insertion", "ModuleOp"> {
-  let summary = "Insert transform IR to device functions.";
-  let constructor = "mlir::createTransformInsertionPass()";
+def FuseExtTransformInsertion : Pass<"insert-fuse-ext-transform", "ModuleOp"> {
+  let summary = "Insert fuse-ext transform IR to device functions.";
+  let constructor = "mlir::createFuseExtTransformInsertionPass()";
   let options = [
     Option<"funcAnchorAttr", "func-anchor", "std::string",
             /*default=*/"",

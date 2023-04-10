@@ -1,5 +1,5 @@
 diff --git a/lib/Dialect/Torch/Transforms/RefineTypes.cpp b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
-index 8dd95436..2afd4689 100644
+index 92b91c1f..15527a64 100644
 --- a/lib/Dialect/Torch/Transforms/RefineTypes.cpp
 +++ b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
 @@ -69,6 +69,7 @@
@@ -10,17 +10,16 @@ index 8dd95436..2afd4689 100644
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
  using namespace mlir;
-@@ -658,7 +659,8 @@ void TypeAnalysis::visitOperation(Operation *op,
-           AtenMaskedFillTensorOp, AtenRollOp, AtenPowTensorTensorOp,
+@@ -659,7 +660,7 @@ void TypeAnalysis::visitOperation(Operation *op,
            AtenLiftFreshCopyOp, AtenIndexTensorHackedTwinOp,
            AtenUpsampleNearest2dOp, AtenMishOp, AtenRoundOp, AtenFillTensorOp,
--          AtenUpsampleNearest2dBackwardOp, AtenLeakyReluBackwardOp>(op)) {
-+          AtenUpsampleNearest2dBackwardOp, AtenLeakyReluBackwardOp,
-+          AtenOneHotOp>(op)) {
+           AtenUpsampleNearest2dBackwardOp, AtenLeakyReluBackwardOp,
+-          PrimsSqueezeOp>(op)) {
++          PrimsSqueezeOp, AtenOneHotOp>(op)) {
      return incorporateKnowledge(op->getResult(0), operands[0]->getValue());
    }
  
-@@ -844,8 +846,7 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -845,8 +846,7 @@ void TypeAnalysis::visitOperation(Operation *op,
    }
  
    // 3 results take dtype from first operand.
@@ -30,7 +29,7 @@ index 8dd95436..2afd4689 100644
      auto self = operands[0]->getValue();
      auto result0Knowledge =
          ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-@@ -862,6 +863,35 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -863,6 +863,35 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }
  
@@ -66,7 +65,7 @@ index 8dd95436..2afd4689 100644
    if (isa<AtenMaxPool2dWithIndicesOp>(op)) {
      auto self = operands[0]->getValue();
      auto result0Knowledge =
-@@ -1202,6 +1232,19 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -1203,6 +1232,19 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }
  

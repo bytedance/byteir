@@ -29,6 +29,7 @@
 namespace mlir {
 
 /// Generate the code for registering transforms passes.
+#define GEN_PASS_DECL_LINALGGENERALIZATIONEXT
 #define GEN_PASS_REGISTRATION
 #include "byteir/Dialect/Linalg/Passes.h.inc"
 

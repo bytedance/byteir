@@ -32,6 +32,7 @@
 #include "byteir/Pipelines/GPU/LinalgMemrefGPU.h"
 #include "byteir/Pipelines/GPU/NVVMCodegen.h"
 
+#include "byteir/Pipelines/Host/Codegen.h"
 #include "byteir/Pipelines/Host/HostOpt.h"
 #include "byteir/Pipelines/Host/ToLLVM.h"
 
@@ -59,6 +60,7 @@ inline void registerAllByteIRGPUPipelines() {
 inline void registerAllByteIRHostPipelines() {
   registerHostOptPipeline();
   registerToLLVMPipeline();
+  registerHostCodegenPipelines();
 }
 
 } // namespace mlir

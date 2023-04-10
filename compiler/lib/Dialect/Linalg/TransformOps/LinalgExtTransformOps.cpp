@@ -42,8 +42,12 @@
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/IR/TransformUtils.h"
 #include "mlir/IR/Dominance.h"
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/TilingInterface.h"
+#include "mlir/Transforms/InliningUtils.h"
+#include "mlir/Transforms/RegionUtils.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
@@ -303,6 +307,135 @@ LogicalResult transform::FuseExtOp::verify() {
                          << getTileInterchange();
   }
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// InlineOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+// just inline everything
+struct SimpleInliner : public InlinerInterface {
+  using InlinerInterface::InlinerInterface;
+
+  bool isLegalToInline(Operation *call, Operation *callable,
+                       bool wouldBeCloned) const override {
+    return true;
+  }
+  bool isLegalToInline(Region *dest, Region *src, bool wouldBeCloned,
+                       BlockAndValueMapping &valueMapping) const override {
+    return true;
+  }
+  bool isLegalToInline(Operation *op, Region *dest, bool wouldBeCloned,
+                       BlockAndValueMapping &valueMapping) const override {
+    return true;
+  }
+};
+} // namespace
+
+DiagnosedSilenceableFailure
+transform::InlineOp::apply(transform::TransformResults &results,
+                           transform::TransformState &state) {
+  SmallVector<Operation *> inlined;
+  SimpleInliner inliner(getContext());
+  for (Operation *target : state.getPayloadOps(getTarget())) {
+    auto callOp = dyn_cast_or_null<CallOpInterface>(target);
+    if (!callOp)
+      return emitDefaultDefiniteFailure(target)
+             << " inline transformation should be applied on CallOp";
+
+    auto funcOp = dyn_cast_or_null<func::FuncOp>(callOp.resolveCallable());
+    if (!funcOp || funcOp.isExternal())
+      return emitDefaultDefiniteFailure(target)
+             << " inline transformation should be applied on non-external "
+                "function";
+
+    if (failed(inlineCall(inliner, callOp, funcOp, funcOp.getCallableRegion(),
+                          true)))
+      return emitDefaultDefiniteFailure(target)
+             << " inline call failed at inline transformation";
+
+    callOp->erase();
+    if (funcOp.symbolKnownUseEmpty(state.getTopLevel()))
+      funcOp->erase();
+  }
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// OutlineOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+LogicalResult outlineSingleLinalgOp(RewriterBase &rewriter, Operation *linalgOp,
+                                    StringRef funcName, bool isLibcall,
+                                    func::FuncOp &funcOp,
+                                    func::CallOp &callOp) {
+  Operation *symbolTableOp = SymbolTable::getNearestSymbolTable(linalgOp);
+  SymbolTable symbolTable(symbolTableOp);
+  if (isLibcall) {
+    if ((funcOp = symbolTable.lookup<func::FuncOp>(funcName)) != nullptr) {
+      if (!funcOp.isExternal()) // must be external function for libcall
+        return failure();
+
+      rewriter.setInsertionPoint(linalgOp);
+      callOp = rewriter.replaceOpWithNewOp<func::CallOp>(
+          linalgOp, funcOp, linalgOp->getOperands());
+      return success();
+    }
+  }
+
+  Location loc = linalgOp->getLoc();
+  FunctionType funcType = rewriter.getFunctionType(linalgOp->getOperandTypes(),
+                                                   linalgOp->getResultTypes());
+  rewriter.setInsertionPoint(linalgOp->getParentOfType<func::FuncOp>());
+  funcOp = rewriter.create<func::FuncOp>(loc, funcName, funcType);
+  funcOp.setPrivate();
+  // insert to symbol table to avoid name collision
+  symbolTable.insert(funcOp);
+  if (!isLibcall) {
+    Block *entryBlock = funcOp.addEntryBlock();
+    rewriter.setInsertionPointToStart(entryBlock);
+    BlockAndValueMapping bvm;
+    bvm.map(linalgOp->getOperands(), entryBlock->getArguments());
+    auto newLinalgOp = rewriter.clone(*linalgOp, bvm);
+    rewriter.create<func::ReturnOp>(loc, newLinalgOp->getResults());
+  }
+  rewriter.setInsertionPoint(linalgOp);
+  callOp = rewriter.replaceOpWithNewOp<func::CallOp>(linalgOp, funcOp,
+                                                     linalgOp->getOperands());
+  return success();
+}
+
+bool anyUsedValuesDefinedAbove(MutableArrayRef<Region> regions) {
+  bool anyUsed = false;
+  visitUsedValuesDefinedAbove(regions, [&](OpOperand *) { anyUsed = true; });
+  return anyUsed;
+}
+} // namespace
+
+DiagnosedSilenceableFailure
+transform::LinalgOutlineOp::apply(transform::TransformResults &results,
+                                  transform::TransformState &state) {
+  llvm::SmallSetVector<Operation *, 4> funcs;
+  SmallVector<Operation *> calls;
+  for (Operation *target : state.getPayloadOps(getTarget())) {
+    if (anyUsedValuesDefinedAbove(target->getRegions()))
+      return emitDefaultDefiniteFailure(target);
+
+    TrivialPatternRewriter rewriter(target->getContext());
+    func::FuncOp funcOp;
+    func::CallOp callOp;
+    if (failed(outlineSingleLinalgOp(rewriter, target, getFuncName(),
+                                     getLibcall(), funcOp, callOp)))
+      return emitDefaultDefiniteFailure(target);
+
+    funcs.insert(funcOp);
+    calls.push_back(callOp);
+  }
+  results.set(getFunctions().cast<OpResult>(), funcs.getArrayRef());
+  results.set(getCalls().cast<OpResult>(), calls);
+  return DiagnosedSilenceableFailure::success();
 }
 
 //===----------------------------------------------------------------------===//

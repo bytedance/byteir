@@ -17,6 +17,7 @@ set(BYTEIR_LIBS
   ByteIRSCFPasses
   ByteIRTransformPasses
   ByteIRTransforms
+  ByteIRVectorPasses
   ${byteir_conversion_libs}
   MLIRLinalgTransformOps
 )

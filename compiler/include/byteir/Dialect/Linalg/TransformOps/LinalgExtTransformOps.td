@@ -65,6 +65,56 @@ def FuseExtOp : Op<Transform_Dialect, "structured.fuse_ext",
   let hasVerifier = 1;
 }
 
+def InlineOp : Op<Transform_Dialect, "structured.inline",
+    [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    inline function call
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+
+  let assemblyFormat = "$target attr-dict";
+}
+
+
+def LinalgOutlineOp : Op<Transform_Dialect, "structured.outline",
+    [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Outline the linalg operation to a named function, where `libcall` for
+    the external library call.
+
+    If `libcall` was set to False, every outlined function would have a
+    unique name , in this situation `func_name` just gives a naming hint.
+    Otherwise, all transformed function calls refer to the same external
+    function named `func_name`.
+  }];
+
+  let arguments =
+    (ins PDL_Operation:$target, StrAttr:$func_name,
+         UnitAttr:$libcall);
+  let results = (outs PDL_Operation:$functions,
+                      PDL_Operation:$calls);
+
+  let builders = [
+    OpBuilder<(ins "Value":$target, "StringRef":$func_name, "bool":$libcall), [{
+      $_state.addAttribute(LinalgOutlineOp::getFuncNameAttrName($_state.name),
+                           $_builder.getStringAttr(func_name));
+      if (libcall) {
+        $_state.addAttribute(LinalgOutlineOp::getLibcallAttrName($_state.name),
+                             $_builder.getUnitAttr());
+      }
+      Type pdlType = pdl::OperationType::get($_builder.getContext());
+      $_state.addTypes({pdlType, pdlType});
+      $_state.addOperands(target);
+    }]>
+  ];
+
+  let assemblyFormat =
+    "$target attr-dict `:` functional-type(operands, results)";
+}
+
 def TileLoopHintOp : Op<Transform_Dialect, "structured.tile_loop_hint",
        [DeclareOpInterfaceMethods<TransformOpInterface>,
         DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {

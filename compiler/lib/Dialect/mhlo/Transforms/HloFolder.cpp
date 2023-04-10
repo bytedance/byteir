@@ -36,8 +36,6 @@ using namespace llvm;
 using namespace ::byteir;
 using namespace mlir::mhlo;
 
-#define K_INITIAL -999
-
 namespace {
 
 //===----------------------------------------------------------------------===//
@@ -209,57 +207,22 @@ struct PadConvToConvPattern : public OpRewritePattern<mhlo::ConvolutionOp> {
 
 // Return the expanded constOp if applicable, return std::nullopt if not.
 // Applicable if all following constraint satisfied:
-// 1. the op's input has static shape
-// 2. op's input rank equals 1, or it is equal to output rank
-// 3. there's at most one dim in input shape whose size is not equal to 1, and
-//     it should be euqal to featureDim
-// 4. the input's DefiningOp is of type mhlo::ConstantOp
-// 5. the const op's attr is of type DenseElementsAttr
+// 1. the broadcastDimensions's size should be 1 and equal to featureDim
+// 2. the input's DefiningOp is of type mhlo::ConstantOp
+// 3. the const op's attr is of type DenseElementsAttr
 std::optional<ConstantOp> getBroadcastedConstOp(BroadcastInDimOp op,
                                                 int64_t featureDim) {
-  Value broadInDimInput = op.getOperand();
-  ShapedType broadInDimInpShape = broadInDimInput.getType().cast<ShapedType>();
-  Value broadInDimOutput = op->getResult(0);
-  ShapedType broadInDimOupShape = broadInDimOutput.getType().cast<ShapedType>();
-
-  // Only need to check the input shape of broadcast_in_dim
-  if (!broadInDimInpShape.hasStaticShape())
-    return std::nullopt;
-
-  // op's input rank equals 1, or it is equal to output rank
-  if (broadInDimInpShape.getRank() == 1) {
-    SmallVector<int64_t> broadcastDims;
-    int64_t bdim = (*op.getBroadcastDimensions().begin()).getSExtValue();
-    if (featureDim != bdim)
-      return std::nullopt;
-  } else if (broadInDimInpShape.getRank() == broadInDimOupShape.getRank()) {
-    int64_t nonOneDim = K_INITIAL;
-    for (int64_t i = 0; i < broadInDimInpShape.getRank(); ++i) {
-      int64_t dimSize = broadInDimInpShape.getDimSize(i);
-      if (dimSize != 1) {
-        if (nonOneDim >= 0)
-          return std::nullopt;
-        else {
-          nonOneDim = i;
-        }
-      }
-    }
-
-    // There's at most one dim whose size is not equal to 1, and it should be
-    // euqal to featureDim.
-    if (nonOneDim != K_INITIAL && nonOneDim != featureDim)
-      return std::nullopt;
-  } else {
+  if (!op) {
     return std::nullopt;
   }
-
-  auto constOp = dyn_cast_or_null<ConstantOp>(broadInDimInput.getDefiningOp());
-  if (!constOp)
+  if (op.getBroadcastDimensions().size() != 1 ||
+      (*op.getBroadcastDimensions().begin()).getSExtValue() != featureDim) {
     return std::nullopt;
-
-  if (!constOp.getValue().dyn_cast_or_null<DenseElementsAttr>())
+  }
+  auto constOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+  if (!constOp || !constOp.getValue().isa<DenseElementsAttr>()) {
     return std::nullopt;
-
+  }
   return constOp;
 }
 
@@ -300,11 +263,9 @@ struct ConvOrConvBiasFollowedByBroadcastOp
       unsigned convOperandNumber =
           convOp->getResult(0).use_begin()->getOperandNumber();
       assert(convOperandNumber < 2);
+
       auto broadInDimOp = biasAddOp->getOperand(1 - convOperandNumber)
                               .getDefiningOp<mhlo::BroadcastInDimOp>();
-      if (!broadInDimOp)
-        return failure();
-
       auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
       if (!maybeConstOp.has_value())
         return failure();
@@ -319,9 +280,6 @@ struct ConvOrConvBiasFollowedByBroadcastOp
     if (auto scaleOp = dyn_cast_or_null<MulOp>(convOrBiasUser)) {
       auto broadInDimOp = scaleOp->getOperand(1 - convOrBiasOperandNumber)
                               .getDefiningOp<mhlo::BroadcastInDimOp>();
-      if (!broadInDimOp)
-        return failure();
-
       auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
       if (!maybeConstOp.has_value())
         return failure();
@@ -336,13 +294,8 @@ struct ConvOrConvBiasFollowedByBroadcastOp
       auto convWeightType = convOp.getRhs().getType().cast<ShapedType>();
       auto weightFeatureDim =
           convOp.getDimensionNumbers().getKernelOutputFeatureDimension();
-      ReshapeOp newReshapeOp = builder.create<mhlo::ReshapeOp>(
-          constOp->getLoc(),
-          RankedTensorType::get({convWeightType.getDimSize(weightFeatureDim)},
-                                convWeightType.getElementType()),
-          constOp.getOutput());
       BroadcastInDimOp newBroadInDimOp = builder.create<mhlo::BroadcastInDimOp>(
-          constOp->getLoc(), convWeightType, newReshapeOp->getResult(0),
+          constOp->getLoc(), convWeightType, constOp.getOutput(),
           rewriter.getI64TensorAttr({weightFeatureDim}));
       MulOp newMulOp = builder.create<MulOp>(constOp->getLoc(), convWeight,
                                              newBroadInDimOp->getResult(0));
@@ -366,9 +319,6 @@ struct ConvOrConvBiasFollowedByBroadcastOp
     } else if (auto offsetOp = dyn_cast_or_null<AddOp>(convOrBiasUser)) {
       auto broadInDimOp = offsetOp->getOperand(1 - convOrBiasOperandNumber)
                               .getDefiningOp<mhlo::BroadcastInDimOp>();
-      if (!broadInDimOp)
-        return failure();
-
       auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
       if (!maybeConstOp.has_value())
         return failure();
@@ -397,9 +347,6 @@ struct ConvOrConvBiasFollowedByBroadcastOp
       // b_const should be rhs
       auto broadInDimOp =
           subOp.getRhs().getDefiningOp<mhlo::BroadcastInDimOp>();
-      if (!broadInDimOp)
-        return failure();
-
       auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
       if (!maybeConstOp.has_value())
         return failure();
@@ -425,9 +372,6 @@ struct ConvOrConvBiasFollowedByBroadcastOp
       // b_const should be rhs
       auto broadInDimOp =
           divOp.getRhs().getDefiningOp<mhlo::BroadcastInDimOp>();
-      if (!broadInDimOp)
-        return failure();
-
       auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
       if (!maybeConstOp.has_value())
         return failure();

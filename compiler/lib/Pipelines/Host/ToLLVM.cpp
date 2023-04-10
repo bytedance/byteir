@@ -18,7 +18,9 @@
 #include "byteir/Pipelines/Host/ToLLVM.h"
 
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
+#include "byteir/Dialect/Vector/Transforms/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Transforms/CanonicalizeExt.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
@@ -26,6 +28,8 @@
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -76,12 +80,30 @@ void mlir::createToLLVMPipeline(OpPassManager &pm) {
   invokeOpPassPipelineBuilder(
       [](OpPassManager &pm) {
         pm.addPass(std::make_unique<CollectLLVMSubmodulePass>());
-
+        {
+          // vector lowerings
+          VectorTransposeLoweringPassOptions transposeLoweringOptions;
+          transposeLoweringOptions.enableAVX2 = true;
+          pm.addNestedPass<func::FuncOp>(
+              createVectorTransposeLoweringPass(transposeLoweringOptions));
+          // vector to scf
+          VectorTransferToSCFOptions transferToSCFOptions;
+          transferToSCFOptions.enableFullUnroll();
+          transferToSCFOptions.setTargetRank(1);
+          pm.addNestedPass<func::FuncOp>(
+              createConvertVectorToSCFPass(transferToSCFOptions));
+          pm.addPass(createCanonicalizeExtPass());
+        }
         pm.addNestedPass<func::FuncOp>(createConvertSCFToCFPass());
         pm.addPass(createCanonicalizerPass());
         pm.addPass(arith::createArithExpandOpsPass());
         pm.addPass(memref::createExpandStridedMetadataPass());
         pm.addPass(createLowerAffinePass());
+        {
+          LowerVectorToLLVMOptions options;
+          options.enableX86Vector();
+          pm.addPass(createConvertVectorToLLVMPass(options));
+        }
         pm.addPass(createMemRefToLLVMConversionPass());
         pm.addPass(createConvertMathToLLVMPass());
         pm.addPass(createConvertMathToLibmPass());

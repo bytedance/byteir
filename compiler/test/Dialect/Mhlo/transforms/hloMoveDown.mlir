@@ -139,9 +139,9 @@ func.func @reshape_move_down_convert(%arg0: tensor<1x32xi32>) -> tensor<1x32x32x
 // CHECK-LABEL: func.func @reshape_move_down_convert
 // CHECK-SAME: %[[ARG:[a-zA-Z0-9]+]]
 // CHECK-NEXT: %[[V0:.*]] = mhlo.convert %[[ARG]] : (tensor<1x32xi32>) -> tensor<1x32xf32>
-// CHECK-NEXT: %[[V1:.*]] = mhlo.reshape %[[V0]] : (tensor<1x32xf32>) -> tensor<1x1x32xf32>
-// CHECK-NEXT: %[[V2:.*]] = "mhlo.broadcast_in_dim"(%[[V1]])
-// CHECK-SAME: (tensor<1x1x32xf32>) -> tensor<1x32x32xf32>
+// CHECK-NEXT: %[[V1:.*]] = "mhlo.broadcast_in_dim"(%[[V0]])
+// CHECK-SAME: broadcast_dimensions = dense<[0, 2]> : tensor<2xi64>
+// CHECK-SAME: (tensor<1x32xf32>) -> tensor<1x32x32xf32>
 // CHECK-NEXT: return
 
 func.func @reshape_binary_same(%arg0 : tensor<31x20x32xf32>) -> tensor<31x640xf32> {

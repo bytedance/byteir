@@ -121,9 +121,10 @@ struct CustomizedTfToMhloPipelinePass
     // inside PromoteResourcesToArgs.
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::CreateExecutorDialectToFunctionalConversionPass());
-    if (staticalizeDynamicShape)
+    if (staticalizeDynamicShape) {
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::tfext::createProcessDynamicStitchAsStaticPass());
+    }
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createReshapeMovedownStringPass());
 

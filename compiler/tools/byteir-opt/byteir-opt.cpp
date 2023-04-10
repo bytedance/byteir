@@ -29,6 +29,7 @@
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Passes.h"
+#include "byteir/Dialect/Vector/Transforms/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
 #include "byteir/Transforms/Passes.h"
@@ -120,6 +121,7 @@ int main(int argc, char **argv) {
   registerByteIRSCFPasses();
   registerByteIRShapePasses();
   registerByteIRTransformPasses();
+  registerByteIRVectorPasses();
 
   registerAllByteIRCommonPipelines();
   registerAllByteIRGPUPipelines();

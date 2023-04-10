@@ -20,6 +20,7 @@
 #include "byteir/Utils/Hoist.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/MemRef/Transforms/ComposeSubView.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
@@ -175,6 +176,10 @@ public:
     memref::AllocOp::getCanonicalizationPatterns(patterns, &ctx);
     memref::CopyOp::getCanonicalizationPatterns(patterns, &ctx);
     memref::SubViewOp::getCanonicalizationPatterns(patterns, &ctx);
+
+    // To eliminate subview of subview where the second subview might have
+    // incorrect strides.
+    memref::populateComposeSubViewPatterns(patterns, &ctx);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
