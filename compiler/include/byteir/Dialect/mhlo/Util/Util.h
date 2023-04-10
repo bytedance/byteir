@@ -32,6 +32,7 @@ class NamedAttrList;
 class Operation;
 class OpBuilder;
 class Value;
+class ShapedType;
 
 namespace byteir {
 
@@ -107,6 +108,18 @@ std::optional<Attribute>
 createBroadcastedDenseElementsAttr(DenseElementsAttr originAttr,
                                    ShapedType newType,
                                    ArrayRef<int64_t> broadcastDims);
+
+// compute mhlo.reshape input's rank index in output
+// if there is no valid full input rank mapping, return nullopt
+// ex1: reshape(<16x32xf32>) : <1x16x32xf32>, return [1, 2]
+// ex2: reshape(<1x32xf32>) : <1x1x32xf32>, return [0, 2]
+// ex3: reshape(<1x1x32xf32>) : <1x1x1x32xf32>, return [0, 1, 3]
+// ex4: reshape(<16x32xf32>) : <32x16xf32>, return nullopt
+// ex5: reshape(<1x32xf32>) : <32x1xf32>, return nullopt
+// ex6: reshape(<1x16x32xf32>) : <16x32xf32> return nullopt
+std::optional<SmallVector<int64_t>>
+computeReshapeInputOutputRankMapIndex(ShapedType inputType,
+                                      ShapedType outputType);
 
 } // namespace mlir
 

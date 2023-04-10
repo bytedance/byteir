@@ -25,6 +25,7 @@
 #include "brt/core/ir/ir.h"
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <string>

@@ -36,6 +36,10 @@ using namespace std;
 static std::string test_file_add = "test/test_files/LLJIT/add.ll";
 static std::string test_file_typecvt = "test/test_files/LLJIT/typecvt.ll";
 static std::string test_file_tanh = "test/test_files/LLJIT/tanh.ll";
+static std::string test_file_transpose_32_64_64 =
+    "test/test_files/LLJIT/transpose_32_64_64.ll";
+static std::string test_file_transpose_3_224_224 =
+    "test/test_files/LLJIT/transpose_3_224_224.ll";
 
 namespace {
 extern "C" {
@@ -155,6 +159,77 @@ TEST(LLVMJITTest, Tanh) {
                                                       output.GetMemrefPtr());
     for (int i = 0; i < length; ++i) {
       ASSERT_NEAR(::tanh(input_buf[i]), output_buf[i], 1e-3);
+    }
+  }
+}
+
+TEST(LLVMJITTest, TransposeCHWToHWC) {
+  auto transpose2DNaive = [](const void *__restrict src_, void *__restrict dst_,
+                             const size_t N, const size_t M) {
+    const float *src = reinterpret_cast<const float *>(src_);
+    float *dst = reinterpret_cast<float *>(dst_);
+    for (size_t i = 0; i < N; ++i) {
+      for (size_t j = 0; j < M; ++j) {
+        dst[j * N + i] = src[i * M + j];
+      }
+    }
+  };
+
+  for (auto &&[test_file, C, H, W] :
+       {std::make_tuple(test_file_transpose_32_64_64, 32, 64, 64),
+        {test_file_transpose_3_224_224, 3, 224, 224}}) {
+    int64_t length = C * H * W;
+    std::vector<float> input_buf(length);
+    RandCPUBuffer(input_buf.data(), length);
+
+    {
+      std::vector<float> output_buf(length);
+      MLIREngineMemRefDescriptor input(input_buf.data(), {1, C, H, W});
+      MLIREngineMemRefDescriptor output(output_buf.data(), {1, H, W, C});
+
+      auto start_time = std::chrono::high_resolution_clock::now();
+      for (size_t i = 0; i < 10000; ++i) {
+        transpose2DNaive(input_buf.data(), output_buf.data(), C, H * W);
+      }
+      auto end_time = std::chrono::high_resolution_clock::now();
+
+      std::cout << test_file << " Naive duration :"
+                << std::chrono::duration_cast<std::chrono::microseconds>(
+                       end_time - start_time)
+                       .count()
+                << std::endl;
+    }
+    {
+      auto llvmjit = LLVMJIT::Create();
+      ASSERT_TRUE(llvmjit->LoadFromFile(test_file).IsOK());
+      void *fn;
+      ASSERT_TRUE(llvmjit->Lookup("_mlir_ciface_Unknown0", &fn).IsOK());
+
+      std::vector<float> output_buf(length);
+      MLIREngineMemRefDescriptor input(input_buf.data(), {1, C, H, W});
+      MLIREngineMemRefDescriptor output(output_buf.data(), {1, H, W, C});
+
+      auto start_time = std::chrono::high_resolution_clock::now();
+      for (size_t i = 0; i < 10000; ++i) {
+        (*reinterpret_cast<void (*)(void *, void *)>(fn))(
+            input.GetMemrefPtr(), output.GetMemrefPtr());
+      }
+      auto end_time = std::chrono::high_resolution_clock::now();
+
+      std::cout << test_file << " Jit duration :"
+                << std::chrono::duration_cast<std::chrono::microseconds>(
+                       end_time - start_time)
+                       .count()
+                << std::endl;
+      for (int64_t i = 0; i < C; ++i) {
+        for (int64_t j = 0; j < H; ++j) {
+          for (int64_t k = 0; k < W; ++k) {
+            // output_buf[j, k, i] = input[i, j, k]
+            ASSERT_NEAR(input_buf[i * H * W + j * W + k],
+                        output_buf[j * W * C + k * C + i], 1e-6);
+          }
+        }
+      }
     }
   }
 }

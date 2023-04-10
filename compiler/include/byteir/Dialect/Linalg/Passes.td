@@ -166,4 +166,15 @@ def LinalgCollapseLoops : Pass<"linalg-collapse-loops", "func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// LinalgGeneralizationExt
+//===----------------------------------------------------------------------===//
+
+def LinalgGeneralizationExt : Pass<"linalg-generalization-ext", "func::FuncOp"> {
+  let summary = "Generalize linalg ops into linalg.generic";
+  let dependentDialects = [
+    "linalg::LinalgDialect"
+  ];
+}
+
 #endif // BYTEIR_DIALECT_LINALG_PASSES

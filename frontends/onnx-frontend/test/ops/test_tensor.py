@@ -126,6 +126,12 @@ class TestOpsTensor(TestBase):
         input_shape_dtype = [input_shape_dtype[0]]
         self.run(model_filename="pad.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
 
+    def test_resize_nearest_v10(self):
+        input_shape_dtype = [
+            ["725", (1, 384, 20, 20), "float32"],
+        ]
+        self.run(model_filename="resize_nearest_v10.onnx", input_shape_dtype=input_shape_dtype)
+
     def test_resize_nearest(self):
         input_shape_dtype = [
             ["X", (1, 3, 5, 5), "float32"],

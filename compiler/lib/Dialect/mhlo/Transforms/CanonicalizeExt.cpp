@@ -44,8 +44,9 @@
 using namespace llvm;
 using namespace mlir;
 
-LogicalResult mlir::mhlo::foldBroadcastInDim(mhlo::BroadcastInDimOp op,
-                                             PatternRewriter &rewriter) {
+LogicalResult
+mlir::mhlo::foldBroadcastInDimConstWithBinary(mhlo::BroadcastInDimOp op,
+                                              PatternRewriter &rewriter) {
   if (!op->getResult(0).hasOneUse())
     return failure();
 
@@ -62,7 +63,7 @@ LogicalResult mlir::mhlo::foldBroadcastInDim(mhlo::BroadcastInDimOp op,
   for (unsigned i = 0; i < broadUser->getNumOperands(); ++i) {
     if (i == broadOperandNumber)
       continue;
-    Operation *otherOp = broadUser->getOperand(i).getDefiningOp();
+    Operation *constOp1 = broadUser->getOperand(i).getDefiningOp();
     /// const_0
     ///   \
     ///   broadcast_in_dim  const_1
@@ -70,8 +71,8 @@ LogicalResult mlir::mhlo::foldBroadcastInDim(mhlo::BroadcastInDimOp op,
     ///            mul          other ops
     ///
     /// Don't fold broadcast_in_dim if const_1 has other users
-    if (!otherOp || !isa<mhlo::ConstantOp>(otherOp) ||
-        !otherOp->getResult(0).hasOneUse())
+    if (!constOp1 || !isa<mhlo::ConstantOp>(constOp1) ||
+        !constOp1->getResult(0).hasOneUse())
       return failure();
   }
 
@@ -95,6 +96,41 @@ LogicalResult mlir::mhlo::foldBroadcastInDim(mhlo::BroadcastInDimOp op,
     return failure();
 
   rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, *newAttr);
+  return success();
+}
+
+// broadcast_in_dim(reshape(x)) => broadcast_in_dim(x)
+// note: the broadcast_dimensions's size should be reduced.
+LogicalResult mlir::mhlo::foldBroadcastInDimReshape(mhlo::BroadcastInDimOp op,
+                                                    PatternRewriter &rewriter) {
+  if (!op.getOperand().getDefiningOp<mhlo::ReshapeOp>()) {
+    return failure();
+  }
+  auto reshapeOp = op.getOperand().getDefiningOp<mhlo::ReshapeOp>();
+  auto reshapeOperandType = reshapeOp.getOperand().getType().cast<ShapedType>();
+  if (!reshapeOperandType.hasStaticShape()) {
+    return failure();
+  }
+  auto reshapeResultType = reshapeOp.getResult().getType().cast<ShapedType>();
+  // the broadcast_dimensions's size should be reduced.
+  if (reshapeOperandType.getRank() >= reshapeResultType.getRank()) {
+    return failure();
+  }
+  auto maybeIndex = computeReshapeInputOutputRankMapIndex(reshapeOperandType,
+                                                          reshapeResultType);
+  if (!maybeIndex.has_value()) {
+    return failure();
+  }
+
+  auto index = *maybeIndex;
+  SmallVector<int64_t> newBroadcastDimensions;
+  for (auto i : index) {
+    newBroadcastDimensions.push_back(
+        (*(op.getBroadcastDimensions().begin() + i)).getSExtValue());
+  }
+  op->setOperand(0, reshapeOp.getOperand());
+  op.setBroadcastDimensionsAttr(
+      rewriter.getI64TensorAttr(newBroadcastDimensions));
   return success();
 }
 
@@ -967,9 +1003,6 @@ mlir::mhlo::canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
   if (!constOp) {
     return failure();
   }
-  if (!op.getOperand().hasOneUse()) {
-    return failure();
-  }
   DenseElementsAttr valueAttr = constOp.getValue().cast<DenseElementsAttr>();
   ShapedType valueType = valueAttr.getType();
   if (llvm::none_of(valueType.getShape(),
@@ -987,8 +1020,9 @@ mlir::mhlo::canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
   auto newValueType =
       RankedTensorType::get(newValueShape, valueType.getElementType());
   valueAttr = reshape(valueAttr, newValueType);
-  constOp.setValueAttr(valueAttr);
-  constOp.getOutput().setType(newValueType);
+  mhlo::ConstantOp newConstOp =
+      rewriter.create<mhlo::ConstantOp>(constOp->getLoc(), valueAttr);
+  op.setOperand(newConstOp.getOutput());
   op.setBroadcastDimensionsAttr(rewriter.getI64TensorAttr(newBroadcastDims));
   return success();
 }
@@ -1010,7 +1044,8 @@ LogicalResult mlir::mhlo::simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
                                                  bool blindFold) {
-  patterns.add(mlir::mhlo::foldBroadcastInDim);
+  patterns.add(mlir::mhlo::foldBroadcastInDimConstWithBinary);
+  patterns.add(mlir::mhlo::foldBroadcastInDimReshape);
   patterns.add(mlir::mhlo::foldConcatWithContinuousSlices);
   patterns.add(mlir::mhlo::simplifyDynamicConvToConv);
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::AddOp, std::plus>);

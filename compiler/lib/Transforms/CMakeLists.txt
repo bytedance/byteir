@@ -31,6 +31,7 @@ add_mlir_library(ByteIRTransforms
   LINK_LIBS PUBLIC
   ByteIRAnalysis
   ByteIRMhloPasses
+  ByteIRVectorPasses
   ByteIRUtils
   MLIRIR
   MLIRAffineDialect

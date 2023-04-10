@@ -17,6 +17,7 @@
 
 #include "byteir/Transforms/CanonicalizeExt.h"
 
+#include "byteir/Dialect/Vector/Transforms/CanonicalizeExt.h"
 #include "byteir/Dialect/mhlo/Transforms/CanonicalizeExt.h"
 #include "byteir/Transforms/CondCanonicalize.h"
 #include "byteir/Utils/Utils.h"
@@ -216,6 +217,7 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     shape::populateCanonicalizeExtPatterns(owningPatterns);
     // put tensor fold empty too
     tensor::populateFoldTensorEmptyPatterns(owningPatterns);
+    vector::populateCanonicalizeExtPatterns(owningPatterns);
 
     // tentatively put fold multiply zero
     populateFoldMultiplyZeroPatterns(owningPatterns);

@@ -1,4 +1,4 @@
-// RUN: tf-ext-opt %s -process-dynamic-stitch-as-static -canonicalize -tf-shape-inference | FileCheck %s
+// RUN: tf-ext-opt %s -process-dynamic-stitch-as-static -canonicalize -cse -tf-shape-inference | FileCheck %s
 
 func.func @main(%arg0: tensor<4x5xf32>, %arg1: tensor<4x5xf32>, %arg2: tensor<4x10xi1>, %arg3: tensor<4xi32>) -> tensor<?x10xf32> attributes {tf.entry_func.function = {control_outputs = "", inputs = "queries,keys,mask,par", outputs = "Output"}} {
   %cst = "tf.Const"() {value = dense<[4, 5]> : tensor<2xi32>} : () -> tensor<2xi32>
@@ -42,11 +42,9 @@ func.func @main(%arg0: tensor<4x5xf32>, %arg1: tensor<4x5xf32>, %arg2: tensor<4x
 // CHECK-DAG:    %[[CST2:.+]] = "tf.Const"() {value = dense<-1> : tensor<i32>} : () -> tensor<i32>
 // CHECK-NEXT:    %0 = "tf.Equal"(%arg3, %[[CST0]]) {incompatible_shape_error = true} : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi1>
 // CHECK-NEXT:    %1 = "tf.Select"(%0, %arg1, %[[CST]]) : (tensor<4xi1>, tensor<4x5xf32>, tensor<4x5xf32>) -> tensor<4x5xf32>
-// CHECK-NEXT:    %2 = "tf.Equal"(%arg3, %[[CST0]]) {incompatible_shape_error = true} : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi1>
-// CHECK-NEXT:    %3 = "tf.Select"(%2, %arg2, %[[CST1]]) : (tensor<4xi1>, tensor<4x10xi1>, tensor<4x10xi1>) -> tensor<4x10xi1>
-// CHECK-NEXT:    %4 = "tf.Equal"(%arg3, %[[CST0]]) {incompatible_shape_error = true} : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi1>
-// CHECK-NEXT:    %5 = "tf.Select"(%4, %arg0, %[[CST]]) : (tensor<4xi1>, tensor<4x5xf32>, tensor<4x5xf32>) -> tensor<4x5xf32>
-// CHECK-NEXT:    %6 = "tf.ConcatV2"(%5, %1, %[[CST2]]) {device = ""} : (tensor<4x5xf32>, tensor<4x5xf32>, tensor<i32>) -> tensor<?x10xf32>
-// CHECK-NEXT:    %7 = "tf.ZerosLike"(%6) {device = ""} : (tensor<?x10xf32>) -> tensor<?x10xf32>
-// CHECK-NEXT:    %8 = "tf.SelectV2"(%3, %6, %7) {device = ""} : (tensor<4x10xi1>, tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
-// CHECK-NEXT:    return %8 : tensor<?x10xf32>
+// CHECK-NEXT:    %2 = "tf.Select"(%0, %arg2, %[[CST1]]) : (tensor<4xi1>, tensor<4x10xi1>, tensor<4x10xi1>) -> tensor<4x10xi1>
+// CHECK-NEXT:    %3 = "tf.Select"(%0, %arg0, %[[CST]]) : (tensor<4xi1>, tensor<4x5xf32>, tensor<4x5xf32>) -> tensor<4x5xf32>
+// CHECK-NEXT:    %4 = "tf.ConcatV2"(%3, %1, %[[CST2]]) {device = ""} : (tensor<4x5xf32>, tensor<4x5xf32>, tensor<i32>) -> tensor<?x10xf32>
+// CHECK-NEXT:    %5 = "tf.ZerosLike"(%4) {device = ""} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK-NEXT:    %6 = "tf.SelectV2"(%2, %4, %5) {device = ""} : (tensor<4x10xi1>, tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK-NEXT:    return %6 : tensor<?x10xf32>

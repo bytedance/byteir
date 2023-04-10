@@ -494,6 +494,7 @@ std::unique_ptr<LLVMJIT> LLVMJIT::Create() {
   static auto initLLVM = [] {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
     return true;
   }();
   static_cast<void>(initLLVM);

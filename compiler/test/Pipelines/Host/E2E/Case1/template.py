@@ -42,7 +42,6 @@ module {
         HostOptPipeline(r"""
 // CHECK-LABEL: memref.global "private"
 // CHECK-LABEL: memref.global "private"
-// CHECK-LABEL: memref.global "private"
 // CHECK-LABEL: func.func @Unknown6(
 //   CHECK-SAME: %[[ARG0:.*]]: memref<1x100x27x48x3xf32>, %[[ARG1:.*]]: memref<51200xi32>)
 // CHECK: %[[ALLOC:.*]] = memref.alloc() :  memref<1x100x27x48x3xi32>

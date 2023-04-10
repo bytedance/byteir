@@ -153,6 +153,138 @@ struct ConvertAten_IndexPutImplOp
     return success();
   }
 };
+
+// AtenMaxPool2dWithIndicesBackwardOp
+struct ConvertAtenMaxPool2dWithIndicesBackwardOp
+    : public OpConversionPattern<AtenMaxPool2dWithIndicesBackwardOp> {
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenMaxPool2dWithIndicesBackwardOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getSelf();
+    auto inputTy = input.getType().cast<RankedTensorType>();
+    auto inputElemTy = inputTy.getElementType();
+    auto inputRank = inputTy.getRank();
+    Value gradOutput = adaptor.getGradOutput();
+
+    auto outValTy =
+        getTypeConverter()->convertType(op.getType()).cast<RankedTensorType>();
+
+    SmallVector<int64_t, 2> padding, kernelSize, stride, dilation;
+
+    if (!(matchPattern(op.getKernelSize(),
+                       m_TorchListOfConstantInts(kernelSize)))) {
+      return rewriter.notifyMatchFailure(
+          op, "non-const int kernel size unsupported!");
+    }
+    if (!(matchPattern(op.getStride(), m_TorchListOfConstantInts(stride)))) {
+      return rewriter.notifyMatchFailure(op,
+                                         "non-const int stride unsupported!");
+    }
+    if (!(matchPattern(op.getPadding(), m_TorchListOfConstantInts(padding)))) {
+      return rewriter.notifyMatchFailure(op,
+                                         "non-const int padding unsupported!");
+    }
+    if (!(matchPattern(op.getDilation(),
+                       m_TorchListOfConstantInts(dilation)))) {
+      return rewriter.notifyMatchFailure(op,
+                                         "non-const int dilation unsupported!");
+    }
+
+    for (int64_t d : dilation) {
+      if (d != 1) {
+        op->emitError(
+            "Unsupported dilation != 1 for AtenMaxPool2dWithIndicesBackwardOp");
+        return failure();
+      }
+    }
+
+    SmallVector<int64_t> stablehloStride(inputRank, 1);
+    SmallVector<int64_t> stablehloKernelSize(inputRank, 1);
+    SmallVector<int64_t> stablehloPadding(inputRank * 2, 0);
+    std::copy(stride.begin(), stride.end(),
+              stablehloStride.begin() + inputRank - 2);
+    std::copy(kernelSize.begin(), kernelSize.end(),
+              stablehloKernelSize.begin() + inputRank - 2);
+
+    stablehloPadding[stablehloPadding.size() - 4] = padding[0];
+    stablehloPadding[stablehloPadding.size() - 3] = padding[0];
+    stablehloPadding[stablehloPadding.size() - 2] = padding[1];
+    stablehloPadding[stablehloPadding.size() - 1] = padding[1];
+
+    DenseIntElementsAttr windowDimensions = DenseIntElementsAttr::get(
+        RankedTensorType::get(
+            {static_cast<int64_t>(stablehloKernelSize.size())},
+            rewriter.getI64Type()),
+        stablehloKernelSize);
+    DenseIntElementsAttr windowStrides = DenseIntElementsAttr::get(
+        RankedTensorType::get({static_cast<int64_t>(stablehloStride.size())},
+                              rewriter.getI64Type()),
+        stablehloStride);
+    DenseIntElementsAttr pad = DenseIntElementsAttr::get(
+        RankedTensorType::get(
+            {static_cast<int64_t>(inputRank), static_cast<int64_t>(2)},
+            rewriter.getI64Type()),
+        stablehloPadding);
+
+    // Constant zero
+    auto constType = RankedTensorType::get({}, inputElemTy);
+    Value initVal;
+    if (inputElemTy.isa<mlir::FloatType>()) {
+      auto constAttr = DenseElementsAttr::get(
+          constType,
+          {APFloat::getZero(
+              inputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
+              /*negative=*/false)});
+      initVal = rewriter.create<stablehlo::ConstantOp>(op->getLoc(), constType,
+                                                       constAttr);
+    } else if (inputElemTy.isa<mlir::IntegerType>() &&
+               inputElemTy.getIntOrFloatBitWidth() != 8) {
+      auto constAttr = DenseElementsAttr::get(
+          constType, {APInt::getZero(inputElemTy.getIntOrFloatBitWidth())});
+      initVal = rewriter.create<stablehlo::ConstantOp>(op->getLoc(), constType,
+                                                       constAttr);
+    } else {
+      op->emitError("Unimplemented elem type lowering for "
+                    "AtenMaxPool2dWithIndicesBackwardOp");
+      return failure();
+    }
+    // SliceAndScatterOp
+    auto loc = op.getLoc();
+    auto result = rewriter.create<stablehlo::SelectAndScatterOp>(
+        loc, outValTy, input, gradOutput, initVal, windowDimensions,
+        windowStrides, pad);
+
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      Region *body = &result.getScatter();
+      Block *block = rewriter.createBlock(body);
+      // Block arguments are scalars of the given element type.
+      auto type = RankedTensorType::get(/*shape=*/{}, inputElemTy);
+      Location loc = body->getLoc();
+      block->addArguments({type, type}, SmallVector<Location, 2>(2, loc));
+      auto addOp = rewriter.create<stablehlo::AddOp>(loc, block->getArgument(0),
+                                                     block->getArgument(1));
+      rewriter.create<stablehlo::ReturnOp>(loc, addOp.getResult());
+    }
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      Block *block = rewriter.createBlock(&result.getSelect());
+
+      // Block arguments are scalars of the given element type.
+      Type type = RankedTensorType::get(/*shape=*/{}, inputElemTy);
+      block->addArguments({type, type}, SmallVector<Location, 2>(2, loc));
+
+      auto reducer = rewriter.create<stablehlo::CompareOp>(
+          loc, block->getArgument(0), block->getArgument(1),
+          stablehlo::ComparisonDirection::GE);
+      rewriter.create<stablehlo::ReturnOp>(loc, reducer.getResult());
+    }
+    rewriter.replaceOp(op, {result});
+
+    return success();
+  }
+};
 } // namespace
 
 namespace {
@@ -182,7 +314,9 @@ struct ConvertTorchToStablehloExtPass
     RewritePatternSet patterns(context);
     target.addIllegalOp<Aten_IndexPutImplOp>();
     patterns.add<ConvertAten_IndexPutImplOp>(typeConverter, context);
-
+    target.addIllegalOp<AtenMaxPool2dWithIndicesBackwardOp>();
+    patterns.add<ConvertAtenMaxPool2dWithIndicesBackwardOp>(typeConverter,
+                                                            context);
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
       return signalPassFailure();

@@ -24,13 +24,24 @@
 
 namespace mlir {
 class ModuleOp;
+class ImplicitLocOpBuilder;
+
+struct TransformInsertionConfig {
+  std::string funcAnchor;
+  std::string matchPrefix;
+  std::function<bool(Operation *)> opFilter;
+  std::function<void(ImplicitLocOpBuilder &, Operation *, Value)>
+      transformBuilder;
+};
 
 std::unique_ptr<OperationPass<ModuleOp>>
-createTransformInsertionPass(const std::string &funcAnchor = "",
-                             const std::string &matchPrefix = "unknown",
-                             const std::string &tileSizeAttrName = "",
-                             const std::string &tileInterchangeAttrName = "");
+createGenericTransformInsertionPass(const TransformInsertionConfig &config);
 
+std::unique_ptr<OperationPass<ModuleOp>> createFuseExtTransformInsertionPass(
+    const std::string &funcAnchor = "",
+    const std::string &matchPrefix = "unknown",
+    const std::string &tileSizeAttrName = "",
+    const std::string &tileInterchangeAttrName = "");
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_TRANSFORM_TRANSFORMS_TRANSFORMINSERTION_H

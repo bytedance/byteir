@@ -429,3 +429,49 @@ mlir::createBroadcastedDenseElementsAttr(DenseElementsAttr originAttr,
   }
   return std::nullopt;
 }
+
+namespace {
+SmallVector<int64_t> computeStrides(ArrayRef<int64_t> shape) {
+  assert(shape.size() > 0);
+  SmallVector<int64_t> strides(shape.size(), 0);
+  strides[shape.size() - 1] = 1;
+  for (int64_t i = shape.size() - 2; i >= 0; i--) {
+    strides[i] = strides[i + 1] * shape[i + 1];
+  }
+  return strides;
+}
+} // namespace
+
+std::optional<SmallVector<int64_t>>
+mlir::computeReshapeInputOutputRankMapIndex(ShapedType inputType,
+                                            ShapedType outputType) {
+  if (!inputType.hasStaticShape() || !outputType.hasStaticShape()) {
+    return std::nullopt;
+  }
+  if (inputType.getRank() == 0 || outputType.getRank() == 0) {
+    return std::nullopt;
+  }
+  if (inputType.getRank() >= outputType.getRank()) {
+    return std::nullopt;
+  }
+
+  auto inputStrides = computeStrides(inputType.getShape());
+  auto outputStrides = computeStrides(outputType.getShape());
+  SmallVector<int64_t> result;
+  int64_t j = 0;
+  for (int64_t i = 0; i < inputType.getRank(); i++) {
+    while (j < outputType.getRank()) {
+      if (inputType.getDimSize(i) == outputType.getDimSize(j) &&
+          inputStrides[i] == outputStrides[j]) {
+        result.push_back(j);
+        j++;
+        break;
+      }
+      j++;
+    }
+  }
+  if (result.size() != inputType.getRank()) {
+    return std::nullopt;
+  }
+  return result;
+}

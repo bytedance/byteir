@@ -16,9 +16,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Pipelines/LinalgTensorOpt.h"
+#include "byteir/Pipelines/Host/Codegen.h"
 
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
-#include "byteir/Dialect/Linalg/Transforms/FuseElementwise.h"
+#include "byteir/Dialect/Linalg/Passes.h"
+#include "byteir/Dialect/Transform/Transforms/TransformDialectInterpreter.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Pipelines/Common/Utils.h"
@@ -37,9 +39,18 @@ void addGenericLinalgElementwisePasses(OpPassManager &pm) {
 }
 
 void addCPULinalgOptPasses(OpPassManager &pm) {
-  pm.addNestedPass<func::FuncOp>(
-      createHloFusionToLinalgPass(getByteIRHloAggressiveFusionAttrName()));
+  pm.addNestedPass<func::FuncOp>(createHloFusionToLinalgPass(
+      getByteIRHloAggressiveFusionAttrName(), true));
   pm.addNestedPass<func::FuncOp>(createUnrealizedCastToLinalgPass());
+  {
+    TileAndVectorizeTransposeOptions options;
+    options.libCall = false;
+    options.funcAnchor = getByteIRHloAggressiveFusionAttrName().str();
+    createTileAndVectorizeTransposeTransform(pm, options);
+    pm.addPass(createTransformDialectInterpreter(true));
+    pm.addPass(createCanonicalizerPass());
+  }
+  pm.addNestedPass<func::FuncOp>(createLinalgGeneralizationExt());
   pm.addPass(createLinalgElementwiseOpFusionPass());
   pm.addPass(createCSEPass());
   // TODO: more opt passes

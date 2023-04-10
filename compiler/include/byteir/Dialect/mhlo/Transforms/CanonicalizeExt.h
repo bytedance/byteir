@@ -43,7 +43,7 @@ class SliceOp;
 // So this file only includes patterns, not a pass.
 
 ///
-///  BroadcastInDim
+///  foldBroadcastInDimConstWithBinary
 ///
 /// BroadcastInDim could be folded in some special cases. Ex.
 ///
@@ -52,8 +52,13 @@ class SliceOp;
 ///   broadcast_in_dim  const
 ///       \              /
 ///             mul
-LogicalResult foldBroadcastInDim(mhlo::BroadcastInDimOp op,
-                                 PatternRewriter &rewriter);
+LogicalResult foldBroadcastInDimConstWithBinary(mhlo::BroadcastInDimOp op,
+                                                PatternRewriter &rewriter);
+
+// broadcast_in_dim(reshape(x)) => broadcast_in_dim(x)
+// note: the broadcast_dimensions's size should be reduced.
+LogicalResult foldBroadcastInDimReshape(mhlo::BroadcastInDimOp op,
+                                        PatternRewriter &rewriter);
 
 ///
 ///  Fold concatenate of continuous slices

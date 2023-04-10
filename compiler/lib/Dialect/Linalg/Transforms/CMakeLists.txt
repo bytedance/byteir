@@ -5,6 +5,7 @@ add_mlir_dialect_library(ByteIRLinalgPasses
   LinalgCollapseLoops.cpp
   LinalgDataPlace.cpp
   LinalgExtToLoops.cpp
+  LinalgGeneralizationExt.cpp
   LinalgPrefetch.cpp
   Tiling.cpp
   ScopeTiling.cpp
