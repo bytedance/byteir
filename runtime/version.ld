@@ -9,5 +9,6 @@ local:
     extern "C++" {
         /* hide all of symbols defined in MLIR to avoid symbol conflict */
         *mlir::*;
+        *llvm::*;
     };
 };

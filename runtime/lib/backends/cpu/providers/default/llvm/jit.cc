@@ -71,7 +71,13 @@ inline std::string gen_uniq_llvm_module_identifier() {
 } // namespace
 
 LLVMJITOpKernel::LLVMJITOpKernel(const OpKernelInfo &info)
-    : OpKernel(info, false, false, true, true) {}
+    : OpKernel(info, false, false, true, true) {
+  OpAccessor accessor(info_);
+  file_path = parent_path(info_.GetIRPath());
+  file_path += accessor.GetAttrAsString("llvm_file_name");
+  auto kernel_name = accessor.GetAttrAsString("kernel_name");
+  symbol_name = "_mlir_ciface_" + kernel_name;
+}
 
 LLVMJITOpKernel::~LLVMJITOpKernel() = default;
 
@@ -87,6 +93,14 @@ common::Status LLVMJITOpKernel::RunImpl(const ExecutionContext &ctx) {
                        accessor.GetArgShape(i));
     args.push_back(descs.back().GetMemrefPtr());
   }
+
+  void *symbol;
+  auto jit = GetLLJIT(ctx);
+  if (accessor.GetNumArgs() < 8) {
+    BRT_ENFORCE(jit->Lookup(symbol_name, &symbol).IsOK());
+  } else {
+    BRT_ENFORCE(jit->LookupPacked(symbol_name, &symbol).IsOK());
+  }
   unpack_call(symbol, args.data(), args.size());
   return common::Status::OK();
 }
@@ -96,22 +110,9 @@ common::Status LLVMJITOpKernel::ProloguePerFrame(const ExecutionContext &ctx) {
   if (!status.IsOK())
     return status;
 
-  OpAccessor accessor(info_, ctx.exec_frame);
-  std::string file_path = parent_path(info_.GetIRPath());
-  file_path += accessor.GetAttrAsString("llvm_file_name");
-  auto kernel_name = accessor.GetAttrAsString("kernel_name");
-  auto symbol_name = "_mlir_ciface_" + kernel_name;
   auto jit = GetLLJIT(ctx);
-  auto lookup_symbol_fn = [&] {
-    if (accessor.GetNumArgs() < 8) {
-      return jit->Lookup(symbol_name, &symbol);
-    } else {
-      return jit->LookupPacked(symbol_name, &symbol);
-    }
-  };
-  if (!lookup_symbol_fn().IsOK()) { // symbol not found
+  if (!jit->Lookup(symbol_name, nullptr).IsOK()) { // symbol not found
     BRT_ENFORCE(jit->LoadFromFile(file_path).IsOK());
-    BRT_ENFORCE(lookup_symbol_fn().IsOK());
 #if BRT_LLJIT_DEBUG
     // enable this to print optimized llvm module and dump compiled object to
     // the disk
