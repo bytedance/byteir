@@ -366,6 +366,18 @@ func.func @broadcast_parallel_to_binary(%arg0 : tensor<32xf32>, %arg1 : tensor<3
 // CHECK-NEXT: mhlo.broadcast_in_dim
 // CHECK-NEXT: return
 
+func.func @broadcast_not_move_down_binary(%arg0: tensor<2x16x1x768xf32>, %arg1: tensor<2x1x256x768xf32>) -> tensor<2x16x256x768xf32> {
+    %0 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<[0, 1, 2, 3]> : tensor<4xi64>} : (tensor<2x16x1x768xf32>) -> tensor<2x16x256x768xf32>
+    %1 = "mhlo.broadcast_in_dim"(%arg1) {broadcast_dimensions = dense<[0, 1, 2, 3]> : tensor<4xi64>} : (tensor<2x1x256x768xf32>) -> tensor<2x16x256x768xf32>
+    %2 = "mhlo.multiply"(%0, %1) : (tensor<2x16x256x768xf32>, tensor<2x16x256x768xf32>) -> tensor<2x16x256x768xf32>
+    return %2 : tensor<2x16x256x768xf32>
+}
+// CHECK-LABEL: func.func @broadcast_not_move_down_binary
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
+
 func.func @broadcast_parallel_to_binary_with_unary(%arg0 : tensor<32xf32>, %arg1 : tensor<32xf32>) -> tensor<4x32xf32> {
     %0 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<32xf32>) -> tensor<4x32xf32>
     %1 = "mhlo.abs"(%0) : (tensor<4x32xf32>) -> tensor<4x32xf32>

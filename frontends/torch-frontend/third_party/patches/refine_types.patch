@@ -10,15 +10,6 @@ index 92b91c1f..15527a64 100644
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
  using namespace mlir;
-@@ -659,7 +660,7 @@ void TypeAnalysis::visitOperation(Operation *op,
-           AtenLiftFreshCopyOp, AtenIndexTensorHackedTwinOp,
-           AtenUpsampleNearest2dOp, AtenMishOp, AtenRoundOp, AtenFillTensorOp,
-           AtenUpsampleNearest2dBackwardOp, AtenLeakyReluBackwardOp,
--          PrimsSqueezeOp>(op)) {
-+          PrimsSqueezeOp, AtenOneHotOp>(op)) {
-     return incorporateKnowledge(op->getResult(0), operands[0]->getValue());
-   }
- 
 @@ -845,8 +846,7 @@ void TypeAnalysis::visitOperation(Operation *op,
    }
  
