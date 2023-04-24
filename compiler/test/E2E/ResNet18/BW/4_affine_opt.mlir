@@ -8,14 +8,14 @@
 #map3 = affine_map<(d0) -> (d0)>
 module {
   func.func private @Unknown0(%arg0: memref<1x512xf16>, %arg1: memref<1x512x7x7xf16>) -> memref<1x512x7x7xf16> attributes {__byteir_elementwise_fusion__} {
-    %cst = arith.constant 0.000000e+00 : f16
-    %cst_0 = arith.constant 4.900000e+01 : f16
+    %cst = arith.constant 4.900000e+01 : f16
+    %cst_0 = arith.constant 0.000000e+00 : f16
     %alloc = memref.alloc() : memref<1x512x7x7xf16>
     linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg1, %arg0 : memref<1x512x7x7xf16>, memref<1x512xf16>) outs(%alloc : memref<1x512x7x7xf16>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16):
-      %0 = arith.divf %in_1, %cst_0 : f16
-      %1 = arith.cmpf ogt, %in, %cst : f16
-      %2 = arith.select %1, %0, %cst : f16
+      %0 = arith.divf %in_1, %cst : f16
+      %1 = arith.cmpf ogt, %in, %cst_0 : f16
+      %2 = arith.select %1, %0, %cst_0 : f16
       linalg.yield %2 : f16
     }
     return %alloc : memref<1x512x7x7xf16>

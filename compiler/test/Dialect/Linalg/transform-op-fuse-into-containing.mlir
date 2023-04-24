@@ -16,8 +16,8 @@ module {
     %d0 = tensor.dim %arg1, %c0 : tensor<?xf32>
     %1 = affine.apply #map0()[%d0, %arg0]
 
-    // CHECK: scf.foreach_thread {{.*}} {
-    %2 = scf.foreach_thread (%arg3) in (%1) shared_outs(%o = %arg2) -> (tensor<?xf32>) {
+    // CHECK: scf.forall {{.*}} {
+    %2 = scf.forall (%arg3) in (%1) shared_outs(%o = %arg2) -> (tensor<?xf32>) {
       %3 = affine.apply #map1(%arg3)[%arg0]
       %4 = affine.min #map2(%arg3)[%d0, %arg0]
       %5 = tensor.extract_slice %o[%3] [%4] [1] : tensor<?xf32> to tensor<?xf32>
@@ -28,7 +28,7 @@ module {
 
       // CHECK: %[[T2:.*]] = linalg.elemwise_unary ins(%[[T1]]
       %7 = linalg.elemwise_unary ins(%6 : tensor<?xf32>) outs(%5 : tensor<?xf32>) -> tensor<?xf32>
-      scf.foreach_thread.perform_concurrently {
+      scf.forall.in_parallel {
         tensor.parallel_insert_slice %7 into %o[%3] [%4] [1] : tensor<?xf32> into tensor<?xf32>
       }
     }
@@ -43,8 +43,8 @@ module {
 
   transform.sequence failures(propagate) {
   ^bb1(%arg1: !pdl.operation):
-    %0 = transform.structured.match ops{["linalg.fill"]} in %arg1
-    %1 = transform.structured.match ops{["scf.foreach_thread"]} in %arg1
+    %0 = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+    %1 = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
 
     // linalg.fill is tileable. The op is tiled and fused.
     transform.structured.fuse_into_containing_op %0 into %1
@@ -66,8 +66,8 @@ module {
     %0 = tensor.empty(%arg0) : tensor<?xf32>
     %1 = affine.apply #map0()[%arg0]
 
-    // CHECK: scf.foreach_thread {{.*}} {
-    %2 = scf.foreach_thread (%arg3) in (%1) shared_outs(%o = %arg2) -> (tensor<64xf32>) {
+    // CHECK: scf.forall {{.*}} {
+    %2 = scf.forall (%arg3) in (%1) shared_outs(%o = %arg2) -> (tensor<64xf32>) {
       // CHECK: %[[INIT_TENSOR:.*]] = tensor.empty
       %3 = affine.apply #map1(%arg3)[%arg0]
       %4 = affine.min #map2(%arg3)[%arg0]
@@ -75,7 +75,7 @@ module {
 
       // CHECK: %[[T2:.*]] = linalg.elemwise_unary ins(%[[INIT_TENSOR]]
       %7 = linalg.elemwise_unary ins(%0 : tensor<?xf32>) outs(%5 : tensor<?xf32>) -> tensor<?xf32>
-      scf.foreach_thread.perform_concurrently {
+      scf.forall.in_parallel {
         tensor.parallel_insert_slice %7 into %o[%3] [%4] [1] : tensor<?xf32> into tensor<64xf32>
       }
     }
@@ -86,8 +86,8 @@ module {
 
   transform.sequence failures(propagate) {
   ^bb1(%arg1: !pdl.operation):
-    %0 = transform.structured.match ops{["tensor.empty"]} in %arg1
-    %1 = transform.structured.match ops{["scf.foreach_thread"]} in %arg1
+    %0 = transform.structured.match ops{["tensor.empty"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+    %1 = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
 
     // tensor.empty is not tileable. The op is cloned and fused.
     transform.structured.fuse_into_containing_op %0 into %1
@@ -112,8 +112,8 @@ module {
     %d0 = tensor.dim %arg1, %c0 : tensor<?xf32>
     %1 = affine.apply #map0()[%d0, %arg0]
 
-    // CHECK: scf.foreach_thread {{.*}} shared_outs(%[[BBARGOUT:.*]] = %[[OUT]]) -> (tensor<?xf32>) {
-    %2 = scf.foreach_thread (%arg3) in (%1) shared_outs(%o = %0) -> (tensor<?xf32>) {
+    // CHECK: scf.forall {{.*}} shared_outs(%[[BBARGOUT:.*]] = %[[OUT]]) -> (tensor<?xf32>) {
+    %2 = scf.forall (%arg3) in (%1) shared_outs(%o = %0) -> (tensor<?xf32>) {
       %3 = affine.apply #map1(%arg3)[%arg0]
       %4 = affine.min #map2(%arg3)[%d0, %arg0]
       %5 = tensor.extract_slice %o[%3] [%4] [1] : tensor<?xf32> to tensor<?xf32>
@@ -124,7 +124,7 @@ module {
 
       // CHECK: %[[T2:.*]] = linalg.elemwise_unary {{.*}} outs(%[[T1]]
       %7 = linalg.elemwise_unary ins(%6 : tensor<?xf32>) outs(%5 : tensor<?xf32>) -> tensor<?xf32>
-      scf.foreach_thread.perform_concurrently {
+      scf.forall.in_parallel {
         tensor.parallel_insert_slice %7 into %o[%3] [%4] [1] : tensor<?xf32> into tensor<?xf32>
       }
     }
@@ -134,8 +134,8 @@ module {
 
   transform.sequence failures(propagate) {
   ^bb1(%arg1: !pdl.operation):
-    %0 = transform.structured.match ops{["linalg.fill"]} in %arg1
-    %1 = transform.structured.match ops{["scf.foreach_thread"]} in %arg1
+    %0 = transform.structured.match ops{["linalg.fill"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+    %1 = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
 
     // linalg.fill is tileable. The op is tiled and fused.
     transform.structured.fuse_into_containing_op %0 into %1
@@ -172,8 +172,8 @@ module {
 
     %1 = affine.apply #map0()[%d0, %idx]
 
-    // CHECK: scf.foreach_thread {{.*}} {
-    %2 = scf.foreach_thread (%i) in (%1) shared_outs(%o = %out_2) -> (tensor<?xf32>) {
+    // CHECK: scf.forall {{.*}} {
+    %2 = scf.forall (%i) in (%1) shared_outs(%o = %out_2) -> (tensor<?xf32>) {
       %3 = affine.apply #map1(%i)[%idx]
       %4 = affine.min #map2(%i)[%d0, %idx]
       %5 = tensor.extract_slice %o[%3] [%4] [1] : tensor<?xf32> to tensor<?xf32>
@@ -184,7 +184,7 @@ module {
 
       // CHECK: %[[T2:.*]] = linalg.elemwise_unary ins(%[[T1]]#0
       %7 = linalg.elemwise_unary ins(%6 : tensor<?xf32>) outs(%5 : tensor<?xf32>) -> tensor<?xf32>
-      scf.foreach_thread.perform_concurrently {
+      scf.forall.in_parallel {
         tensor.parallel_insert_slice %7 into %o[%3] [%4] [1] : tensor<?xf32> into tensor<?xf32>
       }
     }
@@ -194,8 +194,8 @@ module {
 
   transform.sequence failures(propagate) {
   ^bb1(%arg1: !pdl.operation):
-    %0 = transform.structured.match ops{["linalg.generic"]} in %arg1
-    %1 = transform.structured.match ops{["scf.foreach_thread"]} in %arg1
+    %0 = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+    %1 = transform.structured.match ops{["scf.forall"]} in %arg1 : (!pdl.operation) -> !pdl.operation
 
     // linalg.generic is tileable. The op is tiled and fused.
     transform.structured.fuse_into_containing_op %0 into %1

@@ -38,6 +38,7 @@ def RemoveCopy : Pass<"remove-copy", "func::FuncOp"> {
   let summary = "Remove copy";
   let constructor = "mlir::createRemoveCopyPass()";
   let dependentDialects = [
+    "AffineDialect",
     "memref::MemRefDialect"
   ];
 }

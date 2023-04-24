@@ -1,8 +1,8 @@
 diff --git a/src/Conversion/ONNXToMhlo/CMakeLists.txt b/src/Conversion/ONNXToMhlo/CMakeLists.txt
-index 9d0b2c11..a4c68d98 100644
+index bd7283a9..fa34d0c7 100644
 --- a/src/Conversion/ONNXToMhlo/CMakeLists.txt
 +++ b/src/Conversion/ONNXToMhlo/CMakeLists.txt
-@@ -44,6 +44,7 @@ add_onnx_mlir_library(OMONNXToMhlo
+@@ -46,6 +46,7 @@ add_onnx_mlir_library(OMONNXToMhlo
    Tensor/Gather.cpp
    Tensor/Identity.cpp
    Tensor/Reshape.cpp
@@ -68,7 +68,7 @@ index ec5a9f2b..abb33e72 100644
  void populateLoweringONNXShapeOpToMhloPattern(
 diff --git a/src/Conversion/ONNXToMhlo/Tensor/Pad.cpp b/src/Conversion/ONNXToMhlo/Tensor/Pad.cpp
 new file mode 100644
-index 00000000..9b668832
+index 00000000..20a43626
 --- /dev/null
 +++ b/src/Conversion/ONNXToMhlo/Tensor/Pad.cpp
 @@ -0,0 +1,99 @@
@@ -97,15 +97,15 @@ index 00000000..9b668832
 +
 +namespace {
 +
-+struct ONNXPadOpLoweringToMhlo : public ConversionPattern {
-+  ONNXPadOpLoweringToMhlo(MLIRContext *ctx)
-+      : ConversionPattern(mlir::ONNXPadOp::getOperationName(), 1, ctx) {}
++struct ONNXPadV13OpLoweringToMhlo : public ConversionPattern {
++  ONNXPadV13OpLoweringToMhlo(MLIRContext *ctx)
++      : ConversionPattern(mlir::ONNXPadV13Op::getOperationName(), 1, ctx) {}
 +
 +  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
 +      ConversionPatternRewriter &rewriter) const final {
 +
 +    Location loc = op->getLoc();
-+    ONNXPadOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
++    ONNXPadV13OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
 +    Value data = operandAdaptor.getData();
 +    Value constantValue = operandAdaptor.getConstantValue();
 +    Value pads = operandAdaptor.getPads();
@@ -119,7 +119,7 @@ index 00000000..9b668832
 +    int64_t rank = inputType.getRank();
 +
 +    Type outputType = *op->result_type_begin();
-+    if (!constantValue || isFromNone(constantValue)) {
++    if (!constantValue || isNoneValue(constantValue)) {
 +      // Pad with zeros by default
 +      constantValue = rewriter.create<mhlo::ConstantOp>(
 +          loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
@@ -167,7 +167,110 @@ index 00000000..9b668832
 +
 +void populateLoweringONNXPadOpToMhloPattern(
 +    RewritePatternSet &patterns, MLIRContext *ctx) {
-+  patterns.insert<ONNXPadOpLoweringToMhlo>(ctx);
++  patterns.insert<ONNXPadV13OpLoweringToMhlo>(ctx);
 +}
 +
 +} // namespace onnx_mlir
+diff --git a/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp b/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp
+index b5aa52f5..bbe5fd28 100644
+--- a/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp
++++ b/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp
+@@ -463,6 +463,16 @@ struct ONNXPadOpShapeHelper : public ONNXOpShapeHelper {
+   llvm::SmallVector<IndexExpr, 4> pads;
+ };
+ 
++struct ONNXPadV13OpShapeHelper : public ONNXOpShapeHelper {
++  ONNXPadV13OpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
++      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
++      : ONNXOpShapeHelper(op, operands, ieBuilder, scope), pads() {}
++  virtual ~ONNXPadV13OpShapeHelper() {}
++  mlir::LogicalResult computeShape() final;
++  // Additional data for PadOp.
++  llvm::SmallVector<IndexExpr, 4> pads;
++};
++
+ //===----------------------------------------------------------------------===//
+ // OneHot Op
+ //===----------------------------------------------------------------------===//
+diff --git a/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp b/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp
+index b00edc4a..f33bc18a 100644
+--- a/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp
++++ b/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp
+@@ -67,6 +67,49 @@ LogicalResult ONNXPadOpShapeHelper::computeShape() {
+   return success();
+ }
+ 
++LogicalResult ONNXPadV13OpShapeHelper::computeShape() {
++  ONNXPadOpAdaptor operandAdaptor(operands);
++  Value dataOperand = operandAdaptor.getData();
++  Value padsOperand = operandAdaptor.getPads();
++  DimsExpr outputDims;
++
++  // Get info about input data operand.
++  uint64_t dataRank = createIE->getShapedTypeRank(dataOperand);
++
++  // Initialize context and results (pads & output)
++  pads.resize(2 * dataRank); // pads two sides of each axis.
++  outputDims.resize(dataRank);
++
++  // `pads` format is : [x1_begin, x2_begin,...,x1_end, x2_end,...],
++  // where
++  // - xi_begin: the number of pad values added at the beginning of axis `i`
++  // - xi_end: the number of pad values added at the end of axis `i`.
++
++  // Calculate output dimension sizes.
++  for (uint64_t i = 0; i < dataRank; i++) {
++    // Get begin/end pads.
++    SymbolIndexExpr padBegin(createIE->getIntFromArrayAsSymbol(padsOperand, i));
++    SymbolIndexExpr padEnd(
++        createIE->getIntFromArrayAsSymbol(padsOperand, i + dataRank));
++    if (padBegin.isUndefined() || padEnd.isUndefined())
++      return op->emitError("pad parameter could not be processed");
++    // Get input dim.
++    DimIndexExpr dimInput(createIE->getShapeAsDim(dataOperand, i));
++
++    // Calculation for output size.
++    IndexExpr dimOutputFinal = (padBegin + dimInput) + padEnd;
++
++    // Save results.
++    pads[i] = padBegin;
++    pads[i + dataRank] = padEnd;
++    outputDims[i] = dimOutputFinal;
++  }
++
++  // Save the final result.
++  setOutputDims(outputDims);
++  return success();
++}
++
+ } // namespace onnx_mlir
+ 
+ //===----------------------------------------------------------------------===//
+@@ -108,3 +151,15 @@ LogicalResult ONNXPadOp::inferShapes(
+   ONNXPadOpShapeHelper shapeHelper(getOperation(), {});
+   return shapeHelper.computeShapeAndUpdateType(elementType);
+ }
++
++LogicalResult ONNXPadV13Op::inferShapes(
++    std::function<void(Region &)> doShapeInference) {
++  // Cannot infer shape if no shape exists.
++  if (!hasShapeAndRank(getData()) || !hasShapeAndRank(getPads()))
++    return success();
++
++  Type elementType = getData().getType().cast<ShapedType>().getElementType();
++
++  ONNXPadV13OpShapeHelper shapeHelper(getOperation(), {});
++  return shapeHelper.computeShapeAndUpdateType(elementType);
++}
+diff --git a/src/Dialect/ONNX/ONNXUnsupportedOps.hpp b/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
+index 1ca21570..d431f29d 100644
+--- a/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
++++ b/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
+@@ -55,7 +55,6 @@ UNSUPPORTED_OPS(ONNXMomentumOp)
+ UNSUPPORTED_OPS(ONNXMultinomialOp)
+ UNSUPPORTED_OPS(ONNXNegativeLogLikelihoodLossOp)
+ UNSUPPORTED_OPS(ONNXNormalizerOp)
+-UNSUPPORTED_OPS(ONNXPadV13Op)
+ UNSUPPORTED_OPS(ONNXPadV11Op)
+ UNSUPPORTED_OPS(ONNXPadV2Op)
+ UNSUPPORTED_OPS(ONNXRandomUniformLikeOp)

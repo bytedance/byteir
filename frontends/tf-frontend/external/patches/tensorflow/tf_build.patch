@@ -1,8 +1,8 @@
 diff --git a/tensorflow/BUILD b/tensorflow/BUILD
-index 47ffef7ec04..b742ba9a75f 100644
+index c3774dbc3b5..6f7a7cc69a9 100644
 --- a/tensorflow/BUILD
 +++ b/tensorflow/BUILD
-@@ -127,7 +127,7 @@ PACKAGE_STATIC_DEPS = [
+@@ -128,7 +128,7 @@ PACKAGE_STATIC_DEPS = [
  
  package(
      # copybara:uncomment default_applicable_licenses = [":license"],
@@ -11,8 +11,22 @@ index 47ffef7ec04..b742ba9a75f 100644
  )
  
  # copybara:uncomment_begin
+diff --git a/tensorflow/c/BUILD b/tensorflow/c/BUILD
+index 2b19a7656f4..45f51d8825a 100644
+--- a/tensorflow/c/BUILD
++++ b/tensorflow/c/BUILD
+@@ -268,8 +268,7 @@ tf_cuda_library(
+     ],
+     copts = tf_copts(),
+     visibility = [
+-        "//tensorflow:__subpackages__",
+-        "//tensorflow/python:__subpackages__",
++        "//visibility:public"
+     ],
+     deps = [
+         ":c_api_internal",
 diff --git a/tensorflow/c/eager/BUILD b/tensorflow/c/eager/BUILD
-index 17d9df85e7c..f410944c0da 100644
+index 06b59eca8d2..701b503c442 100644
 --- a/tensorflow/c/eager/BUILD
 +++ b/tensorflow/c/eager/BUILD
 @@ -139,7 +139,7 @@ cc_library(
@@ -25,10 +39,10 @@ index 17d9df85e7c..f410944c0da 100644
          ":c_api",
          ":tfe_cancellation_manager_internal",
 diff --git a/tensorflow/compiler/mlir/BUILD b/tensorflow/compiler/mlir/BUILD
-index 6fa05eb21c5..b26d7de16a4 100644
+index e578b622bab..90b27716fbd 100644
 --- a/tensorflow/compiler/mlir/BUILD
 +++ b/tensorflow/compiler/mlir/BUILD
-@@ -105,10 +105,6 @@ cc_library(
+@@ -78,10 +78,6 @@ cc_library(
  
  cc_library(
      name = "passes",
@@ -40,14 +54,15 @@ index 6fa05eb21c5..b26d7de16a4 100644
          "@llvm-project//mlir:AffineDialect",
          "@llvm-project//mlir:QuantOps",
 diff --git a/tensorflow/compiler/mlir/lite/BUILD b/tensorflow/compiler/mlir/lite/BUILD
-index fc28e7b0815..ab940b28d98 100644
+index 7c9c458a463..2428bc26888 100644
 --- a/tensorflow/compiler/mlir/lite/BUILD
 +++ b/tensorflow/compiler/mlir/lite/BUILD
-@@ -8,9 +8,7 @@ package(
+@@ -8,10 +8,7 @@ package(
      # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
      default_visibility = [
          # TODO(jpienaar): Make the visibility more restrictive.
 -        ":friends",
+-        "//learning/brain/mobile/programmability:__subpackages__",
 -        "//tensorflow/lite/experimental/tf_runtime:__subpackages__",
 -        "//tensorflow/lite/testing:__subpackages__",
 +        "//visibility:public",
@@ -55,10 +70,10 @@ index fc28e7b0815..ab940b28d98 100644
      licenses = ["notice"],
  )
 diff --git a/tensorflow/compiler/mlir/tensorflow/BUILD b/tensorflow/compiler/mlir/tensorflow/BUILD
-index a581e9490f1..f18e94cec8b 100644
+index c275c563e74..5d40ec69de8 100644
 --- a/tensorflow/compiler/mlir/tensorflow/BUILD
 +++ b/tensorflow/compiler/mlir/tensorflow/BUILD
-@@ -1433,7 +1433,7 @@ cc_library(
+@@ -1459,7 +1459,7 @@ cc_library(
  
  cc_library(
      name = "tensorflow_test_passes",
@@ -67,7 +82,7 @@ index a581e9490f1..f18e94cec8b 100644
      srcs = [
          "transforms/init_text_file_to_import_test_pass.cc",
          "transforms/initialize_variables_in_session_init_test_pass.cc",
-@@ -1938,7 +1938,7 @@ cc_library(
+@@ -1958,7 +1958,7 @@ cc_library(
      name = "error_util",
      srcs = ["utils/error_util.cc"],
      hdrs = ["utils/error_util.h"],
@@ -76,7 +91,7 @@ index a581e9490f1..f18e94cec8b 100644
      deps = [
          "//tensorflow/compiler/xla/mlir/utils:error_util",
          "//tensorflow/core/platform:errors",
-@@ -2240,7 +2240,7 @@ cc_library(
+@@ -2201,7 +2201,7 @@ cc_library(
  
  cc_library(
      name = "tf_xla_mlir_translate",
@@ -84,7 +99,7 @@ index a581e9490f1..f18e94cec8b 100644
 +    # testonly = True,  # Ensure alwayslink does not leak in the codebase.
      srcs = ["utils/tf_xla_mlir_translate.cc"],
      deps = [
-         ":compile_mlir_util",
+         ":mlir_roundtrip_flags",
 diff --git a/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD b/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD
 index f040ca2af3b..2695155f0b9 100644
 --- a/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD
@@ -101,7 +116,7 @@ index f040ca2af3b..2695155f0b9 100644
      licenses = ["notice"],
  )
 diff --git a/tensorflow/compiler/mlir/tosa/BUILD b/tensorflow/compiler/mlir/tosa/BUILD
-index b942c64f611..32584cafaee 100644
+index b456496bc5b..417ca4eee95 100644
 --- a/tensorflow/compiler/mlir/tosa/BUILD
 +++ b/tensorflow/compiler/mlir/tosa/BUILD
 @@ -9,7 +9,7 @@ load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library")
@@ -113,7 +128,7 @@ index b942c64f611..32584cafaee 100644
      licenses = ["notice"],
  )
  
-@@ -134,7 +134,6 @@ cc_library(
+@@ -135,7 +135,6 @@ cc_library(
          "transforms/passes.h",
      ],
      compatible_with = get_compatible_with_cloud(),
@@ -121,7 +136,7 @@ index b942c64f611..32584cafaee 100644
      deps = [
          ":legalize_common",
          ":passes_header",
-@@ -187,7 +186,6 @@ cc_library(
+@@ -189,7 +188,6 @@ cc_library(
          "transforms/passes.h",
      ],
      compatible_with = get_compatible_with_cloud(),
@@ -129,7 +144,7 @@ index b942c64f611..32584cafaee 100644
      deps = [
          ":legalize_common",
          ":passes_header",
-@@ -219,7 +217,6 @@ cc_library(
+@@ -221,7 +219,6 @@ cc_library(
          "transforms/passes.h",
      ],
      compatible_with = get_compatible_with_cloud(),
@@ -138,7 +153,7 @@ index b942c64f611..32584cafaee 100644
          ":legalize_common",
          ":passes_header",
 diff --git a/tensorflow/compiler/tf2xla/BUILD b/tensorflow/compiler/tf2xla/BUILD
-index bca5391f9f3..7e3b67864b2 100644
+index 9e5126075ab..add35d7b84c 100644
 --- a/tensorflow/compiler/tf2xla/BUILD
 +++ b/tensorflow/compiler/tf2xla/BUILD
 @@ -21,7 +21,7 @@ load("//tensorflow/compiler/xla/service/cpu:build_defs.bzl", "runtime_copts")
@@ -150,7 +165,7 @@ index bca5391f9f3..7e3b67864b2 100644
      licenses = ["notice"],
  )
  
-@@ -635,7 +635,6 @@ cc_library(
+@@ -658,7 +658,6 @@ cc_library(
      hdrs = [
          "xla_helpers.h",
      ],
@@ -158,7 +173,7 @@ index bca5391f9f3..7e3b67864b2 100644
      deps = [
          ":common",
          ":host_compute_metadata_proto_cc",
-@@ -717,7 +716,6 @@ cc_library(
+@@ -740,7 +739,6 @@ cc_library(
          "shape_util.h",
          "type_util.h",
      ],
@@ -167,10 +182,10 @@ index bca5391f9f3..7e3b67864b2 100644
          "//tensorflow/compiler/xla:literal",
          "//tensorflow/compiler/xla:shape_util",
 diff --git a/tensorflow/compiler/xla/service/BUILD b/tensorflow/compiler/xla/service/BUILD
-index 57555636cdc..2ec8e2ab672 100644
+index 286320cd5b5..00cb39e2e9f 100644
 --- a/tensorflow/compiler/xla/service/BUILD
 +++ b/tensorflow/compiler/xla/service/BUILD
-@@ -30,7 +30,7 @@ load("//tensorflow/compiler/xla/service:xla_compile.bzl", "xla_aot_compile_cpu",
+@@ -31,7 +31,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
  
  package(
      # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -180,7 +195,7 @@ index 57555636cdc..2ec8e2ab672 100644
  )
  
 diff --git a/tensorflow/core/BUILD b/tensorflow/core/BUILD
-index a8af5a0c6f8..8361ca0eafd 100644
+index c9103ef9fef..90d569e3c1e 100644
 --- a/tensorflow/core/BUILD
 +++ b/tensorflow/core/BUILD
 @@ -114,11 +114,7 @@ load(
@@ -197,10 +212,10 @@ index a8af5a0c6f8..8361ca0eafd 100644
          "-layering_check",
          "-parse_headers",
 diff --git a/tensorflow/core/common_runtime/BUILD b/tensorflow/core/common_runtime/BUILD
-index eaed483119e..49dff78f0b0 100644
+index 71b34d32e40..df86dbe215c 100644
 --- a/tensorflow/core/common_runtime/BUILD
 +++ b/tensorflow/core/common_runtime/BUILD
-@@ -43,7 +43,7 @@ default_package_visibility = [
+@@ -48,7 +48,7 @@ default_package_visibility = [
  
  package(
      # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -210,7 +225,7 @@ index eaed483119e..49dff78f0b0 100644
          [
              "-layering_check",
 diff --git a/tensorflow/core/grappler/optimizers/data/BUILD b/tensorflow/core/grappler/optimizers/data/BUILD
-index 7f8e775d34c..4882ae37463 100644
+index dccbac09df4..b6c29da7b03 100644
 --- a/tensorflow/core/grappler/optimizers/data/BUILD
 +++ b/tensorflow/core/grappler/optimizers/data/BUILD
 @@ -5,11 +5,7 @@ load("//tensorflow/core/platform:build_config.bzl", "tf_protos_all")

@@ -33,13 +33,13 @@ struct LinalgExtBufferizableOpInterfaceImpl {
   bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
                                const bufferization::AnalysisState &state) const;
 
-  SmallVector<OpOperand *>
-  getAliasingOpOperand(Operation *op, OpResult opResult,
-                       const bufferization::AnalysisState &) const;
+  bufferization::AliasingOpOperandList
+  getAliasingOpOperands(Operation *op, OpResult opResult,
+                        const bufferization::AnalysisState &) const;
 
-  SmallVector<OpResult>
-  getAliasingOpResult(Operation *op, OpOperand &opOperand,
-                      const bufferization::AnalysisState &) const;
+  bufferization::AliasingOpResultList
+  getAliasingOpResults(Operation *op, OpOperand &opOperand,
+                       const bufferization::AnalysisState &) const;
 
   bufferization::BufferRelation
   bufferRelation(Operation *op, OpResult opResult,
@@ -59,8 +59,8 @@ struct LinalgExtBufferizableOpInterface
   using LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryRead;
   using LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryWrite;
   using LinalgExtBufferizableOpInterfaceImpl::bufferRelation;
-  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperand;
-  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResult;
+  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperands;
+  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResults;
 };
 
 void registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry);

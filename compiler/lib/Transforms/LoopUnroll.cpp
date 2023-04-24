@@ -137,6 +137,7 @@ struct LoopUnrollPass : public LoopUnrollBase<LoopUnrollPass> {
     }
   }
 };
+
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>

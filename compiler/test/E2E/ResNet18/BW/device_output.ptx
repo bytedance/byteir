@@ -1992,11 +1992,11 @@ $L__BB20_2:
 	.param .u64 Unknown78_param_13
 )
 {
-	.reg .pred 	%p<3>;
+	.reg .pred 	%p<2>;
 	.reg .b16 	%h<2>;
 	.reg .b32 	%r<4>;
 	.reg .f32 	%f<2>;
-	.reg .b64 	%rd<14>;
+	.reg .b64 	%rd<12>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2010,13 +2010,10 @@ $L__BB20_2:
 	cvta.to.global.u64 	%rd4, %rd3;
 	ld.param.u64 	%rd5, [Unknown78_param_1];
 	cvta.to.global.u64 	%rd6, %rd5;
-	setp.lt.s64 	%p2, %rd9, 0;
-	add.s64 	%rd10, %rd9, 1000;
-	selp.b64 	%rd11, %rd10, %rd9, %p2;
-	shl.b64 	%rd12, %rd11, 1;
-	add.s64 	%rd1, %rd6, %rd12;
-	shl.b64 	%rd13, %rd11, 2;
-	add.s64 	%rd2, %rd4, %rd13;
+	shl.b64 	%rd10, %rd9, 1;
+	add.s64 	%rd1, %rd6, %rd10;
+	shl.b64 	%rd11, %rd9, 2;
+	add.s64 	%rd2, %rd4, %rd11;
 	ld.global.b16 	%h1, [%rd1];
 	cvt.f32.f16 	%f1, %h1;
 	st.global.f32 	[%rd2], %f1;
@@ -2168,10 +2165,10 @@ $L__BB22_2:
 	.param .u64 Unknown74_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2219,36 +2216,20 @@ $L__BB22_2:
 	shr.s64 	%rd37, %rd35, 5;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 802816;
-	mul.lo.s64 	%rd54, %rd46, 12544;
-	mul.lo.s64 	%rd55, %rd32, 112;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 12544;
+	mul.lo.s64 	%rd41, %rd32, 112;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB23_2:
 	ret;
 
@@ -2290,10 +2271,10 @@ $L__BB23_2:
 	.param .u64 Unknown73_param_32
 )
 {
-	.reg .pred 	%p<5>;
+	.reg .pred 	%p<4>;
 	.reg .b16 	%h<4>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2341,34 +2322,18 @@ $L__BB23_2:
 	shr.s64 	%rd37, %rd35, 4;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 200704;
-	mul.lo.s64 	%rd54, %rd46, 3136;
-	mul.lo.s64 	%rd55, %rd32, 56;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 3136;
+	mul.lo.s64 	%rd41, %rd32, 56;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	add.rn.f16 	%h3, %h1, %h2;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h3;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h3;
 $L__BB24_2:
 	ret;
 
@@ -2410,10 +2375,10 @@ $L__BB24_2:
 	.param .u64 Unknown69_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2461,36 +2426,20 @@ $L__BB24_2:
 	shr.s64 	%rd37, %rd35, 4;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 200704;
-	mul.lo.s64 	%rd54, %rd46, 3136;
-	mul.lo.s64 	%rd55, %rd32, 56;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 3136;
+	mul.lo.s64 	%rd41, %rd32, 56;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB25_2:
 	ret;
 
@@ -2543,10 +2492,10 @@ $L__BB25_2:
 	.param .u64 Unknown65_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2596,39 +2545,23 @@ $L__BB25_2:
 	shr.s64 	%rd39, %rd37, 4;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 58;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -64;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 64;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 58;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 6;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 200704;
-	mul.lo.s64 	%rd56, %rd48, 3136;
-	mul.lo.s64 	%rd57, %rd34, 56;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 3136;
+	mul.lo.s64 	%rd43, %rd34, 56;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB26_2:
 	ret;
 
@@ -2670,10 +2603,10 @@ $L__BB26_2:
 	.param .u64 Unknown61_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2721,36 +2654,20 @@ $L__BB26_2:
 	shr.s64 	%rd37, %rd35, 4;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 200704;
-	mul.lo.s64 	%rd54, %rd46, 3136;
-	mul.lo.s64 	%rd55, %rd32, 56;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 3136;
+	mul.lo.s64 	%rd41, %rd32, 56;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB27_2:
 	ret;
 
@@ -2803,10 +2720,10 @@ $L__BB27_2:
 	.param .u64 Unknown57_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2856,39 +2773,23 @@ $L__BB27_2:
 	shr.s64 	%rd39, %rd37, 4;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 58;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -64;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 64;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 58;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 6;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 200704;
-	mul.lo.s64 	%rd56, %rd48, 3136;
-	mul.lo.s64 	%rd57, %rd34, 56;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 3136;
+	mul.lo.s64 	%rd43, %rd34, 56;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB28_2:
 	ret;
 
@@ -2930,10 +2831,10 @@ $L__BB28_2:
 	.param .u64 Unknown50_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2981,36 +2882,20 @@ $L__BB28_2:
 	shr.s64 	%rd37, %rd35, 3;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 57;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -128;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 128;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 57;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 7;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 100352;
-	mul.lo.s64 	%rd54, %rd46, 784;
-	mul.lo.s64 	%rd55, %rd32, 28;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 784;
+	mul.lo.s64 	%rd41, %rd32, 28;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB29_2:
 	ret;
 
@@ -3063,10 +2948,10 @@ $L__BB29_2:
 	.param .u64 Unknown46_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3116,39 +3001,23 @@ $L__BB29_2:
 	shr.s64 	%rd39, %rd37, 3;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 57;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -128;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 128;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 57;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 7;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 100352;
-	mul.lo.s64 	%rd56, %rd48, 784;
-	mul.lo.s64 	%rd57, %rd34, 28;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 784;
+	mul.lo.s64 	%rd43, %rd34, 28;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB30_2:
 	ret;
 
@@ -3190,10 +3059,10 @@ $L__BB30_2:
 	.param .u64 Unknown42_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3241,36 +3110,20 @@ $L__BB30_2:
 	shr.s64 	%rd37, %rd35, 3;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 57;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -128;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 128;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 57;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 7;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 100352;
-	mul.lo.s64 	%rd54, %rd46, 784;
-	mul.lo.s64 	%rd55, %rd32, 28;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 784;
+	mul.lo.s64 	%rd41, %rd32, 28;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB31_2:
 	ret;
 
@@ -3323,10 +3176,10 @@ $L__BB31_2:
 	.param .u64 Unknown38_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3376,39 +3229,23 @@ $L__BB31_2:
 	shr.s64 	%rd39, %rd37, 3;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 57;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -128;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 128;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 57;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 7;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 100352;
-	mul.lo.s64 	%rd56, %rd48, 784;
-	mul.lo.s64 	%rd57, %rd34, 28;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 784;
+	mul.lo.s64 	%rd43, %rd34, 28;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB32_2:
 	ret;
 
@@ -3450,10 +3287,10 @@ $L__BB32_2:
 	.param .u64 Unknown31_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3501,36 +3338,20 @@ $L__BB32_2:
 	shr.s64 	%rd37, %rd35, 2;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 56;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -256;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 256;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 56;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 8;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 50176;
-	mul.lo.s64 	%rd54, %rd46, 196;
-	mul.lo.s64 	%rd55, %rd32, 14;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 196;
+	mul.lo.s64 	%rd41, %rd32, 14;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB33_2:
 	ret;
 
@@ -3583,10 +3404,10 @@ $L__BB33_2:
 	.param .u64 Unknown27_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3636,39 +3457,23 @@ $L__BB33_2:
 	shr.s64 	%rd39, %rd37, 2;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 56;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -256;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 256;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 56;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 8;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 50176;
-	mul.lo.s64 	%rd56, %rd48, 196;
-	mul.lo.s64 	%rd57, %rd34, 14;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 196;
+	mul.lo.s64 	%rd43, %rd34, 14;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB34_2:
 	ret;
 
@@ -3710,10 +3515,10 @@ $L__BB34_2:
 	.param .u64 Unknown23_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3761,36 +3566,20 @@ $L__BB34_2:
 	shr.s64 	%rd37, %rd35, 2;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 56;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -256;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 256;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 56;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 8;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 50176;
-	mul.lo.s64 	%rd54, %rd46, 196;
-	mul.lo.s64 	%rd55, %rd32, 14;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 196;
+	mul.lo.s64 	%rd41, %rd32, 14;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB35_2:
 	ret;
 
@@ -3843,10 +3632,10 @@ $L__BB35_2:
 	.param .u64 Unknown19_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3896,39 +3685,23 @@ $L__BB35_2:
 	shr.s64 	%rd39, %rd37, 2;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 56;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -256;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 256;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 56;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 8;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 50176;
-	mul.lo.s64 	%rd56, %rd48, 196;
-	mul.lo.s64 	%rd57, %rd34, 14;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 196;
+	mul.lo.s64 	%rd43, %rd34, 14;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB36_2:
 	ret;
 
@@ -3970,10 +3743,10 @@ $L__BB36_2:
 	.param .u64 Unknown12_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4018,39 +3791,23 @@ $L__BB36_2:
 	xor.b64  	%rd34, %rd33, %rd24;
 	mul.hi.s64 	%rd35, %rd34, 5270498306774157605;
 	shr.u64 	%rd36, %rd35, 63;
-	shr.s64 	%rd37, %rd35, 1;
+	shr.u64 	%rd37, %rd35, 1;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 55;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -512;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 512;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 55;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 9;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 25088;
-	mul.lo.s64 	%rd54, %rd46, 49;
-	mul.lo.s64 	%rd55, %rd32, 7;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 49;
+	mul.lo.s64 	%rd41, %rd32, 7;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB37_2:
 	ret;
 
@@ -4103,10 +3860,10 @@ $L__BB37_2:
 	.param .u64 Unknown8_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4153,42 +3910,26 @@ $L__BB37_2:
 	xor.b64  	%rd36, %rd35, %rd26;
 	mul.hi.s64 	%rd37, %rd36, 5270498306774157605;
 	shr.u64 	%rd38, %rd37, 63;
-	shr.s64 	%rd39, %rd37, 1;
+	shr.u64 	%rd39, %rd37, 1;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 55;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -512;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 512;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 55;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 9;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 25088;
-	mul.lo.s64 	%rd56, %rd48, 49;
-	mul.lo.s64 	%rd57, %rd34, 7;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 49;
+	mul.lo.s64 	%rd43, %rd34, 7;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
 $L__BB38_2:
 	ret;
 
@@ -4230,10 +3971,10 @@ $L__BB38_2:
 	.param .u64 Unknown4_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4278,39 +4019,23 @@ $L__BB38_2:
 	xor.b64  	%rd34, %rd33, %rd24;
 	mul.hi.s64 	%rd35, %rd34, 5270498306774157605;
 	shr.u64 	%rd36, %rd35, 63;
-	shr.s64 	%rd37, %rd35, 1;
+	shr.u64 	%rd37, %rd35, 1;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 55;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -512;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 512;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 55;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 9;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 25088;
-	mul.lo.s64 	%rd54, %rd46, 49;
-	mul.lo.s64 	%rd55, %rd32, 7;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 49;
+	mul.lo.s64 	%rd41, %rd32, 7;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
 $L__BB39_2:
 	ret;
 
@@ -4348,11 +4073,11 @@ $L__BB39_2:
 	.param .u64 Unknown0_param_28
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<6>;
 	.reg .b32 	%r<4>;
 	.reg .f32 	%f<3>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<49>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4400,42 +4125,24 @@ $L__BB39_2:
 	shr.s64 	%rd37, %rd35, 1;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 55;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -512;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 512;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 55;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 9;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 25088;
-	mul.lo.s64 	%rd54, %rd46, 49;
-	mul.lo.s64 	%rd55, %rd32, 7;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd2, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	shl.b64 	%rd61, %rd52, 9;
-	add.s64 	%rd62, %rd61, %rd46;
-	shl.b64 	%rd63, %rd62, 1;
-	add.s64 	%rd64, %rd3, %rd63;
-	ld.global.b16 	%h2, [%rd64];
+	mul.lo.s64 	%rd40, %rd39, 49;
+	mul.lo.s64 	%rd41, %rd32, 7;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd2, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	shl.b64 	%rd46, %rd39, 1;
+	add.s64 	%rd47, %rd3, %rd46;
+	ld.global.b16 	%h2, [%rd47];
 	cvt.f32.f16 	%f1, %h2;
 	div.rn.f32 	%f2, %f1, 0f42440000;
 	cvt.rn.f16.f32 	%h3, %f2;
 	mov.b16 	%h4, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h4;
-	selp.b16 	%h5, %h3, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd59;
-	st.global.b16 	[%rd65], %h5;
+	setp.gt.f16 	%p4, %h1, %h4;
+	selp.b16 	%h5, %h3, 0x0000, %p4;
+	add.s64 	%rd48, %rd1, %rd44;
+	st.global.b16 	[%rd48], %h5;
 $L__BB40_2:
 	ret;
 

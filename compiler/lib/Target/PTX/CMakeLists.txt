@@ -31,4 +31,6 @@ add_byteir_translation_library(ByteIRTargetPTX
   MLIRSCFTransformOps
   MLIRBufferizationTransformOps
   MLIRShapeOpsTransforms
+  MLIRIRDL
+  MLIRArithValueBoundsOpInterfaceImpl
   )

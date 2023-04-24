@@ -8,18 +8,11 @@ torch::Tensor custom_dynamic_stitch(std::vector<torch::Tensor> indices,
     n += idx.numel();
   }
   std::vector<torch::Tensor> res(n);
-
-  for (int i = 0; i < data.size(); ++i) {
-    if (indices[i].size(0) == 0) {
-      continue;
-    }
-    auto idx = indices[i].view({-1});
-    auto d = data[i].view({idx.numel(), -1});
-    for (int j = 0; j < idx.numel(); ++j) {
-      res[idx[j].item<int>()] = d[j].unsqueeze(0);
+  for (size_t i = 0; i < data.size(); ++i) {
+    for (int j = 0; j < indices[i].size(0); ++j) {
+      res[indices[i][j].item<int>()] = data[i][j].unsqueeze(0);
     }
   }
-
   return torch::cat(res, /*dim=*/0);
 }
 

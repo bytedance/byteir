@@ -16,12 +16,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
+#include "byteir/Utils/OpInterfaceUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Tensor/IR/TensorTilingInterfaceImpl.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "llvm/Support/Debug.h"
@@ -290,15 +292,15 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
   return resSliceParameters;
 }
 
-static FailureOr<Value> commonGenerateResultTileValue(
+static FailureOr<TilingResult> commonGenerateResultTileValue(
     Operation *op, OpBuilder &b, unsigned resultNumber,
     ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes) {
   auto tilingInterfaceOp = cast<TilingInterface>(op);
-  SmallVector<Operation *> tiledOp =
+  FailureOr<TilingResult> tilingResult =
       tilingInterfaceOp.getTiledImplementation(b, offsets, sizes);
-  if (tiledOp.size() != 1)
-    return op->emitOpError("failed to generate tiled implementation");
-  return tiledOp[0]->getResult(resultNumber);
+  if (failed(tilingResult))
+    return failure();
+  return tilingResult.value();
 }
 
 // ------------------------------------------------------------------------ //
@@ -372,7 +374,7 @@ struct ExpandShapeOpTiling
     return success();
   }
 
-  SmallVector<Operation *>
+  FailureOr<TilingResult>
   getTiledImplementation(Operation *op, OpBuilder &b,
                          ArrayRef<OpFoldResult> offsets,
                          ArrayRef<OpFoldResult> sizes) const {
@@ -417,13 +419,14 @@ struct ExpandShapeOpTiling
     Operation *tiledExpandShapeOp =
         b.create<tensor::ExpandShapeOp>(loc, resType, tiledSrc, op->getAttrs());
 
-    return {tiledExpandShapeOp};
+    return TilingResult{{tiledExpandShapeOp},
+                        SmallVector<Value>(tiledExpandShapeOp->getResults())};
   }
 
-  FailureOr<Value> generateResultTileValue(Operation *op, OpBuilder &b,
-                                           unsigned resultNumber,
-                                           ArrayRef<OpFoldResult> offsets,
-                                           ArrayRef<OpFoldResult> sizes) const {
+  FailureOr<TilingResult>
+  generateResultTileValue(Operation *op, OpBuilder &b, unsigned resultNumber,
+                          ArrayRef<OpFoldResult> offsets,
+                          ArrayRef<OpFoldResult> sizes) const {
     return commonGenerateResultTileValue(op, b, resultNumber, offsets, sizes);
   }
 };
@@ -503,7 +506,7 @@ struct CollapseShapeOpTiling
     return success();
   }
 
-  SmallVector<Operation *>
+  FailureOr<TilingResult>
   getTiledImplementation(Operation *op, OpBuilder &b,
                          ArrayRef<OpFoldResult> offsets,
                          ArrayRef<OpFoldResult> sizes) const {
@@ -548,18 +551,55 @@ struct CollapseShapeOpTiling
     Operation *tiledCollapseShapeOp = b.create<tensor::CollapseShapeOp>(
         loc, resType, tiledSrc, op->getAttrs());
 
-    return {tiledCollapseShapeOp};
+    return TilingResult{{tiledCollapseShapeOp},
+                        SmallVector<Value>(tiledCollapseShapeOp->getResults())};
   }
 
-  FailureOr<Value> generateResultTileValue(Operation *op, OpBuilder &b,
-                                           unsigned resultNumber,
-                                           ArrayRef<OpFoldResult> offsets,
-                                           ArrayRef<OpFoldResult> sizes) const {
+  FailureOr<TilingResult>
+  generateResultTileValue(Operation *op, OpBuilder &b, unsigned resultNumber,
+                          ArrayRef<OpFoldResult> offsets,
+                          ArrayRef<OpFoldResult> sizes) const {
     return commonGenerateResultTileValue(op, b, resultNumber, offsets, sizes);
   }
 };
 
+// ------------------------------------------------------------------------ //
+// Patch of PadOpTilingInterface
+// ------------------------------------------------------------------------ //
+namespace PadOpTilingInterfacePatch {
+FailureOr<TilingResult> getTiledImplementation(Operation *op, OpBuilder &b,
+                                               ArrayRef<OpFoldResult> offsets,
+                                               ArrayRef<OpFoldResult> sizes) {
+  FailureOr<TilingResult> result =
+      tensor::bubbleUpPadSlice(b, llvm::cast<tensor::PadOp>(op), offsets, sizes,
+                               /*generateZeroSliceGuard*/ false);
+  if (failed(result))
+    return failure();
+  return result.value();
+}
+
+FailureOr<TilingResult> generateResultTileValue(Operation *op, OpBuilder &b,
+                                                unsigned resultNumber,
+                                                ArrayRef<OpFoldResult> offsets,
+                                                ArrayRef<OpFoldResult> sizes) {
+  FailureOr<TilingResult> tilingResult =
+      getTiledImplementation(op, b, offsets, sizes);
+  if (failed(tilingResult))
+    return failure();
+  return tilingResult.value();
+}
+} // namespace PadOpTilingInterfacePatch
 } // namespace
+
+// TODO: removed this once upstrem fixed it
+RegisterOpInterfaceOverride(
+    /*Op=*/tensor::PadOp, /*Interface=*/TilingInterface,
+    /*InterfaceMethod=*/getTiledImplementation,
+    /*Impl=*/&PadOpTilingInterfacePatch::getTiledImplementation);
+RegisterOpInterfaceOverride(
+    /*Op=*/tensor::PadOp, /*Interface=*/TilingInterface,
+    /*InterfaceMethod=*/generateResultTileValue,
+    /*Impl=*/&PadOpTilingInterfacePatch::generateResultTileValue);
 
 void mlir::tensor_ext::registerTilingInterfaceExternalModels(
     DialectRegistry &registry) {

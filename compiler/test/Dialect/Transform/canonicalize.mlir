@@ -119,7 +119,7 @@ func.func @simplify_byteir_addn(%arg0: tensor<150x768xf16>, %arg1: tensor<150x76
 
 transform.sequence failures(propagate) {
   ^bb0(%arg0: !pdl.operation):
-    %0 = transform.structured.match attributes{"__test__"} in %arg0
+    %0 = transform.structured.match attributes{"__test__"} in %arg0 : (!pdl.operation) -> !pdl.operation
     transform.sequence %0 : !pdl.operation failures(propagate) {
       ^bb0(%arg1: !pdl.operation):
         %1 = transform.canonicalize(%arg1 : !pdl.operation) -> !pdl.operation

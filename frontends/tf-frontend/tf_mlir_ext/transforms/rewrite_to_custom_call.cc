@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
@@ -124,7 +124,7 @@ createFuncOpFromPattern(OpBuilder &b, StringRef subFnName, ValueRange inputs,
 
   Block *block = subFnOp.addEntryBlock();
   b.setInsertionPoint(block, block->end());
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   for (auto inputAndArg : llvm::zip(inputs, subFnOp.getArguments())) {
     bvm.map(std::get<0>(inputAndArg), std::get<1>(inputAndArg));
   }

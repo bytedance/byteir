@@ -61,7 +61,7 @@ static SmallVector<Value, 2> extractDynamicSizes(OpBuilder &b, Location loc,
   if (!tensor_type)
     return {};
   SmallVector<Value, 2> dynSizes(tensor_type.getRank());
-  for (auto &en : llvm::enumerate(tensor_type.getShape())) {
+  for (const auto &en : llvm::enumerate(tensor_type.getShape())) {
     if (en.value() != ShapedType::kDynamic)
       continue;
     // If a shape tensor is present extract from there.

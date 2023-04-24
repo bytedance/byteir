@@ -19,8 +19,8 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/Matchers.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
@@ -95,7 +95,7 @@ func::FuncOp mlir::createFuncOpFromPattern(OpBuilder &b, StringRef subFnName,
 
   Block *block = subFnOp.addEntryBlock();
   b.setInsertionPoint(block, block->end());
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   for (auto inputAndArg : llvm::zip(inputs, subFnOp.getArguments())) {
     bvm.map(std::get<0>(inputAndArg), std::get<1>(inputAndArg));
   }

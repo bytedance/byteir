@@ -24,7 +24,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "mlir/include/mlir/IR/BlockAndValueMapping.h"
+#include "mlir/include/mlir/IR/IRMapping.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -139,7 +139,7 @@ struct CondBranchContext {
         output.getLoc(), funcName, funcType, ArrayRef<NamedAttribute>{});
     funcOp.setVisibility(SymbolTable::Visibility::Private);
     Block *funcBlock = funcOp.addEntryBlock();
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     unsigned numArg = funcOp.getNumArguments();
     for (unsigned i = 0; i < numArg; ++i) {
       bvm.map(funcInps[i], funcOp.getArgument(i));

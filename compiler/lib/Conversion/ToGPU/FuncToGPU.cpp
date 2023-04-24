@@ -30,8 +30,8 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -68,7 +68,7 @@ static void creaetGuardedSIMT(OpBuilder &b, Value id, Value bound,
     return;
   }
 
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   // newIV = lb + idx * step
   auto newIV = createIndexValue(b, looplike, id);
   auto oldIV = getInductionVar(looplike);
@@ -244,7 +244,6 @@ static void rewriteToGPULaunchFuncImpl(OpBuilder &builder, func::FuncOp func,
 
 int64_t estimateGridSize(LoopLikeOpInterface loopLike, int64_t currGs,
                          int64_t stepMultiplier) {
-
   auto maybeTripCnt = getConstantTripCount(loopLike, stepMultiplier);
 
   if (maybeTripCnt.has_value() &&

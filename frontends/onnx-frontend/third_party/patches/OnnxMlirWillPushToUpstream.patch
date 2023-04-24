@@ -1,43 +1,5 @@
-diff --git a/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp b/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp
-index c669e5ec..26c392b8 100644
---- a/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp
-+++ b/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp
-@@ -71,6 +71,11 @@ struct MhloDialectOp<ONNXMulOp> {
-   using Op = mhlo::MulOp;
- };
- 
-+template <>
-+struct MhloDialectOp<ONNXNegOp> {
-+  using Op = mhlo::NegOp;
-+};
-+
- template <>
- struct MhloDialectOp<ONNXPowOp> {
-   using Op = mhlo::PowOp;
-@@ -81,6 +86,11 @@ struct MhloDialectOp<ONNXSigmoidOp> {
-   using Op = mhlo::LogisticOp;
- };
- 
-+template <>
-+struct MhloDialectOp<ONNXSinOp> {
-+  using Op = mhlo::SineOp;
-+};
-+
- template <>
- struct MhloDialectOp<ONNXSqrtOp> {
-   using Op = mhlo::SqrtOp;
-@@ -321,7 +331,9 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXExpOp>,
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLeakyReluOp>,
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXLogOp>,
-+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXNegOp>,
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSigmoidOp>,
-+      ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSinOp>,
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXSqrtOp>,
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXReluOp>,
-       ONNXElementwiseUnaryOpLoweringToMhlo<ONNXTanhOp>,
 diff --git a/src/Conversion/ONNXToMhlo/Math/Reduction.cpp b/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
-index 3b734e0b..5d8d393c 100644
+index 1dbd10ce..0c2ed30b 100644
 --- a/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
 +++ b/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
 @@ -24,43 +24,41 @@ namespace {
@@ -50,7 +12,7 @@ index 3b734e0b..5d8d393c 100644
  }
  
  template <>
- Value getIdentityValue<ONNXReduceMaxOp>(
+ Value getIdentityValue<ONNXReduceMaxV13Op>(
 -    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
 +    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
 +  MathBuilder createMath(rewriter, loc);
@@ -62,7 +24,7 @@ index 3b734e0b..5d8d393c 100644
  }
  
  template <>
- Value getIdentityValue<ONNXReduceMinOp>(
+ Value getIdentityValue<ONNXReduceMinV13Op>(
 -    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
 +    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
 +  MathBuilder createMath(rewriter, loc);
@@ -88,26 +50,13 @@ index 3b734e0b..5d8d393c 100644
  }
  
  template <>
- Value getIdentityValue<ONNXReduceMeanOp>(
+ Value getIdentityValue<ONNXReduceMeanV13Op>(
 -    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
 +    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
    return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
  }
  
-@@ -86,10 +84,9 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
-   // Assume it is verified that axes are known. Convert DenseElementsAttr to
-   // ArrayAttr.
-   if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
--    mlir::DenseElementsAttr constAxes =
-+    mlir::ElementsAttr constAxes =
-         getONNXConstantOp(axesValue)
--            .getValueAttr()
--            .dyn_cast_or_null<mlir::DenseElementsAttr>();
-+            .getValueAttr().dyn_cast_or_null<mlir::ElementsAttr>();
-     for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
-       definedAxes.push_back(element.getInt());
-     return definedAxes;
-@@ -273,7 +270,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
+@@ -272,7 +270,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
      ShapedType outputType = resultType.cast<ShapedType>();
      if (outputType == nullptr)
        return failure();
@@ -116,7 +65,7 @@ index 3b734e0b..5d8d393c 100644
      Value identity = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
      int64_t inRank = inputType.getRank();
  
-@@ -311,8 +308,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
+@@ -310,8 +308,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
          reduceResult =
              rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
        } else {
@@ -132,35 +81,8 @@ index 3b734e0b..5d8d393c 100644
          Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
          Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
              loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
-diff --git a/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp b/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp
-index 910c0d40..49ebfee0 100644
---- a/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp
-+++ b/src/Conversion/ONNXToMhlo/Tensor/Constant.cpp
-@@ -13,6 +13,7 @@
- //===----------------------------------------------------------------------===//
- 
- #include "src/Conversion/ONNXToMhlo/ONNXToMhloCommon.hpp"
-+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
- 
- using namespace mlir;
- 
-@@ -32,8 +33,12 @@ struct ONNXConstantOpLoweringToMhlo : public ConversionPattern {
-     if (constantOp.getSparseValue().has_value())
-       return constantOp.emitWarning("Only support dense values at this time");
-     assert(constantOp.getValue().has_value() && "Value is not set");
--    Value result =
--        rewriter.create<mhlo::ConstantOp>(loc, constantOp.getValue().value());
-+    Value result;
-+    auto attr = constantOp.getValue().value();
-+    if (auto disposable = attr.dyn_cast<DisposableElementsAttr>())
-+      result = rewriter.create<mhlo::ConstantOp>(loc, disposable.toDenseElementsAttr());
-+    else
-+      result = rewriter.create<mhlo::ConstantOp>(loc, attr);
-     rewriter.replaceOp(op, result);
-     return success();
-   }
 diff --git a/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp b/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
-index 6352e180..861c57a4 100644
+index b960ef17..a0b4b998 100644
 --- a/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
 +++ b/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
 @@ -53,8 +53,13 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
@@ -179,29 +101,60 @@ index 6352e180..861c57a4 100644
      Value broadcastedOnes;
      if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
        assert(shapeOp.getData().getType().isa<ShapedType>() &&
-@@ -68,10 +73,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
-     } else if (ONNXConstantOp shapeOp =
-                    dyn_cast_or_null<ONNXConstantOp>(shapeDefOp)) {
-       llvm::SmallVector<int64_t, 4> shapeValues;
--      mlir::DenseElementsAttr constShape =
--          getONNXConstantOp(shapeOp)
--              .getValueAttr()
--              .dyn_cast_or_null<mlir::DenseElementsAttr>();
-+      mlir::ElementsAttr constShape =
-+          shapeOp.getValueAttr().dyn_cast<ElementsAttr>();
-       for (mlir::IntegerAttr element : constShape.getValues<IntegerAttr>())
-         shapeValues.push_back(element.getInt());
-       RankedTensorType broadcastedType =
-diff --git a/src/Dialect/ONNX/ONNXOps/Quantize/DequantizeLinear.cpp b/src/Dialect/ONNX/ONNXOps/Quantize/DequantizeLinear.cpp
-index 4ead6093..3f9002d2 100644
---- a/src/Dialect/ONNX/ONNXOps/Quantize/DequantizeLinear.cpp
-+++ b/src/Dialect/ONNX/ONNXOps/Quantize/DequantizeLinear.cpp
-@@ -68,8 +68,6 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
-     if (!outputDims[a].isLiteral()) {
-       outputDims[a] = LiteralIndexExpr(d);
-     }
--    llvm::dbgs() << "literal: " << outputDims[a].getLiteral() << " d = " << d
--                 << "\n";
-     // Checked in verify.
-     assert(outputDims[a].getLiteral() == d &&
-            "x_scale and x_zero_point 1-D tensor length must match the input "
+diff --git a/src/Dialect/ONNX/ONNXOps/OpHelper.cpp b/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
+index 7f7c28ef..b512bf1b 100644
+--- a/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
++++ b/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
+@@ -311,6 +311,23 @@ ONNXConstantOp getONNXConstantOp(Value value) {
+   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
+ }
+ 
++// Returns true if the Value is defined by a unit constant.
++// The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
++// For example, NoneType, tensor<0xf32>
++// Some onnx model uses 0 length tensor for unit constant.
++bool isNoneValue(Value v) {
++  if (v.getType().isa<NoneType>())
++    return true;
++
++  if (auto ty = v.getType().dyn_cast<ShapedType>()) {
++    auto shape = ty.getShape();
++    if (shape.size() == 1 && shape[0] == 0)
++      return true;
++  }
++
++  return false;
++}
++
+ //===----------------------------------------------------------------------===//
+ // Support for transpose patterns.
+ //===----------------------------------------------------------------------===//
+diff --git a/src/Dialect/ONNX/ONNXOps/OpHelper.hpp b/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
+index f1a4ba8a..87404d72 100644
+--- a/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
++++ b/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
+@@ -170,9 +170,7 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
+ // difference whether it's a constant (the result of ONNXNoneOp) or the
+ // optional result of some other op (e.g. ONNXDropoutOp mask result).
+ // Note: It's ok to inline the isa<NoneType> test and not call this function.
+-inline bool isNoneValue(mlir::Value value) {
+-  return llvm::isa<mlir::NoneType>(value.getType());
+-}
++bool isNoneValue(mlir::Value value);
+ 
+ //===----------------------------------------------------------------------===//
+ // Support for transpose patterns.
+diff --git a/src/Transform/ONNX/Decompose.cpp b/src/Transform/ONNX/Decompose.cpp
+index 67b05ca6..3ed9eb03 100644
+--- a/src/Transform/ONNX/Decompose.cpp
++++ b/src/Transform/ONNX/Decompose.cpp
+@@ -769,7 +769,9 @@ void DecomposeONNXToONNXPass::runOnOperation() {
+   target.addIllegalOp<ONNXPadV2Op>();
+   target.addIllegalOp<ONNXPadV11Op>();
+   target.addIllegalOp<ONNXReduceL1Op>();
++  target.addIllegalOp<ONNXReduceL1V13Op>();
+   target.addIllegalOp<ONNXReduceL2Op>();
++  target.addIllegalOp<ONNXReduceL2V13Op>();
+   target.addIllegalOp<ONNXReduceLogSumOp>();
+   target.addIllegalOp<ONNXReduceLogSumExpOp>();
+   target.addIllegalOp<ONNXReduceSumSquareOp>();

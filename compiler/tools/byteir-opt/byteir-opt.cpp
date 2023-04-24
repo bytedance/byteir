@@ -18,6 +18,8 @@
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Passes.h"
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
+#include "byteir/Dialect/Ccl/Passes.h"
+#include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Passes.h"
@@ -33,6 +35,7 @@
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
 #include "byteir/Transforms/Passes.h"
+#include "byteir/Utils/OpInterfaceUtils.h"
 #include "gml_st/IR/gml_st_ops.h"
 #include "gml_st/transforms/passes.h"
 #include "gml_st/transforms/test_passes.h"
@@ -42,8 +45,6 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mhlo/IR/register.h"
 #include "mhlo/transforms/passes.h"
-#include "mlir-hlo/Transforms/gpu_passes.h"
-#include "mlir-hlo/Transforms/passes.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
@@ -56,6 +57,8 @@
 #include "stablehlo/dialect/Register.h"
 #include "thlo/IR/thlo_ops.h"
 #include "thlo/transforms/passes.h"
+#include "transforms/gpu_passes.h"
+#include "transforms/passes.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
@@ -115,6 +118,7 @@ int main(int argc, char **argv) {
   registerByteIRAcePasses();
   registerByteIRAffinePasses();
   registerByteIRByrePasses();
+  registerByteIRCclPasses();
   registerByteIRLinalgPasses();
   registerByteIRMemRefPasses();
   registerByteIRMhloPassesExt();
@@ -133,6 +137,7 @@ int main(int argc, char **argv) {
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registeOpInterfaceExtensions(registry);
 
   // register ByteIR's dialects here
   registry.insert<mlir::ace::AceDialect>();
@@ -145,6 +150,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::linalg_ext::LinalgExtDialect>();
 
   // register extension
+  ccl::registerTransformDialectExtension(registry);
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
   tensor_ext::registerTilingInterfaceExternalModels(registry);

@@ -36,7 +36,7 @@ def RewriteL2Norm : Pat<
     $input,
     (ONNXExpandOp
       (ONNXAddOp
-        (ONNXReduceL2Op $input, $axis_attr, $keep_dims),
+        (ONNXReduceL2V13Op $input, $axis_attr, $keep_dims),
         (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
       ),
       (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)  // should be the shape of $input
@@ -89,11 +89,11 @@ def RewriteLayerNorm : Pat<
       (ONNXDivOp
         (ONNXSubOp:$input_zero_mean_0
           $input,
-          (ONNXReduceMeanOp $input, $axis_attr_0, $_)
+          (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
         ),
         (ONNXSqrtOp
           (ONNXAddOp
-            (ONNXReduceMeanOp
+            (ONNXReduceMeanV13Op
               (ONNXPowOp
                 $input_zero_mean_1,
                 (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)
@@ -119,11 +119,11 @@ def RewriteLayerNormWithoutLastAdd : Pat<
     (ONNXDivOp
       (ONNXSubOp:$input_zero_mean_0
         $input,
-        (ONNXReduceMeanOp $input, $axis_attr_0, $_)
+        (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
       ),
       (ONNXSqrtOp
         (ONNXAddOp
-          (ONNXReduceMeanOp
+          (ONNXReduceMeanV13Op
             (ONNXPowOp
               $input_zero_mean_1,
               (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)

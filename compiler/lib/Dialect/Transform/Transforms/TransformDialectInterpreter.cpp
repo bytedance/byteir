@@ -35,8 +35,9 @@ struct TransformDialectInterpreterPass
   void runOnOperation() override {
     ModuleOp module = getOperation();
     for (auto op : module.getOps<transform::TransformOpInterface>()) {
+      RaggedArray<transform::MappedValue> extraMapping;
       if (failed(transform::applyTransforms(
-              module, op,
+              module, op, extraMapping,
               transform::TransformOptions().enableExpensiveChecks(false))))
         return signalPassFailure();
     }

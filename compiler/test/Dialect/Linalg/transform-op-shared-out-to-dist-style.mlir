@@ -15,17 +15,17 @@ func.func @reduction_tile(%arg0: tensor<128x15xf32>, %out: tensor<128xf32>) -> t
 }
 // CHECK-LABEL: func.func @reduction_tile
 // CHECK: tensor.empty() : tensor<128xf32>
-// CHECK: scf.foreach_thread
+// CHECK: scf.forall
 // CHECK: tensor.extract_slice
 // CHECK: linalg.generic
-// CHECK: ccl.all_reduce
+// CHECK-LITERAL: "ccl.all_reduce"(%4) {reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<128xf32>) -> tensor<128xf32>
 // CHECK: linalg.generic
-// CHECK: scf.foreach_thread.perform_concurrently
+// CHECK: scf.forall.in_parallel
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg.generic"]} in %arg1
-  %loop, %init, %tiled, %merge = transform.structured.tile_reduction_using_foreach_thread %0
+  %0 = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+  %loop, %init, %tiled, %merge = transform.structured.tile_reduction_using_forall %0
     by num_threads = [0, 5], tile_sizes = []
   %new_loop, %new_init = transform.structured.shared_output_to_distributed_style %loop, %init, %merge
 }

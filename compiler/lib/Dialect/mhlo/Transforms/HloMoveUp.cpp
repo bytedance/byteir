@@ -26,7 +26,7 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/DenseSet.h"
@@ -91,7 +91,7 @@ struct TransposeMoveUpPattern : public HloMoveUpPattern<mhlo::TransposeOp> {
       return failure();
     }
 
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     // create all const and put into bvm
     for (auto input : constInputs) {
       ElementsAttr oldConstAttr =
@@ -104,7 +104,7 @@ struct TransposeMoveUpPattern : public HloMoveUpPattern<mhlo::TransposeOp> {
 
     // clone new Transpose for nonConstInputs
     for (auto input : nonConstInputs) {
-      BlockAndValueMapping bvmTrans;
+      IRMapping bvmTrans;
       bvmTrans.map(op.getOperand(), input);
       auto newTransType =
           mixType(/*cloneFromElementType*/ input.getType().cast<ShapedType>(),
@@ -172,7 +172,7 @@ struct ReshapeMoveUpPattern : public HloMoveUpPattern<mhlo::ReshapeOp> {
       return failure();
     }
 
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     // create all const and put into bvm
     for (auto input : constInputs) {
       ElementsAttr oldConstAttr =
@@ -185,7 +185,7 @@ struct ReshapeMoveUpPattern : public HloMoveUpPattern<mhlo::ReshapeOp> {
 
     // clone new Reshape for nonConstInputs
     for (auto input : nonConstInputs) {
-      BlockAndValueMapping bvmReshape;
+      IRMapping bvmReshape;
       bvmReshape.map(op.getOperand(), input);
 
       auto newReshapeType =

@@ -361,6 +361,8 @@ def SetArgSpace: Pass<"set-arg-space", "ModuleOp"> {
             "Specified space for all args">,
     Option<"allowArgWritable", "allow-arg-writable",  "bool", /*default=*/"false",
             "allow arg (not return) be writable">,
+    Option<"autoDeduce", "auto-deduce", "bool", /*default=*/"false",
+            "whether to deduce arg space">,
   ];
   let dependentDialects = [
     "mlir::memref::MemRefDialect",

@@ -48,7 +48,7 @@
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -160,6 +160,24 @@ void populateOptionalGpuToNVVMExtConversionPatterns(
                                                     "__nv_fmin");
 }
 
+static IntegerAttr wrapNumericMemorySpace(MLIRContext *ctx, unsigned space) {
+  return IntegerAttr::get(IntegerType::get(ctx, 64), space);
+}
+
+/// A function that maps a MemorySpace enum to a target-specific integer value.
+using MemorySpaceMapping =
+    std::function<unsigned(gpu::AddressSpace gpuAddressSpace)>;
+void populateGpuMemorySpaceAttributeConversions(
+    TypeConverter &typeConverter, const MemorySpaceMapping &mapping) {
+  typeConverter.addTypeAttributeConversion(
+      [mapping](BaseMemRefType type, gpu::AddressSpaceAttr memorySpaceAttr) {
+        gpu::AddressSpace memorySpace = memorySpaceAttr.getValue();
+        unsigned addressSpace = mapping(memorySpace);
+        return wrapNumericMemorySpace(memorySpaceAttr.getContext(),
+                                      addressSpace);
+      });
+}
+
 // Note: this pass is an externsion pass of upstream pass:
 // https://github.com/llvm/llvm-project/blob/main/mlir/lib/Conversion/GPUToNVVM/LowerGpuOpsToNVVMOps.cpp
 struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
@@ -184,35 +202,46 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
     if (indexBitwidth != kDeriveIndexBitwidthFromDataLayout)
       options.overrideIndexBitwidth(indexBitwidth);
 
-    // MemRef conversion for GPU to NVVM lowering. The GPU dialect uses memory
-    // space 5 for private memory attributions, but NVVM represents private
-    // memory allocations as local `alloca`s in the default address space. This
-    // converter drops the private memory space to support the use case above.
+    // Apply in-dialect lowering. In-dialect lowering will replace
+    // ops which need to be lowered further, which is not supported by a
+    // single conversion pass.
+    {
+      RewritePatternSet patterns(m.getContext());
+      populateGpuRewritePatterns(patterns);
+      if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns))))
+        return signalPassFailure();
+    }
+
     LLVMTypeConverter converter(m.getContext(), options);
-    converter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
-      if (type.getMemorySpaceAsInt() !=
-          gpu::GPUDialect::getPrivateAddressSpace())
-        return std::nullopt;
-      return converter.convertType(MemRefType::Builder(type).setMemorySpace(0));
-    });
+    // NVVM uses alloca in the default address space to represent private
+    // memory allocations, so drop private annotations. NVVM uses address
+    // space 3 for shared memory. NVVM uses the default address space to
+    // represent global memory.
+    populateGpuMemorySpaceAttributeConversions(
+        converter, [](gpu::AddressSpace space) -> unsigned {
+          switch (space) {
+          case gpu::AddressSpace::Global:
+            return static_cast<unsigned>(
+                NVVM::NVVMMemorySpace::kGlobalMemorySpace);
+          case gpu::AddressSpace::Workgroup:
+            return static_cast<unsigned>(
+                NVVM::NVVMMemorySpace::kSharedMemorySpace);
+          case gpu::AddressSpace::Private:
+            return 0;
+          }
+          llvm_unreachable("unknown address space enum value");
+          return 0;
+        });
     // Lowering for MMAMatrixType.
     converter.addConversion([&](gpu::MMAMatrixType type) -> Type {
       return convertMMAToLLVMType(type);
     });
-    RewritePatternSet patterns(m.getContext());
     RewritePatternSet llvmPatterns(m.getContext());
-
-    // Apply in-dialect lowering first. In-dialect lowering will replace ops
-    // which need to be lowered further, which is not supported by a single
-    // conversion pass.
-    populateGpuRewritePatterns(patterns);
-    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-    (void)applyPatternsAndFoldGreedily(m, frozenPatterns);
 
     arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, llvmPatterns);
-    populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
     populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
     // our extension fixing

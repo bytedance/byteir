@@ -72,7 +72,8 @@ template <typename T> void CheckCUDAValues(T *mat, size_t size, T value) {
   free(h_ptr);
 }
 
-template <typename T>
+template <typename T,
+          std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
 [[nodiscard]] bool CheckCUDAValues(T *first, T *second, size_t size,
                                    double absolute_eps, double relative_eps,
                                    size_t print_count = 10) {
@@ -84,6 +85,21 @@ template <typename T>
   cudaDeviceSynchronize();
   bool passed = CheckCPUValues<T>(h_first, h_second, size, absolute_eps,
                                   relative_eps, print_count);
+  free(h_first);
+  free(h_second);
+  return passed;
+}
+
+template <typename T>
+[[nodiscard]] bool CheckCUDAValues(T *first, T *second, size_t size,
+                                   size_t print_count = 10) {
+  cudaDeviceSynchronize();
+  T *h_first = (T *)malloc(size * sizeof(T));
+  T *h_second = (T *)malloc(size * sizeof(T));
+  cudaMemcpy(h_first, first, size * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_second, second, size * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
+  bool passed = CheckCPUValues<T>(h_first, h_second, size, print_count);
   free(h_first);
   free(h_second);
   return passed;

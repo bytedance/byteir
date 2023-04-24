@@ -145,3 +145,52 @@ TEST(CUDAOpKerenlTest, CopyD2HOp) {
   cudaFree(d_arg_0);
   free(h_arg_1);
 }
+
+TEST(CUDAOpKerenlTest, CopyD2DOp) {
+  Session session;
+  auto status_allocator = CUDAAllocatorFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_allocator);
+  auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cuda);
+
+  ByREBuilder byre_builder;
+  auto status_load = session.LoadFromMemory(
+      CreateCopyOp(byre_builder, "cuda", "cuda"), "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  std::unique_ptr<RequestContext> request;
+  auto status_request = session.NewRequestContext(&request);
+  BRT_TEST_CHECK_STATUS(status_request);
+
+  auto shape = session.GetStaticShape(0);
+  int64_t linearized_shape = LinearizedShape(shape);
+  size_t len = static_cast<size_t>(linearized_shape);
+
+  // FIXME: using binding for now, since multiple allocator is not done.
+  float *d_arg_0;
+  cudaMalloc(&d_arg_0, len * sizeof(float));
+  float *d_arg_1;
+  cudaMalloc(&d_arg_1, len * sizeof(float));
+  request->BindArg(0, d_arg_0);
+  request->BindArg(1, d_arg_1);
+  request->FinishIOBinding();
+
+  // first run
+  RandCUDABuffer(d_arg_0, len, 0.f, 1.f);
+  auto status_run = session.Run(*request);
+  BRT_TEST_CHECK_STATUS(status_run);
+  auto status_sync = request->Sync();
+  BRT_TEST_CHECK_STATUS(status_sync);
+  EXPECT_TRUE(CheckCUDAValues(d_arg_0, d_arg_1, len));
+
+  // second run
+  RandCUDABuffer(d_arg_0, len, 0.f, 1.f);
+  status_run = session.Run(*request);
+  BRT_TEST_CHECK_STATUS(status_run);
+  status_sync = request->Sync();
+  BRT_TEST_CHECK_STATUS(status_sync);
+  EXPECT_TRUE(CheckCUDAValues(d_arg_0, d_arg_1, len));
+
+  cudaFree(d_arg_0);
+  cudaFree(d_arg_1);
+}

@@ -20,8 +20,8 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/SymbolTable.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Twine.h"
@@ -68,7 +68,7 @@ static func::FuncOp createOutlinedFuncOp(mhlo::FusionOp fusionOp,
 
   // create entry block
   Block *block = funcOp.addEntryBlock();
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   unsigned numArg = funcOp.getNumArguments();
   for (unsigned i = 0; i < numArg; ++i) {
     bvm.map(fusionOp.getOperand(i), funcOp.getArgument(i));

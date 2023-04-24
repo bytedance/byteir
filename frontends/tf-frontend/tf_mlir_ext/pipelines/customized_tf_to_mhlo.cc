@@ -43,7 +43,7 @@
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/shape_inference.h"
 #include "tensorflow/compiler/mlir/tensorflow/translate/mlir_roundtrip_flags.h"
-#include "tensorflow/compiler/mlir/xla/transforms/passes.h"
+#include "tensorflow/compiler/mlir/tf2xla/transforms/passes.h"
 
 using namespace mlir;
 using namespace llvm;
@@ -133,8 +133,6 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::createCSEPass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
-
-    pm.addPass(mlir::mhlo::createLegalizeTFControlFlowPass());
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
     pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());

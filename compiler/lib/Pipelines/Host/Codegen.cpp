@@ -146,7 +146,6 @@ void createTileAndVectorizeTransposeTransformImpl(OpPassManager &pm,
           /*padding_dimensions=*/
           b.getI64ArrayAttr(tileConfig.paddingDimensions),
           /*pack_paddings=*/ArrayAttr{},
-          /*hoist_paddings=*/ArrayAttr{},
           /*transpose_paddings=*/ArrayAttr{});
     }
     b.create<transform::VectorizeOp>(outlineOp.getFunctions(),

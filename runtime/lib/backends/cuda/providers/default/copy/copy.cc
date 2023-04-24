@@ -37,8 +37,8 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-CopyOpKernel::CopyOpKernel(const OpKernelInfo &info, int type)
-    : OpKernel(info), task_type(type) {
+CopyOpKernel::CopyOpKernel(const OpKernelInfo &info, int task_type)
+    : OpKernel(info), task_type(task_type) {
   src_id = GetTensorIndexFromOpArgIndex(info_, 0);
   dst_id = GetTensorIndexFromOpArgIndex(info_, 1);
 

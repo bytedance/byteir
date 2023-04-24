@@ -136,25 +136,30 @@ bool LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryWrite(
     Operation *op, OpOperand &opOperand, const AnalysisState &state) const {
   // Operand is written to if it has an aliasing OpResult.
   auto bufferizableOp = cast<BufferizableOpInterface>(op);
-  return !bufferizableOp.getAliasingOpResult(opOperand, state).empty();
+  return !(
+      bufferizableOp.getAliasingOpResults(opOperand, state).getNumAliases() !=
+      0);
 }
 
-SmallVector<OpOperand *>
-LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperand(
+bufferization::AliasingOpOperandList
+LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperands(
     Operation *op, OpResult opResult, const AnalysisState &) const {
   auto genericOp = cast<DestinationStyleOpInterface>(op);
 
   // The i-th OpResult may alias with the i-th "out" tensor.
-  return {genericOp.getDpsInitOperand(opResult.getResultNumber())};
+  return {{genericOp.getDpsInitOperand(opResult.getResultNumber()),
+           BufferRelation::Equivalent}};
 }
 
-SmallVector<OpResult> LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResult(
+bufferization::AliasingOpResultList
+LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResults(
     Operation *op, OpOperand &opOperand, const AnalysisState &) const {
   auto genericOp = cast<DestinationStyleOpInterface>(op);
 
   // The i-th "out" tensor may alias with the i-th OpResult.
   if (genericOp.isDpsInit(&opOperand))
-    return {genericOp.getTiedOpResult(&opOperand)};
+    return {
+        {genericOp.getTiedOpResult(&opOperand), BufferRelation::Equivalent}};
   return {};
 }
 

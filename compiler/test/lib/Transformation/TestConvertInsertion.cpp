@@ -70,10 +70,12 @@ struct TestI16ConvertRule : public ConvertRuleBase {
   explicit TestI16ConvertRule(mlir::StringRef strRef)
       : anchorAttr(strRef.str()) {}
   virtual ~TestI16ConvertRule() {}
-  bool checkFunc(func::FuncOp func) { return func->hasAttr(anchorAttr); }
+  bool checkFunc(func::FuncOp func) override {
+    return func->hasAttr(anchorAttr);
+  }
 
   std::optional<mlir::TensorType> checkArg(func::FuncOp func, size_t offset,
-                                           bool isArg) {
+                                           bool isArg) override {
     auto context = func.getContext();
     auto builder = std::make_unique<mlir::OpBuilder>(context);
     FunctionType funcType = func.getFunctionType();

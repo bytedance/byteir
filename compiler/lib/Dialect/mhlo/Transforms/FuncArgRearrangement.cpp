@@ -25,9 +25,9 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "llvm/ADT/DenseMap.h"
@@ -210,8 +210,8 @@ void FuncArgRearrangementPass::runOnOperation() {
       auto entry = newFunc.addEntryBlock();
       builder.setInsertionPointToEnd(entry);
 
-      // assign BlockAndValueMapping from oldArg to newVal
-      BlockAndValueMapping argBvm;
+      // assign IRMapping from oldArg to newVal
+      IRMapping argBvm;
 
       auto newArgs = llvm::to_vector(llvm::map_range(
           newFunc.getArguments(),

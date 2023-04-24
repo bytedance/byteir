@@ -2,7 +2,7 @@
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1
+  %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:3 = transform.structured.tile_ext %0 [2, 4, 8] {interchange = [2, 1, 0]}
 }
 
@@ -38,7 +38,7 @@ func.func @tile_linalg_matmul(
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.softmax"]} in %arg0
+  %0 = transform.structured.match ops{["linalg_ext.softmax"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loop = transform.structured.tile_ext %0 [4] 
 }
 
@@ -62,7 +62,7 @@ func.func @softmax_tensor(%arg0: tensor<1024x64xf32>) -> (tensor<1024x64xf32>) {
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.softmax"]} in %arg0
+  %0 = transform.structured.match ops{["linalg_ext.softmax"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops = transform.structured.tile_ext %0 [4] 
 }
 
@@ -86,7 +86,7 @@ func.func @softmax_memref(%arg0: memref<1024x64xf32>) -> (memref<1024x64xf32>) {
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes{"__root__"} in %arg0
+  %0 = transform.structured.match attributes{"__root__"} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops = transform.structured.tile_ext %0 [4] 
 }
 
@@ -111,7 +111,7 @@ func.func @map_binary(%lhs: tensor<64xf32>, %rhs: tensor<64xf32>,
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.topk"]} in %arg1
+  %0 = transform.structured.match ops{["linalg_ext.topk"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [32, 16] {interchange = [0, 1, 2]}
 }
 
@@ -139,7 +139,7 @@ func.func @topk_tensor(%input_values: tensor<1024x64xf32>, %input_indices: tenso
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.topk"]} in %arg1
+  %0 = transform.structured.match ops{["linalg_ext.topk"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [32, 16] {interchange = [0, 1, 2]}
 }
 
@@ -167,7 +167,7 @@ func.func @topk_tensor_optional(%input_values: tensor<1024x64xf32>) -> (tensor<1
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.batch_matmul"]} in %arg1
+  %0 = transform.structured.match ops{["linalg_ext.batch_matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:3 = transform.structured.tile_ext %0 [2, 4, 8] {interchange = [0, 2, 1]}
 }
 
@@ -196,7 +196,7 @@ func.func @batch_matmul_3d(%ta3: tensor<8x32x128xf32>, %tb3: tensor<8x128x64xf32
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {__root__} in %arg0
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops = transform.structured.tile_ext %0 [4]
 }
 
@@ -215,7 +215,7 @@ func.func @expand_shape_simple(%arg0: tensor<128x1024x4096xf32>) -> tensor<128x1
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {__root__} in %arg0
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [4, 0, 4]
 }
 
@@ -236,7 +236,7 @@ func.func @expand_shape_tiling_on_expanded_dim(%arg0: tensor<128x1024x4096xf32>)
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {__root__} in %arg0
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [4, 0, 8]
 }
 
@@ -257,7 +257,7 @@ func.func @expand_shape_tiling_on_dynamic_dim(%arg0: tensor<128x?xf32>) -> tenso
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {__root__} in %arg0
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops = transform.structured.tile_ext %0 [4]
 }
 
@@ -276,7 +276,7 @@ func.func @collapse_shape_simple(%arg0: tensor<128x16x1xf32>) ->tensor<128x16xf3
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {__root__} in %arg0
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [8, 4]
 }
 
@@ -297,7 +297,7 @@ func.func @collapse_shape_tiling_on_collapse_dim(%arg0: tensor<128x1x8x2xf32>) -
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match attributes {__root__} in %arg0
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [8, 4]
 }
 
@@ -318,7 +318,7 @@ func.func @collapse_shape_tiling_on_dynamic_dim(%arg0: tensor<128x1x?x1xf32>) ->
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.scatter"]} in %arg1
+  %0 = transform.structured.match ops{["linalg_ext.scatter"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:3 = transform.structured.tile_ext %0 [2, 4, 8] {interchange = [1, 2, 0]}
 }
 
@@ -349,7 +349,7 @@ func.func @scatter(%src: tensor<2x3x32x64xf32>, %indices: tensor<100x2xi64>, %up
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.layer_norm"]} in %arg0
+  %0 = transform.structured.match ops{["linalg_ext.layer_norm"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1:2, %loop = transform.structured.tile_ext %0 [4, 8] 
 }
 
@@ -377,7 +377,7 @@ func.func @layer_norm_3d(%arg0: tensor<8x32x128xf32>, %arg1: tensor<128xf32>, %a
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.layer_norm"]} in %arg0
+  %0 = transform.structured.match ops{["linalg_ext.layer_norm"]} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loop = transform.structured.tile_ext %0 [4] 
 }
 

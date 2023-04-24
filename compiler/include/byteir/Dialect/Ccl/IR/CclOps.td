@@ -52,10 +52,10 @@ class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
 }
 
 def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
-    [DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+    [Pure, DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "AllReduce operator";
   let description = [{
-    Performs a custom reduction across replicas.
+    Performs a reduction specified by `reduction` attribute across replicas.
 
     The operand `dynamic_replica_groups` and attribute `replica_groups` are both
     used to indicate which group this op belongs to. They can't exist
@@ -76,10 +76,81 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
   let results = (outs AnyTensor:$result);
 
   let builders = [
-    OpBuilder<(ins "Value":$src, "ArrayAttr":$replica_groups, 
-                   "IntegerAttr":$unique_id,
-                   CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
+  OpBuilder<(ins "Value":$src, "StringAttr":$reduction,
+                  "ArrayAttr":$replica_groups, "IntegerAttr":$unique_id,
+                  CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
   ];
+
+  let extraClassDeclaration = commonExtraClassDeclaration;
+  let hasVerifier = 1;
+}
+
+def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather", [Pure]> {
+  let summary = "AllGather operator";
+  let description = [{
+    Performs concatenation across replicas and the concatenation dim is
+    specified by `axis` attribute.
+
+    The usage of `dynamic_replica_groups`, `replica_groups` and `unique_id` is
+    the same as that in `ccl.all_reduce`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$src,
+    Optional<AnyTensor>:$dynamic_replica_groups,
+    I64Attr:$axis,
+    OptionalAttr<IndexListArrayAttr>:$replica_groups,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
+
+  let extraClassDeclaration = commonExtraClassDeclaration;
+  let hasVerifier = 1;
+}
+
+def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter", [Pure]> {
+  let summary = "AllGather operator";
+  let description = [{
+    Perform reductions using type of `reduction` attribute. And then split the
+    reduction along `axis` attribute into parts, and scatters the split parts.
+
+    The usage of `dynamic_replica_groups`, `replica_groups` and `unique_id` is
+    the same as that in `ccl.all_reduce`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$src,
+    Optional<AnyTensor>:$dynamic_replica_groups,
+    StrAttr:$reduction,
+    I64Attr:$axis,
+    OptionalAttr<IndexListArrayAttr>:$replica_groups,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
+
+  let extraClassDeclaration = commonExtraClassDeclaration;
+  let hasVerifier = 1;
+}
+
+def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all", [Pure]> {
+  let summary = "AllToAll operator";
+  let description = [{
+    Split the `src` along `split_axis` into parts, scatters the split parts, and
+    then concatenates the scattered parts along `concat_axis`.
+
+    The usage of `dynamic_replica_groups`, `replica_groups` and `unique_id` is
+    the same as that in `ccl.all_reduce`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$src,
+    Optional<AnyTensor>:$dynamic_replica_groups,
+    I64Attr:$split_axis,
+    I64Attr:$concat_axis,
+    OptionalAttr<IndexListArrayAttr>:$replica_groups,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
 
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;

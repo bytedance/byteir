@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -byre-opt="append-arg-types" | FileCheck %s
+// RUN: byteir-opt %s -remove-func-body="anchor-attr=__byteir_elementwise_fusion__" -set-op-space="entry-func=main space=cuda" -set-arg-space="entry-func=main all-space=cuda" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
 
@@ -1863,8 +1863,8 @@ module @IrToMhlo.2452 attributes {gpu.container_module} {
       gpu.return
     }
     gpu.func @Unknown64(%arg0: memref<4x512xf16>, %arg1: memref<4x512x7x7xi1>, %arg2: memref<4x512x7x7xf16>) kernel {
-      %cst = arith.constant 4.900000e+01 : f16
-      %cst_0 = arith.constant 0.000000e+00 : f16
+      %cst = arith.constant 0.000000e+00 : f16
+      %cst_0 = arith.constant 4.900000e+01 : f16
       %c0 = arith.constant 0 : index
       %c100352 = arith.constant 100352 : index
       %c7 = arith.constant 7 : index
@@ -1909,8 +1909,8 @@ module @IrToMhlo.2452 attributes {gpu.container_module} {
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg1[%35, %29, %19, %9] : memref<4x512x7x7xi1>
         %37 = memref.load %arg0[%35, %29] : memref<4x512xf16>
-        %38 = arith.divf %37, %cst : f16
-        %39 = arith.select %36, %38, %cst_0 : f16
+        %38 = arith.divf %37, %cst_0 : f16
+        %39 = arith.select %36, %38, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x512x7x7xf16>
       }
       gpu.return

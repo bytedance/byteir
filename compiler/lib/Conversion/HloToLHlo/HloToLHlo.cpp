@@ -46,6 +46,7 @@
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "../PassDetail.h"
 
@@ -207,8 +208,8 @@ public:
       return failure();
     rewriter.create<mhlo::HloToLhloOp<HloOpTy>>(op->getLoc(), std::nullopt,
                                                 buffer_args, op->getAttrs());
-    rewriter.replaceOp(
-        op, llvm::makeArrayRef(buffer_args).drop_front(operands.size()));
+    rewriter.replaceOp(op,
+                       llvm::ArrayRef(buffer_args).drop_front(operands.size()));
     return success();
   }
 };
@@ -390,12 +391,21 @@ public:
                                   new_op->getRegion(i).end());
     }
 
-    rewriter.replaceOp(
-        op, llvm::makeArrayRef(buffer_args).drop_front(operands.size()));
+    rewriter.replaceOp(op,
+                       llvm::ArrayRef(buffer_args).drop_front(operands.size()));
 
     return success();
   }
 };
+
+LogicalResult rewriteToTensorOp(bufferization::ToTensorOp op,
+                                PatternRewriter &rewriter) {
+  if (op.getRestrict())
+    return failure();
+
+  op.setRestrict(true);
+  return success();
+}
 
 struct ConvertHloToLHloPass
     : public ConvertHloToLHloBase<ConvertHloToLHloPass> {
@@ -474,6 +484,14 @@ public:
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(
             applyPartialConversion(getOperation(), target, frozenPatterns))) {
+      signalPassFailure();
+    }
+
+    RewritePatternSet toTensorPatterns(&context);
+    toTensorPatterns.add(rewriteToTensorOp);
+    FrozenRewritePatternSet toTensorFrozenPatterns(std::move(toTensorPatterns));
+    if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                            toTensorFrozenPatterns))) {
       signalPassFailure();
     }
   }

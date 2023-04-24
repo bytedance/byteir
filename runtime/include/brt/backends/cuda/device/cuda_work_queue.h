@@ -36,6 +36,7 @@ enum CUDATaskType : int {
   kRecordEvent = 3,
   kWaitEvent = 4,
   kComputeDrv = 5,
+  kD2D = 6,
 };
 
 /**

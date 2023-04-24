@@ -15,18 +15,21 @@ OptPipeline = functools.partial(Pipeline, "byteir-opt")
 TranslatePipeline = functools.partial(Pipeline, "byteir-translate")
 Testcase = collections.namedtuple("testcase", ["contents", "pipelines"])
 
-def composePipelines(underlyingPipelines, cur_stage, next_stages):
-    args = [None, cur_stage, next_stages, None]
-    for i in underlyingPipelines:
-        assert i.args[0]
-        if args[0] != i.args[0]:
-            if args[0] is None:
-                args[0] = i.args[0]
-                args[3] = []
-            else:
-                args[3] += ['|', i.args[0]]
-        args[3] += i.args[3]
-    return functools.partial(Pipeline, *args)
+def composePipelines(pipelineCtors, cur_stage, next_stages):
+    def fn(*args, **kwargs):
+        underlyingPipelines = [ctor(*args, **kwargs) for ctor in pipelineCtors]
+        executable = underlyingPipelines[0].executable
+        pipelines = []
+        pipelines += underlyingPipelines[0].pipelines
+        filecheck = underlyingPipelines[0].filecheck
+        cur_executable = executable
+        for i in underlyingPipelines[1:]:
+            if i.executable != cur_executable:
+                pipelines += ['|', i.executable]
+                cur_executable = i.executable
+            pipelines += i.pipelines
+        return Pipeline(executable, cur_stage, next_stages, pipelines, filecheck)
+    return fn
 
 # for host pipelines
 class HostPipelineCollections:
@@ -68,10 +71,11 @@ class E2ECollections:
     AffineOpt       = Stage("affine_opt",          "4_affine_opt.mlir")
     SCFOpt          = Stage("alternative_scf_opt", "4_alternative_scf_opt.mlir")
     GPUOpt          = Stage("gpu_opt",             "5_gpu_opt.mlir")
-    ByreOpt         = Stage("byre_opt",            "6_byre_opt.mlir")
-    ByreHost        = Stage("byre_host",           "7a_byre_host.mlir")
-    NVVMCodegen     = Stage("nvvm_codegen",        "7b_nvvm_codegen.mlir")
-    PTXCodegen      = Stage("ptx_codegen",         "8b_ptx_codegen.mlir")
+    SetSpaceOpt     = Stage("set_space_opt",       "6_set_space_opt.mlir")
+    ByreOpt         = Stage("byre_opt",            "7_byre_opt.mlir")
+    ByreHost        = Stage("byre_host",           "8a_byre_host.mlir")
+    NVVMCodegen     = Stage("nvvm_codegen",        "8b_nvvm_codegen.mlir")
+    PTXCodegen      = Stage("ptx_codegen",         "9b_ptx_codegen.mlir")
     HostOutput      = Stage("host_output",         "host_output.mlir")
     DeviceOutput    = Stage("device_output",       "device_output.ptx")
 
@@ -91,12 +95,17 @@ class E2ECollections:
     SCFOptPipeline = functools.partial(OptPipeline, SCFOpt, [GPUOpt], [
         "-scf-opt",
     ])
-    GPUOptPipeline = functools.partial(OptPipeline, GPUOpt, [ByreOpt], [
+    GPUOptPipeline = functools.partial(OptPipeline, GPUOpt, [SetSpaceOpt], [
         "-gpu-opt"
     ])
-    ByreOptPipeline = functools.partial(OptPipeline, ByreOpt, [ByreHost, NVVMCodegen], [
-        "-byre-opt=\"append-arg-types\""
-    ])
+    def SetSpaceOptPipeline(filecheck, *, entryFunc="main"):
+        return OptPipeline(E2ECollections.SetSpaceOpt, [E2ECollections.ByreOpt], [
+            "-remove-func-body=\"anchor-attr=__byteir_elementwise_fusion__\"",
+            "-set-op-space=\"entry-func={} space=cuda\"".format(entryFunc),
+            "-set-arg-space=\"entry-func={} all-space=cuda\"".format(entryFunc)
+        ], filecheck)
+    def ByreOptPipeline(filecheck, *, entryFunc="main"):
+        return OptPipeline(E2ECollections.ByreOpt, [E2ECollections.ByreHost, E2ECollections.NVVMCodegen], ["-byre-opt=\"append-arg-types entry-func={}\"".format(entryFunc)], filecheck)
     ByreHostPipeline = functools.partial(OptPipeline, ByreHost, [HostOutput], [
         "-byre-host=\"device-file-name=your_file target=cuda\""
     ])

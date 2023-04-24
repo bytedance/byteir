@@ -40,7 +40,7 @@ def build_onnx(node_name, input_shape_dtype, output_shape_dtype, initializer=[],
     )
 
     op = onnx.OperatorSetIdProto()
-    op.version = 13
+    op.version = 17
 
     # Create the model (ModelProto)
     model_def = helper.make_model(

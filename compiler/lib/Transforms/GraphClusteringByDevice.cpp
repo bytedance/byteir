@@ -21,9 +21,9 @@
 #include "byteir/Utils/IRRewrite.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 
@@ -158,7 +158,7 @@ void createFunctions(ModuleOp module_op,
     // operation should use the arguments of the newly created funcOp as
     // appropriate.
     OpBuilder builder(block, block->end());
-    BlockAndValueMapping mapping;
+    IRMapping mapping;
     for (int i : llvm::seq<int>(0, metadata.inputs.size())) {
       Value originalValue = metadata.inputs[i];
       Value newValue = funcOp.getArgument(i);
@@ -186,7 +186,7 @@ void createFunctions(ModuleOp module_op,
 void createCalls(MLIRContext *context,
                  const SmallVector<FunctionMetadata, 4> &metadatas,
                  Operation *retOp, bool dupOutputs) {
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
   for (auto &metadata : metadatas) {
     // Creates the CallOp.
     OpBuilder builder(metadata.ops.back());

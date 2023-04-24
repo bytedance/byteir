@@ -130,9 +130,8 @@ struct ptxGenerator {
                                   StringRef passName, bool saveOutput = true,
                                   bool gpuPass = false) {
     printVerbose("Start running pass " + passName + "\n");
-    mlir::PassManager pm(moduleOp.getContext(),
-                         OpPassManager::Nesting::Implicit);
-    applyPassManagerCLOptions(pm);
+    mlir::PassManager pm(moduleOp->getName(), OpPassManager::Nesting::Implicit);
+    (void)applyPassManagerCLOptions(pm);
     if (gpuPass) {
       auto &kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
       kernelPm.addPass(std::move(pass));
@@ -219,9 +218,8 @@ struct ptxGenerator {
   }
 
   LogicalResult emitOperation(ModuleOp m) {
-    auto context = m.getContext();
-    PassManager pm(context, OpPassManager::Nesting::Implicit);
-    applyPassManagerCLOptions(pm);
+    PassManager pm(m->getName(), OpPassManager::Nesting::Implicit);
+    (void)applyPassManagerCLOptions(pm);
 
     initGenPtxPasses();
     std::string outPrefixName = outPrefix + ".genptx.mlir";

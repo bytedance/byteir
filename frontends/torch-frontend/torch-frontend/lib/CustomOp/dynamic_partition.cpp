@@ -11,11 +11,11 @@ std::vector<torch::Tensor> custom_dynamic_partition(torch::Tensor data,
         indices.push_back(j);
       }
     }
-    res.push_back(data.index_select(
-        0, torch::from_blob(indices.data(), {static_cast<long>(indices.size())},
-                            torch::kLong)
-               .clone()
-               .to(data.device())));
+    auto indices_tensor =
+        torch::from_blob(indices.data(), {static_cast<long>(indices.size())},
+                         torch::kLong)
+            .to(data.device());
+    res.push_back(data.index_select(0, indices_tensor));
   }
   return res;
 }

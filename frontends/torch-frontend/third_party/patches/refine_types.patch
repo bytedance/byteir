@@ -56,7 +56,7 @@ index 92b91c1f..15527a64 100644
    if (isa<AtenMaxPool2dWithIndicesOp>(op)) {
      auto self = operands[0]->getValue();
      auto result0Knowledge =
-@@ -1203,6 +1232,19 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -1203,6 +1232,21 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }
  
@@ -70,6 +70,8 @@ index 92b91c1f..15527a64 100644
 +      return;
 +    } else if (opName == getDynamicStitchCustomName()) {
 +      return incorporateKnowledge(op->getResult(0), operands[operands.size()-1]->getValue());
++    } else if (opName == getDynamicMaskStitchCustomName()) {
++      return incorporateKnowledge(op->getResult(0), operands[0]->getValue());
 +    }
 +  }
 +

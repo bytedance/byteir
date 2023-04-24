@@ -701,13 +701,13 @@ module @IrToMhlo.2452 {
     return %alloc, %alloc_0, %alloc_1 : memref<4x1000xf16>, memref<4x1000xf32>, memref<4x1000xf32>
   }
   func.func private @Unknown64(%arg0: memref<4x512xf16>, %arg1: memref<4x512x7x7xi1>) -> memref<4x512x7x7xf16> attributes {__byteir_elementwise_fusion__} {
-    %cst = arith.constant 0.000000e+00 : f16
-    %cst_0 = arith.constant 4.900000e+01 : f16
+    %cst = arith.constant 4.900000e+01 : f16
+    %cst_0 = arith.constant 0.000000e+00 : f16
     %alloc = memref.alloc() : memref<4x512x7x7xf16>
     linalg.generic {indexing_maps = [#map, #map4, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg1, %arg0 : memref<4x512x7x7xi1>, memref<4x512xf16>) outs(%alloc : memref<4x512x7x7xf16>) {
     ^bb0(%in: i1, %in_1: f16, %out: f16):
-      %0 = arith.divf %in_1, %cst_0 : f16
-      %1 = arith.select %in, %0, %cst : f16
+      %0 = arith.divf %in_1, %cst : f16
+      %1 = arith.select %in, %0, %cst_0 : f16
       linalg.yield %1 : f16
     }
     return %alloc : memref<4x512x7x7xf16>
