@@ -26,6 +26,7 @@ class CopyOpKernel final : public OpKernel {
 public:
   // task_type 1 as H2D
   //           2 as D2H
+  //           6 as D2D
   CopyOpKernel(const OpKernelInfo &, int task_type);
   ~CopyOpKernel();
   common::Status RunImpl(const ExecutionContext &) override;

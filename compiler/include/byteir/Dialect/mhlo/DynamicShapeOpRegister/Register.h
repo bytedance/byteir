@@ -26,6 +26,7 @@ namespace mlir {
 // StaticShapeInfer Registration
 //===----------------------------------------------------------------------===//
 void registerConvolutionInferReturnTypeComponents();
+void registerDotInferReturnTypeComponents();
 void registerDotGeneralInferReturnTypeComponents();
 void registerDynamicBroadcastInDimInferReturnTypeComponents();
 void registerDynamicReshapeInferReturnTypeComponents();
@@ -36,6 +37,7 @@ void registerTorchIndexSelectInferReturnTypeComponents();
 
 inline void registerAllMhloInferReturnTypeComponents() {
   registerConvolutionInferReturnTypeComponents();
+  registerDotInferReturnTypeComponents();
   registerDotGeneralInferReturnTypeComponents();
   registerDynamicBroadcastInDimInferReturnTypeComponents();
   registerDynamicReshapeInferReturnTypeComponents();

@@ -131,3 +131,13 @@ func.func @torch.custom.dynamic_stitch(%arg0: !torch.vtensor<[?],si64>, %arg1: !
 // CHECK-SAME: @tf.DynamicStitch
 // CHECK: byteir_attrs = {}
 // CHECH-NOT: torch.custom_op
+
+func.func @torch.custom.dynamic_mask_stitch(%arg0: !torch.vtensor<[?,?],f32>, %arg1: !torch.vtensor<[?],si64>) -> (!torch.vtensor<[?,?],f32>) {
+  %0 = "torch.custom_op"(%arg0, %arg1) {custom_op_attrs = {}, custom_op_name = "dynamic_mask_stitch"} : (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?],si64>) -> !torch.vtensor<[?,?],f32>
+  return %0 : !torch.vtensor<[?,?],f32>
+}
+// CHECK-LABEL: func.func @torch.custom.dynamic_mask_stitch
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @tf.DynamicMaskStitch
+// CHECK: byteir_attrs = {}
+// CHECH-NOT: torch.custom_op

@@ -1,0 +1,29 @@
+diff --git a/src/Transform/ONNX/ONNXOpTransformPass.cpp b/src/Transform/ONNX/ONNXOpTransformPass.cpp
+index 238d5eca..22c20a3a 100644
+--- a/src/Transform/ONNX/ONNXOpTransformPass.cpp
++++ b/src/Transform/ONNX/ONNXOpTransformPass.cpp
+@@ -70,9 +70,6 @@ void ONNXOpTransformPass::runOnOperation() {
+   OperationFingerPrint before(module);
+   do {
+     OpPassManager dynamicPM("builtin.module");
+-    dynamicPM.addNestedPass<func::FuncOp>(
+-        onnx_mlir::createDecomposeONNXToONNXPass());
+-    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+     dynamicPM.addPass(mlir::createCanonicalizerPass());
+     dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+     // Convolution Optimization currently only for CPU.
+diff --git a/src/Transform/ONNX/ShapeInferencePass.cpp b/src/Transform/ONNX/ShapeInferencePass.cpp
+index 48465853..5b9ffd4c 100644
+--- a/src/Transform/ONNX/ShapeInferencePass.cpp
++++ b/src/Transform/ONNX/ShapeInferencePass.cpp
+@@ -123,9 +123,7 @@ public:
+         // Attempt to infer the shape of the produced output(s).
+         if (failed(shape_op.inferShapes(doShapeInference)))
+           return op.emitError("shape inference failed");
+-      } else if (!llvm::dyn_cast<CallOpInterface>(op))
+-        return op.emitError("unable to infer shape of operation without shape "
+-                            "inference interface");
++      }
+     }
+     return success();
+   }

@@ -43,10 +43,16 @@ createSetAllSpacePass(const std::string &entryFunc = "",
                       byteir::ArgSideEffectAnalysis *analysis = nullptr);
 
 // Set all args (including return) to a space
+//
+// \p autoDeduce is a flag to indicate whether to deduce function
+// argument/result space via its defining op and uses. If this flag was set to
+// true, the space of the arg/result of the entryFunction may not respect to
+// given space \p allSpace, allSpace will be treated as a fallbackSpace
+// on deduction failure instead.
 std::unique_ptr<OperationPass<ModuleOp>>
 createSetArgSpacePass(const std::string &entryFunc = "",
                       const std::string &allSpace = "",
-                      bool allowArgWritable = false,
+                      bool allowArgWritable = false, bool autoDeduce = false,
                       byteir::ArgSideEffectAnalysis *analysis = nullptr);
 
 // Set all args and return to a set of specific spaces

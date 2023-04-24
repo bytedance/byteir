@@ -124,9 +124,51 @@ struct RewriteDynamicStitchPattern
   }
 };
 
+struct RewriteDynamicMaskStitchPattern
+    : public OpConversionPattern<CustomDynamicMaskStitchOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(CustomDynamicMaskStitchOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    std::vector<NamedAttribute> customOpAttrs;
+    SmallVector<int64_t> outputShape;
+    if (!matchPattern(op.getOutputShape(),
+                      m_TorchListOfConstantInts(outputShape)))
+      return rewriter.notifyMatchFailure(
+          op, "only support constant int output shape");
+    customOpAttrs.emplace_back(rewriter.getStringAttr("output_shape"),
+                               rewriter.getI64VectorAttr(outputShape));
+    llvm::SmallVector<NamedAttribute> attrs;
+    attrs.emplace_back(
+        rewriter.getStringAttr(getCustomOpName()),
+        rewriter.getStringAttr(getDynamicMaskStitchCustomName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomOpAttrName()),
+                       rewriter.getDictionaryAttr(customOpAttrs));
+
+    SmallVector<Value> operands;
+    if (auto listConstruct =
+            dyn_cast<PrimListConstructOp>(op.getData().getDefiningOp())) {
+      for (size_t i = 0; i < listConstruct->getNumOperands(); i++)
+        operands.push_back(listConstruct->getOperand(i));
+    } else {
+      operands.push_back(op.getData());
+    }
+    operands.push_back(op.getPartition());
+
+    auto customOp = rewriter.create<CustomOp>(
+        op.getLoc(), TypeRange(op->getResult(0).getType()), operands,
+        ArrayRef<NamedAttribute>(attrs));
+
+    rewriter.replaceOp(op, customOp.getResult(0));
+    return success();
+  }
+};
+
 void populateRewriteCustomOpPatterns(RewritePatternSet &patterns) {
   patterns.add<RewriteDynamicPartitionPattern>(patterns.getContext());
   patterns.add<RewriteDynamicStitchPattern>(patterns.getContext());
+  patterns.add<RewriteDynamicMaskStitchPattern>(patterns.getContext());
 }
 
 struct RewriteCustomOpPass : public RewriteCustomOpBase<RewriteCustomOpPass> {
@@ -134,6 +176,7 @@ struct RewriteCustomOpPass : public RewriteCustomOpBase<RewriteCustomOpPass> {
     ConversionTarget target(getContext());
     target.addIllegalOp<CustomDynamicPartitionOp>();
     target.addIllegalOp<CustomDynamicStitchOp>();
+    target.addIllegalOp<CustomDynamicMaskStitchOp>();
     target.addLegalDialect<func::FuncDialect, TorchDialect>();
 
     RewritePatternSet patterns(&getContext());

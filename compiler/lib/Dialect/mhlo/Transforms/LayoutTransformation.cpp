@@ -22,8 +22,8 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
@@ -292,7 +292,7 @@ struct ConvBackwardLayoutTransformationPattern
                        rewriter.getStringAttr("NHWC"));
         Value outputTranspose =
             createNHWC2NCHWValue(rewriter, op->getLoc(), newOp->getResult(0));
-        BlockAndValueMapping bvm;
+        IRMapping bvm;
         bvm.map(op->getOperand(0), lhs);
         bvm.map(op->getOperand(1), rhs);
         op.getFusedComputation().cloneInto(&newOp.getFusedComputation(), bvm);
@@ -351,7 +351,7 @@ struct ReduceWindownLayoutTransformationPattern
           createNCHW2NHWCAttr(rewriter, op.getWindowDilationsAttr()),
           createNCHW2NHWCAttr2(rewriter, op.getPaddingAttr()));
       // clone body
-      BlockAndValueMapping emptyBvm;
+      IRMapping emptyBvm;
       op.getBody().cloneInto(&newOp.getBody(), emptyBvm);
       Value outputTranspose =
           createNHWC2NCHWValue(rewriter, op->getLoc(), newOp->getResults()[0]);
@@ -371,7 +371,7 @@ struct ReduceWindownLayoutTransformationPattern
           createNCDHW2NDHWCAttr(rewriter, op.getWindowDilationsAttr()),
           createNCDHW2NDHWCAttr2(rewriter, op.getPaddingAttr()));
       // clone body
-      BlockAndValueMapping emptyBvm;
+      IRMapping emptyBvm;
       op.getBody().cloneInto(&newOp.getBody(), emptyBvm);
       Value outputTranspose = createNDHWC2NCDHWValue(rewriter, op->getLoc(),
                                                      newOp->getResults()[0]);
@@ -409,7 +409,7 @@ struct SelectAndScatterLayoutTransformationPattern
           createNCHW2NHWCAttr(rewriter, op.getWindowStridesAttr()),
           createNCHW2NHWCAttr2(rewriter, op.getPaddingAttr()));
       // clone body
-      BlockAndValueMapping emptyBvm;
+      IRMapping emptyBvm;
       op.getSelect().cloneInto(&newOp.getSelect(), emptyBvm);
       op.getScatter().cloneInto(&newOp.getScatter(), emptyBvm);
       Value outputTranspose =
@@ -430,7 +430,7 @@ struct SelectAndScatterLayoutTransformationPattern
           createNCDHW2NDHWCAttr(rewriter, op.getWindowStridesAttr()),
           createNCDHW2NDHWCAttr2(rewriter, op.getPaddingAttr()));
       // clone body
-      BlockAndValueMapping emptyBvm;
+      IRMapping emptyBvm;
       op.getSelect().cloneInto(&newOp.getSelect(), emptyBvm);
       op.getScatter().cloneInto(&newOp.getScatter(), emptyBvm);
       Value outputTranspose =

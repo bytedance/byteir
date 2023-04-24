@@ -25,11 +25,11 @@
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include <optional>
@@ -57,24 +57,20 @@ void insertTransformIR(func::FuncOp funcOp, OpBuilder &builder,
       auto annotation = getAnnotationUniqueIdentifier(config.matchPrefix);
       op->setAttr(annotation, UnitAttr::get(ctx));
 
-      auto seq = b.create<transform::SequenceOp>(
-          TypeRange(), transform::FailurePropagationMode::Propagate, nullptr);
-      OpBuilder::InsertionGuard guard(b);
-
-      Block *bodyBlock =
-          b.createBlock(&seq.getBody(), seq.getBody().begin(),
-                        {pdl::OperationType::get(ctx)}, {b.getLoc()});
-      b.setInsertionPointToStart(bodyBlock);
-      auto annotationAttr = DictionaryAttr::get(
-          ctx, b.getNamedAttr(annotation, UnitAttr::get(ctx)));
-      auto match = b.create<transform::MatchOp>(
-          bodyBlock->getArgument(0).getType(), bodyBlock->getArgument(0),
-          ArrayAttr(), transform::MatchInterfaceEnumAttr(), annotationAttr,
-          TypeAttr());
-
-      config.transformBuilder(b, op, match);
-
-      b.create<transform::YieldOp>();
+      auto pdlOperationType = pdl::OperationType::get(ctx);
+      b.create<transform::SequenceOp>(
+          TypeRange(), transform::FailurePropagationMode::Propagate,
+          pdlOperationType, [&](OpBuilder &b, Location loc, Value blockArg) {
+            auto annotationAttr = DictionaryAttr::get(
+                ctx, b.getNamedAttr(annotation, UnitAttr::get(ctx)));
+            auto match = b.create<transform::MatchOp>(
+                loc, blockArg.getType(), blockArg, ArrayAttr(),
+                transform::MatchInterfaceEnumAttr(), annotationAttr,
+                TypeAttr());
+            ImplicitLocOpBuilder ib(loc, b);
+            config.transformBuilder(ib, op, match);
+            b.create<transform::YieldOp>(loc);
+          });
     }
   });
 }
@@ -109,7 +105,7 @@ struct FuseExtTransformInsertionPass
     linalg::registerTransformDialectExtension(registry);
   }
 
-  void runOnOperation() {
+  void runOnOperation() override {
     auto opFilter = [](Operation *op) {
       if (auto funcOp = op->getParentOfType<func::FuncOp>()) {
         Operation *retOp = funcOp.getBody().front().getTerminator();

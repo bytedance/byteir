@@ -5,6 +5,7 @@ set(BYTEIR_LIBS
   MLIRCclDialect
   MLIRLaceDialect
   MLIRTransformExtDialect
+  MLIRCclTransformOps
   ByteIRAffinePasses
   ByteIRByrePasses
   ByteIRGPUPipelines
@@ -51,10 +52,13 @@ set(MHLO_LIBS
   LmhloPasses
   AllMhloPasses
   AllThloPasses
+  DeallocationDialect
+  DeallocationPasses
   MLIRBufferTransforms
   MLIRHLOGPUTransforms
   MLIRHLOAnalysis
   MLIRHLOTestAnalysis
+  MhloTestAnalysis
 )
 
 set(LIBS

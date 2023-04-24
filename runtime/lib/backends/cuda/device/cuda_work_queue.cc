@@ -48,6 +48,14 @@ inline common::Status CopyD2H(void **args, CUstream_st *stream) {
       cudaMemcpyAsync(*dst, *src, *count, cudaMemcpyDeviceToHost, stream));
 }
 
+inline common::Status CopyD2D(void **args, CUstream_st *stream) {
+  void **dst = static_cast<void **>(args[0]);
+  void **src = static_cast<void **>(args[1]);
+  size_t *count = static_cast<size_t *>(args[2]);
+  return BRT_CUDA_CALL(
+      cudaMemcpyAsync(*dst, *src, *count, cudaMemcpyDeviceToDevice, stream));
+}
+
 inline common::Status Compute(const void *func, void **args,
                               CUstream_st *stream) {
   dim3 *grid = static_cast<dim3 *>(args[0]);
@@ -92,6 +100,8 @@ common::Status CUDAWorkQueue::AddTask(int task_type, const void *func,
     return CopyH2D(args, nullptr);
   case CUDATaskType::kD2H:
     return CopyD2H(args, nullptr);
+  case CUDATaskType::kD2D:
+    return CopyD2D(args, nullptr);
   default:;
   }
 
@@ -129,6 +139,8 @@ common::Status CUDASingleStreamWorkQueue::AddTask(int task_type,
     return CopyH2D(args, stream_);
   case CUDATaskType::kD2H:
     return CopyD2H(args, stream_);
+  case CUDATaskType::kD2D:
+    return CopyD2D(args, stream_);
   default:;
   }
 
@@ -203,6 +215,8 @@ common::Status CUDAOneComputeTwoTransferWorkQueue::AddTask(int task_type,
     return RecordEvent(GetEvent(args, events_), GetStream(args, streams_));
   case CUDATaskType::kWaitEvent:
     return WaitEvent(GetEvent(args), GetStream(args, streams_));
+  case CUDATaskType::kD2D:
+    return CopyD2D(args, streams_[0]);
   default:;
   }
 
@@ -232,6 +246,8 @@ common::Status CUDAExternalStreamWorkQueue::AddTask(int task_type,
     return CopyH2D(args, stream_);
   case CUDATaskType::kD2H:
     return CopyD2H(args, stream_);
+  case CUDATaskType::kD2D:
+    return CopyD2D(args, stream_);
   }
 
   return Status(BRT, FAIL,

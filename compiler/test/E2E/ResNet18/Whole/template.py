@@ -2145,6 +2145,9 @@ module @IrToMhlo.2452 {
     GPUOptPipeline(R"""
 // CHECK-LABEL: func.func @main
 """),
+    SetSpaceOptPipeline(R"""
+// CHECK-LABEL: func.func @main
+"""),
     ByreOptPipeline(R"""
 // CHECK-LABEL: func.func @main
 """),

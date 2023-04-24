@@ -127,10 +127,12 @@ public:
         continue;
       }
 
-      FailureOr<Operation *> fusedOp = fuseElementwiseOps(rewriter, &opOperand);
-      if (succeeded(fusedOp)) {
+      FailureOr<ElementwiseOpFusionResult> fusionResult =
+          fuseElementwiseOps(rewriter, &opOperand);
+      if (succeeded(fusionResult)) {
+        Operation *fusedOp = fusionResult->fusedOp;
         auto replacements =
-            (*fusedOp)->getResults().take_back(genericOp.getNumResults());
+            fusedOp->getResults().take_back(genericOp.getNumResults());
         rewriter.replaceOp(genericOp, replacements);
 
         // Try to replace the producer with fusedOp
@@ -142,11 +144,11 @@ public:
           if (res.use_empty())
             continue;
           hoistDownDescendantUsers(res, postDomInfo);
-          if (!checkDominateAllUsers(*fusedOp, res, domInfo)) {
+          if (!checkDominateAllUsers(fusedOp, res, domInfo)) {
             idx++;
             continue;
           }
-          res.replaceAllUsesWith((*fusedOp)->getResult(idx++));
+          res.replaceAllUsesWith(fusedOp->getResult(idx++));
         }
 
         return success();
@@ -342,8 +344,7 @@ struct LinalgElementwiseFusionExtPass
       // Use TopDownTraversal for compile time reasons
       GreedyRewriteConfig grc;
       grc.useTopDownTraversal = true;
-      (void)applyPatternsAndFoldGreedily(op->getRegions(), std::move(patterns),
-                                         grc);
+      (void)applyPatternsAndFoldGreedily(op, std::move(patterns), grc);
     }
 
     // do shared-input fusion
@@ -356,8 +357,7 @@ struct LinalgElementwiseFusionExtPass
       // Use TopDownTraversal for compile time reasons
       GreedyRewriteConfig grc;
       grc.useTopDownTraversal = true;
-      (void)applyPatternsAndFoldGreedily(op->getRegions(), std::move(patterns),
-                                         grc);
+      (void)applyPatternsAndFoldGreedily(op, std::move(patterns), grc);
     }
 
     // do producer-consumer fusion again
@@ -373,8 +373,7 @@ struct LinalgElementwiseFusionExtPass
       // Use TopDownTraversal for compile time reasons
       GreedyRewriteConfig grc;
       grc.useTopDownTraversal = true;
-      (void)applyPatternsAndFoldGreedily(op->getRegions(), std::move(patterns),
-                                         grc);
+      (void)applyPatternsAndFoldGreedily(op, std::move(patterns), grc);
     }
 
     // clean up is only sharedInput
@@ -383,8 +382,7 @@ struct LinalgElementwiseFusionExtPass
       populateRemoveLinalgExtAliasPattern(patterns);
       GreedyRewriteConfig grc;
       grc.useTopDownTraversal = true;
-      (void)applyPatternsAndFoldGreedily(op->getRegions(), std::move(patterns),
-                                         grc);
+      (void)applyPatternsAndFoldGreedily(op, std::move(patterns), grc);
     }
 
     // simplify Tensor DimOp in the end too

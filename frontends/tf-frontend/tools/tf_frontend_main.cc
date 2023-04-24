@@ -192,9 +192,10 @@ int main(int argc, char **argv) {
   input_dtypes = tensorflow::join(new_input_dtypes_vec, ",");
   input_shapes = tensorflow::join(new_input_shapes_vec, ":");
 
-  stream_executor::port::StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> module_or =
+  tsl::StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> module_or =
       tensorflow::GraphdefToMlirTranslateFunction(
-          opted_graph_def.SerializeAsString(), "", input_arrays, input_dtypes,
+          opted_graph_def.SerializeAsString(), "",
+          /*xla_compile_device_type=*/"", input_arrays, input_dtypes,
           input_shapes, output_arrays, control_output_arrays,
           prune_unused_nodes, false, graph_as_function, false, false, false,
           &context);

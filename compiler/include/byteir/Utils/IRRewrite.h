@@ -27,7 +27,7 @@ namespace mlir {
 class OpBuilder;
 class Operation;
 class Block;
-class BlockAndValueMapping;
+class IRMapping;
 class DominanceInfo;
 class FunctionOpInterface;
 class PostDominanceInfo;
@@ -46,8 +46,7 @@ Operation *replicateDefiningOp(OpBuilder &b, Operation *op, unsigned opIdx,
 // clone a new op and force to replace its result types without doing type
 // inference
 Operation *cloneAndReplaceResultTypes(OpBuilder &b, Operation *op,
-                                      BlockAndValueMapping bvm,
-                                      TypeRange types);
+                                      IRMapping bvm, TypeRange types);
 
 // create a new type by mixing two ShapedType
 // aka cloneFromElementType.clone(cloneFromShape.getShape());

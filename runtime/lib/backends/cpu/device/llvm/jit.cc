@@ -25,6 +25,7 @@
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -172,7 +173,7 @@ void packFunctionArguments(llvm::Module *module) {
     llvm::Value *argList = interfaceFunc->arg_begin();
     llvm::SmallVector<llvm::Value *, 8> args;
     args.reserve(llvm::size(func.args()));
-    for (auto &indexedArg : llvm::enumerate(func.args())) {
+    for (auto &&indexedArg : llvm::enumerate(func.args())) {
       llvm::Value *argIndex = llvm::Constant::getIntegerValue(
           builder.getInt64Ty(), llvm::APInt(64, indexedArg.index()));
       llvm::Value *argPtrPtr =
@@ -418,7 +419,8 @@ common::Status LLVMJITImpl::RegisterSymbol(const std::string &symbol,
   auto interner = llvm::orc::MangleAndInterner(
       mainJitDylib.getExecutionSession(), jit->getDataLayout());
   llvm::orc::SymbolMap symbolMap;
-  symbolMap[interner(symbol)] = llvm::JITEvaluatedSymbol::fromPointer(addr);
+  symbolMap[interner(symbol)] = {llvm::orc::ExecutorAddr::fromPtr(addr),
+                                 llvm::JITSymbolFlags::Exported};
   auto err = mainJitDylib.define(llvm::orc::absoluteSymbols(symbolMap));
   return LLVMErrorToBRTStatus(std::move(err), "Failed to register symbol");
 }

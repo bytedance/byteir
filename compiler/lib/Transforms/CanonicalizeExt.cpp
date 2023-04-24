@@ -17,6 +17,7 @@
 
 #include "byteir/Transforms/CanonicalizeExt.h"
 
+#include "byteir/Dialect/Linalg/Transforms/CanonicalizeExt.h"
 #include "byteir/Dialect/Vector/Transforms/CanonicalizeExt.h"
 #include "byteir/Dialect/mhlo/Transforms/CanonicalizeExt.h"
 #include "byteir/Transforms/CondCanonicalize.h"
@@ -213,6 +214,8 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     populateCondCanonicalizePatterns(owningPatterns);
     // put func canonicalizerExt too
     func::populateCanonicalizeExtPatterns(owningPatterns);
+    // put linalg canonicalizeExt too
+    linalg::populateCanonicalizeExtPatterns(owningPatterns);
     // put shape canonicalizerExt too
     shape::populateCanonicalizeExtPatterns(owningPatterns);
     // put tensor fold empty too

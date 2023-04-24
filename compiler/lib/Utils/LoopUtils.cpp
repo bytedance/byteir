@@ -14,6 +14,14 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+// Some code comes from SCF/Utils/Utils.cpp in LLVM project
+// Original license:
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Utils/LoopUtils.h"
 #include "byteir/Utils/Utils.h"
@@ -24,6 +32,8 @@
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/IRMapping.h"
+#include "mlir/Support/MathExtras.h"
 #include <cassert>
 
 using namespace llvm;
@@ -180,7 +190,7 @@ void mlir::addLoopLowerBound(OpBuilder &b, LoopLikeOpInterface looplike,
 
 std::optional<uint64_t> mlir::getConstantTripCount(LoopLikeOpInterface looplike,
                                                    int64_t stepMultiplier) {
-  // TODO add support for ohter loop
+  // TODO add support for other loop kinds
   if (auto forOp = dyn_cast<scf::ForOp>(looplike.getOperation())) {
     return getConstantTripCount(forOp, stepMultiplier);
   }
@@ -200,7 +210,8 @@ std::optional<uint64_t> mlir::getConstantTripCount(scf::ForOp forOp,
     int64_t stepCst = stepCstOp.value() * stepMultiplier;
 
     // TODO: please check whether negative also works
-    int64_t tripCnt = (ubCst - lbCst + stepCst - 1) / stepCst;
+    int64_t loopSpan = ubCst - lbCst;
+    int64_t tripCnt = (loopSpan + stepCst - 1) / stepCst;
 
     if (tripCnt >= 0)
       return tripCnt;
@@ -248,7 +259,168 @@ static bool isHoistableOp(Operation *op) {
              memref::DimOp, memref::ExpandShapeOp, memref::ReshapeOp>(op);
 }
 
+/// Generates unrolled copies of scf::ForOp 'loopBodyBlock', with
+/// associated 'forOpIV' by 'unrollFactor', calling 'ivRemapFn' to remap
+/// 'forOpIV' for each unrolled body. If specified, annotates the Ops in each
+/// unrolled iteration using annotateFn.
+static void generateUnrolledLoop(
+    Block *loopBodyBlock, Value forOpIV, uint64_t unrollFactor,
+    llvm::function_ref<Value(unsigned, Value, OpBuilder)> ivRemapFn,
+    llvm::function_ref<void(unsigned, Operation *, OpBuilder)> annotateFn,
+    ValueRange iterArgs, ValueRange yieldedValues) {
+  // Builder to insert unrolled bodies just before the terminator of the body of
+  // 'forOp'.
+  auto builder = OpBuilder::atBlockTerminator(loopBodyBlock);
+
+  if (!annotateFn)
+    annotateFn = [](unsigned, Operation *, OpBuilder) {};
+
+  // Keep a pointer to the last non-terminator operation in the original block
+  // so that we know what to clone (since we are doing this in-place).
+  Block::iterator srcBlockEnd = std::prev(loopBodyBlock->end(), 2);
+
+  // Unroll the contents of 'forOp' (append unrollFactor - 1 additional copies).
+  SmallVector<Value, 4> lastYielded(yieldedValues);
+
+  for (unsigned i = 1; i < unrollFactor; i++) {
+    IRMapping operandMap;
+
+    // Prepare operand map.
+    operandMap.map(iterArgs, lastYielded);
+
+    // If the induction variable is used, create a remapping to the value for
+    // this unrolled instance.
+    if (!forOpIV.use_empty()) {
+      Value ivUnroll = ivRemapFn(i, forOpIV, builder);
+      operandMap.map(forOpIV, ivUnroll);
+    }
+
+    // Clone the original body of 'forOp'.
+    for (auto it = loopBodyBlock->begin(); it != std::next(srcBlockEnd); it++) {
+      Operation *clonedOp = builder.clone(*it, operandMap);
+      annotateFn(i, clonedOp, builder);
+    }
+
+    // Update yielded values.
+    for (unsigned i = 0, e = lastYielded.size(); i < e; i++)
+      lastYielded[i] = operandMap.lookup(yieldedValues[i]);
+  }
+
+  // Make sure we annotate the Ops in the original body. We do this last so that
+  // any annotations are not copied into the cloned Ops above.
+  for (auto it = loopBodyBlock->begin(); it != std::next(srcBlockEnd); it++)
+    annotateFn(0, &*it, builder);
+
+  // Update operands of the yield statement.
+  loopBodyBlock->getTerminator()->setOperands(lastYielded);
+}
+
 } // namespace
+
+/// Unrolls 'forOp' by 'unrollFactor', returns success if the loop is unrolled.
+LogicalResult mlir::loopUnrollByFactorExt(
+    scf::ForOp forOp, uint64_t unrollFactor,
+    llvm::function_ref<void(unsigned, Operation *, OpBuilder)> annotateFn) {
+  assert(unrollFactor > 0 && "expected positive unroll factor");
+
+  // Return if the loop body is empty.
+  if (llvm::hasSingleElement(forOp.getBody()->getOperations()))
+    return success();
+
+  // Compute tripCount = ceilDiv((upperBound - lowerBound), step) and populate
+  // 'upperBoundUnrolled' and 'stepUnrolled' for static and dynamic cases.
+  OpBuilder boundsBuilder(forOp);
+  auto loc = forOp.getLoc();
+  Value step = forOp.getStep();
+  Value upperBoundUnrolled;
+  Value stepUnrolled;
+  bool generateEpilogueLoop = true;
+
+  auto lbCstOp = forOp.getLowerBound().getDefiningOp<arith::ConstantIndexOp>();
+  auto ubCstOp = forOp.getUpperBound().getDefiningOp<arith::ConstantIndexOp>();
+  auto stepCstOp = forOp.getStep().getDefiningOp<arith::ConstantIndexOp>();
+
+  if (lbCstOp && ubCstOp && stepCstOp) {
+    // support constant loop only
+    // Constant loop bounds computation.
+    int64_t lbCst = lbCstOp.value();
+    int64_t ubCst = ubCstOp.value();
+    int64_t stepCst = stepCstOp.value();
+    assert(lbCst >= 0 && ubCst >= 0 && stepCst >= 0 &&
+           "expected positive loop bounds and step");
+    int64_t tripCount = mlir::ceilDiv(ubCst - lbCst, stepCst);
+    int64_t perferctTripCount = mlir::floorDiv(ubCst - lbCst, stepCst);
+
+    int64_t tripCountPerfectEvenMultiple =
+        perferctTripCount - (tripCount % unrollFactor);
+    int64_t upperBoundUnrolledCst =
+        lbCst + tripCountPerfectEvenMultiple * stepCst;
+    int64_t stepUnrolledCst = stepCst * unrollFactor;
+    assert(upperBoundUnrolledCst <= ubCst);
+
+    if (tripCount != perferctTripCount) {
+      upperBoundUnrolledCst += stepCst;
+    }
+    generateEpilogueLoop = upperBoundUnrolledCst < ubCst;
+
+    // Create constant for 'upperBoundUnrolled' and set epilogue loop flag.
+    if (generateEpilogueLoop)
+      upperBoundUnrolled = boundsBuilder.create<arith::ConstantIndexOp>(
+          loc, upperBoundUnrolledCst);
+    else
+      upperBoundUnrolled = ubCstOp;
+
+    // Create constant for 'stepUnrolled'.
+    stepUnrolled = stepCst == stepUnrolledCst
+                       ? step
+                       : boundsBuilder.create<arith::ConstantIndexOp>(
+                             loc, stepUnrolledCst);
+  } else {
+    // Tentative disable dynamic
+    // FIXME: add dynamic support
+    return failure();
+  }
+
+  // Create epilogue clean up loop starting at 'upperBoundUnrolled'.
+  if (generateEpilogueLoop) {
+    OpBuilder epilogueBuilder(forOp->getContext());
+    epilogueBuilder.setInsertionPoint(forOp->getBlock(),
+                                      std::next(Block::iterator(forOp)));
+    auto epilogueForOp = cast<scf::ForOp>(epilogueBuilder.clone(*forOp));
+    epilogueForOp.setLowerBound(upperBoundUnrolled);
+
+    // Update uses of loop results.
+    auto results = forOp.getResults();
+    auto epilogueResults = epilogueForOp.getResults();
+
+    for (auto e : llvm::zip(results, epilogueResults)) {
+      std::get<0>(e).replaceAllUsesWith(std::get<1>(e));
+    }
+    epilogueForOp->setOperands(epilogueForOp.getNumControlOperands(),
+                               epilogueForOp.getNumIterOperands(), results);
+    (void)promoteIfSingleIteration(epilogueForOp);
+  }
+
+  // Create unrolled loop.
+  forOp.setUpperBound(upperBoundUnrolled);
+  forOp.setStep(stepUnrolled);
+
+  auto iterArgs = ValueRange(forOp.getRegionIterArgs());
+  auto yieldedValues = forOp.getBody()->getTerminator()->getOperands();
+
+  generateUnrolledLoop(
+      forOp.getBody(), forOp.getInductionVar(), unrollFactor,
+      [&](unsigned i, Value iv, OpBuilder b) {
+        // iv' = iv + step * i;
+        auto stride = b.create<arith::MulIOp>(
+            loc, step, b.create<arith::ConstantIndexOp>(loc, i));
+        return b.create<arith::AddIOp>(loc, iv, stride);
+      },
+      annotateFn, iterArgs, yieldedValues);
+  // Promote the loop body up if this has turned into a single iteration loop.
+  (void)promoteIfSingleIteration(forOp);
+  return success();
+}
 
 std::optional<scf::ForOp>
 mlir::createTrivialSCFForIfHaveNone(func::FuncOp funcOp) {
@@ -289,18 +461,19 @@ mlir::createTrivialSCFForIfHaveNone(func::FuncOp funcOp) {
 }
 
 LogicalResult mlir::loopUnrollFull(scf::ForOp forOp, StringRef annotationAttr) {
-  auto mayBeConstantCount = getConstantTripCount(forOp);
-  if (!mayBeConstantCount.has_value())
+  auto maybeConstantCount = getConstantTripCount(forOp);
+
+  if (!maybeConstantCount.has_value())
     return failure();
-  return loopUnrollByFactor(forOp, *mayBeConstantCount, annotationAttr);
+  return loopUnrollByFactor(forOp, *maybeConstantCount, annotationAttr);
 }
 
 LogicalResult mlir::loopUnrollUpToFactor(scf::ForOp forOp,
                                          uint64_t unrollFactor,
                                          StringRef annotationAttr) {
-  auto mayBeConstantCount = getConstantTripCount(forOp);
-  if (mayBeConstantCount.has_value() && *mayBeConstantCount <= unrollFactor) {
-    return loopUnrollByFactor(forOp, *mayBeConstantCount, annotationAttr);
+  auto maybeConstantCount = getConstantTripCount(forOp);
+  if (maybeConstantCount.has_value() && *maybeConstantCount <= unrollFactor) {
+    return loopUnrollByFactor(forOp, *maybeConstantCount, annotationAttr);
   }
   return loopUnrollByFactor(forOp, unrollFactor, annotationAttr);
 }
@@ -324,8 +497,8 @@ LogicalResult mlir::loopUnrollByFactor(scf::ForOp forOp, uint64_t unrollFactor,
         op->setAttr(factorAttrName, b.getI32IntegerAttr(unrollFactor));
       }
     };
-    return loopUnrollByFactor(forOp, unrollFactor, annotateFn);
+    return loopUnrollByFactorExt(forOp, unrollFactor, annotateFn);
   } else {
-    return loopUnrollByFactor(forOp, unrollFactor);
+    return loopUnrollByFactorExt(forOp, unrollFactor);
   }
 }

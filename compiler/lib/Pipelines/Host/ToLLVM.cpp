@@ -100,11 +100,11 @@ void mlir::createToLLVMPipeline(OpPassManager &pm) {
         pm.addPass(memref::createExpandStridedMetadataPass());
         pm.addPass(createLowerAffinePass());
         {
-          LowerVectorToLLVMOptions options;
-          options.enableX86Vector();
+          ConvertVectorToLLVMPassOptions options;
+          options.x86Vector = true;
           pm.addPass(createConvertVectorToLLVMPass(options));
         }
-        pm.addPass(createMemRefToLLVMConversionPass());
+        pm.addPass(createFinalizeMemRefToLLVMConversionPass());
         pm.addPass(createConvertMathToLLVMPass());
         pm.addPass(createConvertMathToLibmPass());
         pm.addPass(createConvertFuncToLLVMPass());

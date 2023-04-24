@@ -1,0 +1,15 @@
+add_mlir_dialect_library(ByteIRCclPasses
+  CclMoveDown.cpp
+
+  ADDITIONAL_HEADER_DIRS
+  ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/Ccl
+  ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/Ccl/Transforms
+
+  DEPENDS
+  ByteIRCclPassIncGen
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  MhloDialect
+  MLIRSupport
+  )

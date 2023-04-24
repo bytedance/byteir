@@ -48,7 +48,7 @@ void mlir::getAllAlias(Operation *op,
   AliasAnalysis aliasAnalysis(op);
   op->getBlock()->walk<WalkOrder::PreOrder>([&](Operation *inner) {
     if (isa<memref::AllocOp, memref::SubViewOp>(inner)) {
-      for (auto &en : llvm::enumerate(op->getOperands())) {
+      for (const auto &en : llvm::enumerate(op->getOperands())) {
         if (aliasAnalysis.alias(en.value(), inner->getResult(0)).isMust()) {
           aliases[en.index()].push_back(inner->getResult(0));
         }
@@ -61,7 +61,7 @@ void mlir::getMemEffects(SmallVectorImpl<OpMemEffectOrder> &memEffects,
                          ArrayRef<SmallVector<Value>> aliases,
                          llvm::DenseMap<Operation *, unsigned> &opToIdx,
                          unsigned pivot) {
-  for (auto &en : llvm::enumerate(aliases)) {
+  for (const auto &en : llvm::enumerate(aliases)) {
     for (auto val : en.value()) {
       for (auto &use : val.getUses()) {
         auto user = use.getOwner();

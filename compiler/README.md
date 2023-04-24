@@ -3,11 +3,18 @@
 The ByteIR Compiler is an MLIR-based compiler for CPU/GPU/ASIC.
 
 ## Dependency 
-***LLVM/MLIR***: https://github.com/llvm/llvm-project, current llvm commit id: 7ccbb4dff10efe6c26219204e361ddb0264938b8
+***LLVM/MLIR***: https://github.com/llvm/llvm-project, current llvm commit id: 225d255a583ea3d50bbba49d949ca76be6a880bf
 
 ***Python*** (for python binding): minimum version is 3.6, requiring numpy and pybind11 installed.
 
 ## Build
+
+### Apply Patches
+Make sure to apply possible patches for submodules
+```bash
+bash /path_to_byteir/scripts/apply_patches.sh
+```
+
 ### Linux/Mac 
 ```bash
 mkdir /path_to_byteir/build

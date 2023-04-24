@@ -313,13 +313,13 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
 
   Value target;
   StringAttr target_mode;
-  if (onnx_mlir::isFromNone(size)) {
-    assert(!onnx_mlir::isFromNone(scale) &&
+  if (onnx_mlir::isNoneValue(size)) {
+    assert(!onnx_mlir::isNoneValue(scale) &&
            "One of size/scale must be of NoneType");
     target = scale;
     target_mode = rewriter.getStringAttr("scale");
   } else {
-    assert(onnx_mlir::isFromNone(scale) &&
+    assert(onnx_mlir::isNoneValue(scale) &&
            "One of size/scale must be of NoneType");
     target = size;
     target_mode = rewriter.getStringAttr("size");

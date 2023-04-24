@@ -35,8 +35,7 @@ struct AceInlinerInterface : public DialectInlinerInterface {
   using DialectInlinerInterface::DialectInlinerInterface;
 
   // Operations in ace dialect are always legal to inline
-  bool isLegalToInline(Operation *, Region *, bool,
-                       BlockAndValueMapping &) const final {
+  bool isLegalToInline(Operation *, Region *, bool, IRMapping &) const final {
     return true;
   }
 };
@@ -75,6 +74,4 @@ void AceDialect::initialize() {
 // ConstOp
 //===----------------------------------------------------------------------===//
 
-OpFoldResult mlir::ace::ConstOp::fold(ArrayRef<Attribute>) {
-  return getValue();
-}
+OpFoldResult mlir::ace::ConstOp::fold(FoldAdaptor) { return getValue(); }

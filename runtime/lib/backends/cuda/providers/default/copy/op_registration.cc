@@ -35,6 +35,12 @@ void RegisterCopyOps(KernelRegistry *registry) {
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<CopyOpKernel>(info, 2 /*D2H*/);
       });
+
+  registry->Register(
+      "cuda2cuda",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<CopyOpKernel>(info, 6 /*D2D*/);
+      });
 }
 
 } // namespace cuda

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "brt/core/common/common.h"
 #include "brt/core/common/string_view.h"
 #include <cstdint>
 #include <half/half.hpp>
@@ -36,6 +37,10 @@ enum class DTypeEnum : uint32_t {
   Float64 = 8,
   Bool = 9,
   StringView = 10,
+  Int8 = 11,
+  Int16 = 12,
+  UInt16 = 13,
+  UInt64 = 14,
   LastDType,
   Unsupported = LastDType,
 };
@@ -84,10 +89,40 @@ BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(Float64, double)
 BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(Float16, half_float::half)
 BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(Bool, bool)
 BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(StringView, StringView)
+BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(Int8, int8_t)
+BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(Int16, int16_t)
+BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(UInt16, uint16_t)
+BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(UInt64, uint64_t)
 
 #undef BRT_DEF_DTYPE_TRAITS_FROM_CTYPE
 
 template <typename ctype>
 inline constexpr DTypeEnum dtype_enum_v = ctype_to_dtype<ctype>::value;
+
+inline size_t GetDTypeByte(DTypeEnum dtype) {
+  switch (dtype) {
+#define Case(D)                                                                \
+  case DTypeEnum::D: {                                                         \
+    return sizeof(DTypeTraits<DTypeEnum::D>::type_t);                          \
+  }
+    Case(Float32);
+    Case(Int32);
+    Case(Int64);
+    Case(UInt8);
+    Case(UInt32);
+    Case(Float64);
+    Case(Float16);
+    Case(Bool);
+    Case(StringView);
+    Case(Int8);
+    Case(Int16);
+    Case(UInt16);
+    Case(UInt64);
+#undef Case
+  default: {
+    BRT_THROW("invalid brt dtype");
+  }
+  }
+}
 
 } // namespace brt

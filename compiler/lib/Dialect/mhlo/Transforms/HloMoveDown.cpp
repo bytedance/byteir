@@ -26,7 +26,7 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/DenseSet.h"
@@ -112,7 +112,7 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
 
     // process user
     for (auto user : users) {
-      BlockAndValueMapping bvm;
+      IRMapping bvm;
       llvm::SetVector<Value> constInputs;
       for (auto operand : user->getOperands()) {
         if (operand == value) {
@@ -242,7 +242,7 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
 
     // process user
     for (auto user : users) {
-      BlockAndValueMapping bvm;
+      IRMapping bvm;
       llvm::SetVector<Value> constInputs;
       llvm::SetVector<Value> insertedReshapeInputs;
       for (auto operand : user->getOperands()) {
@@ -388,7 +388,7 @@ struct BroadcastMoveDownPattern
 
     // process user
     for (auto user : users) {
-      BlockAndValueMapping bvm;
+      IRMapping bvm;
       for (auto operand : user->getOperands()) {
         if (operand == value) {
           if (!bvm.contains(operand)) {
@@ -516,7 +516,7 @@ struct BroadcastReshapeMoveDownPattern
         newBCastDim);
 
     // all conditions are satisfied, rewrite
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     bvm.map(value, op.getOperand());
 
     auto newProducer =
@@ -562,7 +562,7 @@ struct ReshapeBroadcastDotMoveDownPattern
     }
 
     // all conditions are satisfied, rewrite
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     bvm.map(op.getOperand(0), input);
 
     // infer output type
@@ -741,7 +741,7 @@ private:
                              mhlo::BroadcastInDimOp &newBroadcastOp,
                              PatternRewriter &rewriter) const {
     auto user = sliceUsers[0];
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     for (auto operand : user->getOperands()) {
       if (operand == slices[0]->getResult(0)) {
         bvm.map(operand, slices[0]->getOperand(0));

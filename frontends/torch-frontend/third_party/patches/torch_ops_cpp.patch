@@ -1,25 +1,11 @@
 diff --git a/lib/Dialect/Torch/IR/TorchOps.cpp b/lib/Dialect/Torch/IR/TorchOps.cpp
-index d678bd6b..1b8647c3 100644
+index 14009fc7..4ab6f785 100644
 --- a/lib/Dialect/Torch/IR/TorchOps.cpp
 +++ b/lib/Dialect/Torch/IR/TorchOps.cpp
-@@ -2388,6 +2388,33 @@ OpFoldResult AtenCeilFloatOp::fold(FoldAdaptor adaptor) {
-   return nullptr;
+@@ -2406,6 +2406,20 @@ OpFoldResult AtenCeilFloatOp::fold(FoldAdaptor adaptor) {
  }
  
-+//===----------------------------------------------------------------------===//
-+// AtenDetachOp
-+//===----------------------------------------------------------------------===//
-+
-+void AtenDetachOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
-+                                               MLIRContext *context) {
-+  patterns.add(+[](AtenDetachOp op, PatternRewriter &rewriter) {
-+    auto inputTensor = op.getSelf();
-+    rewriter.replaceOp(op, inputTensor);
-+    return success();
-+  });
-+}
-+
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
 +// PrimDeviceOp
 +//===----------------------------------------------------------------------===//
 +
@@ -33,7 +19,7 @@ index d678bd6b..1b8647c3 100644
 +  });
 +}
 +
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
  // PrimMaxIntOp
  //===----------------------------------------------------------------------===//
  

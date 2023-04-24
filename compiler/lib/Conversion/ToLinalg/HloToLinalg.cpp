@@ -166,7 +166,7 @@ remappingRegionFromMhloToLinalgExt(ConversionPatternRewriter &rewriter,
   Block *newBlock =
       rewriter.createBlock(&newRegion, {}, newBlockArgTypes, newBlockArgLocs);
 
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   for (auto &&[oldArg, newArg] :
        llvm::zip(oldBlock->getArguments(), newBlock->getArguments())) {
     bvm.map(oldArg, newArg);
@@ -310,7 +310,7 @@ struct ReduceWindowOpConversion
           loc, fakeWindowShapes, resultType.getElementType());
 
       SmallVector<Value> resultDynamicDims;
-      for (auto &en : llvm::enumerate(resultType.getShape())) {
+      for (const auto &en : llvm::enumerate(resultType.getShape())) {
         if (en.value() != ShapedType::kDynamic)
           continue;
         Value dimSize = rewriter.create<tensor::DimOp>(loc, input, en.index());

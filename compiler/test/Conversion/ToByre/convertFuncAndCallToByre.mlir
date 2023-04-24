@@ -1,4 +1,4 @@
-// RUN: byteir-opt --convert-func-and-call-to-byre %s | FileCheck %s
+// RUN: byteir-opt --convert-func-and-call-to-byre -allow-unregistered-dialect %s | FileCheck %s
 
 module {
 // CHECK: module attributes {byre.container_module}  {
@@ -55,6 +55,35 @@ module {
 // CHECK:     byre.copy(%[[ARG_2]], %[[ARG_3]]) : memref<4xf32>, memref<4xf32>
 // CHECK:     return
 
+  func.func @return_dup_value() -> (memref<4xf32> {__placeholder__byre.argname = "C"}, memref<4xf32> {__placeholder__byre.argname = "D"}) attributes { __placeholder__byre.entry_point } {
+    %0 = call @some_func_4() : () -> (memref<4xf32>)
+    return %0, %0 : memref<4xf32>, memref<4xf32>
+  }
+
+  func.func private @some_func_4() -> (memref<4xf32>) attributes { byre_compute_name = "customAddOp4" }
+
+// CHECK: func.func @return_dup_value(%[[ARG0:.*]]: memref<4xf32> {byre.argname = "C", byre.argtype = 2 : i32}, %[[ARG1:.*]]: memref<4xf32> {byre.argname = "D", byre.argtype = 2 : i32})
+// CHECK:   byre.compute @customAddOp4(%[[ARG0]])
+// CHECK:   memref.copy %[[ARG0]], %[[ARG1]] : memref<4xf32> to memref<4xf32>
+// CHECK:   return
+
+  func.func @return_input_value(%arg0: memref<4xf32> {__placeholder__byre.argname = "C"}) -> (memref<4xf32> {__placeholder__byre.argname = "D"}) attributes { __placeholder__byre.entry_point } {
+    return %arg0 : memref<4xf32>
+  }
+
+// CHECK: func.func @return_input_value(%[[ARG0:.*]]: memref<4xf32> {byre.argname = "C", byre.argtype = 1 : i32}, %[[ARG1:.*]]: memref<4xf32> {byre.argname = "D", byre.argtype = 2 : i32})
+// CHECK:   memref.copy %[[ARG0]], %[[ARG1]] : memref<4xf32> to memref<4xf32>
+// CHECK:   return
+
+  func.func @return_inner_allocated() -> (memref<4xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point } {
+    %0 =  "foo.foo"() : () -> (memref<4xf32>)
+    return %0 : memref<4xf32>
+  }
+
+// CHECK: func.func @return_inner_allocated(%[[ARG:.*]]: memref<4xf32> {byre.argname = "C", byre.argtype = 2 : i32})
+// CHECK-NEXT:  %[[VALUE0:.*]] = "foo.foo"() : () -> memref<4xf32>
+// CHECK-NEXT:  memref.copy %[[VALUE0]], %[[ARG]]
+// CHECK-NEXT:  return
 }
 
 

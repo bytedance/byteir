@@ -17,8 +17,8 @@
 
 #include "byteir/Transforms/TryCatchModulePipeline.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 
 #include "./PassDetail.h"

@@ -30,6 +30,7 @@ add_mlir_library(ByteIRTransforms
 
   LINK_LIBS PUBLIC
   ByteIRAnalysis
+  ByteIRLinalgPasses
   ByteIRMhloPasses
   ByteIRVectorPasses
   ByteIRUtils

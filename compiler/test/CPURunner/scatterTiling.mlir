@@ -7,7 +7,7 @@
 module attributes {byteir.llvm_module} {
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg_ext.scatter"]} in %arg1
+  %0 = transform.structured.match ops{["linalg_ext.scatter"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.tile_ext %0 [1, 2] {interchange = [1, 0]}
 }
 

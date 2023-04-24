@@ -55,7 +55,7 @@ func.func @dot_attention(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf32>, 
 
 transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
-  %0 = transform.structured.match attributes{"__root__"} in %arg1
+  %0 = transform.structured.match attributes{"__root__"} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse %0 {tile_sizes = [4, 0, 8], tile_interchange = [2, 1, 0]}
   transform.structured.tile_loop_hint %1 
 }

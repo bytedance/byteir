@@ -20,10 +20,10 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Block.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dominance.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/TypeRange.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
@@ -77,8 +77,7 @@ Operation *mlir::replicateDefiningOp(OpBuilder &b, Operation *op,
 }
 
 Operation *mlir::cloneAndReplaceResultTypes(OpBuilder &b, Operation *op,
-                                            BlockAndValueMapping bvm,
-                                            TypeRange types) {
+                                            IRMapping bvm, TypeRange types) {
 
   auto newOp = b.clone(*op, bvm);
 

@@ -36,8 +36,8 @@
 #include "tensorflow/compiler/mlir/tensorflow/dialect_registration.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/test_passes.h"
+#include "tensorflow/compiler/mlir/tf2xla/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tools/kernel_gen/ir/tf_framework_ops.h"
-#include "tensorflow/compiler/mlir/xla/transforms/passes.h"
 #include "tensorflow/core/platform/init_main.h"
 
 #include "byteir/Dialect/Ace/AceDialect.h"
@@ -57,7 +57,6 @@ int main(int argc, char **argv) {
   // These are in compiler/mlir/xla and not part of the above MHLO passes.
   mlir::mhlo::registerTfXlaPasses();
   mlir::mhlo::registerLegalizeTFPass();
-  mlir::mhlo::registerLegalizeTFControlFlowPass();
   mlir::mhlo::registerLegalizeTfTypesPassPass();
   mlir::TFL::registerTensorFlowLitePasses();
   mlir::tf_test::registerTensorFlowTestPasses();

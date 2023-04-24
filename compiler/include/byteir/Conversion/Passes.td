@@ -187,11 +187,14 @@ def ConvertFuncAndCallToByre : Pass<"convert-func-and-call-to-byre", "ModuleOp">
   let summary = "Convert func and call to Byre";
   let constructor = "mlir::createConvertFuncAndCallToByrePass()";
   let dependentDialects = [
+    "mlir::memref::MemRefDialect",
     "mlir::byre::ByreDialect",
   ];
   let options = [
     Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
            "append arg types to Byre">,
+    Option<"removeDupOutputs", "remove-dup-outputs", "bool", /*default=*/"false",
+            "remove dup function outputs to avoid inserting copy">,
   ];
 }
 

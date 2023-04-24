@@ -20,6 +20,8 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/OperationSupport.h"
+#include "stablehlo/dialect/TypeInference.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "dynamic-shape-op-register"
@@ -69,6 +71,20 @@ void mlir::registerDotReifyReturnTypeShapes() {
         reifiedReturnShapes.push_back(
             builder.create<tensor::FromElementsOp>(dotOp.getLoc(), dimensions));
         return success();
+      });
+}
+
+void mlir::registerDotInferReturnTypeComponents() {
+  static InferReturnTypeComponentsRegistration shapeRegister(
+      mhlo::DotOp::getOperationName(),
+      [](MLIRContext *context, std::optional<Location> loc,
+         ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
+         SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
+        return hlo::inferDotOp(
+            loc, operands[0], operands[1],
+            attrs.getAs<ArrayAttr>(mhlo::DotOp::getPrecisionConfigAttrName(
+                OperationName(mhlo::DotOp::getOperationName(), context))),
+            inferredReturnTypes);
       });
 }
 

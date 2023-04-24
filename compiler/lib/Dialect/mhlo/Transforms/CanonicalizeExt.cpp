@@ -598,52 +598,6 @@ LogicalResult mlir::mhlo::foldLargeCompareOp(mhlo::CompareOp op,
   return failure();
 }
 
-// TODO(lyq): push this to upstream
-LogicalResult mlir::mhlo::foldLargeClampOp(mhlo::ClampOp op,
-                                           PatternRewriter &rewriter) {
-  mhlo::ConstantOp constOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
-  mhlo::ConstantOp minOp = op.getMin().getDefiningOp<mhlo::ConstantOp>();
-  mhlo::ConstantOp maxOp = op.getMax().getDefiningOp<mhlo::ConstantOp>();
-  if (!constOp || !minOp || !maxOp) {
-    return failure();
-  }
-
-  RankedTensorType operandType =
-      op.getOperand().getType().cast<RankedTensorType>();
-  ElementsAttr minValue = minOp.getValue();
-  ElementsAttr maxValue = maxOp.getValue();
-  if (minValue.getType().getRank() == 0) {
-    minValue =
-        DenseElementsAttr::get(operandType, minValue.getValues<Attribute>()[0]);
-  }
-  if (maxValue.getType().getRank() == 0) {
-    maxValue =
-        DenseElementsAttr::get(operandType, maxValue.getValues<Attribute>()[0]);
-  }
-
-  Attribute result;
-  if (operandType.getElementType().isa<FloatType>()) {
-    result = BinaryFolder<mhlo::ClampOp, FloatType, APFloat, Max<APFloat>>(
-        &op, ArrayRef<Attribute>{minValue, constOp.getValue()});
-    result = BinaryFolder<mhlo::ClampOp, FloatType, APFloat, Min<APFloat>>(
-        &op, ArrayRef<Attribute>{maxValue, result});
-
-  } else if (operandType.getElementType().isa<IntegerType>()) {
-    result = BinaryFolder<mhlo::ClampOp, IntegerType, APInt, Max<APSInt>>(
-        &op, ArrayRef<Attribute>{minValue, constOp.getValue()});
-    result = BinaryFolder<mhlo::ClampOp, IntegerType, APInt, Min<APSInt>>(
-        &op, ArrayRef<Attribute>{maxValue, result});
-  }
-  if (!result) {
-    return failure();
-  }
-
-  mhlo::ConstantOp newConstOp =
-      rewriter.create<mhlo::ConstantOp>(op->getLoc(), result);
-  rewriter.replaceOp(op, newConstOp.getOutput());
-  return success();
-}
-
 // TODO(lyq): push this pattern back to upstream
 // mhlo.dynamic_conv => mhlo.convolution canonicalization
 LogicalResult mlir::mhlo::simplifyDynamicConvToConv(mhlo::DynamicConvOp op,
@@ -1056,7 +1010,6 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MaxOp, Max>);
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MinOp, Min>);
   patterns.add(mlir::mhlo::foldLargeCompareOp);
-  patterns.add(mlir::mhlo::foldLargeClampOp);
   patterns.add(mlir::mhlo::foldLargeSliceOp);
   patterns.add(mlir::mhlo::foldTransposeNonSplat);
   patterns.add(mlir::mhlo::foldBeneficialConstantConvertOp);

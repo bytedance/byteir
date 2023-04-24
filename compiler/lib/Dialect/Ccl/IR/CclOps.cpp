@@ -80,10 +80,12 @@ void CclDialect::initialize() {
 
 void mlir::ccl::AllReduceOp::build(::mlir::OpBuilder &builder,
                                    ::mlir::OperationState &result, Value src,
+                                   StringAttr reduction,
                                    ArrayAttr replica_groups,
                                    IntegerAttr unique_id,
                                    ArrayRef<NamedAttribute> attributes) {
   result.addOperands(src);
+  result.addAttribute(getReductionAttrName(result.name), reduction);
   result.addAttribute(getReplicaGroupsAttrName(result.name), replica_groups);
   result.addAttribute(getUniqueIdAttrName(result.name), unique_id);
   result.addAttributes(attributes);
@@ -102,6 +104,33 @@ AllReduceOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
 }
 
 LogicalResult AllReduceOp::verify() {
+  return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
+                             getDynamicReplicaGroups());
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.all_gather
+//===----------------------------------------------------------------------===//
+
+LogicalResult AllGatherOp::verify() {
+  return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
+                             getDynamicReplicaGroups());
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.reduce_scatter
+//===----------------------------------------------------------------------===//
+
+LogicalResult ReduceScatterOp::verify() {
+  return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
+                             getDynamicReplicaGroups());
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.all_to_all
+//===----------------------------------------------------------------------===//
+
+LogicalResult AllToAllOp::verify() {
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
 }

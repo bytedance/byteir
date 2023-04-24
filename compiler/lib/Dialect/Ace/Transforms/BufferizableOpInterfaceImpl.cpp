@@ -72,8 +72,8 @@ struct CustomCallOpInterface
     return false; // Arguments are read-only.
   }
 
-  SmallVector<OpResult> getAliasingOpResult(Operation *, OpOperand &,
-                                            const AnalysisState &) const {
+  bufferization::AliasingOpResultList
+  getAliasingOpResults(Operation *, OpOperand &, const AnalysisState &) const {
     return {};
   }
 

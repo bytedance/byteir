@@ -440,6 +440,90 @@ void setOpSpace(FuncOp f, const std::string &space) {
   }
 }
 
+std::string deduceSpace(ModuleOp m, Value value, std::string fallbackSpace);
+
+std::string deduceFuncArgSpace(ModuleOp m, FuncOp func, size_t arg_idx,
+                               std::string fallbackSpace) {
+  // respect to function attribute first
+  if (auto spaceAttr = func->getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+    auto space = spaceAttr.getValue().str();
+    if (!space.empty()) {
+      return space;
+    }
+  }
+
+  // deduce recursively for non-external function
+  if (!func.isExternal()) {
+    return deduceSpace(m, func.getArgument(arg_idx), fallbackSpace);
+  }
+
+  // fallback
+  return fallbackSpace;
+}
+
+std::string deduceFuncResultSpace(ModuleOp m, FuncOp func, size_t result_idx,
+                                  std::string fallbackSpace) {
+  // respect to function attribute first
+  if (auto spaceAttr = func->getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+    auto space = spaceAttr.getValue().str();
+    if (!space.empty()) {
+      return space;
+    }
+  }
+
+  // deduce recursively for non-external function
+  if (!func.isExternal()) {
+    if (auto terminator = func.getBody().front().getTerminator()) {
+      return deduceSpace(m, terminator->getOperand(result_idx), fallbackSpace);
+    }
+  }
+
+  // fallback
+  return fallbackSpace;
+}
+
+std::string deduceSpace(ModuleOp m, Value value, std::string fallbackSpace) {
+  // deduce from defining op
+  {
+    std::string deduceSpace;
+    if (auto definingOp = value.getDefiningOp()) {
+      if (auto callOp = dyn_cast<CallOp>(definingOp)) {
+        if (auto callee = m.lookupSymbol<FuncOp>(callOp.getCallee())) {
+          deduceSpace = deduceFuncResultSpace(
+              m, callee, cast<OpResult>(value).getResultNumber(),
+              fallbackSpace);
+        }
+      } else if (auto curSpaceAttr =
+                     definingOp->getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+        deduceSpace = curSpaceAttr.getValue().str();
+      }
+    }
+    if (!deduceSpace.empty())
+      return deduceSpace;
+  }
+
+  // deduce from uses
+  for (auto &&operand : value.getUses()) {
+    std::string deduceSpace;
+    if (auto callOp = dyn_cast<CallOp>(operand.getOwner())) {
+      if (auto callee = m.lookupSymbol<FuncOp>(callOp.getCallee())) {
+        deduceSpace = deduceFuncArgSpace(m, callee, operand.getOperandNumber(),
+                                         fallbackSpace);
+      }
+    } else if (auto curSpaceAttr =
+                   operand.getOwner()->getAttrOfType<StringAttr>(
+                       SPACE_ATTR_NAME)) {
+      deduceSpace = curSpaceAttr.getValue().str();
+    }
+
+    if (!deduceSpace.empty())
+      return deduceSpace;
+  }
+
+  // fallback
+  return fallbackSpace;
+}
+
 struct SetAllSpacePass : public SetAllSpaceBase<SetAllSpacePass> {
   explicit SetAllSpacePass() = default;
 
@@ -518,12 +602,13 @@ struct SetAllSpacePass : public SetAllSpaceBase<SetAllSpacePass> {
 
 struct SetArgSpacePass : public SetArgSpaceBase<SetArgSpacePass> {
   SetArgSpacePass(const std::string &entryFuncName, const std::string &space,
-                  bool allowOutWritable,
+                  bool allowOutWritable, bool deduceSpace,
                   ArgSideEffectAnalysis *externalAnalysis = nullptr)
       : SetArgSpaceBase() {
     entryFunc = entryFuncName;
     allSpace = space;
     allowArgWritable = allowOutWritable;
+    autoDeduce = deduceSpace;
 
     if (nullptr != externalAnalysis) {
       analysis = externalAnalysis;
@@ -579,8 +664,15 @@ struct SetArgSpacePass : public SetArgSpaceBase<SetArgSpacePass> {
     }
 
     // parse spaces
-    if (argSpaces.empty() && !allSpace.getValue().empty()) {
-      argSpaces.push_back(allSpace.getValue());
+    if (argSpaces.empty()) {
+      if (autoDeduce.getValue()) {
+        for (unsigned i = 0, e = funcOp.getNumArguments(); i < e; ++i) {
+          argSpaces.push_back(
+              deduceFuncArgSpace(m, funcOp, i, allSpace.getValue()));
+        }
+      } else if (!allSpace.getValue().empty()) {
+        argSpaces.push_back(allSpace.getValue());
+      }
     }
 
     if (argSpaces.empty()) {
@@ -588,8 +680,15 @@ struct SetArgSpacePass : public SetArgSpaceBase<SetArgSpacePass> {
       return;
     }
 
-    if (retSpaces.empty() && !allSpace.getValue().empty()) {
-      retSpaces.push_back(allSpace.getValue());
+    if (retSpaces.empty()) {
+      if (autoDeduce.getValue()) {
+        for (unsigned i = 0, e = funcOp.getNumResults(); i < e; ++i) {
+          retSpaces.push_back(
+              deduceFuncResultSpace(m, funcOp, i, allSpace.getValue()));
+        }
+      } else if (!allSpace.getValue().empty()) {
+        retSpaces.push_back(allSpace.getValue());
+      }
     }
 
     if (retSpaces.empty()) {
@@ -763,9 +862,10 @@ mlir::createSetAllSpacePass(const std::string &entryFunc,
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createSetArgSpacePass(const std::string &entryFunc,
                             const std::string &allSpace, bool allowArgWritable,
+                            bool autoDeduce,
                             byteir::ArgSideEffectAnalysis *analysis) {
-  return std::make_unique<SetArgSpacePass>(entryFunc, allSpace,
-                                           allowArgWritable, analysis);
+  return std::make_unique<SetArgSpacePass>(
+      entryFunc, allSpace, allowArgWritable, autoDeduce, analysis);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>> mlir::createSetArgSpacePass(

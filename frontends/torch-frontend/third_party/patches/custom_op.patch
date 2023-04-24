@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000..a60a0472
 --- /dev/null
 +++ b/include/torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,26 @@
 +//===----------------------------------------------------------------------===//
 +//
 +// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -27,6 +27,8 @@ index 00000000..a60a0472
 +constexpr StringRef getDynamicPartitionCustomName() { return "dynamic_partition"; }
 +
 +constexpr StringRef getDynamicStitchCustomName() { return "dynamic_stitch"; }
++
++constexpr StringRef getDynamicMaskStitchCustomName() { return "dynamic_mask_stitch"; }
 +} // namespace mlir
 \ No newline at end of file
 diff --git a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
@@ -48,7 +50,7 @@ index f8d3651d..bc4c5eba 100644
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
  using namespace mlir;
-@@ -366,6 +371,91 @@ class SimplifyShapeCalculationsPass
+@@ -366,6 +371,136 @@ class SimplifyShapeCalculationsPass
    void runOnOperation() override {
      MLIRContext *context = &getContext();
  
@@ -98,6 +100,51 @@ index f8d3651d..bc4c5eba 100644
 +        auto outputSizesAttr = attr.getAs<DenseIntElementsAttr>("output_shape");
 +        assert(outputSizesAttr &&
 +               "Dynamic stitch custom op output shape attribute not found.");
++        SmallVector<int64_t> outputSizes;
++        for (const auto &it :
++             llvm::enumerate(outputSizesAttr.getValues<int64_t>())) {
++          outputSizes.push_back(it.value());
++        }
++        if (outputSizes.empty()) {
++          auto indexTy = op->getOperand(0).getType().cast<BaseTensorType>();
++          outputSizes.push_back(kUnknownSize);
++          for (size_t i = 0;
++               i < (dataTy.getSizes().size() - indexTy.getSizes().size()); i++)
++            outputSizes.push_back(
++                dataTy.getSizes()[i + indexTy.getSizes().size()]);
++        }
++        auto resultType =
++            dataTy.getWithSizesAndDtype(outputSizes, dataTy.getOptionalDtype());
++        auto originalResultType = op->getResult(0).getType();
++        op->getResult(0).setType(resultType);
++
++        OpBuilder builder(context);
++        auto loc = op.getLoc();
++        Value originalTypedValue;
++        for (OpOperand &use :
++             llvm::make_early_inc_range(op->getResult(0).getUses())) {
++          if (use.getOwner()
++                  ->hasTrait<
++                      mlir::torch::Torch::OpTrait::AllowsTypeRefinement>()) {
++            continue;
++          }
++          if (!originalTypedValue) {
++            builder.setInsertionPointAfter(op);
++            if (originalResultType.isa<BaseTensorType>()) {
++              originalTypedValue = builder.create<TensorStaticInfoCastOp>(
++                  loc, originalResultType, op->getResult(0));
++            }
++          }
++          use.set(originalTypedValue);
++        }
++      } else if (opName == getDynamicMaskStitchCustomName()) {
++        assert(op->getNumOperands() > 1 &&
++               "Dynamic mask stitch custom op expect more than 2 inputs");
++        auto dataTy = op->getOperand(0).getType().cast<BaseTensorType>();
++        auto attr = op->getAttrOfType<DictionaryAttr>(getCustomOpAttrName());
++        auto outputSizesAttr = attr.getAs<DenseIntElementsAttr>("output_shape");
++        assert(outputSizesAttr &&
++               "Dynamic mask stitch custom op output shape attribute not found.");
 +        SmallVector<int64_t> outputSizes;
 +        for (const auto &it :
 +             llvm::enumerate(outputSizesAttr.getValues<int64_t>())) {

@@ -2123,8 +2123,8 @@ module @IrToMhlo.2452 {
     return %alloc, %alloc_0, %alloc_1 : memref<4x1000xf16>, memref<4x1000xf32>, memref<4x1000xf32>
   }
   func.func private @Unknown64(%arg0: memref<4x512xf16>, %arg1: memref<4x512x7x7xi1>) -> memref<4x512x7x7xf16> attributes {__byteir_elementwise_fusion__} {
-    %cst = arith.constant 4.900000e+01 : f16
-    %cst_0 = arith.constant 0.000000e+00 : f16
+    %cst = arith.constant 0.000000e+00 : f16
+    %cst_0 = arith.constant 4.900000e+01 : f16
     %c0 = arith.constant 0 : index
     %c100352 = arith.constant 100352 : index
     %c1 = arith.constant 1 : index
@@ -2165,8 +2165,8 @@ module @IrToMhlo.2452 {
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg1[%29, %23, %13, %3] : memref<4x512x7x7xi1>
       %31 = memref.load %arg0[%29, %23] : memref<4x512xf16>
-      %32 = arith.divf %31, %cst : f16
-      %33 = arith.select %30, %32, %cst_0 : f16
+      %32 = arith.divf %31, %cst_0 : f16
+      %33 = arith.select %30, %32, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x512x7x7xf16>
     }
     return %alloc : memref<4x512x7x7xf16>

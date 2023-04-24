@@ -43,6 +43,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include <functional>
 #include <string>
+#include <unordered_map>
 
 #include "../PassDetail.h"
 
@@ -1025,9 +1026,10 @@ struct ConvertToByrePass : public ConvertToByreBase<ConvertToByrePass> {
 
 struct ConvertFuncAndCallToByrePass
     : public ConvertFuncAndCallToByreBase<ConvertFuncAndCallToByrePass> {
-  ConvertFuncAndCallToByrePass(bool appendArgTypes)
+  ConvertFuncAndCallToByrePass(bool appendArgTypes, bool removeDupOutputs)
       : ConvertFuncAndCallToByreBase() {
     this->appendArgTypes = appendArgTypes;
+    this->removeDupOutputs = removeDupOutputs;
 
     // insert attrNames
     attrNames.push_back(byre::ByreDialect::getEntryPointFunctionAttrName());
@@ -1105,28 +1107,47 @@ static void identifyEntryPointFuncAndCalls(
   }
 }
 
-static inline void relocateFuncOpResultsForLmhlo(func::FuncOp func) {
+static inline void relocateFuncOpResults(func::FuncOp func,
+                                         bool removeDupOutputs) {
   unsigned idx = func.getNumArguments();
   replicateFuncOpResults(func, [&](func::ReturnOp retOp) {
-    llvm::SmallPtrSet<mlir::Operation *, 16> removeOps;
+    std::unordered_map<mlir::Operation *, mlir::Value> allocOps;
     mlir::OpBuilder opBuilder(retOp);
-    for (auto retVal : retOp.getOperands()) {
-      if (auto allocOp =
-              dyn_cast_or_null<memref::AllocOp>(retVal.getDefiningOp())) {
-        removeOps.insert(allocOp);
+    for (auto retValIter : llvm::enumerate(retOp.getOperands())) {
+      auto retVal = retValIter.value();
+      auto allocOp = retVal.getDefiningOp<memref::AllocOp>();
+      if (allocOp) {
+        if (allocOps.find(allocOp.getOperation()) == allocOps.end()) {
+          allocOps[allocOp.getOperation()] =
+              func.getArgument(idx + retValIter.index());
+        } else if (removeDupOutputs) {
+          assert(false && "Not implemented: remove dup function outputs");
+        } else {
+          // if not to remove dup memref.alloc values, insert a memref.copy
+          opBuilder.setInsertionPoint(retOp);
+          opBuilder.create<memref::CopyOp>(
+              retOp.getLoc(), retVal,
+              func.getArgument(idx + retValIter.index()));
+        }
+      } else {
+        // if return value not alloced in entry function (like inputs or alloced
+        // in inner function), insert a memref.copy.
+        opBuilder.setInsertionPoint(retOp);
+        opBuilder.create<memref::CopyOp>(
+            retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
       }
-      retVal.replaceAllUsesExcept(func.getArgument(idx++), retOp);
+    }
+    // replace alloc ops
+    for (auto op : allocOps) {
+      auto value = op.first->getResult(0);
+      value.replaceAllUsesWith(op.second);
+      op.first->erase();
     }
 
     // build and remove return first
     opBuilder.setInsertionPoint(retOp);
     opBuilder.create<func::ReturnOp>(retOp.getLoc());
     retOp.erase();
-
-    // remove all remove ops
-    for (auto op : removeOps) {
-      op->erase();
-    }
   });
 }
 
@@ -1291,7 +1312,7 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
 
     rewriteByreResultAttrsToFuncResultAttr(func);
 
-    relocateFuncOpResultsForLmhlo(func);
+    relocateFuncOpResults(func, this->removeDupOutputs);
 
     if (isFuncWithEntryPointPlaceholder(func)) {
       relocateFuncOpConstantLikeForLmhlo(func, unknownWeightCnt);
@@ -1435,8 +1456,10 @@ mlir::createConvertToByrePass(bool appendArgTypes) {
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createConvertFuncAndCallToByrePass(bool appendArgTypes) {
-  return std::make_unique<ConvertFuncAndCallToByrePass>(appendArgTypes);
+mlir::createConvertFuncAndCallToByrePass(bool appendArgTypes,
+                                         bool removeDupOutputs) {
+  return std::make_unique<ConvertFuncAndCallToByrePass>(appendArgTypes,
+                                                        removeDupOutputs);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

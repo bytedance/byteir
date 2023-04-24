@@ -50,6 +50,14 @@ inline DTypeEnum ConvertMLIRTypeToDType(mlir::Type elementType) {
     return DTypeEnum::UInt8;
   } else if (elementType.isUnsignedInteger(32)) {
     return DTypeEnum::UInt32;
+  } else if (elementType.isSignlessInteger(8)) {
+    return DTypeEnum::Int8;
+  } else if (elementType.isSignlessInteger(16)) {
+    return DTypeEnum::Int16;
+  } else if (elementType.isUnsignedInteger(16)) {
+    return DTypeEnum::UInt16;
+  } else if (elementType.isUnsignedInteger(64)) {
+    return DTypeEnum::UInt64;
   } else if (elementType.isF16()) {
     return DTypeEnum::Float16;
   } else if (elementType.isBF16()) {
@@ -78,6 +86,14 @@ inline mlir::Type ConvertDTypeToMLIRType(DTypeEnum dtype,
     return mlir::IntegerType::get(context, 8, SignednessSemantics::Unsigned);
   case DTypeEnum::UInt32:
     return mlir::IntegerType::get(context, 32, SignednessSemantics::Unsigned);
+  case DTypeEnum::Int8:
+    return mlir::IntegerType::get(context, 8, SignednessSemantics::Signless);
+  case DTypeEnum::Int16:
+    return mlir::IntegerType::get(context, 16, SignednessSemantics::Signless);
+  case DTypeEnum::UInt16:
+    return mlir::IntegerType::get(context, 16, SignednessSemantics::Unsigned);
+  case DTypeEnum::UInt64:
+    return mlir::IntegerType::get(context, 64, SignednessSemantics::Unsigned);
   case DTypeEnum::Float16:
     return mlir::FloatType::getF16(context);
   case DTypeEnum::BFloat16:
@@ -104,23 +120,9 @@ std::optional<uint64_t> GetStaticBytes(mlir::Value val);
 
 // Get element in byte of a memref
 inline unsigned int GetElementTypeByte(mlir::MemRefType memref) {
-  // make sure round up to 1 byte
   auto elementType = memref.getElementType();
-  if (elementType.isIntOrIndexOrFloat()) {
-    return (elementType.getIntOrFloatBitWidth() + 7) >> 3;
-  }
   auto dtype = ConvertMLIRTypeToDType(elementType);
-  switch (dtype) {
-#define Case(D)                                                                \
-  case DTypeEnum::D: {                                                         \
-    return sizeof(DTypeTraits<DTypeEnum::D>::type_t);                          \
-  }
-    Case(StringView);
-#undef Case
-  default: {
-    BRT_THROW("invalid element type");
-  }
-  }
+  return static_cast<unsigned int>(GetDTypeByte(dtype));
 }
 
 // Get element in byte of a value if it is a memref

@@ -370,8 +370,7 @@ void CopyOp::getCanonicalizationPatterns(RewritePatternSet &results,
   results.add<EraseIdentityCopyOp>(context);
 }
 
-LogicalResult CopyOp::fold(ArrayRef<Attribute>,
-                           SmallVectorImpl<OpFoldResult> &) {
+LogicalResult CopyOp::fold(FoldAdaptor, SmallVectorImpl<OpFoldResult> &) {
   return foldMemRefCast(*this);
 }
 
