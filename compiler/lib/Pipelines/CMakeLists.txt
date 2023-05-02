@@ -8,6 +8,8 @@ add_mlir_library(ByteIRPipelines
   BufferizeOpt.cpp
   ByreHost.cpp
   ByreOpt.cpp
+  CatOpt.cpp
+  CatPreprocess.cpp
   HloOpt.cpp
   LinalgTensorOpt.cpp
   SCFOpt.cpp
@@ -29,6 +31,7 @@ add_mlir_library(ByteIRPipelines
 
   LINK_LIBS PUBLIC
   ByteIRGPUPipelines
+  ByteIRHloToCat
   ByteIRHostPipelines
   ByteIRPipelineCommon
   ByteIRUtils

@@ -73,15 +73,6 @@ bool isArgAlias(SmallVectorImpl<Value> &operands, Value src, Value dst) {
   }
   return is_arg_alias;
 }
-
-// return whether given constant should relocate to function arg
-template <typename ConstantOp>
-bool shouldConstantRelocate(ConstantOp constant) {
-  return false;
-}
-bool shouldConstantRelocate(lmhlo::ConstantOp op) {
-  return !op.getValue().isSplat();
-}
 } // namespace
 
 namespace mlir {
@@ -916,10 +907,6 @@ public:
   LogicalResult
   matchAndRewrite(ConstantOp op, typename ConstantOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // it should be already relocated to function arg
-    if (shouldConstantRelocate(op))
-      return failure();
-
     // FIXME: only allow allocated memref for now
     auto alloc = op.getOutput().template getDefiningOp<memref::AllocOp>();
     if (!alloc)
@@ -1185,41 +1172,6 @@ static inline void rewriteCallOpsForFuncOp(ArrayRef<func::CallOp> calls) {
   }
 }
 
-static inline void relocateFuncOpConstantLikeForLmhlo(func::FuncOp func,
-                                                      unsigned unknownCnt) {
-
-  MLIRContext *ctx = func.getContext();
-  SmallVector<Attribute, 16> weightAttrs;
-
-  lmhlo::ConstantOp op;
-
-  relocateFuncOpConstantLike(
-      func,
-      [&](mlir::Operation *op) {
-        if (auto constant = dyn_cast<lmhlo::ConstantOp>(op)) {
-          return shouldConstantRelocate(constant);
-        }
-        return false;
-      },
-      [&](mlir::Operation *op) {
-        NamedAttrList attrList;
-        auto attr = op->getAttr("name");
-        if (attr != nullptr) {
-          attrList.append(byre::ByreDialect::getEntryPointFuncArgNameAttrName(),
-                          attr);
-        } else {
-          auto strAttr =
-              StringAttr::get(ctx, Twine("UnknowWeight") + Twine(unknownCnt++));
-          attrList.append(byre::ByreDialect::getEntryPointFuncArgNameAttrName(),
-                          strAttr);
-        }
-        attrList.append(byre::ByreDialect::getEntryPointFuncArgTypeAttrName(),
-                        byre::EntryFuncArgTypeAttr::get(
-                            op->getContext(), byre::EntryFuncArgType::Weight));
-        return std::make_tuple(op->getOperand(0), attrList);
-      });
-}
-
 static inline void markFuncOpInOutTypeForLmhlo(func::FuncOp func,
                                                unsigned inputCnt,
                                                unsigned outputCnt) {
@@ -1300,7 +1252,6 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
   // rewrite private calls
   rewriteCallOpsForFuncOp(callCollector);
 
-  unsigned unknownWeightCnt = 0;
   unsigned inputCnt = 0, outputCnt = 0;
   for (auto func : entryCollector) {
     // Note: In this process we will give all arguments and results of given
@@ -1313,10 +1264,6 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
     rewriteByreResultAttrsToFuncResultAttr(func);
 
     relocateFuncOpResults(func, this->removeDupOutputs);
-
-    if (isFuncWithEntryPointPlaceholder(func)) {
-      relocateFuncOpConstantLikeForLmhlo(func, unknownWeightCnt);
-    }
 
     removeAttrPlaceholders(func, attrNames);
 

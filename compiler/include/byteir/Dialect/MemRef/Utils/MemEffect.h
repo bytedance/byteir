@@ -40,6 +40,8 @@ struct OpMemEffectOrder {
 void getAllAlias(Operation *op,
                  llvm::SmallVectorImpl<SmallVector<Value>> &aliases);
 
+// Note: this method would collect all **potential** read/write uses on given
+// aliases
 void getMemEffects(llvm::SmallVectorImpl<OpMemEffectOrder> &memEffects,
                    llvm::ArrayRef<SmallVector<Value>> aliases,
                    llvm::DenseMap<Operation *, unsigned> &opToIdx,

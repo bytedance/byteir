@@ -19,6 +19,7 @@
 
 #include "byteir/Dialect/Ace/AceDialect.h"
 #include "byteir/Dialect/Ace/Transforms/BufferizableOpInterfaceImpl.h"
+#include "byteir/Dialect/Cat/IR/CatDialect.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
@@ -112,6 +113,10 @@ struct OneShotBufferizePass
       }
       // skip ToMemrefOp, since oneShotAnalysis might fail.
       if (isa<mlir::bufferization::ToMemrefOp>(op))
+        return true;
+
+      // skip cat op
+      if (isa<mlir::cat::CatOpInterface>(op))
         return true;
 
       return false;

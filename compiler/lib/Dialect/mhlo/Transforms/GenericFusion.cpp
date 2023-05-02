@@ -35,11 +35,12 @@ using namespace mlir::mhlo;
 namespace {
 namespace elementwise {
 
+// TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
   return isMhlo(op) &&
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-          isMhloConstantLike(op) ||
+          isSplatMhloConstantLike(op) ||
           isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op));
 }
 
@@ -62,7 +63,7 @@ bool isFusibleTrigger(Operation *op) {
 bool isFusibleWith(Operation *target, Operation * /*start*/) {
   return target->hasTrait<::mlir::OpTrait::Elementwise>() ||
          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isMhloConstantLike(target) ||
+         isSplatMhloConstantLike(target) ||
          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
              target);
 }

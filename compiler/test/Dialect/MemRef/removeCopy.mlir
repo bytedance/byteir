@@ -382,3 +382,74 @@ func.func @view_of_view() -> memref<11x15x17x13xf32> {
   return %dst : memref<11x15x17x13xf32>
 }
 
+// -----
+
+func.func @cannot_remove_copy_0() -> memref<16xf32> {
+  %src = memref.alloc() : memref<4x8xf32>
+  %src_sub = memref.subview %src[0, 4] [4, 4] [1, 1] : memref<4x8xf32> to memref<4x4xf32, strided<[8, 1], offset: 4>>
+  "foo.bar"(%src_sub) : (memref<4x4xf32, strided<[8, 1], offset: 4>>) -> ()
+  %dst = memref.alloc() : memref<4x4xf32>
+  memref.copy %src_sub, %dst : memref<4x4xf32, strided<[8, 1], offset: 4>> to memref<4x4xf32>
+  %dst_collapsed = memref.collapse_shape %dst [[0, 1]] : memref<4x4xf32> into memref<16xf32>
+  return %dst_collapsed: memref<16xf32>
+}
+// CHECK-LABEL: cannot_remove_copy_0
+//   CHECK: memref.copy
+
+// -----
+
+func.func @cannot_remove_copy_1() -> memref<4x4xf32> {
+  %src = memref.alloc() : memref<4x8xf32>
+  %src_sub = memref.subview %src[0, 4] [4, 4] [1, 1] : memref<4x8xf32> to memref<4x4xf32, strided<[8, 1], offset: 4>>
+  "foo.bar"(%src_sub) : (memref<4x4xf32, strided<[8, 1], offset: 4>>) -> ()
+  %alloc = memref.alloc() : memref<4x4xf32>
+  memref.copy %src_sub, %alloc : memref<4x4xf32, strided<[8, 1], offset: 4>> to memref<4x4xf32>
+  %dst = memref.alloc() : memref<4x4xf32>
+  "lmhlo.log"(%alloc, %dst) : (memref<4x4xf32>, memref<4x4xf32>) -> ()
+  return %dst: memref<4x4xf32>
+}
+// CHECK-LABEL: cannot_remove_copy_1
+//   CHECK: memref.copy
+
+// -----
+func.func private @foo(%arg0: memref<4x8xf32>, %arg1: memref<4x8xf32>) -> memref<4x8xf32>
+
+func.func @copy_then_call() -> memref<4x8xf32> {
+  %cst_0 = arith.constant 0.0 : f32
+  %cst_1 = arith.constant 1.0 : f32
+  %cst_2 = arith.constant 2.0 : f32
+  %src = memref.alloc() : memref<4x8xf32>
+  linalg.fill ins(%cst_0: f32) outs(%src: memref<4x8xf32>)
+  %src0 = memref.alloc() : memref<4x4xf32>
+  linalg.fill ins(%cst_1: f32) outs(%src0: memref<4x4xf32>)
+  %src1 = memref.alloc() : memref<4x4xf32>
+  linalg.fill ins(%cst_2: f32) outs(%src1: memref<4x4xf32>)
+
+  %arg0 = memref.alloc() : memref<4x8xf32>
+  memref.copy %src, %arg0 : memref<4x8xf32> to memref<4x8xf32>
+  %subview0 = memref.subview %arg0[0, 0] [4, 4] [1, 1] : memref<4x8xf32> to memref<4x4xf32, strided<[8, 1], offset: 0>>
+  memref.copy %src0, %subview0 : memref<4x4xf32> to memref<4x4xf32, strided<[8, 1], offset: 0>>
+
+  %arg1 = memref.alloc() : memref<4x8xf32>
+  memref.copy %src, %arg1 : memref<4x8xf32> to memref<4x8xf32>
+  %subview1 = memref.subview %arg1[0, 4] [4, 4] [1, 1] : memref<4x8xf32> to memref<4x4xf32, strided<[8, 1], offset: 4>>
+  memref.copy %src1, %subview1 : memref<4x4xf32> to memref<4x4xf32, strided<[8, 1], offset: 4>>
+
+  %0 = call @foo(%arg0, %arg1) : (memref<4x8xf32>, memref<4x8xf32>) -> memref<4x8xf32>
+
+  return %0 : memref<4x8xf32>
+}
+// CHECK-LABEL: copy_then_call
+// CHECK: %[[SRC:.*]] = memref.alloc() : memref<4x8xf32>
+// CHECK: linalg.fill {{.*}} outs(%[[SRC]] : memref<4x8xf32>)
+// CHECK: %[[SRC0:.*]] = memref.alloc() : memref<4x4xf32>
+// CHECK: linalg.fill {{.*}} outs(%[[SRC0]] : memref<4x4xf32>)
+// CHECK: %[[SRC1:.*]] = memref.alloc() : memref<4x4xf32>
+// CHECK: linalg.fill {{.*}} outs(%[[SRC1]] : memref<4x4xf32>)
+// CHECK: %[[ARG0:.*]] = memref.alloc() : memref<4x8xf32>
+// CHECK: memref.copy %[[SRC]], %[[ARG0]]
+// CHECK: %[[SUBVIEW0:.*]] = memref.subview %[[ARG0]]
+// CHECK: memref.copy %[[SRC0]], %[[SUBVIEW0]]
+// CHECK: %[[SUBVIEW1:.*]] = memref.subview %[[SRC]]
+// CHECK: memref.copy %[[SRC1]], %[[SUBVIEW1]]
+// CHECK: call @foo(%[[ARG0]], %[[SRC]])

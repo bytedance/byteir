@@ -36,6 +36,18 @@ using namespace mlir::memref;
 
 namespace {
 
+// to check whether all uses of oldValue can be safely replaced with newValue
+bool anyIncompatibleUse(Value oldValue, Value newValue) {
+  return llvm::any_of(oldValue.getUses(),
+                      [](OpOperand &operand) {
+                        Operation *op = operand.getOwner();
+                        Dialect *dialect = op->getDialect();
+                        return llvm::isa<memref::CollapseShapeOp>(op) ||
+                               (dialect && dialect->getNamespace() == "lmhlo");
+                      }) &&
+         (oldValue.getType() != newValue.getType());
+}
+
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
 public:
   RemoveCopyPattern(MLIRContext *context, DominanceInfo &dom)
@@ -136,8 +148,11 @@ public:
                                 << " not dominated by " << targetAlloc << "\n");
         return failure();
       }
-      rewriter.replaceOp(targetAlloc, {src});
-      return success();
+
+      if (!anyIncompatibleUse(target, src)) {
+        rewriter.replaceOp(targetAlloc, {src});
+        return success();
+      }
     }
 
     if (auto srcAlloc = src.getDefiningOp<memref::AllocOp>()) {
@@ -151,8 +166,11 @@ public:
                                 << " not dominated by " << srcAlloc << "\n");
         return failure();
       }
-      rewriter.replaceOp(srcAlloc, {target});
-      return success();
+
+      if (!anyIncompatibleUse(src, target)) {
+        rewriter.replaceOp(srcAlloc, {target});
+        return success();
+      }
     }
 
     return failure();

@@ -19,6 +19,8 @@
 #define BYTEIR_CONVERSION_PASSES_H
 
 #include "byteir/Conversion/GPUToNVVM/GPUToNVVM.h"
+#include "byteir/Conversion/HloToCat/FuseHloToCat.h"
+#include "byteir/Conversion/HloToCat/HloToCat.h"
 #include "byteir/Conversion/HloToLHlo/HloToLHlo.h"
 #include "byteir/Conversion/LmhloToLace/LmhloToLace.h"
 #include "byteir/Conversion/LmhloToMemref/LmhloToMemref.h"

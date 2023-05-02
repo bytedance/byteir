@@ -28,6 +28,10 @@ namespace byre {
 // byre.compute attribute name
 inline llvm::StringRef getByreComputeName() { return "byre_compute_name"; }
 
+inline llvm::StringRef getRemoveFuncBodyAttrName() {
+  return "remove_func_body";
+}
+
 inline std::string getByrePassThroughArgAttrName() { return "passthrough_arg"; }
 
 inline std::string getByreArgOffsetAttrName() { return "arg_offsets"; }

@@ -10,11 +10,13 @@ _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
     "aten._log_softmax",
     "aten.native_layer_norm",
+    "aten.layer_norm",
     "aten.gelu",
     "aten.softmax.int",
     "aten.argmax",
     "aten.max.dim",
     "aten.one_hot",
+    "aten.topk",
 ]
 
 def convert_to_mhlo_via_torch_mlir(
@@ -26,7 +28,7 @@ def convert_to_mhlo_via_torch_mlir(
 ):
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
-    torch_mlir.BACKEND_LEGAL_OPS[torch_mlir.OutputType.TORCH] = backend_legal_ops
+    # torch_mlir.BACKEND_LEGAL_OPS[torch_mlir.OutputType.TORCH] = backend_legal_ops
     module = torch_mlir.compile(
         model,
         example_inputs,

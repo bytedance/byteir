@@ -1,48 +1,19 @@
 diff --git a/lib/Dialect/Torch/Transforms/RefineTypes.cpp b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
-index 92b91c1f..15527a64 100644
+index 563c8124..c2c53a4d 100644
 --- a/lib/Dialect/Torch/Transforms/RefineTypes.cpp
 +++ b/lib/Dialect/Torch/Transforms/RefineTypes.cpp
-@@ -69,6 +69,7 @@
+@@ -68,6 +68,7 @@
+ #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
  #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
  #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
- #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
 +#include "torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h"
+ #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
- using namespace mlir;
-@@ -845,8 +846,7 @@ void TypeAnalysis::visitOperation(Operation *op,
-   }
- 
-   // 3 results take dtype from first operand.
--  if (isa<AtenNativeLayerNormOp, AtenNativeBatchNormOp,
--          AtenConvolutionBackwardOp>(op)) {
-+  if (isa<AtenNativeBatchNormOp, AtenConvolutionBackwardOp>(op)) {
-     auto self = operands[0]->getValue();
-     auto result0Knowledge =
-         ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-@@ -863,6 +863,35 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -863,6 +864,16 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }
  
-+  if (isa<AtenNativeLayerNormOp>(op)) {
-+    auto self = operands[0]->getValue();
-+    auto result0Knowledge =
-+        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-+    result0Knowledge.dtype = self.dtype;
-+    auto result1Knowledge =
-+        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-+    // mean is fp32
-+    result1Knowledge.dtype = Float32Type::get(op->getContext());
-+    auto result2Knowledge =
-+        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-+    // rstd is fp32
-+    result2Knowledge.dtype = Float32Type::get(op->getContext());
-+    incorporateKnowledge(op->getResult(0), result0Knowledge);
-+    incorporateKnowledge(op->getResult(1), result1Knowledge);
-+    incorporateKnowledge(op->getResult(2), result1Knowledge);
-+    return;
-+  }
-+
 +  if (isa<AtenTopkOp>(op)) {
 +    incorporateKnowledge(op->getResult(0), operands[0]->getValue());
 +    auto knowledge =
@@ -56,20 +27,21 @@ index 92b91c1f..15527a64 100644
    if (isa<AtenMaxPool2dWithIndicesOp>(op)) {
      auto self = operands[0]->getValue();
      auto result0Knowledge =
-@@ -1203,6 +1232,21 @@ void TypeAnalysis::visitOperation(Operation *op,
+@@ -1230,6 +1241,22 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }
  
 +  if (auto customOp = dyn_cast<CustomOp>(op)) {
 +    std::string opName =
-+          customOp->getAttrOfType<StringAttr>(getCustomOpName()).str();
++        customOp->getAttrOfType<StringAttr>(getCustomOpName()).str();
 +    if (opName == getDynamicPartitionCustomName()) {
 +      for (size_t i = 0; i < op->getNumResults(); i++) {
 +        incorporateKnowledge(op->getResult(i), operands[0]->getValue());
 +      }
 +      return;
 +    } else if (opName == getDynamicStitchCustomName()) {
-+      return incorporateKnowledge(op->getResult(0), operands[operands.size()-1]->getValue());
++      return incorporateKnowledge(op->getResult(0),
++                                  operands[operands.size() - 1]->getValue());
 +    } else if (opName == getDynamicMaskStitchCustomName()) {
 +      return incorporateKnowledge(op->getResult(0), operands[0]->getValue());
 +    }

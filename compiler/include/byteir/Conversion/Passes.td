@@ -261,4 +261,28 @@ def CollectFuncToLLVM : Pass<"collect-func-to-llvm", "mlir::ModuleOp"> {
   let constructor = "mlir::createCollectFuncToLLVMPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// FuseMhloToCat
+//===----------------------------------------------------------------------===//
+
+def FuseMhloToCat : Pass<"fuse-mhlo-to-cat", "func::FuncOp"> {
+  let summary = "Fuse mhlo ops to Cat Op.";
+  let constructor = "mlir::createFuseMhloToCatPass()";
+  let dependentDialects = [
+    "mlir::cat::CatDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ToCat
+//===----------------------------------------------------------------------===//
+
+def MhloToCat : Pass<"mhlo-to-cat", "func::FuncOp"> {
+  let summary = "Convert mhlo op to Cat Op.";
+  let constructor = "mlir::createMhloToCatPass()";
+  let dependentDialects = [
+    "mlir::cat::CatDialect",
+  ];
+}
+
 #endif // BYTEIR_CONVERSION_PASSES

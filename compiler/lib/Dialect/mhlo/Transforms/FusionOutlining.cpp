@@ -36,6 +36,8 @@ using namespace llvm;
 
 namespace {
 
+static unsigned cnt = 0;
+
 static std::string getOutlineFuncitonName(mhlo::FusionOp fusionOp,
                                           unsigned &cnt) {
   StringAttr nameAttr =
@@ -65,6 +67,12 @@ static func::FuncOp createOutlinedFuncOp(mhlo::FusionOp fusionOp,
   func::FuncOp funcOp =
       func::FuncOp::create(fusionOp.getLoc(), funcName, funcType);
   funcOp.setPrivate();
+
+  // directly return if removing function body
+  if (fusionOp->hasAttr(mlir::byre::getRemoveFuncBodyAttrName())) {
+    addAttrs(funcOp.getOperation(), fusionOp->getAttrs());
+    return funcOp;
+  }
 
   // create entry block
   Block *block = funcOp.addEntryBlock();
@@ -160,8 +168,6 @@ struct FusionOutliningPass : public FusionOutliningBase<FusionOutliningPass> {
 
 void FusionOutliningPass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
-
-  unsigned cnt = 0;
 
   for (auto funcOp : moduleOp.getOps<func::FuncOp>()) {
     funcOp.walk([&](mhlo::FusionOp fusionOp) {

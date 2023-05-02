@@ -41,6 +41,12 @@ endif()
 
 option(BYTEIR_BUILD_EMBEDDED "Build byteir as part of another project" OFF)
 
+option(BYTEIR_ENABLE_BINDINGS_PYTHON "Enable byteir python binding" OFF)
+if (BYTEIR_ENABLE_BINDINGS_PYTHON)
+  set(MHLO_ENABLE_BINDINGS_PYTHON ON)
+  set(MLIR_ENABLE_BINDINGS_PYTHON ON)
+endif()
+
 # Set Path
 set(BYTEIR_SRC_DIR ${PROJECT_SOURCE_DIR}/..)
 get_filename_component(BYTEIR_SRC_DIR "${BYTEIR_SRC_DIR}" ABSOLUTE)
@@ -95,6 +101,13 @@ add_subdirectory(${BYTEIR_SRC_DIR}/include ${BYTEIR_BINARY_DIR}/include)
 
 # Build tools
 add_subdirectory(${BYTEIR_SRC_DIR}/tools ${BYTEIR_BINARY_DIR}/tools)
+
+# Build python binding
+if (BYTEIR_ENABLE_BINDINGS_PYTHON)
+  include(MLIRDetectPythonEnv)
+  mlir_configure_python_dev_packages()
+  add_subdirectory(${BYTEIR_SRC_DIR}/python ${CMAKE_BINARY_DIR}/python)
+endif()
 
 if(MSVC)
   set(BYTEIR_TOOLS_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${CMAKE_BUILD_TYPE})

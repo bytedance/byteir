@@ -1,6 +1,7 @@
 add_subdirectory(Ace)
 add_subdirectory(Affine)
 add_subdirectory(Byre)
+add_subdirectory(Cat)
 add_subdirectory(Ccl)
 add_subdirectory(Lace)
 add_subdirectory(Linalg)

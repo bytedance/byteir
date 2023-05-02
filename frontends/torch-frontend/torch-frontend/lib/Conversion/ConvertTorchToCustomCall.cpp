@@ -16,9 +16,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
-#include "./PassDetail.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "torch-frontend/Utils/CustomCallUtil.h"
+#include "torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Conversion/Utils/Utils.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
@@ -29,6 +31,8 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 #include "utils/convert_op_folder.h"
+
+#include "./PassDetail.h"
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -49,18 +53,6 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
   return attrs;
 }
 
-Value getEmptyTensorCustomCall(PatternRewriter &rewriter, Location loc,
-                               Type reusltType) {
-  auto attrs = getDefaultAttrs(rewriter);
-  attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                     rewriter.getStringAttr("byteir.empty_tensor"));
-  // construct a place holder to apply replaceOp()
-  auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
-      loc, ArrayRef<Type>{reusltType}, ArrayRef<Value>{},
-      ArrayRef<NamedAttribute>(attrs));
-  return customCallOp.getResults()[0];
-}
-
 template <typename OP>
 mhlo::ConstantOp createInitialValueForReduceOp(PatternRewriter &rewriter,
                                                Location loc, Type elementTy);
@@ -72,9 +64,9 @@ createInitialValueForReduceOp<mhlo::MaxOp>(PatternRewriter &rewriter,
   auto constType = RankedTensorType::get({}, elementTy);
   if (elementTy.isa<mlir::FloatType>()) {
     auto constAttr = DenseElementsAttr::get(
-        constType, {APFloat::getLargest(
-                       elementTy.cast<mlir::FloatType>().getFloatSemantics(),
-                       /*negative=*/true)});
+        constType,
+        {APFloat::getInf(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+                         /*negative=*/true)});
     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
   } else if (elementTy.isa<mlir::IntegerType>() &&
              elementTy.getIntOrFloatBitWidth() != 8) {
@@ -135,6 +127,18 @@ mhlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter, Location loc,
 
   return reduceOp;
 }
+
+Value promoteType(Location loc, Value input, TensorType desiredType,
+                  PatternRewriter &rewriter) {
+  TensorType inType = input.getType().dyn_cast<TensorType>();
+  if (inType.getElementType() == desiredType.getElementType()) {
+    return input;
+  }
+
+  TensorType promotedType =
+      inType.cloneWith(inType.getShape(), desiredType.getElementType());
+  return rewriter.create<mhlo::ConvertOp>(loc, promotedType, input);
+}
 } // namespace
 
 namespace {
@@ -145,31 +149,19 @@ class ConvertAtenNativeLayerNormOp
 public:
   using OpConversionPattern::OpConversionPattern;
 
-  // TODO: move to utils
-  static Value promoteType(Value input, TensorType desiredType,
-                           PatternRewriter &rewriter) {
-    Operation *op = input.getDefiningOp();
-    TensorType inType = input.getType().dyn_cast<TensorType>();
-    if (inType.getElementType() == desiredType.getElementType()) {
-      return input;
-    }
-
-    TensorType promotedType =
-        inType.cloneWith(inType.getShape(), desiredType.getElementType());
-    return rewriter.create<mhlo::ConvertOp>(op->getLoc(), promotedType, input);
-  }
-
   LogicalResult
   matchAndRewrite(AtenNativeLayerNormOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     RankedTensorType outType = getTypeConverter()
                                    ->convertType(op.getResultTypes()[0])
                                    .cast<RankedTensorType>();
-    Value input = promoteType(adaptor.getInput(), outType, rewriter);
-    Value weight = promoteType(adaptor.getWeight(), outType, rewriter);
-    Value bias = promoteType(adaptor.getBias(), outType, rewriter);
+    Value input =
+        promoteType(op->getLoc(), adaptor.getInput(), outType, rewriter);
+    Value weight =
+        promoteType(op->getLoc(), adaptor.getWeight(), outType, rewriter);
+    Value bias =
+        promoteType(op->getLoc(), adaptor.getBias(), outType, rewriter);
     SmallVector<Value> bufferArgs({input, weight, bias});
-
     RankedTensorType inType = input.getType().cast<RankedTensorType>();
     SmallVector<Type> resultTypes;
     if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
@@ -208,16 +200,11 @@ public:
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     if (op.getResults()[1].use_empty() && op.getResults()[2].use_empty()) {
-      auto emptyTensorValue0 =
-          getEmptyTensorCustomCall(rewriter, op->getLoc(), resultTypes[1]);
-      auto emptyTensorValue1 =
-          getEmptyTensorCustomCall(rewriter, op->getLoc(), resultTypes[2]);
       auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
           op->getLoc(), ArrayRef<Type>{resultTypes[0]}, bufferArgs,
           ArrayRef<NamedAttribute>{attrs});
-      rewriter.replaceOp(op,
-                         ArrayRef<Value>{customCallOp.getResults()[0],
-                                         emptyTensorValue0, emptyTensorValue1});
+      rewriter.replaceOp(
+          op, ArrayRef<Value>{customCallOp.getResults()[0], Value(), Value()});
       return success();
     } else {
       auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
@@ -226,10 +213,62 @@ public:
       rewriter.replaceOp(op, customCallOp->getResults());
       return success();
     }
+  }
+};
 
-    auto newOp = rewriter.create<mhlo::CustomCallOp>(
-        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>(attrs));
-    rewriter.replaceOp(op, newOp->getResults());
+// AtenLayerNormOp
+class ConvertAtenLayerNormOp : public OpConversionPattern<AtenLayerNormOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(AtenLayerNormOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    RankedTensorType outType = getTypeConverter()
+                                   ->convertType(op.getResult().getType())
+                                   .cast<RankedTensorType>();
+    Value input =
+        promoteType(op->getLoc(), adaptor.getInput(), outType, rewriter);
+    Value weight =
+        promoteType(op->getLoc(), adaptor.getWeight(), outType, rewriter);
+    Value bias =
+        promoteType(op->getLoc(), adaptor.getBias(), outType, rewriter);
+    SmallVector<Value> bufferArgs({input, weight, bias});
+    RankedTensorType inType = input.getType().cast<RankedTensorType>();
+
+    double epsValue;
+    if (!matchPattern(op.getEps(), m_TorchConstantFloat(&epsValue))) {
+      return op.emitError("eps must be a scalar constant");
+    }
+
+    SmallVector<int64_t> normalizedShape;
+    if (!matchPattern(op.getNormalizedShape(),
+                      m_TorchListOfConstantInts(normalizedShape))) {
+      return op.emitError("eps must be a int list");
+    }
+    // Infer the axis list
+    ArrayRef<int64_t> inShape = inType.getShape();
+    std::vector<int64_t> axisValue;
+    for (size_t i = 0; i < normalizedShape.size(); ++i) {
+      axisValue.push_back(inShape.size() - 1 - i);
+    }
+    std::reverse(axisValue.begin(), axisValue.end());
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("epsilon"),
+                              rewriter.getF64FloatAttr(epsValue));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
+                              rewriter.getI64ArrayAttr(axisValue));
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getLayerNormName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), outType, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+    rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
 };
@@ -439,14 +478,27 @@ public:
     if (op.getResults()[1].use_empty()) { // simplify to mhlo.reduce
       auto reduceOp = createSingleOpReduce<mhlo::MaxOp>(rewriter, op->getLoc(),
                                                         input, {dimInt});
-      auto emptyTensorValue =
-          getEmptyTensorCustomCall(rewriter, op->getLoc(), resultTypes[1]);
       if (keepDim) {
-        // TODO: handle keepDim == true and dynamic reshape.
-        return op.emitError("unimplemented: keepDim == true");
+        auto inputShapeInfo = hlo::getDimSizesOfTensor(rewriter, op, input,
+                                                       /*dimSizeIndexBits=*/64);
+        if (failed(inputShapeInfo)) {
+          return rewriter.notifyMatchFailure(
+              op, "failed to get dimension sizes of the input");
+        }
+        auto outputShapeVec = *inputShapeInfo;
+        outputShapeVec[dimInt] = rewriter.create<mlir::arith::ConstantOp>(
+            op->getLoc(),
+            rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
+        auto outputShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
+            op->getLoc(), outputShapeVec);
+        Value reshapeResult = rewriter.create<mhlo::DynamicReshapeOp>(
+            op->getLoc(), resultTypes[0], reduceOp.getResults()[0],
+            outputShapeTensor);
+        rewriter.replaceOp(op, ArrayRef<Value>{reshapeResult, Value()});
+        return success();
       } else {
-        rewriter.replaceOp(
-            op, ArrayRef<Value>{reduceOp.getResults()[0], emptyTensorValue});
+        rewriter.replaceOp(op,
+                           ArrayRef<Value>{reduceOp.getResults()[0], Value()});
         return success();
       }
     }
@@ -466,13 +518,11 @@ public:
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     if (op.getResults()[0].use_empty()) {
-      auto emptyTensorValue =
-          getEmptyTensorCustomCall(rewriter, op->getLoc(), resultTypes[0]);
       auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
           op->getLoc(), ArrayRef<Type>{resultTypes[1]}, bufferArgs,
           ArrayRef<NamedAttribute>{attrs});
       rewriter.replaceOp(
-          op, ArrayRef<Value>{emptyTensorValue, customCallOp.getResults()[0]});
+          op, ArrayRef<Value>{Value(), customCallOp.getResults()[0]});
       return success();
     } else {
       auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
@@ -732,13 +782,16 @@ public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
     registry.insert<mhlo::MhloDialect>();
+    registry.insert<arith::ArithDialect>();
+    registry.insert<tensor::TensorDialect>();
     TorchConversion::getBackendTypeConversionDependentDialects(registry);
   }
 
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     ConversionTarget target(*context);
-    target.addLegalDialect<Torch::TorchDialect, mhlo::MhloDialect>();
+    target.addLegalDialect<Torch::TorchDialect, mhlo::MhloDialect,
+                           arith::ArithDialect, tensor::TensorDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
@@ -747,6 +800,8 @@ public:
     RewritePatternSet patterns(context);
     target.addIllegalOp<AtenNativeLayerNormOp>();
     patterns.add<ConvertAtenNativeLayerNormOp>(typeConverter, context);
+    target.addIllegalOp<AtenLayerNormOp>();
+    patterns.add<ConvertAtenLayerNormOp>(typeConverter, context);
     target.addIllegalOp<Aten_SoftmaxOp>();
     patterns.add<ConvertAtenSoftmaxOp<Aten_SoftmaxOp>>(typeConverter, context);
     target.addIllegalOp<AtenSoftmaxIntOp>();

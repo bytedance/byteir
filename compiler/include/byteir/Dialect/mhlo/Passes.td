@@ -130,6 +130,15 @@ def DynamicShapeClustering : Pass<"dynamic-shape-clustering", "mlir::ModuleOp"> 
 //}
 
 //===----------------------------------------------------------------------===//
+// FuseBMMDimension
+//===----------------------------------------------------------------------===//
+
+def FuseBMMDimension : Pass<"fuse-bmm-dimension", "func::FuncOp"> {
+  let summary = "rewrite bmm operators as 3d bmm, may add reshapeOp";
+  let constructor = "mlir::createFuseBMMDimensionPass()";
+}
+
+//===----------------------------------------------------------------------===//
 // FusionOutlining
 //===----------------------------------------------------------------------===//
 

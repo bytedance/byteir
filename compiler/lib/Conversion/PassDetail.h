@@ -41,6 +41,10 @@ namespace byre {
 class ByreDialect;
 } // namespace byre
 
+namespace cat {
+class CatDialect;
+} // namespace cat
+
 namespace cf {
 class ControlFlowDialect;
 } // namespace cf
