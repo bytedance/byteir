@@ -86,6 +86,8 @@ struct RngConstraint : public OpRewritePattern<mhlo::RngOp> {
     }
 
     auto fusion = fuseWithConstantArgs(op, {0, 1, 2}, rewriter);
+    fusion->setAttr(byre::getRemoveFuncBodyAttrName(),
+                    UnitAttr::get(fusion.getContext()));
     fusion->setAttr(byre::getByreForceComputeNameAttrName(),
                     UnitAttr::get(fusion.getContext()));
     if (op.getRngDistribution() == mhlo::RngDistribution::UNIFORM) {

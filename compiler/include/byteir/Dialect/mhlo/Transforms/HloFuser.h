@@ -30,6 +30,10 @@ namespace func {
 class FuncOp;
 } // namespace func
 
+constexpr StringRef getByteIRCatFusionAttrName() {
+  return "__byteir_cat_fusion__";
+}
+
 constexpr StringRef getByteIRReduceFusionAttrName() {
   return "__byteir_reduce_fusion__";
 }
@@ -77,6 +81,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> createConvBackwardFusionPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createConvForwardFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDotTransposeFusionPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>> createCatFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createElementFusionPass(bool clusterSingleElemwiseOp = false);

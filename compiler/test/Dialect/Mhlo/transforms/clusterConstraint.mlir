@@ -15,3 +15,4 @@ func.func @uniform_rng() -> tensor<2x128x128xf32> {
 //   CHECK-DAG: __byre__low = 0.000000e+00
 //   CHECK-DAG: byre_compute_name = "RngUniform"
 //   CHECK-DAG: byre_force_compute_name
+//   CHECK-DAG: remove_func_body

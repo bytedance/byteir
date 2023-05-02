@@ -25,6 +25,7 @@
 #include "byteir/Dialect/mhlo/Transforms/DTypeConversion.h"
 #include "byteir/Dialect/mhlo/Transforms/DynamicShapeClustering.h"
 #include "byteir/Dialect/mhlo/Transforms/FuncArgRearrangement.h"
+#include "byteir/Dialect/mhlo/Transforms/FuseBMMDimension.h"
 #include "byteir/Dialect/mhlo/Transforms/FusionOutlining.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFolder.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
@@ -52,6 +53,11 @@ inline void registerByteIRMhloPassesExt() {
   // register createElementFusionPass
   ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
     return mlir::createElementFusionPass();
+  });
+
+  // register createCatFusionPass
+  ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
+    return mlir::createCatFusionPass();
   });
 
   // register createMatmulEpilogueFusionPass

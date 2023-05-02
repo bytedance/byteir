@@ -28,16 +28,20 @@ struct OpInterfaceOverrider {
   template <typename MethodType> struct WrapperT;
 
   template <typename Ret, typename... Args>
-  struct WrapperT<Ret (*Concept::*)(Args...)> {
-    using ImplType = std::function<Ret(Args...)>;
-    static Ret call(Args... args) { return sm_impl(args...); }
-  };
-
-  template <typename Ret, typename... Args>
   struct WrapperT<Ret (*Concept::*)(const Concept *, Args...)> {
     using ImplType = std::function<Ret(Args...)>;
     static Ret call(const Concept *, Args... args) { return sm_impl(args...); }
   };
+
+#if !defined(_MSC_VER)
+  // MSVC will report C2752, more than one partial specialization matches the
+  // template argument list, for the following.
+  template <typename Ret, typename... Args>
+  struct WrapperT<Ret (*Concept::*)(Args...)> {
+    using ImplType = std::function<Ret(Args...)>;
+    static Ret call(Args... args) { return sm_impl(args...); }
+  };
+#endif
 
   using Wrapper = WrapperT<decltype(method)>;
   using Impl = typename Wrapper::ImplType;

@@ -25,3 +25,6 @@
 [submodule "frontends/torch-frontend/third_party/torch-mlir"]
 	path = frontends/torch-frontend/third_party/torch-mlir
 	url = https://github.com/llvm/torch-mlir.git
+[submodule "external/AITemplate"]
+	path = external/AITemplate
+	url = https://github.com/facebookincubator/AITemplate.git

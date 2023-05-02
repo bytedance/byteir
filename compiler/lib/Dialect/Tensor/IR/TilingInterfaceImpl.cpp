@@ -596,6 +596,7 @@ RegisterOpInterfaceOverride(
     /*Op=*/tensor::PadOp, /*Interface=*/TilingInterface,
     /*InterfaceMethod=*/getTiledImplementation,
     /*Impl=*/&PadOpTilingInterfacePatch::getTiledImplementation);
+
 RegisterOpInterfaceOverride(
     /*Op=*/tensor::PadOp, /*Interface=*/TilingInterface,
     /*InterfaceMethod=*/generateResultTileValue,

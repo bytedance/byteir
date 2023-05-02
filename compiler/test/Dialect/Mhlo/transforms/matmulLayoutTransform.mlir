@@ -1,6 +1,5 @@
-// RUN: byteir-opt %s -matmul-layout-transform="transpose-const-only=0 target-layout=ntn" | FileCheck %s
-// RUN: byteir-opt %s -matmul-layout-transform="transpose-const-only=1 target-layout=ntn" | FileCheck %s --check-prefix CONSTONLY
-// RUN: byteir-opt %s -matmul-layout-transform="transpose-const-only=0 target-layout=nnt" | FileCheck %s --check-prefix TRANSPOSEOUTPUT
+// RUN: byteir-opt %s -matmul-layout-transform="transpose-const-only=0 target-layout=rcr" | FileCheck %s
+// RUN: byteir-opt %s -matmul-layout-transform="transpose-const-only=1 target-layout=rcr" | FileCheck %s --check-prefix CONSTONLY
 
 func.func @MatmulOp0(%arg0: tensor<128x256xf32>) -> tensor<128x30522xf32> {
   %0 = mhlo.constant dense<1.000000e+00> : tensor<256x30522xf32>

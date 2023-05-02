@@ -1,0 +1,18 @@
+import lit.llvm
+
+config.llvm_tools_dir = r"@LLVM_TOOLS_DIR@"
+config.byteir_python_packages_dir = r"@BYTEIR_PYTHON_PACKAGES_DIR@/byteir"
+config.byteir_python_test_dir = r"@PROJECT_BINARY_DIR@/python/test"
+config.lit_tools_dir = config.llvm_tools_dir
+
+try:
+    config.llvm_tools_dir = config.llvm_tools_dir % lit_config.params
+except KeyError:
+    e = sys.exc_info()[1]
+    key, = e.args
+    lit_config.fatal("unable to find %r parameter, use '--param=%s=VALUE'" % (key,key))
+
+lit.llvm.initialize(lit_config, config)
+
+# Let the main config do the real work.
+lit_config.load_config(config, r"@CMAKE_CURRENT_SOURCE_DIR@/lit.cfg.py")

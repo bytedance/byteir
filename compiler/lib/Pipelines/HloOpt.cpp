@@ -28,12 +28,17 @@ using namespace mlir::mhlo;
 
 namespace {
 void addGenericHloFusionPatterns(OpPassManager &pm, const std::string &entry,
-                                 bool outlineSingleElemwiseOp) {
+                                 bool outlineSingleElemwiseOp,
+                                 bool outlineCatOp) {
   // cluster constraint
   pm.addNestedPass<func::FuncOp>(createClusterConstraintPass());
   pm.addPass(createFusionOutliningPass());
 
   // Fusion passes
+  if (outlineCatOp) {
+    pm.addNestedPass<func::FuncOp>(createCatFusionPass());
+    pm.addPass(createFusionOutliningPass());
+  }
   pm.addNestedPass<func::FuncOp>(createConvBackwardFusionPass());
   pm.addNestedPass<func::FuncOp>(createIOConvertFusionPass());
   pm.addNestedPass<func::FuncOp>(createDotTransposeFusionPass());
@@ -67,7 +72,7 @@ void addCPUHloFusionPatterns(OpPassManager &pm, const std::string &entry) {
 
 void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
                               const std::string &target,
-                              bool outlineSingleElemwiseOp) {
+                              bool outlineSingleElemwiseOp, bool outlineCatOp) {
 
   pm.addPass(createInlinerPass());
   pm.addPass(createCanonicalizerPass());
@@ -89,7 +94,8 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   if (target == "CPU") {
     addCPUHloFusionPatterns(pm, entryFunc);
   } else {
-    addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp);
+    addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp,
+                                outlineCatOp);
   }
 }
 } // namespace
@@ -97,5 +103,6 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
 void mlir::createHloOptPipeline(OpPassManager &pm,
                                 const HloOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createHloOptPipelineImpl, pm, options.entryFunc,
-                              options.target, options.outlineSingleElemwiseOp);
+                              options.target, options.outlineSingleElemwiseOp,
+                              options.outlineCatOp);
 }

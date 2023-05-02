@@ -6,7 +6,6 @@ func.func @torch.aten.native_layer_norm(%arg0: !torch.vtensor<[3,7,4,5],f32>) ->
   %int4 = torch.constant.int 4
   %int5 = torch.constant.int 5
   %float1.000000e-05 = torch.constant.float 1.000000e-05
-  %true = torch.constant.bool true
   %2 = torch.prim.ListConstruct %int4, %int5 : (!torch.int, !torch.int) -> !torch.list<int>
   %result0, %result1, %result2 = torch.aten.native_layer_norm %arg0, %2, %1, %0, %float1.000000e-05 : !torch.vtensor<[3,7,4,5],f32>, !torch.list<int>, !torch.vtensor<[4,5],f32>, !torch.vtensor<[4,5],f32>, !torch.float -> !torch.vtensor<[3,7,4,5],f32>, !torch.vtensor<[3,7,1,1],f32>, !torch.vtensor<[3,7,1,1],f32>
   return %result0 : !torch.vtensor<[3,7,4,5],f32>
@@ -16,6 +15,23 @@ func.func @torch.aten.native_layer_norm(%arg0: !torch.vtensor<[3,7,4,5],f32>) ->
 // CHECK-SAME: @byteir.layer_norm
 // CHECK: byteir_attrs = {axis = [2, 3], epsilon = 1.000000e-05 : f64}
 // CHECK-NOT: torch.aten.native_layer_norm
+
+func.func @torch.aten.layer_norm(%arg0: !torch.vtensor<[3,7,4,5],f32>) -> !torch.vtensor<[3,7,4,5],f32> {
+  %0 = torch.vtensor.literal(dense<0.000000e+00> : tensor<4x5xf32>) : !torch.vtensor<[4,5],f32>
+  %1 = torch.vtensor.literal(dense<1.000000e+00> : tensor<4x5xf32>) : !torch.vtensor<[4,5],f32>
+  %int4 = torch.constant.int 4
+  %int5 = torch.constant.int 5
+  %false = torch.constant.bool false
+  %float1.000000e-05 = torch.constant.float 1.000000e-05
+  %2 = torch.prim.ListConstruct %int4, %int5 : (!torch.int, !torch.int) -> !torch.list<int>
+  %result = torch.aten.layer_norm %arg0, %2, %1, %0, %float1.000000e-05, %false : !torch.vtensor<[3,7,4,5],f32>, !torch.list<int>, !torch.vtensor<[4,5],f32>, !torch.vtensor<[4,5],f32>, !torch.float, !torch.bool -> !torch.vtensor<[3,7,4,5],f32>
+  return %result : !torch.vtensor<[3,7,4,5],f32>
+}
+// CHECK-LABEL: func.func @torch.aten.layer_norm
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.layer_norm
+// CHECK: byteir_attrs = {axis = [2, 3], epsilon = 1.000000e-05 : f64}
+// CHECK-NOT: torch.aten.layer_norm
 
 func.func @torch.aten.softmax.int(%t: !torch.vtensor<[2,3],f32>) -> !torch.vtensor<[2,3],f32> {
   %dtype = torch.constant.none

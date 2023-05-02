@@ -39,6 +39,10 @@ struct HloOptPipelineOptions
       llvm::cl::desc("whether to outline the single element-wise operation as "
                      "an independent function"),
       llvm::cl::init(false)};
+  Option<bool> outlineCatOp{
+      *this, "outline-cat-op",
+      llvm::cl::desc("whether to outline cat ops and AIT as an backend"),
+      llvm::cl::init(false)};
 };
 
 void createHloOptPipeline(OpPassManager &pm,

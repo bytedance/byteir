@@ -1,5 +1,6 @@
 add_subdirectory(Common)
 add_subdirectory(GPUToNVVM)
+add_subdirectory(HloToCat)
 add_subdirectory(HloToLHlo)
 add_subdirectory(LmhloToLace)
 add_subdirectory(LmhloToMemref)

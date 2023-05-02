@@ -29,7 +29,6 @@ if(BYTEIR_INCLUDE_TESTS)
     ByteIRTestInterface
     ByteIRTestTransformation
     ByteIRTestUtils
-    MLIRTestTransformDialect
     )
 endif()
 

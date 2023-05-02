@@ -24,22 +24,22 @@ using namespace mlir;
 using namespace llvm;
 
 namespace {
-static bool confirmOpOperandWrite(OpOperand &opOpernad) {
+static bool maybeOpOperandWrite(OpOperand &opOpernad) {
   if (auto memEffect =
           dyn_cast<MemoryEffectOpInterface>(opOpernad.getOwner())) {
     return memEffect.getEffectOnValue<MemoryEffects::Write>(opOpernad.get())
         .has_value();
   }
-  return false;
+  return true;
 }
 
-static bool confirmOpOperandRead(OpOperand &opOpernad) {
+static bool maybeOpOperandRead(OpOperand &opOpernad) {
   if (auto memEffect =
           dyn_cast<MemoryEffectOpInterface>(opOpernad.getOwner())) {
     return memEffect.getEffectOnValue<MemoryEffects::Read>(opOpernad.get())
         .has_value();
   }
-  return false;
+  return true;
 }
 } // namespace
 
@@ -66,17 +66,17 @@ void mlir::getMemEffects(SmallVectorImpl<OpMemEffectOrder> &memEffects,
       for (auto &use : val.getUses()) {
         auto user = use.getOwner();
         if (opToIdx[user] < pivot) {
-          if (confirmOpOperandRead(use)) {
+          if (maybeOpOperandRead(use)) {
             memEffects[en.index()].before.reads.push_back(user);
           }
-          if (confirmOpOperandWrite(use)) {
+          if (maybeOpOperandWrite(use)) {
             memEffects[en.index()].before.writes.push_back(user);
           }
         } else if (opToIdx[user] > pivot) {
-          if (confirmOpOperandRead(use)) {
+          if (maybeOpOperandRead(use)) {
             memEffects[en.index()].after.reads.push_back(user);
           }
-          if (confirmOpOperandWrite(use)) {
+          if (maybeOpOperandWrite(use)) {
             memEffects[en.index()].after.writes.push_back(user);
           }
         }
