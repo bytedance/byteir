@@ -64,6 +64,19 @@ def test_max_dim_keepdim():
 
 # ==============================================================================
 
+class ListModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x):
+        return [x, x, x]
+
+def test_return_list():
+    inputs = [tu.randn(3, 4)]
+    module = convert_to_mhlo_via_torch_mlir(ListModule(), inputs)
+    print(module.operation.get_asm())
+
+# ==============================================================================
+
 torch.ops.load_library("build/lib/libcustom_op.so")
 class DynamicPartitionStitchModule(torch.nn.Module):
     def __init__(self, *, output_shape):

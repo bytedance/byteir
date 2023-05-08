@@ -1,4 +1,4 @@
-//===- RewriteCustomOp.h -------------------------------------*--- C++ -*-===//
+//===- UnpackPublicFunctionReturn.h ---------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_TRANSFORMS_REWRITECUSTOMOP_H
-#define TORCH_FRONTEND_TRANSFORMS_REWRITECUSTOMOP_H
+#ifndef TORCH_FRONTEND_TRANSFORMS_UNPACKPUBLICFUNCTIONRETURN_H
+#define TORCH_FRONTEND_TRANSFORMS_UNPACKPUBLICFUNCTIONRETURN_H
 
 #include "mlir/Pass/Pass.h"
 #include <memory>
@@ -26,8 +26,9 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createRewriteCustomOp();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createUnpackPublicFunctionReturnPass();
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_TRANSFORMS_REWRITECUSTOMOP_H
+#endif // TORCH_FRONTEND_TRANSFORMS_UNPACKPUBLICFUNCTIONRETURN_H

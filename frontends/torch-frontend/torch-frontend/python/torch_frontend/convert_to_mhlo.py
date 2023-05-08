@@ -19,6 +19,40 @@ _CUSTOM_OPS_IN_TORCH = [
     "aten.topk",
 ]
 
+def compile(
+    model: torch.nn.Module,
+    example_inputs: Union[torch.Tensor, Sequence[torch.Tensor]],
+    output_type: str,
+    backend_legal_ops: Optional[Sequence[str]] = None,
+):
+    if output_type not in ["raw", "torch", "mhlo"]:
+        raise NotImplemented("unsupported output type {}".format(output_type))
+    if backend_legal_ops is None:
+        backend_legal_ops = _CUSTOM_OPS_IN_TORCH
+
+    module = torch_mlir.compile(
+        model,
+        example_inputs,
+        output_type=torch_mlir.OutputType.RAW,
+        use_tracing=False,
+        verbose=False,
+    )
+    if output_type == "raw":
+        return module
+
+    with module.context:
+        option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
+        pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")
+        pm.run(module.operation)
+    if output_type == "torch":
+        return module
+
+    with module.context:
+        pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
+        pm.run(module.operation)
+    return module
+
+
 def convert_to_mhlo_via_torch_mlir(
     model: torch.nn.Module,
     example_inputs: Union[torch.Tensor, Sequence[torch.Tensor]],
@@ -36,6 +70,7 @@ def convert_to_mhlo_via_torch_mlir(
         use_tracing=use_tracing,
         verbose=verbose,
     )
+
     with module.context:
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
         pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")

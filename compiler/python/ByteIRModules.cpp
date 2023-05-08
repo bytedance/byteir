@@ -24,6 +24,7 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(_byteir, m) {
   byteirRegisterAllPasses();
+  byteirRegisterAllTranslations();
 
   m.doc() = "byteir python extension";
 

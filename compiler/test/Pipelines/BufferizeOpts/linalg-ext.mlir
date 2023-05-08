@@ -221,13 +221,14 @@ func.func @fuse_dot_attention(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf
     %6:3 = scf.for %arg7 = %c0 to %c1024 step %c4 iter_args(%arg8 = %arg4, %arg9 = %arg5, %arg10 = %arg6) -> (tensor<1024x32xf32>, tensor<1024xf32>, tensor<1024xf32>) {
       //CHECK-DAG: %[[S:.+]] = memref.subview %[[ARG0]][%[[ARG4]], 0] [4, 32]
       //CHECK-DAG: %[[S9:.+]] = memref.subview %[[ARG1]][0, %[[ARG3]]] [32, 8]
+      //CHECK-DAG: %[[A9:.+]] = memref.alloc() : memref<4x8xf32>
       //CHECK-DAG: %[[A8:.+]] = memref.alloc() : memref<4x8xf32>
       //CHECK-DAG: linalg.fill ins(%[[CST]] : {{.+}}) outs(%[[A8]] : {{.+}})
       //CHECK-DAG: linalg.matmul ins(%[[S]], %[[S9]] : {{.+}}) outs(%[[A8]] : {{.+}})
       //CHECK-DAG: %[[S6:.+]] = memref.subview %[[A2]][%[[ARG4]]] [4]
       //CHECK-DAG: %[[S7:.+]] = memref.subview %[[A]][%[[ARG4]]] [4]
       //CHECK-DAG: %[[A11:.+]] = memref.alloc() : memref<4xf32>
-      //CHECK-DAG: linalg_ext.softmax dimension(1) ins(%[[A8]] : {{.+}}) outs(%[[A8]], %[[S6]], %[[S7]], %[[A11]] : {{.+}})
+      //CHECK-DAG: linalg_ext.softmax dimension(1) ins(%[[A8]] : {{.+}}) outs(%[[A9]], %[[S6]], %[[S7]], %[[A11]] : {{.+}})
       //CHECK-DAG: %[[S5:.+]] = memref.subview %[[ARG2]][%[[ARG3]], 0] [8, 32]
       //CHECK-DAG: %[[S4:.+]] = memref.subview %[[A1]][%[[ARG4]], 0] [4, 32]
       //CHECK-DAG: %[[A12:.+]] = memref.alloc() : memref<4x4xf32>
@@ -235,7 +236,7 @@ func.func @fuse_dot_attention(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf
       //CHECK-DAG: %[[A3:.+]] = memref.alloc() : memref<4x32xf32>
       //CHECK-DAG: linalg.fill ins(%[[CST]] : {{.+}}) outs(%[[A3]] : {{.+}})
       //CHECK-DAG: linalg.matmul ins(%[[A12]], %[[S4]] : {{.+}}) outs(%[[A3]] : {{.+}})
-      //CHECK-DAG: linalg.matmul {__root__} ins(%[[A8]], %[[S5]] : {{.+}}) outs(%[[A3]] : {{.+}})
+      //CHECK-DAG: linalg.matmul {__root__} ins(%[[A9]], %[[S5]] : {{.+}}) outs(%[[A3]] : {{.+}})
       //CHECK: memref.copy %[[A3]], %[[S4]]
       %extracted_slice = tensor.extract_slice %arg0[%arg7, 0] [4, 32] [1, 1] : tensor<1024x32xf32> to tensor<4x32xf32>
       %extracted_slice_1 = tensor.extract_slice %arg1[0, %arg3] [32, 8] [1, 1] : tensor<32x512xf32> to tensor<32x8xf32>

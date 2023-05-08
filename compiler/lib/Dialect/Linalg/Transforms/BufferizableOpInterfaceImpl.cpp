@@ -136,9 +136,8 @@ bool LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryWrite(
     Operation *op, OpOperand &opOperand, const AnalysisState &state) const {
   // Operand is written to if it has an aliasing OpResult.
   auto bufferizableOp = cast<BufferizableOpInterface>(op);
-  return !(
-      bufferizableOp.getAliasingOpResults(opOperand, state).getNumAliases() !=
-      0);
+  return bufferizableOp.getAliasingOpResults(opOperand, state)
+             .getNumAliases() != 0;
 }
 
 bufferization::AliasingOpOperandList

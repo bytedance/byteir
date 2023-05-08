@@ -1,25 +1,41 @@
 diff --git a/lib/Dialect/Torch/IR/TorchOps.cpp b/lib/Dialect/Torch/IR/TorchOps.cpp
-index 14009fc7..4ab6f785 100644
+index 14009fc7..38940db3 100644
 --- a/lib/Dialect/Torch/IR/TorchOps.cpp
 +++ b/lib/Dialect/Torch/IR/TorchOps.cpp
-@@ -2406,6 +2406,20 @@ OpFoldResult AtenCeilFloatOp::fold(FoldAdaptor adaptor) {
- }
- 
- //===----------------------------------------------------------------------===//
-+// PrimDeviceOp
-+//===----------------------------------------------------------------------===//
+@@ -2025,6 +2067,36 @@ void PrimListUnpackOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
+     rewriter.replaceOp(op, listConstruct.getElements());
+     return success();
+   });
 +
-+// Unconditionally canonicalize prim.device op to constant.device op,
-+// since device information is useless in torch-to-mhlo pipeline.
-+void PrimDeviceOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
-+                                               MLIRContext *context) {
-+  patterns.add(+[](PrimDeviceOp op, PatternRewriter &rewriter) {
-+    rewriter.replaceOpWithNewOp<Torch::ConstantDeviceOp>(op, "cpu");
++  patterns.add(+[](PrimListUnpackOp op, PatternRewriter &rewriter) {
++    // decompose AtenUnbindOp + PrimListUnpackOp to slice.tensor ops
++    if (!isa<AtenUnbindIntOp>(op.getOperand().getDefiningOp()))
++      return failure();
++    AtenUnbindIntOp unbind = cast<AtenUnbindIntOp>(op.getOperand().getDefiningOp());
++    if (!unbind->hasOneUse())
++      return failure();
++    Value dim = unbind.getOperand(1);
++    Value input = unbind.getOperand(0);
++    SmallVector<Value> slices;
++    auto step = rewriter.create<Torch::ConstantIntOp>(
++        op->getLoc(), rewriter.getI64IntegerAttr(1));
++    for (int i = 0; i < op.getNumResults(); i++) {
++      // rewrite to slice op
++      auto resultTy = op.getResult(i).getType();
++      auto start = rewriter.create<Torch::ConstantIntOp>(
++          op->getLoc(), rewriter.getI64IntegerAttr(i));
++      auto end = rewriter.create<Torch::ConstantIntOp>(
++          op->getLoc(), rewriter.getI64IntegerAttr(i + 1));
++      auto newSlice = rewriter.create<AtenSliceTensorOp>(
++          op->getLoc(), resultTy, input, dim, start, end, step);
++      auto squeeze = rewriter.create<AtenSqueezeDimOp>(op->getLoc(), resultTy,
++                                                       newSlice, dim);
++      slices.push_back(squeeze);
++    }
++    rewriter.replaceOp(op, slices);
++    unbind.erase();
 +    return success();
 +  });
-+}
-+
-+//===----------------------------------------------------------------------===//
- // PrimMaxIntOp
- //===----------------------------------------------------------------------===//
+ }
  
+ static PrimDictConstructOp getDictConstructIfNotModified(Value torchDict) {

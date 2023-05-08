@@ -20,8 +20,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "torch-frontend/Conversion/Passes.h"
-#include "torch-frontend/Transforms/CanonicalizeExt.h"
-#include "torch-frontend/Transforms/RewriteCustomOp.h"
+#include "torch-frontend/Transforms/Passes.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
@@ -78,9 +77,16 @@ void mlir::torch_frontend::createTorchscriptToTorchPipeline(
 
 void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
     OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  // Unpack return values
+  pm.addNestedPass<func::FuncOp>(createUnpackPublicFunctionReturnPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   pm.addPass(Torch::createAdjustCallingConventionsPass());
+
   // Rewrite custum ops to Torch.CustomOp
   pm.addNestedPass<func::FuncOp>(createRewriteCustomOp());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   pm.addPass(Torch::createLowerToBackendContractPass(
       options.maxIterations, options.decompose, options.backendLegalOps,
       options.extraLibrary));

@@ -25,6 +25,7 @@ add_mlir_library(ByteIRTransforms
   DEPENDS
   ByteIRAnalysis
   ByteIRMhloPasses
+  ByteIRTensorPasses
   ByteIRTransformsPassIncGen
   ByteIRUtils
 
@@ -32,6 +33,7 @@ add_mlir_library(ByteIRTransforms
   ByteIRAnalysis
   ByteIRLinalgPasses
   ByteIRMhloPasses
+  ByteIRTensorPasses
   ByteIRVectorPasses
   ByteIRUtils
   MLIRIR

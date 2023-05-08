@@ -18,6 +18,7 @@
 #include "torch-frontend/Transforms/RewriteCustomOp.h"
 #include "PassDetail.h"
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/BuiltinOps.h"

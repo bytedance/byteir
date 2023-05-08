@@ -2,6 +2,7 @@ add_mlir_library(TorchFrontendTransforms
   RewriteToByteIREntryPoint.cpp
   RewriteCustomOp.cpp
   CanonicalizeExt.cpp
+  UnpackPublicFunctionReturn.cpp
 
   DEPENDS
   TorchFrontendTransformsPassIncGen

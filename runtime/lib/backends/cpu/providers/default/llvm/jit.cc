@@ -21,6 +21,7 @@
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/engine_util.h"
 #include "brt/core/ir/ir.h"
+#include "brt/core/ir/util.h"
 
 #if BRT_LLJIT_DEBUG
 #include <fstream>
@@ -57,13 +58,6 @@ inline void unpack_call(void *fptr, void **args, size_t argn) {
   }
 }
 
-std::string parent_path(std::string path) {
-  if (path[0] != '/')
-    path = "./" + path;
-  size_t pos = path.rfind('/');
-  return path.substr(0, pos + 1);
-}
-
 inline std::string gen_uniq_llvm_module_identifier() {
   static size_t cnt = 0;
   return "BrtJITModule_" + std::to_string(cnt);
@@ -73,7 +67,7 @@ inline std::string gen_uniq_llvm_module_identifier() {
 LLVMJITOpKernel::LLVMJITOpKernel(const OpKernelInfo &info)
     : OpKernel(info, false, false, true, true) {
   OpAccessor accessor(info_);
-  file_path = parent_path(info_.GetIRPath());
+  file_path = brt::ir::GetParentPath(info_.GetIRPath());
   file_path += accessor.GetAttrAsString("llvm_file_name");
   auto kernel_name = accessor.GetAttrAsString("kernel_name");
   symbol_name = "_mlir_ciface_" + kernel_name;

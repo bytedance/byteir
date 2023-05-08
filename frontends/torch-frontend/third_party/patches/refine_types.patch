@@ -10,23 +10,6 @@ index 563c8124..c2c53a4d 100644
  #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
-@@ -863,6 +864,16 @@ void TypeAnalysis::visitOperation(Operation *op,
-     return;
-   }
- 
-+  if (isa<AtenTopkOp>(op)) {
-+    incorporateKnowledge(op->getResult(0), operands[0]->getValue());
-+    auto knowledge =
-+        ValueKnowledge::getTensorPessimisticValueState(op->getContext());
-+    knowledge.dtype =
-+        IntegerType::get(op->getContext(), 64, IntegerType::Signed);
-+    incorporateKnowledge(op->getResult(1), knowledge);
-+    return;
-+  }
-+
-   if (isa<AtenMaxPool2dWithIndicesOp>(op)) {
-     auto self = operands[0]->getValue();
-     auto result0Knowledge =
 @@ -1230,6 +1241,22 @@ void TypeAnalysis::visitOperation(Operation *op,
      return;
    }

@@ -35,4 +35,10 @@ add_mlir_public_c_api_library(ByteIRCAPI
   ByteIRGPUPipelines
   ByteIRHostPipelines
   ByteIRPipelines
+
+  # translate passes
+  MLIRTranslateLib
+  ByteIRTargetPTX
+  ByteIRTargetCUDA
+  ByteIRTargetCpp
 )

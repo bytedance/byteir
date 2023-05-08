@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mhlo/IR/hlo_ops.h"
+#include "mhlo/transforms/passes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
@@ -23,17 +24,21 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "stablehlo/dialect/Register.h"
 #include "torch-frontend/Conversion/Passes.h"
 #include "torch-frontend/Pipelines/Pipelines.h"
 #include "torch-frontend/Transforms/Passes.h"
+#include "torch-mlir-dialects/Dialect/TMTensor/IR/TMTensorDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionDialect.h"
 
 using namespace mlir;
 
 int main(int argc, char **argv) {
-
+  registerAllPasses();
   mlir::registerTorchFrontendConversionPasses();
   mlir::registerTorchFrontendTransformsPasses();
+  mlir::mhlo::registerAllMhloPasses();
   mlir::torch_frontend::registerTorchToMhloPipeline();
   mlir::torch_frontend::registerTorchscriptToTorchPipeline();
   mlir::torch_frontend::registerTorchFunctionToTorchPipeline();
@@ -41,10 +46,12 @@ int main(int argc, char **argv) {
   DialectRegistry registry;
 
   registerAllDialects(registry);
+  mlir::stablehlo::registerAllDialects(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::torch::Torch::TorchDialect>();
+  registry.insert<mlir::torch::TorchConversion::TorchConversionDialect>();
+  mlir::stablehlo::registerAllDialects(registry);
 
   return mlir::asMainReturnCode(
-      mlir::MlirOptMain(argc, argv, "TorchFrontend pass driver\n", registry,
-                        /*preloadDialectsInContext=*/false));
+      mlir::MlirOptMain(argc, argv, "TorchFrontend pass driver\n", registry));
 }
