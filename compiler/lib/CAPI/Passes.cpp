@@ -28,7 +28,11 @@
 #include "byteir/Dialect/Transform/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
+#include "byteir/Target/CUDA/ToCUDA.h"
+#include "byteir/Target/Cpp/ToCpp.h"
+#include "byteir/Target/PTX/ToPTX.h"
 #include "byteir/Transforms/Passes.h"
+#include "mlir/InitAllTranslations.h"
 
 using namespace mlir;
 
@@ -52,4 +56,11 @@ void byteirRegisterAllPasses() {
   registerAllByteIRCommonPipelines();
   registerAllByteIRGPUPipelines();
   registerAllByteIRHostPipelines();
+}
+
+void byteirRegisterAllTranslations() {
+  registerAllTranslations();
+  registerToPTXTranslation();
+  byteir::registerToCppTranslation();
+  byteir::registerToCUDATranslation();
 }

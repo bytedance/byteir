@@ -91,3 +91,13 @@ add_mlir_python_modules(ByteIRPythonModules
 )
 
 add_subdirectory(test)
+
+################################################################################
+# Build Python Wheel
+################################################################################
+
+add_custom_target(
+  byteir-python-pack
+  COMMAND "python3" "${BYTEIR_SRC_DIR}/python/setup.py" "bdist_wheel"
+  DEPENDS ByteIRPythonModules
+)

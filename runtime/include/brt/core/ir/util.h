@@ -27,6 +27,7 @@
 #include "llvm/ADT/ArrayRef.h"
 
 #include <optional>
+#include <string>
 
 /**
  * This file holds utility functions for IR
@@ -155,6 +156,15 @@ int64_t GetIntegerAttrValue(mlir::Attribute attr);
 
 // return whether \p shape is compatible with the shape of \p value
 bool IsComptaibleShapeOf(const std::vector<int64_t> &shape, mlir::Value value);
+
+// TODO: move this utility to more suitable header.
+// return file's parent path
+inline std::string GetParentPath(std::string path) {
+  if (path[0] != '/')
+    path = "./" + path;
+  size_t pos = path.rfind('/');
+  return path.substr(0, pos + 1);
+}
 
 } // namespace ir
 } // namespace brt

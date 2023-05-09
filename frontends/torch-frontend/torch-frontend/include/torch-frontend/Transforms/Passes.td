@@ -40,4 +40,9 @@ def RewriteCustomOp : Pass<"torch-rewrite-custom-op", "func::FuncOp"> {
   }];
 }
 
+def UnpackPublicFunctionReturn : Pass<"unpack-public-function-return", "func::FuncOp"> {
+  let summary = "unpack tuple or list return of public function (means no callsite in current module).";
+  let constructor = "mlir::createUnpackPublicFunctionReturnPass()";
+}
+
 #endif // TORCH_FRONTEND_TRANSFORMS_PASSES_TD

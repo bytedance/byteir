@@ -44,13 +44,10 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-// TODO move these two to a header and allow overriding
-static std::string default_ptx_file = "codegen/codegen.ptx";
-
 std::string GetFileName(Operation *op) {
   func::FuncOp m = op->getParentOfType<func::FuncOp>();
   if (!m->hasAttrOfType<StringAttr>(FILE_NAME_ATTR)) {
-    return default_ptx_file;
+    BRT_THROW("no device_file_name attr in func.func when there are PTXOp");
   }
 
   return m->getAttrOfType<StringAttr>(FILE_NAME_ATTR).getValue().str();
@@ -108,7 +105,8 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
           ->getAttrOfType<StringAttr>(KERNEL_NAME_ATTR)
           .getValue()
           .str();
-  impl_->kernel_info.file_name = GetFileName(info.GetOperation());
+  impl_->kernel_info.file_name = brt::ir::GetParentPath(info.GetIRPath()) +
+                                 "/" + GetFileName(info.GetOperation());
 
   // static assignment for config
   // TODO extend to support dynamic
