@@ -18,6 +18,7 @@
 #include "./jit.h"
 
 #include "brt/backends/cpu/device/llvm/jit.h"
+#include "brt/core/context/work_queue.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/engine_util.h"
 #include "brt/core/ir/ir.h"
@@ -79,13 +80,10 @@ common::Status LLVMJITOpKernel::RunImpl(const ExecutionContext &ctx) {
   OpAccessor accessor(info_, ctx.exec_frame);
   auto nr_args = accessor.GetNumArgs();
   std::vector<MLIREngineMemRefDescriptor> descs;
-  std::vector<void *> args;
   descs.reserve(nr_args);
-  args.reserve(nr_args);
   for (size_t i = 0; i < nr_args; ++i) {
     descs.emplace_back(accessor.GetArgAsyncValueRef(i),
                        accessor.GetArgShape(i));
-    args.push_back(descs.back().GetMemrefPtr());
   }
 
   void *symbol;
@@ -95,7 +93,15 @@ common::Status LLVMJITOpKernel::RunImpl(const ExecutionContext &ctx) {
   } else {
     BRT_ENFORCE(jit->LookupPacked(symbol_name, &symbol).IsOK());
   }
-  unpack_call(symbol, args.data(), args.size());
+  DispatchHostTask(ctx.work_queue, {
+    std::vector<void *> args;
+    args.reserve(nr_args);
+    for (size_t i = 0; i < nr_args; ++i) {
+      args.push_back(
+          const_cast<MLIREngineMemRefDescriptor &>(descs[i]).GetMemrefPtr());
+    }
+    unpack_call(symbol, args.data(), args.size());
+  });
   return common::Status::OK();
 }
 

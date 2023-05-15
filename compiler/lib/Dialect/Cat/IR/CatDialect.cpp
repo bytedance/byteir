@@ -37,8 +37,7 @@ LogicalResult VerifyBMMLayout(Value lhs, Value rhs, Value out,
   auto lhsType = lhs.getType().cast<ShapedType>();
   auto rhsType = rhs.getType().cast<ShapedType>();
   auto outType = out.getType().cast<ShapedType>();
-  if (lhsType.getRank() != 3 || rhsType.getRank() != 3 ||
-      outType.getRank() != 3)
+  if (lhsType.getRank() != 3 || rhsType.getRank() != 3)
     return failure();
 
   auto lhsShape = lhsType.getShape();

@@ -229,6 +229,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
       DEF_SESSION_METH_GENERIC(get_input_arg_offsets, GetInputArgOffsets)
       DEF_SESSION_METH_GENERIC(get_output_arg_offsets, GetOutputArgOffsets)
       DEF_SESSION_METH_GENERIC(get_static_shape, GetStaticShape)
+      DEF_SESSION_METH_GENERIC(get_graph_arg_alias_offset, GetGraphArgAliasOffset)
 #undef DEF_SESSION_METH_GENERIC
       // clang-format on
       ;

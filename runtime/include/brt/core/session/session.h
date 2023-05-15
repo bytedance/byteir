@@ -80,6 +80,10 @@ public:
   // Return -1 if not found
   int GetGraphArgOffset(const std::string &name);
 
+  // Return the first tensor index which the arg_offset's tensor alias to
+  // Return -1 if not found
+  int GetGraphArgAliasOffset(const size_t arg_offset);
+
   // Run a model for a given RequestContext
   common::Status Run(RequestContext &request_ctx);
 

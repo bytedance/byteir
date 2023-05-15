@@ -64,6 +64,11 @@ public:
 
   virtual CUstream_st *GetComputeStream() { return nullptr; }
 
+  common::Status AddHostTask(std::function<void(void)> &&task) override {
+    task();
+    return common::Status::OK();
+  }
+
   cuda::CudaEnv &GetCudaEnv() { return env_; }
 
 private:

@@ -61,11 +61,14 @@ struct GraphInfo {
   // count count of input and output, not including weight
   size_t io_count;
 
-  // arg alias handling
+  // arg alias to intermediate handling
   std::vector<std::pair<size_t, size_t>> arg_alias_to_id_and_offset;
 
   // map a name, as a string, to an arg offset
   std::unordered_map<std::string, size_t> name_to_arg_offset;
+
+  // arg alias to arg
+  std::unordered_map<size_t, size_t> arg_to_arg_alias_offset;
 
   // meta data for names
   std::vector<std::string> weight_names;
@@ -80,6 +83,14 @@ struct GraphInfo {
   inline int GetGraphArgOffset(const std::string &name) {
     auto found = name_to_arg_offset.find(name);
     if (found == name_to_arg_offset.end()) {
+      return -1;
+    }
+    return static_cast<int>(found->second);
+  }
+
+  inline int GetGraphArgAliasOffset(const size_t arg_offset) {
+    auto found = arg_to_arg_alias_offset.find(arg_offset);
+    if (found == arg_to_arg_alias_offset.end()) {
       return -1;
     }
     return static_cast<int>(found->second);

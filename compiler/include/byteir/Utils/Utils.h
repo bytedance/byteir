@@ -71,6 +71,11 @@ bool isZeroAttribute(Attribute value);
 // it will check all of sub attributes.
 bool isMinValueAttribute(Attribute value);
 
+// Check whether an attribute is LargestAttr
+// If an attribute contain multiple sub attributes,
+// it will check all of sub attributes.
+bool isMaxValueAttribute(Attribute value);
+
 // TODO add Largest if needed.
 
 // Returns true if the given `attr` is a splat value and is `value`.

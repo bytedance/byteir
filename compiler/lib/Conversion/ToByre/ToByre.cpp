@@ -23,6 +23,7 @@
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
+#include "byteir/Utils/HashUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "lhlo/IR/lhlo_ops.h" // LmhloDialect
 #include "mhlo/IR/hlo_ops.h"
@@ -41,6 +42,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
+
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -1098,14 +1100,31 @@ static inline void relocateFuncOpResults(func::FuncOp func,
                                          bool removeDupOutputs) {
   unsigned idx = func.getNumArguments();
   replicateFuncOpResults(func, [&](func::ReturnOp retOp) {
-    std::unordered_map<mlir::Operation *, mlir::Value> allocOps;
+    std::unordered_map<mlir::Operation *, mlir::BlockArgument> removeAllocOps;
+    std::unordered_map<mlir::Value, unsigned, byteir::MlirValueHash>
+        lmhloConstantValue;
     mlir::OpBuilder opBuilder(retOp);
     for (auto retValIter : llvm::enumerate(retOp.getOperands())) {
       auto retVal = retValIter.value();
-      auto allocOp = retVal.getDefiningOp<memref::AllocOp>();
-      if (allocOp) {
-        if (allocOps.find(allocOp.getOperation()) == allocOps.end()) {
-          allocOps[allocOp.getOperation()] =
+      if (isLmhloConstantValue(retVal)) {
+        // if return constant value, insert a memref.copy
+        opBuilder.setInsertionPoint(retOp);
+        opBuilder.create<memref::CopyOp>(
+            retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
+        if (lmhloConstantValue.find(retVal) == lmhloConstantValue.end()) {
+          lmhloConstantValue[retVal] = idx + retValIter.index();
+        } else {
+          // append byre.arg_alias_index to func op
+          func.setArgAttr(
+              idx + retValIter.index(),
+              ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
+              opBuilder.getI64IntegerAttr(lmhloConstantValue[retVal]));
+        }
+      } else if (auto allocOp = retVal.getDefiningOp<memref::AllocOp>()) {
+        if (removeAllocOps.find(allocOp.getOperation()) ==
+            removeAllocOps.end()) {
+          // add alloc op to remove list
+          removeAllocOps[allocOp.getOperation()] =
               func.getArgument(idx + retValIter.index());
         } else if (removeDupOutputs) {
           assert(false && "Not implemented: remove dup function outputs");
@@ -1115,17 +1134,33 @@ static inline void relocateFuncOpResults(func::FuncOp func,
           opBuilder.create<memref::CopyOp>(
               retOp.getLoc(), retVal,
               func.getArgument(idx + retValIter.index()));
+          // append byre.arg_alias_index to func op
+          func.setArgAttr(
+              idx + retValIter.index(),
+              ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
+              opBuilder.getI64IntegerAttr(
+                  removeAllocOps[allocOp.getOperation()].getArgNumber()));
         }
+      } else if (retVal.isa<BlockArgument>()) {
+        // if return value is input from entry function, insert a memref.copy
+        opBuilder.setInsertionPoint(retOp);
+        opBuilder.create<memref::CopyOp>(
+            retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
+        // append byre.argalias to func op
+        func.setArgAttr(idx + retValIter.index(),
+                        ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
+                        opBuilder.getI64IntegerAttr(
+                            retVal.cast<BlockArgument>().getArgNumber()));
       } else {
-        // if return value not alloced in entry function (like inputs or alloced
-        // in inner function), insert a memref.copy.
+        // if return value not alloced in entry function (like alloced in inner
+        // function), insert a memref.copy.
         opBuilder.setInsertionPoint(retOp);
         opBuilder.create<memref::CopyOp>(
             retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
       }
     }
     // replace alloc ops
-    for (auto op : allocOps) {
+    for (auto op : removeAllocOps) {
       auto value = op.first->getResult(0);
       value.replaceAllUsesWith(op.second);
       op.first->erase();

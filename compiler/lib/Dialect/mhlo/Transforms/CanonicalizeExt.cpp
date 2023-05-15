@@ -35,6 +35,7 @@
 #include <numeric>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 #define DEBUG_TYPE "mhlo-canonicalize-ext"
@@ -995,6 +996,44 @@ LogicalResult mlir::mhlo::simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
   return failure();
 }
 
+LogicalResult
+mlir::mhlo::canonicalizeConcatWithBroadcast(mhlo::ConcatenateOp op,
+                                            PatternRewriter &rewriter) {
+  auto firstBcast = op->getOperand(0).getDefiningOp<mhlo::BroadcastInDimOp>();
+  if (!firstBcast) {
+    return failure();
+  }
+  // check all broadcast_in_dim ops have same operand and broadcast_dimensions
+  for (auto operand : op->getOperands()) {
+    if (auto bcast = operand.getDefiningOp<mhlo::BroadcastInDimOp>()) {
+      if (bcast.getOperand() != firstBcast.getOperand() ||
+          bcast.getBroadcastDimensions() !=
+              firstBcast.getBroadcastDimensions()) {
+        return failure();
+      }
+    } else {
+      return failure();
+    }
+  }
+  // check concat_dim is complementary to broadcast_dimensions
+  std::unordered_set<int64_t> dimensions(
+      firstBcast.getBroadcastDimensions().getValues<int64_t>().begin(),
+      firstBcast.getBroadcastDimensions().getValues<int64_t>().end());
+  if (dimensions.size() !=
+      (firstBcast.getType().cast<ShapedType>().getRank() - 1)) {
+    return failure();
+  }
+  if (dimensions.find(op.getDimension()) != dimensions.end()) {
+    return failure();
+  }
+  // create new broadcast_in_dim op
+  mhlo::BroadcastInDimOp newBcastOp = rewriter.create<mhlo::BroadcastInDimOp>(
+      op->getLoc(), op.getResult().getType(), firstBcast.getOperand(),
+      firstBcast.getBroadcastDimensions());
+  rewriter.replaceOp(op, newBcastOp.getResult());
+  return success();
+}
+
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
                                                  bool blindFold) {
@@ -1015,6 +1054,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::foldBeneficialConstantConvertOp);
   patterns.add(mlir::mhlo::canonicalizeBroadcastInDimConst);
   patterns.add(mlir::mhlo::simplifyByteIRAddNToAdd);
+  patterns.add(mlir::mhlo::canonicalizeConcatWithBroadcast);
   if (blindFold) {
     patterns.add(mlir::mhlo::foldLargeConcatenate);
   }

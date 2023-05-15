@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/ir/builder.h"
@@ -96,7 +97,8 @@ void CheckTypecvtSingle(const std::vector<int64_t> &shape) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   int64_t linearized_shape = LinearizedShape(shape);

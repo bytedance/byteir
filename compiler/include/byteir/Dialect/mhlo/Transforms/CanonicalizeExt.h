@@ -101,6 +101,10 @@ LogicalResult simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
 
 LogicalResult foldLargeSliceOp(mhlo::SliceOp op, PatternRewriter &rewriter);
 
+// concat(broadcast_in_dim(x), broadcast_in_dim(x)) => broadcast_in_dim
+LogicalResult canonicalizeConcatWithBroadcast(mhlo::ConcatenateOp op,
+                                              PatternRewriter &rewriter);
+
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                      MLIRContext *context,

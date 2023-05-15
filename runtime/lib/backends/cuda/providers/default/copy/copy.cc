@@ -57,6 +57,9 @@ common::Status CopyOpKernel::RunImpl(const ExecutionContext &ctx) {
   std::vector<void *> args(3);
   AsyncValueRef dst_value = ctx.exec_frame->GetAsyncValueRef(dst_id);
   AsyncValueRef src_value = ctx.exec_frame->GetAsyncValueRef(src_id);
+  if (dst_value == src_value) {
+    return common::Status::OK();
+  }
   args[0] = &dst_value;
   args[1] = &src_value;
   args[2] = &byte_size;

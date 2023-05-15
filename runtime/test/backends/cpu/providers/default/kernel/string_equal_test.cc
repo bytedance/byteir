@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/session/request_context.h"
@@ -51,7 +52,8 @@ TEST(CPUTestE2E, StringEqual) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   StringView *src = reinterpret_cast<StringView *>(request->GetArg(0));
@@ -91,7 +93,8 @@ TEST(CPUTestE2E, StringEqualScalar) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   StringView *src = reinterpret_cast<StringView *>(request->GetArg(0));

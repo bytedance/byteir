@@ -63,6 +63,9 @@ public:
   virtual common::Status AddTask(int task_type, const void *func,
                                  void **args) = 0;
 
+  // Enqueue a task on host side
+  virtual common::Status AddHostTask(std::function<void(void)> &&task) = 0;
+
   // Enqueue through a functor
   // Note, the functor is called immediately.
   inline common::Status
@@ -80,3 +83,12 @@ private:
 };
 
 } // namespace brt
+
+#define DispatchHostTask(wq, stmt)                                             \
+  if (wq) {                                                                    \
+    wq->AddHostTask([=] { stmt });                                             \
+  } else {                                                                     \
+    do {                                                                       \
+      stmt                                                                     \
+    } while (0);                                                               \
+  }
