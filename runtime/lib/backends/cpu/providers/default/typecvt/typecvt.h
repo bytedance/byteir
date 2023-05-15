@@ -98,8 +98,8 @@ template <DTypeEnum src_dtype, DTypeEnum dst_dtype> struct TypecvtImpl {
 
 template <DTypeEnum src_dtype, DTypeEnum dst_dtype>
 using Typecvt =
-    NaiveOpKernel<TypecvtImpl<src_dtype, dst_dtype>,
-                  TypedOperand<const void *, 0>, TypedOperand<void *, 1>>;
+    HostOpKernel<TypecvtImpl<src_dtype, dst_dtype>,
+                 TypedOperand<const void *, 0>, TypedOperand<void *, 1>>;
 
 } // namespace cpu
 } // namespace brt

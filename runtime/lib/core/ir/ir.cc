@@ -228,6 +228,11 @@ void ByREHandle::InitGraphInfoNameAndArgOffset(GraphInfo &info) {
           }
         }
       }
+      if (auto argAliasIndexAttr = entry.getArgAttrOfType<IntegerAttr>(
+              idx, ByreDialect::getEntryPointFuncArgAliasIndexAttrName())) {
+        auto aliasindex = argAliasIndexAttr.getValue().getSExtValue();
+        info.arg_to_arg_alias_offset[idx] = aliasindex;
+      }
     }
   }
 }

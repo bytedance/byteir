@@ -75,7 +75,7 @@ class IRProcessor:
         with self.module.context:
             pass_arg = "builtin.module(byteir-bufferize-opt)"
             pm = PassManager.parse(pass_arg)
-            pm.run(self.module)
+            pm.run(self.module.operation)
             if dump_ir:
                 self._dump_ir("{}.bufferize_opt.mlir".format(self.job_name))
         return self.module

@@ -109,8 +109,15 @@ bool mlir::isZeroAttribute(Attribute value) {
 }
 
 bool mlir::isMinValueAttribute(Attribute value) {
-  if (auto intValue = value.dyn_cast<IntegerAttr>())
-    return intValue.getValue().isMinValue();
+  if (auto intValue = value.dyn_cast<IntegerAttr>()) {
+    if (intValue.getType().isUnsignedInteger() ||
+        intValue.getType().getIntOrFloatBitWidth() == 1) {
+      return intValue.getValue().isMinValue();
+    } else {
+      // treating signless as signed
+      return intValue.getValue().isMinSignedValue();
+    }
+  }
   if (auto fpValue = value.dyn_cast<FloatAttr>())
     return fpValue.getValue().isInfinity() &&
            fpValue.getValue().isNegative(); // -inf
@@ -121,6 +128,29 @@ bool mlir::isMinValueAttribute(Attribute value) {
                         isMinValueAttribute);
   if (auto arrayValue = value.dyn_cast<ArrayAttr>())
     return llvm::all_of(arrayValue.getValue(), isMinValueAttribute);
+  return false;
+}
+
+bool mlir::isMaxValueAttribute(Attribute value) {
+  if (auto intValue = value.dyn_cast<IntegerAttr>()) {
+    if (intValue.getType().isUnsignedInteger() ||
+        intValue.getType().getIntOrFloatBitWidth() == 1) {
+      return intValue.getValue().isMaxValue();
+    } else {
+      // treating signless as signed
+      return intValue.getValue().isMaxSignedValue();
+    }
+  }
+  if (auto fpValue = value.dyn_cast<FloatAttr>())
+    return fpValue.getValue().isInfinity() &&
+           !fpValue.getValue().isNegative(); // inf
+  if (auto splatValue = value.dyn_cast<SplatElementsAttr>())
+    return isMaxValueAttribute(splatValue.getSplatValue<Attribute>());
+  if (auto elementsValue = value.dyn_cast<ElementsAttr>())
+    return llvm::all_of(elementsValue.getValues<Attribute>(),
+                        isMaxValueAttribute);
+  if (auto arrayValue = value.dyn_cast<ArrayAttr>())
+    return llvm::all_of(arrayValue.getValue(), isMaxValueAttribute);
   return false;
 }
 

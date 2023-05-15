@@ -21,6 +21,7 @@
 #include "byteir/Conversion/ToByre/ToByre.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Passes.h"
+#include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"
 #include "byteir/Utils/Utils.h"
@@ -31,11 +32,6 @@ using namespace mlir;
 using namespace mlir::byre;
 
 namespace {
-bool isLmhloConstant(mlir::Value value) {
-  return llvm::any_of(value.getUses(), [&](OpOperand &use) {
-    return llvm::isa<lmhlo::ConstantOp>(use.getOwner());
-  });
-}
 
 void createByreOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
                                bool appendArgTypes,
@@ -54,7 +50,7 @@ void createByreOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   if (!disableMemoryPlanning) {
     // underlying memory of constant op cannot be reused
     anchoredPM.addPass(createMemoryPlanningPass(
-        [&](mlir::Value v) { return !isLmhloConstant(v); }));
+        [&](mlir::Value v) { return !isLmhloConstantValue(v); }));
     anchoredPM.addPass(createCanonicalizerPass());
   }
   anchoredPM.addPass(createConvertLmhloToByrePass(appendArgTypes));

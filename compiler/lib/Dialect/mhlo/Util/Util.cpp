@@ -475,3 +475,9 @@ mlir::computeReshapeInputOutputRankMapIndex(ShapedType inputType,
   }
   return result;
 }
+
+bool mlir::isLmhloConstantValue(mlir::Value value) {
+  return llvm::any_of(value.getUses(), [&](OpOperand &use) {
+    return llvm::isa<lmhlo::ConstantOp>(use.getOwner());
+  });
+}

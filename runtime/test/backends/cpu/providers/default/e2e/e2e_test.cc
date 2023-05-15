@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/session/request_context.h"
@@ -48,7 +49,8 @@ TEST(CPUE2ETest, LLVMJITCase0) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   // model inputs:

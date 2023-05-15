@@ -20,6 +20,7 @@
 #include "brt/core/common/common.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
+#include "brt/core/context/work_queue.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
@@ -40,9 +41,12 @@ common::Status Add<T>::RunImpl(const ExecutionContext &ctx) {
   T *a = static_cast<T *>(accessor.GetArgAsyncValueRef(0));
   T *b = static_cast<T *>(accessor.GetArgAsyncValueRef(1));
   T *c = static_cast<T *>(accessor.GetArgAsyncValueRef(2));
-  for (unsigned int i = 0; i < N; ++i) {
-    c[i] = a[i] + b[i];
-  }
+
+  DispatchHostTask(ctx.work_queue, {
+    for (unsigned int i = 0; i < N; ++i) {
+      c[i] = a[i] + b[i];
+    }
+  });
 
   return Status::OK();
 }

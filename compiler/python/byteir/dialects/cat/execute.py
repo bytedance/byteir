@@ -4,9 +4,6 @@ parser = argparse.ArgumentParser(description="Parse catir executor options.")
 parser.add_argument("--name", type=str, default="model", help="model name")
 parser.add_argument("--mhlo_path", type=str, required=True, help="path to mhlo.ir")
 parser.add_argument(
-    "--preprocess", action="store_true", help="whether preprocess mhlo ir"
-)
-parser.add_argument(
     "--bypass-byteir", action="store_true", help="whether use backend directly without ByteIR lowering"
 )
 parser.add_argument("--dump_ir", action="store_true", help="dump ir to files")
@@ -36,8 +33,7 @@ if __name__ == "__main__":
 
         processor = IRProcessor(args.name, args.workdir)
         processor.load_from_file(args.mhlo_path)
-        if args.preprocess:
-            processor.preprocess_pass(args.dump_ir)
+        processor.preprocess_pass(args.dump_ir)
         
         if args.bypass_byteir:
             processor.cat_opt_pass(anchor_only=True, dump_ir=args.dump_ir)

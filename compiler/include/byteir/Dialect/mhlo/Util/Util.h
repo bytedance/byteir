@@ -25,15 +25,6 @@
 #include <string>
 #include <tuple>
 
-namespace mlir {
-class Attribute;
-class Block;
-class NamedAttrList;
-class Operation;
-class OpBuilder;
-class Value;
-class ShapedType;
-
 namespace byteir {
 
 enum class NamedLayout : uint32_t {
@@ -69,6 +60,15 @@ inline std::string stringifyEnum(NamedLayout layout) {
 }
 
 } // namespace byteir
+
+namespace mlir {
+class Attribute;
+class Block;
+class NamedAttrList;
+class Operation;
+class OpBuilder;
+class Value;
+class ShapedType;
 
 bool isMhlo(Operation *op);
 
@@ -120,6 +120,9 @@ createBroadcastedDenseElementsAttr(DenseElementsAttr originAttr,
 std::optional<SmallVector<int64_t>>
 computeReshapeInputOutputRankMapIndex(ShapedType inputType,
                                       ShapedType outputType);
+
+// TODO: move this to lmhlo
+bool isLmhloConstantValue(mlir::Value value);
 
 } // namespace mlir
 

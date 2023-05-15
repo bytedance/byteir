@@ -194,3 +194,13 @@ func.func @broadcast_reshape_not_fold_case0(%arg0: tensor<1x32x1xf32>) -> tensor
 // CHECK-LABEL: @broadcast_reshape_not_fold_case0
 // CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: mhlo.broadcast_in_dim
+
+func.func @canonicalize_concat_broadcast(%arg0: tensor<512xf32>) -> tensor<512x1096xf32> {
+  %0 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<0> : tensor<1xi64>} : (tensor<512xf32>) -> tensor<512x72xf32>
+  %1 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<0> : tensor<1xi64>} : (tensor<512xf32>) -> tensor<512x1024xf32>
+  %2 = "mhlo.concatenate"(%0, %1) {dimension = 1 : i64} : (tensor<512x72xf32>, tensor<512x1024xf32>) -> tensor<512x1096xf32>
+  return %2 : tensor<512x1096xf32>
+}
+// CHECK-LABEL: @canonicalize_concat_broadcast
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-SAME: (tensor<512xf32>) -> tensor<512x1096xf32>

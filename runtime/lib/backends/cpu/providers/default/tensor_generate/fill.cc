@@ -30,8 +30,10 @@ common::Status Fill::RunImpl(const ExecutionContext &ctx) {
   case DTypeEnum::StringView: {
     // TODO: take the ownership of the underlying data of the
     // string_view which belongs to IRHandle
-    std::fill_n(reinterpret_cast<StringView *>(p), length,
-                accessor.GetAttrAsSplatValue<StringView>("value"));
+    auto value = accessor.GetAttrAsSplatValue<StringView>("value");
+    DispatchHostTask(ctx.work_queue, {
+      std::fill_n(reinterpret_cast<StringView *>(p), length, value);
+    });
     return common::Status::OK();
   }
   default:

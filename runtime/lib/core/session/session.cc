@@ -202,6 +202,10 @@ int Session::GetGraphArgOffset(const std::string &name) {
   return execution_plan_->GetGraphInfo().GetGraphArgOffset(name);
 }
 
+int Session::GetGraphArgAliasOffset(const size_t arg_offset) {
+  return execution_plan_->GetGraphInfo().GetGraphArgAliasOffset(arg_offset);
+}
+
 common::Status
 Session::AddExecutionProvider(std::unique_ptr<ExecutionProvider> provider) {
   exec_providers_.push_back(std::move(provider));
