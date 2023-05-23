@@ -1,8 +1,7 @@
 #include <torch/script.h>
 
 torch::Tensor custom_dynamic_stitch(std::vector<torch::Tensor> indices,
-                                    std::vector<torch::Tensor> data,
-                                    std::vector<int64_t> output_shape) {
+                                    std::vector<torch::Tensor> data) {
   int n = 0;
   for (auto &idx : indices) {
     n += idx.numel();

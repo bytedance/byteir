@@ -23,3 +23,20 @@ func.func @softmax(%arg0: tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x10
   return %6#0 : tensor<128x16x1024x1024xf32>
 }
 
+// CHECK-LABEL: func.func @layer_norm
+func.func @layer_norm(%arg0: tensor<8x32x128xf32>, %arg1: tensor<128xf32>, %arg2: tensor<128xf32>, %arg3: tensor<8x32x128xf32>) -> tensor<8x32x128xf32> {
+  %res = linalg_ext.layer_norm axis([2]) epsilon(9.9999999747524271E-7) ins(%arg0, %arg1, %arg2 : tensor<8x32x128xf32>, tensor<128xf32>, tensor<128xf32>) outs(%arg3 : tensor<8x32x128xf32>) : tensor<8x32x128xf32>
+// CHECK: linalg.reduce
+// CHECK:   arith.addf
+// CHECK: linalg.generic
+// CHECK:   arith.divf
+// CHECK: linalg.reduce
+// CHECK:   arith.mulf
+// CHECK:   arith.addf
+// CHECK: linalg.generic
+// CHECK:   arith.mulf
+// CHECK:   arith.subf
+// CHECK: linalg.generic
+// CHECK:   math.rsqrt
+  return %res : tensor<8x32x128xf32>
+}

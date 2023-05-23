@@ -32,7 +32,6 @@ include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/OpBase.td"
 
-
 def AnnotateOp : Op<Transform_Dialect, "annotate",
        [DeclareOpInterfaceMethods<TransformOpInterface>,
         DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
@@ -63,6 +62,20 @@ def FuseExtOp : Op<Transform_Dialect, "structured.fuse_ext",
 
   let hasCustomAssemblyFormat = 1;
   let hasVerifier = 1;
+}
+
+def LowerToLoopsOp : Op<Transform_Dialect, "structured.lower_to_loops",
+       [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+        DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Lowers the operations to loops.
+  }];
+
+  let arguments = (ins PDL_Operation:$target, 
+                   DefaultValuedOptionalAttr<DenseI64ArrayAttr, "{}">:$loop_ids);
+  let results = (outs Variadic<PDL_Operation>:$loops);
+
+  let hasCustomAssemblyFormat = 1;
 }
 
 def InlineOp : Op<Transform_Dialect, "structured.inline",

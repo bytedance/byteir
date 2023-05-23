@@ -38,9 +38,7 @@ def generate_inputs(interp):
 if __name__ == "__main__":
     interp = Interpreter.load_from_file(args.before_pass_file)
     inputs = generate_inputs(interp)
-
-    # run golden
-    golden_outputs = interp.call_function("main", inputs)
+    func_name = "main"
 
     # run ait
     from byteir import ir
@@ -55,10 +53,15 @@ if __name__ == "__main__":
             if args.preprocess:
                 processor.preprocess_pass()
             processor.cat_opt_pass(anchor_only=True)
+            func_name = processor.module.body.operations[0].name.value
         else:
             processor = IRProcessor("model", "./workspace")
             processor.load_from_file(args.after_pass_file)
+            func_name = processor.module.body.operations[0].name.value
         outputs = processor.execute(inputs, backend="ait")
+
+    # run golden
+    golden_outputs = interp.call_function(func_name, inputs)
 
     # compare outputs
     for golden_output, output in zip(golden_outputs, outputs):

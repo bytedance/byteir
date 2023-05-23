@@ -23,8 +23,10 @@
 
 namespace mlir {
 class ElementsAttr;
+class FloatAttr;
 class Operation;
 class ShapedType;
+class Type;
 
 // parse concatAttr into attrName:attrType:attrValue
 void parseConcatAttr(const std::string &concatAttr, std::string &attrName,
@@ -44,6 +46,10 @@ std::optional<ElementsAttr> reshapeSplatElementsAttr(ElementsAttr attr,
 
 std::optional<ElementsAttr> cloneSplatElementsAttr(ElementsAttr attr,
                                                    ShapedType newShape);
+
+// cast FloatAttr to another with `type`
+// e.g. f64 FloatAttr to f32 FloatAttr
+FloatAttr castFloatAttr(FloatAttr floatAttr, Type type);
 
 } // namespace mlir
 

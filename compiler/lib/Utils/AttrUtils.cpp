@@ -95,3 +95,7 @@ std::optional<ElementsAttr> mlir::cloneSplatElementsAttr(ElementsAttr attr,
   }
   return std::nullopt;
 }
+
+FloatAttr mlir::castFloatAttr(FloatAttr floatAttr, Type type) {
+  return FloatAttr::get(type, floatAttr.getValueAsDouble());
+}

@@ -76,6 +76,7 @@ bool verifyHloOpBufferOrTensorSemantics(Operation *op) {
   return llvm::all_of(op->getResults(), verifyType);
 }
 
+// Util
 Value fillTensorWithZeros(OpBuilder &builder, Location loc, Value tensor) {
   auto type = tensor.getType().cast<ShapedType>();
   Value zero;

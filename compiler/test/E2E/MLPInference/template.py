@@ -58,7 +58,7 @@ Testcase(contents=[Content(stages=[Input], content=r"""
 """, entryFunc="forward"),
     ByreHostPipeline(R"""
 // CHECK-LABEL: func.func @forward
-"""),
+""", entryFunc="forward"),
     HostOutputPipeline(R"""
 // CHECK-LABEL: func.func @forward
 """),

@@ -57,10 +57,3 @@ void byteirRegisterAllPasses() {
   registerAllByteIRGPUPipelines();
   registerAllByteIRHostPipelines();
 }
-
-void byteirRegisterAllTranslations() {
-  registerAllTranslations();
-  registerToPTXTranslation();
-  byteir::registerToCppTranslation();
-  byteir::registerToCUDATranslation();
-}

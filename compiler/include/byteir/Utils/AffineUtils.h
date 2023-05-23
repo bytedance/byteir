@@ -31,12 +31,19 @@ FailureOr<unsigned> getIterAxisFromDim(AffineMap affineMap, unsigned dimIndex);
 AffineMap getFlattenAffineMap(mlir::MLIRContext *,
                               ArrayRef<int64_t> staticShape);
 
-/// return a `numDims` affineMap without a dim `skip`
+/// return a `numDims` affineMap without dim `skips`
 /// E.g. if numDims = 3, skips = {1, 2}
 /// return affineMap = (d0, d1, d2)-> (d0)
 AffineMap getMultiDimIdentityMapWithSkips(unsigned numDims,
                                           ArrayRef<int64_t> skips,
                                           MLIRContext *context);
+
+/// return a `numDims` affineMap with only dim `targets`
+/// E.g. if numDims = 3, targets = {1, 2}
+/// return affineMap = (d0, d1, d2)-> (d1, d2)
+AffineMap getMultiDimIdentityMapWithTargets(unsigned numDims,
+                                            ArrayRef<int64_t> targets,
+                                            MLIRContext *context);
 
 } // namespace mlir
 

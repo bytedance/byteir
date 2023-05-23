@@ -29,6 +29,7 @@
 #include "PassDetail.h"
 
 #define DEBUG_TYPE "remove-copy"
+#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
 
 using namespace llvm;
 using namespace mlir;
@@ -92,7 +93,7 @@ public:
     }
 
     SmallVector<SmallVector<Value>, 2> aliases(2);
-    getAllAlias(copyOp, aliases);
+    getAllAlias(copyOp, aliases, /*skipNonOverlapedSubviews*/ true);
 
     llvm::DenseMap<Operation *, unsigned> opToIdx;
     unsigned idx = 0;

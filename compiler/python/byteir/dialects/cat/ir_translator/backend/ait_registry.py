@@ -161,7 +161,7 @@ def _dispatch_cat_reduce(op, inputs):
         Y = reshape_op(Y_keepdim)
         return [Y]
     else:
-        raise RuntimeError("Currently we do not support this kind of reduce") 
+        raise RuntimeError("Currently we do not support this kind of reduce")
 
 @AITemplateIRTranslator.register("cat.gemm")
 def _dispatch_cat_gemm(op, inputs):
@@ -248,4 +248,16 @@ def _dispatch_mhlo_reshape(op, inputs):
     shaped_type = ir.ShapedType(op.result.type)
     from aitemplate.compiler.ops.common.view_ops import reshape
     Y = reshape()(inputs[0], shaped_type.shape)
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.layernorm")
+def _dispatch_cat_layernorm(op, inputs):
+    ait_op = ait_ops.layernorm()
+    axises = mlir_attr_to_pyobj(op.attributes["axis"])
+    eps = mlir_attr_to_pyobj(op.attributes["epsilon"])
+    shape = inputs[0].shape()
+    normalized_shape = []
+    for axis in axises:
+        normalized_shape.append(shape[axis])
+    Y = ait_op(inputs[0], inputs[1], inputs[2], normalized_shape, eps)
     return [Y]

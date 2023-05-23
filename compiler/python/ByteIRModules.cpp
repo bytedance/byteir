@@ -17,14 +17,19 @@
 
 #include "byteir-c/Dialects.h"
 #include "byteir-c/Passes.h"
+#include "byteir-c/Translation.h"
 #include "mlir-c/IR.h"
+#include "mlir-c/Support.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
 namespace py = pybind11;
 
+static MlirStringRef toMlirStringRef(const std::string &s) {
+  return mlirStringRefCreate(s.data(), s.size());
+}
+
 PYBIND11_MODULE(_byteir, m) {
   byteirRegisterAllPasses();
-  byteirRegisterAllTranslations();
 
   m.doc() = "byteir python extension";
 
@@ -38,4 +43,16 @@ PYBIND11_MODULE(_byteir, m) {
         }
       },
       py::arg("context"), py::arg("load") = true);
+
+  m.def(
+      "register_translation_dialects",
+      [](MlirContext context) { byteirRegisterTranslationDialects(context); },
+      py::arg("context"));
+
+  m.def(
+      "translate_to_ptx",
+      [](MlirOperation module, const std::string &ptx_prefix_file_name) {
+        byteirTranslateToPTX(module, toMlirStringRef(ptx_prefix_file_name));
+      },
+      py::arg("module"), py::arg("ptx_prefix_file_name"));
 }

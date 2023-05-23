@@ -179,9 +179,8 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       return failure();
     }
 
-    llvm::SetVector<Value> reshapeInsertOperands;
-    const auto isStaticArg = [](Value value) {
-      if (!value || value.getDefiningOp() != nullptr) {
+    const auto isStaticShapeArg = [](Value value) {
+      if (!value || !value.isa<BlockArgument>()) {
         return false;
       }
       const auto inputTy = value.getType().dyn_cast<RankedTensorType>();
@@ -216,20 +215,21 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       // isElementwiseOneResult(user) == true
       bool failed = false;
       for (auto operand : user->getOperands()) {
-        if (operand != value && !isSplatMhloConstantValue(operand)) {
+        if (operand == value) {
+          continue;
+        } else if (isSplatMhloConstantValue(operand)) {
+          continue;
+        } else if (isStaticShapeArg(operand)) {
           // fairly strict condition, so far we only accept static arg
           // to avoid side-effect on other branches as it seems we dont
           // know benefits besides branch here.
           // TODO(@zhangzhiwei.177): shall we remove static restriction?
-          if (isStaticArg(operand)) {
-            reshapeInsertOperands.insert(operand);
-            continue;
-          }
-          if (allMultiUser)
-            return failure();
-          failed = true;
-          break;
+          continue;
         }
+        if (allMultiUser)
+          return failure();
+        failed = true;
+        break;
       }
       if (failed)
         continue;
@@ -243,56 +243,34 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
     // process user
     for (auto user : users) {
       IRMapping bvm;
-      llvm::SetVector<Value> constInputs;
-      llvm::SetVector<Value> insertedReshapeInputs;
       for (auto operand : user->getOperands()) {
         if (operand == value) {
-          if (!bvm.contains(value)) {
-            bvm.map(value, op.getOperand());
+          if (!bvm.contains(operand)) {
+            bvm.map(operand, op.getOperand());
           }
+        } else if (isSplatMhloConstantValue(operand)) {
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPointAfterValue(operand);
+          ElementsAttr oldConstAttr =
+              operand.getDefiningOp<mhlo::ConstantOp>().getValue();
+          auto newConstAttrType = mixType(
+              /*cloneFromElementType*/ oldConstAttr.getType(),
+              /*cloneFromShape*/ operandType.cast<ShapedType>());
+          auto newConstAttr =
+              reshapeSplatElementsAttr(oldConstAttr, newConstAttrType);
+          auto newConstOp =
+              rewriter.create<mhlo::ConstantOp>(op->getLoc(), *newConstAttr);
+          bvm.map(operand, newConstOp.getOutput());
         } else {
-          // isSplatMhloConstantValue(operand) == true
+          // isStaticShapeArg(operand) == true
           // since it has been checked when collecting users
-          if (reshapeInsertOperands.contains(operand) &&
-              !insertedReshapeInputs.contains(operand)) {
-            insertedReshapeInputs.insert(operand);
-          } else if (!constInputs.contains(operand)) {
-            constInputs.insert(operand);
-          }
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPointAfterValue(operand);
+          auto newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
+              rewriter.getUnknownLoc(), operandType, operand);
+          newReshapeOp->setAttr(kMoveDownDisableKey, rewriter.getUnitAttr());
+          bvm.map(operand, newReshapeOp.getResult());
         }
-      }
-
-      // create all const and put into bvm
-      for (auto input : constInputs) {
-        ElementsAttr oldConstAttr =
-            input.getDefiningOp<mhlo::ConstantOp>().getValue();
-        auto newConstAttr = reshapeSplatElementsAttr(oldConstAttr, operandType);
-        auto newConstOp =
-            rewriter.create<mhlo::ConstantOp>(op->getLoc(), *newConstAttr);
-        bvm.map(input, newConstOp.getOutput());
-      }
-
-      for (auto input : insertedReshapeInputs) {
-        const auto afterReshapeType = operandType.cast<RankedTensorType>();
-        bool shouldAddNewReshapeOp = true;
-        for (auto inputUser : input.getUsers()) {
-          auto existingReshapeOp = dyn_cast_or_null<mhlo::ReshapeOp>(inputUser);
-          if (existingReshapeOp &&
-              existingReshapeOp.getResult()
-                      .getType()
-                      .cast<RankedTensorType>() == afterReshapeType) {
-            bvm.map(input, existingReshapeOp.getResult());
-            shouldAddNewReshapeOp = false;
-            break;
-          }
-        }
-        if (!shouldAddNewReshapeOp) {
-          break;
-        }
-        auto newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
-            rewriter.getUnknownLoc(), afterReshapeType, input);
-        newReshapeOp->setAttr(kMoveDownDisableKey, rewriter.getBoolAttr(true));
-        bvm.map(input, newReshapeOp.getResult());
       }
 
       auto maybeResultTypes =
@@ -302,6 +280,7 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       // maybeResultTypes should always have value
       assert(maybeResultTypes.has_value());
 
+      rewriter.setInsertionPointAfter(user);
       // clone an elementwise op as producer
       auto newProducer =
           cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);

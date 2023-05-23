@@ -122,3 +122,16 @@ AffineMap mlir::getMultiDimIdentityMapWithSkips(unsigned numDims,
   return AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, dimExprs,
                         context);
 }
+
+AffineMap mlir::getMultiDimIdentityMapWithTargets(unsigned numDims,
+                                                  ArrayRef<int64_t> targets,
+                                                  MLIRContext *context) {
+  AffineMap result =
+      AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, context);
+  int64_t pos = 0;
+  for (int64_t t : targets) {
+    result = result.insertResult(getAffineDimExpr(t, context), pos);
+    pos += 1;
+  }
+  return result;
+}
