@@ -84,9 +84,9 @@ void registerToPTXTranslation() {
 
   TranslateFromMLIRRegistration reg(
       "gen-ptx", "generate ptx from mlir",
-      [](ModuleOp module, raw_ostream &output) {
-        return mlir::translateToPTX(module, output, outPrefix, codeGenOpt,
-                                    gpuArch, dumpPtx, saveTemps, verbose);
+      [](ModuleOp module, raw_ostream & /*output*/) {
+        return mlir::translateToPTX(module, outPrefix, codeGenOpt, gpuArch,
+                                    dumpPtx, saveTemps, verbose);
       },
       [](DialectRegistry &registry) {
         registerAllDialects(registry);

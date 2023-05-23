@@ -44,6 +44,7 @@
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/TilingInterface.h"
@@ -309,6 +310,109 @@ LogicalResult transform::FuseExtOp::verify() {
                          << getTileInterchange();
   }
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// LowerToLoopsOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+static ParseResult parseI64Array(OpAsmParser &parser,
+                                 DenseI64ArrayAttr &integers) {
+  SmallVector<int64_t, 4> integerVals;
+  auto parseInteger = [&]() {
+    int64_t integer;
+    if (failed(parser.parseInteger(integer)))
+      return failure();
+    integerVals.push_back(integer);
+    return success();
+  };
+  if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Square,
+                                     parseInteger))
+    return failure();
+  integers = parser.getBuilder().getDenseI64ArrayAttr(integerVals);
+  return success();
+}
+
+static void printI64Array(OpAsmPrinter &printer, Operation *op,
+                          ArrayRef<int64_t> integers) {
+  printer << '[';
+  if (integers.empty()) {
+    printer << "]";
+    return;
+  }
+
+  llvm::interleaveComma(integers, printer,
+                        [&](int64_t integer) { printer << integer; });
+  printer << ']';
+}
+
+} // namespace
+
+ParseResult transform::LowerToLoopsOp::parse(OpAsmParser &parser,
+                                             OperationState &result) {
+  OpAsmParser::UnresolvedOperand target;
+  auto pdlOperationType = pdl::OperationType::get(parser.getContext());
+  DenseI64ArrayAttr loopIds;
+  if (parser.parseOperand(target) ||
+      parser.resolveOperand(target, pdlOperationType, result.operands) ||
+      parseI64Array(parser, loopIds))
+    return ParseResult::failure();
+
+  result.addAttribute(getLoopIdsAttrName(result.name), loopIds);
+
+  size_t numExpectedLoops = loopIds.size();
+  result.addTypes(SmallVector<Type>(numExpectedLoops, pdlOperationType));
+  return success();
+}
+
+void transform::LowerToLoopsOp::print(OpAsmPrinter &p) {
+  p << ' ';
+  p << getTarget();
+  printI64Array(p, getOperation(), getLoopIds());
+}
+
+DiagnosedSilenceableFailure
+transform::LowerToLoopsOp::apply(TransformResults &transformResults,
+                                 TransformState &state) {
+  ArrayRef<Operation *> targets = state.getPayloadOps(getTarget());
+
+  for (auto op : targets) {
+    SimpleRewriter rewriter(op->getContext());
+    rewriter.setInsertionPoint(op);
+    TilingInterface tilableOp = dyn_cast<TilingInterface>(op);
+
+    if (!tilableOp)
+      return DiagnosedSilenceableFailure::definiteFailure();
+
+    FailureOr<SmallVector<scf::ForOp>> loops =
+        scf::lowerToLoopsUsingSCFForOp(rewriter, tilableOp);
+    if (failed(loops)) {
+      return DiagnosedSilenceableFailure::definiteFailure();
+    }
+
+    // compute loop based on id
+    int64_t numLoops = loops->size();
+    for (const auto &en : llvm::enumerate(getLoopIds())) {
+      int64_t loopId = en.value();
+      if (loopId < 0) {
+        loopId += numLoops;
+      }
+
+      if (loopId < 0 || loopId >= numLoops) {
+        DiagnosedSilenceableFailure diag = emitSilenceableError()
+                                           << "invalid loop Id ";
+        diag.attachNote(op->getLoc()) << "target op";
+        return diag;
+      }
+
+      transformResults.set(getLoops()[en.index()].cast<OpResult>(),
+                           (*loops)[loopId].getOperation());
+    }
+    rewriter.eraseOp(op);
+  }
+
+  return DiagnosedSilenceableFailure::success();
 }
 
 //===----------------------------------------------------------------------===//

@@ -175,6 +175,16 @@ def Cat_GemmOp : Cat_Op<"gemm", [Cat_CatOpInterface, Pure]> {
   let hasVerifier = 1;
 }
 
+def Cat_LayerNormOp : Cat_Op<"layernorm", [Cat_CatOpInterface, Pure]> {
+  let summary = "layernorm operator";
+  let arguments = (ins AnyTensor : $input,
+                       AnyTensor : $beta,
+                       AnyTensor : $gamma,
+                       I64ArrayAttr:$axis,
+                       F64Attr:$epsilon);
+  let results = (outs AnyTensor : $output);
+}
+
 def Cat_SoftmaxOp : Cat_Op<"softmax", [Cat_CatOpInterface, Pure]> {
   let summary = "softmax operator";
   let arguments = (ins AnyTensor : $input, I64Attr : $dim);

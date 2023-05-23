@@ -106,9 +106,8 @@ class E2ECollections:
         ], filecheck)
     def ByreOptPipeline(filecheck, *, entryFunc="main"):
         return OptPipeline(E2ECollections.ByreOpt, [E2ECollections.ByreHost, E2ECollections.NVVMCodegen], ["-byre-opt=\"append-arg-types entry-func={}\"".format(entryFunc)], filecheck)
-    ByreHostPipeline = functools.partial(OptPipeline, ByreHost, [HostOutput], [
-        "-byre-host=\"device-file-name=your_file target=cuda\""
-    ])
+    def ByreHostPipeline(filecheck, *, entryFunc="main"):
+        return OptPipeline(E2ECollections.ByreHost, [E2ECollections.HostOutput], ["-byre-host=\"device-file-name=your_file target=cuda entry-func={}\"".format(entryFunc)], filecheck)
     HostOutputPipeline = functools.partial(OptPipeline, HostOutput, [], [])
     NVVMCodegenPipeline = functools.partial(OptPipeline, NVVMCodegen, [PTXCodegen], [
         "-nvvm-codegen"

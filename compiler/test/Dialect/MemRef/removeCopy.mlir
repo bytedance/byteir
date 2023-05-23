@@ -453,3 +453,17 @@ func.func @copy_then_call() -> memref<4x8xf32> {
 // CHECK: %[[SUBVIEW1:.*]] = memref.subview %[[SRC]]
 // CHECK: memref.copy %[[SRC1]], %[[SUBVIEW1]]
 // CHECK: call @foo(%[[ARG0]], %[[SRC]])
+
+func.func @not_overlapped_subviews() -> memref<1x56x56x64xf16> {
+  %cst = arith.constant 0.000000e+00 : f16
+  %alloc = memref.alloc() : memref<1x56x56x64xf16>
+  %subview = memref.subview %alloc[0, 0, 0, 0] [1, 28, 56, 64] [1, 1, 1, 1] : memref<1x56x56x64xf16> to memref<1x28x56x64xf16, strided<[200704, 3584, 64, 1]>>
+  linalg.fill ins(%cst : f16) outs(%subview : memref<1x28x56x64xf16, strided<[200704, 3584, 64, 1]>>)
+  %subview_0 = memref.subview %alloc[0, 28, 0, 0] [1, 28, 56, 64] [1, 1, 1, 1] : memref<1x56x56x64xf16> to memref<1x28x56x64xf16, strided<[200704, 3584, 64, 1], offset: 100352>>
+  %alloc_1 = memref.alloc() : memref<1x28x56x64xf16>
+  linalg.fill ins(%cst : f16) outs(%alloc_1 : memref<1x28x56x64xf16>)
+  memref.copy %alloc_1, %subview_0 : memref<1x28x56x64xf16> to memref<1x28x56x64xf16, strided<[200704, 3584, 64, 1], offset: 100352>>
+  return %alloc : memref<1x56x56x64xf16>
+}
+// CHECK-LABEL: not_overlapped_subviews
+// CHECK-NOT: memref.copy

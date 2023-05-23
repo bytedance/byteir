@@ -242,10 +242,9 @@ struct ptxGenerator {
 
 } // namespace
 
-LogicalResult mlir::translateToPTX(Operation *op, raw_ostream &os,
-                                   const std::string &prefix, OptLevel level,
-                                   const std::string &gpuArch, bool dumpPtx,
-                                   bool saveTemp, bool verbose) {
+LogicalResult mlir::translateToPTX(Operation *op, const std::string &prefix,
+                                   OptLevel level, const std::string &gpuArch,
+                                   bool dumpPtx, bool saveTemp, bool verbose) {
   // only take module
   auto m = dyn_cast<ModuleOp>(op);
   if (!m)

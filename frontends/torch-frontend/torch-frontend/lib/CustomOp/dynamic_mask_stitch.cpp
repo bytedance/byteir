@@ -1,8 +1,7 @@
 #include <torch/script.h>
 
 torch::Tensor custom_dynamic_mask_stitch(std::vector<torch::Tensor> data,
-                                         torch::Tensor partitions,
-                                         std::vector<int64_t> output_shape) {
+                                         torch::Tensor partitions) {
   std::vector<torch::Tensor> res;
   res.reserve(partitions.size(0));
   std::vector<size_t> count(data.size(), 0);

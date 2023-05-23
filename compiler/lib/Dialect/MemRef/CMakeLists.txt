@@ -4,6 +4,7 @@ add_mlir_dialect_library(ByteIRMemRefPasses
   Transforms/SimplifyView.cpp
   Utils/Layout.cpp
   Utils/MemEffect.cpp
+  Utils/Ops.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/MemRef

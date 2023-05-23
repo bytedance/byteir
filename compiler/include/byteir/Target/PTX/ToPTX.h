@@ -30,8 +30,7 @@ namespace mlir {
 
 void registerToPTXTranslation();
 
-LogicalResult translateToPTX(Operation *op, raw_ostream &os,
-                             const std::string &prefix = "out",
+LogicalResult translateToPTX(Operation *op, const std::string &prefix = "out",
                              OptLevel level = OptLevel::O3,
                              const std::string &gpuArch = "sm_70",
                              bool dumpPtx = false, bool saveTemp = false,

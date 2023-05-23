@@ -144,20 +144,6 @@ static FailureOr<TilingResult> commonGenerateResultTileValueForLinalgExtOp(
   return tileResult;
 }
 
-// TODO: move to AffineUtils
-static AffineMap getMultiDimIdentityMapWithTargets(int64_t numDims,
-                                                   ArrayRef<int64_t> targets,
-                                                   MLIRContext *context) {
-  AffineMap result =
-      AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, context);
-  int64_t pos = 0;
-  for (int64_t t : targets) {
-    result = result.insertResult(getAffineDimExpr(t, context), pos);
-    pos += 1;
-  }
-  return result;
-}
-
 SmallVector<Range> commonGetIterationDomainForLinalgExt(Operation *op,
                                                         OpBuilder &builder,
                                                         int64_t rank,

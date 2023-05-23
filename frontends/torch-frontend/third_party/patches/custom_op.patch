@@ -50,7 +50,7 @@ index f8d3651d..bc4c5eba 100644
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
  using namespace mlir;
-@@ -366,6 +371,136 @@ class SimplifyShapeCalculationsPass
+@@ -366,6 +371,130 @@ class SimplifyShapeCalculationsPass
    void runOnOperation() override {
      MLIRContext *context = &getContext();
  
@@ -60,6 +60,8 @@ index f8d3651d..bc4c5eba 100644
 +          op->getAttrOfType<StringAttr>(getCustomOpName()).str();
 +      if (opName == getDynamicPartitionCustomName()) {
 +        auto inputTy = op->getOperand(0).getType().cast<BaseTensorType>();
++        if (!inputTy.hasSizes())
++          return;
 +        std::vector<int64_t> sizes;
 +        sizes.push_back(kUnknownSize);
 +        for (size_t i = 1; i < inputTy.getSizes().size(); i++)
@@ -93,25 +95,23 @@ index f8d3651d..bc4c5eba 100644
 +      } else if (opName == getDynamicStitchCustomName()) {
 +        assert(op->getNumOperands() > 1 &&
 +               "Dynamic stitch custom op expect more than 2 inputs");
-+        auto dataTy = op->getOperand(op.getNumOperands() / 2)
-+                          .getType()
-+                          .cast<BaseTensorType>();
-+        auto attr = op->getAttrOfType<DictionaryAttr>(getCustomOpAttrName());
-+        auto outputSizesAttr = attr.getAs<DenseIntElementsAttr>("output_shape");
-+        assert(outputSizesAttr &&
-+               "Dynamic stitch custom op output shape attribute not found.");
-+        SmallVector<int64_t> outputSizes;
-+        for (const auto &it :
-+             llvm::enumerate(outputSizesAttr.getValues<int64_t>())) {
-+          outputSizes.push_back(it.value());
++        SmallVector<int64_t> outputSizes = {0};
++        for (size_t i = 0; i < op.getNumOperands() / 2; ++i) {
++          auto indexTy = op.getOperand(i).getType().cast<BaseTensorType>();
++          if (!indexTy.hasSizes())
++            return;
++          if (indexTy.getSizes()[0] == kUnknownSize ||
++              outputSizes[0] == kUnknownSize) {
++            outputSizes[0] = kUnknownSize;
++          } else {
++            outputSizes[0] += indexTy.getSizes()[0];
++          }
 +        }
-+        if (outputSizes.empty()) {
-+          auto indexTy = op->getOperand(0).getType().cast<BaseTensorType>();
-+          outputSizes.push_back(kUnknownSize);
-+          for (size_t i = 0;
-+               i < (dataTy.getSizes().size() - indexTy.getSizes().size()); i++)
-+            outputSizes.push_back(
-+                dataTy.getSizes()[i + indexTy.getSizes().size()]);
++        auto dataTy = op->getOperands().back().getType().cast<BaseTensorType>();
++        if (!dataTy.hasSizes())
++          return;
++        for (size_t i = 1; i < dataTy.getSizes().size(); i++) {
++          outputSizes.push_back(dataTy.getSizes()[i]);
 +        }
 +        auto resultType =
 +            dataTy.getWithSizesAndDtype(outputSizes, dataTy.getOptionalDtype());
@@ -141,22 +141,16 @@ index f8d3651d..bc4c5eba 100644
 +        assert(op->getNumOperands() > 1 &&
 +               "Dynamic mask stitch custom op expect more than 2 inputs");
 +        auto dataTy = op->getOperand(0).getType().cast<BaseTensorType>();
-+        auto attr = op->getAttrOfType<DictionaryAttr>(getCustomOpAttrName());
-+        auto outputSizesAttr = attr.getAs<DenseIntElementsAttr>("output_shape");
-+        assert(outputSizesAttr &&
-+               "Dynamic mask stitch custom op output shape attribute not found.");
++        if (!dataTy.hasSizes())
++          return;
 +        SmallVector<int64_t> outputSizes;
-+        for (const auto &it :
-+             llvm::enumerate(outputSizesAttr.getValues<int64_t>())) {
-+          outputSizes.push_back(it.value());
-+        }
-+        if (outputSizes.empty()) {
-+          auto indexTy = op->getOperand(0).getType().cast<BaseTensorType>();
-+          outputSizes.push_back(kUnknownSize);
-+          for (size_t i = 0;
-+               i < (dataTy.getSizes().size() - indexTy.getSizes().size()); i++)
-+            outputSizes.push_back(
-+                dataTy.getSizes()[i + indexTy.getSizes().size()]);
++        auto indexTy =
++            op->getOperands().back().getType().cast<BaseTensorType>();
++        if (!indexTy.hasSizes())
++          return;
++        outputSizes.push_back(indexTy.getSizes()[0]);
++        for (size_t i = 1; i < dataTy.getSizes().size(); i++) {
++          outputSizes.push_back(dataTy.getSizes()[i]);
 +        }
 +        auto resultType =
 +            dataTy.getWithSizesAndDtype(outputSizes, dataTy.getOptionalDtype());

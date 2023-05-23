@@ -87,19 +87,9 @@ struct RewriteDynamicStitchPattern
   LogicalResult
   matchAndRewrite(CustomDynamicStitchOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    std::vector<NamedAttribute> customOpAttrs;
-    SmallVector<int64_t> outputShape;
-    if (!matchPattern(op.getOutputShape(),
-                      m_TorchListOfConstantInts(outputShape)))
-      return rewriter.notifyMatchFailure(
-          op, "only support constant int output shape");
-    customOpAttrs.emplace_back(rewriter.getStringAttr("output_shape"),
-                               rewriter.getI64VectorAttr(outputShape));
     llvm::SmallVector<NamedAttribute> attrs;
     attrs.emplace_back(rewriter.getStringAttr(getCustomOpName()),
                        rewriter.getStringAttr(getDynamicStitchCustomName()));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomOpAttrName()),
-                       rewriter.getDictionaryAttr(customOpAttrs));
 
     SmallVector<Value> operands;
     if (auto listConstruct =
@@ -132,20 +122,10 @@ struct RewriteDynamicMaskStitchPattern
   LogicalResult
   matchAndRewrite(CustomDynamicMaskStitchOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    std::vector<NamedAttribute> customOpAttrs;
-    SmallVector<int64_t> outputShape;
-    if (!matchPattern(op.getOutputShape(),
-                      m_TorchListOfConstantInts(outputShape)))
-      return rewriter.notifyMatchFailure(
-          op, "only support constant int output shape");
-    customOpAttrs.emplace_back(rewriter.getStringAttr("output_shape"),
-                               rewriter.getI64VectorAttr(outputShape));
     llvm::SmallVector<NamedAttribute> attrs;
     attrs.emplace_back(
         rewriter.getStringAttr(getCustomOpName()),
         rewriter.getStringAttr(getDynamicMaskStitchCustomName()));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomOpAttrName()),
-                       rewriter.getDictionaryAttr(customOpAttrs));
 
     SmallVector<Value> operands;
     if (auto listConstruct =

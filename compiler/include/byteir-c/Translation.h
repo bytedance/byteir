@@ -1,4 +1,4 @@
-//===- Passes.h -----------------------------------------------*--- C++ -*-===//
+//===- Translation.h ------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_C_PASSES_H
-#define BYTEIR_C_PASSES_H
+#ifndef BYTEIR_C_TRANSLATION_H
+#define BYTEIR_C_TRANSLATION_H
 
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
@@ -25,10 +25,13 @@
 extern "C" {
 #endif
 
-MLIR_CAPI_EXPORTED void byteirRegisterAllPasses();
+MLIR_CAPI_EXPORTED void byteirRegisterTranslationDialects(MlirContext context);
+
+MLIR_CAPI_EXPORTED void byteirTranslateToPTX(MlirOperation op,
+                                             MlirStringRef ptxFilePrefixName);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // BYTEIR_C_PASSES_H
+#endif // BYTEIR_C_TRANSLATION_H

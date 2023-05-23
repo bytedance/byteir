@@ -446,10 +446,10 @@ func.func @broadcast_reshape_dot_with_concat_and_add(%arg0 : tensor<1x64xf16>, %
 
 // CHECK-LABEL: func.func @broadcast_reshape_dot_with_concat
 // CHECK-NEXT: mhlo.reshape
+// CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: mhlo.broadcast_in_dim
 // CHECK-NEXT: mhlo.concatenate
 // CHECK-NEXT: mhlo.dot
-// CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: mhlo.add
 // CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: mhlo.broadcast_in_dim

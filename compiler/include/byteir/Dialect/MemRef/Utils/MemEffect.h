@@ -38,7 +38,8 @@ struct OpMemEffectOrder {
 };
 
 void getAllAlias(Operation *op,
-                 llvm::SmallVectorImpl<SmallVector<Value>> &aliases);
+                 llvm::SmallVectorImpl<SmallVector<Value>> &aliases,
+                 bool skipNonOverlapedSubviews = false);
 
 // Note: this method would collect all **potential** read/write uses on given
 // aliases

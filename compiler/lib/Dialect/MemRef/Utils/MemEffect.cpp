@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/MemRef/Utils/MemEffect.h"
+#include "byteir/Dialect/MemRef/Utils/Ops.h"
 #include "mlir/Analysis/AliasAnalysis.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
@@ -44,12 +45,25 @@ static bool maybeOpOperandRead(OpOperand &opOpernad) {
 } // namespace
 
 void mlir::getAllAlias(Operation *op,
-                       SmallVectorImpl<SmallVector<Value>> &aliases) {
+                       SmallVectorImpl<SmallVector<Value>> &aliases,
+                       bool skipNonOverlapedSubviews) {
   AliasAnalysis aliasAnalysis(op);
   op->getBlock()->walk<WalkOrder::PreOrder>([&](Operation *inner) {
     if (isa<memref::AllocOp, memref::SubViewOp>(inner)) {
       for (const auto &en : llvm::enumerate(op->getOperands())) {
         if (aliasAnalysis.alias(en.value(), inner->getResult(0)).isMust()) {
+          if (skipNonOverlapedSubviews) {
+            memref::SubViewOp innerSubViewOp =
+                llvm::dyn_cast<memref::SubViewOp>(inner);
+            memref::SubViewOp operandSubViewOp =
+                en.value().getDefiningOp<memref::SubViewOp>();
+            if (innerSubViewOp && operandSubViewOp &&
+                doSubViewsConservativelyNotOverlap(innerSubViewOp,
+                                                   operandSubViewOp)) {
+              continue;
+            }
+          }
+          // not skipNonOverlapedSubviews
           aliases[en.index()].push_back(inner->getResult(0));
         }
       }

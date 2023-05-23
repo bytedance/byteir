@@ -36,7 +36,6 @@
 using namespace mlir;
 
 namespace {
-
 struct FoldGenericOp : public OpRewritePattern<linalg::GenericOp> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -44,8 +43,8 @@ struct FoldGenericOp : public OpRewritePattern<linalg::GenericOp> {
                                 PatternRewriter &rewriter) const override {
     if (genericOp.getOutputs().size() != 1 ||
         genericOp.getInputs().size() != 1) {
-      DBGS() << "generic op's output and input size is expected to be one.\n";
-      return failure();
+      return rewriter.notifyMatchFailure(
+          genericOp, "currently only support one input/output.");
     }
 
     // check init op
@@ -53,31 +52,31 @@ struct FoldGenericOp : public OpRewritePattern<linalg::GenericOp> {
     tensor::EmptyOp emptyOp = dyn_cast_or_null<tensor::EmptyOp>(initOp);
     linalg::FillOp fillOp = dyn_cast_or_null<linalg::FillOp>(initOp);
     if (!fillOp && !emptyOp) {
-      DBGS() << "the init op is expected to be of type tensor.empty or "
-                "linalg.fill.\n";
-      return failure();
+      return rewriter.notifyMatchFailure(
+          genericOp,
+          "the init op is expected to be of type tensor.empty or linalg.fill.");
     }
     if (fillOp) {
       Value fillOutput = *fillOp.getOutputs().begin();
       tensor::EmptyOp secondEmptyOp =
           fillOutput.getDefiningOp<tensor::EmptyOp>();
       if (!secondEmptyOp) {
-        DBGS() << "the fill op's init op is expected to be of type "
-                  "tensor.empty.\n";
-        return failure();
+        return rewriter.notifyMatchFailure(
+            genericOp,
+            "the fill op's init op is expected to be of type tensor.empty.");
       }
       if (fillOp.getInputs().size() != 1) {
-        DBGS() << "the fill op's inputs size is expected to be one.\n";
-        return failure();
+        return rewriter.notifyMatchFailure(
+            genericOp, "the fill op's inputs size is expected to be one.");
       }
       Attribute fillAttr;
       if (!matchPattern(*fillOp.getInputs().begin(), m_Constant(&fillAttr))) {
-        DBGS() << "the fill op's input op is expected to be a constant.\n";
-        return failure();
+        return rewriter.notifyMatchFailure(
+            genericOp, "the fill op's input op is expected to be a constant.");
       }
       if (!isZeroAttribute(fillAttr)) {
-        DBGS() << "the fill op's constant value is expected to be zero.\n";
-        return failure();
+        return rewriter.notifyMatchFailure(
+            genericOp, "the fill op's constant value is expected to be zero.");
       }
     }
 
