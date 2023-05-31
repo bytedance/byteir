@@ -21,7 +21,7 @@
 #include "byteir/Dialect/mhlo/Transforms/HloFolder.h"
 #include "byteir/Dialect/mhlo/Transforms/HloMove.h"
 #include "byteir/Dialect/mhlo/Transforms/LayoutTransformation.h"
-//#include "byteir/Dialect/mhlo/Transforms/MatmulLayoutTransform.h"
+#include "byteir/Dialect/mhlo/Transforms/MatmulLayoutTransform.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/CanonicalizeExt.h"
 #include "mhlo/IR/hlo_ops.h"
@@ -39,7 +39,7 @@ void createCatPreprocessPipelineImpl(OpPassManager &pm,
                                      const std::string &convLayout) {
   pm.addNestedPass<func::FuncOp>(createFuseBMMDimensionPass());
   // pm.addNestedPass<func::FuncOp>(createMatmulLayoutTransformPass(false,
-  // "ntn"));
+  // "rcr"));
   pm.addNestedPass<func::FuncOp>(createTestUnfuseBatchNormPass());
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createLayoutTransformationPass(convLayout));

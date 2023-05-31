@@ -162,3 +162,9 @@ func.func @convolution(%arg0 : tensor<?x12x26x4xf16> {byteir.bounded_shape = [16
   return %1 : tensor<?x12x26x12xf16>
 }
 // CHECK-LABEL:  func.func @convolution(%arg0: tensor<?x12x26x4xf16, {byteir.bounded_shape = [16, 12, 26, 4]}> {byteir.bounded_shape = [16, 12, 26, 4]}) -> tensor<?x12x26x12xf16, {byteir.bounded_shape = [16, 12, 26, 12]}>
+
+func.func @gelu(%arg0: tensor<?x3072xf32> {byteir.bounded_shape = [1500, 3072]}) -> tensor<?x3072xf32> {
+  %0 = mhlo.custom_call @byteir.gelu(%arg0) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<?x3072xf32>) -> tensor<?x3072xf32>
+  return %0 : tensor<?x3072xf32>
+}
+// CHECK-LABEL:  func.func @gelu(%arg0: tensor<?x3072xf32, {byteir.bounded_shape = [1500, 3072]}> {byteir.bounded_shape = [1500, 3072]}) -> tensor<?x3072xf32, {byteir.bounded_shape = [1500, 3072]}>

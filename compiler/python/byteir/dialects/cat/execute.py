@@ -40,8 +40,11 @@ if __name__ == "__main__":
             if not args.dump_ir:
                 processor.benchmark(backend=args.backend, num_trials=100)
         else:
+            # convert mhlo to cat
             processor.cat_opt_pass(anchor_only=False, dump_ir=args.dump_ir)
+            # clustering
             processor.hlo_opt_pass(dump_ir=args.dump_ir)
-            #processor.ait_opt_pass(anchor_only=True, dump_ir=args.dump_ir)
+            # generate ait .so for subgraphs
+            processor.ait_opt_pass(anchor_only=True, dump_ir=args.dump_ir)
             processor.bufferize_opt_pass(dump_ir=args.dump_ir)
             
