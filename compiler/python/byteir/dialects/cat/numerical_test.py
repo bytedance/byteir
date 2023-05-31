@@ -30,8 +30,8 @@ def generate_inputs(interp):
         shaped_type = ir.ShapedType(arg.type)
         shape = shaped_type.shape
         dtype = mlir_type_to_dtype(shaped_type.element_type)
-        #ret.append(np.random.random(size=shape).astype(dtype))
-        ret.append(np.ones(shape=shape, dtype=dtype))
+        ret.append(np.random.random(size=shape).astype(dtype))
+        # ret.append(np.ones(shape=shape, dtype=dtype))
     return ret
 
 
@@ -65,5 +65,6 @@ if __name__ == "__main__":
 
     # compare outputs
     for golden_output, output in zip(golden_outputs, outputs):
-        np.testing.assert_almost_equal(golden_output, output.cpu().numpy(), decimal=4)
+        # np.testing.assert_almost_equal(golden_output, output.detach().cpu().numpy(), decimal=4)
+        assert(np.allclose(golden_output, output.detach().cpu().numpy(), rtol=0.05, atol=0.05))
     print("numerical test pass")

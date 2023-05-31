@@ -148,7 +148,7 @@ def Cat_ReluOp : Cat_Op<"relu", [Cat_CatOpInterface, Pure]> {
 
 def Cat_ReduceOp : Cat_Op<"reduce", [Cat_CatOpInterface, Pure]> {
   let summary = "reduce operator";
-  let arguments = (ins AnyTensor : $input, I64ElementsAttr : $dims);
+  let arguments = (ins AnyTensor : $input, I64ElementsAttr : $dims, StrAttr : $reduce_type);
   let results = (outs AnyTensor : $output);
 }
 

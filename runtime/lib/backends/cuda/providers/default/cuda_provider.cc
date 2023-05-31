@@ -20,6 +20,7 @@
 #include "brt/backends/common.h"
 #include "brt/backends/cuda/device/cuda_allocator.h"
 // TODO make the following to another header file
+#include "brt/backends/cuda/providers/default/ait/op_registration.h"
 #include "brt/backends/cuda/providers/default/codegen/op_registration.h"
 #include "brt/backends/cuda/providers/default/copy/op_registration.h"
 #include "brt/backends/cuda/providers/default/indexing/op_registration.h"
@@ -43,6 +44,7 @@ namespace {
 // clang-format off
 BRT_STATIC_KERNEL_REGISTRATION(
     DeviceKind::CUDA, ProviderType::BRT, [](KernelRegistry *registry) {
+      cuda::RegisterAITOps(registry);
       cuda::RegisterCodegenOps(registry);
       cuda::RegisterCopyOps(registry);
       cuda::RegisterIndexingOps(registry);

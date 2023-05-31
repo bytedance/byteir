@@ -173,7 +173,7 @@ LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
     ShapeValueKnowledges shapeValueKnowledges,
     llvm::SmallVectorImpl<::mlir::ShapedTypeComponents> &results) {
   if (op->hasTrait<OpTrait::SameOperandsAndResultShape>()) {
-    auto knowledge = ValueKnowledge::getPessimisticValueState();
+    ValueKnowledge knowledge; // uninitialized
     for (auto &&operand : op->getOperands()) {
       auto newKnowledge =
           ValueKnowledge::getKnowledgeFromType(shapeKnowledges(operand));

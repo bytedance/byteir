@@ -259,6 +259,8 @@ struct ConvertBinaryAdd : public OpConversionPattern<mhlo::AddOp> {
   LogicalResult
   matchAndRewrite(mhlo::AddOp op, mhlo::AddOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("add");
@@ -278,6 +280,8 @@ struct ConvertBinaryMul : public OpConversionPattern<mhlo::MulOp> {
   LogicalResult
   matchAndRewrite(mhlo::MulOp op, mhlo::MulOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("mul");
@@ -297,9 +301,53 @@ struct ConvertBinaryDiv : public OpConversionPattern<mhlo::DivOp> {
   LogicalResult
   matchAndRewrite(mhlo::DivOp op, mhlo::DivOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("div");
+    auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
+        op.getLoc(), op.getType(), lhs, rhs, opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertBinarySub : public OpConversionPattern<mhlo::SubtractOp> {
+  using OpConversionPattern<mhlo::SubtractOp>::OpConversionPattern;
+
+  ConvertBinarySub(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::SubtractOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::SubtractOp op, mhlo::SubtractOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
+    auto lhs = adaptor.getLhs();
+    auto rhs = adaptor.getRhs();
+    auto opType = rewriter.getStringAttr("sub");
+    auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
+        op.getLoc(), op.getType(), lhs, rhs, opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertBinaryPow : public OpConversionPattern<mhlo::PowOp> {
+  using OpConversionPattern<mhlo::PowOp>::OpConversionPattern;
+
+  ConvertBinaryPow(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::PowOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::PowOp op, mhlo::PowOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
+    auto lhs = adaptor.getLhs();
+    auto rhs = adaptor.getRhs();
+    auto opType = rewriter.getStringAttr("pow");
     auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
         op.getLoc(), op.getType(), lhs, rhs, opType);
     rewriter.replaceOp(op, newOp.getResult());
@@ -394,20 +442,29 @@ struct ConvertLayerNorm : public OpConversionPattern<mhlo::CustomCallOp> {
   }
 };
 
-/*
 struct ConvertReduce : public OpConversionPattern<mhlo::ReduceOp> {
   using OpConversionPattern<mhlo::ReduceOp>::OpConversionPattern;
 
   LogicalResult
   matchAndRewrite(mhlo::ReduceOp op, mhlo::ReduceOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    Block *block = &op.getRegion().front();
+    std::string reduceTy = "";
+    if (isBlockSingleOp<mhlo::AddOp>(block)) {
+      reduceTy = "sum";
+    } else {
+      // TODO: support mean reduce
+      return failure();
+    }
     auto dims = op.getDimensions();
-    auto newOp = rewriter.create<cat::ReduceOp>(
-        op.getLoc(), op.getResultTypes()[0], op.getOperands()[0], dims);
+    auto reduceTyAttr = rewriter.getStringAttr(reduceTy);
+    auto newOp =
+        rewriter.create<cat::ReduceOp>(op.getLoc(), op.getResultTypes()[0],
+                                       op.getOperands()[0], dims, reduceTyAttr);
     rewriter.replaceOp(op, newOp.getResult());
     return success();
   }
-};*/
+};
 
 struct ConvertBatchMatmul : public OpConversionPattern<mhlo::DotGeneralOp> {
   using OpConversionPattern<mhlo::DotGeneralOp>::OpConversionPattern;
@@ -461,8 +518,9 @@ void mlir::populateMhloToCatPattern(RewritePatternSet &patterns) {
   patterns
       .add<ConvertBatchMatmul, ConvertBatchNorm, ConvertConv, ConvertNchwToNhwc,
            ConvertAvgPooling2D, ConvertMaxPooling2D, ConvertRelu,
-           ConvertBinaryAdd, ConvertBinaryDiv, ConvertBinaryMul, ConvertGemm,
-           ConvertSoftmax, ConvertUnaryTanh, ConvertLayerNorm>(
+           ConvertBinaryAdd, ConvertBinaryDiv, ConvertBinaryMul,
+           ConvertBinarySub, ConvertBinaryPow, ConvertGemm, ConvertSoftmax,
+           ConvertUnaryTanh, ConvertReduce, ConvertLayerNorm>(
           patterns.getContext());
 }
 

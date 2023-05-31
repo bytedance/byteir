@@ -52,6 +52,16 @@ func.func @dynamic_stitch(%arg0: tensor<?xi32>, %arg1: tensor<?xi32>, %arg2: ten
   return %0 : tensor<?x4xf32>
 }
 
+func.func @gelu(%arg0: tensor<?x3072xf32>) -> tensor<?x3072xf32> {
+  %0 = mhlo.custom_call @byteir.gelu(%arg0) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<?x3072xf32>) -> tensor<?x3072xf32>
+  %c0 = arith.constant 0 : index
+  %dim = tensor.dim %0, %c0 : tensor<?x3072xf32>
+  "shape_ext.tie"(%0, %dim) : (tensor<?x3072xf32>, index) -> ()
+  // CHECK-DAG: %[[V0:.*]] = tensor.dim %arg0, %c0 : tensor<?x3072xf32>
+  // CHECK-DAG: "shape_ext.tie"(%0, %[[V0]]) : (tensor<?x3072xf32>, index) -> ()
+  return %0 : tensor<?x3072xf32>
+}
+
 // CHECK-LABEL: func.func @dot_general
 func.func @dot_general(%arg0: tensor<?x?x4xf32>, %arg1: tensor<?x4x128xf32>) -> tensor<3xindex> {
   %c1 = arith.constant 1 : index

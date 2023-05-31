@@ -32,16 +32,15 @@ index 00000000..a60a0472
 +} // namespace mlir
 \ No newline at end of file
 diff --git a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
-index f8d3651d..bc4c5eba 100644
+index 1669be7c..1379f337 100644
 --- a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
 +++ b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
-@@ -10,9 +10,14 @@
+@@ -10,8 +10,13 @@
  #include "PassDetail.h"
  
  #include "SimplifyAbstractInterpCalculationsUtils.h"
 +#include "mlir/IR/Builders.h"
 +#include "mlir/IR/BuiltinAttributes.h"
- #include "mlir/IR/IRMapping.h"
 +#include "mlir/IR/PatternMatch.h"
  #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 +#include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
@@ -50,12 +49,20 @@ index f8d3651d..bc4c5eba 100644
  #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
  
  using namespace mlir;
-@@ -366,6 +371,130 @@ class SimplifyShapeCalculationsPass
+@@ -130,6 +135,138 @@ class SimplifyShapeCalculationsPass
    void runOnOperation() override {
      MLIRContext *context = &getContext();
  
 +    func::FuncOp func = getOperation();
 +    func.getBody().walk([&](CustomOp op) {
++      bool hasSizesAndDtype = llvm::all_of(op.getResults(), [](Value v) {
++        auto t = v.getType().cast<BaseTensorType>();
++        return t.hasSizes() && t.hasDtype();
++      });
++      if (hasSizesAndDtype) {
++        return;
++      }
++
 +      std::string opName =
 +          op->getAttrOfType<StringAttr>(getCustomOpName()).str();
 +      if (opName == getDynamicPartitionCustomName()) {
@@ -66,9 +73,8 @@ index f8d3651d..bc4c5eba 100644
 +        sizes.push_back(kUnknownSize);
 +        for (size_t i = 1; i < inputTy.getSizes().size(); i++)
 +          sizes.push_back(inputTy.getSizes()[i]);
-+        ArrayRef<int64_t> dynamicSizes(sizes);
-+        auto newResultType = inputTy.getWithSizesAndDtype(
-+            dynamicSizes, inputTy.getOptionalDtype());
++        auto newResultType =
++            inputTy.getWithSizesAndDtype(sizes, inputTy.getOptionalDtype());
 +        OpBuilder builder(context);
 +        auto loc = op.getLoc();
 +        for (size_t i = 0; i < op.getNumResults(); i++) {
@@ -178,6 +184,7 @@ index f8d3651d..bc4c5eba 100644
 +        }
 +      }
 +    });
++
      RewritePatternSet patterns(context);
-     patterns.insert<FullyUnrollPrimLoopOp>(context);
-     patterns.insert<AbstractlyInterpretListOpsWithinABlock>(context);
+     populateFullyUnrollPrimLoopOpPattern(patterns, context);
+     populateAbstractlyInterpretListOpsWithinABlockPattern(patterns, context);

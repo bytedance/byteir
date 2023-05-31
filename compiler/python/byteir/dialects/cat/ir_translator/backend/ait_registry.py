@@ -143,13 +143,17 @@ def _dispatch_cat_relu(op, inputs):
 @AITemplateIRTranslator.register("cat.reduce")
 def _dispatch_cat_reduce(op, inputs):
     dim = mlir_attr_to_pyobj(op.attributes["dims"])
+    reduce_ty = mlir_attr_to_pyobj(op.attributes["reduce_type"])
     dim = dim.tolist()
 
-    # TODO: Currently aitemplate only support signle axis reduce
+    # TODO: Currently aitemplate only support single axis reduce
     if len(dim) == 1:
-        ait_op = ait_ops.reduce_sum(dim=dim)
-        Y = ait_op(inputs[0])
-        return [Y]
+        if reduce_ty == "sum":
+            ait_op = ait_ops.reduce_sum(dim=dim)
+            Y = ait_op(inputs[0])
+            return [Y]
+        else:
+            raise RuntimeError("Currently we do not support 1D mean reduce") 
     elif dim == [1, 2]: # TODO: use NHWC avg pooling but we need sum here
         tensor : Tensor = inputs[0]
         H, W = tensor.shape()[1:3]
@@ -220,6 +224,7 @@ def _cat_elem_op_type_to_ait(op_type: str) -> ait_func_enum:
         "mul": ait_func_enum.MUL,
         "div": ait_func_enum.DIV,
         "tanh": ait_func_enum.TANH,
+        "pow": ait_func_enum.POW,
     }
     return op_map.get(op_type, None)
 
@@ -260,4 +265,12 @@ def _dispatch_cat_layernorm(op, inputs):
     for axis in axises:
         normalized_shape.append(shape[axis])
     Y = ait_op(inputs[0], inputs[1], inputs[2], normalized_shape, eps)
+    return [Y]
+
+@AITemplateIRTranslator.register("mhlo.transpose")
+def _dispatch_mhlo_transpose(op, inputs):
+    shaped_type = ir.ShapedType(op.result.type)
+    dims = mlir_attr_to_pyobj(op.attributes["permutation"])
+    dims = dims.tolist()
+    Y = ait_ops.permute()(inputs[0], dims)
     return [Y]
