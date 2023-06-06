@@ -95,7 +95,9 @@ def list_decomposed_ops():
         torch.ops.aten._native_batch_norm_legit_functional,
         torch.ops.aten.native_batch_norm_backward,
         torch.ops.aten.native_layer_norm_backward,
-        torch.ops.aten.embedding_dense_backward
+        torch.ops.aten.embedding_dense_backward,
+        torch.ops.aten.select_backward,
+        torch.ops.aten.slice_backward
     ]
 
 def preprocess_fx_graph(fx_graph: torch.fx.GraphModule):

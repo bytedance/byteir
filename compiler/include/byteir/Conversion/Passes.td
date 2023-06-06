@@ -167,6 +167,21 @@ def ConvertMhloToAce : Pass<"convert-mhlo-to-ace", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ToAIT
+//===----------------------------------------------------------------------===//
+
+def GenAITConfig : Pass<"gen-ait-config", "func::FuncOp"> {
+  let summary = "Generate AIT configuration";
+  let constructor = "mlir::createGenAITConfigPass()";
+  let options = [
+    ListOption<"funcNames", "func-names", "std::string",
+               "names of all cat func for AIT backends.">,
+    ListOption<"aitLibPaths", "ait-lib-paths", "std::string",
+               "paths to all AIT-generated .so libs">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ToByre
 //===----------------------------------------------------------------------===//
 

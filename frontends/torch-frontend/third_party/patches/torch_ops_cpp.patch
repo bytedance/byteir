@@ -1,0 +1,31 @@
+diff --git a/lib/Dialect/Torch/IR/TorchOps.cpp b/lib/Dialect/Torch/IR/TorchOps.cpp
+index 38e4240e..eb51e6c1 100644
+--- a/lib/Dialect/Torch/IR/TorchOps.cpp
++++ b/lib/Dialect/Torch/IR/TorchOps.cpp
+@@ -2693,6 +2693,26 @@ LogicalResult GlobalSlotModuleInitializerOp::verify() {
+ }
+ 
+ //===----------------------------------------------------------------------===//
++// AtenIsFloatingPointOp
++//===----------------------------------------------------------------------===//
++
++void AtenIsFloatingPointOp::getCanonicalizationPatterns(
++    RewritePatternSet &patterns, MLIRContext *context) {
++  patterns.add(+[](AtenIsFloatingPointOp op, PatternRewriter &rewriter) {
++    auto tensorType = op.getSelf().getType().cast<BaseTensorType>();
++    if (tensorType.hasDtype()) {
++      if (tensorType.getDtype().isa<mlir::FloatType>()) {
++        rewriter.replaceOpWithNewOp<Torch::ConstantBoolOp>(op, true);
++      } else {
++        rewriter.replaceOpWithNewOp<Torch::ConstantBoolOp>(op, false);
++      }
++      return success();
++    }
++    return failure();
++  });
++}
++
++//===----------------------------------------------------------------------===//
+ // InitializeGlobalSlotsOp
+ //===----------------------------------------------------------------------===//
+ 

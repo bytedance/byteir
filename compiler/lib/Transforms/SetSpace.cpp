@@ -404,8 +404,67 @@ void updateOpTypes(FuncOp func, ModuleOp m,
             result.setType(newOperandType);
           }
         }
-      } // if opSpaceAttr
-    }   // for op in block.without_terminator()
+      } else if (auto viewLikeOp = llvm::dyn_cast<ViewLikeOpInterface>(op)) {
+        // for view like op, we need propagate memory space from source to dest
+        auto src = viewLikeOp.getViewSource();
+        if (auto srcType = src.getType().dyn_cast<MemRefType>()) {
+          auto srcSpace = srcType.getMemorySpace();
+          if (!srcSpace)
+            continue;
+
+          for (auto result : op.getResults()) {
+            auto dstType = result.getType().dyn_cast<MemRefType>();
+            if (!dstType)
+              continue;
+
+            auto dstSpace = dstType.getMemorySpace();
+
+            if (dstSpace) {
+              if (dstSpace != srcSpace) {
+                // insert copy if dst space was already set to different space
+                auto newDstType =
+                    cloneMemRefTypeWithMemSpace(dstType, srcSpace);
+                result.setType(newDstType);
+                createCopyReturn(viewLikeOp, result, dstType,
+                                 copyPairToCopyTargets);
+              }
+            } else {
+              // set to src space if no space
+              auto newDstType = cloneMemRefTypeWithMemSpace(dstType, srcSpace);
+              result.setType(newDstType);
+            }
+          }
+        }
+      }
+    } // for op in block.without_terminator()
+  }
+
+  // respect to function return type
+  for (auto &&retOp : func.getOps<ReturnOp>()) {
+    for (auto &&opOperand : retOp->getOpOperands()) {
+      auto operandType = opOperand.get().getType().dyn_cast<MemRefType>();
+      auto resultType = func.getFunctionType()
+                            .getResult(opOperand.getOperandNumber())
+                            .dyn_cast<MemRefType>();
+      if (!resultType || !operandType)
+        continue;
+
+      auto operandSpace = operandType.getMemorySpace();
+      auto resultSpace = resultType.getMemorySpace();
+
+      if (operandSpace == resultSpace)
+        continue;
+
+      CopyType_t copyKey = {opOperand.get(), resultSpace};
+      if (copyPairToCopyTargets.count(copyKey) == 0) {
+        auto newArg = createCopyInputArg(retOp, opOperand.get(), resultType,
+                                         resultSpace, copyPairToCopyTargets);
+        opOperand.set(newArg);
+      } else {
+        auto taget = copyPairToCopyTargets[copyKey];
+        opOperand.set(taget);
+      }
+    }
   }
 }
 

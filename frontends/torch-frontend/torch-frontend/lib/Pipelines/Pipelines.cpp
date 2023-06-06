@@ -90,6 +90,10 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
   pm.addNestedPass<func::FuncOp>(createRewriteCustomOp());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
+  // Fuse Torch Ops
+  pm.addPass(createCSEPass());
+  pm.addNestedPass<func::FuncOp>(createFuseOpOnTorch());
+
   pm.addPass(Torch::createLowerToBackendContractPass(
       options.maxIterations, options.decompose, options.backendLegalOps,
       options.extraLibrary));

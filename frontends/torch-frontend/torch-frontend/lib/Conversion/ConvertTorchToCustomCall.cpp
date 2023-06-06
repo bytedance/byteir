@@ -259,6 +259,10 @@ public:
                               rewriter.getF64FloatAttr(epsValue));
     byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
                               rewriter.getI64ArrayAttr(axisValue));
+    if (op->hasAttr(getLayerNormV2Name())) {
+      byteir_attrs.emplace_back(rewriter.getStringAttr(getLayerNormV2Name()),
+                                op->getAttr(getLayerNormV2Name()));
+    }
 
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
