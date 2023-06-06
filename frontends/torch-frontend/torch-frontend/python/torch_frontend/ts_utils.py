@@ -100,11 +100,11 @@ def register_decomposition_in_torchscript():
         torch.ops.aten.split.Tensor,
         torch.jit.script(decompose_aten_split_Tensor_op).graph,
     )
-    # torch.jit._register_decomposition(
-    #     torch.ops.aten.bucketize.Tensor,
-    #     torch.jit.script(decompose_aten_bucketize_Tensor_op).graph,
-    # )
-    # torch.jit._register_decomposition(
-    #     torch.ops.aten.unbind.int,
-    #     torch.jit.script(decompose_aten_unbind_int_op).graph,
-    # )
+    torch.jit._register_decomposition(
+        torch.ops.aten.bucketize.Tensor,
+        torch.jit.script(decompose_aten_bucketize_Tensor_op).graph,
+    )
+    torch.jit._register_decomposition(
+        torch.ops.aten.unbind.int,
+        torch.jit.script(decompose_aten_unbind_int_op).graph,
+    )

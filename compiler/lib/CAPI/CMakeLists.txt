@@ -13,6 +13,7 @@ add_mlir_public_c_api_library(ByteIRCAPI
   ByteIRLmhloToLace
   ByteIRLmhloToMemref
   ByteIRToAce
+  ByteIRToAIT
   ByteIRToByre
   ByteIRToGPU
   ByteIRToMhlo

@@ -52,6 +52,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 - Attrs
   - epsilon: F64Attr
   - axis: I64ArrayAttr
+  - byteir.layer_norm_v2: Optional\<BoolAttr>
 - Results(1 or 3):
   - output: Tensor 
   - mean: Optional\<Tensor>

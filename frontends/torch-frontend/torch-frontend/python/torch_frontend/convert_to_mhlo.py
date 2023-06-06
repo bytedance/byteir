@@ -41,12 +41,17 @@ def compile(
     if output_type == "raw":
         return module
 
+    if verbose:
+        cmdline_option_string = "backend-legal-ops=" + ",".join(backend_legal_ops)
+        print(f'[RUN] ./build/bin/torch-frontend-opt --torchscript-to-torch-pipeline="{cmdline_option_string}"')
     with module.context:
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
         PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})").run(module.operation)
     if output_type == "torch":
         return module
 
+    if verbose:
+        print('[RUN] ./build/bin/torch-frontend-opt --torch-to-mhlo-pipeline')
     with module.context:
         PassManager.parse("builtin.module(torch-to-mhlo-pipeline)").run(module.operation)
     return module

@@ -88,30 +88,15 @@ transform::AnnotateOp::apply(TransformResults &transformResults,
     addAttrs(target, attrs);
   }
 
+  transformResults.set(getTransformed().cast<OpResult>(), targets);
   return DiagnosedSilenceableFailure::success();
-}
-
-ParseResult transform::AnnotateOp::parse(OpAsmParser &parser,
-                                         OperationState &result) {
-  OpAsmParser::UnresolvedOperand target;
-  auto pdlOperationType = pdl::OperationType::get(parser.getContext());
-  if (parser.parseOperand(target) ||
-      parser.resolveOperand(target, pdlOperationType, result.operands) ||
-      parser.parseOptionalAttrDict(result.attributes)) {
-    return ParseResult::failure();
-  }
-  return success();
-}
-
-void AnnotateOp::print(OpAsmPrinter &p) {
-  p << ' ' << getTarget();
-  p.printOptionalAttrDict((*this)->getAttrs());
 }
 
 void transform::AnnotateOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
-  consumesHandle(getTarget(), effects);
+  onlyReadsHandle(getTarget(), effects);
   modifiesPayload(effects);
+  producesHandle(getTransformed(), effects);
 }
 
 //===----------------------------------------------------------------------===//

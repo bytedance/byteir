@@ -32,6 +32,7 @@ include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/OpBase.td"
 
+
 def AnnotateOp : Op<Transform_Dialect, "annotate",
        [DeclareOpInterfaceMethods<TransformOpInterface>,
         DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
@@ -40,9 +41,9 @@ def AnnotateOp : Op<Transform_Dialect, "annotate",
   }];
 
   let arguments = (ins PDL_Operation:$target);
-  let hasCustomAssemblyFormat = 1;
-  let extraClassDeclaration = [{
-  }];
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
 }
 
 def FuseExtOp : Op<Transform_Dialect, "structured.fuse_ext",

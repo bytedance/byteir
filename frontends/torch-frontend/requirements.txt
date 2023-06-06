@@ -1,16 +1,16 @@
 # torch and torchvision
 -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 --pre
-# torch==2.1.0.dev20230521
-torchvision==0.16.0.dev20230521
+torch==2.1.0.dev20230531
+torchvision==0.16.0.dev20230531
 
 # cuda torch and torchvision
---extra-index-url https://download.pytorch.org/whl/nightly/cu118
---pre
-torch==2.1.0.dev20230521+cu118
-# torchvision==0.16.0.dev20230521+cu118
+# --extra-index-url https://download.pytorch.org/whl/nightly/cu118
+# --pre
+# torch==2.1.0.dev20230531+cu118
+# torchvision==0.16.0.dev20230531+cu118
 
-transformers
+# transformers
 
 
 # The following copied from torch-mlir

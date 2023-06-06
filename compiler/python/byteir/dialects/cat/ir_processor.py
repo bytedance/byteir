@@ -62,14 +62,25 @@ class IRProcessor:
         if not anchor_only:
             builder = self._get_builder(backend=backend)
             return self.module
-
-        #first = True
+        funcNameArg = ""
+        aitLibPathArg = ""
         for func in self.module.body.operations:
             if BYTEIR_CAT_ATTR not in func.attributes:
                 continue
             builder = self._get_builder(module=func, subgraph_name=func.name.value, backend="ait")
             builder.benchmark()
-            # TODO: lower to byre
+            funcNameArg += func.name.value + ","
+            # TODO: builder.ait_module_path is relative to cur path, not to IR
+            # in byre.computeOp, ait_lib_path is relative to IR
+            # need to match these two paths
+            aitLibPathArg += builder.ait_module_path + ","
+        
+        with self.module.context:
+            pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(funcNameArg, aitLibPathArg))
+            pm.run(self.module.operation)
+            if dump_ir:
+                self._dump_ir("{}.ait_opt.mlir".format(self.job_name))
+        return self.module
 
     def bufferize_opt_pass(self, dump_ir=False):
         with self.module.context:
