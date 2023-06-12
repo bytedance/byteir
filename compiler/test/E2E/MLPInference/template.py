@@ -38,6 +38,9 @@ Testcase(contents=[Content(stages=[Input], content=r"""
     LinalgTensorOptPipeline(R"""
 // CHECK-LABEL: func.func @forward
 """),
+    ByreTensorOptPipeline(R"""
+// CHECK-LABEL: func.func @forward
+""", entryFunc="forward"),
     BufferizeOptPipeline(R"""
 // CHECK-LABEL: func.func @forward
 """),

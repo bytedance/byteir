@@ -24,6 +24,7 @@
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Transforms/CanonicalizeExt.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Transforms/Passes.h"
 
@@ -53,6 +54,7 @@ void addCPULinalgOptPasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createLinalgGeneralizationExt());
   pm.addPass(createLinalgElementwiseOpFusionPass());
   pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizeExtPass());
   // TODO: more opt passes
 }
 

@@ -94,6 +94,10 @@ namespace shape {
 class ShapeDialect;
 } // namespace shape
 
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
+
 #define GEN_PASS_CLASSES
 #include "byteir/Conversion/Passes.h.inc"
 

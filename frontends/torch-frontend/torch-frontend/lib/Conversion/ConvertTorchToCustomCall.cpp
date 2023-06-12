@@ -259,9 +259,9 @@ public:
                               rewriter.getF64FloatAttr(epsValue));
     byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
                               rewriter.getI64ArrayAttr(axisValue));
-    if (op->hasAttr(getLayerNormV2Name())) {
-      byteir_attrs.emplace_back(rewriter.getStringAttr(getLayerNormV2Name()),
-                                op->getAttr(getLayerNormV2Name()));
+    if (op->hasAttr("eps_outside_sqrt")) {
+      byteir_attrs.emplace_back(rewriter.getStringAttr("eps_outside_sqrt"),
+                                op->getAttr("eps_outside_sqrt"));
     }
 
     auto attrs = getDefaultAttrs(rewriter);

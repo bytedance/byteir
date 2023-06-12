@@ -1,0 +1,34 @@
+diff --git a/lib/Conversion/TorchToStablehlo/Linear.cpp b/lib/Conversion/TorchToStablehlo/Linear.cpp
+index 0786151c..0a0d037a 100644
+--- a/lib/Conversion/TorchToStablehlo/Linear.cpp
++++ b/lib/Conversion/TorchToStablehlo/Linear.cpp
+@@ -206,22 +206,21 @@ public:
+                               Value &rhs, Value &output) const {
+     auto lhsTy = lhs.getType().cast<RankedTensorType>();
+     auto rhsTy = rhs.getType().cast<RankedTensorType>();
++    auto outputTy = ConvertAtenOp<AtenOpT>::getTypeConverter()
++                        ->convertType(op.getType())
++                        .template cast<RankedTensorType>();
++
++    lhs = hlo::promoteType(rewriter, lhs, outputTy);
++    rhs = hlo::promoteType(rewriter, rhs, outputTy);
+ 
+     auto lhsRank = lhsTy.getRank();
+     auto rhsRank = rhsTy.getRank();
+-    auto lhsElemTy = lhsTy.getElementType();
+-    auto rhsElemTy = rhsTy.getElementType();
+-
+-    if (lhsElemTy != rhsElemTy)
+-      return op.emitError("matmul: input datatypes mismatched");
+     if (lhsRank < 1 || rhsRank < 1) {
+       return op.emitError("matmul: inputs can't be 0-rank");
+     }
+ 
+     if (lhsRank <= 2 && rhsRank <= 2) {
+-      auto tensorType =
+-          ConvertAtenOp<AtenOpT>::getTypeConverter()->convertType(op.getType());
+-      output = rewriter.create<stablehlo::DotOp>(op->getLoc(), tensorType, lhs,
++      output = rewriter.create<stablehlo::DotOp>(op->getLoc(), outputTy, lhs,
+                                                  rhs, nullptr);
+       return success();
+     }

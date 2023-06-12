@@ -25,6 +25,7 @@
 namespace mlir {
 class TypeConverter;
 class RewriterBase;
+class ModuleOp;
 namespace func {
 class FuncOp;
 } // namespace func
@@ -51,6 +52,10 @@ std::unique_ptr<OperationPass<func::FuncOp>> createUnrealizedCastToLinalgPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createTensorToLinalgPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createLinalgExtToLinalgPass();
+
+std::unique_ptr<OperationPass<ModuleOp>>
+createMemrefCopyToLinalgPass(std::string anchorTag = "",
+                             std::string attachAttr = "");
 
 } // namespace mlir
 

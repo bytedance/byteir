@@ -104,7 +104,9 @@ inline DenseIntElementsAttr getI64ElementsAttr(ArrayRef<int64_t> values,
 // Return a placeholder name of an attribute
 // to avoid breaking the verifier of the original attribute
 // by adding some unique prefix or postfix
-std::string getAttrPlaceholderName(StringRef name);
+inline std::string getAttrPlaceholderName(StringRef name) {
+  return "__placeholder__" + name.str();
+}
 
 // Remove placeholder of attribute names
 // Note: it removes placeholder tag only.

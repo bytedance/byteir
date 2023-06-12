@@ -27,6 +27,7 @@ def IsOneSizeElements : Constraint<And<[
     CPred<" $0.cast<ElementsAttr>().size() == 1 ">]>, "is a DenseElementsAttr of size one">;
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are actually the same">;
+def HasOneUse : Constraint<CPred<"$0.hasOneUse()">, "value has exactly one use">;
 
 //===----------------------------------------------------------------------===//
 // L2Norm Pattern
@@ -85,7 +86,7 @@ def RewriteResize : Pat<
 //===----------------------------------------------------------------------===//
 def RewriteLayerNorm : Pat<
   (ONNXAddOp
-    (ONNXMulOp
+    (ONNXMulOp:$mul_result
       (ONNXDivOp
         (ONNXSubOp:$input_zero_mean_0
           $input,
@@ -112,6 +113,7 @@ def RewriteLayerNorm : Pat<
    (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
    (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
    (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+   (HasOneUse $mul_result),
   ]>;
 
 def RewriteLayerNormWithoutLastAdd : Pat<

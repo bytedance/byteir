@@ -39,9 +39,17 @@ def compile_cuda(
     if verbose:
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:")
     with context:
+        PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After Byre Tensor Opt:")
+    with context:
         PassManager.parse("builtin.module(byteir-bufferize-opt)").run(module.operation)
     if verbose:
         _print_verbose(module, "// IR Dump After ByteIR Bufferize Opt:")
+    with context:
+        PassManager.parse("builtin.module(linalg-memref-opt)").run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After Linalg Memref Opt:")
     with context:
         PassManager.parse("builtin.module(affine-opt)").run(module.operation)
     if verbose:

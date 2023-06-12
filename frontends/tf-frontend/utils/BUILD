@@ -17,6 +17,7 @@ cc_library(
         "@org_tensorflow//tensorflow/core/grappler/clusters:single_machine",
         "@org_tensorflow//tensorflow/core/grappler/optimizers:meta_optimizer",
         "@org_tensorflow//tensorflow/tools/graph_transforms:transform_graph_lib",
+        "@org_tensorflow//tensorflow/compiler/jit:shape_inference"
     ],
 )
 

@@ -1,31 +1,36 @@
 diff --git a/lib/Dialect/Torch/IR/TorchOps.cpp b/lib/Dialect/Torch/IR/TorchOps.cpp
-index 38e4240e..eb51e6c1 100644
+index 38e4240e..ce542cf9 100644
 --- a/lib/Dialect/Torch/IR/TorchOps.cpp
 +++ b/lib/Dialect/Torch/IR/TorchOps.cpp
-@@ -2693,6 +2693,26 @@ LogicalResult GlobalSlotModuleInitializerOp::verify() {
+@@ -506,9 +506,30 @@ void PrimIfOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
+ // DerefineOp
+ //===----------------------------------------------------------------------===//
+ 
++namespace {
++bool hasIntersectingType(Type operandType, Type resultType) {
++  if (auto number = operandType.dyn_cast<Torch::NumberType>()) {
++    if (resultType.isa<Torch::IntType>() ||
++        resultType.isa<Torch::FloatType>()) {
++      return true;
++    }
++    if (auto unionType = resultType.dyn_cast<UnionType>()) {
++      for (auto containedType : unionType.getContainedTypes()) {
++        if (containedType.isa<Torch::IntType>() ||
++            containedType.isa<Torch::FloatType>()) {
++          return true;
++        }
++      }
++    }
++  }
++  return false;
++}
++} // namespace
++
+ bool DerefineOp::areCastCompatible(mlir::TypeRange inputs,
+                                    mlir::TypeRange outputs) {
+-  return isValidSubtype(inputs[0], outputs[0]);
++  return isValidSubtype(inputs[0], outputs[0]) ||
++         hasIntersectingType(inputs[0], outputs[0]);
  }
  
- //===----------------------------------------------------------------------===//
-+// AtenIsFloatingPointOp
-+//===----------------------------------------------------------------------===//
-+
-+void AtenIsFloatingPointOp::getCanonicalizationPatterns(
-+    RewritePatternSet &patterns, MLIRContext *context) {
-+  patterns.add(+[](AtenIsFloatingPointOp op, PatternRewriter &rewriter) {
-+    auto tensorType = op.getSelf().getType().cast<BaseTensorType>();
-+    if (tensorType.hasDtype()) {
-+      if (tensorType.getDtype().isa<mlir::FloatType>()) {
-+        rewriter.replaceOpWithNewOp<Torch::ConstantBoolOp>(op, true);
-+      } else {
-+        rewriter.replaceOpWithNewOp<Torch::ConstantBoolOp>(op, false);
-+      }
-+      return success();
-+    }
-+    return failure();
-+  });
-+}
-+
-+//===----------------------------------------------------------------------===//
- // InitializeGlobalSlotsOp
- //===----------------------------------------------------------------------===//
- 
+ OpFoldResult DerefineOp::fold(FoldAdaptor adaptor) {

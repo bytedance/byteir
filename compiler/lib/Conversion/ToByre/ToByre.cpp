@@ -384,8 +384,8 @@ public:
                           effectiveAppendArgTypes);
 
     mlir::byre::ComputeOp computeOp =
-        rewriter.replaceOpWithNewOp<byre::ComputeOp>(op, key, operands,
-                                                     memoryEffectsAttr);
+        rewriter.replaceOpWithNewOp<byre::ComputeOp>(
+            op, TypeRange{}, key, operands, memoryEffectsAttr);
 
     // copy byre attr, and remove prefix
     SmallVector<NamedAttribute> attrs;
@@ -1203,7 +1203,8 @@ static inline void rewriteCallOpsForFuncOp(ArrayRef<func::CallOp> calls) {
 
   // remove all remove ops
   for (auto op : calls) {
-    op->erase();
+    if (!op->hasAttr(getByreCallOpReadonlyOperandNumAttrName()))
+      op->erase();
   }
 }
 

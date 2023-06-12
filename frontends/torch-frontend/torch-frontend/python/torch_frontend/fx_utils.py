@@ -90,6 +90,12 @@ def squeeze_dims_pattern(tensor, dims):
 def squeeze_dims_replacement(tensor, dims):
     return  torch.ops.prims.squeeze(tensor, dims)
 
+def unsafe_index_put_pattern(self, indices, values, accumulate):
+    return torch.ops.aten._unsafe_index_put(self, indices, values, accumulate)
+
+def unsafe_index_put_replacement(self, indices, values, accumulate):
+    return  torch.ops.aten.index_put_.hacked_twin(self, indices, values, accumulate)
+
 def list_decomposed_ops():
     return [
         torch.ops.aten._native_batch_norm_legit_functional,
@@ -105,6 +111,7 @@ def preprocess_fx_graph(fx_graph: torch.fx.GraphModule):
         return fx_graph
 
     torch.fx.replace_pattern(fx_graph, squeeze_dims_pattern, squeeze_dims_replacement)
+    torch.fx.replace_pattern(fx_graph, unsafe_index_put_pattern, unsafe_index_put_replacement)
     was_unwrapped = _unwrap_single_tuple_return(fx_graph)
     was_list_replaced = _list_return_to_tuple_return(fx_graph)
     removed_none_indexes = _remove_nones(fx_graph)

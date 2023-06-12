@@ -18,8 +18,11 @@
 #include "byteir/Transforms/CollectFunc.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "./PassDetail.h"
 
@@ -40,7 +43,7 @@ struct CollectFuncPass : public CollectFuncBase<CollectFuncPass> {
 
     SmallVector<Operation *> removeOps;
     for (auto &op : m.getBody()->without_terminator()) {
-      if (!isa<func::FuncOp>(op)) {
+      if (!isa<func::FuncOp>(op) && !isa<memref::GlobalOp>(op)) {
         removeOps.push_back(&op);
       }
     }
@@ -55,6 +58,12 @@ struct CollectFuncPass : public CollectFuncBase<CollectFuncPass> {
 
     for (auto op : removeOps) {
       op->erase();
+    }
+
+    OpPassManager pm(m.getOperationName());
+    pm.addPass(createSymbolDCEPass());
+    if (mlir::failed(runPipeline(pm, m))) {
+      signalPassFailure();
     }
   }
 };

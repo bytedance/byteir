@@ -43,10 +43,14 @@ namespace {
 // local common types
 using UpdateFuncType_t = std::pair<SmallVector<Type, 4>, SmallVector<Type, 4>>;
 using CopyType_t = std::pair<Value, Attribute>;
+using GlobalType_t = std::pair<Operation *, Attribute>;
 
 // local utils
 bool isMemref(Operation &op) {
   Dialect *dialect = op.getDialect();
+  if (isa<memref::GetGlobalOp>(op))
+    return false;
+
   return dialect && isa<MemRefDialect>(dialect);
 }
 
@@ -876,6 +880,54 @@ struct SetArgSpacePass : public SetArgSpaceBase<SetArgSpacePass> {
       // update all func ops
       updateOpTypes(it.first, m, copyPairToCopyTargets, analysis);
     };
+
+    // handle global op
+    DenseMap<GlobalType_t, memref::GlobalOp> globalPairToGlobalTargets;
+    SymbolTable symbolTable(m);
+    auto globals = llvm::to_vector(m.getOps<memref::GlobalOp>());
+    for (auto globalOp : globals) {
+      auto maybeSymbolUses = globalOp.getSymbolUses(m);
+      for (SymbolTable::SymbolUse symbolUse : *maybeSymbolUses) {
+        auto symbolUser = dyn_cast<memref::GetGlobalOp>(symbolUse.getUser());
+        if (!symbolUser)
+          continue;
+
+        auto globalSpace = globalOp.getType().getMemorySpace();
+        auto useSpace = symbolUser.getType().getMemorySpace();
+
+        if (globalSpace == useSpace)
+          continue;
+
+        GlobalType_t key{globalOp, useSpace};
+        auto &&iter = globalPairToGlobalTargets.find(key);
+        if (iter == globalPairToGlobalTargets.end()) {
+          auto newGlobalOp = cast<memref::GlobalOp>(globalOp->clone());
+          // set new type with space
+          auto newMemRefType =
+              cloneMemRefTypeWithMemSpace(globalOp.getType(), useSpace);
+          newGlobalOp.setType(newMemRefType);
+
+          // append space suffix to sym name
+          auto newGlobalName = globalOp.getSymName().str();
+          if (auto useSpaceStrAttr = useSpace.dyn_cast_or_null<StringAttr>()) {
+            newGlobalName += "_" + useSpaceStrAttr.getValue().str();
+          }
+          newGlobalOp.setSymName(newGlobalName);
+
+          // insert into symbol table
+          symbolTable.insert(newGlobalOp);
+
+          symbolUser.setName(newGlobalName);
+          globalPairToGlobalTargets[key] = newGlobalOp;
+        } else {
+          symbolUser.setName(iter->second.getSymName());
+        }
+      }
+
+      if (SymbolTable::symbolKnownUseEmpty(globalOp, m)) {
+        symbolTable.erase(globalOp);
+      }
+    }
   }
 
   llvm::SmallVector<std::string, 16> argSpaces;

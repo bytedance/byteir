@@ -1,8 +1,19 @@
 diff --git a/lib/Dialect/Torch/Transforms/Passes.cpp b/lib/Dialect/Torch/Transforms/Passes.cpp
-index 407e9024..7af2f77e 100644
+index 407e9024..e6cc302a 100644
 --- a/lib/Dialect/Torch/Transforms/Passes.cpp
 +++ b/lib/Dialect/Torch/Transforms/Passes.cpp
-@@ -118,12 +118,16 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
+@@ -106,6 +106,10 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
+   pm.addPass(createEraseModuleInitializerPass());
+   // Clean up again to avoid needing to to back around the fixed-point
+   // iteration.
++
++  // fully unroll prim.Loop
++  pm.addNestedPass<func::FuncOp>(Torch::createSimplifyShapeCalculationsPass());
++
+   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+   pm.addNestedPass<func::FuncOp>(createRecomposeComplexOpsPass());
+   // Reduce variants of ops to a smaller set of primitives.
+@@ -118,12 +122,16 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
    pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
    // Update the return op to return value tensors.
    pm.addPass(Torch::createRefinePublicReturnPass());

@@ -21,6 +21,7 @@
 
 #include "byteir/Dialect/Byre/ByreDialect.h"
 
+#include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -69,7 +70,9 @@ static LogicalResult foldMemRefCast(Operation *op) {
 static LogicalResult verifyOpInEntryPointFunc(Operation *op) {
   auto func = op->getParentOfType<func::FuncOp>();
   if (!func->hasAttrOfType<UnitAttr>(
-          ByreDialect::getEntryPointFunctionAttrName())) {
+          ByreDialect::getEntryPointFunctionAttrName()) &&
+      !func->hasAttrOfType<UnitAttr>(getAttrPlaceholderName(
+          ByreDialect::getEntryPointFunctionAttrName()))) {
     return op->emitError("expected '")
            << ByreDialect::getEntryPointFunctionAttrName()
            << "' attribute to be attached to '"
@@ -276,7 +279,7 @@ void ComputeOp::build(OpBuilder &builder, OperationState &result,
       inputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Read));
   memoryEffectAttrs.append(
       outputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Write));
-  build(builder, result, callee,
+  build(builder, result, TypeRange{}, callee,
         llvm::to_vector(llvm::concat<Value>(llvm::to_vector(inputs),
                                             llvm::to_vector(outputs))),
         builder.getArrayAttr(memoryEffectAttrs));

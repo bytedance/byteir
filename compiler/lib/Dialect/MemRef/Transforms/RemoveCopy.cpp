@@ -43,8 +43,9 @@ bool anyIncompatibleUse(Value oldValue, Value newValue) {
                       [](OpOperand &operand) {
                         Operation *op = operand.getOwner();
                         Dialect *dialect = op->getDialect();
-                        return llvm::isa<memref::CollapseShapeOp>(op) ||
-                               (dialect && dialect->getNamespace() == "lmhlo");
+                        return llvm::isa<memref::CollapseShapeOp, func::CallOp>(
+                                   op) ||
+                               (dialect && dialect->getNamespace() == "byre");
                       }) &&
          (oldValue.getType() != newValue.getType());
 }
@@ -132,6 +133,21 @@ public:
         hasReadAfterWrite(memEffects[0].after.reads,
                           memEffects[1].before.writes)) {
       LLVM_DEBUG(llvm::dbgs() << "failed at RAW\n");
+      return failure();
+    }
+
+    auto isGlobalConstant = [](Value value) -> bool {
+      if (auto getGlobalOp = value.getDefiningOp<memref::GetGlobalOp>()) {
+        if (auto globalOp =
+                SymbolTable::lookupNearestSymbolFrom<memref::GlobalOp>(
+                    getGlobalOp, getGlobalOp.getNameAttr())) {
+          return globalOp.getConstant();
+        }
+      }
+      return false;
+    };
+    if (llvm::any_of(aliases[0], isGlobalConstant)) {
+      LLVM_DEBUG(llvm::dbgs() << "failed to replace constant src");
       return failure();
     }
 

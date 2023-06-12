@@ -17,8 +17,9 @@
 
 #include "byteir/Pipelines/ByreOpt.h"
 
-#include "byteir/Conversion/LmhloToLace/LmhloToLace.h"
+#include "byteir/Conversion/MemrefToByre/MemrefToByre.h"
 #include "byteir/Conversion/ToByre/ToByre.h"
+
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Passes.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
@@ -45,15 +46,12 @@ void createByreOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
 
   // only applied on entry point function
   OpPassManager anchoredPM(func::FuncOp::getOperationName());
-  anchoredPM.addPass(createLmhloToLacePass());
-  anchoredPM.addPass(createCanonicalizerPass());
   if (!disableMemoryPlanning) {
     // underlying memory of constant op cannot be reused
-    anchoredPM.addPass(createMemoryPlanningPass(
-        [&](mlir::Value v) { return !isLmhloConstantValue(v); }));
+    anchoredPM.addPass(createMemoryPlanningPass());
     anchoredPM.addPass(createCanonicalizerPass());
   }
-  anchoredPM.addPass(createConvertLmhloToByrePass(appendArgTypes));
+  anchoredPM.addPass(createConvertMemrefToByrePass());
   anchoredPM.addPass(createCanonicalizerPass());
 
   pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(

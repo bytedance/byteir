@@ -96,7 +96,8 @@ const void *CreateIndexPut(brt::ir::ByREBuilder &byre_builder,
 const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
                               const std::string &space,
                               std::vector<int64_t> src_shape, size_t dim,
-                              std::vector<int64_t> idx_shape);
+                              std::vector<int64_t> idx_shape,
+                              bool is_ui32_index);
 
 const void *CreateReduction(brt::ir::ByREBuilder &byre_builder,
                             const std::string &space,
