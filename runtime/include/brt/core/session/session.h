@@ -109,6 +109,9 @@ public:
   // Return dtype from a Tensor Index
   DTypeEnum GetDType(size_t id);
 
+  // Return space from a Tensor Index
+  std::string GetSpace(size_t id);
+
   /**
    * Add an ExecutionProivder into a Session
    */

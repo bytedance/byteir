@@ -2133,6 +2133,9 @@ module @IrToMhlo.2452 {
     LinalgTensorOptPipeline(R"""
 // CHECK-LABEL: func.func @main
 """),
+    ByreTensorOptPipeline(R"""
+// CHECK-LABEL: func.func @main
+"""),
     BufferizeOptPipeline(R"""
 // CHECK-LABEL: func.func @main
 """),

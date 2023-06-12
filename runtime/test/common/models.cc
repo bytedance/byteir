@@ -815,7 +815,8 @@ const void *CreateIndexPut(brt::ir::ByREBuilder &byre_builder,
 const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
                               const std::string &space,
                               std::vector<int64_t> src_shape, size_t dim,
-                              std::vector<int64_t> idx_shape) {
+                              std::vector<int64_t> idx_shape,
+                              bool is_ui32_index) {
   mlir::ModuleOp module_op = byre_builder.GetModuleOp();
   auto ctx = byre_builder.GetMLIRContext();
   auto op_builder = OpBuilder(ctx);
@@ -824,9 +825,11 @@ const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
   auto space_attr = StringAttr::get(ctx, space);
   auto src = MemRefType::get(src_shape, op_builder.getF32Type(),
                              MemRefLayoutAttrInterface{}, space_attr);
-  auto index = MemRefType::get(
-      idx_shape, op_builder.getIntegerType(32, false /*isSigned*/),
-      MemRefLayoutAttrInterface{}, space_attr);
+  auto index_elem_type = is_ui32_index
+                             ? op_builder.getIntegerType(32, /*isSigned=*/false)
+                             : op_builder.getI64Type();
+  auto index = MemRefType::get(idx_shape, index_elem_type,
+                               MemRefLayoutAttrInterface{}, space_attr);
   std::vector<int64_t> dst_shape = src_shape;
   dst_shape[dim] = idx_shape[0];
   auto dst = MemRefType::get(dst_shape, op_builder.getF32Type(),
@@ -842,8 +845,10 @@ const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
   op_builder.setInsertionPointToStart(entry_block);
 
   // insert Op
+  std::string op_name =
+      is_ui32_index ? "IndexSelectOp_f32ui32_f32" : "IndexSelectOp_f32i64_f32";
   auto compute_op = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "IndexSelectOp_f32ui32_f32",
+      UnknownLoc::get(ctx), op_name,
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
   compute_op->setAttr("dim", op_builder.getI32IntegerAttr(dim));

@@ -32,8 +32,6 @@ void mlir::createByteIRBufferizeOptPipeline(
     OpPassManager &pm, const ByteIRBufferizeOptions &options) {
   invokeOpPassPipelineBuilder(
       [&](OpPassManager &pm) {
-        pm.addPass(createConvertHloToLHloPass());
-        addCleanUpExtPassPipeline(pm);
         pm.addNestedPass<func::FuncOp>(
             bufferization::createEmptyTensorToAllocTensorPass());
         pm.addPass(byteir::createOneShotBufferizePass());

@@ -17,6 +17,7 @@
 
 #include "utils/graphdef_opt.h"
 
+#include "tensorflow/compiler/jit/shape_inference.h"
 #include "tensorflow/core/common_runtime/graph_constructor.h"
 #include "tensorflow/core/grappler/clusters/single_machine.h"
 #include "tensorflow/core/grappler/grappler_item.h"
@@ -86,6 +87,32 @@ OptimizeGraphDefInternal(const GraphDef &graph_def,
   assert(status.ok());
   return output;
 }
+
+std::vector<int64_t> GetFinalShapeSizes(
+    const std::string &name, const std::vector<int64_t> &shape_sizes_in_graph,
+    const std::unordered_map<std::string, std::vector<int>> &name2shape,
+    int64_t batch_size, bool force_set_batch_size) {
+  std::vector<int64_t> shape_sizes;
+  for (size_t j = 0; j < shape_sizes_in_graph.size(); ++j) {
+    if (name2shape.count(name) && j < name2shape.at(name).size()) {
+      shape_sizes.push_back(name2shape.at(name)[j]);
+    } else if (j == 0) {
+      if (batch_size > 0) {
+        if (shape_sizes_in_graph[j] > 0 && !force_set_batch_size) {
+          shape_sizes.push_back(shape_sizes_in_graph[j]);
+        } else {
+          shape_sizes.push_back(batch_size);
+        }
+      } else {
+        shape_sizes.push_back(shape_sizes_in_graph[j]);
+      }
+    } else {
+      shape_sizes.push_back(shape_sizes_in_graph[j]);
+    }
+  }
+  return shape_sizes;
+}
+
 } // namespace
 
 GraphDef tensorflow::OptimizeGraphDef(
@@ -101,61 +128,103 @@ GraphDef tensorflow::OptimizeGraphDef(
   return final_gdef;
 }
 
-std::vector<InputInfo> tensorflow::GetPlaceholderInputsWithSpecifiedBatchSize(
-    const GraphDef &graphdef, int64_t batch_size, bool force_set_batch_size,
+// FIXME: only support feed input into node with one output.
+std::vector<InputInfo> tensorflow::GetInputsByNameWithSpecifiedBatchSize(
+    const GraphDef &graphdef, const std::vector<std::string> &names,
+    int64_t batch_size, bool force_set_batch_size,
     const std::unordered_map<std::string, std::vector<int>> &name2shape) {
-  std::vector<InputInfo> res;
-  for (int i = 0; i < graphdef.node_size(); ++i) {
-    NodeDef node_def = graphdef.node(i);
-    if (node_def.op() == "Placeholder") {
-      // name
-      std::string name = node_def.name();
-      auto &attr = node_def.attr();
+  GraphConstructorOptions opts;
+  opts.allow_internal_ops = true;
+  opts.add_default_attributes = true;
+  Graph graph(OpRegistry::Global());
+  if (!ConvertGraphDefToGraph(opts, graphdef, &graph).ok()) {
+    LOG(ERROR) << "GetInputsByNameWithSpecifiedBatchSize: convert GraphDef to "
+                  "Graph failed.";
+    assert(0);
+  }
+  GraphShapeInfo graph_shape_info;
+  if (!InferShapes(&graph, /*arg_shapes=*/{}, /*fnlib_def=*/nullptr,
+                   &graph_shape_info)
+           .ok()) {
+    LOG(ERROR) << "GetInputsByNameWithSpecifiedBatchSize: InferShapes failed.";
+    assert(0);
+  }
 
-      // shape
-      if (!attr.count("shape")) {
-        LOG(ERROR) << "Placeholder attribute doesn't contain `shape`. ";
-        assert(0);
-      }
+  std::vector<InputInfo> res;
+  std::unordered_set<std::string> names_set(names.begin(), names.end());
+  for (size_t i = 0; i < graphdef.node_size(); ++i) {
+    NodeDef node_def = graphdef.node(i);
+    // node name
+    std::string name = node_def.name();
+    if (!names_set.count(name)) {
+      continue;
+    }
+
+    auto &attr = node_def.attr();
+    // shape
+    std::vector<int64_t> shape_sizes_in_graph;
+    std::string shape_str;
+    if (attr.count("shape")) {
       AttrValue shape_attr = node_def.attr().at("shape");
       if (!shape_attr.has_shape()) {
-        LOG(ERROR) << "Placeholder `shape` attribute isn't type of "
-                      "`TensorShapeProto`. ";
+        LOG(ERROR) << node_def.op() << ": " << name
+                   << " `shape` attribute isn't type of `TensorShapeProto`. ";
         assert(0);
       }
       const TensorShapeProto &tensor_shape = shape_attr.shape();
-      std::vector<int64_t> shape_sizes;
-      std::string shape_str;
-      for (int j = 0; j < tensor_shape.dim_size(); ++j) {
-        if (name2shape.count(name) && j < name2shape.at(name).size()) {
-          shape_sizes.push_back(name2shape.at(name)[j]);
-        } else if (j == 0) {
-          if (batch_size > 0) {
-            if (tensor_shape.dim(j).size() > 0 && !force_set_batch_size) {
-              shape_sizes.push_back(tensor_shape.dim(j).size());
-            } else {
-              shape_sizes.push_back(batch_size);
-            }
-          } else {
-            shape_sizes.push_back(tensor_shape.dim(j).size());
-          }
-        } else {
-          shape_sizes.push_back(tensor_shape.dim(j).size());
-        }
-
-        shape_str += (j == 0 ? "" : ",") + std::to_string(shape_sizes[j]);
-      }
-
-      // dtype
-      if (!attr.count("dtype")) {
-        LOG(ERROR) << "Placeholder attribute doesn't contain `dtype`. ";
+      for (size_t j = 0; j < tensor_shape.dim_size(); ++j)
+        shape_sizes_in_graph.push_back(tensor_shape.dim(j).size());
+    } else {
+      auto shape_it = graph_shape_info.find(name);
+      if (shape_it == graph_shape_info.end()) {
+        LOG(ERROR) << node_def.op() << ": " << name
+                   << " shape info can't be fetched from attribute or from "
+                      "shape inference.";
         assert(0);
       }
-      AttrValue dtype_attr = node_def.attr().at("dtype");
-      const DataType dtype = dtype_attr.type();
-      std::string dtype_str = DataType_Name(dtype);
+      const std::vector<InferredShape> &inferred_shapes = shape_it->second;
+      if (inferred_shapes.size() != 1) {
+        LOG(ERROR) << node_def.op() << ": " << name
+                   << " more than 1 output is not supported.";
+        assert(0);
+      }
+      for (int64_t dim_size : inferred_shapes[0].shape.dim_sizes())
+        shape_sizes_in_graph.push_back(dim_size);
+    }
+    std::vector<int64_t> shape_sizes =
+        GetFinalShapeSizes(name, shape_sizes_in_graph, name2shape, batch_size,
+                           force_set_batch_size);
+    for (int64_t j = 0; j < shape_sizes.size(); ++j)
+      shape_str += (j == 0 ? "" : ",") + std::to_string(shape_sizes[j]);
 
-      res.push_back({name, dtype_str, shape_sizes, shape_str});
+    // dtype
+    AttrValue dtype_attr;
+    if (attr.count("dtype")) {
+      dtype_attr = node_def.attr().at("dtype");
+    } else if (attr.count("T")) {
+      dtype_attr = node_def.attr().at("T");
+    } else {
+      LOG(ERROR) << "Node attribute doesn't contain `dtype` or `T`. ";
+      assert(0);
+    }
+    const DataType dtype = dtype_attr.type();
+    std::string dtype_str = DataType_Name(dtype);
+
+    res.push_back({name, dtype_str, shape_sizes, shape_str});
+  }
+  return res;
+}
+
+// note: only return node name, not tensor name
+std::vector<std::string>
+tensorflow::GetPlaceholderNames(const GraphDef &graphdef) {
+  std::vector<std::string> res;
+  for (size_t i = 0; i < graphdef.node_size(); ++i) {
+    NodeDef node_def = graphdef.node(i);
+    if (node_def.op() == "Placeholder") {
+      // node name
+      std::string name = node_def.name();
+      res.push_back(name);
     }
   }
   return res;

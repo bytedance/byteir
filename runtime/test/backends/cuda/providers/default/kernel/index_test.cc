@@ -166,23 +166,35 @@ void CheckIndexPutFirstDim(const std::vector<int64_t> &inout_shape,
 
 void CheckIndexSelectHost(void *d_input, void *d_index, void *d_output,
                           const std::vector<int64_t> &input_shape, size_t dim,
-                          const std::vector<int64_t> &index_shape, float eps) {
+                          const std::vector<int64_t> &index_shape, float eps,
+                          bool is_ui32_index) {
   std::vector<int64_t> output_shape = input_shape;
   output_shape[dim] = index_shape[0];
 
   size_t input_size_in_bytes =
       getNumElementsOfShape(input_shape) * sizeof(float);
+  size_t index_elem_size = is_ui32_index ? sizeof(uint32_t) : sizeof(int64_t);
   size_t index_size_in_bytes =
-      getNumElementsOfShape(index_shape) * sizeof(uint32_t);
+      getNumElementsOfShape(index_shape) * index_elem_size;
   size_t output_size = getNumElementsOfShape(output_shape);
   size_t output_size_in_bytes = output_size * sizeof(float);
 
   float *h_input = (float *)malloc(input_size_in_bytes);
-  uint32_t *h_index = (uint32_t *)malloc(index_size_in_bytes);
+  uint32_t *h_index_ui32;
+  int64_t *h_index_i64;
+  if (is_ui32_index)
+    h_index_ui32 = (uint32_t *)malloc(index_size_in_bytes);
+  else
+    h_index_i64 = (int64_t *)malloc(index_size_in_bytes);
   float *h_output = (float *)malloc(output_size_in_bytes);
 
   cudaMemcpy(h_input, d_input, input_size_in_bytes, cudaMemcpyDeviceToHost);
-  cudaMemcpy(h_index, d_index, index_size_in_bytes, cudaMemcpyDeviceToHost);
+  if (is_ui32_index)
+    cudaMemcpy(h_index_ui32, d_index, index_size_in_bytes,
+               cudaMemcpyDeviceToHost);
+  else
+    cudaMemcpy(h_index_i64, d_index, index_size_in_bytes,
+               cudaMemcpyDeviceToHost);
   cudaMemcpy(h_output, d_output, output_size_in_bytes, cudaMemcpyDeviceToHost);
   std::vector<float> result(output_size);
 
@@ -199,8 +211,12 @@ void CheckIndexSelectHost(void *d_input, void *d_index, void *d_output,
       }
     } else {
       for (int64_t i = 0; i < index_shape[0]; ++i) {
-        f(cur_dim + 1, i_offset * input_shape[cur_dim] + h_index[i],
-          o_offset * output_shape[cur_dim] + i);
+        if (is_ui32_index)
+          f(cur_dim + 1, i_offset * input_shape[cur_dim] + h_index_ui32[i],
+            o_offset * output_shape[cur_dim] + i);
+        else
+          f(cur_dim + 1, i_offset * input_shape[cur_dim] + h_index_i64[i],
+            o_offset * output_shape[cur_dim] + i);
       }
     }
   };
@@ -211,12 +227,16 @@ void CheckIndexSelectHost(void *d_input, void *d_index, void *d_output,
   }
 
   free(h_input);
-  free(h_index);
+  if (is_ui32_index)
+    free(h_index_ui32);
+  else
+    free(h_index_i64);
   free(h_output);
 }
 
 void CheckIndexSelectSingle(const std::vector<int64_t> &input_shape, size_t dim,
-                            const std::vector<int64_t> &index_shape) {
+                            const std::vector<int64_t> &index_shape,
+                            bool is_ui32_index) {
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
@@ -225,7 +245,8 @@ void CheckIndexSelectSingle(const std::vector<int64_t> &input_shape, size_t dim,
 
   ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
-      CreateIndexSelect(byre_builder, "cuda", input_shape, dim, index_shape),
+      CreateIndexSelect(byre_builder, "cuda", input_shape, dim, index_shape,
+                        is_ui32_index),
       "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
@@ -237,8 +258,12 @@ void CheckIndexSelectSingle(const std::vector<int64_t> &input_shape, size_t dim,
   RandCUDABuffer((float *)request->GetArg(0),
                  getNumElementsOfShape(input_shape));
   // initiate index
-  RandCUDABuffer((uint32_t *)request->GetArg(1),
-                 getNumElementsOfShape(index_shape), input_shape[dim]);
+  if (is_ui32_index)
+    RandCUDABuffer((uint32_t *)request->GetArg(1),
+                   getNumElementsOfShape(index_shape), input_shape[dim]);
+  else
+    RandCUDABuffer((int64_t *)request->GetArg(1),
+                   getNumElementsOfShape(index_shape), input_shape[dim]);
 
   request->FinishIOBinding();
 
@@ -249,13 +274,17 @@ void CheckIndexSelectSingle(const std::vector<int64_t> &input_shape, size_t dim,
   BRT_TEST_CHECK_STATUS(status_sync);
 
   CheckIndexSelectHost(request->GetArg(0), request->GetArg(1),
-                       request->GetArg(2), input_shape, dim, index_shape,
-                       1e-8f);
+                       request->GetArg(2), input_shape, dim, index_shape, 1e-8f,
+                       is_ui32_index);
   // second run
   RandCUDABuffer((float *)request->GetArg(0),
                  getNumElementsOfShape(input_shape));
-  RandCUDABuffer((uint32_t *)request->GetArg(1),
-                 getNumElementsOfShape(index_shape), input_shape[dim]);
+  if (is_ui32_index)
+    RandCUDABuffer((uint32_t *)request->GetArg(1),
+                   getNumElementsOfShape(index_shape), input_shape[dim]);
+  else
+    RandCUDABuffer((int64_t *)request->GetArg(1),
+                   getNumElementsOfShape(index_shape), input_shape[dim]);
   status_run = session.Run(*request);
   BRT_TEST_CHECK_STATUS(status_run);
 
@@ -263,8 +292,8 @@ void CheckIndexSelectSingle(const std::vector<int64_t> &input_shape, size_t dim,
   BRT_TEST_CHECK_STATUS(status_sync);
 
   CheckIndexSelectHost(request->GetArg(0), request->GetArg(1),
-                       request->GetArg(2), input_shape, dim, index_shape,
-                       1e-8f);
+                       request->GetArg(2), input_shape, dim, index_shape, 1e-8f,
+                       is_ui32_index);
 }
 } // namespace
 
@@ -279,13 +308,24 @@ TEST(CUDATestIndexOp, IndexPutLarge) {
   CheckIndexPutFirstDim({30522, 128}, {128});
 }
 
-TEST(CUDATestIndexOp, IndexSelect) {
-  CheckIndexSelectSingle({2, 3, 4, 5}, 0, {2});
-  CheckIndexSelectSingle({2, 3, 4, 5}, 1, {4});
-  CheckIndexSelectSingle({2, 3, 4, 5}, 2, {1});
-  CheckIndexSelectSingle({2, 3, 4, 5}, 3, {3});
-  CheckIndexSelectSingle({256, 64, 128}, 0, {128});
-  CheckIndexSelectSingle({256, 64, 128}, 1, {32});
-  CheckIndexSelectSingle({256, 64, 128}, 2, {64});
-  CheckIndexSelectSingle({30522, 128}, 0, {128});
+TEST(CUDATestIndexOp, IndexSelectUI32Index) {
+  CheckIndexSelectSingle({2, 3, 4, 5}, 0, {2}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({2, 3, 4, 5}, 1, {4}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({2, 3, 4, 5}, 2, {1}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({2, 3, 4, 5}, 3, {3}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({256, 64, 128}, 0, {128}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({256, 64, 128}, 1, {32}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({256, 64, 128}, 2, {64}, /*is_ui32_index=*/true);
+  CheckIndexSelectSingle({30522, 128}, 0, {128}, /*is_ui32_index=*/true);
+}
+
+TEST(CUDATestIndexOp, IndexSelectI64Index) {
+  CheckIndexSelectSingle({2, 3, 4, 5}, 0, {2}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({2, 3, 4, 5}, 1, {4}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({2, 3, 4, 5}, 2, {1}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({2, 3, 4, 5}, 3, {3}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({256, 64, 128}, 0, {128}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({256, 64, 128}, 1, {32}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({256, 64, 128}, 2, {64}, /*is_ui32_index=*/false);
+  CheckIndexSelectSingle({30522, 128}, 0, {128}, /*is_ui32_index=*/false);
 }

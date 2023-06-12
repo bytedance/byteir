@@ -8,9 +8,11 @@ add_mlir_library(ByteIRPipelines
   BufferizeOpt.cpp
   ByreHost.cpp
   ByreOpt.cpp
+  ByreTensorOpt.cpp
   CatOpt.cpp
   CatPreprocess.cpp
   HloOpt.cpp
+  LinalgMemrefOpt.cpp
   LinalgTensorOpt.cpp
   SCFOpt.cpp
   ShapeOpt.cpp
@@ -39,8 +41,11 @@ add_mlir_library(ByteIRPipelines
   MLIRTransforms
   ByteIRAcePasses
   ByteIRByrePasses
+  ByteIRFuncToByre
+  ByteIRHloToByreTensor
   ByteIRHloToLhlo
   ByteIRLmhloToLace
+  ByteIRMemrefToByre
   ByteIRMhloPasses
   ByteIRShapePasses
   ByteIRLinalgPasses

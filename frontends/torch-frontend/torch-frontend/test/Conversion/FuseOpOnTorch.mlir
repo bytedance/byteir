@@ -42,4 +42,4 @@ func.func @torch.layer_norm(%861: !torch.tensor) -> (!torch.tensor) {
 }
 // CHECK-LABEL: @torch.layer_norm
 // CHECK:  torch.aten.layer_norm
-// CHECK-SAME: byteir.layer_norm_v2 = true
+// CHECK-SAME: eps_outside_sqrt = true

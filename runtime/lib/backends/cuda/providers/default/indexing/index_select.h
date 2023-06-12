@@ -23,7 +23,7 @@
 namespace brt {
 namespace cuda {
 
-template <typename T> class IndexSelectImpl {
+template <typename InputTy, typename IndexTy> class IndexSelectImpl {
 public:
   IndexSelectImpl(const OpAccessor &accessor) {
     auto shape = accessor.GetArgShape(0);
@@ -41,21 +41,21 @@ public:
     }
   }
 
-  void Execute(const T *input, const uint32_t *index, T *output,
+  void Execute(const InputTy *input, const IndexTy *index, InputTy *output,
                cudaStream_t stream) {
-    kernel::index_select<T>(input, index, output, A, input_B, output_B, C,
-                            stream);
+    kernel::index_select<InputTy, IndexTy>(input, index, output, A, input_B,
+                                           output_B, C, stream);
   }
 
 private:
   int A, input_B, output_B, C;
 };
 
-template <typename T>
-using IndexSelect = CudaOpKernel<IndexSelectImpl<T>,                //
-                                 TypedOperand<const T *, 0>,        // input
-                                 TypedOperand<const uint32_t *, 1>, // index
-                                 TypedOperand<T *, 2>               // output
+template <typename InputTy, typename IndexTy>
+using IndexSelect = CudaOpKernel<IndexSelectImpl<InputTy, IndexTy>, //
+                                 TypedOperand<const InputTy *, 0>,  // input
+                                 TypedOperand<const IndexTy *, 1>,  // index
+                                 TypedOperand<InputTy *, 2>         // output
                                  >;
 } // namespace cuda
 } // namespace brt

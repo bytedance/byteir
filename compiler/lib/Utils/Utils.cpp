@@ -185,10 +185,6 @@ bool mlir::isSplatCloseToValue(DenseFPElementsAttr attr, double value,
   return false;
 }
 
-std::string mlir::getAttrPlaceholderName(StringRef name) {
-  return "__placeholder__" + name.str();
-}
-
 void mlir::removeAttrPlaceholders(mlir::Operation *op,
                                   ArrayRef<StringRef> OrgNames) {
 

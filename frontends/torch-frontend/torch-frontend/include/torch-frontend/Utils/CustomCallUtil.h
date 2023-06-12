@@ -61,10 +61,6 @@ constexpr llvm::StringRef getLayerNormName() {
   return CUSTOM_CALL_NAME_PREFIX "layer_norm";
 }
 
-constexpr llvm::StringRef getLayerNormV2Name() {
-  return CUSTOM_CALL_NAME_PREFIX "layer_norm_v2";
-}
-
 constexpr llvm::StringRef getL2NormName() {
   return CUSTOM_CALL_NAME_PREFIX "l2_norm";
 }

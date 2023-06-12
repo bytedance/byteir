@@ -23,9 +23,10 @@
 namespace brt {
 namespace cuda {
 namespace kernel {
-template <typename T>
-void index_select(const T *input, const uint32_t *index, T *output, const int A,
-                  const int IB, const int OB, const int C, cudaStream_t stream);
+template <typename InputTy, typename IndexTy>
+void index_select(const InputTy *input, const IndexTy *index, InputTy *output,
+                  const int A, const int IB, const int OB, const int C,
+                  cudaStream_t stream);
 } // namespace kernel
 } // namespace cuda
 } // namespace brt

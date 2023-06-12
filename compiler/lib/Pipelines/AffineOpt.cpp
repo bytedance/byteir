@@ -43,6 +43,7 @@ void addGenericAffineOptPasses(OpPassManager &pm) {
 }
 
 void addCPUAffineOptPasses(OpPassManager &pm) {
+  // TODO: move to linalg-memref-opt
   // collapse consecutive loops which mapping to contiguous dimensions for all
   // operands into one loop
   pm.addNestedPass<func::FuncOp>(createLinalgCollapseLoops());

@@ -300,4 +300,95 @@ def MhloToCat : Pass<"mhlo-to-cat", "func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// HloToByreTensor
+//===----------------------------------------------------------------------===//
+
+def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "func::FuncOp"> {
+  let summary = "Convert hlo op to byre tensor op.";
+  let constructor = "mlir::createConvertHloToByreTensorPass()";
+  let dependentDialects = [
+    "mlir::arith::ArithDialect",
+    "mlir::byre::ByreDialect",
+    "mlir::tensor::TensorDialect"
+  ];
+
+  let options = [
+    Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
+           "append arg types to Byre">,
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// FuncToByreTensor
+//===----------------------------------------------------------------------===//
+
+def ConvertFuncToByreTensor : Pass<"func-to-byre-tensor", "ModuleOp"> {
+  let summary = "Convert func op to byre tensor compute op.";
+  let constructor = "mlir::createConvertFuncToByreTensorPass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::tensor::TensorDialect"
+  ];
+
+  let options = [
+    Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
+           "append arg types to Byre">,
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// MemrefToByre
+//===----------------------------------------------------------------------===//
+
+def ConvertMemrefToByre : Pass<"memref-to-byre", "func::FuncOp"> {
+  let summary = "Convert memref op to byre op.";
+  let constructor = "mlir::createConvertMemrefToByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::memref::MemRefDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// FuncToByre
+//===----------------------------------------------------------------------===//
+
+// def ConvertFuncToByreTensor : Pass<"func-to-byre", "ModuleOp"> {
+//   let summary = "Convert func op to byre compute op.";
+//   let constructor = "mlir::createConvertFuncToByrePass()";
+//   let dependentDialects = [
+//     "mlir::memref::MemRefDialect",
+//     "mlir::byre::ByreDialect",
+//   ];
+//   let options = [
+//     Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
+//            "append arg types to Byre">,
+//     Option<"removeDupOutputs", "remove-dup-outputs", "bool", /*default=*/"false",
+//             "remove dup function outputs to avoid inserting copy">,
+//   ];
+// }
+
+
+def MemrefCopyToLinalgPass :
+    Pass<"memrefcopy-to-linalg", "ModuleOp"> {
+  let summary = "Convert memref.copy to linalg op";
+  let constructor = "mlir::createMemrefCopyToLinalgPass()";
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect",
+    "mlir::memref::MemRefDialect",
+  ];
+
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">,
+    Option<"attachAttr", "attach-attr", "std::string",
+            /*default=*/"",
+            "An optional unit attribute attaching on target functions: <attr_name>">,
+  ];
+}
+
 #endif // BYTEIR_CONVERSION_PASSES

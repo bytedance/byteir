@@ -198,6 +198,11 @@ DTypeEnum Session::GetDType(size_t idx) {
   return execution_plan_->GetDType(idx);
 }
 
+std::string Session::GetSpace(size_t idx) {
+  BRT_ENFORCE(idx < execution_plan_->GetGraphInfo().GetArgNum());
+  return execution_plan_->GetSpace(idx);
+}
+
 int Session::GetGraphArgOffset(const std::string &name) {
   return execution_plan_->GetGraphInfo().GetGraphArgOffset(name);
 }

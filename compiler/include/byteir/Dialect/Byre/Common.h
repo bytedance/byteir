@@ -70,6 +70,8 @@ inline NamedAttribute removeByrePrefix(NamedAttribute attr) {
   return NamedAttribute{identifier, attr.getValue()};
 }
 
+std::string getByreKey(llvm::StringRef original, mlir::TypeRange inTypes,
+                       mlir::TypeRange outTypes, bool appendArgTypes);
 } // end namespace byre
 } // end namespace mlir
 

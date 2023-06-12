@@ -398,14 +398,14 @@ func.func @cannot_remove_copy_0() -> memref<16xf32> {
 
 // -----
 
-func.func @cannot_remove_copy_1() -> memref<4x4xf32> {
+func.func @cannot_remove_copy_1() -> memref<4x4xf32> attributes {__placeholder__byre.entry_point} {
   %src = memref.alloc() : memref<4x8xf32>
   %src_sub = memref.subview %src[0, 4] [4, 4] [1, 1] : memref<4x8xf32> to memref<4x4xf32, strided<[8, 1], offset: 4>>
   "foo.bar"(%src_sub) : (memref<4x4xf32, strided<[8, 1], offset: 4>>) -> ()
   %alloc = memref.alloc() : memref<4x4xf32>
   memref.copy %src_sub, %alloc : memref<4x4xf32, strided<[8, 1], offset: 4>> to memref<4x4xf32>
   %dst = memref.alloc() : memref<4x4xf32>
-  "lmhlo.log"(%alloc, %dst) : (memref<4x4xf32>, memref<4x4xf32>) -> ()
+  byre.compute @foo(%alloc, %dst) : memref<4x4xf32>, memref<4x4xf32>
   return %dst: memref<4x4xf32>
 }
 // CHECK-LABEL: cannot_remove_copy_1

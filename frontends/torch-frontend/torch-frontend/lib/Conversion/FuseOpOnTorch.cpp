@@ -48,7 +48,7 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value output,
                       Value epsilon, Value cudnn_enable) {
   Torch::AtenLayerNormOp layerNormOp = rewriter.create<Torch::AtenLayerNormOp>(
       loc, output.getType(), input, list, weight, bias, epsilon, cudnn_enable);
-  layerNormOp->setAttr(getLayerNormV2Name(), rewriter.getBoolAttr(true));
+  layerNormOp->setAttr("eps_outside_sqrt", rewriter.getBoolAttr(true));
   return layerNormOp.getResult();
 }
 

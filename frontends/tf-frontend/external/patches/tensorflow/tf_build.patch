@@ -38,6 +38,19 @@ index 06b59eca8d2..701b503c442 100644
      deps = [
          ":c_api",
          ":tfe_cancellation_manager_internal",
+diff --git a/tensorflow/compiler/jit/BUILD b/tensorflow/compiler/jit/BUILD
+index 59705cda817..3d6a15f9cb0 100644
+--- a/tensorflow/compiler/jit/BUILD
++++ b/tensorflow/compiler/jit/BUILD
+@@ -793,7 +793,7 @@ cc_library(
+     name = "shape_inference",
+     srcs = ["shape_inference.cc"],
+     hdrs = ["shape_inference.h"],
+-    visibility = [":friends"],
++    visibility = ["//visibility:public"],
+     deps = [
+         ":shape_inference_helpers",
+         "//tensorflow/compiler/xla:statusor",
 diff --git a/tensorflow/compiler/mlir/BUILD b/tensorflow/compiler/mlir/BUILD
 index e578b622bab..90b27716fbd 100644
 --- a/tensorflow/compiler/mlir/BUILD

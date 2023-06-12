@@ -2,14 +2,6 @@ diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/
 index 3989bd63..23c2ed6c 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -6237,6 +6237,7 @@ def Torch_AtenIsFloatingPointOp : Torch_Op<"aten.is_floating_point", [
-       printDefaultTorchOp(printer, *this, 1, 1);
-     }
-   }];
-+  let hasCanonicalizer = 1;
- }
- 
- def Torch_AtenOnesOp : Torch_Op<"aten.ones", [
 @@ -11995,3 +11996,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
    }];
  }

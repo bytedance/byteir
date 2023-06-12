@@ -156,15 +156,14 @@ int main(int argc, char **argv) {
     }
   }
 
-  std::unordered_map<std::string, std::vector<int>> name2shape;
-  std::vector<tensorflow::InputInfo> input_infos =
-      GetPlaceholderInputsWithSpecifiedBatchSize(input_graph_def, -1, false,
-                                                 name2shape);
   std::vector<std::string> input_names_vec;
-  for (const auto &info : input_infos) {
-    input_names_vec.push_back(info.name);
+  if (input_arrays != "") {
+    (void)tensorflow::ParseNodeNames(input_arrays, input_names_vec);
+  } else {
+    input_names_vec = GetPlaceholderNames(input_graph_def);
   }
 
+  // grappler optimization
   std::vector<std::string> output_array_vector;
   (void)tensorflow::ParseNodeNames(output_arrays, output_array_vector);
   tensorflow::GraphDef opted_graph_def = tensorflow::OptimizeGraphDef(
@@ -176,16 +175,18 @@ int main(int argc, char **argv) {
     return 0;
   }
 
+  std::unordered_map<std::string, std::vector<int>> name2shape;
   (void)ParseStrToVectorIntMaps(input_name_and_shapes, name2shape);
   std::vector<tensorflow::InputInfo> new_input_infos =
-      GetPlaceholderInputsWithSpecifiedBatchSize(
-          opted_graph_def, tfext_batch_size, force_set_batch_size, name2shape);
+      GetInputsByNameWithSpecifiedBatchSize(opted_graph_def, input_names_vec,
+                                            tfext_batch_size,
+                                            force_set_batch_size, name2shape);
   std::vector<std::string> new_input_dtypes_vec;
   std::vector<std::string> new_input_names_vec;
   std::vector<std::string> new_input_shapes_vec;
   for (const auto &info : new_input_infos) {
-    new_input_dtypes_vec.push_back(info.dtype);
     new_input_names_vec.push_back(info.name);
+    new_input_dtypes_vec.push_back(info.dtype);
     new_input_shapes_vec.push_back(info.shape_str);
   }
   input_arrays = tensorflow::join(new_input_names_vec, ",");

@@ -28,7 +28,13 @@ void RegisterIndexingOps(KernelRegistry *registry) {
   registry->Register(
       "IndexSelectOp_f32ui32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<IndexSelect<float>>(info);
+        return std::make_shared<IndexSelect<float, uint32_t>>(info);
+      });
+
+  registry->Register(
+      "IndexSelectOp_f32i64_f32",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<IndexSelect<float, int64_t>>(info);
       });
 
   registry->Register(

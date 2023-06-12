@@ -35,8 +35,11 @@ struct InputInfo {
 // this function suggests that the shape of the inputs‘s shape are known except
 // the first dimension. if batch_size == -1, then it means batch size is not
 // specified.
-std::vector<InputInfo> GetPlaceholderInputsWithSpecifiedBatchSize(
-    const GraphDef &graphdef, int64_t batch_size, bool force_set_batch_size,
-    const std::unordered_map<std::string, std::vector<int>> &name2shape);
+std::vector<InputInfo> GetInputsByNameWithSpecifiedBatchSize(
+    const GraphDef &graphdef, const std::vector<std::string> &names,
+    int64_t batch_size, bool force_set_batch_size,
+    const std::unordered_map<std::string, std::vector<int>> &name2shape = {});
+
+std::vector<std::string> GetPlaceholderNames(const GraphDef &graphdef);
 
 } // namespace tensorflow

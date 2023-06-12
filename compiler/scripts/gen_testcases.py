@@ -67,15 +67,16 @@ class E2ECollections:
     Input           = Stage("input",               "input.mlir")
     HloOpt          = Stage("hlo_opt",             "1_hlo_opt.mlir")
     LinalgTensorOpt = Stage("linalg_tensor_opt",   "2_linalg_tensor_opt.mlir")
-    BufferizeOpt    = Stage("bufferize_opt",       "3_bufferize_opt.mlir")
-    AffineOpt       = Stage("affine_opt",          "4_affine_opt.mlir")
-    SCFOpt          = Stage("alternative_scf_opt", "4_alternative_scf_opt.mlir")
-    GPUOpt          = Stage("gpu_opt",             "5_gpu_opt.mlir")
-    SetSpaceOpt     = Stage("set_space_opt",       "6_set_space_opt.mlir")
-    ByreOpt         = Stage("byre_opt",            "7_byre_opt.mlir")
-    ByreHost        = Stage("byre_host",           "8a_byre_host.mlir")
-    NVVMCodegen     = Stage("nvvm_codegen",        "8b_nvvm_codegen.mlir")
-    PTXCodegen      = Stage("ptx_codegen",         "9b_ptx_codegen.mlir")
+    ByreTensorOpt   = Stage("byre_tensor_opt",     "3_byre_tensor_opt.mlir")
+    BufferizeOpt    = Stage("bufferize_opt",       "4_bufferize_opt.mlir")
+    AffineOpt       = Stage("affine_opt",          "5_affine_opt.mlir")
+    SCFOpt          = Stage("alternative_scf_opt", "5_alternative_scf_opt.mlir")
+    GPUOpt          = Stage("gpu_opt",             "6_gpu_opt.mlir")
+    SetSpaceOpt     = Stage("set_space_opt",       "7_set_space_opt.mlir")
+    ByreOpt         = Stage("byre_opt",            "8_byre_opt.mlir")
+    ByreHost        = Stage("byre_host",           "9a_byre_host.mlir")
+    NVVMCodegen     = Stage("nvvm_codegen",        "9b_nvvm_codegen.mlir")
+    PTXCodegen      = Stage("ptx_codegen",         "10b_ptx_codegen.mlir")
     HostOutput      = Stage("host_output",         "host_output.mlir")
     DeviceOutput    = Stage("device_output",       "device_output.ptx")
 
@@ -83,9 +84,11 @@ class E2ECollections:
     HloOptPipeline = functools.partial(OptPipeline, HloOpt, [LinalgTensorOpt], [
         "-hlo-opt=\"outline-single-elemwise-op\"",
     ])
-    LinalgTensorOptPipeline = functools.partial(OptPipeline, LinalgTensorOpt, [BufferizeOpt], [
+    LinalgTensorOptPipeline = functools.partial(OptPipeline, LinalgTensorOpt, [ByreTensorOpt], [
         "-linalg-tensor-opt",
     ])
+    def ByreTensorOptPipeline(filecheck, *, entryFunc="main"):
+        return OptPipeline(E2ECollections.ByreTensorOpt, [E2ECollections.BufferizeOpt], ["-byre-tensor-opt=\"append-arg-types entry-func={}\"".format(entryFunc)], filecheck)
     BufferizeOptPipeline = functools.partial(OptPipeline, BufferizeOpt, [AffineOpt, SCFOpt], [
         "-byteir-bufferize-opt",
     ])
