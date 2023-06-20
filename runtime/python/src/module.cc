@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <pybind11/functional.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -56,6 +57,18 @@ using namespace brt;
       throw std::runtime_error(status.ToString());                             \
     }                                                                          \
   } while (0)
+
+// clang-format off
+#define FOR_EACH_BRT_DTYPE(cb)                                             \
+  cb(DTypeEnum::Float32)                                                       \
+  cb(DTypeEnum::Int32)                                                         \
+  cb(DTypeEnum::Int64)                                                         \
+  cb(DTypeEnum::UInt8)                                                         \
+  cb(DTypeEnum::UInt32)                                                        \
+  cb(DTypeEnum::Float64)                                                       \
+  cb(DTypeEnum::Float16)                                                       \
+  cb(DTypeEnum::Bool)
+// clang-format on
 
 namespace {
 class ReqeustContextWithSession {
@@ -134,9 +147,47 @@ private:
 };
 } // namespace
 
+using PyDType = DTypeEnum;
+
+PyDType npdtype_to_pydtype(py::dtype dtype) {
+#define Case(T)                                                                \
+  if (dtype.is(py::dtype::of<DTypeTraits<T>::type_t>())) {                     \
+    return T;                                                                  \
+  }
+  FOR_EACH_BRT_DTYPE(Case)
+#undef Case
+  throw std::runtime_error("unsupporetd data type");
+}
+
+py::dtype pydtype_to_npdtype(PyDType dtype) {
+  switch (dtype) {
+#define Case(T)                                                                \
+  case T:                                                                      \
+    return py::dtype::of<DTypeTraits<T>::type_t>();
+    FOR_EACH_BRT_DTYPE(Case)
+#undef Case
+  default:
+    throw std::runtime_error("unsupporetd data type");
+  }
+}
+
 PYBIND11_MODULE(MODULE_NAME, m) {
   // initialize internal logger
   static_cast<void>(PyEnv::GetInstance());
+
+  py::enum_<PyDType>(m, "DType")
+      .value("float32", PyDType::Float32)
+      .value("int32", PyDType::Int32)
+      .value("int64", PyDType::Int64)
+      .value("uint8", PyDType::UInt8)
+      .value("uint32", PyDType::UInt32)
+      .value("float16", PyDType::Float16)
+      .value("float64", PyDType::Float64)
+      .value("bool", PyDType::Bool)
+      .def(py::init(&npdtype_to_pydtype), py::arg("dtype"))
+      .def("numpy", &pydtype_to_npdtype)
+      .def("get_dtype",
+           [](Session &session, size_t idx) { return session.GetDType(idx); });
 
   py::class_<ReqeustContextWithSession,
              std::unique_ptr<ReqeustContextWithSession>>(m, "RequestContext")
@@ -229,6 +280,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
       DEF_SESSION_METH_GENERIC(get_input_arg_offsets, GetInputArgOffsets)
       DEF_SESSION_METH_GENERIC(get_output_arg_offsets, GetOutputArgOffsets)
       DEF_SESSION_METH_GENERIC(get_static_shape, GetStaticShape)
+      DEF_SESSION_METH_GENERIC(get_data_type, GetDType)
       DEF_SESSION_METH_GENERIC(get_graph_arg_alias_offset, GetGraphArgAliasOffset)
 #undef DEF_SESSION_METH_GENERIC
       // clang-format on

@@ -35,12 +35,28 @@ using namespace mlir;
 using namespace mlir::cat;
 
 namespace {
+
+bool matchPermute(mhlo::TransposeOp op, ArrayRef<int64_t> target_perm) {
+  auto perm = op.getPermutation().getValues<int64_t>();
+  if (perm.size() != target_perm.size())
+    return false;
+  for (size_t i = 0; i < target_perm.size(); ++i)
+    if (perm[i] != target_perm[i])
+      return false;
+  return true;
+}
+
 namespace cat_fusion {
 
 bool isFusibleCandidate(Operation *op) {
-  if (!isa<cat::CatOpInterface>(op))
-    return false;
-  return true;
+  if (isa<cat::CatOpInterface>(op))
+    return true;
+  if (isa<mhlo::TransposeOp>(op)) {
+    auto transOp = cast<mhlo::TransposeOp>(*op);
+    if (matchPermute(transOp, {0, 2, 1}) || matchPermute(transOp, {0, 2, 1, 3}))
+      return true;
+  }
+  return false;
 }
 
 bool isFusibleStart(Operation *op) { return true; }

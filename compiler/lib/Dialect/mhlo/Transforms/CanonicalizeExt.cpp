@@ -21,6 +21,7 @@
 #include "byteir/Utils/AttrUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "utils/convert_op_folder.h"
@@ -44,6 +45,21 @@
 
 using namespace llvm;
 using namespace mlir;
+
+// common util
+namespace {
+bool isSplatZero(SplatElementsAttr attr) {
+  if (!attr)
+    return false;
+  if (attr.getElementType().isa<FloatType>()) {
+    return attr.getSplatValue<APFloat>().isZero();
+  }
+  if (attr.getElementType().isa<IntegerType>()) {
+    return attr.getSplatValue<APInt>().isZero();
+  }
+  return false;
+}
+} // namespace
 
 LogicalResult
 mlir::mhlo::foldBroadcastInDimConstWithBinary(mhlo::BroadcastInDimOp op,
@@ -132,6 +148,322 @@ LogicalResult mlir::mhlo::foldBroadcastInDimReshape(mhlo::BroadcastInDimOp op,
   op->setOperand(0, reshapeOp.getOperand());
   op.setBroadcastDimensionsAttr(
       rewriter.getI64TensorAttr(newBroadcastDimensions));
+  return success();
+}
+
+namespace {
+
+struct LegalSlice {
+  int64_t axis;
+  int64_t start;
+  int64_t end;
+  mlir::tensor::InsertSliceOp op;
+
+  LegalSlice(int64_t a, int64_t s, int64_t e, mlir::tensor::InsertSliceOp o)
+      : axis(a), start(s), end(e), op(o) {}
+};
+
+struct InsertedSliceChain {
+  int64_t axis;
+  SmallVector<std::pair<int64_t, int64_t>> slices; // already sorted and merged
+  Value init;
+  SmallVector<mlir::tensor::InsertSliceOp> ops; // not sorted
+
+  InsertedSliceChain(int64_t a, Value v) : axis(a), init(v) {}
+
+  explicit InsertedSliceChain(LegalSlice l) : axis(l.axis) {
+    slices.emplace_back(l.start, l.end);
+    ops.push_back(l.op);
+  }
+};
+
+// return LegalSlice if an insert_slice is a legal one
+// a legal insert_slice is defined as follow "now"
+// 1) unit stride
+// 2) static
+// 3) slice is only along 1D (aka the rest dims are fullsize)
+std::optional<LegalSlice>
+getLegalSingleAxisFromInsertSlice(mlir::tensor::InsertSliceOp op) {
+  // check unit stride
+  if (!op.hasUnitStride()) {
+    return std::nullopt;
+  }
+
+  // check static offset and size
+  auto shape = op.getDest().getType().getShape();
+  auto rank = shape.size();
+  for (size_t i = 0; i < rank; ++i) {
+    if (op.isDynamicOffset(i) || op.isDynamicSize(i)) {
+      return std::nullopt;
+    }
+  }
+
+  // check all zero except 1 offset not zero
+  int64_t nonZeroOffsetDim = K_INITIAL;
+  for (const auto &en : llvm::enumerate(op.getStaticOffsets())) {
+    if (en.value() == 0)
+      continue;
+
+    if (nonZeroOffsetDim != K_INITIAL) {
+      return std::nullopt;
+    } else {
+      nonZeroOffsetDim = en.index();
+    }
+  }
+
+  // check all sizes except 1 full size of shape
+  int64_t nonFullSizeDim = K_INITIAL;
+  for (const auto &en : llvm::enumerate(op.getStaticSizes())) {
+    auto fullSize = shape[en.index()];
+
+    if (en.value() == fullSize)
+      continue;
+
+    if (nonFullSizeDim != K_INITIAL) {
+      return std::nullopt;
+    } else {
+      nonFullSizeDim = en.index();
+    }
+  }
+
+  // if one of nonZeroOffsetDim & nonFullSizeDim are not K_INITIAL return it
+  // if neigher K_INITIAL, they have to be the same. Otherwise, return failure.
+  // Other else are failure
+
+  if (nonFullSizeDim == K_INITIAL) {
+    return std::nullopt;
+  } else if (nonZeroOffsetDim == K_INITIAL) {
+    // offset start from 0
+    return LegalSlice(nonFullSizeDim, 0, op.getStaticSize(nonFullSizeDim), op);
+  } else if (nonZeroOffsetDim == nonFullSizeDim) {
+    auto axis = nonZeroOffsetDim;
+    auto start = op.getStaticOffset(axis);
+    auto end = start + op.getStaticSize(axis);
+    return LegalSlice(axis, start, end, op);
+  }
+
+  return std::nullopt;
+}
+
+// merge two InsertedSliceChain.
+// particularly, lhs is used to set `init`.
+// aka rhs is appended into lhs.
+// if initCheck is true, it will check whether lhs.init == rhs.init
+// otherwise, no check.
+std::optional<InsertedSliceChain>
+mergeInsertedSliceChain(const InsertedSliceChain &lhs,
+                        const InsertedSliceChain &rhs, bool initCheck) {
+  // check compatibility
+  // check axis
+  if (lhs.axis != rhs.axis) {
+    LLVM_DEBUG(llvm::dbgs() << "Fail merging at mismatched axes btw "
+                            << lhs.axis << " and " << rhs.axis << "\n");
+    return std::nullopt;
+  }
+
+  // check init when initCheck is on
+  if (initCheck && lhs.init != rhs.init) {
+    LLVM_DEBUG(llvm::dbgs() << "Fail merging at mismatched inits " << lhs.init
+                            << " and " << rhs.init << "\n");
+    return std::nullopt;
+  }
+
+  // initialize InsertedSliceChain from lhs
+  InsertedSliceChain retChain(lhs.axis, lhs.init);
+  auto lhsIt = lhs.slices.begin();
+  auto rhsIt = rhs.slices.begin();
+
+  auto pushOrMergeSlices = [&](const std::pair<int64_t, int64_t> &cand) {
+    if (retChain.slices.empty() || retChain.slices.back().second < cand.first) {
+      retChain.slices.push_back(cand);
+    } else {
+      // aka ret.slices.back().second == cand.first
+      // then merge together
+      retChain.slices.back().second = cand.second;
+    }
+  };
+
+  while (lhsIt != lhs.slices.end() && rhsIt != rhs.slices.end()) {
+    if (lhsIt->first == rhsIt->first) {
+      LLVM_DEBUG(llvm::dbgs() << "Fail merging bcc the same begin of slice "
+                              << lhsIt->first << "\n");
+      return std::nullopt;
+    }
+    if (lhsIt->first < rhsIt->first) {
+      if (lhsIt->second > rhsIt->first) {
+        // failure bcc overlap
+        LLVM_DEBUG(llvm::dbgs()
+                   << "Fail merging bcc overlap btw ( " << lhsIt->first << ", "
+                   << lhsIt->second << ") and (" << rhsIt->first << ", "
+                   << rhsIt->second << ")\n");
+        return std::nullopt;
+      }
+      // aka lhsIt->second <= rhsIt->first
+      // push lhsIt
+      pushOrMergeSlices(*lhsIt);
+      lhsIt++;
+    } else {
+      // lhsIt->first > rhsIt->first
+      if (rhsIt->second > lhsIt->first) {
+        // failure bcc overlap
+        LLVM_DEBUG(llvm::dbgs()
+                   << "Fail merging bcc overlap btw ( " << lhsIt->first << ", "
+                   << lhsIt->second << ") and (" << rhsIt->first << ", "
+                   << rhsIt->second << ")\n");
+        return std::nullopt;
+      }
+      pushOrMergeSlices(*rhsIt);
+      rhsIt++;
+    }
+  };
+
+  while (lhsIt != lhs.slices.end()) {
+    pushOrMergeSlices(*lhsIt);
+    lhsIt++;
+  }
+
+  while (rhsIt != rhs.slices.end()) {
+    pushOrMergeSlices(*rhsIt);
+    rhsIt++;
+  }
+
+  retChain.ops.insert(retChain.ops.end(), lhs.ops.begin(), lhs.ops.end());
+  retChain.ops.insert(retChain.ops.end(), rhs.ops.begin(), rhs.ops.end());
+
+  return retChain;
+}
+
+// build InsertedSliceChain from an  insert_slice op
+std::optional<InsertedSliceChain>
+buildInsertedSliceChain(mlir::tensor::InsertSliceOp op) {
+  auto legalSlice = getLegalSingleAxisFromInsertSlice(op);
+  if (!legalSlice) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "Fail building a chain bcc not a legal insert_slice\n");
+    return std::nullopt;
+  }
+
+  // current
+  InsertedSliceChain curChain(*legalSlice);
+
+  if (auto dstInsertSlice =
+          op.getDest().getDefiningOp<mlir::tensor::InsertSliceOp>()) {
+    // if it is an insert_slice of insert_slice
+    // perform recursion
+    auto destChain = buildInsertedSliceChain(dstInsertSlice);
+    if (!destChain) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Fail building a chain bcc failing Dest chain\n");
+      return std::nullopt;
+    }
+
+    // use initCheck == false, because curChain not setting init
+    return mergeInsertedSliceChain(*destChain, curChain,
+                                   /*initCheck*/ false);
+  }
+
+  // set init if it is a single insert_slice
+  curChain.init = op.getDest();
+  return curChain;
+}
+
+} // namespace
+
+LogicalResult
+mlir::mhlo::simplifyAddInsertSlicesToInsertSlices(mhlo::AddOp op,
+                                                  PatternRewriter &rewriter) {
+  auto lhsInsertSlice =
+      op.getLhs().getDefiningOp<mlir::tensor::InsertSliceOp>();
+  auto rhsInsertSlice =
+      op.getRhs().getDefiningOp<mlir::tensor::InsertSliceOp>();
+
+  if (!lhsInsertSlice || !rhsInsertSlice) {
+    return failure();
+  }
+
+  auto lhsChain = buildInsertedSliceChain(lhsInsertSlice);
+  auto rhsChain = buildInsertedSliceChain(rhsInsertSlice);
+
+  if (!lhsChain || !rhsChain) {
+    return failure();
+  }
+
+  // for AddOp, we only allow init as zero
+  auto checkZero = [&](Value init) {
+    auto cstOp = init.getDefiningOp<mhlo::ConstantOp>();
+    if (!cstOp)
+      return false;
+
+    DenseElementsAttr valAttr = cstOp.getValue().dyn_cast<DenseElementsAttr>();
+    if (!valAttr)
+      return false;
+
+    SplatElementsAttr splatAttr = valAttr.dyn_cast_or_null<SplatElementsAttr>();
+    if (!splatAttr)
+      return false;
+
+    return isSplatZero(splatAttr);
+  };
+
+  if (!checkZero(lhsChain->init) || !checkZero(rhsChain->init)) {
+    return failure();
+  }
+
+  // check two sides are mergable
+  if (!mergeInsertedSliceChain(*lhsChain, *rhsChain, /*initCheck*/ false)) {
+    return failure();
+  }
+
+  // clone rhs' ops and replace the very first cloned Dest by lhs' output
+  Value newResult = lhsInsertSlice.getResult();
+  for (auto chainOp : rhsChain->ops) {
+    IRMapping irm;
+    irm.map(chainOp.getDest(), newResult);
+    auto clonedOp = rewriter.clone(*chainOp.getOperation(), irm);
+    newResult = clonedOp->getResult(0);
+  }
+
+  // replace the add op by the merged insert_slice's result
+  rewriter.replaceOp(op, newResult);
+  return success();
+}
+
+LogicalResult
+mlir::mhlo::simplifyFullInsertSlicesToConcat(mlir::tensor::InsertSliceOp op,
+                                             PatternRewriter &rewriter) {
+  auto chain = buildInsertedSliceChain(op);
+  if (!chain)
+    return failure();
+
+  if (chain->slices.size() != 1) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "Fail simplify bcc not merging into a single slice\n");
+    return failure();
+  }
+
+  // Note the insert_slice is static, since InsertedSlice exists.
+  auto shape = op.getType().getShape();
+  assert(chain->axis >= 0 && chain->axis < static_cast<int64_t>(shape.size()));
+
+  if (chain->slices[0].first != 0 ||
+      chain->slices[0].second != shape[chain->axis]) {
+    LLVM_DEBUG(llvm::dbgs() << "Fail simplify bcc not full insert_slices\n");
+    return failure();
+  }
+
+  // sort chain's ops since it was not sorted
+  // sort them based on the offsets along the axis
+  llvm::sort(chain->ops, [&](tensor::InsertSliceOp lhs,
+                             tensor::InsertSliceOp rhs) {
+    return lhs.getStaticOffset(chain->axis) < rhs.getStaticOffset(chain->axis);
+  });
+
+  SmallVector<Value> vals;
+  for (auto chainOp : chain->ops) {
+    vals.push_back(chainOp.getSource());
+  }
+  rewriter.replaceOpWithNewOp<mhlo::ConcatenateOp>(op, op.getType(), vals,
+                                                   chain->axis);
   return success();
 }
 
@@ -326,20 +658,6 @@ mlir::mhlo::foldConcatWithContinuousSlices(mhlo::ConcatenateOp op,
   }
   return failure();
 }
-
-namespace {
-bool isSplatZero(SplatElementsAttr attr) {
-  if (!attr)
-    return false;
-  if (attr.getElementType().isa<FloatType>()) {
-    return attr.getSplatValue<APFloat>().isZero();
-  }
-  if (attr.getElementType().isa<IntegerType>()) {
-    return attr.getSplatValue<APInt>().isZero();
-  }
-  return false;
-}
-} // namespace
 
 LogicalResult mlir::mhlo::foldMultiplyZero(mhlo::MulOp op,
                                            PatternRewriter &rewriter) {
@@ -1055,22 +1373,32 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::canonicalizeBroadcastInDimConst);
   patterns.add(mlir::mhlo::simplifyByteIRAddNToAdd);
   patterns.add(mlir::mhlo::canonicalizeConcatWithBroadcast);
+  patterns.add(mlir::mhlo::simplifyAddInsertSlicesToInsertSlices);
+
   if (blindFold) {
     patterns.add(mlir::mhlo::foldLargeConcatenate);
   }
 }
 
+void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
+    RewritePatternSet &patterns, MLIRContext *context, bool blindFold) {
+  populateCanonicalizeExtPatterns(patterns, context, blindFold);
+  // Only add simplifyFullInsertSlicesToConcat here since it is for
+  // mhlo-level only
+  // We don't want generally apply after lowering mhlo to tensor dialect
+  patterns.add(mlir::mhlo::simplifyFullInsertSlicesToConcat);
+}
+
 void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
                                                 MLIRContext *ctx,
                                                 bool blindFold) {
-
   // add dialect level getCanonicalizationPatterns
   auto mhloDailect = ctx->getOrLoadDialect<mhlo::MhloDialect>();
   if (mhloDailect) {
     mhloDailect->getCanonicalizationPatterns(patterns);
   }
 
-  // add op level  getCanonicalizationPatterns
+  // add op level getCanonicalizationPatterns
   for (RegisteredOperationName op : ctx->getRegisteredOperations()) {
     // only add mhlo-related
     if (isa<MhloDialect>(op.getDialect())) {
@@ -1080,4 +1408,24 @@ void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
 
   // add our extension
   populateCanonicalizeExtPatterns(patterns, ctx, blindFold);
+}
+
+void mlir::mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
+    RewritePatternSet &patterns, MLIRContext *ctx, bool blindFold) {
+  // add dialect level getCanonicalizationPatterns
+  auto mhloDailect = ctx->getOrLoadDialect<mhlo::MhloDialect>();
+  if (mhloDailect) {
+    mhloDailect->getCanonicalizationPatterns(patterns);
+  }
+
+  // add op level getCanonicalizationPatterns
+  for (RegisteredOperationName op : ctx->getRegisteredOperations()) {
+    // only add mhlo-related
+    if (isa<MhloDialect>(op.getDialect())) {
+      op.getCanonicalizationPatterns(patterns, ctx);
+    }
+  }
+
+  // add our extension for the dialect (mhlo) only
+  populateCanonicalizeExtPatternsForTheDialectOnly(patterns, ctx, blindFold);
 }

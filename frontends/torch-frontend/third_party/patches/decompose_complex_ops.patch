@@ -1,0 +1,18 @@
+diff --git a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
+index b0dce438..f3c85dbc 100644
+--- a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
++++ b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
+@@ -219,7 +219,12 @@ public:
+       return rewriter.notifyMatchFailure(
+           op, "Expected a constant boolean value for keepDim");
+ 
+-    Value input = op.getSelf();    
++    Value input = op.getSelf();
++    auto inputTy = input.getType();
++    if (!inputTy.isa<Torch::ValueTensorType>() ||
++        !inputTy.cast<Torch::ValueTensorType>().hasSizes()) {
++      return failure();
++    }
+     // For every dimension included in `dim` of the op, iterated over in
+     // reverse order, we create a call to aten.max.dim.
+     std::sort(dims.begin(), dims.end());

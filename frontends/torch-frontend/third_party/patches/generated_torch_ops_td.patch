@@ -1,8 +1,8 @@
 diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-index 3989bd63..23c2ed6c 100644
+index 3d7bee6d..89bf77b1 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -11995,3 +11996,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
+@@ -12066,3 +12089,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
    }];
  }
  

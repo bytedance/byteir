@@ -5,6 +5,7 @@ add_mlir_public_c_api_library(ByteIRCAPI
 
   LINK_LIBS PUBLIC
   MLIRCatDialect
+  MLIRCclTransformOps
 
   # conversion passes
   ByteIRGPUToNVVM

@@ -56,6 +56,7 @@ def FuseExtOp : Op<Transform_Dialect, "structured.fuse_ext",
 
   let arguments =
     (ins PDL_Operation:$target,
+         Optional<PDL_Operation>:$stop,
          DefaultValuedAttr<I64ArrayAttr, "{}">:$tile_sizes,
          DefaultValuedAttr<I64ArrayAttr, "{}">:$tile_interchange);
   let results = (outs PDL_Operation:$transformed,

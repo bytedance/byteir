@@ -1,5 +1,6 @@
 // RUN: byteir-opt %s -memory-planning --canonicalize --cse | FileCheck %s
 // RUN: byteir-opt %s -memory-planning="alignment=64" --canonicalize --cse | byteir-stat --alloc-cnt | FileCheck %s --check-prefix CHECK-STAT
+// RUN: byteir-opt %s -memory-planning="alloca" --canonicalize --cse | FileCheck %s --check-prefix CHECK-ALLOCA
 
 func.func @test_basic_reuse(%arg0 : memref<256xf32>, %arg1 : memref<256xf32>) -> memref<256xf32> attributes {__placeholder__byre.entry_point} {
   %0 = memref.alloc() : memref<256xf32>
@@ -17,7 +18,7 @@ func.func @test_basic_reuse(%arg0 : memref<256xf32>, %arg1 : memref<256xf32>) ->
 
 // CHECK-LABEL: func.func @test_basic_reuse
 //  CHECK-NEXT:   arith.constant
-//  CHECK-NEXT:   memref.alloc
+//  CHECK-NEXT:   arith.constant
 //  CHECK-NEXT:   memref.alloc
 //  CHECK-NEXT:   memref.view
 //  CHECK-NEXT:   memref.view
@@ -46,7 +47,7 @@ func.func @test_align_to_64(%arg0 : memref<4xf32>, %arg1 : memref<4xf32>, %arg2 
 
 // CHECK-LABEL: func.func @test_align_to_64
 //  CHECK-NEXT:   arith.constant
-//  CHECK-NEXT:   memref.alloc
+//  CHECK-NEXT:   arith.constant
 //  CHECK-NEXT:   memref.alloc
 //  CHECK-NEXT:   memref.view
 //  CHECK-NEXT:   memref.view
@@ -143,3 +144,29 @@ func.func @test_reuse_multi_memory_space(%arg0 : memref<512xf32, 1>, %arg1 : mem
 }
 // CHECK-STAT-LABEL: test_reuse_multi_memory_space
 //  CHECK-STAT:   total_static_allocated_memory = 4096
+
+func.func @test_basic_reuse_alloca(%arg0 : memref<256xf32>, %arg1 : memref<256xf32>) -> memref<256xf32> attributes {__placeholder__byre.entry_point} {
+  %0 = memref.alloca() : memref<256xf32>
+  %1 = memref.alloca() : memref<256xf32>
+  %2 = memref.alloca() : memref<256xf32>
+  %3 = memref.alloca() : memref<256xf32>
+  %4 = memref.alloca() : memref<256xf32>
+  "lmhlo.add"(%arg0, %arg1, %0) : (memref<256xf32>, memref<256xf32>,  memref<256xf32>) -> ()
+  "lmhlo.add"(%arg1, %0, %1) : (memref<256xf32>, memref<256xf32>,  memref<256xf32>) -> ()
+  "lmhlo.add"(%arg1, %1, %2) : (memref<256xf32>, memref<256xf32>,  memref<256xf32>) -> ()
+  "lmhlo.add"(%arg1, %2, %3) : (memref<256xf32>, memref<256xf32>,  memref<256xf32>) -> ()
+  "lmhlo.add"(%arg1, %3, %4) : (memref<256xf32>, memref<256xf32>,  memref<256xf32>) -> ()
+  return %4 : memref<256xf32>
+}
+// CHECK-ALLOCA-LABEL: func.func @test_basic_reuse_alloca
+//  CHECK-ALLOCA-NEXT:   arith.constant
+//  CHECK-ALLOCA-NEXT:   arith.constant
+//  CHECK-ALLOCA-NEXT:   memref.alloca
+//  CHECK-ALLOCA-NEXT:   memref.view
+//  CHECK-ALLOCA-NEXT:   memref.view
+//  CHECK-ALLOCA-NEXT:   lmhlo.add
+//  CHECK-ALLOCA-NEXT:   lmhlo.add
+//  CHECK-ALLOCA-NEXT:   lmhlo.add
+//  CHECK-ALLOCA-NEXT:   lmhlo.add
+//  CHECK-ALLOCA-NEXT:   lmhlo.add
+//  CHECK-ALLOCA-NEXT:   return

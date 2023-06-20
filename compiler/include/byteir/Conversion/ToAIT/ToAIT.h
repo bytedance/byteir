@@ -29,8 +29,6 @@ class ModuleOp;
 
 constexpr StringRef getByteIRAITOpKernelName() { return "AITOp"; }
 
-constexpr StringRef getByteIRAITOpLibAttrName() { return "ait_lib_file"; }
-
 std::unique_ptr<OperationPass<func::FuncOp>>
 createGenAITConfigPass(ArrayRef<std::string> funcNames = {""},
                        ArrayRef<std::string> aitLibPaths = {""});

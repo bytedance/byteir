@@ -67,6 +67,13 @@ def RewriteSoftmax : Pat<
   (NativeCodeCall<"createSoftmax($_builder, $_loc, $0, $1)"> $input, $axis_attr)>;
 
 //===----------------------------------------------------------------------===//
+// LogSoftmax Pattern
+//===----------------------------------------------------------------------===//
+def RewriteLogSoftmax : Pat<
+  (ONNXLogSoftmaxOp $input, $axis_attr),
+  (ONNXLogOp(NativeCodeCall<"createSoftmax($_builder, $_loc, $0, $1)"> $input, $axis_attr))>;
+
+//===----------------------------------------------------------------------===//
 // InstanceNorm Pattern
 //===----------------------------------------------------------------------===//
 def RewriteInstanceNorm : Pat<

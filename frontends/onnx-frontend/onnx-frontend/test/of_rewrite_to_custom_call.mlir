@@ -1,4 +1,4 @@
-// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,instance_norm,resize" -of-canonicalize -constprop-onnx -of-canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,resize" -of-canonicalize -constprop-onnx -of-canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_arg_max(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   %0 = "onnx.ArgMax"(%arg0) {axis = 3 : si64, keepdims = 0 : si64, onnx_node_name = "ArgMax_0"} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
@@ -203,6 +203,15 @@ func.func @test_softmax(%9: tensor<1x10xf32>) -> tensor<1x10xf32> {
 // CHECK-LABEL:  func.func @test_softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x10xf32>) -> tensor<1x10xf32> {
 // CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
+}
+
+func.func @test_log_softmax(%9: tensor<1x10xf32>) -> tensor<1x10xf32> {
+  %10 = "onnx.LogSoftmax"(%9) {axis = 1 : si64} : (tensor<1x10xf32>) -> tensor<1x10xf32>
+  return %10 : tensor<1x10xf32>
+// CHECK-LABEL:  func.func @test_log_softmax
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x10xf32>) -> tensor<1x10xf32> {
+// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = "onnx.Log"(%0) : (tensor<1x10xf32>) -> tensor<1x10xf32>
 }
 
 func.func @test_instance_norm(%116: tensor<1x32x3xf32>, %67: tensor<32xf32>, %68: tensor<32xf32>) -> tensor<1x32x3xf32> {

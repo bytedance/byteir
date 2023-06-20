@@ -57,11 +57,11 @@ func.func @test_softmax(%arg0: tensor<2x1001xf32>) -> tensor<2x1001xf32> {
 // CHECK-NEXT: cat.softmax
 
 func.func @test_gemm(%arg0: tensor<2x2048xf32>, %arg1: tensor<2048x1001xf32>) -> tensor<2x1001xf32> {
-    %0 = "cat.gemm"(%arg0, %arg1) {layout = "rrr"} : (tensor<2x2048xf32>, tensor<2048x1001xf32>) -> tensor<2x1001xf32>
+    %0 = "cat.gemm_rrr"(%arg0, %arg1) : (tensor<2x2048xf32>, tensor<2048x1001xf32>) -> tensor<2x1001xf32>
     return %0 : tensor<2x1001xf32>
 }
 // CHECK: func.func
-// CHECK-NEXT: cat.gemm
+// CHECK-NEXT: cat.gemm_rrr
 
 func.func @test_reduce(%arg0: tensor<2x7x7x2048xf32>) -> tensor<2x2048xf32> {
     %0 = "cat.reduce"(%arg0) {dims = dense<[1, 2]> : tensor<2xi64>, reduce_type = "sum"} : (tensor<2x7x7x2048xf32>) -> tensor<2x2048xf32>

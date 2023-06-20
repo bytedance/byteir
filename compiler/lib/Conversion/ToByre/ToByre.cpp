@@ -422,7 +422,11 @@ public:
                                                        dst, 0);
           } else {
             // copy src to dst
-            rewriter.create<byre::CopyOp>(loc, src, dst);
+            if (src.getType() != dst.getType()) {
+              src = rewriter.create<byre::AliasOp>(op->getLoc(), dst.getType(),
+                                                   src, 0);
+            }
+            rewriter.create<memref::CopyOp>(loc, src, dst);
           }
         }
       }

@@ -108,21 +108,27 @@ namespace {
 /// Apply a tiling transformation to all payload ops and store both the
 /// tiled operation as well as the created tile loops.
 static LogicalResult applyTilingToAll(
-    Operation *transformOp, ArrayRef<Operation *> payloadOps, unsigned numLoops,
+    Operation *transformOp, ArrayRef<Operation *> targetPayloadOps,
+    ArrayRef<Operation *> stopPayloadOps, unsigned numLoops,
     transform::TransformResults &transformResults,
     function_ref<FailureOr<scf::SCFTileAndFuseResult>(TilingInterface)>
         applyFn) {
+  if (stopPayloadOps.size() > 0 && targetPayloadOps.size() > 1)
+    return transformOp->emitError(
+        "only support one target payload operation when using stop operands");
+
   SmallVector<Operation *> tiledLinalgOps;
   SmallVector<SmallVector<Operation *>> loopOps(numLoops);
   for (unsigned int i = 0; i < numLoops; ++i)
-    loopOps[i].reserve(payloadOps.size());
+    loopOps[i].reserve(targetPayloadOps.size());
 
   auto ctx = transformOp->getContext();
   RewritePatternSet patterns(ctx);
   ForOp::getCanonicalizationPatterns(patterns, ctx);
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
-  for (Operation *target : payloadOps) {
+  for (Operation *target : targetPayloadOps) {
+
     auto funcOp = target->getParentOfType<func::FuncOp>();
 
     // simplify tensor::DimOp
@@ -188,6 +194,8 @@ static LogicalResult applyTilingToAll(
             if (!domInfo.properlyDominates(def, use.getOwner())) {
               return false;
             }
+            if (def->isProperAncestor(use.getOwner()))
+              return false;
           }
         }
         return true;
@@ -206,7 +214,7 @@ static LogicalResult applyTilingToAll(
            "failed");
     for (unsigned int i = 0; i < numLoops; ++i)
       loopOps[i].push_back(tiledResults->loops[i]);
-  } // for (Operation *target : payloadOps)
+  } // for (Operation *target : targetPayloadOps)
 
   transformResults.set(transformOp->getOpResult(0), tiledLinalgOps);
   for (unsigned int i = 0; i < numLoops; ++i)
@@ -220,10 +228,17 @@ static LogicalResult applyTilingToAll(
 /// the number of results.
 static ParseResult parseTileLikeOp(OpAsmParser &parser, OperationState &result,
                                    StringRef sizesAttrName) {
-  OpAsmParser::UnresolvedOperand targetOperand;
+  OpAsmParser::UnresolvedOperand targetOperand, stopOperand;
+  bool hasStopOperand = false;
   SMLoc opLoc = parser.getCurrentLocation();
-  if (parser.parseOperand(targetOperand) ||
-      parser.parseOptionalAttrDict(result.attributes))
+  if (parser.parseOperand(targetOperand))
+    return failure();
+  if (!parser.parseOptionalComma()) {
+    hasStopOperand = true;
+    if (parser.parseOperand(stopOperand))
+      return failure();
+  }
+  if (parser.parseOptionalAttrDict(result.attributes))
     return failure();
   Attribute sizesAttr = result.attributes.get(sizesAttrName);
   if (!sizesAttr)
@@ -239,6 +254,9 @@ static ParseResult parseTileLikeOp(OpAsmParser &parser, OperationState &result,
       llvm::count(extractFromI64ArrayAttr(sizesArrayAttr), 0);
   result.addTypes(SmallVector<Type>(numExpectedLoops + 1, pdlOpType));
   if (parser.resolveOperand(targetOperand, pdlOpType, result.operands))
+    return failure();
+  if (hasStopOperand &&
+      parser.resolveOperand(stopOperand, pdlOpType, result.operands))
     return failure();
   return success();
 }
@@ -257,14 +275,21 @@ transform::FuseExtOp::apply(mlir::transform::TransformResults &transformResults,
   tilingOptions = tilingOptions.setTileSizes(tileSizes);
   scf::SCFTileAndFuseOptions tileAndFuseOptions;
   tileAndFuseOptions.tilingOptions = tilingOptions;
+  ArrayRef<Operation *> targetPayloadOps = state.getPayloadOps(getTarget());
+  Value stop = getStop();
+  ArrayRef<Operation *> stopPayloadOps;
+  if (stop) {
+    stopPayloadOps = state.getPayloadOps(stop);
+  }
+
   LogicalResult result = applyTilingToAll(
-      getOperation(), state.getPayloadOps(getTarget()),
+      getOperation(), targetPayloadOps, stopPayloadOps,
       tileSizes.size() - llvm::count(tileSizes, 0), transformResults,
       [&](TilingInterface tilingInterfaceOp)
           -> FailureOr<scf::SCFTileAndFuseResult> {
         SimpleRewriter rewriter(getContext());
         return tileConsumerAndFuseProducerUsingSCFForOpExt(
-            rewriter, tilingInterfaceOp, tileAndFuseOptions,
+            rewriter, tilingInterfaceOp, stopPayloadOps, tileAndFuseOptions,
             /*simplifyLoopIter*/ true);
       });
 
@@ -282,6 +307,10 @@ ParseResult transform::FuseExtOp::parse(OpAsmParser &parser,
 void transform::FuseExtOp::print(OpAsmPrinter &p) {
   p << ' ';
   p << getTarget();
+  Value stop = getStop();
+  if (stop) {
+    p << ", " << stop;
+  }
   p.printOptionalAttrDict((*this)->getAttrs());
 }
 

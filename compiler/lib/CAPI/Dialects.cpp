@@ -18,6 +18,23 @@
 #include "byteir-c/Dialects.h"
 
 #include "byteir/Dialect/Cat/IR/CatDialect.h"
+#include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
+#include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
+#include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
+#include "byteir/Dialect/Transform/IR/TransformExtOps.h"
+#include "byteir/Utils/OpInterfaceUtils.h"
 #include "mlir/CAPI/Registration.h"
 
+using namespace mlir;
+
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Cat, cat, mlir::cat::CatDialect)
+
+void byteirRegisterDialectExtensions(MlirContext context) {
+  DialectRegistry registry;
+  registeOpInterfaceExtensions(registry);
+  ccl::registerTransformDialectExtension(registry);
+  linalg_ext::registerTransformDialectExtension(registry);
+  transform_ext::registerTransformDialectExtension(registry);
+  tensor_ext::registerTilingInterfaceExternalModels(registry);
+  unwrap(context)->appendDialectRegistry(registry);
+}

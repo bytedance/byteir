@@ -29,9 +29,11 @@ using namespace mlir;
 
 namespace {
 
+// convert DotOp to DotGeneralOp by target layout
 LogicalResult tryRewrite(mhlo::DotOp op, OpBuilder builder,
                          bool transposeConstantOnly, std::string targetLayout) {
   assert(targetLayout.size() == 3);
+  // dot is a rrr matmul
   std::string defaultLayout = "rrr";
   if (targetLayout == defaultLayout)
     return failure();

@@ -22,7 +22,6 @@ CUSTOM_CALL_OPS = [
     "dequantize",
     "erf",
     "gelu",
-    "instance_norm",
     "l2_norm",
     "quantize",
     "resize",

@@ -44,6 +44,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 
@@ -808,18 +809,47 @@ static void getProducerAndConsumerTensorSlices(
   }
 }
 
+struct SimpleOperationInfo : public llvm::DenseMapInfo<Operation *> {
+  static unsigned getHashValue(const Operation *opC) {
+    unsigned value = OperationEquivalence::computeHash(
+        const_cast<Operation *>(opC),
+        /*hashOperands=*/OperationEquivalence::directHashValue,
+        /*hashResults=*/OperationEquivalence::ignoreHashValue,
+        OperationEquivalence::IgnoreLocations);
+    return value;
+  }
+  static bool isEqual(const Operation *lhsC, const Operation *rhsC) {
+    // DBGS() << "enter isEqual\n";
+    auto *lhs = const_cast<Operation *>(lhsC);
+    auto *rhs = const_cast<Operation *>(rhsC);
+    if (lhs == rhs)
+      return true;
+    if (lhs == getTombstoneKey() || lhs == getEmptyKey() ||
+        rhs == getTombstoneKey() || rhs == getEmptyKey())
+      return false;
+    return OperationEquivalence::isEquivalentTo(
+        const_cast<Operation *>(lhsC), const_cast<Operation *>(rhsC),
+        OperationEquivalence::IgnoreLocations);
+  }
+};
+
 } // namespace
 
 FailureOr<scf::SCFTileAndFuseResult>
 mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     RewriterBase &rewriter, TilingInterface consumer,
-    const scf::SCFTileAndFuseOptions &options, bool simplifyLoopIter) {
+    ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
+    bool simplifyLoopIter) {
   // This transformation is only valid for ops that return values (i.e. not
   // valid to use with operations that have memref operands).
   if (!consumer->getNumResults()) {
     return rewriter.notifyMatchFailure(
         consumer, "invalid pattern for op with no results");
   }
+
+  DenseSet<Operation *> stopSet(stopOps.begin(), stopOps.end());
+  if (stopSet.contains(consumer.getOperation()))
+    return success();
 
   // 1. First tile the consumer.
   scf::SCFTileAndFuseResult tileAndFuseResult;
@@ -864,28 +894,41 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   //    operations. If the producers of the source of the `tensor.extract_slice`
   //    can be tiled such that the tiled value is generated in-place, that
   //    effectively tiles + fuses the operations.
-  auto addCandidateSlices = [](Operation *fusedOp,
-                               std::deque<tensor::ExtractSliceOp> &candidates) {
-    for (auto &opOperand : fusedOp->getOpOperands()) {
-      if (failed(isValidFusibleProducerOp(opOperand, fusedOp))) {
-        continue;
-      }
+  auto addCandidateSlices =
+      [&](Operation *fusedOp, std::deque<tensor::ExtractSliceOp> &candidates) {
+        for (auto &opOperand : fusedOp->getOpOperands()) {
+          if (failed(isValidFusibleProducerOp(opOperand, fusedOp))) {
+            continue;
+          }
 
-      if (auto sliceOp =
-              opOperand.get().getDefiningOp<tensor::ExtractSliceOp>()) {
-        candidates.push_back(sliceOp);
-      }
-    }
-  };
+          if (auto sliceOp =
+                  opOperand.get().getDefiningOp<tensor::ExtractSliceOp>()) {
+            Operation *srcOp = sliceOp.getSource().getDefiningOp();
+            if (!stopSet.contains(srcOp))
+              candidates.push_back(sliceOp);
+          }
+        }
+      };
 
+  // uniqueOps use extract_slice op as the key and
+  DenseMap<Operation *, Operation *, SimpleOperationInfo> uniqueOps;
   std::deque<tensor::ExtractSliceOp> candidates;
   addCandidateSlices(tileAndFuseResult.tiledAndFusedOps.back(), candidates);
   OpBuilder::InsertionGuard g(rewriter);
+  SmallVector<Operation *> toEraseOps;
   while (!candidates.empty()) {
     // 2a. Traverse the slices in BFS fashion.
     tensor::ExtractSliceOp candidateSliceOp = candidates.front();
     LLVM_DEBUG(llvm::dbgs() << "deque candidate " << candidateSliceOp << "\n");
     candidates.pop_front();
+    auto oldIter = uniqueOps.find(candidateSliceOp);
+    Operation *oldTiled =
+        oldIter != uniqueOps.end() ? oldIter->second : nullptr;
+    if (oldTiled != nullptr) {
+      candidateSliceOp->replaceUsesWithIf(
+          oldTiled, [&](OpOperand &use) { return use.getOwner() != oldTiled; });
+      continue;
+    }
 
     // 2b. Get the producer of the source (potentially walking through
     // `iter_args` of nested `scf.for`)
@@ -930,8 +973,9 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
       continue;
     }
 
-    rewriter.replaceOp(candidateSliceOp, fusedProducerValue);
-    DBGS() << "fusedProducerValue: " << fusedProducerValue << "\n";
+    rewriter.replaceAllUsesWith(candidateSliceOp, fusedProducerValue);
+    toEraseOps.push_back(candidateSliceOp);
+    LLVM_DEBUG(DBGS() << "fusedProducerValue: " << fusedProducerValue << "\n");
 
     // Don't need the following steps if `fusibleProducer.getOwner()` doesn't
     // implement DestinationStyleOpInterface
@@ -1037,9 +1081,20 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
       }
     }
 
+    uniqueOps[candidateSliceOp] = fusedProducerOp;
+
   } // while (!candidates.empty())
 
-  // 3. clean up loops args and unused loop carries
+  // 3. here we can erase those tensor.extract_slice ops and also we need to
+  // make the sure the ops are topologically sorted
+  for (Operation *op : toEraseOps)
+    op->erase();
+  for (auto &loop : tileAndFuseResult.loops) {
+    if (!sortTopologically(loop.getBody()))
+      return rewriter.notifyMatchFailure(consumer, "topological sort fails.");
+  }
+
+  // 4. clean up loops args and unused loop carries
 
   // collect all iterArgToOperand for quick access later
   // iterArgToOperand as mapping from Loop's RegionIterArgs to IterOperands

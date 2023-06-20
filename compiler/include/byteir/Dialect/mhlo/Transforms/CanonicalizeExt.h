@@ -24,7 +24,12 @@
 namespace mlir {
 class MLIRContext;
 
+namespace tensor {
+class InsertSliceOp;
+}
+
 namespace mhlo {
+class AddOp;
 class ClampOp;
 class ConvertOp;
 class CompareOp;
@@ -73,8 +78,6 @@ LogicalResult foldMultiplyZero(mhlo::MulOp op, PatternRewriter &rewriter);
 template <typename Op, template <typename> typename Func>
 LogicalResult foldLargeBinaryOp(Op op, PatternRewriter &rewriter);
 
-LogicalResult foldLargeClampOp(mhlo::ClampOp op, PatternRewriter &rewriter);
-
 // mhlo.dynamic_conv => mhlo.convolution canonicalization
 LogicalResult simplifyDynamicConvToConv(mhlo::DynamicConvOp op,
                                         PatternRewriter &rewriter);
@@ -95,6 +98,23 @@ LogicalResult foldLargeCompareOp(mhlo::CompareOp op, PatternRewriter &rewriter);
 LogicalResult canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
                                               PatternRewriter &rewriter);
 
+// simplify an addOp of two chain of insert_slice's
+// into a chain of insert_slice's
+// when those insert_slice's are
+// 1) not overlaped
+// 2) along a single axis
+// 3) sharing a zero Dest
+LogicalResult simplifyAddInsertSlicesToInsertSlices(mhlo::AddOp op,
+                                                    PatternRewriter &rewriter);
+
+// simplify a chain of insert_slice's into a concat
+// when those insert_slice's are
+// 1) not overlaped
+// 2) along a single axis
+// 3) covering the entire Dest
+LogicalResult simplifyFullInsertSlicesToConcat(mlir::tensor::InsertSliceOp op,
+                                               PatternRewriter &rewriter);
+
 // simplify byteir.addn => mhlo.add
 LogicalResult simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
                                       PatternRewriter &rewriter);
@@ -110,10 +130,19 @@ void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                      MLIRContext *context,
                                      bool blindFold = false);
 
+// populate canonicalizeExt patterns
+void populateCanonicalizeExtPatternsForTheDialectOnly(
+    RewritePatternSet &patterns, MLIRContext *context, bool blindFold = false);
+
 // Get all canonicalizationExt on top of canoncialization
 void getCanonicalizationExtPatterns(RewritePatternSet &results,
                                     MLIRContext *context,
                                     bool blindFold = false);
+
+//
+void getCanonicalizationExtPatternsForTheDialectOnly(RewritePatternSet &results,
+                                                     MLIRContext *context,
+                                                     bool blindFold = false);
 
 } // namespace mhlo
 } // namespace mlir

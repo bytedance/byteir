@@ -34,6 +34,18 @@ using namespace llvm;
 
 namespace {
 
+bool isSplatZero(ElementsAttr attr) {
+  if (auto splatAttr = attr.dyn_cast<SplatElementsAttr>()) {
+    if (attr.getElementType().isa<FloatType>()) {
+      return attr.getSplatValue<APFloat>().isZero();
+    }
+    if (attr.getElementType().isa<IntegerType>()) {
+      return attr.getSplatValue<APInt>().isZero();
+    }
+  }
+  return false;
+}
+
 class NodesFinder {
 public:
   NodesFinder(Operation *des, const SmallDenseSet<Operation *> &src)
@@ -100,6 +112,12 @@ struct ConvertDynamicStitchToStatic
   using OpRewritePattern<TF::DynamicStitchOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(TF::DynamicStitchOp stitchOp,
                                 PatternRewriter &rewriter) const override {
+    const int64_t numData = stitchOp.getData().size();
+    auto indices = stitchOp.getIndices();
+    if (numData <= 0 || indices.empty()) {
+      return failure();
+    }
+
     MLIRContext *context = stitchOp->getContext();
     SmallVector<Operation *> stitDataOps;
     for (Value value : stitchOp.getData()) {
@@ -114,46 +132,104 @@ struct ConvertDynamicStitchToStatic
     for (Operation *op : opsBetween) {
       op->setLoc(UnknownLoc::get(context));
     }
+
+    if (!llvm::all_of(parOps, [](Operation *op) { return op != nullptr; })) {
+      return failure();
+    }
+    // ensure indices simply from ranges
+    if (!llvm::all_of(indices, [](Value index) {
+          return llvm::dyn_cast_or_null<TF::DynamicPartitionOp>(
+                     index.getDefiningOp()) &&
+                 llvm::dyn_cast_or_null<TF::RangeOp>(
+                     (index.getDefiningOp()->getOperand(0)).getDefiningOp());
+        })) {
+      return failure();
+    }
+
+    // ensure all DynamicPartitions (both for data and indices)
+    // share same partitions
+    SmallVector<Value> listOfPartitions;
+    std::transform(parOps.begin(), parOps.end(),
+                   std::back_inserter(listOfPartitions),
+                   [](Operation *op) { return op->getOperand(1); });
+    std::transform(
+        indices.begin(), indices.end(), std::back_inserter(listOfPartitions),
+        [](Value index) { return index.getDefiningOp()->getOperand(1); });
+    if (std::adjacent_find(listOfPartitions.begin(), listOfPartitions.end(),
+                           std::not_equal_to<>()) != listOfPartitions.end()) {
+      return failure();
+    }
+
+    // ensure all indices from same DynamicPartition
+    SmallVector<Operation *> listOfIndexDynamicPartitions;
+    std::transform(indices.begin(), indices.end(),
+                   std::back_inserter(listOfIndexDynamicPartitions),
+                   [](Value index) { return index.getDefiningOp(); });
+    if (std::adjacent_find(listOfIndexDynamicPartitions.begin(),
+                           listOfIndexDynamicPartitions.end(),
+                           std::not_equal_to<>()) !=
+        listOfIndexDynamicPartitions.end()) {
+      return failure();
+    }
+
+    // remove all DynamaicPartitions, at the cost of more
+    // computation
     for (Operation *parOp : parOps) {
-      rewriter.setInsertionPoint(parOp);
-      if (!parOp || 2 != parOp->getNumOperands()) {
-        return failure();
-      }
-      Value data = parOp->getOperand(0);
-      Value partitions = parOp->getOperand(1);
       int64_t numPar =
           llvm::dyn_cast<TF::DynamicPartitionOp>(parOp).getNumPartitions();
-      auto zeroValueAttr =
-          DenseIntElementsAttr::get(data.getType().cast<RankedTensorType>(), 0);
-      auto zeroConst =
-          rewriter.create<TF::ConstOp>(UnknownLoc::get(context), zeroValueAttr);
-      SmallVector<Value> newParRes;
-      for (int64_t idx = 0; idx < numPar; ++idx) {
-        auto idxAttr = DenseIntElementsAttr::get(
-            partitions.getType().cast<RankedTensorType>(),
-            static_cast<int32_t>(idx));
-
-        auto currentIdxOp =
-            rewriter.create<TF::ConstOp>(UnknownLoc::get(context), idxAttr);
-        auto equalOp = rewriter.create<TF::EqualOp>(
-            UnknownLoc::get(context), partitions, currentIdxOp,
-            BoolAttr::get(context, true));
-        auto curSelectOp = rewriter.create<TF::SelectOp>(
-            UnknownLoc::get(context), data.getType(), equalOp, data, zeroConst);
-        newParRes.push_back(curSelectOp.getOutput());
-      }
+      SmallVector<Value> newParRes(numPar, parOp->getOperand(0));
       rewriter.replaceOp(parOp, newParRes);
     }
 
-    if (parOps.size() == 1) {
-      rewriter.setInsertionPoint(stitchOp);
-      Location stitLoc = stitchOp->getLoc();
-      auto res = rewriter.create<TF::AddNOp>(
-          stitLoc, stitchOp->getResult(0).getType(), stitchOp.getData());
-      rewriter.replaceOp(stitchOp, res.getSum());
-    } else {
-      rewriter.replaceOp(stitchOp, stitchOp.getData()[1]);
+    Value stitchPartitions = *(listOfPartitions.rbegin());
+
+    // replace DynamicStitch with tree-like equal/select ops
+    // partitions    idx
+    //      |        |
+    //      \        /
+    //       \      /
+    //        \    /
+    //         EqualOp   Data0  Data1
+    //            |        |      |
+    //             \       |      /
+    //              \      |     /
+    //               \     |    /
+    //                  SelectOp
+    Value rhs = stitchOp.getData()[0];
+    for (int64_t idx = 1; idx < numData; idx++) {
+      auto idxAttr = DenseIntElementsAttr::get(
+          stitchPartitions.getType().cast<RankedTensorType>(),
+          static_cast<int32_t>(idx));
+      auto currentIdxOp =
+          rewriter.create<TF::ConstOp>(UnknownLoc::get(context), idxAttr);
+      if (stitchOp.getData()[idx].getType() != rhs.getType()) {
+        bool splat_zero_case_matched = false;
+        if (auto fillOp = dyn_cast_or_null<TF::FillOp>(rhs.getDefiningOp())) {
+          if (auto constOp = dyn_cast_or_null<TF::ConstOp>(
+                  fillOp.getValue().getDefiningOp())) {
+            if (isSplatZero(constOp.getValue())) {
+              auto zerosLikeOp = rewriter.create<TF::ZerosLikeOp>(
+                  UnknownLoc::get(context), stitchOp.getData()[idx].getType(),
+                  stitchOp.getData()[idx]);
+              rewriter.replaceOp(fillOp, zerosLikeOp.getResult());
+              rhs = zerosLikeOp.getResult();
+              splat_zero_case_matched = true;
+            }
+          }
+        }
+        if (!splat_zero_case_matched) {
+          return failure();
+        }
+      }
+      auto equalOp = rewriter.create<TF::EqualOp>(
+          UnknownLoc::get(context), stitchPartitions, currentIdxOp,
+          BoolAttr::get(context, true));
+      auto curSelectOp = rewriter.create<TF::SelectOp>(
+          UnknownLoc::get(context), stitchOp.getData()[idx].getType(), equalOp,
+          stitchOp.getData()[idx], rhs);
+      rhs = curSelectOp.getResult();
     }
+    rewriter.replaceOp(stitchOp, rhs);
     return success();
   }
 };
