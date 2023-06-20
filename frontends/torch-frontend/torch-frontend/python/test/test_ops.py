@@ -6,6 +6,38 @@ from torch_frontend import convert_to_mhlo_via_torch_mlir
 
 # ==============================================================================
 
+class AtenCudaModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x.cuda() + x.cuda()
+
+def test_aten_cuda():
+    module = AtenCudaModule()
+    inputs = [tu.randn(3, 4)]
+    module = torch.jit.script(module)
+    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
+
+# ==============================================================================
+
+class AtenBatchNormFp16Module(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x, y):
+        return torch.ops.aten.batch_norm(x, y, y, y, y, training=False, momentum=0.1, eps=0.01, cudnn_enabled=False)
+
+def test_aten_batch_norm_fp16():
+    module = AtenBatchNormFp16Module()
+    inputs = [tu.randn(1, 16, 28, 28).half().cuda(), tu.randn(16).cuda()]
+    module = torch.jit.script(module)
+    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
+
+# ==============================================================================
+
 class CatModule(torch.nn.Module):
     def __init__(self):
         super().__init__()

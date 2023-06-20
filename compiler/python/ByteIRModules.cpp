@@ -44,6 +44,9 @@ PYBIND11_MODULE(_byteir, m) {
       },
       py::arg("context"), py::arg("load") = true);
 
+  m.def("register_dialect_extensions", &byteirRegisterDialectExtensions,
+        py::arg("context"));
+
   m.def(
       "register_translation_dialects",
       [](MlirContext context) { byteirRegisterTranslationDialects(context); },

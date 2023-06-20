@@ -39,7 +39,6 @@ private:
   size_t numInputs, numOutputs;
   std::vector<AITemplateParamShape> inputShapes, outputShapes;
   std::vector<AITemplateDtype> inputDtypes, outputDtypes;
-  std::vector<int64_t *> aitOutputShapesOut;
 
   decltype(&AITemplateModelContainerCreate) createFunc_ = nullptr;
   decltype(&AITemplateModelContainerDelete) deleteFunc_ = nullptr;

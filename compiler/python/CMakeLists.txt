@@ -20,6 +20,9 @@ declare_mlir_python_sources(ByteIRPythonSources.Common
     utils.py
     compile.py
     tools/compiler.py
+
+    # involve byteir init hooks
+    _mlir_libs/_site_initialize_0.py
 )
 
 declare_mlir_python_sources(ByteIRPythonSources.Dialects

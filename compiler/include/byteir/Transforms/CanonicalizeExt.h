@@ -54,6 +54,16 @@ createCanonicalizeExtPass(const GreedyRewriteConfig &config,
                           ArrayRef<std::string> disabledPatterns = std::nullopt,
                           ArrayRef<std::string> enabledPatterns = std::nullopt);
 
+/// Creates an instance of the GraphCanonicalize pass, configured with default
+/// settings (which can be overridden by pass options on the command line).
+std::unique_ptr<Pass> createGraphCanonicalizePass(bool blindFold = false);
+
+/// Creates an instance of the GraphCanonicalize pass with the specified config.
+std::unique_ptr<Pass> createGraphCanonicalizePass(
+    const GreedyRewriteConfig &config, bool blindFold = false,
+    ArrayRef<std::string> disabledPatterns = std::nullopt,
+    ArrayRef<std::string> enabledPatterns = std::nullopt);
+
 } // namespace mlir
 
 #endif // BYTEIR_TRANSFORMS_CANONICALIZEEXT_H

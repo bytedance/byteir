@@ -7,8 +7,7 @@ from mhlo_tools.ir_executor.helper import (
 )
 import numpy as np
 
-from byteir.dialects.cat import register_cat_dialect, IRProcessor
-from byteir.dialects.mhlo import register_mhlo_dialect
+from byteir.dialects.cat import IRProcessor
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--before-pass-file", type=str, required=True, help="path to mhlo ir")
@@ -43,9 +42,6 @@ if __name__ == "__main__":
     # run ait
     from byteir import ir
     with ir.Context() as context:
-        register_cat_dialect(context)
-        register_mhlo_dialect(context)
-        context.allow_unregistered_dialects = True
 
         if args.after_pass_file == None:
             processor = IRProcessor("model", "./workspace")

@@ -16,8 +16,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 from byteir import ir
-from byteir.dialects.cat import register_cat_dialect, IRProcessor
-from byteir.dialects.mhlo import register_mhlo_dialect
+from byteir.dialects.cat import IRProcessor
 
 from pathlib import Path
 import os
@@ -27,19 +26,16 @@ if args.dump_ir:
 
 if __name__ == "__main__":
     with ir.Context() as context:
-        register_cat_dialect(context)
-        register_mhlo_dialect(context)
-        context.allow_unregistered_dialects = True
 
         processor = IRProcessor(args.name, args.workdir)
         processor.load_from_file(args.mhlo_path)
-        processor.preprocess_pass(args.dump_ir)
         
         if args.bypass_byteir:
             processor.cat_opt_pass(anchor_only=True, dump_ir=args.dump_ir)
             if not args.dump_ir:
                 processor.benchmark(backend=args.backend, num_trials=100)
         else:
+            processor.preprocess_pass(args.dump_ir)
             # convert mhlo to cat
             processor.cat_opt_pass(anchor_only=False, dump_ir=args.dump_ir)
             # clustering

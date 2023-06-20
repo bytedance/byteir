@@ -21,7 +21,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "../PassDetail.h"
 #include "./Utils.h"
@@ -35,8 +35,8 @@ namespace mlir {
 namespace {
 
 mlir::StringAttr
-GetLayoutFromDotGeneralDimNums(mlir::mhlo::DotDimensionNumbersAttr dims,
-                               Builder *builder) {
+GetLayoutFrom3DDotGeneralDimNums(mlir::mhlo::DotDimensionNumbersAttr dims,
+                                 Builder *builder) {
   auto ldims = dims.getLhsContractingDimensions();
   auto rdims = dims.getRhsContractingDimensions();
   assert(ldims.size() == 1 && rdims.size() == 1);
@@ -65,19 +65,13 @@ public:
   void runOnOperation() override {
     MLIRContext &ctx = getContext();
     RewritePatternSet patterns(&ctx);
-    ConversionTarget target(ctx);
+    // ConversionTarget target(ctx);
     auto funcOp = getOperation();
-
-    target.addLegalOp<cat::BMMPermuteOp>();
-    target.addLegalOp<cat::GemmBiasOp>();
-    target.addLegalOp<cat::Conv2dBiasOp>();
-    target.addLegalOp<cat::Conv2dBiasReluOp>();
-    target.addLegalOp<cat::Conv2dBiasAddReluOp>();
 
     populateFuseMhloToCatPattern(patterns);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
-    if (failed(applyPartialConversion(funcOp, target, frozenPatterns))) {
+    if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
       signalPassFailure();
     }
   }
@@ -85,12 +79,12 @@ public:
 
 } // namespace
 
-void populateFuseMhloToCatPattern(RewritePatternSet &patterns) {
-  populateWithGenerated(patterns);
-}
-
 std::unique_ptr<OperationPass<func::FuncOp>> createFuseMhloToCatPass() {
   return std::make_unique<FuseMhloToCatPass>();
+}
+
+void populateFuseMhloToCatPattern(RewritePatternSet &patterns) {
+  populateWithGenerated(patterns);
 }
 
 } // namespace mlir

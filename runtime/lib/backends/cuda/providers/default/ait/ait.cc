@@ -65,9 +65,9 @@ AITOpKernel::AITOpKernel(const OpKernelInfo &info) : OpKernel(info) {
               "AITemplateModelContainerGetOutputDtype");
 
   // initialize ait model
-  createFunc_(&aitModelHdl, /*num_runtimes*/ 1, nullptr);
-  getNumInputsFunc_(aitModelHdl, &numInputs);
-  getNumOutputsFunc_(aitModelHdl, &numOutputs);
+  AIT_ERROR_CHECK(createFunc_(&aitModelHdl, /*num_runtimes*/ 1, nullptr));
+  AIT_ERROR_CHECK(getNumInputsFunc_(aitModelHdl, &numInputs));
+  AIT_ERROR_CHECK(getNumOutputsFunc_(aitModelHdl, &numOutputs));
 
   // initialize metadata
   inputShapes.reserve(numInputs);
@@ -77,26 +77,23 @@ AITOpKernel::AITOpKernel(const OpKernelInfo &info) : OpKernel(info) {
   for (size_t i = 0; i < numInputs; ++i) {
     AITemplateParamShape shape;
     AITemplateDtype dtype;
-    getMaximumInputShapeFunc_(aitModelHdl, i, &shape);
-    getInputDtypeFunc_(aitModelHdl, i, &dtype);
+    AIT_ERROR_CHECK(getMaximumInputShapeFunc_(aitModelHdl, i, &shape));
+    AIT_ERROR_CHECK(getInputDtypeFunc_(aitModelHdl, i, &dtype));
     inputShapes.push_back(shape);
     inputDtypes.push_back(dtype);
   }
-  aitOutputShapesOut.reserve(numOutputs);
   for (size_t i = 0; i < numOutputs; ++i) {
     AITemplateParamShape shape;
     AITemplateDtype dtype;
-    getMaximumOutputShapeFunc_(aitModelHdl, i, &shape);
-    getOutputDtypeFunc_(aitModelHdl, i, &dtype);
+    AIT_ERROR_CHECK(getMaximumOutputShapeFunc_(aitModelHdl, i, &shape));
+    AIT_ERROR_CHECK(getOutputDtypeFunc_(aitModelHdl, i, &dtype));
     outputShapes.push_back(shape);
     outputDtypes.push_back(dtype);
-    auto shape_ptr = std::make_unique<int64_t[]>(shape.size);
-    aitOutputShapesOut.push_back(shape_ptr.get());
   }
 }
 
 AITOpKernel::~AITOpKernel() {
-  deleteFunc_(aitModelHdl);
+  AIT_ERROR_CHECK(deleteFunc_(aitModelHdl));
   dlclose(aitLibHdl);
 }
 
@@ -120,10 +117,10 @@ common::Status AITOpKernel::RunImpl(const ExecutionContext &ctx) {
     outputs[i] = AITData(dataPtr, outputShapes[i], outputDtypes[i]);
   }
 
-  runFunc_(
+  AIT_ERROR_CHECK(runFunc_(
       aitModelHdl, inputs, numInputs, outputs, numOutputs,
       reinterpret_cast<AITemplateStreamHandle>(work_queue->GetComputeStream()),
-      false /* sync */, false /* graph_mode*/, aitOutputShapesOut.data());
+      false /* sync */, false /* graph_mode*/, nullptr /* output shape */));
   return Status::OK();
 }
 

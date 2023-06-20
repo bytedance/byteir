@@ -28,13 +28,15 @@
 
 using namespace mlir;
 
+#define AITOP_FILE_NAME_ATTR "ait_lib_file"
+
 namespace {
 static void AttachAITConfigToAttr(func::FuncOp func,
                                   const std::string &aitLibPath) {
   addGenericFuncAttrs(func, getByteIRAITOpKernelName().str());
 
   mlir::OpBuilder opBuilder(func);
-  func->setAttr(getByteIRAITOpLibAttrName(),
+  func->setAttr(byre::getByrePrefix() + AITOP_FILE_NAME_ATTR,
                 opBuilder.getStringAttr(aitLibPath));
 }
 

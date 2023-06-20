@@ -175,6 +175,7 @@ LogicalResult foldMultiplyZero(Op op, PatternRewriter &rewriter) {
 }
 } // namespace
 
+// FIXME: this pattern should move to arith dialect
 void arith::foldMultiplyZeroPatterns(RewritePatternSet &patterns) {
   patterns.add(foldMultiplyZero<arith::MulFOp>);
   patterns.add(foldMultiplyZero<arith::MulIOp>);
@@ -281,5 +282,101 @@ mlir::createCanonicalizeExtPass(const GreedyRewriteConfig &config,
                                 ArrayRef<std::string> disabledPatterns,
                                 ArrayRef<std::string> enabledPatterns) {
   return std::make_unique<CanonicalizeExtPass>(
+      config, blindFold, disabledPatterns, enabledPatterns);
+}
+
+namespace {
+
+struct GraphCanonicalizePass
+    : public GraphCanonicalizeBase<GraphCanonicalizePass> {
+  GraphCanonicalizePass() = default;
+  GraphCanonicalizePass(const GreedyRewriteConfig &config, bool blindFold,
+                        ArrayRef<std::string> disabledPatterns,
+                        ArrayRef<std::string> enabledPatterns) {
+    this->topDownProcessingEnabled = config.useTopDownTraversal;
+    this->enableRegionSimplification = config.enableRegionSimplification;
+    this->maxIterations = config.maxIterations;
+    this->blindFold = blindFold;
+    this->disabledPatterns = disabledPatterns;
+    this->enabledPatterns = enabledPatterns;
+  }
+
+  LogicalResult initialize(MLIRContext *context) override {
+    RewritePatternSet owningPatterns(context);
+
+    // add default canonicalizer
+    for (auto *dialect : context->getLoadedDialects())
+      dialect->getCanonicalizationPatterns(owningPatterns);
+    for (RegisteredOperationName op : context->getRegisteredOperations())
+      op.getCanonicalizationPatterns(owningPatterns, context);
+
+    mhlo::getCanonicalizationExtPatternsForTheDialectOnly(owningPatterns,
+                                                          context, blindFold);
+    // put func canonicalizerExt too
+    func::populateCanonicalizeExtPatterns(owningPatterns);
+    // put shape canonicalizerExt too
+    shape::populateCanonicalizeExtPatterns(owningPatterns);
+    // put tensor fold empty too
+    tensor::populateFoldTensorEmptyPatterns(owningPatterns);
+    tensor::populateCanonicalizeExtPatterns(owningPatterns, context, blindFold);
+    vector::populateCanonicalizeExtPatterns(owningPatterns);
+
+    // tentatively put fold multiply zero
+    populateFoldMultiplyZeroPatterns(owningPatterns);
+
+    patterns = FrozenRewritePatternSet(std::move(owningPatterns),
+                                       disabledPatterns, enabledPatterns);
+    return success();
+  }
+
+  void runOnOperation() override {
+    Operation *operation = getOperation();
+
+    // TODO: The ideal way of adding mhlo.custom_call dce logic is to
+    // integrating it into applyPatternsAndFoldGreedily.
+    // Side effect is only an attribute of CustomCallOp, not an interface. It
+    // should be specially handled.
+    std::vector<Operation *> allNestedOps;
+    // Note using preOrder since we use reverse iterator later.
+    operation->walk<WalkOrder::PreOrder>(
+        [&](Operation *op) { allNestedOps.push_back(op); });
+    for (auto it = allNestedOps.rbegin(); it != allNestedOps.rend(); ++it) {
+      Operation *op = *it;
+      if (!op->use_empty())
+        continue;
+      if (wouldOpBeTriviallyDead(op)) {
+        op->erase();
+      } else {
+        auto customOp = llvm::dyn_cast<mhlo::CustomCallOp>(op);
+        if (customOp && !customOp.getHasSideEffect()) {
+          op->erase();
+        }
+      }
+    }
+
+    GreedyRewriteConfig config;
+    config.useTopDownTraversal = topDownProcessingEnabled;
+    config.enableRegionSimplification = enableRegionSimplification;
+    config.maxIterations = maxIterations;
+    (void)applyPatternsAndFoldGreedily(operation, patterns, config);
+  }
+
+  FrozenRewritePatternSet patterns;
+};
+
+} // namespace
+
+std::unique_ptr<Pass> mlir::createGraphCanonicalizePass(bool blindFold) {
+  GreedyRewriteConfig config;
+  return std::make_unique<GraphCanonicalizePass>(config, blindFold,
+                                                 std::nullopt, std::nullopt);
+}
+
+std::unique_ptr<Pass>
+mlir::createGraphCanonicalizePass(const GreedyRewriteConfig &config,
+                                  bool blindFold,
+                                  ArrayRef<std::string> disabledPatterns,
+                                  ArrayRef<std::string> enabledPatterns) {
+  return std::make_unique<GraphCanonicalizePass>(
       config, blindFold, disabledPatterns, enabledPatterns);
 }

@@ -54,7 +54,8 @@ namespace scf {
 FailureOr<scf::SCFTileAndFuseResult>
 tileConsumerAndFuseProducerUsingSCFForOpExt(
     RewriterBase &rewriter, TilingInterface consumer,
-    const scf::SCFTileAndFuseOptions &options, bool simplifyLoopIter = true);
+    ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
+    bool simplifyLoopIter = true);
 
 void labelTileLoopType(Operation *op, ArrayRef<scf::ForOp> loops);
 

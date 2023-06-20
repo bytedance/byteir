@@ -167,33 +167,43 @@ def _dispatch_cat_reduce(op, inputs):
     else:
         raise RuntimeError("Currently we do not support this kind of reduce")
 
-@AITemplateIRTranslator.register("cat.gemm")
+@AITemplateIRTranslator.register("cat.gemm_rrr")
 def _dispatch_cat_gemm(op, inputs):
-    layout = mlir_attr_to_pyobj(op.attributes["layout"])
-    if layout == "rrr":
-        ait_op = ait_ops.gemm_rrr()
-        Y = ait_op(inputs[0], inputs[1])
-        return [Y]
-    elif layout == "rcr":
-        ait_op = ait_ops.gemm_rcr()
-        Y = ait_op(inputs[0], inputs[1])
-        return [Y]
-    else:
-        raise RuntimeError("unsupported gemm layout")
+    ait_op = ait_ops.gemm_rrr()
+    Y = ait_op(inputs[0], inputs[1])
+    return [Y]
 
-@AITemplateIRTranslator.register("cat.gemm_bias")
+@AITemplateIRTranslator.register("cat.gemm_rcr")
+def _dispatch_cat_gemm(op, inputs):
+    ait_op = ait_ops.gemm_rcr()
+    Y = ait_op(inputs[0], inputs[1])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.gemm_rrr_bias")
 def _dispatch_cat_gemm_bias(op, inputs):
+    ait_op = ait_ops.gemm_rrr_bias()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.gemm_rcr_bias")
+def _dispatch_cat_gemm_bias(op, inputs):
+    ait_op = ait_ops.gemm_rcr_bias()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_add")
+def _dispatch_cat_bmm_add(op, inputs):
     layout = mlir_attr_to_pyobj(op.attributes["layout"])
     if layout == "rrr":
-        ait_op = ait_ops.gemm_rrr_bias()
+        ait_op = ait_ops.bmm_rrr_add()
         Y = ait_op(inputs[0], inputs[1], inputs[2])
         return [Y]
     elif layout == "rcr":
-        ait_op = ait_ops.gemm_rcr_bias()
+        ait_op = ait_ops.bmm_rcr_add()
         Y = ait_op(inputs[0], inputs[1], inputs[2])
         return [Y]
     else:
-        raise RuntimeError("unsupported gemm_bias layout")
+        raise RuntimeError("unsupported bmm_add layout")
 
 @AITemplateIRTranslator.register("cat.bmm_permute")
 def _dispatch_cat_bmm_permute(op, inputs):

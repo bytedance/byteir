@@ -138,6 +138,33 @@ def GenericDeviceConfig : Pass<"generic-device-config", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// GraphCanonicalizeExt
+//===----------------------------------------------------------------------===//
+
+def GraphCanonicalize : Pass<"graph-canonicalize"> {
+  let summary = "Perform a graph-level canonicalize pass.";
+  let description = [{
+    This pass performs canonicalization for graph-level only. 
+    Graph-level includes mhlo, shape and function only.
+  }];
+  let constructor = "mlir::createGraphCanonicalizePass()";
+  let options = [
+    Option<"topDownProcessingEnabled", "top-down", "bool",
+           /*default=*/"true",
+           "Seed the worklist in general top-down order">,
+    Option<"enableRegionSimplification", "region-simplify", "bool",
+           /*default=*/"true",
+           "Seed the worklist in general top-down order">,
+    Option<"maxIterations", "max-iterations", "int64_t",
+           /*default=*/"10",
+           "Seed the worklist in general top-down order">,
+    Option<"blindFold", "blind-fold", "bool",
+           /*default=*/"false",
+           "Fold constants even if it may finally bloat the compilation result">
+  ] # RewritePassUtils.options;
+}
+
+//===----------------------------------------------------------------------===//
 // FuncTag
 //===----------------------------------------------------------------------===//
 
@@ -211,7 +238,9 @@ def MemoryPlanning: Pass<"memory-planning", "mlir::func::FuncOp"> {
   ];
   let options = [
     Option<"alignment", "alignment", "size_t", /*default=*/"1",
-           "Memory address alignment, must be power of 2">
+           "Memory address alignment, must be power of 2">,
+    Option<"alloca", "alloca", "bool", /*default=*/"false",
+           "Whether to planning on memref.alloca ops">,
   ];
 }
 

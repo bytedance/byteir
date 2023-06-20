@@ -101,8 +101,17 @@ def Cat_BatchMatmulOp : Cat_Op<"batch_matmul", [Cat_CatOpInterface, Pure]> {
   let hasVerifier = 1;
 }
 
+def Cat_BMMAddOp : Cat_Op<"bmm_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add,
+                       StrAttr : $layout);
+  let results = (outs AnyTensor : $output);
+}
+
 def Cat_BMMPermuteOp : Cat_Op<"bmm_permute", [Cat_CatOpInterface, Pure]> {
-  let summary = "flash attention operator";
+  let summary = "batch matmul + permute operator";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
                        I64Attr : $shape,
@@ -152,24 +161,43 @@ def Cat_ReduceOp : Cat_Op<"reduce", [Cat_CatOpInterface, Pure]> {
   let results = (outs AnyTensor : $output);
 }
 
-def Cat_GemmBiasOp : Cat_Op<"gemm_bias", [Cat_CatOpInterface, Pure]> {
-  let summary = "gemm+bias operator";
+def Cat_GemmRRRBiasOp : Cat_Op<"gemm_rrr_bias", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rrr_bias operator";
   let description =
       "bias must be a length (n) vector, given that lhsxrhs is (m, n)";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
-                       AnyTensor : $bias,
-                       StrAttr : $layout);
+                       AnyTensor : $bias);
   let results = (outs AnyTensor : $output);
 
   let hasVerifier = 1;
 }
 
-def Cat_GemmOp : Cat_Op<"gemm", [Cat_CatOpInterface, Pure]> {
-  let summary = "gemm operator";
+def Cat_GemmRCRBiasOp : Cat_Op<"gemm_rcr_bias", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rcr_bias operator";
+  let description =
+      "bias must be a length (n) vector, given that lhsxrhs is (m, n)";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
-                       StrAttr : $layout);
+                       AnyTensor : $bias);
+  let results = (outs AnyTensor : $output);
+
+  let hasVerifier = 1;
+}
+
+def Cat_GemmRRROp : Cat_Op<"gemm_rrr", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rrr operator";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+
+  let hasVerifier = 1;
+}
+
+def Cat_GemmRCROp : Cat_Op<"gemm_rcr", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rcr operator";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
   let results = (outs AnyTensor : $output);
 
   let hasVerifier = 1;

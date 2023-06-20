@@ -383,9 +383,9 @@ struct ConvertGemm : public OpConversionPattern<mhlo::DotOp> {
                   ConversionPatternRewriter &rewriter) const override {
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
-    auto layout = rewriter.getStringAttr("rrr");
-    auto newOp = rewriter.create<cat::GemmOp>(op.getLoc(), op.getType(), lhs,
-                                              rhs, layout);
+    // auto layout = rewriter.getStringAttr("rrr");
+    auto newOp =
+        rewriter.create<cat::GemmRRROp>(op.getLoc(), op.getType(), lhs, rhs);
     rewriter.replaceOp(op, newOp.getResult());
     return success();
   }

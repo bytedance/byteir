@@ -40,7 +40,8 @@ namespace {
     func(layer_norm, LayerNorm)    \
     func(quantize, Quantize)       \
     func(resize, Resize)           \
-    func(softmax, Softmax)
+    func(softmax, Softmax)         \
+    func(log_softmax, LogSoftmax)
 
 #define GEN_FUNCNAME(call_target_name, func_name)                            \
   constexpr const char *get##func_name##NameWithPrefix() {                   \
@@ -526,8 +527,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteDequantize>(context));
     validOpSet[getSoftmaxName()].emplace_back(
         std::make_unique<RewriteSoftmax>(context));
-    validOpSet[getInstanceNormName()].emplace_back(
-        std::make_unique<RewriteInstanceNorm>(context));
+    validOpSet[getSoftmaxName()].emplace_back(
+        std::make_unique<RewriteLogSoftmax>(context));
     validOpSet[getResizeName()].emplace_back(
         std::make_unique<RewriteResize>(context));
     validOpSet[getGeLUName()].emplace_back(
@@ -538,6 +539,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteLayerNorm>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNormWithoutLastAdd>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteInstanceNorm>(context));
     validOpSet[getArgMaxName()].emplace_back(
         std::make_unique<RewriteMathArg<ONNXArgMaxOp, ONNXArgMaxOpAdaptor>>(
             context, 1));

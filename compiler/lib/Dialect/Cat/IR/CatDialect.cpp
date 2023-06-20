@@ -93,16 +93,26 @@ LogicalResult BMMPermuteOp::verify() {
 // GemmOp
 //===----------------------------------------------------------------------===/
 
-LogicalResult GemmOp::verify() {
+LogicalResult GemmRRROp::verify() {
   return VerifyGemmLayout(this->getLhs(), this->getRhs(), this->getOutput(),
-                          this->getLayout());
+                          "rrr");
+}
+
+LogicalResult GemmRCROp::verify() {
+  return VerifyGemmLayout(this->getLhs(), this->getRhs(), this->getOutput(),
+                          "rcr");
 }
 
 //===----------------------------------------------------------------------===//
 // GemmBiasOp
 //===----------------------------------------------------------------------===/
 
-LogicalResult GemmBiasOp::verify() {
+LogicalResult GemmRRRBiasOp::verify() {
   return VerifyGemmLayout(this->getLhs(), this->getRhs(), this->getOutput(),
-                          this->getLayout());
+                          "rrr");
+}
+
+LogicalResult GemmRCRBiasOp::verify() {
+  return VerifyGemmLayout(this->getLhs(), this->getRhs(), this->getOutput(),
+                          "rcr");
 }

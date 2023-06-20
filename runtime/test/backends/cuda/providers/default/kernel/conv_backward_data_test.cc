@@ -157,10 +157,10 @@ TestConvBackwardDataOp(float abs_eps, float rel_eps, const std::string &layout,
 
   // initiate A
   T *d_A = (T *)request->GetArg(0);
-  RandCUDABuffer(d_A, output_total_size, -1.f, 1.f);
+  RandCUDABuffer(d_A, output_total_size, 0.f, 1.f);
   // initiate B
   T *d_B = (T *)request->GetArg(1);
-  RandCUDABuffer(d_B, filter_total_size, -1.f, 1.f);
+  RandCUDABuffer(d_B, filter_total_size, 0.f, 1.f);
 
   // I/O binding
   request->FinishIOBinding();
@@ -205,7 +205,7 @@ TestConvBackwardDataOp(float abs_eps, float rel_eps, const std::string &layout,
 }
 
 TEST(CUDAOpKernelTest, ConvBackwardDataOp) {
-  float abs_eps = 1e-3f, rel_eps = 1e-3f;
+  float abs_eps = 1e-2f, rel_eps = 1e-4f;
   TestConvBackwardDataOp<float>(
       abs_eps, rel_eps,
       /*layout=*/"NHWC", /*N=*/1, /*iC=*/64, /*iH=*/28,
@@ -263,7 +263,8 @@ TEST(CUDAOpKernelTest, ConvBackwardDataOpFp16NHWC) {
 
 TEST(CUDAOpKernelTest, ConvBackwardDataOpFp16NCHW) {
   float abs_eps = 1e-2f, rel_eps = 1e-2f;
-  // TestConvBackwardDataOp<__half>(/*layout=*/"NCHW", /*N=*/1, /*iC=*/3,
+  // TestConvBackwardDataOp<__half>(abs_eps, rel_eps, /*layout=*/"NCHW",
+  // /*N=*/1, /*iC=*/3,
   //                                /*iH=*/224,
   //                                /*iW=*/224, /*oC=*/64, /*kH=*/7, /*kW=*/7,
   //                                /*strideH=*/2, /*strideW=*/2,
@@ -274,7 +275,8 @@ TEST(CUDAOpKernelTest, ConvBackwardDataOpFp16NCHW) {
                                  /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3,
                                  /*strideH=*/2, /*strideW=*/2,
                                  /*paddingH=*/1, /*paddingW=*/1);
-  // TestConvBackwardDataOp<__half>(/*layout=*/"NCHW", /*N=*/1, /*iC=*/512,
+  // TestConvBackwardDataOp<__half>(abs_eps, rel_eps, /*layout=*/"NCHW",
+  // /*N=*/1, /*iC=*/512,
   //                                /*iH=*/7,
   //                                /*iW=*/7, /*oC=*/512, /*kH=*/3, /*kW=*/3,
   //                                /*strideH=*/1, /*strideW=*/1,

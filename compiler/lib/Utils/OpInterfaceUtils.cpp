@@ -31,9 +31,9 @@ struct ExtensionRegistry {
     using ImplT = std::function<void(MLIRContext *ctx)>;
     using CtorParam = std::pair<ImplT, StringRef>;
 
-    Extension(CtorParam &&param)
+    Extension(const CtorParam &param)
         : DialectExtensionBase(ArrayRef<StringRef>{param.second}),
-          impl(std::move(param.first)) {}
+          impl(param.first) {}
 
     void apply(MLIRContext *context,
                MutableArrayRef<Dialect *> /* dialects */) const override {
@@ -55,7 +55,7 @@ struct ExtensionRegistry {
 
   void apply(DialectRegistry &registry) {
     for (auto &&param : ctorParams) {
-      registry.addExtension(std::make_unique<Extension>(std::move(param)));
+      registry.addExtension(std::make_unique<Extension>(param));
     }
   }
 
