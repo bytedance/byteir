@@ -564,6 +564,30 @@ static void computeBeginAndEnd(const ConcatChunk &chunk, size_t dim,
 }
 
 } // namespace
+// fold convert( convert(i1)->anyType1 )->anyType2 to convert(i1)->anyType2
+LogicalResult
+mlir::mhlo::eliminateRedundantConvertFromI1(mhlo::ConvertOp op,
+                                            PatternRewriter &rewriter) {
+  auto convertOp = op.getOperand().getDefiningOp<ConvertOp>();
+  if (!convertOp) {
+    return failure();
+  }
+  auto firstType =
+      convertOp.getOperand().getType().cast<TensorType>().getElementType();
+  auto secondType =
+      op.getOperand().getType().cast<TensorType>().getElementType();
+  auto thirdType = op.getResult().getType().cast<TensorType>().getElementType();
+  auto loc = rewriter.getFusedLoc({convertOp->getLoc(), op->getLoc()});
+
+  if (firstType.isa<IntegerType>() &&
+      firstType.cast<IntegerType>().getWidth() == 1) {
+    mhlo::ConvertOp result = rewriter.create<ConvertOp>(
+        loc, op.getResult().getType(), convertOp.getOperand());
+    rewriter.replaceOp(op, result.getResult());
+    return success();
+  }
+  return failure();
+}
 
 ///  Fold concatenate of continuous slices
 ///  FIXME: support static only for now, relax it later
@@ -1374,6 +1398,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::simplifyByteIRAddNToAdd);
   patterns.add(mlir::mhlo::canonicalizeConcatWithBroadcast);
   patterns.add(mlir::mhlo::simplifyAddInsertSlicesToInsertSlices);
+  patterns.add(mlir::mhlo::eliminateRedundantConvertFromI1);
 
   if (blindFold) {
     patterns.add(mlir::mhlo::foldLargeConcatenate);

@@ -31,9 +31,14 @@ void RegisterTensorGenerateOps(KernelRegistry *registry) {
         return std::make_shared<FillOpKernel>(info);
       });
   registry->Register(
-      "RngUniform",
+      "RngUniform_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<RngUniform>(info);
+        return std::make_shared<RngUniform<float>>(info);
+      });
+  registry->Register(
+      "RngUniform_f64f64_f64",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<RngUniform<double>>(info);
       });
   registry->Register(
       "RngNormal",

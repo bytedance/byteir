@@ -125,7 +125,6 @@ transform.sequence failures(propagate) {
 
 // CHECK-LABEL: func.func @fuse_unary_softmax
 func.func @fuse_unary_softmax(%arg0: tensor<1024x64xf32>, %arg1: tensor<1024x64xf32>) -> tensor<1024x64xf32> {
-
   //     CHECK: %[[RES:.*]] = scf.for
   //     CHECK-DAG:   linalg.elemwise_unary
   //     CHECK-DAG:   linalg.fill
@@ -894,6 +893,9 @@ transform.sequence failures(propagate) {
   %1, %loops:2 = transform.structured.fuse_ext %0 {tile_sizes = [8, 4], tile_interchange = [0, 1]}
   transform.structured.tile_loop_hint %1 
 }
+
+// -----
+
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation

@@ -174,3 +174,29 @@ func.func @torch.custom.dynamic_mask_stitch(%arg0: !torch.vtensor<[?,?],f32>, %a
 // CHECK-SAME: @tf.DynamicMaskStitch
 // CHECK: byteir_attrs = {}
 // CHECH-NOT: torch.custom_op
+
+func.func @torch.aten.nll_loss_forward(%arg0: !torch.vtensor<[8192,50257],f32>, %arg1: !torch.vtensor<[8192],si64>) -> (!torch.vtensor<[],f32>, !torch.vtensor<[],f32>) {
+  %int1 = torch.constant.int 1
+  %int-1 = torch.constant.int -1
+  %none = torch.constant.none
+  %output, %total_weight = torch.aten.nll_loss_forward %arg0, %arg1, %none, %int1, %int-1 : !torch.vtensor<[8192,50257],f32>, !torch.vtensor<[8192],si64>, !torch.none, !torch.int, !torch.int -> !torch.vtensor<[],f32>, !torch.vtensor<[],f32>
+  return %output, %total_weight : !torch.vtensor<[],f32>, !torch.vtensor<[],f32>
+}
+// CHECK-LABEL: func.func @torch.aten.nll_loss_forward
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.nll_loss_forward
+// CHECK: byteir_attrs = {ignore_index = -1 : i64, reduction = 1 : i64}
+// CHECH-NOT: torch.aten.nll_loss_forward
+
+func.func @torch.aten.nll_loss_backward(%arg0: !torch.vtensor<[],f32>, %arg1: !torch.vtensor<[8192,50257],f32>, %arg2: !torch.vtensor<[8192],si64>, %arg3: !torch.vtensor<[],f32>) -> (!torch.vtensor<[8192,50257],f32>) {
+  %int1 = torch.constant.int 1
+  %int-1 = torch.constant.int -1
+  %none = torch.constant.none
+  %0 = torch.aten.nll_loss_backward %arg0, %arg1, %arg2, %none, %int1, %int-1, %arg3 : !torch.vtensor<[],f32>, !torch.vtensor<[8192,50257],f32>, !torch.vtensor<[8192],si64>, !torch.none, !torch.int, !torch.int, !torch.vtensor<[],f32> -> !torch.vtensor<[8192,50257],f32>
+  return %0 : !torch.vtensor<[8192,50257],f32>
+}
+// CHECK-LABEL: func.func @torch.aten.nll_loss_backward
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.nll_loss_backward
+// CHECK: byteir_attrs = {ignore_index = -1 : i64, reduction = 1 : i64}
+// CHECH-NOT: torch.aten.nll_loss_backward

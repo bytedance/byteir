@@ -27,7 +27,7 @@ namespace brt {
 namespace cuda {
 namespace kernel {
 template <int NumElementsPerThread>
-__global__ void _RngUniform(float *ptr, int32_t N, float base, float range,
+__global__ void _RngUniformFloat(float *ptr, int32_t N, float base, float range,
                             size_t seed, size_t offset) {
   int32_t id = NumElementsPerThread * blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -43,6 +43,29 @@ __global__ void _RngUniform(float *ptr, int32_t N, float base, float range,
   for (int i = 0; i < NumElementsPerThread; i++) {
     if (id < N) {
       float value = curand_uniform(&state);
+      ptr[id] = base + value * range;
+      id += blockDim.x;
+    }
+  }
+}
+
+template <int NumElementsPerThread>
+__global__ void _RngUniformDouble(double *ptr, int32_t N, double base, double range,
+                            size_t seed, size_t offset) {
+  int32_t id = NumElementsPerThread * blockDim.x * blockIdx.x + threadIdx.x;
+
+  curandState_t state;
+
+  // initialize local state with 2^67 * sequence + offset steps
+  curand_init(seed,   /* seed */
+              id,     /* sequence */
+              offset, /* offset */
+              &state);
+
+#pragma unroll
+  for (int i = 0; i < NumElementsPerThread; i++) {
+    if (id < N) {
+      double value = curand_uniform_double(&state);
       ptr[id] = base + value * range;
       id += blockDim.x;
     }
@@ -68,7 +91,12 @@ private:
 };
 } // namespace details
 
-void RngUniform(cudaStream_t stream, float *ptr, size_t length, float low,
+template <typename InputTy>
+void RngUniform(cudaStream_t stream, InputTy *ptr, size_t length, InputTy low,
+                InputTy high);
+
+template <>
+void RngUniform<float>(cudaStream_t stream, float *ptr, size_t length, float low,
                 float high) {
   constexpr int maxThreadsPerBlock = 256;
   constexpr int maxElementsPerThread = 4;
@@ -78,7 +106,23 @@ void RngUniform(cudaStream_t stream, float *ptr, size_t length, float low,
   auto globalState = details::GlobalRngState::inst();
   size_t seed = globalState->seed();
   size_t offset = globalState->next(maxElementsPerThread);
-  _RngUniform<maxElementsPerThread>
+  _RngUniformFloat<maxElementsPerThread>
+      <<<blocksPerGrid, maxThreadsPerBlock, 0, stream>>>(
+          ptr, N, low, high - low, seed, offset);
+}
+
+template <>
+void RngUniform<double>(cudaStream_t stream, double *ptr, size_t length, double low,
+                double high) {
+  constexpr int maxThreadsPerBlock = 256;
+  constexpr int maxElementsPerThread = 4;
+  int blocksPerGrid = static_cast<int>(
+      DIVUP(length, maxThreadsPerBlock * maxElementsPerThread));
+  int32_t N = static_cast<int32_t>(length);
+  auto globalState = details::GlobalRngState::inst();
+  size_t seed = globalState->seed();
+  size_t offset = globalState->next(maxElementsPerThread);
+  _RngUniformDouble<maxElementsPerThread>
       <<<blocksPerGrid, maxThreadsPerBlock, 0, stream>>>(
           ptr, N, low, high - low, seed, offset);
 }

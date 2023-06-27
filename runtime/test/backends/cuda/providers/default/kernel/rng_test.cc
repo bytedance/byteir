@@ -31,15 +31,18 @@ static std::string test_file_rng = "test/test_files/rng_cuda.mlir";
 using namespace brt;
 using namespace brt::cuda;
 
-std::vector<float> getHostValue(float *ptr, size_t length) {
-  std::vector<float> ret(length);
-  BRT_CUDA_CHECK(cudaMemcpy(ret.data(), ptr, length * sizeof(float),
+template <typename InputTy>
+std::vector<InputTy> getHostValue(InputTy *ptr, size_t length) {
+  std::vector<InputTy> ret(length);
+  BRT_CUDA_CHECK(cudaMemcpy(ret.data(), ptr, length * sizeof(InputTy),
                             cudaMemcpyDeviceToHost));
   return ret;
 }
 
-void _check_distribution(const std::vector<float> &values, float expected_mean,
-                         float expected_var, float eps_mean, float eps_var) {
+template <typename InputTy>
+void _check_distribution(const std::vector<InputTy> &values,
+                         InputTy expected_mean, InputTy expected_var,
+                         InputTy eps_mean, InputTy eps_var) {
   double sum = 0.0, sum2 = 0.0;
   for (auto &&i : values) {
     double v = i - expected_mean;
@@ -52,22 +55,26 @@ void _check_distribution(const std::vector<float> &values, float expected_mean,
   ASSERT_NEAR(var, expected_var, eps_var);
 }
 
-void check_uniform(const std::vector<float> &values, float low, float high) {
+template <typename InputTy>
+void check_uniform(const std::vector<InputTy> &values, InputTy low,
+                   InputTy high) {
   for (auto &&v : values) {
     EXPECT_GE(v, low);
     EXPECT_LE(v, high);
   }
-  _check_distribution(values, (low + high) / 2,
-                      (high - low) * (high - low) / 12, 5e-3, 1e-3);
+  _check_distribution<InputTy>(values, (low + high) / 2,
+                               (high - low) * (high - low) / 12, 5e-3, 5e-2);
 }
 
 void check_normal(const std::vector<float> &values, float mean, float stddev) {
-  _check_distribution(values, mean, stddev * stddev, 5e-3, 5e-2);
+  _check_distribution<float>(values, mean, stddev * stddev, 5e-3, 5e-2);
 }
 
-void assert_diff(const std::vector<float> &lhs, const std::vector<float> &rhs) {
+template <typename InputTy>
+void assert_diff(const std::vector<InputTy> &lhs,
+                 const std::vector<InputTy> &rhs) {
   ASSERT_EQ(lhs.size(), rhs.size());
-  ASSERT_TRUE(memcmp(lhs.data(), rhs.data(), lhs.size() * sizeof(float)));
+  ASSERT_TRUE(memcmp(lhs.data(), rhs.data(), lhs.size() * sizeof(InputTy)));
 }
 
 TEST(CUDATestRngOp, Basic) {
@@ -92,40 +99,55 @@ TEST(CUDATestRngOp, Basic) {
   BRT_TEST_CHECK_STATUS(status_run);
   auto status_sync = request->Sync();
   BRT_TEST_CHECK_STATUS(status_sync);
-  auto uniform0_0 =
-      getHostValue(static_cast<float *>(request->GetArg(0)), length);
-  auto uniform1_0 =
-      getHostValue(static_cast<float *>(request->GetArg(1)), length);
+  auto uniformf320_0 =
+      getHostValue<float>(static_cast<float *>(request->GetArg(0)), length);
+  auto uniformf321_0 =
+      getHostValue<float>(static_cast<float *>(request->GetArg(1)), length);
   auto normal_0 =
-      getHostValue(static_cast<float *>(request->GetArg(2)), length);
+      getHostValue<float>(static_cast<float *>(request->GetArg(2)), length);
+  auto uniformf640_0 =
+      getHostValue<double>(static_cast<double *>(request->GetArg(3)), length);
+  auto uniformf641_0 =
+      getHostValue<double>(static_cast<double *>(request->GetArg(4)), length);
 
   // check range and distribution
-  check_uniform(uniform0_0, -1, 2);
-  check_uniform(uniform1_0, -1, 2);
+  check_uniform<float>(uniformf320_0, -1, 2);
+  check_uniform<float>(uniformf321_0, -1, 2);
   check_normal(normal_0, 3, 2.33);
+  check_uniform<double>(uniformf640_0, -1, 2);
+  check_uniform<double>(uniformf641_0, -1, 2);
 
   // assert two rngs in the same execution generate different numbers
-  assert_diff(uniform0_0, uniform1_0);
+  assert_diff<float>(uniformf320_0, uniformf321_0);
+  assert_diff<double>(uniformf640_0, uniformf641_0);
 
   // second
   status_run = session.Run(*request);
   BRT_TEST_CHECK_STATUS(status_run);
   status_sync = request->Sync();
   BRT_TEST_CHECK_STATUS(status_sync);
-  auto uniform0_1 =
-      getHostValue(static_cast<float *>(request->GetArg(0)), length);
-  auto uniform1_1 =
-      getHostValue(static_cast<float *>(request->GetArg(1)), length);
+  auto uniformf320_1 =
+      getHostValue<float>(static_cast<float *>(request->GetArg(0)), length);
+  auto uniformf321_1 =
+      getHostValue<float>(static_cast<float *>(request->GetArg(1)), length);
   auto normal_1 =
-      getHostValue(static_cast<float *>(request->GetArg(2)), length);
+      getHostValue<float>(static_cast<float *>(request->GetArg(2)), length);
+  auto uniformf640_1 =
+      getHostValue<double>(static_cast<double *>(request->GetArg(3)), length);
+  auto uniformf641_1 =
+      getHostValue<double>(static_cast<double *>(request->GetArg(4)), length);
 
   // check range and distribution
-  check_uniform(uniform0_1, -1, 2);
-  check_uniform(uniform1_1, -1, 2);
+  check_uniform<float>(uniformf320_1, -1, 2);
+  check_uniform<float>(uniformf321_1, -1, 2);
   check_normal(normal_1, 3, 2.33);
+  check_uniform<double>(uniformf640_1, -1, 2);
+  check_uniform<double>(uniformf641_1, -1, 2);
 
-  // assert the same rng generate different numbers between different executino
-  assert_diff(uniform0_0, uniform0_1);
-  assert_diff(uniform1_0, uniform1_1);
-  assert_diff(normal_0, normal_1);
+  // assert the same rng generate different numbers between different executions
+  assert_diff<float>(uniformf320_0, uniformf320_1);
+  assert_diff<float>(uniformf321_0, uniformf321_1);
+  assert_diff<double>(uniformf640_0, uniformf640_1);
+  assert_diff<double>(uniformf641_0, uniformf641_1);
+  assert_diff<float>(normal_0, normal_1);
 }

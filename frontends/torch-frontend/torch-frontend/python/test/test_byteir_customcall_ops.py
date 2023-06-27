@@ -42,6 +42,20 @@ def test_layer_norm():
 
 # ==============================================================================
 
+class LayerNormNoneBiasModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        list = [2, 2, 3]
+        return torch.ops.aten.layer_norm(x, list, eps=0.5)
+
+def test_layer_norm_none_bias():
+    inputs = [tu.rand(2, 5, 2, 2, 3).to(torch.float16)]
+    custom_test_helper(LayerNormNoneBiasModule(), inputs, "byteir.layer_norm")
+
+# ==============================================================================
+
 class OneHotModule(torch.nn.Module):
     def __init__(self):
         super().__init__()

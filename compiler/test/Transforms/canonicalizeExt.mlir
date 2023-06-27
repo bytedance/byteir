@@ -219,3 +219,12 @@ func.func @add_insert_slices(%arg0: tensor<64x256x384xf32>, %arg1: tensor<64x256
 // CHECK: tensor.insert_slice
 // CHECK: tensor.insert_slice
 // CHECK-NOT: mhlo.add
+
+func.func @eliminate_redundant_convert(%arg0: tensor<12xi1>) -> (tensor<12xi4>) {
+  %1 = mhlo.convert %arg0 : (tensor<12xi1>) -> tensor<12xf32>
+  %result = mhlo.convert %1 : (tensor<12xf32>) -> tensor<12xi4>
+  return %result : tensor<12xi4>
+}
+// CHECK-LABEL: eliminate_redundant_convert
+// CHECK: mhlo.convert
+// CHECK-NEXT: return

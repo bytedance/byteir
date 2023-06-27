@@ -20,6 +20,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -46,11 +47,11 @@ int main(int argc, char **argv) {
   DialectRegistry registry;
 
   registerAllDialects(registry);
+  registerAllExtensions(registry);
   mlir::stablehlo::registerAllDialects(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::torch::Torch::TorchDialect>();
   registry.insert<mlir::torch::TorchConversion::TorchConversionDialect>();
-  mlir::stablehlo::registerAllDialects(registry);
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "TorchFrontend pass driver\n", registry));

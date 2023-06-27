@@ -214,6 +214,49 @@ public:
   }
 };
 
+class ConvertConcatenateOp : public OpConversionPattern<mhlo::ConcatenateOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::ConcatenateOp concatOp,
+                  typename mhlo::ConcatenateOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto resultType = concatOp.getType();
+    if (!resultType.hasStaticShape())
+      return failure();
+
+    uint64_t axis = concatOp.getDimension();
+    if (llvm::any_of(adaptor.getOperands(), [&](auto &&value) {
+          return value.getType().template cast<ShapedType>().isDynamicDim(axis);
+        }))
+      return failure();
+
+    auto zeroAttr = rewriter.getI64IntegerAttr(0);
+    auto oneAttr = rewriter.getI64IntegerAttr(1);
+    SmallVector<OpFoldResult> offsets, sizes, strides;
+    for (int64_t i = 0; i < resultType.getRank(); ++i) {
+      offsets.push_back(zeroAttr);
+      sizes.push_back(rewriter.getI64IntegerAttr(resultType.getDimSize(i)));
+      strides.push_back(oneAttr);
+    }
+
+    Value value = rewriter.create<tensor::EmptyOp>(concatOp->getLoc(),
+                                                   resultType, ValueRange());
+    int64_t upperBound = 0;
+    for (auto &&operand : adaptor.getOperands()) {
+      auto operandType = operand.getType().cast<ShapedType>();
+      offsets[axis] = rewriter.getI64IntegerAttr(upperBound);
+      sizes[axis] = rewriter.getI64IntegerAttr(operandType.getDimSize(axis));
+      value = rewriter.create<tensor::InsertSliceOp>(
+          concatOp->getLoc(), operand, value, offsets, sizes, strides);
+      upperBound += operandType.getDimSize(axis);
+    }
+    rewriter.replaceOp(concatOp, value);
+    return success();
+  }
+};
+
 class ConvertGatherOpToByrePattern
     : public OpConversionPattern<mhlo::GatherOp> {
 public:
@@ -801,10 +844,9 @@ void mlir::populateHloToByreTensorPattern(
                ConvertSelectAndScatterOpToByrePattern>(patterns.getContext(),
                                                        appendArgTypes);
 
-  patterns
-      .add<ConvertConstLikeOp<mhlo::ConstantOp>,
-           ConvertConstLikeOp<ace::ConstOp>, ConvertReshapeOp, ConvertSliceOp>(
-          patterns.getContext());
+  patterns.add<ConvertConstLikeOp<mhlo::ConstantOp>,
+               ConvertConstLikeOp<ace::ConstOp>, ConvertReshapeOp,
+               ConvertSliceOp, ConvertConcatenateOp>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

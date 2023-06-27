@@ -11,12 +11,14 @@ set(MHLO_LIBS
 
 get_property(mlir_dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(mlir_conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 set(LIBS
   ${TORCH_FORNTEND_LIBS}
   ${MHLO_LIBS}
   ${mlir_dialect_libs}
   ${mlir_conversion_libs}
+  ${extension_libs}
   MLIRIR
   MLIRParser
   MLIRPass
