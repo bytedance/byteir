@@ -1,8 +1,8 @@
 diff --git a/lib/Conversion/TorchToStablehlo/Basic.cpp b/lib/Conversion/TorchToStablehlo/Basic.cpp
-index 6ed3e5d7..2b41e864 100644
+index c12b84f8..df5e84fa 100644
 --- a/lib/Conversion/TorchToStablehlo/Basic.cpp
 +++ b/lib/Conversion/TorchToStablehlo/Basic.cpp
-@@ -921,7 +921,6 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
+@@ -923,7 +923,6 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
      AtenBatchNormOp op, OpAdaptor adaptor,
      ConversionPatternRewriter &rewriter) const {
    Value input = adaptor.getInput();
@@ -10,7 +10,7 @@ index 6ed3e5d7..2b41e864 100644
    auto inputTy = input.getType().cast<RankedTensorType>();
    Value weight = adaptor.getWeight();
    Value bias = adaptor.getBias();
-@@ -940,7 +939,8 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
+@@ -942,7 +941,8 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
    }
    auto inputElemTy = inputTy.getElementType().cast<mlir::FloatType>();
  
@@ -20,7 +20,7 @@ index 6ed3e5d7..2b41e864 100644
  
    if (options.dimSizeIndexBits == 32) {
      auto channelDimI64 = rewriter.create<mlir::arith::IndexCastOp>(
-@@ -1025,21 +1025,28 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
+@@ -1027,21 +1027,30 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
      return success();
    } else {
      Type outputTy = getTypeConverter()->convertType(op.getType());
@@ -39,20 +39,22 @@ index 6ed3e5d7..2b41e864 100644
 -        rewriter.getF32FloatAttr(eps),
 -        rewriter.getI64IntegerAttr(feature_index));
 -    rewriter.replaceOpWithNewOp<tensor::CastOp>(op, outputTy, output);
-+    bool mixedType = (inputTy.getElementType() == rewriter.getF16Type() &&
-+                      weightTy.getElementType() == rewriter.getF32Type());
++    bool mixedType = (inputTy.getElementType() != weightTy.getElementType());
 +    Value output;
 +    if (mixedType) {
 +      RankedTensorType convertedType =
-+          RankedTensorType::get(inputTy.getShape(), weightTy.getElementType());
-+      Value inputConverted = rewriter.create<stablehlo::ConvertOp>(
-+          op.getLoc(), convertedType, input);
++          RankedTensorType::get(inputTy.getShape(), rewriter.getF32Type());
++      input = hlo::promoteType(rewriter, op.getLoc(), input, convertedType);
++      weight = hlo::promoteType(rewriter, op.getLoc(), weight, convertedType);
++      bias = hlo::promoteType(rewriter, op.getLoc(), bias, convertedType);
++      runningMean = hlo::promoteType(rewriter, op.getLoc(), runningMean, convertedType);
++      runningVar = hlo::promoteType(rewriter, op.getLoc(), runningVar, convertedType);
 +      Value bnResult = rewriter.create<stablehlo::BatchNormInferenceOp>(
-+          op.getLoc(), convertedType, inputConverted, weight, bias, runningMean,
++          op.getLoc(), convertedType, input, weight, bias, runningMean,
 +          runningVar, rewriter.getF32FloatAttr(eps),
 +          rewriter.getI64IntegerAttr(feature_index));
-+      output = rewriter.create<stablehlo::ConvertOp>(op.getLoc(), outputTy,
-+                                                     bnResult);
++      output =
++          hlo::promoteType(rewriter, op.getLoc(), bnResult, outputTy.cast<TensorType>());
 +    } else {
 +      output = rewriter.create<stablehlo::BatchNormInferenceOp>(
 +          op.getLoc(), outputTy, input, weight, bias, runningMean, runningVar,

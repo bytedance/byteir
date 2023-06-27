@@ -729,8 +729,8 @@ createResultSlices(RewriterBase &rewriter, Operation *op, Operation *tiledOp,
   SmallVector<Value> destinationTensors; // tensor before tiling.
   if (failed(tensor::getOrCreateDestinations(rewriter, op->getLoc(), op,
                                              destinationTensors))) {
-    DBGS() << "[createResultSlices] failed to get destinations for " << *op
-           << "\n";
+    LLVM_DEBUG(DBGS() << "[createResultSlices] failed to get destinations for "
+                      << *op << "\n");
     return rewriter.notifyMatchFailure(op, "failed to get destinations");
   }
 
@@ -745,8 +745,10 @@ createResultSlices(RewriterBase &rewriter, Operation *op, Operation *tiledOp,
       resultOffsetsList[result.index()] = sliceOp.getMixedOffsets();
       resultSizesList[result.index()] = sliceOp.getMixedSizes();
     } else {
-      DBGS() << "[createResultSlices] handle non-slice by creating a entire "
-                "view\n";
+      LLVM_DEBUG(
+          DBGS()
+          << "[createResultSlices] handle non-slice by creating a entire "
+             "view\n");
       // TODO: handle non-slice by creating a entire view
       return failure();
     }
@@ -809,29 +811,168 @@ static void getProducerAndConsumerTensorSlices(
   }
 }
 
-struct SimpleOperationInfo : public llvm::DenseMapInfo<Operation *> {
-  static unsigned getHashValue(const Operation *opC) {
-    unsigned value = OperationEquivalence::computeHash(
-        const_cast<Operation *>(opC),
-        /*hashOperands=*/OperationEquivalence::directHashValue,
-        /*hashResults=*/OperationEquivalence::ignoreHashValue,
-        OperationEquivalence::IgnoreLocations);
-    return value;
+mlir::DenseMap<Operation *, int64_t> getNumberOfUsesFromRoot(Operation *root) {
+  mlir::DenseMap<Operation *, int64_t> op2AllUses;
+  if (!root)
+    return op2AllUses;
+  std::function<void(Operation *)> visitNode = [&](Operation *node) {
+    for (Value val : node->getOperands()) {
+      if (Operation *defOp = val.getDefiningOp()) {
+        op2AllUses[defOp] += 1;
+        visitNode(defOp);
+      }
+    }
+  };
+  visitNode(root);
+  return op2AllUses;
+}
+
+/// For several tensor.extract_slice ops of the same source, merge all or part
+/// of them who slice on the same group of dimensions and the same op result as
+/// well. This is a must in models with residual blocks.
+///             op0
+///              |  \
+///              |   conv0
+///              |   /
+///             op1
+///              |  \
+///              |   conv1
+///              |   /
+///             ...
+///              |  \
+///              |   convN
+///              |   /
+///             opN+1
+/// For a model with N residual blocks, op0 has to be tiled by 2**N times if the
+/// tensor.extract_slice ops are not merged.
+SmallVector<tensor::ExtractSliceOp>
+mergeSliceOps(SmallVector<tensor::ExtractSliceOp> &sliceOps) {
+  if (sliceOps.size() == 0)
+    return {};
+
+  // declare variables for later use
+  SmallVector<tensor::ExtractSliceOp> mergedSliceOps;
+  OpBuilder builder(sliceOps[0]);
+
+  // group the slice ops according to their sliced dimensions
+  auto getSliceKey = [&](tensor::ExtractSliceOp sliceOp) {
+    ArrayRef<int64_t> offsets = sliceOp.getStaticOffsets();
+    int64_t key = 0;
+    int64_t multiplier = 1;
+    for (int64_t offset : offsets) {
+      if (ShapedType::isDynamic(offset))
+        key += multiplier;
+      multiplier *= 2;
+    }
+
+    OpResult src = dyn_cast<OpResult>(sliceOp.getSource());
+    if (src)
+      key += src.getResultNumber() * multiplier;
+    return key;
+  };
+  mlir::DenseMap<int64_t, SmallVector<tensor::ExtractSliceOp>> groupedSliceOps;
+  for (tensor::ExtractSliceOp sliceOp : sliceOps)
+    groupedSliceOps[getSliceKey(sliceOp)].push_back(sliceOp);
+
+  for (auto it : groupedSliceOps) {
+    SmallVector<tensor::ExtractSliceOp> &curSliceOps = it.second;
+
+    // No need to merge if there's only one op
+    if (curSliceOps.size() == 1) {
+      mergedSliceOps.push_back(curSliceOps[0]);
+      continue;
+    }
+
+    int64_t rank = curSliceOps[0].getSourceType().getRank();
+    Value source = curSliceOps[0].getSource();
+    Location loc = source.getLoc();
+    // declare lower/upper bounds for the merged slice op
+    SmallVector<Value> lowerBounds, upperBounds;
+    lowerBounds.resize(rank, nullptr);
+    upperBounds.resize(rank, nullptr);
+
+    for (tensor::ExtractSliceOp sliceOp : curSliceOps) {
+      // all the strides are expected to be 1
+      ArrayRef<int64_t> strides = sliceOp.getStaticStrides();
+      assert(llvm::all_of(strides, [](int64_t x) { return x == 1; }));
+
+      // Merge the static and dynamic values
+      SmallVector<Value> curOffsets = getValueOrCreateConstantIndexOp(
+          builder, loc,
+          getMixedValues(sliceOp.getStaticOffsets(), sliceOp.getOffsets(),
+                         builder));
+      SmallVector<Value> curSizes = getValueOrCreateConstantIndexOp(
+          builder, loc,
+          getMixedValues(sliceOp.getStaticSizes(), sliceOp.getSizes(),
+                         builder));
+
+      // calculate the lower/upper bounds
+      for (auto it : llvm::enumerate(llvm::zip(curOffsets, curSizes))) {
+        int64_t idx = it.index();
+        Value offset = std::get<0>(it.value());
+        Value size = std::get<1>(it.value());
+        Value newOffset = lowerBounds[idx]
+                              ? builder.createOrFold<arith::MinSIOp>(
+                                    sliceOp.getLoc(), lowerBounds[idx], offset)
+                              : offset;
+        lowerBounds[idx] = newOffset;
+        Value upperBound =
+            builder.createOrFold<arith::AddIOp>(loc, offset, size);
+        Value newUpperBound = upperBounds[idx]
+                                  ? builder.createOrFold<arith::MaxSIOp>(
+                                        loc, upperBounds[idx], upperBound)
+                                  : upperBound;
+        upperBounds[idx] = newUpperBound;
+      }
+    }
+
+    // calculate the merged op's slice sizes
+    SmallVector<Value> sizes;
+    sizes.reserve(rank);
+    for (auto it : llvm::zip(lowerBounds, upperBounds)) {
+      Value lb = std::get<0>(it);
+      Value ub = std::get<1>(it);
+      sizes.push_back(
+          builder.createOrFold<arith::SubIOp>(source.getLoc(), ub, lb));
+    }
+
+    // create the merged slice op
+    SmallVector<OpFoldResult> strides(rank, builder.getIndexAttr(1));
+    tensor::ExtractSliceOp mergedSliceOp =
+        builder.create<tensor::ExtractSliceOp>(
+            source.getLoc(), source, getAsOpFoldResult(lowerBounds),
+            getAsOpFoldResult(sizes), strides);
+
+    // replace the old slice op with merged + sub slice ops
+    for (tensor::ExtractSliceOp sliceOp : curSliceOps) {
+      SmallVector<Value> subLowerBounds;
+      subLowerBounds.reserve(rank);
+      SmallVector<Value> curOffsets = getValueOrCreateConstantIndexOp(
+          builder, sliceOp.getLoc(),
+          getMixedValues(sliceOp.getStaticOffsets(), sliceOp.getOffsets(),
+                         builder));
+      SmallVector<OpFoldResult> subSizes =
+          getMixedValues(sliceOp.getStaticSizes(), sliceOp.getSizes(), builder);
+      for (auto it : llvm::zip(curOffsets, lowerBounds)) {
+        Value curOffset = std::get<0>(it);
+        Value lb = std::get<1>(it);
+        Value subLb = builder.createOrFold<arith::SubIOp>(sliceOp.getLoc(),
+                                                          curOffset, lb);
+        subLowerBounds.push_back(subLb);
+      }
+      tensor::ExtractSliceOp subSliceOp =
+          builder.create<tensor::ExtractSliceOp>(
+              sliceOp.getLoc(), sliceOp.getResultType(),
+              mergedSliceOp.getResult(), getAsOpFoldResult(subLowerBounds),
+              subSizes, strides);
+      sliceOp->replaceAllUsesWith(subSliceOp);
+    }
+
+    mergedSliceOps.push_back(mergedSliceOp);
   }
-  static bool isEqual(const Operation *lhsC, const Operation *rhsC) {
-    // DBGS() << "enter isEqual\n";
-    auto *lhs = const_cast<Operation *>(lhsC);
-    auto *rhs = const_cast<Operation *>(rhsC);
-    if (lhs == rhs)
-      return true;
-    if (lhs == getTombstoneKey() || lhs == getEmptyKey() ||
-        rhs == getTombstoneKey() || rhs == getEmptyKey())
-      return false;
-    return OperationEquivalence::isEquivalentTo(
-        const_cast<Operation *>(lhsC), const_cast<Operation *>(rhsC),
-        OperationEquivalence::IgnoreLocations);
-  }
-};
+
+  return mergedSliceOps;
+}
 
 } // namespace
 
@@ -846,6 +987,9 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     return rewriter.notifyMatchFailure(
         consumer, "invalid pattern for op with no results");
   }
+
+  mlir::DenseMap<Operation *, int64_t> op2AllUses =
+      getNumberOfUsesFromRoot(consumer.getOperation());
 
   DenseSet<Operation *> stopSet(stopOps.begin(), stopOps.end());
   if (stopSet.contains(consumer.getOperation()))
@@ -887,6 +1031,10 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   fusedOps.emplace_back(consumer.getOperation(),
                         tileAndFuseResult.tiledAndFusedOps.back());
 
+  // TODO: refine op2CurrentUses
+  DenseMap<Operation *, int64_t> op2CurrentUses;
+  DenseMap<Operation *, SmallVector<tensor::ExtractSliceOp>>
+      op2OriginalSliceOps;
   // 2. Typically, the operands of the tiled operation are slices of the
   //    operands of the untiled operation. These are expressed in IR using
   //    `tensor.extract_slice` operations with source being the operands of the
@@ -897,38 +1045,43 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   auto addCandidateSlices =
       [&](Operation *fusedOp, std::deque<tensor::ExtractSliceOp> &candidates) {
         for (auto &opOperand : fusedOp->getOpOperands()) {
-          if (failed(isValidFusibleProducerOp(opOperand, fusedOp))) {
-            continue;
-          }
+          bool validFusibleProducerOp =
+              succeeded(isValidFusibleProducerOp(opOperand, fusedOp));
 
           if (auto sliceOp =
                   opOperand.get().getDefiningOp<tensor::ExtractSliceOp>()) {
-            Operation *srcOp = sliceOp.getSource().getDefiningOp();
-            if (!stopSet.contains(srcOp))
-              candidates.push_back(sliceOp);
+            auto [srcResult, destinationIterArg] =
+                getUntiledProducerFromSliceSource(&sliceOp->getOpOperand(0),
+                                                  tileAndFuseResult.loops);
+            if (!srcResult)
+              continue;
+            Operation *srcOp = srcResult.getOwner();
+            if (!isa_and_nonnull<TilingInterface>(srcOp)) {
+              continue;
+            }
+            assert(op2AllUses.contains(srcOp));
+            op2CurrentUses[srcOp]++;
+            if (validFusibleProducerOp)
+              op2OriginalSliceOps[srcOp].push_back(sliceOp);
+            if (validFusibleProducerOp && !stopSet.contains(srcOp) &&
+                op2CurrentUses[srcOp] == op2AllUses[srcOp]) {
+              SmallVector<tensor::ExtractSliceOp> mergedSliceOps =
+                  mergeSliceOps(op2OriginalSliceOps[srcOp]);
+              for (tensor::ExtractSliceOp sliceOp : mergedSliceOps)
+                candidates.push_back(sliceOp);
+            }
           }
         }
       };
 
-  // uniqueOps use extract_slice op as the key and
-  DenseMap<Operation *, Operation *, SimpleOperationInfo> uniqueOps;
   std::deque<tensor::ExtractSliceOp> candidates;
   addCandidateSlices(tileAndFuseResult.tiledAndFusedOps.back(), candidates);
   OpBuilder::InsertionGuard g(rewriter);
-  SmallVector<Operation *> toEraseOps;
   while (!candidates.empty()) {
     // 2a. Traverse the slices in BFS fashion.
     tensor::ExtractSliceOp candidateSliceOp = candidates.front();
     LLVM_DEBUG(llvm::dbgs() << "deque candidate " << candidateSliceOp << "\n");
     candidates.pop_front();
-    auto oldIter = uniqueOps.find(candidateSliceOp);
-    Operation *oldTiled =
-        oldIter != uniqueOps.end() ? oldIter->second : nullptr;
-    if (oldTiled != nullptr) {
-      candidateSliceOp->replaceUsesWithIf(
-          oldTiled, [&](OpOperand &use) { return use.getOwner() != oldTiled; });
-      continue;
-    }
 
     // 2b. Get the producer of the source (potentially walking through
     // `iter_args` of nested `scf.for`)
@@ -973,8 +1126,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
       continue;
     }
 
-    rewriter.replaceAllUsesWith(candidateSliceOp, fusedProducerValue);
-    toEraseOps.push_back(candidateSliceOp);
+    rewriter.replaceOp(candidateSliceOp, fusedProducerValue);
     LLVM_DEBUG(DBGS() << "fusedProducerValue: " << fusedProducerValue << "\n");
 
     // Don't need the following steps if `fusibleProducer.getOwner()` doesn't
@@ -1081,20 +1233,14 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
       }
     }
 
-    uniqueOps[candidateSliceOp] = fusedProducerOp;
-
   } // while (!candidates.empty())
 
-  // 3. here we can erase those tensor.extract_slice ops and also we need to
-  // make the sure the ops are topologically sorted
-  for (Operation *op : toEraseOps)
-    op->erase();
+  // 3. clean up loops args and unused loop carries
+
   for (auto &loop : tileAndFuseResult.loops) {
     if (!sortTopologically(loop.getBody()))
       return rewriter.notifyMatchFailure(consumer, "topological sort fails.");
   }
-
-  // 4. clean up loops args and unused loop carries
 
   // collect all iterArgToOperand for quick access later
   // iterArgToOperand as mapping from Loop's RegionIterArgs to IterOperands

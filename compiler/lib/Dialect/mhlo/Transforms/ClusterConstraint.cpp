@@ -93,8 +93,10 @@ struct RngConstraint : public OpRewritePattern<mhlo::RngOp> {
     if (op.getRngDistribution() == mhlo::RngDistribution::UNIFORM) {
       fusion->setAttr(byre::getByrePrefix() + "low", a);
       fusion->setAttr(byre::getByrePrefix() + "high", b);
-      fusion->setAttr(byre::getByreComputeName(),
-                      rewriter.getStringAttr("RngUniform"));
+      auto key = byre::getByreKey("RngUniform",
+                                  {op.getA().getType(), op.getB().getType()},
+                                  {op.getResult().getType()}, true);
+      fusion->setAttr(byre::getByreComputeName(), rewriter.getStringAttr(key));
     } else if (op.getRngDistribution() == mhlo::RngDistribution::NORMAL) {
       fusion->setAttr(byre::getByrePrefix() + "mu", a);
       fusion->setAttr(byre::getByrePrefix() + "sigma", b);

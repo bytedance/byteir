@@ -280,7 +280,7 @@ struct ConvertAtenMaxPool2dWithIndicesBackwardOp
           stablehlo::ComparisonDirection::GE);
       rewriter.create<stablehlo::ReturnOp>(loc, reducer.getResult());
     }
-    rewriter.replaceOp(op, {result});
+    rewriter.replaceOp(op, result);
 
     return success();
   }

@@ -125,6 +125,9 @@ LogicalResult foldLargeSliceOp(mhlo::SliceOp op, PatternRewriter &rewriter);
 LogicalResult canonicalizeConcatWithBroadcast(mhlo::ConcatenateOp op,
                                               PatternRewriter &rewriter);
 
+LogicalResult eliminateRedundantConvertFromI1(mhlo::ConvertOp op,
+                                              PatternRewriter &rewriter);
+
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                      MLIRContext *context,

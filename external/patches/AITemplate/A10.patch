@@ -1,0 +1,13 @@
+diff --git a/python/aitemplate/testing/detect_target.py b/python/aitemplate/testing/detect_target.py
+index f0731ee..2cf0c64 100644
+--- a/python/aitemplate/testing/detect_target.py
++++ b/python/aitemplate/testing/detect_target.py
+@@ -41,7 +41,7 @@ def _detect_cuda_with_nvidia_smi():
+         stdout = stdout.decode("utf-8")
+         if "H100" in stdout:
+             return "90"
+-        if any(a in stdout for a in ["A100", "A10G", "RTX 30", "A30", "RTX 40"]):
++        if any(a in stdout for a in ["A100", "A10G", "A10", "RTX 30", "A30", "RTX 40"]):
+             return "80"
+         if "V100" in stdout:
+             return "70"

@@ -254,3 +254,18 @@ func.func @mhlo_gather(%arg0: tensor<30522x128xf32>, %arg1: tensor<128xui32>) ->
 // CHECK-LABEL: func.func @mhlo_gather
 // CHECK-NEXT: byre.compute @IndexSelectOp
 //   CHECK-DAG: dim = 0
+
+// -----
+
+func.func @mhlo_concatenate(%arg0: tensor<2x2xf32>, %arg1: tensor<2x3xf32>, %arg2: tensor<2x4xf32>) -> tensor<2x9xf32> attributes { __placeholder__byre.entry_point} {
+  %0 = "mhlo.concatenate"(%arg0, %arg1, %arg2) {dimension = 1 : i64} : (tensor<2x2xf32>, tensor<2x3xf32>, tensor<2x4xf32>) -> tensor<2x9xf32>
+  return %0 : tensor<2x9xf32>
+}
+// CHECK-LABEL: func.func @mhlo_concatenate
+// CHECK-NEXT: tensor.empty
+// CHECK-NEXT: tensor.insert_slice 
+//   CHECK-DAG: [0, 0] [2, 2] [1, 1]
+// CHECK-NEXT: tensor.insert_slice
+//   CHECK-DAG: [0, 2] [2, 3] [1, 1]
+// CHECK-NEXT: tensor.insert_slice
+//   CHECK-DAG: [0, 5] [2, 4] [1, 1]

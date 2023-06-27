@@ -30,13 +30,16 @@ protected:
     nr_elems = accessor.GetNumElementsOfShape(shape);
 
     auto dtype = accessor.GetArgDTypeEnum(0);
-    BRT_ENFORCE(dtype == DTypeEnum::Float32, "only float32 is supported now");
+    BRT_ENFORCE(dtype == DTypeEnum::Float32 || dtype == DTypeEnum::Float64,
+                "only float32/64 is supported now");
   }
 
   size_t nr_elems;
 };
 
-class RngUniformImpl : public RngImplBase {
+template <typename InputTy> class RngUniformImpl;
+
+template <> class RngUniformImpl<float> : public RngImplBase {
 public:
   RngUniformImpl(const OpAccessor &accessor) : RngImplBase(accessor) {
     if (accessor.HasAttr("low")) {
@@ -55,12 +58,39 @@ public:
     if (low == 0 && high == 1) {
       BRT_CURAND_CHECK(curandGenerateUniform(generator, ptr, nr_elems));
     } else {
-      kernel::RngUniform(stream, ptr, nr_elems, low, high);
+      kernel::RngUniform<float>(stream, ptr, nr_elems, low, high);
     }
   }
 
 private:
   float low, high;
+};
+
+template <> class RngUniformImpl<double> : public RngImplBase {
+public:
+  RngUniformImpl(const OpAccessor &accessor) : RngImplBase(accessor) {
+    if (accessor.HasAttr("low")) {
+      BRT_ENFORCE(accessor.HasAttr("high"));
+      low = accessor.GetAttrAsFloat("low");
+      high = accessor.GetAttrAsFloat("high");
+      BRT_ENFORCE(low < high, "invalid uniform rng attributes");
+    } else {
+      BRT_ENFORCE(!accessor.HasAttr("high"));
+      low = 0;
+      high = 1;
+    }
+  }
+
+  void Execute(double *ptr, curandGenerator_t generator, cudaStream_t stream) {
+    if (low == 0 && high == 1) {
+      BRT_CURAND_CHECK(curandGenerateUniformDouble(generator, ptr, nr_elems));
+    } else {
+      kernel::RngUniform<double>(stream, ptr, nr_elems, low, high);
+    }
+  }
+
+private:
+  double low, high;
 };
 
 class RngNormalImpl : public RngImplBase {
@@ -79,7 +109,10 @@ private:
   float mean, stddev;
 };
 
-using RngUniform = CurandOpKernel<RngUniformImpl, TypedOperand<float *, 0>>;
+template <typename InputTy>
+using RngUniform =
+    CurandOpKernel<RngUniformImpl<InputTy>, TypedOperand<InputTy *, 0>>;
+
 using RngNormal = CurandOpKernel<RngNormalImpl, TypedOperand<float *, 0>>;
 
 } // namespace cuda

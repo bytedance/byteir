@@ -59,15 +59,19 @@ using namespace brt;
   } while (0)
 
 // clang-format off
-#define FOR_EACH_BRT_DTYPE(cb)                                             \
+#define FOR_EACH_BRT_DTYPE(cb)                                                 \
   cb(DTypeEnum::Float32)                                                       \
   cb(DTypeEnum::Int32)                                                         \
   cb(DTypeEnum::Int64)                                                         \
   cb(DTypeEnum::UInt8)                                                         \
   cb(DTypeEnum::UInt32)                                                        \
-  cb(DTypeEnum::Float64)                                                       \
   cb(DTypeEnum::Float16)                                                       \
-  cb(DTypeEnum::Bool)
+  cb(DTypeEnum::Float64)                                                       \
+  cb(DTypeEnum::Bool)                                                          \
+  cb(DTypeEnum::Int8)                                                          \
+  cb(DTypeEnum::Int16)                                                         \
+  cb(DTypeEnum::UInt16)                                                        \
+  cb(DTypeEnum::UInt64)
 // clang-format on
 
 namespace {
@@ -184,6 +188,10 @@ PYBIND11_MODULE(MODULE_NAME, m) {
       .value("float16", PyDType::Float16)
       .value("float64", PyDType::Float64)
       .value("bool", PyDType::Bool)
+      .value("int8", PyDType::Int8)
+      .value("int16", PyDType::Int16)
+      .value("uint16", PyDType::UInt16)
+      .value("uint64", PyDType::UInt64)
       .def(py::init(&npdtype_to_pydtype), py::arg("dtype"))
       .def("numpy", &pydtype_to_npdtype)
       .def("get_dtype",

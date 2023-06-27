@@ -181,7 +181,7 @@ class ait_builder:
             ret.append(rt_outputs[out_tensor._attrs["name"]])
         return ret
 
-    def benchmark(self, num_trials=10):
+    def benchmark(self, num_trials=5):
         rt_inputs = {}
         rt_outputs = {}
         for trial_id in range(num_trials):

@@ -8,12 +8,10 @@ torch-frontend is a project to build customized torch model --> torch dialect --
 
 ```
 git clone https://github.com/bytedance/byteir.git
-cd byteir
+cd byteir/frontends/torch-frontend
 
 # prepare python environment and torch-mlir dependency
-bash ./frontends/torch-frontend/scripts/prepare.sh
-
-cd frontends/torch-frontend
+bash scripts/prepare.sh
 
 cmake -S . \
       -B ./build \

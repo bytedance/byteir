@@ -17,6 +17,7 @@
 
 #include "byteir/Conversion/HloToCat/FuseHloToCat.h"
 #include "byteir/Dialect/Cat/IR/CatDialect.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -59,6 +60,52 @@ GetLayoutFromConvDimNums(mlir::mhlo::ConvDimensionNumbersAttr dimension_numbers,
 
 #include "FuseHloToCatPattern.inc"
 
+struct ConvertSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getSoftmaxName())
+      return failure();
+    DictionaryAttr byteirAttrs =
+        op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+    if (!byteirAttrs)
+      return failure();
+    auto axisAttr = byteirAttrs.get("axis").cast<IntegerAttr>();
+    auto newOp = rewriter.create<cat::SoftmaxOp>(
+        op.getLoc(), op.getResultTypes()[0], op.getOperands()[0], axisAttr);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertLayerNorm : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getLayerNormName())
+      return failure();
+    DictionaryAttr byteirAttrs =
+        op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+    if (!byteirAttrs)
+      return failure();
+    if (op.getResults().size() > 1)
+      return failure();
+    auto axisAttr = byteirAttrs.getAs<ArrayAttr>("axis");
+    assert(axisAttr && "LayerNorm custom call axis attribute not found.");
+
+    auto epsAttr = byteirAttrs.getAs<FloatAttr>("epsilon");
+    assert(epsAttr && "LayerNorm custom call epsilon attribute not found.");
+
+    auto newOp = rewriter.create<cat::LayerNormOp>(
+        op.getLoc(), op.getResultTypes()[0], op.getOperands()[0],
+        op.getOperands()[1], op.getOperands()[2], axisAttr, epsAttr);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
 struct FuseMhloToCatPass : public FuseMhloToCatBase<FuseMhloToCatPass> {
 public:
   FuseMhloToCatPass() = default;
@@ -79,12 +126,13 @@ public:
 
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createFuseMhloToCatPass() {
-  return std::make_unique<FuseMhloToCatPass>();
-}
-
 void populateFuseMhloToCatPattern(RewritePatternSet &patterns) {
   populateWithGenerated(patterns);
+  patterns.add<ConvertSoftmax, ConvertLayerNorm>(patterns.getContext());
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>> createFuseMhloToCatPass() {
+  return std::make_unique<FuseMhloToCatPass>();
 }
 
 } // namespace mlir

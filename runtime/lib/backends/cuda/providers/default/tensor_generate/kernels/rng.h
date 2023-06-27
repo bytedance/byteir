@@ -24,8 +24,9 @@ namespace brt {
 namespace cuda {
 namespace kernel {
 
-void RngUniform(cudaStream_t stream, float *ptr, size_t length, float low,
-                float high);
+template <typename InputTy>
+void RngUniform(cudaStream_t stream, InputTy *ptr, size_t length, InputTy low,
+                InputTy high);
 
 } // namespace kernel
 } // namespace cuda

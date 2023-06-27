@@ -38,7 +38,7 @@ namespace {
 void createCatPreprocessPipelineImpl(OpPassManager &pm,
                                      const std::string &convLayout) {
   pm.addNestedPass<func::FuncOp>(createFuseBMMDimensionPass());
-  pm.addNestedPass<func::FuncOp>(createMatmulLayoutTransformPass(false, "rcr"));
+  pm.addNestedPass<func::FuncOp>(createMatmulLayoutTransformPass(true, "rcr"));
   pm.addNestedPass<func::FuncOp>(createTestUnfuseBatchNormPass());
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createLayoutTransformationPass(convLayout));

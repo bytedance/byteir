@@ -48,6 +48,23 @@ class TestOpsTensor(TestBase):
         }
         self.run(model_filename="gather.onnx", model_onnx_pb=proto, input_data=input_data)
 
+    def test_gather_elements(self):
+        input_shape_dtype = [
+            ["X", (3, 2), "float32"],
+            ["Y", (2, 2), "int64"],
+        ]
+        output_shape_dtype = [
+            ["Z", (2, 2), "float32"],
+        ]
+        proto = build_onnx("GatherElements", input_shape_dtype, output_shape_dtype, axis=0)
+
+        np.random.seed(0)
+        input_data = {
+            "X": np.random.rand(3, 2).astype(np.float32),
+            "Y": np.array([[0, 1], [1, 2]], dtype=np.int64),
+        }
+        self.run(model_filename="gather_elments.onnx", model_onnx_pb=proto, input_data=input_data)
+
     def test_split(self):
         input_shape_dtype = [
             ["X", (12, 2), "float32"],
