@@ -54,6 +54,9 @@ def FuseExtTransformInsertion : Pass<"insert-fuse-ext-transform", "ModuleOp"> {
     Option<"tileInterchangeAttrName", "tile-interchange-attr-name", "std::string",
             /*default=*/"",
             "Tile interchange attribute name.">,
+    Option<"keepIntermediates", "keep-intermediates-attr-name", "bool",
+            /*default=*/"false",
+            "keep intermediates attribute name.">
   ];
 }
 

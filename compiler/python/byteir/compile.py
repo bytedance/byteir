@@ -119,7 +119,7 @@ def compile_cuda_with_ait(
         _print_verbose(processor.module, "// IR Dump After Cat Opt:")
     # clustering
     with context:
-        processor.hlo_opt_pass()
+        processor.hlo_opt_pass(outline_single_elemwise_op=True)
     if verbose:
         _print_verbose(processor.module, "// IR Dump After Hlo Opt:")
     # generate ait .so for subgraphs

@@ -211,6 +211,15 @@ def HloMoveDown : Pass<"hlo-move-down", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// SliceMoveDownAndMerge
+//===----------------------------------------------------------------------===//
+
+def SliceMoveDownAndMerge : Pass<"slice-move-down-and-merge", "mlir::func::FuncOp"> {
+  let summary = "Slice move down and merge branch";
+  let constructor = "mlir::createSliceMoveDownAndMergePass()";
+}
+
+//===----------------------------------------------------------------------===//
 // HloMoveUp
 //===----------------------------------------------------------------------===//
 
@@ -313,6 +322,15 @@ def StaticShapeInference : Pass<"static-shape-infer", "func::FuncOp"> {
 def TrivialFusion : Pass<"fuse-trivial", "mlir::func::FuncOp"> {
   let summary = "Fuse trivial single ops";
   let constructor = "mlir::createTrivialFusionPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// Unfuse BatchNorm
+//===----------------------------------------------------------------------===//
+
+def UnfuseBatchNorm : Pass<"unfuse-batch-norm", "mlir::func::FuncOp"> {
+  let summary = "unfuse batch norm into multiplication and addition";
+  let constructor = "mlir::createUnfuseBatchNormPass()";
 }
 
 #endif // BYTEIR_DIALECT_MHLO_PASSES

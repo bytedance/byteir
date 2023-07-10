@@ -121,6 +121,16 @@ std::optional<SmallVector<int64_t>>
 computeReshapeInputOutputRankMapIndex(ShapedType inputType,
                                       ShapedType outputType);
 
+// compute the index of the reshape's expand dimension
+// Don't support that the number of expand dimension is more than 1
+// ex1: reshape(<16x32xf32>) : <1x16x32xf32>, return 0
+// ex2: reshape(<1x32xf32>) : <1x1x32xf32>, return 1
+// ex3: reshape(<1x1x32xf32>) : <1x1x1x32xf32>, return 2
+// ex4: reshape(<1x32xf32>) : <1x1x1x32xf32>, return nullopt
+// ex5: reshape(<1x32xf32>) : <2x16xf32>, return nullopt
+// ex6: reshape(<1x16x32xf32>) : <16x32xf32> return nullopt
+std::optional<int64_t> computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp);
+
 // TODO: move this to lmhlo
 bool isLmhloConstantValue(mlir::Value value);
 

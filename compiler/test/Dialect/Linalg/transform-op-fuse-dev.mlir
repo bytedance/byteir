@@ -100,11 +100,12 @@ func.func @resnet_block(%arg0: tensor<1x56x56x256xf16>) -> tensor<1x56x56x256xf1
   %cst_2 = arith.constant 0.000000e+00 : f16
   %0 = tensor.empty() : tensor<1x56x56x256xf16>
   // CHECK: scf.for
+  // CHECK:   scf.for
   %1 = linalg.fill ins(%cst_2 : f16) outs(%0 : tensor<1x56x56x256xf16>) -> tensor<1x56x56x256xf16>
   %2 = linalg.elemwise_unary {__revisited__} ins(%arg0 : tensor<1x56x56x256xf16>) outs(%1 : tensor<1x56x56x256xf16>) -> tensor<1x56x56x256xf16>
   // CHECK: %[[REVISITED:.*]] = linalg.elemwise_unary {__revisited__}
   // CHECK-NOT: __revisited__
-  // CHECK-DAG: %[[SUB_SLICE_0:.*]] = tensor.extract_slice %[[REVISITED]]{{.*}} to tensor<1x8x56x256xf16>
+  // CHECK-DAG: %[[SUB_SLICE_0:.*]] = tensor.extract_slice %[[REVISITED]]{{.*}} to tensor<1x8x56x32xf16>
   // CHECK-DAG: %[[SUB_SLICE_1:.*]] = tensor.extract_slice %[[REVISITED]]{{.*}} to tensor<1x?x56x256xf16>
   %3 = tensor.empty() : tensor<1x56x56x64xf16>
   %4 = linalg.fill ins(%cst_2 : f16) outs(%3 : tensor<1x56x56x64xf16>) -> tensor<1x56x56x64xf16>
@@ -130,13 +131,14 @@ func.func @resnet_block(%arg0: tensor<1x56x56x256xf16>) -> tensor<1x56x56x256xf1
     linalg.yield %14 : f16
   } -> tensor<1x56x56x256xf16>
   // CHECK-DAG: linalg.generic{{.*}}%[[SUB_SLICE_0]], %[[CONV_2]]
+  // CHECK:   scf.yield
   // CHECK: scf.yield
   return %13 : tensor<1x56x56x256xf16>
 }
 transform.sequence  failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %transformed, %loops = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [0, 8]}
+  %transformed, %loops:2 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [0, 8, 0, 32]}
   cleanup
 }
 
@@ -163,6 +165,3 @@ module {
     %transformed, %loops:2 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [4, 8]}
   }
 }
-
-
-

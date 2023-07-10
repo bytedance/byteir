@@ -8,11 +8,12 @@ from torch_mlir.dialects.mhlo import register_mhlo_dialect
 
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
+    "aten.softmax.int",
     "aten._log_softmax",
+    "aten.log_softmax.int",
     "aten.native_layer_norm",
     "aten.layer_norm",
     "aten.gelu",
-    "aten.softmax.int",
     "aten.argmax",
     "aten.max.dim",
     "aten.one_hot",

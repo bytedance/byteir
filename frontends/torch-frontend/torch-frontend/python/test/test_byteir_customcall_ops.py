@@ -13,6 +13,32 @@ def custom_test_helper(module, inputs, custom_op_name):
 
 # ==============================================================================
 
+class SoftmaxModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return torch.ops.aten._softmax(x, dim=1, half_to_float=False)
+
+def test_softmax():
+    inputs = [tu.rand(3, 4)]
+    custom_test_helper(SoftmaxModule(), inputs, "byteir.softmax")
+
+
+class LogSoftmaxModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return torch.ops.aten._log_softmax(x, dim=1, half_to_float=False)
+
+def test_log_softmax():
+    inputs = [tu.rand(3, 4)]
+    custom_test_helper(LogSoftmaxModule(), inputs, "byteir.log_softmax")
+
+
+# ==============================================================================
+
 class NativeLayerNormModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -26,7 +52,6 @@ def test_native_layer_norm():
     inputs = [tu.rand(2, 5, 2, 2, 3).to(torch.float16), tu.rand(2, 2, 3).to(torch.float16), tu.rand(2, 2, 3).to(torch.float16)]
     custom_test_helper(NativeLayerNormModule(), inputs, "byteir.layer_norm")
 
-# ==============================================================================
 
 class LayerNormModule(torch.nn.Module):
     def __init__(self):
@@ -40,7 +65,6 @@ def test_layer_norm():
     inputs = [tu.rand(2, 5, 2, 2, 3).to(torch.float16), tu.rand(2, 2, 3).to(torch.float16), tu.rand(2, 2, 3).to(torch.float16)]
     custom_test_helper(LayerNormModule(), inputs, "byteir.layer_norm")
 
-# ==============================================================================
 
 class LayerNormNoneBiasModule(torch.nn.Module):
     def __init__(self):

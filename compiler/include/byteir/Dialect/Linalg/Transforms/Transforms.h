@@ -55,7 +55,7 @@ FailureOr<scf::SCFTileAndFuseResult>
 tileConsumerAndFuseProducerUsingSCFForOpExt(
     RewriterBase &rewriter, TilingInterface consumer,
     ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
-    bool simplifyLoopIter = true);
+    bool simplifyLoopIter = true, bool keepIntermediate = false);
 
 void labelTileLoopType(Operation *op, ArrayRef<scf::ForOp> loops);
 

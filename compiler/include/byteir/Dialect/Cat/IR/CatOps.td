@@ -110,12 +110,21 @@ def Cat_BMMAddOp : Cat_Op<"bmm_add", [Cat_CatOpInterface, Pure]> {
   let results = (outs AnyTensor : $output);
 }
 
-def Cat_BMMPermuteOp : Cat_Op<"bmm_permute", [Cat_CatOpInterface, Pure]> {
+def Cat_BMMRRRPermuteOp : Cat_Op<"bmm_rrr_permute", [Cat_CatOpInterface, Pure]> {
   let summary = "batch matmul + permute operator";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
-                       I64Attr : $shape,
-                       StrAttr : $layout);
+                       I64Attr : $shape);
+  let results = (outs AnyTensor : $output);
+
+  let hasVerifier = 1;
+}
+
+def Cat_BMMRCRPermuteOp : Cat_Op<"bmm_rcr_permute", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + permute operator";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       I64Attr : $shape);
   let results = (outs AnyTensor : $output);
 
   let hasVerifier = 1;
@@ -228,6 +237,62 @@ def Cat_UnaryElementwiseOp : Cat_Op<"unary_elementwise", [Cat_CatOpInterface, Pu
 def Cat_BinaryElementwiseOp : Cat_Op<"binary_elementwise", [Cat_CatOpInterface, Pure]> {
   let summary = "binary elementwise operator";
   let arguments = (ins AnyTensor : $lhs, AnyTensor : $rhs, StrAttr : $op_type);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMRRROp : Cat_Op<"bmm_rrr", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (rrr layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMRRCOp : Cat_Op<"bmm_rrc", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (rrc layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMRCROp : Cat_Op<"bmm_rcr", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (rcr layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMRCCOp : Cat_Op<"bmm_rcc", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (rcc layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCRROp : Cat_Op<"bmm_crr", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (crr layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCRCOp : Cat_Op<"bmm_crc", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (crc layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCCROp : Cat_Op<"bmm_ccr", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (ccr layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCCCOp : Cat_Op<"bmm_ccc", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul operator (ccc layout)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs);
   let results = (outs AnyTensor : $output);
 }
 
