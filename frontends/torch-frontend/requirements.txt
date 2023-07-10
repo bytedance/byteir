@@ -1,14 +1,14 @@
 # torch and torchvision
 -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 --pre
-torch==2.1.0.dev20230619
-torchvision==0.16.0.dev20230619
+torch==2.1.0.dev20230709
+torchvision==0.16.0.dev20230709
 
 # cuda torch and torchvision
 # --extra-index-url https://download.pytorch.org/whl/nightly/cu118
 # --pre
-# torch==2.1.0.dev20230619+cu118
-# torchvision==0.16.0.dev20230619+cu118
+# torch==2.1.0.dev20230709+cu118
+# torchvision==0.16.0.dev20230709+cu118
 
 # transformers
 

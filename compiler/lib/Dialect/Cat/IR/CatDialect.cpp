@@ -84,9 +84,14 @@ LogicalResult BatchMatmulOp::verify() {
 // BMMPermuteOp
 //===----------------------------------------------------------------------===/
 
-LogicalResult BMMPermuteOp::verify() {
+LogicalResult BMMRRRPermuteOp::verify() {
   return VerifyBMMLayout(this->getLhs(), this->getRhs(), this->getOutput(),
-                         this->getLayout());
+                         "rrr");
+}
+
+LogicalResult BMMRCRPermuteOp::verify() {
+  return VerifyBMMLayout(this->getLhs(), this->getRhs(), this->getOutput(),
+                         "rcr");
 }
 
 //===----------------------------------------------------------------------===//

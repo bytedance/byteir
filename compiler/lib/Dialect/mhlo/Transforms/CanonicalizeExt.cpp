@@ -19,6 +19,7 @@
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/AttrUtils.h"
+#include "byteir/Utils/HashUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -584,6 +585,132 @@ mlir::mhlo::eliminateRedundantConvertFromI1(mhlo::ConvertOp op,
     mhlo::ConvertOp result = rewriter.create<ConvertOp>(
         loc, op.getResult().getType(), convertOp.getOperand());
     rewriter.replaceOp(op, result.getResult());
+    return success();
+  }
+  return failure();
+}
+
+///                tensor
+///         /         |        \      \
+///       slice_0   slice_1   ...   slice_n
+///         |         |        |       \        
+///  ... reshape_0 reshape_1  ...  reshape_n   ...
+///    \     \        |        /       /        /li
+///               concatenate
+///
+LogicalResult
+mlir::mhlo::foldConcatWithSlicesAndRehape(mhlo::ConcatenateOp op,
+                                          PatternRewriter &rewriter) {
+  // only support static shape
+  if (!op.getType().hasStaticShape()) {
+    LLVM_DEBUG(llvm::dbgs() << "concat has no static shape\n");
+    return failure();
+  }
+
+  SmallDenseSet<Value> operandsSet(op->getOperands().begin(),
+                                   op->getOperands().end());
+  if (operandsSet.size() != op->getNumOperands()) {
+    LLVM_DEBUG(llvm::dbgs() << "concat has some same operands\n");
+    return failure();
+  }
+  uint64_t concatDim = op.getDimension();
+
+  // find continuous reshape op
+  std::unordered_map<Value, SmallVector<OpOperand *>, byteir::MlirValueHash>
+      clusterMap;
+  for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+    if (auto reshape = op.getOperand(i).getDefiningOp<mhlo::ReshapeOp>()) {
+      if (auto slice = reshape.getOperand().getDefiningOp<mhlo::SliceOp>()) {
+        clusterMap[slice.getOperand()].push_back(&(op->getOpOperand(i)));
+      }
+    }
+  }
+
+  for (auto iter = clusterMap.begin(); iter != clusterMap.end(); iter++) {
+    if (iter->second.size() <= 1)
+      continue;
+
+    const auto &opOperandList = iter->second;
+    auto checkReshapeContinuos = [&opOperandList] {
+      for (unsigned i = 1; i < opOperandList.size(); i++) {
+        if (opOperandList[i]->getOperandNumber() !=
+            opOperandList[i - 1]->getOperandNumber() + 1) {
+          return false;
+        }
+      }
+      return true;
+    };
+    if (!checkReshapeContinuos()) {
+      continue;
+    }
+
+    auto sliceOperandShape =
+        iter->first.getType().cast<ShapedType>().getShape();
+    auto sliceSize = sliceOperandShape.back() / opOperandList.size();
+
+    // only support that extract slices on the last dimension
+    if ((sliceOperandShape.back() % opOperandList.size()) != 0) {
+      continue;
+    }
+    // only support that reshape expand's dim is  equal to concat dim
+    auto expandDim = computeReshapeExpandDim(
+        opOperandList[0]->get().getDefiningOp<mhlo::ReshapeOp>());
+    if ((!expandDim.has_value()) || (*expandDim != concatDim)) {
+      continue;
+    }
+    for (unsigned i = 0; i < opOperandList.size(); i++) {
+      auto reshapeOp = opOperandList[i]->get().getDefiningOp<mhlo::ReshapeOp>();
+      // TODO: support slice on arbitrary dimension
+      auto slice = reshapeOp.getOperand().getDefiningOp<mhlo::SliceOp>();
+      auto startAttr = slice.getStartIndices();
+      auto limitAttr = slice.getLimitIndices();
+      auto stridesAttr = slice.getStrides();
+      for (unsigned j = 0; j < sliceOperandShape.size(); j++) {
+        if (j < sliceOperandShape.size() - 1) {
+          if ((startAttr.getValues<IntegerAttr>()[j].getInt() != 0) ||
+              (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
+               sliceOperandShape[j]) ||
+              (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
+            continue;
+          }
+        } else if ((startAttr.getValues<IntegerAttr>()[j].getInt() !=
+                    i * sliceSize) ||
+                   (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
+                    (i + 1) * sliceSize) ||
+                   (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
+          continue;
+        }
+      }
+    }
+    SmallVector<int64_t> newReshapeShape(sliceOperandShape.begin(),
+                                         sliceOperandShape.end());
+    newReshapeShape[newReshapeShape.size() - 1] = sliceSize;
+    newReshapeShape.insert(newReshapeShape.begin() + (*expandDim),
+                           opOperandList.size());
+
+    auto reshapeOp =
+        opOperandList.back()->get().getDefiningOp<mhlo::ReshapeOp>();
+    mhlo::ReshapeOp newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
+        reshapeOp.getLoc(),
+        RankedTensorType::get(
+            newReshapeShape, reshapeOp.getOperand().getType().getElementType()),
+        iter->first);
+
+    SmallVector<Value> newConcatInput;
+    unsigned index = opOperandList[0]->getOperandNumber();
+    for (unsigned i = 0; i < index; i++) {
+      newConcatInput.push_back(op.getOperand(i));
+    }
+    newConcatInput.push_back(newReshapeOp.getResult());
+    for (unsigned i = index + opOperandList.size(); i < op.getNumOperands();
+         i++) {
+      newConcatInput.push_back(op.getOperand(i));
+    }
+
+    mhlo::ConcatenateOp newConcatOp = rewriter.create<mhlo::ConcatenateOp>(
+        op.getLoc(), op.getType(), newConcatInput, op.getDimension());
+    rewriter.replaceOp(op, newConcatOp.getResult());
+
     return success();
   }
   return failure();
@@ -1399,7 +1526,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::canonicalizeConcatWithBroadcast);
   patterns.add(mlir::mhlo::simplifyAddInsertSlicesToInsertSlices);
   patterns.add(mlir::mhlo::eliminateRedundantConvertFromI1);
-
+  patterns.add(mlir::mhlo::foldConcatWithSlicesAndRehape);
   if (blindFold) {
     patterns.add(mlir::mhlo::foldLargeConcatenate);
   }

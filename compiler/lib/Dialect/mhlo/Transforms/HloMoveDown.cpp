@@ -577,12 +577,10 @@ private:
 };
 
 struct SliceMoveDownAndMergePattern : public HloMoveDownPattern<mhlo::SliceOp> {
-  SliceMoveDownAndMergePattern(MLIRContext *context,
-                               const llvm::DenseSet<llvm::StringRef> &blocker,
-                               bool allMultiUser = false,
-                               bool multiUser = false)
-      : HloMoveDownPattern<mhlo::SliceOp>(context, blocker, allMultiUser,
-                                          multiUser) {}
+  SliceMoveDownAndMergePattern(MLIRContext *context)
+      : HloMoveDownPattern<mhlo::SliceOp>(context, /*block=*/{},
+                                          /*allMultiUser=*/false,
+                                          /*multiUser=*/false) {}
 
   LogicalResult matchAndRewrite(mhlo::SliceOp op,
                                 PatternRewriter &rewriter) const override {
@@ -703,15 +701,13 @@ private:
             {static_cast<long int>(broadcastDimensions.size())},
             rewriter.getI64Type()),
         broadcastDimensions);
+
+    // insert broadcast exactly after binnaryCommonOperand
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfterValue(binaryCommonOperand);
     auto broadcastOp = rewriter.create<mhlo::BroadcastInDimOp>(
         rewriter.getUnknownLoc(), afterBroadcastType, binaryCommonOperand,
         newBcastAttr);
-    auto *binaryCommonDefiningOp = binaryCommonOperand.getDefiningOp();
-    if (binaryCommonDefiningOp &&
-        binaryCommonDefiningOp->getBlock() == broadcastOp->getBlock() &&
-        broadcastOp->isBeforeInBlock(binaryCommonDefiningOp)) {
-      broadcastOp->moveAfter(binaryCommonDefiningOp);
-    }
     return broadcastOp;
   }
 
@@ -736,14 +732,19 @@ private:
     // maybeResultTypes should always have value
     assert(maybeResultTypes.has_value());
 
-    auto newProducer =
-        cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);
-    for (auto operand : newProducer->getOperands()) {
-      const auto parentOp = operand.getDefiningOp();
-      if (parentOp && newProducer->isBeforeInBlock(parentOp)) {
-        newProducer->moveAfter(parentOp);
+    // insert sliceUser op after both slice opreand and newBroadcastOp
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfterValue(slices[0]->getOperand(0));
+    if (newBroadcastOp) {
+      if (llvm::isa<BlockArgument>(slices[0]->getOperand(0))) {
+        rewriter.setInsertionPointAfter(newBroadcastOp);
+      } else if (slices[0]->getOperand(0).getDefiningOp()->isBeforeInBlock(
+                     newBroadcastOp)) {
+        rewriter.setInsertionPointAfter(newBroadcastOp);
       }
     }
+    auto newProducer =
+        cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);
     newProducer->setLoc(rewriter.getUnknownLoc());
     return newProducer;
   }
@@ -766,21 +767,14 @@ private:
     // step 3: perform move down
     for (size_t i = 0; i < slices.size(); i++) {
       auto op = slices[i];
-      mhlo::SliceOp slice = dyn_cast<mhlo::SliceOp>(*op);
-      assert(slice);
+      mhlo::SliceOp slice = cast<mhlo::SliceOp>(op);
       auto user = sliceUsers[i];
-      // create slice op
-      auto sliceOp = rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
+      // create slice op at every user's insertion point
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(user);
+      rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
           user, user->getResultTypes(), newProducer->getResult(0),
           slice.getStartIndices(), slice.getLimitIndices(), slice.getStrides());
-      if (sliceOp->isBeforeInBlock(newProducer)) {
-        sliceOp->moveAfter(newProducer);
-      }
-      for (auto user : sliceOp.getResult().getUsers()) {
-        if (user->isBeforeInBlock(sliceOp)) {
-          user->moveAfter(sliceOp);
-        }
-      }
     }
     return success();
   }
@@ -813,6 +807,29 @@ struct HloMoveDownPass : public HloMoveDownBase<HloMoveDownPass> {
     funcOp.walk([](ReshapeOp op) { op->removeAttr(kMoveDownDisableKey); });
   }
 };
+
+struct SliceMoveDownAndMergePass
+    : public SliceMoveDownAndMergeBase<SliceMoveDownAndMergePass> {
+  using SliceMoveDownAndMergeBase<
+      SliceMoveDownAndMergePass>::SliceMoveDownAndMergeBase;
+
+  void runOnOperation() override {
+    func::FuncOp funcOp = getOperation();
+    auto ctx = funcOp.getContext();
+    RewritePatternSet patterns(ctx);
+
+    populateSliceMoveDownAndMergePattern(patterns);
+
+    // also add canoncializationExt pattern
+    mhlo::getCanonicalizationExtPatterns(patterns, ctx);
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
+      funcOp.emitError("SliceMoveDownAndMergePass applyPatternsAndFoldGreedily "
+                       "does not converge");
+      signalPassFailure();
+    }
+  }
+};
 } // namespace
 
 void mlir::populateHloMoveDownPattern(RewritePatternSet &patterns,
@@ -823,13 +840,21 @@ void mlir::populateHloMoveDownPattern(RewritePatternSet &patterns,
                ReshapeMoveDownPattern,
                BroadcastMoveDownPattern,
                BroadcastReshapeMoveDownPattern,
-               ReshapeBroadcastDotMoveDownPattern,
-               SliceMoveDownAndMergePattern>(
+               ReshapeBroadcastDotMoveDownPattern>(
            patterns.getContext(), blocker, allMultiUser, multiUser);
   // clang-format on
+}
+
+void mlir::populateSliceMoveDownAndMergePattern(RewritePatternSet &patterns) {
+  patterns.add<SliceMoveDownAndMergePattern>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createHloMoveDownPass(bool allMultiUser, bool multiUser) {
   return std::make_unique<HloMoveDownPass>(allMultiUser, multiUser);
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createSliceMoveDownAndMergePass() {
+  return std::make_unique<SliceMoveDownAndMergePass>();
 }

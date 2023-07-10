@@ -811,20 +811,24 @@ static void getProducerAndConsumerTensorSlices(
   }
 }
 
-mlir::DenseMap<Operation *, int64_t> getNumberOfUsesFromRoot(Operation *root) {
-  mlir::DenseMap<Operation *, int64_t> op2AllUses;
+mlir::DenseMap<Value, int64_t> getNumberOfUsesFromRoot(Operation *root) {
+  mlir::DenseMap<Value, int64_t> val2AllUses;
+  mlir::DenseSet<Operation *> visitedOps;
   if (!root)
-    return op2AllUses;
+    return val2AllUses;
   std::function<void(Operation *)> visitNode = [&](Operation *node) {
+    bool notVisited = visitedOps.insert(node).second;
+    if (!notVisited)
+      return;
     for (Value val : node->getOperands()) {
+      val2AllUses[val] += 1;
       if (Operation *defOp = val.getDefiningOp()) {
-        op2AllUses[defOp] += 1;
         visitNode(defOp);
       }
     }
   };
   visitNode(root);
-  return op2AllUses;
+  return val2AllUses;
 }
 
 /// For several tensor.extract_slice ops of the same source, merge all or part
@@ -845,6 +849,8 @@ mlir::DenseMap<Operation *, int64_t> getNumberOfUsesFromRoot(Operation *root) {
 ///             opN+1
 /// For a model with N residual blocks, op0 has to be tiled by 2**N times if the
 /// tensor.extract_slice ops are not merged.
+///
+/// Note: the topological order mighe be broken after this function
 SmallVector<tensor::ExtractSliceOp>
 mergeSliceOps(SmallVector<tensor::ExtractSliceOp> &sliceOps) {
   if (sliceOps.size() == 0)
@@ -862,17 +868,47 @@ mergeSliceOps(SmallVector<tensor::ExtractSliceOp> &sliceOps) {
     for (int64_t offset : offsets) {
       if (ShapedType::isDynamic(offset))
         key += multiplier;
-      multiplier *= 2;
+      multiplier = multiplier << 1;
     }
-
-    OpResult src = dyn_cast<OpResult>(sliceOp.getSource());
-    if (src)
-      key += src.getResultNumber() * multiplier;
     return key;
   };
   mlir::DenseMap<int64_t, SmallVector<tensor::ExtractSliceOp>> groupedSliceOps;
   for (tensor::ExtractSliceOp sliceOp : sliceOps)
     groupedSliceOps[getSliceKey(sliceOp)].push_back(sliceOp);
+
+  // merge groups
+  // E.g. if group A consists of slices on dim 0, group B consists of slices on
+  // dim 0 & 1, A will be merged to B.
+  SmallVector<int64_t> keys;
+  for (auto it : groupedSliceOps)
+    keys.push_back(it.first);
+  auto countOnes = [](int64_t num) {
+    int64_t cnt = 0;
+    while (num) {
+      num &= (num - 1);
+      cnt++;
+    }
+    return cnt;
+  };
+  std::sort(keys.begin(), keys.end(),
+            [&](int64_t a, int64_t b) { return countOnes(a) > countOnes(b); });
+  mlir::DenseSet<int64_t> visitedKeys;
+  for (size_t i = 0; i < keys.size(); ++i) {
+    if (visitedKeys.contains(i))
+      continue;
+    visitedKeys.insert(i);
+    for (size_t j = i + 1; j < keys.size(); ++j) {
+      if (visitedKeys.contains(j))
+        continue;
+      if ((keys[i] & keys[j]) == keys[j]) {
+        // merge group j to group i
+        visitedKeys.insert(j);
+        for (tensor::ExtractSliceOp jOp : groupedSliceOps[keys[j]])
+          groupedSliceOps[keys[i]].push_back(jOp);
+        groupedSliceOps.erase(keys[j]);
+      }
+    }
+  }
 
   for (auto it : groupedSliceOps) {
     SmallVector<tensor::ExtractSliceOp> &curSliceOps = it.second;
@@ -980,7 +1016,7 @@ FailureOr<scf::SCFTileAndFuseResult>
 mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     RewriterBase &rewriter, TilingInterface consumer,
     ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
-    bool simplifyLoopIter) {
+    bool simplifyLoopIter, bool keepIntermediate) {
   // This transformation is only valid for ops that return values (i.e. not
   // valid to use with operations that have memref operands).
   if (!consumer->getNumResults()) {
@@ -988,7 +1024,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
         consumer, "invalid pattern for op with no results");
   }
 
-  mlir::DenseMap<Operation *, int64_t> op2AllUses =
+  mlir::DenseMap<Value, int64_t> val2AllUses =
       getNumberOfUsesFromRoot(consumer.getOperation());
 
   DenseSet<Operation *> stopSet(stopOps.begin(), stopOps.end());
@@ -1031,10 +1067,8 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   fusedOps.emplace_back(consumer.getOperation(),
                         tileAndFuseResult.tiledAndFusedOps.back());
 
-  // TODO: refine op2CurrentUses
-  DenseMap<Operation *, int64_t> op2CurrentUses;
-  DenseMap<Operation *, SmallVector<tensor::ExtractSliceOp>>
-      op2OriginalSliceOps;
+  DenseMap<Value, int64_t> val2CurrentUses;
+  DenseMap<Value, SmallVector<tensor::ExtractSliceOp>> val2OriginalSliceOps;
   // 2. Typically, the operands of the tiled operation are slices of the
   //    operands of the untiled operation. These are expressed in IR using
   //    `tensor.extract_slice` operations with source being the operands of the
@@ -1059,16 +1093,19 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
             if (!isa_and_nonnull<TilingInterface>(srcOp)) {
               continue;
             }
-            assert(op2AllUses.contains(srcOp));
-            op2CurrentUses[srcOp]++;
+            assert(val2AllUses.contains(srcResult));
+            val2CurrentUses[srcResult]++;
             if (validFusibleProducerOp)
-              op2OriginalSliceOps[srcOp].push_back(sliceOp);
+              val2OriginalSliceOps[srcResult].push_back(sliceOp);
             if (validFusibleProducerOp && !stopSet.contains(srcOp) &&
-                op2CurrentUses[srcOp] == op2AllUses[srcOp]) {
+                val2CurrentUses[srcResult] == val2AllUses[srcResult]) {
               SmallVector<tensor::ExtractSliceOp> mergedSliceOps =
-                  mergeSliceOps(op2OriginalSliceOps[srcOp]);
-              for (tensor::ExtractSliceOp sliceOp : mergedSliceOps)
+                  mergeSliceOps(val2OriginalSliceOps[srcResult]);
+              for (tensor::ExtractSliceOp sliceOp : mergedSliceOps) {
+                LLVM_DEBUG(DBGS() << "enqueue cadidate for source: "
+                                  << srcResult << "\n");
                 candidates.push_back(sliceOp);
+              }
             }
           }
         }
@@ -1235,107 +1272,112 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
 
   } // while (!candidates.empty())
 
-  // 3. clean up loops args and unused loop carries
-
+  // 3. topologically sort the ops since the order was corrupted in the slice
+  // merging step
   for (auto &loop : tileAndFuseResult.loops) {
     if (!sortTopologically(loop.getBody()))
       return rewriter.notifyMatchFailure(consumer, "topological sort fails.");
   }
 
-  // collect all iterArgToOperand for quick access later
-  // iterArgToOperand as mapping from Loop's RegionIterArgs to IterOperands
-  llvm::DenseMap<Value, Value> iterArgToOperand;
-  for (auto &forOp : tileAndFuseResult.loops) {
-    for (auto it : llvm::zip(forOp.getRegionIterArgs(), // iter inside region
-                             forOp.getIterOperands()    // iter from outside
-                             )) {
-      iterArgToOperand.try_emplace(std::get<0>(it), std::get<1>(it));
-    }
-  }
-
-  assert(tileAndFuseResult.loops.size() > 0);
-  // check getLoopIteratorTypes for each fusedOp
-  // if parallel, corresponding getRegionIterArgs will be simplified
-  unsigned resultOffset = 0;
-  for (const auto &p : fusedOps) {
-    auto unfusedOp = p.first;
-    auto fusedOp = p.second;
-    auto numResult = fusedOp->getNumResults();
-
-    // analyze LoopIteratorTypes before using
-    auto loopIterTypes = getLoopIteratorTypes(fusedOp, tileAndFuseResult.loops);
-    if (failed(loopIterTypes)) {
-      LLVM_DEBUG(llvm::dbgs() << "skip clean-up due to no loopIterTypes for "
-                              << fusedOp << "\n");
-      resultOffset += numResult;
-      continue;
+  // 4. clean up loops args and unused loop carries
+  if (!keepIntermediate) {
+    // collect all iterArgToOperand for quick access later
+    // iterArgToOperand as mapping from Loop's RegionIterArgs to IterOperands
+    llvm::DenseMap<Value, Value> iterArgToOperand;
+    for (auto &forOp : tileAndFuseResult.loops) {
+      for (auto it : llvm::zip(forOp.getRegionIterArgs(), // iter inside region
+                               forOp.getIterOperands()    // iter from outside
+                               )) {
+        iterArgToOperand.try_emplace(std::get<0>(it), std::get<1>(it));
+      }
     }
 
-    for (unsigned i = 0; i < unfusedOp->getNumResults(); ++i) {
-      auto result = unfusedOp->getResult(i);
+    assert(tileAndFuseResult.loops.size() > 0);
+    // check getLoopIteratorTypes for each fusedOp
+    // if parallel, corresponding getRegionIterArgs will be simplified
+    unsigned resultOffset = 0;
+    for (const auto &p : fusedOps) {
+      auto unfusedOp = p.first;
+      auto fusedOp = p.second;
+      auto numResult = fusedOp->getNumResults();
 
-      auto effectiveUseCnt =
-          llvm::count_if(result.getUses(), [](OpOperand &opOperand) {
-            if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(
-                    opOperand.getOwner())) {
-              return !dstOp.isDpsInit(&opOperand);
+      // analyze LoopIteratorTypes before using
+      auto loopIterTypes =
+          getLoopIteratorTypes(fusedOp, tileAndFuseResult.loops);
+      if (failed(loopIterTypes)) {
+        LLVM_DEBUG(llvm::dbgs() << "skip clean-up due to no loopIterTypes for "
+                                << fusedOp << "\n");
+        resultOffset += numResult;
+        continue;
+      }
+
+      for (unsigned i = 0; i < unfusedOp->getNumResults(); ++i) {
+        auto result = unfusedOp->getResult(i);
+
+        auto effectiveUseCnt =
+            llvm::count_if(result.getUses(), [](OpOperand &opOperand) {
+              if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(
+                      opOperand.getOwner())) {
+                return !dstOp.isDpsInit(&opOperand);
+              }
+              return !isa<tensor::DimOp>(opOperand.getOwner());
+            });
+
+        bool hasOneOrZeroUseGeneral =
+            unfusedOp == consumer ? effectiveUseCnt < 1 : effectiveUseCnt <= 1;
+
+        bool hasOneOrZeroUseForExtract = effectiveUseCnt <= 1;
+
+        auto confirmAllParallel = [&](size_t loopCnt) {
+          bool allParallel = true;
+          for (size_t idx = 0; idx <= loopCnt; ++idx) {
+            auto &maybeIterTy = (*loopIterTypes)[idx];
+            if (allParallel &&
+                !(maybeIterTy.has_value() &&
+                  *maybeIterTy == utils::IteratorType::parallel)) {
+              allParallel = false;
             }
-            return !isa<tensor::DimOp>(opOperand.getOwner());
-          });
-
-      bool hasOneOrZeroUseGeneral =
-          unfusedOp == consumer ? effectiveUseCnt < 1 : effectiveUseCnt <= 1;
-
-      bool hasOneOrZeroUseForExtract = effectiveUseCnt <= 1;
-
-      auto confirmAllParallel = [&](size_t loopCnt) {
-        bool allParallel = true;
-        for (size_t idx = 0; idx <= loopCnt; ++idx) {
-          auto &maybeIterTy = (*loopIterTypes)[idx];
-          if (allParallel && !(maybeIterTy.has_value() &&
-                               *maybeIterTy == utils::IteratorType::parallel)) {
-            allParallel = false;
           }
-        }
-        return allParallel;
-      };
+          return allParallel;
+        };
 
-      for (int64_t loopIdx = tileAndFuseResult.loops.size() - 1; loopIdx >= 0;
-           loopIdx -= 1) {
+        for (int64_t loopIdx = tileAndFuseResult.loops.size() - 1; loopIdx >= 0;
+             loopIdx -= 1) {
 
-        // update collection every iteration, since it might be replaced.
-        SmallPtrSet<Operation *, 8> opCollection;
-        SmallPtrSet<Value, 16> valCollection;
-        opCollection.insert(fusedOp);
-        // get all producer and consumer slices' op and value
-        getProducerAndConsumerTensorSlices(fusedOp, iterArgToOperand,
-                                           opCollection, valCollection);
+          // update collection every iteration, since it might be replaced.
+          SmallPtrSet<Operation *, 8> opCollection;
+          SmallPtrSet<Value, 16> valCollection;
+          opCollection.insert(fusedOp);
+          // get all producer and consumer slices' op and value
+          getProducerAndConsumerTensorSlices(fusedOp, iterArgToOperand,
+                                             opCollection, valCollection);
 
-        auto &forOp = tileAndFuseResult.loops[loopIdx];
-        bool confirmedAllParallel = confirmAllParallel(loopIdx);
+          auto &forOp = tileAndFuseResult.loops[loopIdx];
+          bool confirmedAllParallel = confirmAllParallel(loopIdx);
 
-        auto iterArg = forOp.getRegionIterArg(resultOffset + i);
-        auto iterOperand = forOp.getIterOperands()[resultOffset + i];
+          auto iterArg = forOp.getRegionIterArg(resultOffset + i);
+          auto iterOperand = forOp.getIterOperands()[resultOffset + i];
 
-        if (isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseGeneral,
-                                  confirmedAllParallel)) {
-          iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
-            return (opCollection.contains(use.getOwner()) ||
-                    valCollection.contains(use.get()));
-          });
-        }
+          if (isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseGeneral,
+                                    confirmedAllParallel)) {
+            iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
+              return (opCollection.contains(use.getOwner()) ||
+                      valCollection.contains(use.get()));
+            });
+          }
 
-        if (simplifyLoopIter &&
-            isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseForExtract,
-                                  confirmedAllParallel)) {
-          iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
-            return isa<tensor::ExtractSliceOp>(use.getOwner());
-          });
-        }
-      } // int64_t loopIdx > 0
-    }   // for i < unfusedOp->getNumResults()
-    resultOffset += numResult;
-  } // for (const auto &p : fusedOps)
+          if (simplifyLoopIter &&
+              isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseForExtract,
+                                    confirmedAllParallel)) {
+            iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
+              return isa<tensor::ExtractSliceOp>(use.getOwner());
+            });
+          }
+        } // int64_t loopIdx > 0
+      }   // for i < unfusedOp->getNumResults()
+      resultOffset += numResult;
+    } // for (const auto &p : fusedOps)
+  }
 
   return tileAndFuseResult;
 }

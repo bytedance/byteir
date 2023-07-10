@@ -481,3 +481,27 @@ bool mlir::isLmhloConstantValue(mlir::Value value) {
     return llvm::isa<lmhlo::ConstantOp>(use.getOwner());
   });
 }
+
+// compute the index of the reshape's expand dimension
+std::optional<int64_t>
+mlir::computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp) {
+  auto reshapeOperandType = reshapeOp.getOperand().getType().cast<ShapedType>();
+  if (!reshapeOperandType.hasStaticShape()) {
+    return std::nullopt;
+  }
+  auto reshapeResultType = reshapeOp.getResult().getType().cast<ShapedType>();
+
+  auto maybeIndex = computeReshapeInputOutputRankMapIndex(reshapeOperandType,
+                                                          reshapeResultType);
+  // only support using Reshape to expand one dimension
+  if ((!maybeIndex.has_value()) ||
+      (reshapeOperandType.getRank() != reshapeResultType.getRank() - 1)) {
+    return std::nullopt;
+  }
+  auto index = *maybeIndex;
+  for (int64_t i = 0; i < reshapeResultType.getRank(); i++) {
+    if (index[i] != i) {
+      return i;
+    }
+  }
+}

@@ -345,19 +345,22 @@ public:
   }
 };
 
-// Aten_LogSoftmaxOp
-class ConvertAten_LogSoftmaxOp : public OpConversionPattern<Aten_LogSoftmaxOp> {
+// Aten_LogSoftmaxOp & AtenLogSoftmaxIntOp
+template <typename AtenOpT>
+class ConvertAtenLogSoftmaxOp : public OpConversionPattern<AtenOpT> {
 public:
-  using OpConversionPattern::OpConversionPattern;
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
   LogicalResult
-  matchAndRewrite(Aten_LogSoftmaxOp op, OpAdaptor adaptor,
+  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
     auto inputType = input.getType().template cast<RankedTensorType>();
     SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .cast<RankedTensorType>();
+    RankedTensorType resultType =
+        OpConversionPattern<AtenOpT>::getTypeConverter()
+            ->convertType(op->getResult(0).getType())
+            .template cast<RankedTensorType>();
 
     int64_t dimInt;
     if (!matchPattern(op.getDim(), m_TorchConstantInt(&dimInt)))
@@ -946,7 +949,11 @@ public:
     patterns.add<ConvertAtenSoftmaxOp<AtenSoftmaxIntOp>>(typeConverter,
                                                          context);
     target.addIllegalOp<Aten_LogSoftmaxOp>();
-    patterns.add<ConvertAten_LogSoftmaxOp>(typeConverter, context);
+    patterns.add<ConvertAtenLogSoftmaxOp<Aten_LogSoftmaxOp>>(typeConverter,
+                                                             context);
+    target.addIllegalOp<AtenLogSoftmaxIntOp>();
+    patterns.add<ConvertAtenLogSoftmaxOp<AtenLogSoftmaxIntOp>>(typeConverter,
+                                                               context);
     target.addIllegalOp<AtenNllLossForwardOp>();
     patterns.add<ConvertAtenNllLossForwardOp>(typeConverter, context);
     target.addIllegalOp<AtenNllLossBackwardOp>();

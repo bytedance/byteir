@@ -103,6 +103,7 @@ add_mlir_dialect_library(ByteIRMhloPasses
   Transforms/ShapeReification.cpp
   Transforms/StaticShapeInference.cpp
   Transforms/TrivialFusion.cpp
+  Transforms/UnfuseBatchNorm.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/mhlo

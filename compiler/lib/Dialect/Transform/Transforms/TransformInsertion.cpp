@@ -93,12 +93,13 @@ struct FuseExtTransformInsertionPass
   explicit FuseExtTransformInsertionPass(
       const std::string &funcAnchor, const std::string &matchPrefix,
       const std::string &tileSizeAttrName,
-      const std::string &tileInterchangeAttrName)
+      const std::string &tileInterchangeAttrName, const bool keepIntermediates)
       : FuseExtTransformInsertionBase() {
     this->funcAnchorAttr = funcAnchor;
     this->matchPrefix = matchPrefix;
     this->tileSizeAttrName = tileSizeAttrName;
     this->tileInterchangeAttrName = tileInterchangeAttrName;
+    this->keepIntermediates = keepIntermediates;
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
@@ -134,9 +135,9 @@ struct FuseExtTransformInsertionPass
       auto pdlType = pdl::OperationType::get(b.getContext());
       SmallVector<Type> resultTypes(1 + tileSizes.size(), pdlType);
 
-      b.create<transform::FuseExtOp>(resultTypes, pdlValue, nullptr,
-                                     b.getI64ArrayAttr(tileSizes),
-                                     b.getI64ArrayAttr(tileInterchange));
+      b.create<transform::FuseExtOp>(
+          resultTypes, pdlValue, nullptr, b.getI64ArrayAttr(tileSizes),
+          b.getI64ArrayAttr(tileInterchange), b.getBoolAttr(keepIntermediates));
       b.create<transform_ext::CleanupOp>(std::nullopt, std::nullopt);
     };
 
@@ -169,9 +170,10 @@ std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createFuseExtTransformInsertionPass(
     const std::string &funcAnchor, const std::string &matchPrefix,
     const std::string &tileSizeAttrName,
-    const std::string &tileInterchangeAttrName) {
+    const std::string &tileInterchangeAttrName, const bool keepIntermediates) {
   return std::make_unique<FuseExtTransformInsertionPass>(
-      funcAnchor, matchPrefix, tileSizeAttrName, tileInterchangeAttrName);
+      funcAnchor, matchPrefix, tileSizeAttrName, tileInterchangeAttrName,
+      keepIntermediates);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>

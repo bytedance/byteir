@@ -121,6 +121,9 @@ LogicalResult simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
 
 LogicalResult foldLargeSliceOp(mhlo::SliceOp op, PatternRewriter &rewriter);
 
+LogicalResult foldConcatWithSlicesAndRehape(mhlo::ConcatenateOp op,
+                                            PatternRewriter &rewriter);
+
 // concat(broadcast_in_dim(x), broadcast_in_dim(x)) => broadcast_in_dim
 LogicalResult canonicalizeConcatWithBroadcast(mhlo::ConcatenateOp op,
                                               PatternRewriter &rewriter);
@@ -142,7 +145,6 @@ void getCanonicalizationExtPatterns(RewritePatternSet &results,
                                     MLIRContext *context,
                                     bool blindFold = false);
 
-//
 void getCanonicalizationExtPatternsForTheDialectOnly(RewritePatternSet &results,
                                                      MLIRContext *context,
                                                      bool blindFold = false);

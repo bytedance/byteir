@@ -290,7 +290,8 @@ transform::FuseExtOp::apply(mlir::transform::TransformResults &transformResults,
         SimpleRewriter rewriter(getContext());
         return tileConsumerAndFuseProducerUsingSCFForOpExt(
             rewriter, tilingInterfaceOp, stopPayloadOps, tileAndFuseOptions,
-            /*simplifyLoopIter*/ true);
+            /*simplifyLoopIter*/ true,
+            /*keepIntermediate*/ getKeepIntermediates());
       });
 
   return failed(result) ? DiagnosedSilenceableFailure::definiteFailure()
@@ -311,7 +312,11 @@ void transform::FuseExtOp::print(OpAsmPrinter &p) {
   if (stop) {
     p << ", " << stop;
   }
-  p.printOptionalAttrDict((*this)->getAttrs());
+
+  SmallVector<StringRef, 1> elidedAttrs;
+  if (!getKeepIntermediates())
+    elidedAttrs.push_back(getKeepIntermediatesAttrName().getValue());
+  p.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
 }
 
 LogicalResult transform::FuseExtOp::verify() {

@@ -24,12 +24,14 @@ include "mlir/IR/OpBase.td"
 
 def OneSize : Constraint<CPred<"$0.size() == 1">, "one size">;
 def TwoSize : Constraint<CPred<"$0.size() == 2">, "two size">;
+def ThreeSize : Constraint<CPred<"$0.size() == 3">, "three size">;
 def FourSize : Constraint<CPred<"$0.size() == 4">, "four size">;
 def OneRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 1">, "one rank">;
 def TwoRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 2">, "two rank">;
 def ThreeRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 3">, "three rank">;
 def FourRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 4">, "four rank">;
-def BMMPermuteCheck : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1 && $0.getValues<int64_t>()[3] == 3">, "bmm permute check">;
+def Permute021Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1">, "bmm 3d permute check (for transpose before bmm)">;
+def Permute0213Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1 && $0.getValues<int64_t>()[3] == 3">, "bmm 4d permute check (for transpose after bmm)">;
 def TransposeCheck : Constraint<CPred<"$0.getValues<int64_t>()[0] == 1 && $0.getValues<int64_t>()[1] == 0">, "matrix transpose check">;
 def BiasBroadcastDimCheck : Constraint<CPred<"$0.getValues<int64_t>()[0] == 1">, "bias broadcast dimension check">;
 def LayoutRrrCheck : Constraint<CPred<"$0.getValue() == \"rrr\"">, "layout rrr check">;
@@ -44,7 +46,7 @@ def IsGemmRCRDimNum
           CPred<"$0.getLhsContractingDimensions().size() == 1 && $0.getRhsContractingDimensions().size() == 1 && $0.getLhsContractingDimensions()[0] == 1 && $0.getRhsContractingDimensions()[0] == 1 && $0.getLhsBatchingDimensions().size() == 0 && $0.getLhsBatchingDimensions().size() == 0">,
           "is gemm rcr dimension">;
 
-def MhloDotGeneralBiasToCatGemmBiasPattern
+def MhloDotGeneralBiasToCatGemmRCRBiasPattern
     : Pat<(MHLO_AddOp
             (MHLO_DotGeneralOp : $output
               $lhs, $rhs, $dimension_numbers, $precision_config),
@@ -52,13 +54,29 @@ def MhloDotGeneralBiasToCatGemmBiasPattern
           (Cat_GemmRCRBiasOp $lhs, $rhs, $bias),
           [(OneRank $bias), (TwoRank $lhs), (TwoRank $rhs), (IsGemmRCRDimNum $dimension_numbers), (GemmBiasAddConstraint $bias, $output)]>;
 
-def MhloBiasDotGeneralToCatGemmBiasPattern
+def MhloBiasDotGeneralToCatGemmRCRBiasPattern
     : Pat<(MHLO_AddOp
             (MHLO_BroadcastInDimOp $bias, $dim),
             (MHLO_DotGeneralOp : $output
               $lhs, $rhs, $dimension_numbers, $precision_config)),
           (Cat_GemmRCRBiasOp $lhs, $rhs, $bias),
           [(OneRank $bias), (TwoRank $lhs), (TwoRank $rhs), (IsGemmRCRDimNum $dimension_numbers), (GemmBiasAddConstraint $bias, $output)]>;
+
+def MhloAddCatGemmRCRBiasToCatGemmRCRBiasPattern
+    : Pat<(MHLO_AddOp
+            (Cat_GemmRCROp : $output
+              $lhs, $rhs),
+            (MHLO_BroadcastInDimOp $bias, $dim)),
+          (Cat_GemmRCRBiasOp $lhs, $rhs, $bias),
+          [(OneRank $bias), (TwoRank $lhs), (TwoRank $rhs), (GemmBiasAddConstraint $bias, $output)]>;
+
+def MhloBiasCatGemmRCRAddToCatGemmRCRBiasPattern
+    : Pat<(MHLO_AddOp
+            (MHLO_BroadcastInDimOp $bias, $dim),
+            (Cat_GemmRCROp : $output
+              $lhs, $rhs)),
+          (Cat_GemmRCRBiasOp $lhs, $rhs, $bias),
+          [(OneRank $bias), (TwoRank $lhs), (TwoRank $rhs), (GemmBiasAddConstraint $bias, $output)]>;
 
 
 // these patterns are commented because gemm_rrr_bias op is not supported by AIT
@@ -82,16 +100,56 @@ def LayoutFrom3DDotGeneralDimNums : NativeCodeCall<"GetLayoutFrom3DDotGeneralDim
 
 def getBMMShapeDAttr : NativeCodeCall<"$_builder.getI64IntegerAttr($0.getType().cast<ShapedType>().getShape()[1])">;
 
-def MhloDotGeneralReshapeTransposeToBMMPermutePattern
+def CheckRRRLayoutFrom3DDotGeneralDimNums
+    : Constraint<
+          CPred<"$0.getLhsContractingDimensions().size() == 1 && $0.getRhsContractingDimensions().size() == 1 && $0.getLhsContractingDimensions()[0] == 2 && $0.getRhsContractingDimensions()[0] == 1">,
+          "is bmm rrr dimension">;
+
+
+def CheckRCRLayoutFrom3DDotGeneralDimNums
+    : Constraint<
+          CPred<"$0.getLhsContractingDimensions().size() == 1 && $0.getRhsContractingDimensions().size() == 1 && $0.getLhsContractingDimensions()[0] == 2 && $0.getRhsContractingDimensions()[0] == 2">,
+          "is bmm rcr dimension">;
+
+
+def CheckCRRLayoutFrom3DDotGeneralDimNums
+    : Constraint<
+          CPred<"$0.getLhsContractingDimensions().size() == 1 && $0.getRhsContractingDimensions().size() == 1 && $0.getLhsContractingDimensions()[0] == 1 && $0.getRhsContractingDimensions()[0] == 1">,
+          "is bmm crr dimension">;
+
+def CheckCCRLayoutFrom3DDotGeneralDimNums
+    : Constraint<
+          CPred<"$0.getLhsContractingDimensions().size() == 1 && $0.getRhsContractingDimensions().size() == 1 && $0.getLhsContractingDimensions()[0] == 1 && $0.getRhsContractingDimensions()[0] == 2">,
+          "is bmm ccr dimension">;
+
+def MhloDotGeneralReshapeTransposeToBMMRRRPermutePattern
     : Pat<(MHLO_TransposeOp
             (MHLO_ReshapeOp : $reshape_out
               (MHLO_DotGeneralOp : $bmm_out
                 $lhs, $rhs, $dimension_numbers, $precision_config)
             ),
             $permute),
-          (Cat_BMMPermuteOp $lhs, $rhs, (getBMMShapeDAttr $reshape_out),
-              (LayoutFrom3DDotGeneralDimNums $dimension_numbers)),
-          [(ThreeRank $lhs), (ThreeRank $rhs), (FourSize $permute), (BMMPermuteCheck $permute)]>;
+          (Cat_BMMRRRPermuteOp $lhs, $rhs, (getBMMShapeDAttr $reshape_out)),
+          [
+            (ThreeRank $lhs), 
+            (ThreeRank $rhs), 
+            (FourSize $permute), 
+            (Permute0213Check $permute),
+            (CheckRRRLayoutFrom3DDotGeneralDimNums $dimension_numbers)
+          ]>;
+
+def MhloDotGeneralReshapeTransposeToBMMRCRPermutePattern
+    : Pat<(Cat_BMMRRRPermuteOp 
+            $lhs, 
+            (MHLO_TransposeOp $transpose_in, $permute), 
+            $shape),
+          (Cat_BMMRCRPermuteOp $lhs, $transpose_in, $shape),
+          [
+            (ThreeRank $lhs), 
+            (ThreeRank $transpose_in), 
+            (ThreeSize $permute), 
+            (Permute021Check $permute)
+          ]>;
 
 //===----------------------------------------------------------------------===//
 // Mhlo Dot To Cat GemmRRR Pattern
@@ -233,5 +291,42 @@ def MhloConvBroadcastAddAddMaxToCatConvBiasAddReluPattern
           (Cat_Conv2dBiasAddReluOp $lhs, $rhs, $bias, $res, (LayoutFromConvDimNums $dimension_numbers), 
             $window_strides, $padding, $lhs_dilation, $rhs_dilation),
           [(OneSize $dim), (FourRank $lhs), (FourRank $rhs), (ConvBiasAddConstraint $dim, $output), (AttrIsZero:$th)]>;
+
+//===----------------------------------------------------------------------===//
+// Mhlo 3D Dot Genral To Cat BMM XXX (layout) Pattern
+//===----------------------------------------------------------------------===//
+
+def Mhlo3DDotGeneralToBMMRRRPattern
+    : Pat<(MHLO_DotGeneralOp : $bmm_out
+            $lhs, $rhs, $dimension_numbers, $precision_config),
+          (Cat_BMMRRROp $lhs, $rhs),
+          [
+            (ThreeRank $lhs), 
+            (ThreeRank $rhs), 
+            (CheckRRRLayoutFrom3DDotGeneralDimNums $dimension_numbers)
+          ]>;
+
+def Mhlo3DDotGeneralToBMMRCRPattern
+    : Pat<(Cat_BMMRRROp 
+            $lhs, 
+            (MHLO_TransposeOp $transpose_in, $permute)),
+          (Cat_BMMRCROp $lhs, $transpose_in),
+          [
+            (ThreeRank $lhs), 
+            (ThreeRank $transpose_in), 
+            (Permute021Check $permute)
+          ]>;
+
+def Mhlo3DDotGeneralToBMMCRRPattern
+    : Pat<(Cat_BMMRRROp 
+            (MHLO_TransposeOp $transpose_in, $permute),
+            $rhs
+            ),
+          (Cat_BMMCRROp $transpose_in, $rhs),
+          [
+            (ThreeRank $rhs), 
+            (ThreeRank $transpose_in), 
+            (Permute021Check $permute)
+          ]>;    
 
 #endif // BYTEIR_CONVERSION_HLOTOCAT_FUSE_MHLO_TO_CAT_PATTERN

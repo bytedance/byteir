@@ -17,6 +17,7 @@
 
 #include "./index_select.h"
 #include <algorithm>
+#include <cuda_fp16.h>
 
 namespace brt {
 namespace cuda {
@@ -52,6 +53,10 @@ template void index_select<float, uint32_t>(const float *, const uint32_t *, flo
 template void index_select<float, int64_t>(const float *, const int64_t *, float *,
                                   const int, const int, const int, const int,
                                   cudaStream_t);
+
+template void index_select<__half, int64_t>(const __half *, const int64_t *, __half *,
+                                   const int, const int, const int, const int,
+                                   cudaStream_t);
 } // namespace kernel
 } // namespace cuda
 } // namespace brt

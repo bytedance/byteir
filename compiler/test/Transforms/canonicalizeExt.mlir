@@ -228,3 +228,53 @@ func.func @eliminate_redundant_convert(%arg0: tensor<12xi1>) -> (tensor<12xi4>) 
 // CHECK-LABEL: eliminate_redundant_convert
 // CHECK: mhlo.convert
 // CHECK-NEXT: return
+
+func.func @slice_reshape_concat_case0(%arg0: tensor<512x1x12xf16>, %arg1: tensor<512x48xf16>) -> (tensor<512x5x12xf16>) {
+  %0 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 12]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %1 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 24]> : tensor<2xi64>, start_indices = dense<[0, 12]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %2 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 36]> : tensor<2xi64>, start_indices = dense<[0, 24]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %3 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 48]> : tensor<2xi64>, start_indices = dense<[0, 36]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %4 = mhlo.reshape %0 : (tensor<512x12xf16>) -> tensor<512x1x12xf16>
+  %5 = mhlo.reshape %1 : (tensor<512x12xf16>) -> tensor<512x1x12xf16>
+  %6 = mhlo.reshape %2 : (tensor<512x12xf16>) -> tensor<512x1x12xf16>
+  %7 = mhlo.reshape %3 : (tensor<512x12xf16>) -> tensor<512x1x12xf16>
+  %8 = "mhlo.concatenate"(%arg0, %4, %5, %6, %7) {dimension = 1 : i64} : (tensor<512x1x12xf16>, tensor<512x1x12xf16>, tensor<512x1x12xf16>, tensor<512x1x12xf16>, tensor<512x1x12xf16>) -> tensor<512x5x12xf16>
+  return %8 : tensor<512x5x12xf16>
+}
+// CHECK-LABEL: slice_reshape_concat_case0
+// CHECK-NOT: mhlo.slice
+// CHECK-NEXT: %[[VAL_0:.*]] = mhlo.reshape %arg1
+// CHECK-NEXT: "mhlo.concatenate"(%arg0, %[[VAL_0]])
+
+func.func @slice_reshape_concat_case1(%arg0: tensor<128x64xf32>, %arg1: tensor<128x128xf32>) -> tensor<128x12x16xf32>{
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 16]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x64xf32>) -> tensor<128x16xf32>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 32]> : tensor<2xi64>, start_indices = dense<[0, 16]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x64xf32>) -> tensor<128x16xf32>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 48]> : tensor<2xi64>, start_indices = dense<[0, 32]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x64xf32>) -> tensor<128x16xf32>
+  %3 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 64]> : tensor<2xi64>, start_indices = dense<[0, 48]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x64xf32>) -> tensor<128x16xf32>
+  %4 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 16]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %5 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 32]> : tensor<2xi64>, start_indices = dense<[0, 16]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %6 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 48]> : tensor<2xi64>, start_indices = dense<[0, 32]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %7 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 64]> : tensor<2xi64>, start_indices = dense<[0, 48]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %8 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 80]> : tensor<2xi64>, start_indices = dense<[0, 64]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %9 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 96]> : tensor<2xi64>, start_indices = dense<[0, 80]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %10 = "mhlo.slice"(%arg1) {limit_indices = dense<[128, 112]> : tensor<2xi64>, start_indices = dense<[0, 96]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %11 = "mhlo.slice"(%arg1) {limit_indices = dense<128> : tensor<2xi64>, start_indices = dense<[0, 112]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x128xf32>) -> tensor<128x16xf32>
+  %12 = mhlo.reshape %4 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %13 = mhlo.reshape %5 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %14 = mhlo.reshape %6 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %15 = mhlo.reshape %7 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %16 = mhlo.reshape %8 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %17 = mhlo.reshape %9 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %18 = mhlo.reshape %10 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %19 = mhlo.reshape %11 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %20 = mhlo.reshape %0 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %21 = mhlo.reshape %1 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %22 = mhlo.reshape %2 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %23 = mhlo.reshape %3 : (tensor<128x16xf32>) -> tensor<128x1x16xf32>
+  %24 = "mhlo.concatenate"(%12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23) {dimension = 1 : i64} : (tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>,tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>, tensor<128x1x16xf32>) -> tensor<128x12x16xf32>
+  return %24 : tensor<128x12x16xf32>
+}
+// CHECK-LABEL: slice_reshape_concat_case1
+// CHECK-NEXT: %[[VAL_0:.*]] = mhlo.reshape %arg0
+// CHECK-NEXT: %[[VAL_1:.*]] = mhlo.reshape %arg1
+// CHECK-NEXT: "mhlo.concatenate"(%[[VAL_1]], %[[VAL_0]])

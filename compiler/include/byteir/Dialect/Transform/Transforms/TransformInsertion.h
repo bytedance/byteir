@@ -41,7 +41,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createFuseExtTransformInsertionPass(
     const std::string &funcAnchor = "",
     const std::string &matchPrefix = "unknown",
     const std::string &tileSizeAttrName = "",
-    const std::string &tileInterchangeAttrName = "");
+    const std::string &tileInterchangeAttrName = "",
+    const bool keepIntermediates = false);
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_TRANSFORM_TRANSFORMS_TRANSFORMINSERTION_H

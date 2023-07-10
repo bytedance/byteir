@@ -106,6 +106,57 @@ struct ConvertLayerNorm : public OpRewritePattern<mhlo::CustomCallOp> {
   }
 };
 
+// dot(transpose(x), y) => bmm_crr(x, y)
+// there is no gemm_crr op in ait, so we use bmm_crr
+struct ConvertTransposeGemmRrrToBmmCrr
+    : public OpRewritePattern<cat::GemmRRROp> {
+  using OpRewritePattern<cat::GemmRRROp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(cat::GemmRRROp op,
+                                PatternRewriter &rewriter) const override {
+    auto transpose_op = op.getLhs().getDefiningOp<mhlo::TransposeOp>();
+    if (!transpose_op) {
+      return failure();
+    }
+    SmallVector<int64_t> permutation;
+    getValuesFromDenseIntElementsAttr(transpose_op.getPermutation(),
+                                      permutation);
+    if (permutation.size() != 2) {
+      return failure();
+    }
+    if (permutation[0] != 1 || permutation[1] != 0) {
+      return failure();
+    }
+    auto lhs = transpose_op.getOperand();
+    auto rhs = op.getRhs();
+    int64_t batch_shape = 1;
+    // build reshape lhs op
+    auto lhs_shape = lhs.getType().getShape();
+    RankedTensorType lhs_reshaped_type =
+        RankedTensorType::get({batch_shape, lhs_shape[0], lhs_shape[1]},
+                              lhs.getType().getElementType());
+    auto lhsReshapeOp =
+        rewriter.create<mhlo::ReshapeOp>(op.getLoc(), lhs_reshaped_type, lhs);
+    // build reshape rhs op
+    auto rhs_shape = rhs.getType().getShape();
+    RankedTensorType rhs_reshaped_type =
+        RankedTensorType::get({batch_shape, rhs_shape[0], rhs_shape[1]},
+                              rhs.getType().getElementType());
+    auto rhsReshapeOp =
+        rewriter.create<mhlo::ReshapeOp>(op.getLoc(), rhs_reshaped_type, rhs);
+    // build cat bmm crr op
+    RankedTensorType bmm_output_type =
+        RankedTensorType::get({batch_shape, lhs_shape[1], rhs_shape[1]},
+                              rhs.getType().getElementType());
+    auto bmmCrrOp = rewriter.create<cat::BMMCRROp>(op.getLoc(), bmm_output_type,
+                                                   lhsReshapeOp, rhsReshapeOp);
+    auto newOp = rewriter.create<mhlo::ReshapeOp>(
+        op.getLoc(), op.getResult().getType(), bmmCrrOp);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
 struct FuseMhloToCatPass : public FuseMhloToCatBase<FuseMhloToCatPass> {
 public:
   FuseMhloToCatPass() = default;
@@ -128,7 +179,9 @@ public:
 
 void populateFuseMhloToCatPattern(RewritePatternSet &patterns) {
   populateWithGenerated(patterns);
-  patterns.add<ConvertSoftmax, ConvertLayerNorm>(patterns.getContext());
+  patterns
+      .add<ConvertSoftmax, ConvertLayerNorm, ConvertTransposeGemmRrrToBmmCrr>(
+          patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>> createFuseMhloToCatPass() {
