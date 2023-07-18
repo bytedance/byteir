@@ -30,6 +30,9 @@ struct CatOptPipelineOptions
       *this, "anchor-only",
       llvm::cl::desc("whether to apply to anchored pass only"),
       llvm::cl::init(false)};
+  Option<bool> aggressive_mode{
+      *this, "aggressive-mode",
+      llvm::cl::desc("whether to convert aggressively"), llvm::cl::init(false)};
 };
 
 void createCatOptPipeline(OpPassManager &pm,

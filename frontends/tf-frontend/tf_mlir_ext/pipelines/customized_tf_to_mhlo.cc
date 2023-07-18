@@ -52,14 +52,16 @@ namespace {
 
 struct CustomizedTfToMhloPipelinePass
     : public CustomizedTfToMhloPipelineBase<CustomizedTfToMhloPipelinePass> {
-  CustomizedTfToMhloPipelinePass(const std::vector<std::string> &customcall_ops,
-                                 bool remove_control_flow,
-                                 bool staticalize_dynamic_shape,
-                                 bool stop_after_rewrite_custom_call) {
+  CustomizedTfToMhloPipelinePass(
+      const std::vector<std::string> &customcall_ops, bool remove_control_flow,
+      bool staticalize_dynamic_shape, bool stop_after_rewrite_custom_call,
+      const std::unordered_map<std::string, Attribute>
+          &additional_main_func_attrs) {
     this->customCallOps = customcall_ops;
     this->removeControlFlow = remove_control_flow;
     this->staticalizeDynamicShape = staticalize_dynamic_shape;
     this->stopAfterRewriteCustomCall = stop_after_rewrite_custom_call;
+    this->additional_main_func_attrs = additional_main_func_attrs;
   }
 
   void runOnOperation() override {
@@ -205,7 +207,8 @@ struct CustomizedTfToMhloPipelinePass
         mlir::tfext::createTfFallbackToCustomCallPass());
 
     pm.addNestedPass<mlir::func::FuncOp>(
-        mlir::tfext::createRewriteFuncAttrToByteIRPass());
+        mlir::tfext::createRewriteFuncAttrToByteIRPass(
+            additional_main_func_attrs));
 
     pm.addPass(mlir::createCanonicalizerPass());
 
@@ -213,6 +216,9 @@ struct CustomizedTfToMhloPipelinePass
       signalPassFailure();
     }
   }
+
+private:
+  std::unordered_map<std::string, Attribute> additional_main_func_attrs;
 };
 } // namespace
 
@@ -221,8 +227,10 @@ mlir::tfext::createCustomizedTfToMhloPipelinePass(
     const std::vector<std::string> &customcall_ops /*= {}*/,
     bool remove_control_flow /*= false*/,
     bool staticalize_dynamic_shape /*= false*/,
-    bool stop_after_rewrite_custom_call /*= false*/) {
+    bool stop_after_rewrite_custom_call /*= false*/,
+    const std::unordered_map<std::string, Attribute>
+        &additional_main_func_attrs /*= {}*/) {
   return std::make_unique<CustomizedTfToMhloPipelinePass>(
       customcall_ops, remove_control_flow, staticalize_dynamic_shape,
-      stop_after_rewrite_custom_call);
+      stop_after_rewrite_custom_call, additional_main_func_attrs);
 }

@@ -170,3 +170,32 @@ func.func @test_basic_reuse_alloca(%arg0 : memref<256xf32>, %arg1 : memref<256xf
 //  CHECK-ALLOCA-NEXT:   lmhlo.add
 //  CHECK-ALLOCA-NEXT:   lmhlo.add
 //  CHECK-ALLOCA-NEXT:   return
+
+func.func @test_reuse_sub_chunk_i1(%arg0 : memref<512xi1>, %arg1 : memref<512xi1>, %arg2 : memref<128xi1>, %arg3 : memref<128xi1>) {
+  %0 = memref.alloc() : memref<512xi1>
+  %1 = memref.alloc() : memref<128xi1>
+  %2 = memref.alloc() : memref<128xi1>
+  "lmhlo.add"(%arg0, %arg0, %0) : (memref<512xi1>, memref<512xi1>,  memref<512xi1>) -> ()
+  "lmhlo.add"(%arg0, %0, %arg1) : (memref<512xi1>, memref<512xi1>,  memref<512xi1>) -> ()
+  "lmhlo.add"(%arg2, %arg2, %1) : (memref<128xi1>, memref<128xi1>,  memref<128xi1>) -> ()
+  "lmhlo.add"(%arg2, %1, %2) : (memref<128xi1>, memref<128xi1>,  memref<128xi1>) -> ()
+  "lmhlo.add"(%1, %2, %arg3) : (memref<128xi1>, memref<128xi1>,  memref<128xi1>) -> ()
+  return
+}
+
+// CHECK-LABEL: func.func @test_reuse_sub_chunk_i1
+//  CHECK-DAG:   arith.constant 0
+//  CHECK-DAG:   arith.constant 128
+//  CHECK-NEXT:   memref.alloc
+//  CHECK-NEXT:   memref.view
+//  CHECK-NEXT:   memref.view
+//  CHECK-NEXT:   memref.view
+//  CHECK-NEXT:   lmhlo.add
+//  CHECK-NEXT:   lmhlo.add
+//  CHECK-NEXT:   lmhlo.add
+//  CHECK-NEXT:   lmhlo.add
+//  CHECK-NEXT:   lmhlo.add
+//  CHECK-NEXT:   return
+
+// CHECK-STAT-LABEL: test_reuse_sub_chunk_i1
+//  CHECK-STAT:   total_static_allocated_memory = 512

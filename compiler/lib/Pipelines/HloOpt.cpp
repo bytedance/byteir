@@ -29,14 +29,14 @@ using namespace mlir::mhlo;
 namespace {
 void addGenericHloFusionPatterns(OpPassManager &pm, const std::string &entry,
                                  bool outlineSingleElemwiseOp,
-                                 bool outlineCatOp) {
+                                 bool outlineCatOp, bool aggressiveCatFusion) {
   // cluster constraint
   pm.addNestedPass<func::FuncOp>(createClusterConstraintPass());
   pm.addPass(createFusionOutliningPass());
 
   // Fusion passes
   if (outlineCatOp) {
-    pm.addNestedPass<func::FuncOp>(createCatFusionPass());
+    pm.addNestedPass<func::FuncOp>(createCatFusionPass(aggressiveCatFusion));
     pm.addPass(createFusionOutliningPass());
   }
   pm.addNestedPass<func::FuncOp>(createConvBackwardFusionPass());
@@ -72,7 +72,8 @@ void addCPUHloFusionPatterns(OpPassManager &pm, const std::string &entry) {
 
 void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
                               const std::string &target,
-                              bool outlineSingleElemwiseOp, bool outlineCatOp) {
+                              bool outlineSingleElemwiseOp, bool outlineCatOp,
+                              bool aggressiveCatFusion) {
 
   pm.addPass(createInlinerPass());
   pm.addPass(createCanonicalizerPass());
@@ -95,7 +96,7 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
     addCPUHloFusionPatterns(pm, entryFunc);
   } else {
     addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp,
-                                outlineCatOp);
+                                outlineCatOp, aggressiveCatFusion);
   }
 }
 } // namespace
@@ -104,5 +105,6 @@ void mlir::createHloOptPipeline(OpPassManager &pm,
                                 const HloOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createHloOptPipelineImpl, pm, options.entryFunc,
                               options.target, options.outlineSingleElemwiseOp,
-                              options.outlineCatOp);
+                              options.outlineCatOp,
+                              options.aggressiveCatFusion);
 }

@@ -94,6 +94,7 @@ def compile_cuda_with_ait(
     entry_func: str = "main",
     verbose: bool = False,
     name: str = "model",
+    aggressive_mode: bool = False,
     **kwargs,
 ):
     target = "cuda"
@@ -114,12 +115,12 @@ def compile_cuda_with_ait(
     if verbose:
         _print_verbose(processor.module, "// IR Dump After Cat Preprocess:")
     with context:
-        processor.cat_opt_pass(anchor_only=False)
+        processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
     if verbose:
         _print_verbose(processor.module, "// IR Dump After Cat Opt:")
     # clustering
     with context:
-        processor.hlo_opt_pass(outline_single_elemwise_op=True)
+        processor.hlo_opt_pass(outline_single_elemwise_op=True, aggressive_mode=aggressive_mode)
     if verbose:
         _print_verbose(processor.module, "// IR Dump After Hlo Opt:")
     # generate ait .so for subgraphs
@@ -200,5 +201,7 @@ def compile(
         compile_cuda(input, output, entry_func, verbose)
     elif target == "cuda_with_ait":
         compile_cuda_with_ait(input, output, entry_func, verbose)
+    elif target == "cuda_with_ait_aggressive":
+        compile_cuda_with_ait(input, output, entry_func, verbose, aggressive_mode=True)
     else:
         raise NotImplemented("not implemented target: {}".format(target))

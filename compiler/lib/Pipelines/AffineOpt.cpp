@@ -25,6 +25,7 @@
 #include "mhlo/transforms/passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
@@ -35,10 +36,11 @@ namespace {
 void addGenericAffineOptPasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createConvertLinalgToAffineLoopsPass());
   pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
+  pm.addNestedPass<func::FuncOp>(createLoopFusionPass());
   pm.addNestedPass<func::FuncOp>(createSimplifyAffineStructuresPass());
   pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(createLowerAffinePass());
-  pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
+  pm.addPass(arith::createIntRangeOptimizationsPass());
   addCleanUpExtPassPipeline(pm);
 }
 
@@ -52,7 +54,7 @@ void addCPUAffineOptPasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createSimplifyAffineStructuresPass());
   // pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(createLowerAffinePass());
-  pm.addNestedPass<func::FuncOp>(createCondCanonicalizePass());
+  pm.addPass(arith::createIntRangeOptimizationsPass());
   addCleanUpExtPassPipeline(pm);
 }
 

@@ -47,6 +47,7 @@
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
@@ -151,6 +152,30 @@ private:
   const std::string f64Func;
 };
 
+struct TanhOpLowering : public ConvertOpToLLVMPattern<math::TanhOp> {
+public:
+  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+
+  LogicalResult
+  matchAndRewrite(math::TanhOp op, typename math::TanhOpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto asmDialectAttr = LLVM::AsmDialectAttr::get(rewriter.getContext(),
+                                                    LLVM::AsmDialect::AD_ATT);
+
+    rewriter.replaceOpWithNewOp<LLVM::InlineAsmOp>(
+        op,
+        /*resultTypes=*/getTypeConverter()->convertType(op.getType()),
+        /*operands=*/op->getOperands(),
+        /*asm_string=*/"tanh.approx.f32 $0, $1;",
+        /*constraints=*/"=f,f",
+        /*has_side_effects=*/false,
+        /*is_align_stack=*/false,
+        /*asm_dialect=*/asmDialectAttr,
+        /*operand_attrs=*/ArrayAttr());
+    return success();
+  }
+};
+
 void populateOptionalGpuToNVVMExtConversionPatterns(
     LLVMTypeConverter &converter, RewritePatternSet &patterns) {
 
@@ -211,6 +236,11 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
       if (failed(applyPatternsAndFoldGreedily(m, std::move(patterns))))
         return signalPassFailure();
     }
+    {
+      RewritePatternSet patterns(m.getContext());
+      populateMathAlgebraicSimplificationPatterns(patterns);
+      (void)applyPatternsAndFoldGreedily(m, std::move(patterns));
+    }
 
     LLVMTypeConverter converter(m.getContext(), options);
     // NVVM uses alloca in the default address space to represent private
@@ -244,6 +274,10 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
     populateFinalizeMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
     populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
+#if 0
+    // FIXME: enable if gpu arch >= sm_75
+    llvmPatterns.add<TanhOpLowering>(converter, 10);
+#endif
     // our extension fixing
     // populateOptionalGpuToNVVMExtConversionPatterns(converter, llvmPatterns);
 
@@ -252,6 +286,16 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
     FrozenRewritePatternSet frozenLLVMPatterns(std::move(llvmPatterns));
     if (failed(applyPartialConversion(m, target, frozenLLVMPatterns)))
       signalPassFailure();
+
+    // TODO: retrieve attribute from memref arg when convert func to llvm
+    m.walk([&](LLVM::LLVMFuncOp func) {
+      for (auto &&iter : llvm::enumerate(func.getArguments())) {
+        if (llvm::isa<LLVM::LLVMPointerType>(iter.value().getType())) {
+          func.setArgAttr(iter.index(), LLVMDialect::getNoAliasAttrName(),
+                          UnitAttr::get(m->getContext()));
+        }
+      }
+    });
   }
 };
 

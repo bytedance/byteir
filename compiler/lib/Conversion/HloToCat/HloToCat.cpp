@@ -250,6 +250,90 @@ struct ConvertRelu : public OpConversionPattern<mhlo::MaxOp> {
   }
 };
 
+struct ConvertSlice : public OpConversionPattern<mhlo::SliceOp> {
+  using OpConversionPattern<mhlo::SliceOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::SliceOp op, mhlo::SliceOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto input = op.getOperand();
+    auto strides = op.getStrides().getValues<int64_t>();
+    if (!llvm::all_of(strides, [](int64_t t) { return t == 1; })) {
+      return failure();
+    }
+
+    auto elemTy = input.getType().cast<RankedTensorType>().getElementType();
+    // AIT doesn't support slice int yet
+    if (!elemTy.isa<mlir::FloatType>())
+      return failure();
+
+    auto newOp = rewriter.create<cat::SliceOp>(op.getLoc(), op.getType(), input,
+                                               op.getStartIndices(),
+                                               op.getLimitIndices());
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertCast : public OpConversionPattern<mhlo::ConvertOp> {
+  using OpConversionPattern<mhlo::ConvertOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::ConvertOp op, mhlo::ConvertOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto input = op.getOperand();
+    auto inputElemTy =
+        input.getType().cast<RankedTensorType>().getElementType();
+    auto outputElemTy = op.getType().cast<RankedTensorType>().getElementType();
+    // only support f16/bf16/f32 => f16/bf16/f32
+    if (!outputElemTy.isa<mlir::FloatType>() ||
+        !inputElemTy.isa<mlir::FloatType>())
+      return failure();
+
+    auto inputBitWidth = inputElemTy.getIntOrFloatBitWidth();
+    auto outputBitWidth = outputElemTy.getIntOrFloatBitWidth();
+    if (!inputBitWidth == 16 || !inputBitWidth == 32)
+      return failure();
+    if (!outputBitWidth == 16 || !outputBitWidth == 32)
+      return failure();
+    auto newOp = rewriter.create<cat::CastOp>(op.getLoc(), op.getType(), input);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+Value canFuseBroadcast(mhlo::BroadcastInDimOp broadcast, Value output,
+                       ConversionPatternRewriter &rewriter) {
+  bool canFuseDirectly = true;
+  auto dims = broadcast.getBroadcastDimensions().getValues<int64_t>();
+  auto outputRank = output.getType().cast<ShapedType>().getRank();
+  for (auto i = 0; i < dims.size(); ++i) {
+    canFuseDirectly &= (dims[i] == (outputRank - dims.size() + i));
+  }
+  if (canFuseDirectly)
+    return broadcast.getOperand();
+
+  // maybe fusiable after reshape
+  bool canFuseWithReshape = true;
+  llvm::SmallVector<int64_t> resShape(outputRank, 1);
+  auto inputShape =
+      broadcast.getOperand().getType().cast<ShapedType>().getShape();
+  for (auto i = 0; i < dims.size() - 1; ++i) {
+    canFuseWithReshape &= (dims[i + 1] > dims[i]); // remains dim ordering
+  }
+  if (!canFuseWithReshape)
+    return nullptr;
+  for (auto i = 0; i < dims.size(); ++i) {
+    resShape[dims[i]] = inputShape[i];
+  }
+  auto outputElemTy =
+      output.getType().cast<RankedTensorType>().getElementType();
+  auto resultTy = RankedTensorType::get(resShape, outputElemTy);
+  auto reshape = rewriter.create<mhlo::ReshapeOp>(broadcast.getLoc(), resultTy,
+                                                  broadcast.getOperand());
+  return reshape.getResult();
+}
+
 struct ConvertBinaryAdd : public OpConversionPattern<mhlo::AddOp> {
   using OpConversionPattern<mhlo::AddOp>::OpConversionPattern;
 
@@ -261,9 +345,29 @@ struct ConvertBinaryAdd : public OpConversionPattern<mhlo::AddOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("add");
+    if (auto lhs_op = lhs.getDefiningOp()) {
+      if (auto lhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(lhs_op)) {
+        auto maybeLhs =
+            canFuseBroadcast(lhsBroadcast, op.getResult(), rewriter);
+        if (maybeLhs)
+          lhs = maybeLhs;
+      }
+    }
+    if (auto rhs_op = rhs.getDefiningOp()) {
+      if (auto rhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(rhs_op)) {
+        auto maybeRhs =
+            canFuseBroadcast(rhsBroadcast, op.getResult(), rewriter);
+        if (maybeRhs)
+          rhs = maybeRhs;
+      }
+    }
     auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
         op.getLoc(), op.getType(), lhs, rhs, opType);
     rewriter.replaceOp(op, newOp.getResult());
@@ -282,9 +386,29 @@ struct ConvertBinaryMul : public OpConversionPattern<mhlo::MulOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("mul");
+    if (auto lhs_op = lhs.getDefiningOp()) {
+      if (auto lhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(lhs_op)) {
+        auto maybeLhs =
+            canFuseBroadcast(lhsBroadcast, op.getResult(), rewriter);
+        if (maybeLhs)
+          lhs = maybeLhs;
+      }
+    }
+    if (auto rhs_op = rhs.getDefiningOp()) {
+      if (auto rhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(rhs_op)) {
+        auto maybeRhs =
+            canFuseBroadcast(rhsBroadcast, op.getResult(), rewriter);
+        if (maybeRhs)
+          rhs = maybeRhs;
+      }
+    }
     auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
         op.getLoc(), op.getType(), lhs, rhs, opType);
     rewriter.replaceOp(op, newOp.getResult());
@@ -303,9 +427,29 @@ struct ConvertBinaryDiv : public OpConversionPattern<mhlo::DivOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("div");
+    if (auto lhs_op = lhs.getDefiningOp()) {
+      if (auto lhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(lhs_op)) {
+        auto maybeLhs =
+            canFuseBroadcast(lhsBroadcast, op.getResult(), rewriter);
+        if (maybeLhs)
+          lhs = maybeLhs;
+      }
+    }
+    if (auto rhs_op = rhs.getDefiningOp()) {
+      if (auto rhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(rhs_op)) {
+        auto maybeRhs =
+            canFuseBroadcast(rhsBroadcast, op.getResult(), rewriter);
+        if (maybeRhs)
+          rhs = maybeRhs;
+      }
+    }
     auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
         op.getLoc(), op.getType(), lhs, rhs, opType);
     rewriter.replaceOp(op, newOp.getResult());
@@ -324,9 +468,29 @@ struct ConvertBinarySub : public OpConversionPattern<mhlo::SubtractOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
     auto opType = rewriter.getStringAttr("sub");
+    if (auto lhs_op = lhs.getDefiningOp()) {
+      if (auto lhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(lhs_op)) {
+        auto maybeLhs =
+            canFuseBroadcast(lhsBroadcast, op.getResult(), rewriter);
+        if (maybeLhs)
+          lhs = maybeLhs;
+      }
+    }
+    if (auto rhs_op = rhs.getDefiningOp()) {
+      if (auto rhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(rhs_op)) {
+        auto maybeRhs =
+            canFuseBroadcast(rhsBroadcast, op.getResult(), rewriter);
+        if (maybeRhs)
+          rhs = maybeRhs;
+      }
+    }
     auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
         op.getLoc(), op.getType(), lhs, rhs, opType);
     rewriter.replaceOp(op, newOp.getResult());
@@ -345,11 +509,104 @@ struct ConvertBinaryPow : public OpConversionPattern<mhlo::PowOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
+    if (auto lhs_op = lhs.getDefiningOp()) {
+      if (auto lhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(lhs_op)) {
+        auto maybeLhs =
+            canFuseBroadcast(lhsBroadcast, op.getResult(), rewriter);
+        if (maybeLhs)
+          lhs = maybeLhs;
+      }
+    }
+    if (auto rhs_op = rhs.getDefiningOp()) {
+      if (auto rhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(rhs_op)) {
+        auto maybeRhs =
+            canFuseBroadcast(rhsBroadcast, op.getResult(), rewriter);
+        if (maybeRhs)
+          rhs = maybeRhs;
+      }
+    }
     auto opType = rewriter.getStringAttr("pow");
     auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
         op.getLoc(), op.getType(), lhs, rhs, opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertBinaryMax : public OpConversionPattern<mhlo::MaxOp> {
+  using OpConversionPattern<mhlo::MaxOp>::OpConversionPattern;
+
+  ConvertBinaryMax(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::MaxOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::MaxOp op, mhlo::MaxOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
+    auto lhs = adaptor.getLhs();
+    auto rhs = adaptor.getRhs();
+    if (auto lhs_op = lhs.getDefiningOp()) {
+      if (auto lhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(lhs_op)) {
+        auto maybeLhs =
+            canFuseBroadcast(lhsBroadcast, op.getResult(), rewriter);
+        if (maybeLhs)
+          lhs = maybeLhs;
+      }
+    }
+    if (auto rhs_op = rhs.getDefiningOp()) {
+      if (auto rhsBroadcast = dyn_cast<mhlo::BroadcastInDimOp>(rhs_op)) {
+        auto maybeRhs =
+            canFuseBroadcast(rhsBroadcast, op.getResult(), rewriter);
+        if (maybeRhs)
+          rhs = maybeRhs;
+      }
+    }
+    auto opType = rewriter.getStringAttr("max");
+    auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
+        op.getLoc(), op.getType(), lhs, rhs, opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertNegate : public OpConversionPattern<mhlo::NegOp> {
+  using OpConversionPattern<mhlo::NegOp>::OpConversionPattern;
+
+  ConvertNegate(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::NegOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::NegOp op, mhlo::NegOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!isa<func::FuncOp>(op->getParentOp()))
+      return failure();
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
+
+    auto constType = RankedTensorType::get({1}, outputElemTy);
+    ConstantOp constNegOne = rewriter.create<mhlo::ConstantOp>(
+        op.getLoc(), constType,
+        DenseElementsAttr::get(
+            constType,
+            APFloat(outputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
+                    -1)));
+
+    auto opType = rewriter.getStringAttr("mul");
+    auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
+        op.getLoc(), op.getType(), adaptor.getOperand(), constNegOne, opType);
     rewriter.replaceOp(op, newOp.getResult());
     return success();
   }
@@ -365,8 +622,127 @@ struct ConvertUnaryTanh : public OpConversionPattern<mhlo::TanhOp> {
   matchAndRewrite(mhlo::TanhOp op, mhlo::TanhOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto opType = rewriter.getStringAttr("tanh");
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
     auto newOp = rewriter.create<cat::UnaryElementwiseOp>(
         op.getLoc(), op.getType(), adaptor.getOperand(), opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertUnaryLogistic : public OpConversionPattern<mhlo::LogisticOp> {
+  using OpConversionPattern<mhlo::LogisticOp>::OpConversionPattern;
+
+  ConvertUnaryLogistic(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::LogisticOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::LogisticOp op, mhlo::LogisticOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto opType = rewriter.getStringAttr("log");
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
+    auto newOp = rewriter.create<cat::UnaryElementwiseOp>(
+        op.getLoc(), op.getType(), adaptor.getOperand(), opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertUnarySqrt : public OpConversionPattern<mhlo::SqrtOp> {
+  using OpConversionPattern<mhlo::SqrtOp>::OpConversionPattern;
+
+  ConvertUnarySqrt(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::SqrtOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::SqrtOp op, mhlo::SqrtOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto opType = rewriter.getStringAttr("sqrt");
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
+    auto newOp = rewriter.create<cat::UnaryElementwiseOp>(
+        op.getLoc(), op.getType(), adaptor.getOperand(), opType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertUnaryRsqrt : public OpConversionPattern<mhlo::RsqrtOp> {
+  using OpConversionPattern<mhlo::RsqrtOp>::OpConversionPattern;
+
+  ConvertUnaryRsqrt(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::RsqrtOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::RsqrtOp op, mhlo::RsqrtOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+
+    auto opType = rewriter.getStringAttr("sqrt");
+    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputElemTy = outputTy.getElementType();
+    if (!outputElemTy.isa<mlir::FloatType>())
+      return failure();
+    auto sqrtOp = rewriter.create<cat::UnaryElementwiseOp>(
+        op.getLoc(), op.getType(), adaptor.getOperand(), opType);
+
+    auto constType = RankedTensorType::get({1}, outputElemTy);
+    ConstantOp constOne = rewriter.create<mhlo::ConstantOp>(
+        op.getLoc(), constType,
+        DenseElementsAttr::get(
+            constType,
+            APFloat(outputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
+                    1)));
+
+    auto divType = rewriter.getStringAttr("div");
+    auto newOp = rewriter.create<cat::BinaryElementwiseOp>(
+        op.getLoc(), op.getType(), constOne, sqrtOp.getResult(), divType);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertSelect : public OpConversionPattern<mhlo::SelectOp> {
+  using OpConversionPattern<mhlo::SelectOp>::OpConversionPattern;
+
+  ConvertSelect(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::SelectOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::SelectOp op, mhlo::SelectOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto pred = adaptor.getPred();
+    auto lhs = adaptor.getOnTrue();
+    auto rhs = adaptor.getOnFalse();
+
+    auto newOp = rewriter.create<cat::WhereOp>(op.getLoc(), op.getType(), pred,
+                                               lhs, rhs);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertConcat : public OpConversionPattern<mhlo::ConcatenateOp> {
+  using OpConversionPattern<mhlo::ConcatenateOp>::OpConversionPattern;
+
+  ConvertConcat(MLIRContext *context, PatternBenefit benefit = 0)
+      : OpConversionPattern<mhlo::ConcatenateOp>(context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(mhlo::ConcatenateOp op, mhlo::ConcatenateOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto vals = adaptor.getVal();
+    auto dim = adaptor.getDimensionAttr();
+
+    auto newOp = rewriter.create<cat::ConcatenateOp>(op.getLoc(), op.getType(),
+                                                     vals, dim);
     rewriter.replaceOp(op, newOp.getResult());
     return success();
   }
@@ -457,6 +833,14 @@ struct ConvertReduce : public OpConversionPattern<mhlo::ReduceOp> {
       return failure();
     }
     auto dims = op.getDimensions();
+    auto dimVals = dims.getValues<int64_t>();
+    if (dimVals.size() > 1) {
+      if (dimVals.size() != 2)
+        return failure();
+      // Currently we only support 2D sum on dims [1, 2]
+      if (dimVals[0] != 1 || dimVals[1] != 2)
+        return failure();
+    }
     auto reduceTyAttr = rewriter.getStringAttr(reduceTy);
     auto newOp =
         rewriter.create<cat::ReduceOp>(op.getLoc(), op.getResultTypes()[0],
@@ -484,9 +868,20 @@ struct ConvertBatchMatmul : public OpConversionPattern<mhlo::DotGeneralOp> {
     std::string layoutStr = getBMMLayoutString(dimNumbers);
     if (layoutStr == "illegal")
       return failure();
-    auto newOp = rewriter.create<cat::BatchMatmulOp>(op.getLoc(), op.getType(),
-                                                     lhs, rhs, layoutStr);
-    rewriter.replaceOp(op, newOp.getResult());
+    Value newOp;
+    if (layoutStr == "rrr")
+      newOp =
+          rewriter.create<cat::BMMRRROp>(op.getLoc(), op.getType(), lhs, rhs);
+    if (layoutStr == "rcr")
+      newOp =
+          rewriter.create<cat::BMMRCROp>(op.getLoc(), op.getType(), lhs, rhs);
+    if (layoutStr == "crr")
+      newOp =
+          rewriter.create<cat::BMMCRROp>(op.getLoc(), op.getType(), lhs, rhs);
+    if (layoutStr == "ccr")
+      newOp =
+          rewriter.create<cat::BMMCCROp>(op.getLoc(), op.getType(), lhs, rhs);
+    rewriter.replaceOp(op, newOp);
     return success();
   }
 };
@@ -504,7 +899,8 @@ public:
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
     target.addIllegalOp<mhlo::ConvolutionOp>();
-    target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>();
+    target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp, mhlo::ConstantOp,
+                      mhlo::ReshapeOp>();
     target.addLegalDialect<cat::CatDialect>();
     if (failed(applyPartialConversion(funcOp, target, frozenPatterns))) {
       signalPassFailure();
@@ -515,13 +911,15 @@ public:
 } // namespace
 
 void mlir::populateMhloToCatPattern(RewritePatternSet &patterns) {
-  patterns
-      .add<ConvertBatchMatmul, ConvertBatchNorm, ConvertConv, ConvertNchwToNhwc,
-           ConvertAvgPooling2D, ConvertMaxPooling2D, ConvertRelu,
-           ConvertBinaryAdd, ConvertBinaryDiv, ConvertBinaryMul,
-           ConvertBinarySub, ConvertBinaryPow, ConvertGemm, ConvertSoftmax,
-           ConvertUnaryTanh, ConvertReduce, ConvertLayerNorm>(
-          patterns.getContext());
+  patterns.add<ConvertBatchMatmul, ConvertBatchNorm, ConvertConv,
+               ConvertNchwToNhwc, ConvertAvgPooling2D, ConvertMaxPooling2D,
+               ConvertRelu, ConvertBinaryAdd, ConvertBinaryDiv,
+               ConvertBinaryMul, ConvertBinarySub, ConvertBinaryPow,
+               ConvertGemm, ConvertSoftmax, ConvertUnaryTanh, ConvertReduce,
+               ConvertLayerNorm, ConvertCast, ConvertUnarySqrt,
+               ConvertUnaryRsqrt, ConvertSelect, ConvertSlice, ConvertConcat,
+               ConvertNegate, ConvertUnaryLogistic, ConvertBinaryMax>(
+      patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMhloToCatPass() {

@@ -16,6 +16,7 @@ add_byteir_conversion_library(ByteIRGPUToNVVM
   MLIRGPUToNVVMTransforms
   MLIRLLVMCommonConversion
   MLIRLLVMDialect
+  MLIRMathTransforms
   MLIRMemRefDialect
   MLIRMemRefToLLVM
   MLIRNVVMDialect

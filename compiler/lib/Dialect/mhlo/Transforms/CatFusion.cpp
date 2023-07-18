@@ -67,10 +67,46 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) { return true; }
 
 bool isValidSingleOp(Operation *op) { return true; }
 
+bool isFusibleCandidateAggressive(Operation *op) {
+  if (isa<cat::CatOpInterface>(op))
+    return true;
+  if (isa<mhlo::TransposeOp>(op)) {
+    auto transOp = cast<mhlo::TransposeOp>(*op);
+    if (matchPermute(transOp, {0, 2, 1}) || matchPermute(transOp, {0, 2, 1, 3}))
+      return true;
+  }
+  if (isa<mhlo::ReshapeOp>(op))
+    return true;
+  if (auto constantOp = dyn_cast<mhlo::ConstantOp>(op)) {
+    auto elemTy = constantOp.getOutput()
+                      .getType()
+                      .cast<RankedTensorType>()
+                      .getElementType();
+    auto width = elemTy.getIntOrFloatBitWidth();
+    // only support int1/8/16/32/64, float32/64
+    if (elemTy.isa<IntegerType>())
+      return width == 1 || width == 8 || width == 16 || width == 32 ||
+             width == 64;
+    if (elemTy.isa<FloatType>())
+      return width == 32 || width == 64;
+    return false;
+  }
+  return false;
+}
+
+bool isValidSingleOpAggressive(Operation *op) {
+  return !isa<mhlo::ReshapeOp>(op) && !isa<mhlo::ConstantOp>(op);
+}
+
 static GenericFuserConfig config{
     getByteIRCatFusionAttrName(), cat_fusion::isFusibleCandidate,
     cat_fusion::isFusibleStart,   cat_fusion::isFusibleTrigger,
     cat_fusion::isFusibleWith,    cat_fusion::isValidSingleOp};
+
+static GenericFuserConfig aggressiveConfig{
+    getByteIRCatFusionAttrName(), cat_fusion::isFusibleCandidateAggressive,
+    cat_fusion::isFusibleStart,   cat_fusion::isFusibleTrigger,
+    cat_fusion::isFusibleWith,    cat_fusion::isValidSingleOpAggressive};
 
 } // namespace cat_fusion
 
@@ -79,7 +115,10 @@ struct CatFusionPass : public GenericFusionPass<CatFusionPass> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(CatFusionPass)
 
-  CatFusionPass() : GenericFusionPass(cat_fusion::config, true) {}
+  CatFusionPass(bool aggressiveMode)
+      : GenericFusionPass(aggressiveMode ? cat_fusion::aggressiveConfig
+                                         : cat_fusion::config,
+                          true) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -100,6 +139,7 @@ struct CatFusionPass : public GenericFusionPass<CatFusionPass> {
 
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createCatFusionPass() {
-  return std::make_unique<CatFusionPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createCatFusionPass(bool aggressiveMode) {
+  return std::make_unique<CatFusionPass>(aggressiveMode);
 }

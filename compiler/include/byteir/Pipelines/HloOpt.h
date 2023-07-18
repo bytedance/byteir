@@ -43,6 +43,10 @@ struct HloOptPipelineOptions
       *this, "outline-cat-op",
       llvm::cl::desc("whether to outline cat ops and AIT as an backend"),
       llvm::cl::init(false)};
+  Option<bool> aggressiveCatFusion{
+      *this, "aggressive-cat-fusion",
+      llvm::cl::desc("whether to fuse CAT aggressively"),
+      llvm::cl::init(false)};
 };
 
 void createHloOptPipeline(OpPassManager &pm,

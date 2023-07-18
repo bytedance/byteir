@@ -71,13 +71,40 @@ LogicalResult VerifyGemmLayout(Value lhs, Value rhs, Value out,
   return failure();
 }
 
-//===----------------------------------------------------------------------===//
-// BatchMatmulOp
-//===----------------------------------------------------------------------===/
+LogicalResult VerifyGemmPermute0213Layout(Value lhs, Value rhs, Value out,
+                                          int64_t t1, int64_t t2,
+                                          llvm::StringRef layoutStr) {
+  auto lhsShape = lhs.getType().cast<ShapedType>().getShape();
+  auto rhsShape = rhs.getType().cast<ShapedType>().getShape();
+  auto outShape = out.getType().cast<ShapedType>().getShape();
+  if (t1 != outShape[2] || t2 != outShape[1])
+    return failure();
+  if (layoutStr == "rrr" && lhsShape[1] == rhsShape[0]) {
+    if (outShape[0] * t1 == lhsShape[0] && t2 * outShape[3] == rhsShape[1])
+      return success();
+    else
+      return failure();
+  }
+  if (layoutStr == "rcr" && lhsShape[1] == rhsShape[1]) {
+    if (outShape[0] * t1 == lhsShape[0] && t2 * outShape[3] == rhsShape[0])
+      return success();
+    else
+      return failure();
+  }
+  if (layoutStr == "crr" && lhsShape[0] == rhsShape[0]) {
+    if (outShape[0] * t1 == lhsShape[1] && t2 * outShape[3] == rhsShape[1])
+      return success();
+    else
+      return failure();
+  }
+  if (layoutStr == "ccr" && lhsShape[0] == rhsShape[1]) {
+    if (outShape[0] * t1 == lhsShape[1] && t2 * outShape[3] == rhsShape[0])
+      return success();
+    else
+      return failure();
+  }
 
-LogicalResult BatchMatmulOp::verify() {
-  return VerifyBMMLayout(this->getLhs(), this->getRhs(), this->getOutput(),
-                         this->getLayout());
+  return failure();
 }
 
 //===----------------------------------------------------------------------===//
@@ -120,4 +147,14 @@ LogicalResult GemmRRRBiasOp::verify() {
 LogicalResult GemmRCRBiasOp::verify() {
   return VerifyGemmLayout(this->getLhs(), this->getRhs(), this->getOutput(),
                           "rcr");
+}
+
+//===----------------------------------------------------------------------===//
+// GemmPermuteOp
+//===----------------------------------------------------------------------===/
+
+LogicalResult GemmRCRPermuteOp::verify() {
+  return VerifyGemmPermute0213Layout(this->getLhs(), this->getRhs(),
+                                     this->getOutput(), this->getT1(),
+                                     this->getT2(), "rcr");
 }

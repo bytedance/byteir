@@ -40,6 +40,7 @@ class ConcatenateOp;
 class DynamicBroadcastInDimOp;
 class DynamicConvOp;
 class DynamicGatherOp;
+class ReduceWindowOp;
 class ReshapeOp;
 class MulOp;
 class SliceOp;
@@ -130,6 +131,13 @@ LogicalResult canonicalizeConcatWithBroadcast(mhlo::ConcatenateOp op,
 
 LogicalResult eliminateRedundantConvertFromI1(mhlo::ConvertOp op,
                                               PatternRewriter &rewriter);
+
+LogicalResult simplifyCumsumToIota(mhlo::ReduceWindowOp op,
+                                   PatternRewriter &rewriter);
+
+// transpose(reshape(transpose(x))) => reshape(x)
+LogicalResult simplifyTransposeReshapeTranspose(mhlo::TransposeOp op,
+                                                PatternRewriter &rewriter);
 
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,

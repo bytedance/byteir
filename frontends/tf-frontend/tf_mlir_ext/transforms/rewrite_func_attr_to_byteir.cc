@@ -34,7 +34,11 @@ namespace {
 
 struct RewriteFuncAttrToByteIRPass
     : public RewriteFuncAttrToByteIRBase<RewriteFuncAttrToByteIRPass> {
-  RewriteFuncAttrToByteIRPass() = default;
+  RewriteFuncAttrToByteIRPass(const std::unordered_map<std::string, Attribute>
+                                  &additional_main_func_attrs) {
+    this->additional_main_func_attrs = additional_main_func_attrs;
+  }
+
   void runOnOperation() override final {
     MLIRContext *context = &getContext();
     func::FuncOp funcOp = getOperation();
@@ -71,14 +75,24 @@ struct RewriteFuncAttrToByteIRPass
                       builder.getDictionaryAttr(byteirAttrs));
       funcOp->removeAttr("tf.entry_function");
 
+      for (auto it : additional_main_func_attrs) {
+        funcOp->setAttr(it.first, it.second);
+      }
+
       // remove argument attributes
       funcOp->removeAttr("arg_attrs");
     }
   }
+
+private:
+  std::unordered_map<std::string, Attribute> additional_main_func_attrs;
 };
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::tfext::createRewriteFuncAttrToByteIRPass() {
-  return std::make_unique<RewriteFuncAttrToByteIRPass>();
+mlir::tfext::createRewriteFuncAttrToByteIRPass(
+    const std::unordered_map<std::string, Attribute>
+        &additional_main_func_attrs) {
+  return std::make_unique<RewriteFuncAttrToByteIRPass>(
+      additional_main_func_attrs);
 }

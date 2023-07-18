@@ -21,7 +21,7 @@ from aitemplate.compiler.ops import FuncEnum as ait_func_enum
 
 from ..translator import IRTranslator
 from byteir import ir
-from byteir.utils import mlir_attr_to_pyobj
+from byteir.utils import mlir_attr_to_pyobj, mlir_type_to_dtype, mlir_type_to_torch_str
 
 class AITemplateIRTranslator(IRTranslator):
     pass
@@ -30,11 +30,7 @@ class AITemplateIRTranslator(IRTranslator):
 def _dispatch_mhlo_constant(op, inputs):
     shaped_type = ir.ShapedType(op.result.type)
     shape = shaped_type.shape
-    output = Tensor(shape)
-    # TODO: need to support FP16
-    #dtype = mlir_type_to_dtype(shaped_type.element_type)
-    #np_array = mlir_attr_to_pyobj(op.attributes["value"])
-    #output._bind_data(_NumpyConstantTensorData(np_array))
+    output = Tensor(shape, dtype=mlir_type_to_torch_str(shaped_type.element_type))
     return [output]
 
 @AITemplateIRTranslator.register("cat.nchw2nhwc")
@@ -95,28 +91,6 @@ def _dispatch_cat_conv2d_bias_relu(op, inputs):
 def _dispatch_cat_batch_norm(op, inputs):
     # TODO: AITemplate does not have BN impl
     raise NotImplementedError()
-
-@AITemplateIRTranslator.register("cat.batch_matmul")
-def _dispatch_cat_batch_norm(op, inputs):
-    layout = mlir_attr_to_pyobj(op.attributes["layout"])
-    if (layout == "ccr"):
-        ait_op = ait_ops.bmm_ccr()
-    elif (layout == "rrr"):
-        ait_op = ait_ops.bmm_rrr()
-    elif (layout == "crr"):
-        ait_op = ait_ops.bmm_crr()
-    elif (layout == "rcr"):
-        ait_op = ait_ops.bmm_rcr()
-    elif (layout == "ccc"):
-        ait_op = ait_ops.bmm_ccr()
-    elif (layout == "rrc"):
-        ait_op = ait_ops.bmm_rrr()
-    elif (layout == "crc"):
-        ait_op = ait_ops.bmm_crr()
-    elif (layout == "rcc"):
-        ait_op = ait_ops.bmm_rcr()
-    Y = ait_op(inputs[0], inputs[1])
-    return [Y]
 
 @AITemplateIRTranslator.register("cat.pooling2d")
 def _dispatch_cat_pooling2d(op, inputs):
@@ -191,19 +165,61 @@ def _dispatch_cat_gemm_bias(op, inputs):
     Y = ait_op(inputs[0], inputs[1], inputs[2])
     return [Y]
 
-@AITemplateIRTranslator.register("cat.bmm_add")
-def _dispatch_cat_bmm_add(op, inputs):
-    layout = mlir_attr_to_pyobj(op.attributes["layout"])
-    if layout == "rrr":
-        ait_op = ait_ops.bmm_rrr_add()
-        Y = ait_op(inputs[0], inputs[1], inputs[2])
-        return [Y]
-    elif layout == "rcr":
-        ait_op = ait_ops.bmm_rcr_add()
-        Y = ait_op(inputs[0], inputs[1], inputs[2])
-        return [Y]
-    else:
-        raise RuntimeError("unsupported bmm_add layout")
+@AITemplateIRTranslator.register("cat.gemm_rcr_permute")
+def _dispatch_cat_gemm_rcr_permute(op, inputs):
+    t1 = mlir_attr_to_pyobj(op.attributes["t1"])
+    t2 = mlir_attr_to_pyobj(op.attributes["t2"])
+    ait_op = ait_ops.gemm_rcr_permute(shape=([t1, t2]), layout="0213")
+    Y = ait_op(inputs[0], inputs[1])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_rrr_add")
+def _dispatch_cat_bmm_rrr_add(op, inputs):
+    ait_op = ait_ops.bmm_rrr_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_rrc_add")
+def _dispatch_cat_bmm_rrc_add(op, inputs):
+    ait_op = ait_ops.bmm_rrc_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_rcr_add")
+def _dispatch_cat_bmm_rcr_add(op, inputs):
+    ait_op = ait_ops.bmm_rcr_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_rcc_add")
+def _dispatch_cat_bmm_rcc_add(op, inputs):
+    ait_op = ait_ops.bmm_rcc_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_crr_add")
+def _dispatch_cat_bmm_crr_add(op, inputs):
+    ait_op = ait_ops.bmm_crr_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_crc_add")
+def _dispatch_cat_bmm_crc_add(op, inputs):
+    ait_op = ait_ops.bmm_crc_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_ccr_add")
+def _dispatch_cat_bmm_ccr_add(op, inputs):
+    ait_op = ait_ops.bmm_ccr_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.bmm_ccc_add")
+def _dispatch_cat_bmm_ccc_add(op, inputs):
+    ait_op = ait_ops.bmm_ccc_add()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
 
 @AITemplateIRTranslator.register("cat.bmm_rrr_permute")
 def _dispatch_cat_bmm_rrr_permute(op, inputs):
@@ -282,6 +298,9 @@ def _cat_elem_op_type_to_ait(op_type: str) -> ait_func_enum:
         "div": ait_func_enum.DIV,
         "tanh": ait_func_enum.TANH,
         "pow": ait_func_enum.POW,
+        "sqrt": ait_func_enum.SQRT,
+        "log": ait_func_enum.LOGE,
+        "max": ait_func_enum.MAX,
     }
     return op_map.get(op_type, None)
 
@@ -330,4 +349,34 @@ def _dispatch_mhlo_transpose(op, inputs):
     dims = mlir_attr_to_pyobj(op.attributes["permutation"])
     dims = dims.tolist()
     Y = ait_ops.permute()(inputs[0], dims)
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.slice")
+def _dispatch_cat_slice(op, inputs):
+    shaped_type = ir.ShapedType(op.result.type)
+    start_indices = mlir_attr_to_pyobj(op.attributes["start_indices"])
+    end_indices = mlir_attr_to_pyobj(op.attributes["end_indices"])
+
+    start_indices = start_indices.tolist()
+    end_indices = end_indices.tolist()
+    Y = ait_ops.dynamic_slice()(inputs[0], start_indices, end_indices)
+    return [Y]
+
+
+@AITemplateIRTranslator.register("cat.cast")
+def _dispatch_cat_cast(op, inputs):
+    shaped_type = ir.ShapedType(op.result.type)
+    dtype = mlir_type_to_torch_str(shaped_type.element_type)
+    Y = ait_ops.cast()(inputs[0], dtype)
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.concatenate")
+def _dispatch_cat_concatenate(op, inputs):
+    dim = mlir_attr_to_pyobj(op.attributes["dimension"])
+    Y = ait_ops.concatenate()(inputs, dim=dim)
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.where")
+def _dispatch_cat_where(op, inputs):
+    Y = ait_ops.where()(inputs[0], inputs[1], inputs[2])
     return [Y]

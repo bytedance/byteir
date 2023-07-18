@@ -46,6 +46,45 @@ def AnnotateOp : Op<Transform_Dialect, "annotate",
   let assemblyFormat = "$target attr-dict";
 }
 
+def CollapseDimsOp : Op<Transform_Dialect, "structured.collapse_dims",
+       [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+        DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Collapse dimensions of linalg.generic operation
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       IndexListArrayAttr:$reassociation);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target $reassociation attr-dict";
+  
+  code extraClassDeclaration = [{
+    SmallVector<ReassociationIndices, 4> getReassociationIndices() {
+      SmallVector<ReassociationIndices, 4> reassociationIndices;
+      for (auto attr : getReassociation())
+        reassociationIndices.push_back(llvm::to_vector<2>(
+            llvm::map_range(::llvm::cast<ArrayAttr>(attr), [&](Attribute indexAttr) {
+              return ::llvm::cast<IntegerAttr>(indexAttr).getInt();
+            })));
+      return reassociationIndices;
+    };
+  }];
+}
+
+def FoldUnitExtentDimsOp : Op<Transform_Dialect, "structured.fold_unit_extent_dims",
+       [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+        DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Remove unit-extent dimension in Linalg ops on tensors
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+}
+
 def FuseExtOp : Op<Transform_Dialect, "structured.fuse_ext",
     [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
      DeclareOpInterfaceMethods<TransformOpInterface>]> {

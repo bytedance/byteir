@@ -32,7 +32,8 @@ using namespace mlir;
 using namespace mlir::mhlo;
 
 namespace {
-void createCatOptPipelineImpl(OpPassManager &pm, bool anchor_only) {
+void createCatOptPipelineImpl(OpPassManager &pm, bool anchor_only,
+                              bool aggressive_mode) {
   if (anchor_only) {
     OpPassManager anchoredPM(func::FuncOp::getOperationName());
     anchoredPM.addPass(createFuseMhloToCatPass());
@@ -43,15 +44,17 @@ void createCatOptPipelineImpl(OpPassManager &pm, bool anchor_only) {
         createAnchoredPipelinePass(getByteIRCatFusionAttrName(), anchoredPM));
   } else {
     pm.addNestedPass<func::FuncOp>(createFuseMhloToCatPass());
-    // pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
-    // pm.addNestedPass<func::FuncOp>(createMhloToCatPass());
     pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
+    if (aggressive_mode) {
+      pm.addNestedPass<func::FuncOp>(createMhloToCatPass());
+      pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
+    }
   }
 }
 } // namespace
 
 void mlir::createCatOptPipeline(OpPassManager &pm,
                                 const CatOptPipelineOptions &options) {
-  invokeOpPassPipelineBuilder(createCatOptPipelineImpl, pm,
-                              options.anchor_only);
+  invokeOpPassPipelineBuilder(createCatOptPipelineImpl, pm, options.anchor_only,
+                              options.aggressive_mode);
 }
