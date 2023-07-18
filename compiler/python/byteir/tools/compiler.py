@@ -13,3 +13,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     byteir.compile(args.input_mlir_path, args.output_host_mlir_path, args.entry_func, args.target, args.verbose)
+    
+    

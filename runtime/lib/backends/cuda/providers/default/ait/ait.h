@@ -33,27 +33,15 @@ public:
 
   common::Status RunImpl(const ExecutionContext &ctx) override;
 
+  common::Status ProloguePerFrame(const ExecutionContext &ctx) override;
+  common::Status EpiloguePerFrame(const ExecutionContext &ctx) override;
+
 private:
+  std::string GetAITOpKernelWorkspaceManagerSharedKey();
+  std::string GetAITOpKernelRunnerUniqueKey();
+
   void *aitLibHdl;
-  AITemplateModelHandle aitModelHdl;
-  size_t numInputs, numOutputs;
-  std::vector<AITemplateParamShape> inputShapes, outputShapes;
-  std::vector<AITemplateDtype> inputDtypes, outputDtypes;
-
-  decltype(&AITemplateModelContainerCreate) createFunc_ = nullptr;
-  decltype(&AITemplateModelContainerDelete) deleteFunc_ = nullptr;
-  decltype(&AITemplateModelContainerRun) runFunc_ = nullptr;
-
-  decltype(&AITemplateModelContainerGetNumInputs) getNumInputsFunc_ = nullptr;
-  decltype(&AITemplateModelContainerGetMaximumInputShape)
-      getMaximumInputShapeFunc_ = nullptr;
-  decltype(&AITemplateModelContainerGetInputDtype) getInputDtypeFunc_ = nullptr;
-
-  decltype(&AITemplateModelContainerGetNumOutputs) getNumOutputsFunc_ = nullptr;
-  decltype(&AITemplateModelContainerGetMaximumOutputShape)
-      getMaximumOutputShapeFunc_ = nullptr;
-  decltype(&AITemplateModelContainerGetOutputDtype) getOutputDtypeFunc_ =
-      nullptr;
+  size_t workspaceSizeInBytes;
 };
 
 } // namespace cuda

@@ -1,0 +1,16 @@
+diff --git a/python/aitemplate/compiler/transform/fuse_ops.py b/python/aitemplate/compiler/transform/fuse_ops.py
+index 40af68f..dbce806 100644
+--- a/python/aitemplate/compiler/transform/fuse_ops.py
++++ b/python/aitemplate/compiler/transform/fuse_ops.py
+@@ -320,7 +320,10 @@ def fuse_elementwise(sorted_graph: List[Tensor], workdir: str = None) -> List[Te
+ 
+     for ops in to_be_fused_op_groups:
+         # Partition subgraph based on output shape.
+-        output_op_map = _partition_subgraphs(ops)
++        output_op_map = collections.defaultdict(set)
++        op_set = output_op_map['key']
++        for op in ops:
++           op_set.add(op) 
+         # Collect information to create fuse ops.
+         info_list = _collect_info(output_op_map, set(ops), sorted_graph)
+         # Create fuse ops.

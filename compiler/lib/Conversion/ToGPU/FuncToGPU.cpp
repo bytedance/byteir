@@ -46,6 +46,9 @@
 
 #define DEBUG_TYPE "func-to-gpu"
 
+// TODO: configurable coarsen factor
+#define COARSEN_FACTOR 4
+
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::arith;
@@ -58,7 +61,8 @@ static void creaetGuardedSIMT(OpBuilder &b, Value id, Value bound,
   b.setInsertionPoint(looplike);
 
   if (coarsen) {
-    addLoopLowerBound(b, looplike, id);
+    auto newIV = createIndexValue(b, looplike, id);
+    setLoopLowerBound(b, looplike, newIV);
     multiplyLoopStep(b, looplike, bound);
 
     // remove attrs
@@ -254,7 +258,7 @@ int64_t estimateGridSize(LoopLikeOpInterface loopLike, int64_t currGs,
 }
 
 void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
-                                 ArrayRef<int64_t> gs) {
+                                 ArrayRef<int64_t> gs, int64_t coarsenFactor) {
 
   // handle block and grid sizes
   SmallVector<int64_t> toGPUSizes;
@@ -296,27 +300,26 @@ void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
     if (loopLike->hasAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
       auto coarsen =
           loopLike->hasAttrOfType<UnitAttr>(getCoarsenSIMTAttrName());
-      if (coarsen)
-        return;
+      int64_t factor = coarsen ? coarsenFactor : 1;
 
       auto strAttr =
           loopLike->getAttrOfType<StringAttr>(getLoopToSIMTAttrName());
 
       if (strAttr.getValue() == getLinearIdXName()) {
         maxGridSizes[0] =
-            estimateGridSize(loopLike, maxGridSizes[0], toGPUSizes[0]);
+            estimateGridSize(loopLike, maxGridSizes[0], toGPUSizes[0] * factor);
       } else if (strAttr.getValue() == getLinearIdYName()) {
         maxGridSizes[1] =
-            estimateGridSize(loopLike, maxGridSizes[1], toGPUSizes[1]);
+            estimateGridSize(loopLike, maxGridSizes[1], toGPUSizes[1] * factor);
       } else if (strAttr.getValue() == getLinearIdZName()) {
         maxGridSizes[2] =
-            estimateGridSize(loopLike, maxGridSizes[2], toGPUSizes[2]);
+            estimateGridSize(loopLike, maxGridSizes[2], toGPUSizes[2] * factor);
       } else if (strAttr.getValue() == getBlockIdXName()) {
-        maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0], 1);
+        maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0], factor);
       } else if (strAttr.getValue() == getBlockIdYName()) {
-        maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1], 1);
+        maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1], factor);
       } else if (strAttr.getValue() == getBlockIdZName()) {
-        maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2], 1);
+        maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2], factor);
       }
     }
   });
@@ -362,7 +365,9 @@ struct ConvertFuncToGPUPass
     // collect all anchored function
     for (auto func : m.getOps<func::FuncOp>()) {
       if (func->hasAttr(getToGPUAttrName())) {
-        setValidStaticGPUConfigAttr(func, blockSizes, gridSizes);
+        // TODO: configurable coarsen factor
+        setValidStaticGPUConfigAttr(func, blockSizes, gridSizes,
+                                    COARSEN_FACTOR);
         funcCollector.push_back(func);
       }
     }

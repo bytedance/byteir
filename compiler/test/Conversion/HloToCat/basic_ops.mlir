@@ -86,7 +86,7 @@ func.func @test_bmm(%arg0 : tensor<12x64x128xf32>, %arg1 : tensor<12x128x512xf32
 }
 
 // CHECK: func.func
-// CHECK-NEXT: cat.batch_matmul
+// CHECK-NEXT: cat.bmm_rrr
 
 func.func @test_nchw_to_nhwc(%arg0 : tensor<2x3x200x200xf16>) -> tensor<2x200x200x3xf16> {
     %0 = "mhlo.transpose"(%arg0) {permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>} : (tensor<2x3x200x200xf16>) -> tensor<2x200x200x3xf16>

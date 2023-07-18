@@ -61,7 +61,8 @@ size_t computeUserangeSize(const UseInterval &interval) {
 /// Compute the byte size of a given Value.
 size_t computeByteSize(const Value &v) {
   auto type = v.getType().cast<ShapedType>();
-  return (type.getSizeInBits() + 7) >> 3;
+  auto dtypeSize = (type.getElementTypeBitWidth() + 7) >> 3;
+  return dtypeSize * type.getNumElements();
 }
 
 /// Compute the \p alignment byte alinged segments of a given Value.

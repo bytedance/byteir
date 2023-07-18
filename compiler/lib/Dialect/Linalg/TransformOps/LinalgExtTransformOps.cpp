@@ -22,6 +22,14 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+// Some code comes from DropUnitDims.cpp in LLVM project
+// Original license:
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
@@ -97,6 +105,235 @@ void transform::AnnotateOp::getEffects(
   onlyReadsHandle(getTarget(), effects);
   modifiesPayload(effects);
   producesHandle(getTransformed(), effects);
+}
+
+//===----------------------------------------------------------------------===//
+// CollapseDimsOp
+//===----------------------------------------------------------------------===//
+
+DiagnosedSilenceableFailure
+transform::CollapseDimsOp::apply(transform::TransformResults &results,
+                                 transform::TransformState &state) {
+  SmallVector<Operation *> collapsed;
+  for (Operation *target : state.getPayloadOps(getTarget())) {
+    auto genericOp = dyn_cast_or_null<linalg::GenericOp>(target);
+    if (!genericOp)
+      return emitDefaultDefiniteFailure(target)
+             << " collapse_dims transformation should be applied on "
+                "linalg.generic";
+
+    SimpleRewriter rewriter(getContext());
+    rewriter.setInsertionPoint(target);
+    std::optional<SmallVector<Value>> replacements =
+        collapseGenericOpIterationDims(genericOp, getReassociationIndices(),
+                                       rewriter);
+    if (!replacements)
+      return emitDefaultDefiniteFailure(target) << " failed to collapsed dims";
+
+    Operation *definingOp = (*replacements)[0].getDefiningOp();
+    if (llvm::isa<tensor::ExpandShapeOp>(definingOp))
+      definingOp = definingOp->getOperand(0).getDefiningOp();
+
+    if (!llvm::isa<linalg::GenericOp>(definingOp))
+      return emitDefaultDefiniteFailure(target) << " failed to collapsed dims";
+
+    genericOp->replaceAllUsesWith(*replacements);
+    genericOp->erase();
+
+    collapsed.push_back(definingOp);
+  }
+  results.set(getTransformed().cast<OpResult>(), collapsed);
+  return DiagnosedSilenceableFailure::success();
+}
+
+//===----------------------------------------------------------------------===//
+// replace unit extent dims
+//===----------------------------------------------------------------------===//
+namespace {
+struct UnitExtentReplacementInfo {
+  AffineMap indexMap;
+  SmallVector<ReassociationIndices> reassociation;
+  SmallVector<int64_t> targetShape;
+};
+
+/// Utility function for replacing operands/results to a linalg generic
+/// operation with unit-extent dimensions. These can be replaced with
+/// an operand/result with the unit-extent dimension removed. This is only done
+/// if the indexing map used to access that dimension has a
+/// AffineConstantExpr of value 0. Given the `type` of an result/operand of a
+/// Linalg op, and its `indexMap` the utility function returns:
+/// - the new type with dimensions of size 1 removed.
+/// - modified index map that can be used to access the replaced result/operand
+/// - the reassociation that converts from the original tensor type to the
+///   modified tensor type.
+static std::optional<UnitExtentReplacementInfo>
+replaceUnitExtents(GenericOp genericOp, OpOperand *opOperand,
+                   MLIRContext *context) {
+  AffineMap indexingMap = genericOp.getMatchingIndexingMap(opOperand);
+  ArrayRef<int64_t> shape = genericOp.getShape(opOperand);
+  ArrayRef<AffineExpr> exprs = indexingMap.getResults();
+  SmallVector<AffineExpr> newIndexExprs;
+  SmallVector<int64_t> newShape;
+
+  int64_t origRank = genericOp.getRank(opOperand);
+  AffineExpr zeroExpr = getAffineConstantExpr(0, context);
+  auto isUnitExtent = [&](int64_t dim) -> bool {
+    return shape[dim] == 1 && exprs[dim] == zeroExpr;
+  };
+
+  int64_t dim = 0;
+  SmallVector<ReassociationIndices> reassociation;
+  ReassociationIndices reassociationGroup;
+  // Fold dimensions that are unit-extent at the beginning of the tensor.
+  while (dim < origRank && isUnitExtent(dim))
+    reassociationGroup.push_back(dim++);
+  while (dim < origRank) {
+    assert(!isUnitExtent(dim) && "expected non unit-extent");
+    reassociationGroup.push_back(dim);
+    newIndexExprs.push_back(exprs[dim]);
+    newShape.push_back(shape[dim]);
+    ++dim;
+    // Fold all following dimensions that are unit-extent.
+    while (dim < origRank && isUnitExtent(dim))
+      reassociationGroup.push_back(dim++);
+    reassociation.push_back(reassociationGroup);
+    reassociationGroup.clear();
+  }
+
+  // Return if the rank was not reduced.
+  if (origRank == static_cast<int64_t>(newShape.size()))
+    return std::nullopt;
+
+  UnitExtentReplacementInfo info = {
+      /*indexMap=*/AffineMap::get(indexingMap.getNumDims(),
+                                  indexingMap.getNumSymbols(), newIndexExprs,
+                                  context),
+      /*reassociation=*/reassociation, /*targetShape=*/newShape};
+  return info;
+}
+
+// to replace tensor operands/results that are unit extents.
+std::optional<std::pair<Operation *, SmallVector<Value>>>
+replaceUnitExtents(GenericOp genericOp, PatternRewriter &rewriter) {
+  // Skip the pattern if the op has any tensor with special encoding.
+  if (llvm::any_of(genericOp->getOperandTypes(), [](Type type) {
+        auto tensorType = type.dyn_cast<RankedTensorType>();
+        return tensorType && tensorType.getEncoding() != nullptr;
+      }))
+    return std::nullopt;
+  MLIRContext *context = rewriter.getContext();
+  Location loc = genericOp.getLoc();
+  SmallVector<Value> oldOutputs(genericOp.getOutputs().begin(),
+                                genericOp.getOutputs().end());
+
+  SmallVector<AffineMap> newIndexingMaps;
+  SmallVector<SmallVector<ReassociationIndices>> reassociations;
+  SmallVector<SmallVector<int64_t>> targetShapes;
+  SmallVector<bool> collapsed;
+  for (OpOperand &opOperand : genericOp->getOpOperands()) {
+    auto replacementInfo = replaceUnitExtents(genericOp, &opOperand, context);
+    if (replacementInfo) {
+      reassociations.push_back(replacementInfo->reassociation);
+      newIndexingMaps.push_back(replacementInfo->indexMap);
+      targetShapes.push_back(replacementInfo->targetShape);
+      collapsed.push_back(true);
+    } else {
+      // If replaceUnitExtents cannot handle this case (or no unit dim was
+      // removed), maintain the same type, indexing map, and create a set of
+      // mappings representing an identity matrix.
+      newIndexingMaps.push_back(genericOp.getMatchingIndexingMap(&opOperand));
+      reassociations.emplace_back();
+      targetShapes.emplace_back();
+      collapsed.push_back(false);
+    }
+  }
+
+  // Abort if the indexing maps of the result operation are not invertible
+  // (i.e. not legal) or if no dimension was reduced.
+  if (!llvm::any_of(collapsed, [](bool c) { return c; }) ||
+      !inversePermutation(concatAffineMaps(newIndexingMaps)))
+    return std::nullopt;
+
+  // Insert rank reductions.
+  SmallVector<Value> newOperands;
+  for (OpOperand &opOperand : genericOp->getOpOperands()) {
+    int64_t idx = opOperand.getOperandNumber();
+    if (!collapsed[idx]) {
+      newOperands.push_back(opOperand.get());
+      continue;
+    }
+    auto targetType = RankedTensorType::get(
+        targetShapes[idx],
+        opOperand.get().getType().cast<ShapedType>().getElementType());
+    Value collapsed = rewriter.create<tensor::CollapseShapeOp>(
+        loc, targetType, opOperand.get(), reassociations[idx]);
+    newOperands.push_back(collapsed);
+  }
+
+  // If any result type changes, insert a reshape to convert from the original
+  // type to the new type.
+  ArrayRef<Value> newInputs =
+      ArrayRef<Value>(newOperands).take_front(genericOp.getNumDpsInputs());
+  ArrayRef<Value> newOutputs =
+      ArrayRef<Value>(newOperands).take_back(genericOp.getNumDpsInits());
+  SmallVector<Type> resultTypes;
+  resultTypes.reserve(genericOp.getNumResults());
+  for (unsigned i : llvm::seq<unsigned>(0, genericOp.getNumResults()))
+    resultTypes.push_back(newOutputs[i].getType());
+  GenericOp replacementOp = rewriter.create<GenericOp>(
+      loc, resultTypes, newInputs, newOutputs, newIndexingMaps,
+      genericOp.getIteratorTypesArray());
+  rewriter.inlineRegionBefore(genericOp.getRegion(), replacementOp.getRegion(),
+                              replacementOp.getRegion().begin());
+
+  // If any result tensor has a modified shape, then add reshape to recover
+  // the original shape.
+  SmallVector<Value> resultReplacements;
+  for (const auto &result : llvm::enumerate(replacementOp.getResults())) {
+    unsigned index = result.index() + replacementOp.getNumDpsInputs();
+    Value origOutput = oldOutputs[result.index()];
+    if (!collapsed[result.index() + genericOp.getNumDpsInputs()]) {
+      resultReplacements.push_back(result.value());
+      continue;
+    }
+
+    auto origResultType = origOutput.getType().cast<RankedTensorType>();
+    Value expanded = rewriter.create<tensor::ExpandShapeOp>(
+        loc, origResultType, result.value(), reassociations[index]);
+    resultReplacements.push_back(expanded);
+  }
+
+  return std::make_pair(replacementOp, resultReplacements);
+}
+} // namespace
+
+DiagnosedSilenceableFailure
+transform::FoldUnitExtentDimsOp::apply(transform::TransformResults &results,
+                                       transform::TransformState &state) {
+  SmallVector<Operation *> transformed;
+  for (Operation *target : state.getPayloadOps(getTarget())) {
+    auto genericOp = dyn_cast_or_null<linalg::GenericOp>(target);
+    if (!genericOp)
+      return emitDefaultDefiniteFailure(target)
+             << " fold_unit_extent_dims transformation should be applied on "
+                "linalg.generic";
+
+    SimpleRewriter rewriter(getContext());
+    rewriter.setInsertionPoint(target);
+    std::optional<std::pair<Operation *, SmallVector<Value>>> replacements =
+        replaceUnitExtents(genericOp, rewriter);
+    if (!replacements) {
+      transformed.push_back(genericOp);
+      continue;
+    }
+
+    genericOp->replaceAllUsesWith(replacements->second);
+    genericOp->erase();
+
+    transformed.push_back(replacements->first);
+  }
+  results.set(getTransformed().cast<OpResult>(), transformed);
+  return DiagnosedSilenceableFailure::success();
 }
 
 //===----------------------------------------------------------------------===//

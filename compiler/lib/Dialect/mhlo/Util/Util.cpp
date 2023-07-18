@@ -120,6 +120,59 @@ parsePoolLayout(size_t rank, const SmallVector<int64_t> &window_dimensions,
 
 } // namespace
 
+std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
+  auto base_dilations = op.getBaseDilationsAttr();
+  if (base_dilations && !isSplatValue(base_dilations, 1)) {
+    return std::nullopt;
+  }
+  auto window_dilations = op.getWindowDilationsAttr();
+  if (window_dilations && !isSplatValue(window_dilations, 1)) {
+    return std::nullopt;
+  }
+  auto strides = op.getWindowStridesAttr();
+  if (strides && !isSplatValue(strides, 1)) {
+    return std::nullopt;
+  }
+
+  SmallVector<int64_t> window_dimensions = SmallVector<int64_t>(
+      op.getWindowDimensions().getValues<int64_t>().begin(),
+      op.getWindowDimensions().getValues<int64_t>().end());
+  if (!op.getPadding().has_value()) {
+    return std::nullopt;
+  }
+  SmallVector<int64_t> padding =
+      SmallVector<int64_t>(op.getPaddingAttr().getValues<int64_t>().begin(),
+                           op.getPaddingAttr().getValues<int64_t>().end());
+
+  auto inputShape = op.getInputs()[0].getType().cast<ShapedType>();
+  if (!inputShape.hasRank()) {
+    return std::nullopt;
+  }
+  int64_t index = -1;
+  for (size_t i = 0; i < inputShape.getRank(); i++) {
+    if (window_dimensions[i] == 1 && padding[i * 2] == 0 &&
+        padding[i * 2 + 1] == 0) {
+      // not cumsum index
+      continue;
+    } else if (inputShape.getDimSize(i) == ShapedType::kDynamic) {
+      // doesn't handle dynamic dim
+      return std::nullopt;
+    } else if (window_dimensions[i] == inputShape.getDimSize(i) &&
+               padding[i * 2] == inputShape.getDimSize(i) - 1 &&
+               padding[i * 2 + 1] == 0) {
+      if (index == -1) {
+        index = i;
+      } else {
+        // more than one dim to be cumsumed
+        return std::nullopt;
+      }
+    } else {
+      return std::nullopt;
+    }
+  }
+  return index;
+}
+
 byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
   auto base_dilations = op.getBaseDilationsAttr();
   if (base_dilations && !isSplatValue(base_dilations, 1)) {

@@ -1,6 +1,8 @@
 add_mlir_dialect_library(ByteIRMemRefPasses
   Transforms/ApplyMemRefAffineLayout.cpp
+  Transforms/ExtractAddressComputation.cpp
   Transforms/RemoveCopy.cpp
+  Transforms/SimplifyLinearizedIndex.cpp
   Transforms/SimplifyView.cpp
   Utils/Layout.cpp
   Utils/MemEffect.cpp

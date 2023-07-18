@@ -29,7 +29,12 @@ def generate_inputs(interp):
         shaped_type = ir.ShapedType(arg.type)
         shape = shaped_type.shape
         dtype = mlir_type_to_dtype(shaped_type.element_type)
-        ret.append(np.random.random(size=shape).astype(dtype))
+        if dtype == np.bool_:
+            ret.append(np.random.randint(2, size=shape).astype(dtype))
+        elif dtype in [np.uint8, np.int8, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]:
+            ret.append(np.random.randint(50, size=shape).astype(dtype))
+        else:
+            ret.append(np.random.random(size=shape).astype(dtype))
         # ret.append(np.ones(shape=shape, dtype=dtype))
     return ret
 

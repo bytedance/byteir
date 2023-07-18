@@ -19,11 +19,15 @@
 
 #include "byteir/Conversion/GPUToNVVM/GPUToNVVM.h"
 #include "byteir/Conversion/ToPTX/ToPTX.h"
+#include "byteir/Dialect/MemRef/Transforms/ExtractAddressComputation.h"
+#include "byteir/Dialect/MemRef/Transforms/SimplifyLinearizedIndex.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/Passes.h"
 
@@ -36,6 +40,13 @@ void mlir::createNVVMCodegenPipeline(OpPassManager &pm) {
         // TODO use target to decide passes
         pm.addPass(createCollectGPUKernelPass());
         pm.addPass(createConvertSCFToCFPass());
+        pm.addPass(createExtractAddressComputationPass());
+        pm.addPass(memref::createExpandStridedMetadataPass());
+        pm.addPass(createLowerAffinePass());
+        pm.addPass(createCanonicalizerPass());
+        pm.addPass(createSimplifyLinearizedIndexPass());
+        pm.addPass(createCanonicalizerPass());
+        pm.addPass(createCSEPass());
         pm.addNestedPass<gpu::GPUModuleOp>(createGPUToNVVMExtPass());
         pm.addPass(createCSEPass());
         pm.addPass(createReconcileUnrealizedCastsPass());

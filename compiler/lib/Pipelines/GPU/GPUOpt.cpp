@@ -63,7 +63,10 @@ void createGPUOptPipelineImpl(OpPassManager &pm, const std::string &target) {
   pm.addNestedPass<func::FuncOp>(
       createLoopTagPass(getByteIRElementwiseFusionAttrName(), iteratorAttr));
 
-  pm.addPass(createConvertFuncToGPUPass(/*bs=*/{128, 1, 1}));
+  pm.addNestedPass<func::FuncOp>(createLoopTagPass(
+      getByteIRElementwiseFusionAttrName(), getCoarsenSIMTAttrName().str()));
+
+  pm.addPass(createConvertFuncToGPUPass(/*bs=*/{256, 1, 1}));
 
   addCleanUpExtPassPipeline(pm);
   pm.addNestedPass<func::FuncOp>(createGenPTXConfigPass());

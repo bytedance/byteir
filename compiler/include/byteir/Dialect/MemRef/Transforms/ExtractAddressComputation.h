@@ -1,4 +1,4 @@
-//===- PassDetail.h -------------------------------------------*--- C++ -*-===//
+//===- ExtractAddressComputation.h ----------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,30 +15,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_MEMREF_TRANSFORMS_PASSDETAIL_H
-#define BYTEIR_DIALECT_MEMREF_TRANSFORMS_PASSDETAIL_H
+#ifndef BYTEIR_DIALECT_MEMREF_TRANSFORMS_EXTRACTADDRESSCOMPUTATIONPASS_H
+#define BYTEIR_DIALECT_MEMREF_TRANSFORMS_EXTRACTADDRESSCOMPUTATIONPASS_H
 
-#include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
+#include <memory>
 
-// forward dialects for conversions
 namespace mlir {
-class AffineDialect;
-namespace arith {
-class ArithDialect;
-} // namespace arith
 
-namespace func {
-class FuncOp;
-} // namespace func
-
-namespace memref {
-class MemRefDialect;
-} // namespace memref
-
-#define GEN_PASS_CLASSES
-#include "byteir/Dialect/MemRef/Passes.h.inc"
+std::unique_ptr<Pass> createExtractAddressComputationPass();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_MEMREF_TRANSFORMS_PASSDETAIL_H
+#endif // BYTEIR_DIALECT_MEMREF_TRANSFORMS_EXTRACTADDRESSCOMPUTATIONPASS_H

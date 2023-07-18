@@ -978,6 +978,38 @@ func.func @expand_shape_elementwise(%arg0: tensor<128x1024x4096xf32>) -> tensor<
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match ops{["linalg.elemwise_unary"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %transformed, %loops:3 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [1, 1, 256]}
+}
+
+func.func @expand_shape_elementwise_tile_1x1xN(%arg0: tensor<131072xf32>) -> tensor<8x16x1024xf32> {
+  %empty= tensor.empty() : tensor<8x16x1024xf32>
+  %expanded = tensor.expand_shape %arg0 [[0, 1, 2]] : tensor<131072xf32> into tensor<8x16x1024xf32>
+  %0 = linalg.elemwise_unary ins(%expanded : tensor<8x16x1024xf32>)
+                             outs(%empty: tensor<8x16x1024xf32>) -> tensor<8x16x1024xf32>
+  return %0 : tensor<8x16x1024xf32>
+}
+
+// CHECK: #[[MAP:.+]] = affine_map<(d0, d1, d2) -> (d0 * 16384 + d1 * 1024 + d2)>
+// CHECK-LABEL: func.func @expand_shape_elementwise_tile_1x1xN
+//   CHECK-SAME: (%[[ARG0:.+]]: tensor<131072xf32>)
+// CHECK: %[[C0:.+]] = arith.constant 0 : index
+// CHECK: scf.for %[[ARG1:.+]] = %[[C0]]
+// CHECK:   scf.for %[[ARG2:.+]] = %[[C0]]
+// CHECK:     scf.for %[[ARG3:.+]] = %[[C0]]
+// CHECK:       %[[OFFSET:.+]] = affine.apply #[[MAP]](%[[ARG1]], %[[ARG2]], %[[ARG3]])
+// CHECK:       tensor.extract_slice %[[ARG0]][%[[OFFSET]]] [256] [1]
+// CHECK:       tensor.expand_shape
+// CHECK:       linalg.elemwise_unary
+// CHECK:       tensor.insert_slice
+// CHECK:     scf.yield
+// CHECK:   scf.yield
+// CHECK: scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [8, 4]}
 }
@@ -1028,6 +1060,37 @@ func.func @collapse_shape_elementwise(%arg0: tensor<128x1x8x2xf32>) ->tensor<128
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match ops{["linalg.elemwise_unary"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %transformed, %loops = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [256]}
+}
+
+func.func @collapse_shape_elementwise_slice_1x1xN(%arg0: tensor<8x16x1024xf32>) -> tensor<131072xf32> {
+  %empty= tensor.empty() : tensor<131072xf32>
+  %expanded = tensor.collapse_shape %arg0 [[0, 1, 2]] : tensor<8x16x1024xf32> into tensor<131072xf32>
+  %0 = linalg.elemwise_unary ins(%expanded : tensor<131072xf32>)
+                             outs(%empty: tensor<131072xf32>) -> tensor<131072xf32>
+  return %0 : tensor<131072xf32>
+}
+
+// CHECK-DAG: #[[MAP0:.+]] = affine_map<(d0) -> (((d0 floordiv 1024) floordiv 16) mod 8)>
+// CHECK-DAG: #[[MAP1:.+]] = affine_map<(d0) -> ((d0 floordiv 1024) mod 16)>
+// CHECK-DAG: #[[MAP2:.+]] = affine_map<(d0) -> (d0 mod 1024)>
+// CHECK-LABEL: func.func @collapse_shape_elementwise_slice_1x1xN
+//   CHECK-SAME: (%[[ARG0:.+]]: tensor<8x16x1024xf32>)
+// CHECK: %[[C0:.+]] = arith.constant 0 : index
+// CHECK: scf.for %[[ARG1:.+]] = %[[C0]]
+// CHECK-DAG: %[[OFFSET0:.+]] = affine.apply #[[MAP0]](%[[ARG1]])
+// CHECK-DAG: %[[OFFSET1:.+]] = affine.apply #[[MAP1]](%[[ARG1]])
+// CHECK-DAG: %[[OFFSET2:.+]] = affine.apply #[[MAP2]](%[[ARG1]])
+// CHECK:   tensor.extract_slice %[[ARG0]][%[[OFFSET0]], %[[OFFSET1]], %[[OFFSET2]]] [1, 1, 256] [1, 1, 1]
+// CHECK:   linalg.elemwise_unary
+// CHECK:   tensor.insert_slice
+// CHECK: scf.yield
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
   %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
   %transformed, %loops:2 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [7, 7]}
 }
@@ -1056,3 +1119,4 @@ func.func @elew_pad_elew(%arg0: tensor<12x12xf32>) -> tensor<14x14xf32> {
 // CHECK:     tensor.insert_slice
 // CHECK:     scf.yield
 // CHECK:   scf.yield
+

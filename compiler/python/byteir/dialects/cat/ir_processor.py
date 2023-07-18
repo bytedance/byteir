@@ -53,10 +53,13 @@ class IRProcessor:
                 self._dump_ir("{}.mhlo.simplified.mlir".format(self.job_name))
         return self.module
 
-    def hlo_opt_pass(self, outline_single_elemwise_op=False, dump_ir=False):
+    def hlo_opt_pass(self, outline_single_elemwise_op=False, dump_ir=False, aggressive_mode=False):
         with self.module.context:
             if outline_single_elemwise_op:
-                pass_arg = "builtin.module(hlo-opt{outline-single-elemwise-op outline-cat-op})"
+                if aggressive_mode:
+                    pass_arg = "builtin.module(hlo-opt{outline-single-elemwise-op outline-cat-op aggressive-cat-fusion})"
+                else:
+                    pass_arg = "builtin.module(hlo-opt{outline-single-elemwise-op outline-cat-op})"
             else:
                 pass_arg = "builtin.module(hlo-opt{outline-cat-op})"
             pm = PassManager.parse(pass_arg)
@@ -65,12 +68,15 @@ class IRProcessor:
                 self._dump_ir("{}.hlo_opt.mlir".format(self.job_name))
         return self.module
 
-    def cat_opt_pass(self, anchor_only=False, dump_ir=False):
+    def cat_opt_pass(self, anchor_only=False, dump_ir=False, aggressive_mode=False):
         with self.module.context:
             if anchor_only:
                 pass_arg = "builtin.module(cat-opt{anchor-only})"
             else:
-                pass_arg = "builtin.module(cat-opt)"
+                if aggressive_mode:
+                    pass_arg = "builtin.module(cat-opt{aggressive-mode})"
+                else:
+                    pass_arg = "builtin.module(cat-opt)"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
             if dump_ir:

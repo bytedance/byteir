@@ -43,6 +43,7 @@
 #include <vector>
 
 using namespace tensorflow;
+using namespace mlir;
 
 static llvm::cl::opt<std::string> input_filename(llvm::cl::Positional,
                                                  llvm::cl::desc("<input file>"),
@@ -110,6 +111,11 @@ static llvm::cl::opt<bool> staticalize_dynamic_shape(
 static llvm::cl::opt<bool> stop_after_rewrite_customcall(
     "stop-after-rewrite-customcall",
     llvm::cl::desc("pipeline stop after rewrite customcall ops for debug"),
+    llvm::cl::init(false));
+
+static llvm::cl::opt<bool> keep_original_input_names(
+    "keep-original-input-names",
+    llvm::cl::desc("put original input names in main func as an ArrayAttr"),
     llvm::cl::init(false));
 
 int main(int argc, char **argv) {
@@ -218,10 +224,25 @@ int main(int argc, char **argv) {
     module->getContext()->disableMultithreading();
     tf_frontend_manager.enableCrashReproducerGeneration(reproducer_file, true);
   }
+
+  std::unordered_map<std::string, Attribute> additional_main_func_attrs;
+
+  if (keep_original_input_names) {
+    llvm::SmallVector<Attribute> original_input_name_attrs;
+    original_input_name_attrs.reserve(input_names_vec.size());
+    for (const std::string &input_name : input_names_vec)
+      original_input_name_attrs.push_back(
+          StringAttr::get(module->getContext(), input_name));
+    ArrayAttr original_input_name_array_attr =
+        ArrayAttr::get(module->getContext(), original_input_name_attrs);
+    additional_main_func_attrs["original_input_names"] =
+        original_input_name_array_attr;
+  }
+
   tf_frontend_manager.addPass(
       ::mlir::tfext::createCustomizedTfToMhloPipelinePass(
           customcall_ops_array, remove_control_flow, staticalize_dynamic_shape,
-          stop_after_rewrite_customcall));
+          stop_after_rewrite_customcall, additional_main_func_attrs));
   if (mlir::failed(tf_frontend_manager.run(*module))) {
     llvm::outs() << "tf frontend customized-tf-to-mhlo pipeline failed\n";
     return 1;

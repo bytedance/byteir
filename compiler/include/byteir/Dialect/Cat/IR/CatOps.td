@@ -33,6 +33,12 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 class Cat_Op<string mnemonic, list<Trait> traits = []>
     : Op<Cat_Dialect, mnemonic, traits>;
 
+def Cat_CastOp : Cat_Op<"cast", [Cat_CatOpInterface, Pure]> {
+  let summary = "type cast operator";
+  let arguments = (ins AnyTensor : $input);
+  let results = (outs AnyTensor : $output);
+}
+
 def Cat_Conv2dOp : Cat_Op<"conv2d", [Cat_CatOpInterface, Pure]> {
   let summary = "conv2d operator";
   let arguments = (ins AnyTensor : $input,
@@ -91,27 +97,73 @@ def Cat_NchwToNhwcOp : Cat_Op<"nchw2nhwc", [Cat_CatOpInterface, Pure]> {
   let results = (outs AnyTensor : $output);
 }
 
-def Cat_BatchMatmulOp : Cat_Op<"batch_matmul", [Cat_CatOpInterface, Pure]> {
-  let summary = "batch matmul operator";
+// TODO: add verifier for each op
+def Cat_BMMRRRAddOp : Cat_Op<"bmm_rrr_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (rrr)";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
-                       StrAttr : $layout);
+                       AnyTensor : $add);
   let results = (outs AnyTensor : $output);
-
-  let hasVerifier = 1;
 }
 
-def Cat_BMMAddOp : Cat_Op<"bmm_add", [Cat_CatOpInterface, Pure]> {
-  let summary = "batch matmul + add operator";
+def Cat_BMMRRCAddOp : Cat_Op<"bmm_rrc_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (rrc)";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
-                       AnyTensor : $add,
-                       StrAttr : $layout);
+                       AnyTensor : $add);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMRCRAddOp : Cat_Op<"bmm_rcr_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (rcr)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMRCCAddOp : Cat_Op<"bmm_rcc_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (rcc)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCRRAddOp : Cat_Op<"bmm_crr_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (crr)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCRCAddOp : Cat_Op<"bmm_crc_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (crc)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCCRAddOp : Cat_Op<"bmm_ccr_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (ccr)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_BMMCCCAddOp : Cat_Op<"bmm_ccc_add", [Cat_CatOpInterface, Pure]> {
+  let summary = "batch matmul + add operator (ccc)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $add);
   let results = (outs AnyTensor : $output);
 }
 
 def Cat_BMMRRRPermuteOp : Cat_Op<"bmm_rrr_permute", [Cat_CatOpInterface, Pure]> {
-  let summary = "batch matmul + permute operator";
+  let summary = "batch matmul + permute0213 operator";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
                        I64Attr : $shape);
@@ -121,7 +173,7 @@ def Cat_BMMRRRPermuteOp : Cat_Op<"bmm_rrr_permute", [Cat_CatOpInterface, Pure]> 
 }
 
 def Cat_BMMRCRPermuteOp : Cat_Op<"bmm_rcr_permute", [Cat_CatOpInterface, Pure]> {
-  let summary = "batch matmul + permute operator";
+  let summary = "batch matmul + permute0213 operator";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs,
                        I64Attr : $shape);
@@ -170,6 +222,12 @@ def Cat_ReduceOp : Cat_Op<"reduce", [Cat_CatOpInterface, Pure]> {
   let results = (outs AnyTensor : $output);
 }
 
+def Cat_SliceOp : Cat_Op<"slice", [Cat_CatOpInterface, Pure]> {
+  let summary = "slice operator";
+  let arguments = (ins AnyTensor : $input, I64ElementsAttr : $start_indices, I64ElementsAttr : $end_indices);
+  let results = (outs AnyTensor : $output);
+}
+
 def Cat_GemmRRRBiasOp : Cat_Op<"gemm_rrr_bias", [Cat_CatOpInterface, Pure]> {
   let summary = "gemm_rrr_bias operator";
   let description =
@@ -207,6 +265,17 @@ def Cat_GemmRCROp : Cat_Op<"gemm_rcr", [Cat_CatOpInterface, Pure]> {
   let summary = "gemm_rcr operator";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+
+  let hasVerifier = 1;
+}
+
+def Cat_GemmRCRPermuteOp : Cat_Op<"gemm_rcr_permute", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rcr + permute0213 operator, output layout is [m / t1, t1, t2, n / t2]";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       I64Attr : $t1,
+                       I64Attr : $t2);
   let results = (outs AnyTensor : $output);
 
   let hasVerifier = 1;
@@ -293,6 +362,21 @@ def Cat_BMMCCCOp : Cat_Op<"bmm_ccc", [Cat_CatOpInterface, Pure]> {
   let summary = "batch matmul operator (ccc layout)";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_ConcatenateOp : Cat_Op<"concatenate", [Cat_CatOpInterface, Pure]> {
+  let summary = "concatenate operator";
+  let arguments = (ins Variadic<AnyTensor> : $val,
+                       I64Attr:$dimension);
+  let results = (outs AnyTensor : $output);
+}
+
+def Cat_WhereOp : Cat_Op<"where", [Cat_CatOpInterface, Pure]> {
+  let summary = "where operator";
+  let arguments = (ins AnyTensor : $condition,
+                       AnyTensor : $on_true,
+                       AnyTensor : $on_false);
   let results = (outs AnyTensor : $output);
 }
 

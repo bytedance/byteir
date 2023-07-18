@@ -40,7 +40,7 @@ def main():
 
     for offset in session.get_input_arg_offsets():
         dtype = ToTorchDType(session.get_data_type(offset))
-        if dtype == torch.int64:
+        if dtype in [torch.int64, torch.int32, torch.int16, torch.int8, torch.bool]:
             inputs.append(torch.zeros(session.get_static_shape(offset), dtype=dtype, device="cuda"))
         else:
             data = np.random.random(size=session.get_static_shape(offset))

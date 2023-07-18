@@ -21,6 +21,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include <optional>
 #include <stdint.h>
 #include <string>
 #include <tuple>
@@ -89,6 +90,9 @@ bool isSplatMhloConstantValue(Value val);
 bool isSplatMhloConstantValue(Value val, int64_t splat_val);
 
 bool isSplatMhloConstantValue(Value val, double splat_val);
+
+// return cumsum's index, return nullopt if not a cumsum op
+std::optional<int64_t> getCumsumIndex(mhlo::ReduceWindowOp op);
 
 // Return layout if success, return UNKNOWN if failed.
 byteir::NamedLayout getPoolLayout(mhlo::ReduceWindowOp op);
