@@ -7,7 +7,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Clear workspace
-        run: sudo rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout
         uses: actions/checkout@v3
       - name: Run clang-format check
@@ -15,5 +15,5 @@ jobs:
         shell: bash
       - name: Clean up
         if: ${{ always() }}
-        run: sudo rm -rf $GITHUB_WORKSPACE
+        run: rm -rf $GITHUB_WORKSPACE
         

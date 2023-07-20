@@ -19,7 +19,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: clear workspace
-        run: sudo rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
   byteir_compiler_build_and_test:
     name: byteir compiler build and test
     runs-on: self-hosted
@@ -78,4 +78,4 @@ jobs:
     if: ${{ always() }}
     steps:
     - name: Clean up
-      run: sudo rm -rf $GITHUB_WORKSPACE
+      run: rm -rf $GITHUB_WORKSPACE
