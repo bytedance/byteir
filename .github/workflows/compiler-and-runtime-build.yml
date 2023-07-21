@@ -67,6 +67,7 @@ jobs:
   byteir_compiler_build_and_test_python:
     name: byteir cat test CI
     runs-on: self-hosted
+    needs: [clear_workspace]
     steps:
     - name: Build and Test Python APIs
       run: .scripts/compiler/build_and_test_cat.sh ${{ secrets.MHLO_TOOLS_WHL }} ${{ secrets.LLVM_PREBUILT_TAR }}
