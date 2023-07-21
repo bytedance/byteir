@@ -3,12 +3,12 @@ name: Compiler And Runtime Build
 on: 
   push:
     branches:
-      - master
+      - main
     paths-ignore:
       - "frontends/**"
   pull_request:
     branches:
-      - master
+      - main
     paths-ignore:
       - "frontends/**"
   workflow_dispatch:
