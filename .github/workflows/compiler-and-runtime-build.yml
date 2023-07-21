@@ -27,12 +27,14 @@ jobs:
     steps:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
+        with:
+          path: .
       - name: Checkout byteir library repo
         uses: actions/checkout@v3
         with:
           repository: ${{ secrets.BYTEIR_LIBRARY_REPO }}
           token: ${{ secrets.DEPLOY_PRIVATE_KEY }}
-          path: byteir_library
+          path: ./byteir
           lfs: true
       - name: Run build and test
         run: ./scripts/compiler/build_and_lit_test.sh ${{ secrets.MHLO_TOOLS_WHL }} ${{ secrets.LLVM_PREBUILT_TAR }}
