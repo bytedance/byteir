@@ -27,17 +27,8 @@ jobs:
     steps:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
-        with:
-          path: .
-      - name: Checkout byteir library repo
-        uses: actions/checkout@v3
-        with:
-          repository: ${{ secrets.BYTEIR_LIBRARY_REPO }}
-          token: ${{ secrets.DEPLOY_PRIVATE_KEY }}
-          path: ./byteir
-          lfs: true
       - name: Run build and test
-        run: ./scripts/compiler/build_and_lit_test.sh ${{ secrets.MHLO_TOOLS_WHL }} ${{ secrets.LLVM_PREBUILT_TAR }}
+        run: ./scripts/compiler/build_and_lit_test.sh ${{ secrets.LLVM_INSTALL_DIR }}
         shell: bash
   brt_check_cpu:
     name: BRT cpu test
@@ -45,7 +36,7 @@ jobs:
     needs: [byteir_compiler_build_and_test]
     steps:
     - name: Build and test BRT
-      run: ./scripts/runtime/build_and_test.sh --python ${{ secrets.LLVM_PREBUILT_TAR }}
+      run: ./scripts/runtime/build_and_test.sh --python ${{ secrets.LLVM_INSTALL_DIR }}
       shell: bash
     - name: Build and test BRT external project
       run: ./scripts/runtime/build_external_project.sh
@@ -56,7 +47,7 @@ jobs:
     needs: [byteir_compiler_build_and_test]
     steps:
     - name: Build and test BRT with CUDA ON
-      run: ./scripts/runtime/build_and_test.sh --cuda --python ${{ secrets.LLVM_PREBUILT_TAR }}
+      run: ./scripts/runtime/build_and_test.sh --cuda --python ${{ secrets.LLVM_INSTALL_DIR }}
       shell: bash
   brt_check_asan:
     name: BRT test with asan
@@ -64,7 +55,7 @@ jobs:
     needs: [byteir_compiler_build_and_test]
     steps:
     - name: Build and test BRT with asan
-      run: ./scripts/runtime/build_and_test.sh --cuda --asan ${{ secrets.LLVM_PREBUILT_TAR }}
+      run: ./scripts/runtime/build_and_test.sh --cuda --asan ${{ secrets.LLVM_INSTALL_DIR }}
       shell: bash
   byteir_compiler_build_and_test_python:
     name: byteir cat test CI
@@ -72,5 +63,5 @@ jobs:
     needs: [clear_workspace]
     steps:
     - name: Build and Test Python APIs
-      run: .scripts/compiler/build_and_test_cat.sh ${{ secrets.MHLO_TOOLS_WHL }} ${{ secrets.LLVM_PREBUILT_TAR }}
+      run: .scripts/compiler/build_and_test_cat.sh ${{ secrets.LLVM_INSTALL_DIR }}
       shell: bash

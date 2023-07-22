@@ -17,9 +17,8 @@ INSTALL_DIR="$BUILD_DIR/byre_install"
 
 source $CUR_DIR/../prepare.sh
 
-python3 -m pip install "$LIB_DIR/$1"
-
-prepare_for_compiler $2
+LLVM_INSTALL_DIR="$1"
+prepare_for_compiler
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"

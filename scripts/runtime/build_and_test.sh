@@ -50,7 +50,8 @@ BRT_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS:-OFF}
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
 
 source $CUR_DIR/../prepare.sh
-prepare_for_runtime $1
+prepare_for_runtime
+LLVM_INSTALL_DIR="$1"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
