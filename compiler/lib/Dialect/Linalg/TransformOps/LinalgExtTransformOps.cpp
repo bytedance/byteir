@@ -1258,7 +1258,8 @@ DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
     loopOutputs.assign(newFillOp.getResultTensors());
     loopOp->getResult(0).setType(mergeOp->getResult(0).getType());
     loopOutBlockArg.setType(mergeOp->getResult(0).getType());
-    for (Operation *op : loopOutBlockArg.getUsers()) {
+    for (Operation *op :
+         llvm::make_early_inc_range(loopOutBlockArg.getUsers())) {
       if (isa<tensor::ExtractSliceOp>(op)) {
         op->getResult(0).replaceAllUsesWith(loopOutBlockArg);
         op->erase();

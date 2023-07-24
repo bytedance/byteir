@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Pipelines/LinalgTensorOpt.h"
+#include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
 #include "byteir/Pipelines/Host/Codegen.h"
 
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
@@ -31,12 +32,58 @@
 using namespace mlir;
 
 namespace {
+void collectBroadcastOperands(
+    mlir::Operation *op,
+    mlir::DenseMap<mlir::Value, dataPlaceType> &collection) {
+
+  auto tensorSlice = dyn_cast<tensor::ExtractSliceOp>(op);
+  if (!tensorSlice) {
+    return;
+  }
+
+  for (Value res : op->getResults()) {
+    bool isBroadcast = false;
+    for (auto &&use : res.getUses()) {
+      if (auto genericOp = dyn_cast<linalg::GenericOp>(use.getOwner())) {
+        auto affineMap =
+            genericOp.getIndexingMapsArray()[use.getOperandNumber()];
+        if (!affineMap.isPermutation() &&
+            affineMap.isProjectedPermutation(/*allowZeroInResults*/ true)) {
+          isBroadcast = true;
+        }
+      }
+    }
+    if (isBroadcast) {
+      collection.insert(std::make_pair(res, std::make_pair(Attribute(), true)));
+    }
+  }
+}
+
 void addGenericLinalgElementwisePasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       createHloFusionToLinalgPass(getByteIRElementwiseFusionAttrName()));
   pm.addNestedPass<func::FuncOp>(createUnrealizedCastToLinalgPass());
-  pm.addPass(createLinalgElementwiseFusionExtPass(true));
+  pm.addPass(createLinalgElementwiseFusionExtPass(
+      /*enableSharedInput*/ true, /*enableDiffShapes*/ false));
   pm.addPass(createCSEPass());
+  {
+    GPUTileElementwiseOptions options;
+    options.funcAnchor = getByteIRElementwiseFusionAttrName().str();
+    // set to 1 for fully fusion & unroll, and all tiled loops will be coalesced
+    // and mapping to LinearIdx.x in later pipeline
+    // FIXME: set to real blockSize and mapping tiled loops to the corresponding
+    // parallel dims
+    options.blockSize = 1;
+    options.warpSize = 32;
+    createGPUTileElementwiseTransform(pm, options);
+    pm.addPass(createTransformDialectInterpreter(true));
+    pm.addPass(createCanonicalizerPass());
+  }
+  pm.addPass(createLinalgFoldUnitExtentDimsPass());
+  pm.addPass(createLinalgElementwiseFusionExtPass(
+      /*enableSharedInput*/ true, /*enableDiffShapes*/ false));
+  pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizerPass());
 }
 
 void addCPULinalgOptPasses(OpPassManager &pm) {

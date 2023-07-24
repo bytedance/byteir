@@ -28,7 +28,8 @@ extern "C" {
 MLIR_CAPI_EXPORTED void byteirRegisterTranslationDialects(MlirContext context);
 
 MLIR_CAPI_EXPORTED void byteirTranslateToPTX(MlirOperation op,
-                                             MlirStringRef ptxFilePrefixName);
+                                             MlirStringRef ptxFilePrefixName,
+                                             MlirStringRef gpuArch);
 
 #ifdef __cplusplus
 }

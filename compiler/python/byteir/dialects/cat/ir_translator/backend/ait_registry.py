@@ -21,7 +21,7 @@ from aitemplate.compiler.ops import FuncEnum as ait_func_enum
 
 from ..translator import IRTranslator
 from byteir import ir
-from byteir.utils import mlir_attr_to_pyobj, mlir_type_to_dtype, mlir_type_to_torch_str
+from byteir.utils import mlir_attr_to_pyobj, mlir_type_to_torch_str
 
 class AITemplateIRTranslator(IRTranslator):
     pass

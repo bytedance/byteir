@@ -27,11 +27,78 @@
 #include "mlir/IR/TypeRange.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
 #include <tuple>
 
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::memref;
+
+#define DEBUG_TYPE "ir-rewrite"
+
+void mlir::deepReplicateAncestorOps(
+    Operation *op, std::function<bool(Operation *)> checkFunc) {
+  if (op == nullptr) {
+    return;
+  }
+
+  auto ctx = op->getContext();
+  OpBuilder builder(ctx);
+  llvm::DenseMap<Operation *, bool> memory;
+  memory.try_emplace(nullptr, false);
+  LLVM_DEBUG(llvm::dbgs() << "check candidate\n");
+  (void)deepCheckWithMemory(op, checkFunc, memory);
+
+  // get all candidates for all true
+  SmallVector<Operation *> candidates;
+  for (auto &it : memory) {
+    if (it.second) {
+      candidates.push_back(it.first);
+    }
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "start replicating\n");
+  // it a candidate's user is false, replicate it
+  for (auto cand : candidates) {
+    LLVM_DEBUG(llvm::dbgs() << "replicate candidate " << *cand << "\n");
+    for (auto val : cand->getResults()) {
+      auto resultNumber = val.cast<OpResult>().getResultNumber();
+      // collect all user and operandNumber
+      llvm::SmallDenseMap<Operation *, unsigned> OpAndNumber;
+      for (auto &use : val.getUses()) {
+        OpAndNumber.try_emplace(use.getOwner(), use.getOperandNumber());
+      }
+
+      for (auto &it : OpAndNumber) {
+        auto user = it.first;
+        auto operandNumber = it.second;
+
+        LLVM_DEBUG(llvm::dbgs() << "check user " << *user << "\n");
+
+        if (!deepCheckWithMemory(user, checkFunc, memory)) {
+
+          LLVM_DEBUG(llvm::dbgs() << "replicateDefiningOp\n");
+
+          (void)deepReplicateDefiningOp(builder, user, operandNumber,
+                                        resultNumber);
+        }
+      }
+    }
+  }
+}
+
+Operation *mlir::deepReplicateDefiningOp(OpBuilder &b, Operation *op,
+                                         unsigned opIdx, unsigned resIdx) {
+  if (op == nullptr)
+    return nullptr;
+  auto opDef = op->getOperand(opIdx).getDefiningOp();
+  if (opDef == nullptr)
+    return nullptr;
+  b.setInsertionPoint(opDef);
+  auto cloned = deepClone(b, opDef);
+  op->setOperand(opIdx, cloned->getResult(resIdx));
+  return cloned;
+}
 
 void mlir::replicateDefiningOp(Block *block,
                                std::function<bool(Operation *)> checkFunc) {
@@ -49,8 +116,7 @@ void mlir::replicateDefiningOp(Block *block,
       auto val = op.getOperand(i);
       auto opDef = val.getDefiningOp();
       if (opDef != nullptr && checkFunc(opDef)) {
-        auto maybeIdx = findResultIndex(opDef, val);
-        replaceOps.emplace_back(&op, i, *maybeIdx);
+        replaceOps.emplace_back(&op, i, val.cast<OpResult>().getResultNumber());
       }
     }
   }
@@ -87,6 +153,96 @@ Operation *mlir::cloneAndReplaceResultTypes(OpBuilder &b, Operation *op,
     newOp->getResult(i).setType(types[i]);
   }
   return newOp;
+}
+
+// deep clone an op with an mapper
+Operation *mlir::deepClone(OpBuilder &b, Operation *op, IRMapping &mapper) {
+  // if already in mapper, early return
+  if (mapper.contains(op))
+    return mapper.lookup(op);
+
+  // deep clone all operand if not in mapper
+  for (auto operand : op->getOperands()) {
+    if (!mapper.contains(operand)) {
+      auto defOp = operand.getDefiningOp();
+      if (defOp) {
+        (void)deepClone(b, defOp, mapper);
+      }
+    }
+  }
+
+  // clone op
+  auto ip = b.saveInsertionPoint();
+  b.setInsertionPoint(op);
+  auto cloned = b.clone(*op, mapper);
+  b.restoreInsertionPoint(ip);
+
+  // update mapper
+  mapper.map(op, cloned);
+  for (unsigned i = 0, e = op->getNumResults(); i != e; ++i)
+    mapper.map(op->getResult(i), cloned->getResult(i));
+  return cloned;
+}
+
+// deep clone an op
+Operation *mlir::deepClone(OpBuilder &b, Operation *op) {
+  IRMapping mapper;
+  return deepClone(b, op, mapper);
+}
+
+LogicalResult mlir::deepFold(Operation *op, IRMapping &bvm,
+                             SmallVectorImpl<OpFoldResult> &results) {
+  // early termination if op is a constant
+  if (auto cOp = dyn_cast<arith::ConstantOp>(op)) {
+    if (!bvm.contains(cOp) && !bvm.contains(cOp.getResult())) {
+      auto attr = getAttrFromConstantLike(cOp.getResult());
+      results.push_back(*attr);
+      return success();
+    }
+  }
+
+  OpBuilder b(op);
+
+  // fold operand first
+  SmallVector<Attribute> constOpernadAttrs;
+  for (auto operand : op->getOperands()) {
+    auto defOp = operand.getDefiningOp();
+
+    // if arg return failure
+    if (!defOp)
+      return failure();
+
+    // if fold happened before, skip
+    if (bvm.contains(operand)) {
+      auto toVal = bvm.lookup(operand);
+      auto attr = getAttrFromConstantLike(toVal);
+      if (!attr) {
+        return failure();
+      }
+      constOpernadAttrs.push_back(*attr);
+      continue;
+    }
+
+    SmallVector<OpFoldResult> operandResults;
+    auto isFold = deepFold(defOp, bvm, operandResults);
+    b.setInsertionPoint(defOp);
+    if (failed(isFold) || defOp->getNumResults() != operandResults.size()) {
+      return failure();
+    }
+
+    for (const OpResult &opRes : defOp->getOpResults()) {
+      OpFoldResult foldResult = operandResults[opRes.getResultNumber()];
+      auto attr = foldResult.dyn_cast<Attribute>();
+      constOpernadAttrs.push_back(attr);
+      if (!bvm.contains(opRes)) {
+        Value newConst =
+            b.create<arith::ConstantOp>(defOp->getLoc(), attr, opRes.getType());
+        bvm.map(opRes, newConst);
+      }
+    }
+  }
+
+  return op->fold(constOpernadAttrs, results);
 }
 
 Type mlir::mixType(ShapedType cloneFromElementType, ShapedType cloneFromShape) {

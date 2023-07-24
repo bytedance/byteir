@@ -220,32 +220,49 @@ std::optional<uint64_t> mlir::getConstantTripCount(scf::ForOp forOp,
 }
 
 namespace {
+
+// It support scf::for only
+// TODO add support for other kinds of loops
+// FIXME this method didn't consider condition
+// please fix it later
 static void
-gatherLoopsWithDepthInBlock(Block *block, unsigned currLoopDepth,
-                            unsigned targetDepth,
+gatherLoopsWithDepthInBlock(Block *block, int64_t currLoopDepth,
+                            int64_t targetDepth,
                             SmallVectorImpl<Operation *> &collector) {
 
   currLoopDepth += 1;
   if (currLoopDepth == targetDepth) {
     for (auto &op : *block) {
-      // TODO add support for ohter loop
       if (auto forOp = dyn_cast<scf::ForOp>(op)) {
         collector.push_back(forOp);
       }
     }
   } else {
+    bool foundLoop = false;
     for (auto &op : *block) {
-      // TODO add support for ohter loop
       if (auto forOp = dyn_cast<scf::ForOp>(op)) {
         gatherLoopsWithDepthInBlock(forOp.getBody(), currLoopDepth, targetDepth,
                                     collector);
+        foundLoop = true;
+      }
+    }
+
+    // support last loop when  targetDepth as -1
+    if (!foundLoop && targetDepth == -1) {
+      auto parentOp = block->getParentOp();
+      if (!parentOp)
+        return;
+      if (isa<scf::ForOp>(parentOp)) {
+        collector.push_back(parentOp);
+      } else {
+        collector.push_back(parentOp->getParentOfType<scf::ForOp>());
       }
     }
   }
 }
 } // namespace
 
-void mlir::gatherLoopsWithDepth(func::FuncOp func, unsigned targetDepth,
+void mlir::gatherLoopsWithDepth(func::FuncOp func, int64_t targetDepth,
                                 SmallVectorImpl<Operation *> &collector) {
   for (auto &block : func) {
     gatherLoopsWithDepthInBlock(&block, /*currLoopDepth=*/0, targetDepth,

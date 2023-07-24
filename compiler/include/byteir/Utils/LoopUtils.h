@@ -96,7 +96,7 @@ std::optional<uint64_t> getConstantTripCount(LoopLikeOpInterface looplike,
 std::optional<uint64_t> getConstantTripCount(scf::ForOp forOp,
                                              int64_t stepMultiplier = 1);
 
-void gatherLoopsWithDepth(func::FuncOp func, unsigned depth,
+void gatherLoopsWithDepth(func::FuncOp func, int64_t depth,
                           SmallVectorImpl<Operation *> &collector);
 
 // create a scf::ForOp(0, 1, 1) if possible

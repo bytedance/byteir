@@ -34,7 +34,6 @@
 #include "byteir/Dialect/Linalg/Util/Util.h"
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/Utils.h"
-// #include "byteir/Utils/LinalgUtils.h"
 #include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"

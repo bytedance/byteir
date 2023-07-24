@@ -75,6 +75,11 @@ struct GraphInfo {
   std::vector<std::string> input_names;
   std::vector<std::string> output_names;
 
+  // tf attributes. See frontends/tf-frontend/docs/attributes.md for reference
+  std::vector<std::string> tf_input_names_attr;
+  std::vector<std::string> tf_original_input_names_attr;
+  std::vector<std::string> tf_output_names_attr;
+
   // meta data for arg offsets
   std::vector<size_t> weight_arg_offsets;
   std::vector<size_t> input_arg_offsets;

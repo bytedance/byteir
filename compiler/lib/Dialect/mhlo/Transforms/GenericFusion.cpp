@@ -21,6 +21,7 @@
 #include "byteir/Dialect/mhlo/Util/FusionUtil.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/IRRewrite.h"
+#include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Matchers.h"
@@ -44,6 +45,7 @@ bool isFusibleCandidate(Operation *op) {
           isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op));
 }
 
+// every candidate can start
 bool isFusibleStart(Operation *op) { return true; }
 
 bool isFusibleTrigger(Operation *op) {
@@ -53,8 +55,17 @@ bool isFusibleTrigger(Operation *op) {
     return true;
   }
 
+  // if broadcast, check whether its operand is only used in broadcast
   if (isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op)) {
-    return true;
+    auto src = op->getOperand(0);
+    // is foldable we just allow
+    if (isDeepMhloFoldable(src.getDefiningOp())) {
+      return true;
+    }
+    // otherwise, check it is only used in broadcast
+    // return useCount(src) == 1;
+    // LWC FIXME: change back to above after broadcast fusion resolve.
+    return false;
   }
 
   return false;

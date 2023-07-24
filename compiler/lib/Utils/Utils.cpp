@@ -53,6 +53,13 @@ std::optional<int64_t> mlir::getLiteralFromConstantLike(Value v) {
   return std::nullopt;
 }
 
+std::optional<Attribute> mlir::getAttrFromConstantLike(Value v) {
+  if (auto cOp = dyn_cast_or_null<arith::ConstantOp>(v.getDefiningOp())) {
+    return cOp.getValue();
+  }
+  return std::nullopt;
+}
+
 int64_t mlir::getLiteralFromConstantLike(Value v, int64_t defaultLit) {
   auto maybeI64 = getLiteralFromConstantLike(v);
   if (maybeI64.has_value())
@@ -347,6 +354,53 @@ bool mlir::isMemrefTrivial(mlir::Value memref,
     }
   }
   return true;
+}
+
+bool mlir::deepCheck(Operation *op,
+                     std::function<bool(mlir::Operation *)> checkFunc) {
+  if (!op) {
+    return checkFunc(op);
+  }
+
+  for (auto operand : op->getOperands()) {
+    auto defOp = operand.getDefiningOp();
+    if (!deepCheck(defOp, checkFunc)) {
+      return false;
+    }
+  }
+  return checkFunc(op);
+}
+
+bool mlir::deepCheckWithMemory(Operation *op,
+                               std::function<bool(mlir::Operation *)> checkFunc,
+                               llvm::DenseMap<Operation *, bool> &memory) {
+  if (memory.contains(op)) {
+    return memory.lookup(op);
+  }
+
+  if (!op) {
+    auto result = checkFunc(op);
+    memory.try_emplace(op, result);
+    return result;
+  }
+
+  bool operandFalse = false;
+  for (auto operand : op->getOperands()) {
+    auto defOp = operand.getDefiningOp();
+    if (!deepCheckWithMemory(defOp, checkFunc, memory)) {
+      memory.try_emplace(op, false);
+      operandFalse = true;
+    }
+  }
+
+  if (operandFalse) {
+    memory.try_emplace(op, false);
+    return false;
+  }
+
+  auto result = checkFunc(op);
+  memory.try_emplace(op, result);
+  return result;
 }
 
 int mlir::userCount(Value val) {

@@ -29,7 +29,7 @@ class FuncOp;
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createLoopTagPass(llvm::StringRef anchorTag = "",
-                  const std::string &attachTag = "", unsigned depth = 1,
+                  const std::string &attachTag = "", int64_t depth = 1,
                   const std::string &loopType = "scf.for");
 
 } // namespace mlir

@@ -51,9 +51,9 @@ def compile_cuda(
     if verbose:
         _print_verbose(module, "// IR Dump After Linalg Memref Opt:")
     with context:
-        PassManager.parse("builtin.module(affine-opt)").run(module.operation)
+        PassManager.parse("builtin.module(scf-opt)").run(module.operation)
     if verbose:
-        _print_verbose(module, "// IR Dump After Affine Opt:")
+        _print_verbose(module, "// IR Dump After SCF Opt:")
     with context:
         PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
     if verbose:
@@ -142,7 +142,7 @@ def compile_cuda_with_ait(
     with context:
         PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(processor.module.operation)
     if verbose:
-        _print_verbose(processor.module, "// IR Dump After Linalg Tensor Opt:")
+        _print_verbose(processor.module, "// IR Dump After Byre Tensor Opt:")
     with context:
         PassManager.parse("builtin.module(byteir-bufferize-opt)").run(processor.module.operation)
     if verbose:
@@ -152,9 +152,9 @@ def compile_cuda_with_ait(
     if verbose:
         _print_verbose(processor.module, "// IR Dump After Linalg Memref Opt:")
     with context:
-        PassManager.parse("builtin.module(affine-opt)").run(processor.module.operation)
+        PassManager.parse("builtin.module(scf-opt)").run(processor.module.operation)
     if verbose:
-        _print_verbose(processor.module, "// IR Dump After Affine Opt:")
+        _print_verbose(processor.module, "// IR Dump After SCF Opt:")
     with context:
         PassManager.parse("builtin.module(gpu-opt)").run(processor.module.operation)
     if verbose:
@@ -178,7 +178,7 @@ def compile_cuda_with_ait(
         if verbose:
             _print_verbose(device_module, "// IR Dump After NVVM Codegen:")
         # write to output device ptx
-        byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name)
+        byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name, "sm_80")
 
     with context:
         PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)

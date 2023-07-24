@@ -35,6 +35,8 @@ void byteirRegisterTranslationDialects(MlirContext context) {
   registerGPUDialectTranslation(*unwrap(context));
 }
 
-void byteirTranslateToPTX(MlirOperation op, MlirStringRef ptxFilePrefixName) {
-  (void)translateToPTX(unwrap(op), std::string(unwrap(ptxFilePrefixName)));
+void byteirTranslateToPTX(MlirOperation op, MlirStringRef ptxFilePrefixName,
+                          MlirStringRef gpuArch) {
+  (void)translateToPTX(unwrap(op), std::string(unwrap(ptxFilePrefixName)),
+                       OptLevel::O3, std::string(unwrap(gpuArch)));
 }

@@ -99,6 +99,13 @@ public:
   const std::vector<std::string> &GetWeightNames();
   const std::vector<std::string> &GetInputNames();
   const std::vector<std::string> &GetOutputNames();
+
+  // Return tf Attributes
+  const std::vector<std::string> &GetTfInputNamesAttr();
+  // without unused input pruning
+  const std::vector<std::string> &GetTfOriginalInputNamesAttr();
+  const std::vector<std::string> &GetTfOutputNamesAttr();
+
   const std::vector<size_t> &GetWeightArgOffsets();
   const std::vector<size_t> &GetInputArgOffsets();
   const std::vector<size_t> &GetOutputArgOffsets();

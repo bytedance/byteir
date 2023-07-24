@@ -130,7 +130,6 @@ static void convertLoopToSIMT(OpBuilder &b, func::FuncOp func,
   GPUIndexType gpuIdxT = GPUIndexType::linear_id;
   gpu::Dimension dim = gpu::Dimension::x;
 
-  // insert righ before loop
   if (strAttr.getValue() == getLinearIdXName()) {
     gpuIdxT = GPUIndexType::linear_id;
     dim = gpu::Dimension::x;
@@ -220,9 +219,10 @@ static bool isHoistUpOp(Operation *op) {
              memref::DimOp, memref::ExpandShapeOp, memref::ReshapeOp>(op);
 }
 
-static void rewriteToGPULaunchFuncImpl(OpBuilder &builder, func::FuncOp func,
-                                       ArrayRef<Value> args,
-                                       gpu::GPUFuncOp gpuFunc) {
+static gpu::LaunchFuncOp rewriteToGPULaunchFuncImpl(OpBuilder &builder,
+                                                    func::FuncOp func,
+                                                    ArrayRef<Value> args,
+                                                    gpu::GPUFuncOp gpuFunc) {
   // Rewrite Orignal function
   Region &funcBody = func.getBody();
   Block &funcEntryBlock = funcBody.front();
@@ -241,9 +241,10 @@ static void rewriteToGPULaunchFuncImpl(OpBuilder &builder, func::FuncOp func,
 
   builder.setInsertionPoint(funcEntryBlock.getTerminator());
   auto blockAndGrid = createBlockAndGrid(builder, func);
-  builder.create<gpu::LaunchFuncOp>(func.getLoc(), gpuFunc, blockAndGrid.second,
-                                    blockAndGrid.first,
-                                    /*dynamicSharedMemorySize=*/nullptr, args);
+  auto launch = builder.create<gpu::LaunchFuncOp>(
+      func.getLoc(), gpuFunc, blockAndGrid.second, blockAndGrid.first,
+      /*dynamicSharedMemorySize=*/nullptr, args);
+  return launch;
 }
 
 int64_t estimateGridSize(LoopLikeOpInterface loopLike, int64_t currGs,
@@ -342,6 +343,88 @@ void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
   func->setAttr(getToGPUAttrName(), ArrayAttr::get(ctx, toGPUAttrs));
 }
 
+static std::optional<Attribute>
+getMaxGPUConfigAttr(Operation *op, KernelDim3 bs, KernelDim3 gs) {
+  std::optional<Attribute> attr = std::nullopt;
+  if (auto threadId = dyn_cast<gpu::ThreadIdOp>(op)) {
+    if (threadId.getDimension() == gpu::Dimension::x) {
+      attr = getAttrFromConstantLike(bs.x);
+    } else if (threadId.getDimension() == gpu::Dimension::y) {
+      attr = getAttrFromConstantLike(bs.y);
+    } else {
+      attr = getAttrFromConstantLike(bs.z);
+    }
+  } else if (auto blockId = dyn_cast<gpu::BlockIdOp>(op)) {
+    if (blockId.getDimension() == gpu::Dimension::x) {
+      attr = getAttrFromConstantLike(gs.x);
+    } else if (blockId.getDimension() == gpu::Dimension::y) {
+      attr = getAttrFromConstantLike(gs.y);
+    } else {
+      attr = getAttrFromConstantLike(gs.z);
+    }
+  }
+  if (!attr)
+    return std::nullopt;
+  auto intAttr = attr->cast<IntegerAttr>();
+  return IntegerAttr::get(intAttr.getType(), intAttr.getInt() - 1);
+}
+
+static IRMapping getMaxGPUConfigAttrs(OpBuilder &b, gpu::GPUFuncOp gFunc,
+                                      KernelDim3 bs, KernelDim3 gs) {
+  IRMapping bvm;
+  for (auto threadId : getOpsNested<gpu::ThreadIdOp>(gFunc)) {
+    auto attr = getMaxGPUConfigAttr(threadId, bs, gs);
+    if (!attr)
+      continue;
+
+    b.setInsertionPoint(threadId);
+    Value newConst = b.create<arith::ConstantOp>(threadId->getLoc(), *attr,
+                                                 threadId.getType());
+    bvm.map(threadId.getResult(), newConst);
+  }
+
+  for (auto blockId : getOpsNested<gpu::BlockIdOp>(gFunc)) {
+    auto attr = getMaxGPUConfigAttr(blockId, bs, gs);
+    if (!attr)
+      continue;
+    b.setInsertionPoint(blockId);
+    Value newConst = b.create<arith::ConstantOp>(blockId->getLoc(), *attr,
+                                                 blockId.getType());
+    bvm.map(blockId.getResult(), newConst);
+  }
+  return bvm;
+}
+
+static void simplifyGuards(gpu::GPUFuncOp gFunc, gpu::LaunchFuncOp launch) {
+  OpBuilder builder(gFunc.getContext());
+  KernelDim3 bs = launch.getBlockSizeOperandValues();
+
+  // create bvm from static launch values
+  IRMapping bvm =
+      getMaxGPUConfigAttrs(builder, gFunc, launch.getBlockSizeOperandValues(),
+                           launch.getGridSizeOperandValues());
+
+  // check whether condition can be simplified
+  for (auto ifOp : getOpsNested<scf::IfOp>(gFunc)) {
+    auto cond = ifOp.getCondition();
+    if (auto cmp = cond.getDefiningOp<arith::CmpIOp>()) {
+      SmallVector<OpFoldResult> foldResults;
+      auto isFold = deepFold(cmp, bvm, foldResults);
+      if (succeeded(isFold) && foldResults.size() == 1) {
+        auto attr = foldResults[0].dyn_cast<Attribute>();
+        // check it is true
+        // if so, override the condition into true
+        if (attr.cast<IntegerAttr>().getInt() != 0) {
+          builder.setInsertionPoint(ifOp);
+          Value newConst = builder.create<arith::ConstantOp>(cmp.getLoc(), attr,
+                                                             cmp.getType());
+          ifOp.setOperand(newConst);
+        }
+      }
+    }
+  }
+}
+
 struct ConvertFuncToGPUPass
     : public ConvertFuncToGPUBase<ConvertFuncToGPUPass> {
   ConvertFuncToGPUPass(ArrayRef<int64_t> bs, ArrayRef<int64_t> gs,
@@ -381,7 +464,7 @@ struct ConvertFuncToGPUPass
     SymbolTable gmTable(gm);
 
     OpBuilder builder(gm.getContext());
-    SmallVector<gpu::GPUFuncOp> gFuncs;
+    SmallVector<std::pair<gpu::GPUFuncOp, gpu::LaunchFuncOp>> gFuncAndLaunchs;
     // create GPUFuncOp and gpu::LaunchFunc
     for (auto func : funcCollector) {
       // perform hoist first
@@ -393,11 +476,12 @@ struct ConvertFuncToGPUPass
       SmallVector<Value> args;
       auto gpuFunc = cloneFuncToGPUFunc(builder, func, gm, args);
 
-      gFuncs.push_back(gpuFunc);
+      // gFuncs.push_back(gpuFunc);
       gmTable.insert(gpuFunc);
 
       // create GPULaunchFunc
-      rewriteToGPULaunchFuncImpl(builder, func, args, gpuFunc);
+      auto launch = rewriteToGPULaunchFuncImpl(builder, func, args, gpuFunc);
+      gFuncAndLaunchs.emplace_back(gpuFunc, launch);
 
       // remove attr
       func->removeAttr(getToGPUAttrName());
@@ -418,13 +502,29 @@ struct ConvertFuncToGPUPass
       }
     }
 
-    // perform CMAE
+    // perform simplifyGuards
     {
-      for (auto gFunc : gFuncs) {
-        runCMAEInFuncLike(gFunc);
+      for (auto &p : gFuncAndLaunchs) {
+        simplifyGuards(p.first, p.second);
       }
     }
-    //
+
+    // perform clean ups again
+    {
+      OpPassManager pm(m.getOperationName());
+      addCleanUpPassPipeline(pm);
+      addMultiCSEPipeline(pm, 2);
+      if (mlir::failed(runPipeline(pm, m))) {
+        signalPassFailure();
+      }
+    }
+
+    // perform CMAE
+    {
+      for (auto &p : gFuncAndLaunchs) {
+        runCMAEInFuncLike(p.first);
+      }
+    }
   }
 };
 

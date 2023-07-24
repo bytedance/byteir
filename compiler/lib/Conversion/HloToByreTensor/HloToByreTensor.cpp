@@ -533,60 +533,20 @@ public:
     if (region.getBlocks().size() != 1) {
       return rewriter.notifyMatchFailure(op, "unsupported region in reduce");
     }
+    Attribute constAttr;
+    if (!matchPattern(adaptor.getInitValues()[0], m_Constant(&constAttr))) {
+      return rewriter.notifyMatchFailure(op, "non-const initial value");
+    }
+
     auto &block = region.front();
-    if (block.getOperations().size() != 2) {
+    std::string reduceOp = "";
+    if (isBlockSingleOp<mhlo::AddOp>(&block) && isZeroAttribute(constAttr)) {
+      reduceOp = "ReduceSumOp";
+    } else if (isBlockSingleOp<mhlo::MaxOp>(&block) &&
+               isMinValueAttribute(constAttr)) {
+      reduceOp = "ReduceMaxOp";
+    } else {
       return rewriter.notifyMatchFailure(op, "unsupported block in reduce");
-    }
-    // check block args
-    if (block.getNumArguments() != 2 ||
-        !block.getArgument(0).getType().isa<TensorType>() ||
-        !block.getArgument(1).getType().isa<TensorType>()) {
-      return rewriter.notifyMatchFailure(op,
-                                         "unsupported block's arg in reduce");
-    }
-
-    // check block body
-    auto retOp = block.getTerminator();
-    if (!isa<mlir::mhlo::ReturnOp>(retOp) || retOp->getNumOperands() != 1 ||
-        !retOp->getOperand(0).getType().isa<TensorType>()) {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported terminator in reduce's block");
-    }
-
-    auto reduceComputation = &block.front();
-    std::string reduceOp;
-    auto checkInitialValue = [&](auto &&checker) {
-      Attribute constAttr;
-      if (matchPattern(adaptor.getInitValues()[0], m_Constant(&constAttr))) {
-        if (checker(constAttr))
-          return success();
-      }
-      return rewriter.notifyMatchFailure(
-          op, "unsupported initial value of reduce op");
-    };
-
-    // TODO: more reduceOp supported
-    auto status =
-        llvm::TypeSwitch<Operation *, LogicalResult>(reduceComputation)
-            .Case<mhlo::AddOp>([&](...) {
-              reduceOp = "ReduceSumOp";
-              return checkInitialValue(isZeroAttribute);
-            })
-            .Case<mhlo::MaxOp>([&](...) {
-              reduceOp = "ReduceMaxOp";
-              return checkInitialValue(isMinValueAttribute);
-            })
-            .Default([&](...) {
-              return rewriter.notifyMatchFailure(
-                  op, "unsupported ops in reduce_computation in reduce");
-            });
-    if (failed(status))
-      return status;
-
-    if (reduceComputation->getOperand(0) != block.getArgument(0) ||
-        reduceComputation->getOperand(1) != block.getArgument(1) ||
-        reduceComputation->getResult(0) != retOp->getOperand(0)) {
-      return rewriter.notifyMatchFailure(op, "invalid block body");
     }
 
     auto inputShape = adaptor.getInputs()[0].getType().dyn_cast<ShapedType>();
@@ -638,6 +598,11 @@ public:
       return rewriter.notifyMatchFailure(
           op, "batched reductions is not supported yet");
     }
+    auto inputShape = adaptor.getInputs()[0].getType().dyn_cast<ShapedType>();
+    if (!inputShape || !inputShape.hasRank()) {
+      return rewriter.notifyMatchFailure(op, "invalid input type");
+    }
+
     // check whether reduce supported
     Region &region = op.getBody();
     // only support single block
@@ -645,57 +610,25 @@ public:
       return rewriter.notifyMatchFailure(op,
                                          "unsupported region in reduce_window");
     }
-    auto &block = region.front();
-    if (block.getOperations().size() != 2) {
-      return rewriter.notifyMatchFailure(op,
-                                         "unsupported block in reduce_window");
-    }
-    // check block args
-    if (block.getNumArguments() != 2 ||
-        !block.getArgument(0).getType().isa<TensorType>() ||
-        !block.getArgument(1).getType().isa<TensorType>()) {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported block's arg in reduce_window");
-    }
-
-    // check block body
-    auto retOp = block.getTerminator();
-    if (!isa<mlir::mhlo::ReturnOp>(retOp) || retOp->getNumOperands() != 1 ||
-        !retOp->getOperand(0).getType().isa<TensorType>()) {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported terminator in reduce's block");
-    }
-
-    Operation *reduceComputation = &block.front();
-
-    // only support ReduceWindowMax now
-    if (!isa<mhlo::MaxOp>(reduceComputation)) {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported ops in reduce_computation of reduce_window");
-    }
-    // TODO: more ReduceOp supported
-    std::string reduceWinOp = "PoolMaxOp";
     Attribute constAttr;
     if (!matchPattern(adaptor.getInitValues()[0], m_Constant(&constAttr))) {
       return rewriter.notifyMatchFailure(op, "non-const initial value");
     }
-    if (!isMinValueAttribute(constAttr)) {
-      return rewriter.notifyMatchFailure(op, "unsupported initial value");
-    }
 
-    if (reduceComputation->getOperand(0) != block.getArgument(0) ||
-        reduceComputation->getOperand(1) != block.getArgument(1) ||
-        reduceComputation->getResult(0) != retOp->getOperand(0)) {
-      return rewriter.notifyMatchFailure(op, "invalid block body");
-    }
-
-    auto inputShape = adaptor.getInputs()[0].getType().dyn_cast<ShapedType>();
-    if (!inputShape || !inputShape.hasRank()) {
-      return rewriter.notifyMatchFailure(op, "invalid input type");
+    auto &block = region.front();
+    std::string byreComputeOpName = "";
+    if (isBlockSingleOp<mhlo::MaxOp>(&block) &&
+        isMinValueAttribute(constAttr)) {
+      byreComputeOpName = "PoolMaxOp";
+    } else if (isBlockSingleOp<mhlo::AddOp>(&block) &&
+               isZeroAttribute(constAttr)) {
+      byreComputeOpName = "PoolSumOp";
+    } else {
+      return rewriter.notifyMatchFailure(op, "unsupport reduce_window");
     }
 
     auto computeOp = replaceMhloOpWithByreComputeOp(
-        rewriter, op, reduceWinOp, adaptor.getInputs(), appendArgTypes);
+        rewriter, op, byreComputeOpName, adaptor.getInputs(), appendArgTypes);
 
     for (auto attr : op->getAttrs()) {
       computeOp->setAttr(attr.getName(), attr.getValue());
@@ -732,53 +665,25 @@ public:
     }
 
     auto &selectBlock = op.getSelect().front();
-    if (selectBlock.getOperations().size() != 2 ||
-        !isa<mlir::mhlo::ReturnOp>(selectBlock.getTerminator())) {
+    if (!isBlockSingleOp<mhlo::CompareOp>(&selectBlock)) {
       return rewriter.notifyMatchFailure(
           op, "unsupported block in select of select_and_scatter");
     }
-
-    if (selectBlock.getNumArguments() != 2 ||
-        !selectBlock.getArgument(0).getType().isa<TensorType>() ||
-        !selectBlock.getArgument(1).getType().isa<TensorType>()) {
+    // check whether valid PoolingGrad
+    // only support MaxPoolingGrad now
+    auto compare = cast<mhlo::CompareOp>(selectBlock.front());
+    if (compare.getComparisonDirection() != mhlo::ComparisonDirection::GE ||
+        compare->getOperand(0) != selectBlock.getArgument(0) ||
+        compare->getOperand(1) != selectBlock.getArgument(1)) {
       return rewriter.notifyMatchFailure(
-          op, "unsupported block's arg in select of select_and_scatter");
+          op,
+          "unsupported comparison_direction in select of select_and_scatter");
     }
 
     auto &scatterBlock = op.getScatter().front();
-    if (scatterBlock.getOperations().size() != 2 ||
-        !isa<mlir::mhlo::ReturnOp>(scatterBlock.getTerminator())) {
+    if (!isBlockSingleOp<mhlo::AddOp>(&scatterBlock)) {
       return rewriter.notifyMatchFailure(
           op, "unsupported block in scatter of select_and_scatter");
-    }
-
-    if (scatterBlock.getNumArguments() != 2 ||
-        !scatterBlock.getArgument(0).getType().isa<TensorType>() ||
-        !scatterBlock.getArgument(1).getType().isa<TensorType>()) {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported block's arg in scatter of select_and_scatter");
-    }
-
-    // check whether valid PoolingGrad
-    // only support MaxPoolingGrad now
-    if (auto compare = dyn_cast<mhlo::CompareOp>(selectBlock.front())) {
-      if (compare.getComparisonDirection() != mhlo::ComparisonDirection::GE ||
-          compare->getOperand(0) != selectBlock.getArgument(0) ||
-          compare->getOperand(1) != selectBlock.getArgument(1)) {
-        return rewriter.notifyMatchFailure(
-            op,
-            "unsupported comparison_direction in select of select_and_scatter");
-      }
-    } else {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported ops in select of select_and_scatter");
-    }
-
-    if (!isa<mhlo::AddOp>(scatterBlock.front()) ||
-        scatterBlock.front().getOperand(0) != scatterBlock.getArgument(0) ||
-        scatterBlock.front().getOperand(1) != scatterBlock.getArgument(1)) {
-      return rewriter.notifyMatchFailure(
-          op, "unsupported ops in scatter of select_and_scatter");
     }
 
     // TODO: more SelectAndScatterOp supported

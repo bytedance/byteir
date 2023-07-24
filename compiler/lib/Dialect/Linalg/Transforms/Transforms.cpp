@@ -241,7 +241,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
   auto applyReplaceTensorDimAndUpdateOffset = [&](Value tensor) {
     if (auto shapeTy = tensor.getType().dyn_cast<ShapedType>()) {
       unsigned rank = shapeTy.getRank();
-      for (auto user : tensor.getUsers()) {
+      for (auto user : llvm::make_early_inc_range(tensor.getUsers())) {
         if (auto dimOp = dyn_cast<tensor::DimOp>(user)) {
           if (succeeded(replaceTensorDim(rewriter, dimOp, offset, concatMap,
                                          exprToTensorAndDim))) {

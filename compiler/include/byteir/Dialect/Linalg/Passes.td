@@ -85,7 +85,9 @@ def LinalgElementwiseFusionExt : Pass<"linalg-fuse-elementwise-ext"> {
   ];
   let options = [
     Option<"enableSharedInput", "shared-input", "bool", /*default=*/"false",
-           "enable shared input fusion">,	
+           "enable shared input fusion">,
+    Option<"enableDiffShapes", "diff-shapes", "bool", /*default=*/"false",
+           "enable outputs with different shapes">,
   ];
 }
 

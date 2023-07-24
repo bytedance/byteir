@@ -1526,9 +1526,8 @@ LogicalResult mlir::mhlo::simplifyCumsumToIota(mhlo::ReduceWindowOp op,
     return failure();
   }
 
-  auto maybe_index = getCumsumIndex(op);
-  if (!maybe_index.has_value()) {
-    llvm::outs() << "maybe_index: nullopt\n";
+  auto maybeIndex = getCumsumIndex(op);
+  if (!maybeIndex.has_value()) {
     return failure();
   }
   TensorType inputType = op.getInputs()[0].getType().cast<TensorType>();
@@ -1542,8 +1541,8 @@ LogicalResult mlir::mhlo::simplifyCumsumToIota(mhlo::ReduceWindowOp op,
   }
   Value constOne = rewriter.create<mhlo::ConstantOp>(
       op.getLoc(), DenseElementsAttr::get(inputType, one));
-  Value iota = rewriter.create<mhlo::IotaOp>(op.getLoc(), inputType,
-                                             maybe_index.value());
+  Value iota =
+      rewriter.create<mhlo::IotaOp>(op.getLoc(), inputType, maybeIndex.value());
   Value addOne =
       rewriter.create<mhlo::AddOp>(op.getLoc(), inputType, iota, constOne);
   Value result =

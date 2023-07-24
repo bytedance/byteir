@@ -176,6 +176,18 @@ const std::vector<std::string> &Session::GetOutputNames() {
   return execution_plan_->GetGraphInfo().output_names;
 }
 
+const std::vector<std::string> &Session::GetTfInputNamesAttr() {
+  return execution_plan_->GetGraphInfo().tf_input_names_attr;
+}
+
+const std::vector<std::string> &Session::GetTfOriginalInputNamesAttr() {
+  return execution_plan_->GetGraphInfo().tf_original_input_names_attr;
+}
+
+const std::vector<std::string> &Session::GetTfOutputNamesAttr() {
+  return execution_plan_->GetGraphInfo().tf_output_names_attr;
+}
+
 const std::vector<size_t> &Session::GetWeightArgOffsets() {
   return execution_plan_->GetGraphInfo().weight_arg_offsets;
 }

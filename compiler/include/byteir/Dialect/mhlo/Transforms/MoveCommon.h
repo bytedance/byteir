@@ -36,7 +36,7 @@ struct HloMoveDownPattern : public OpRewritePattern<OTy> {
       : OpRewritePattern<OTy>(ctx), blockers(blocker),
         allMultiUser(supportAllMultiUser), multiUser(supportMultiUser) {}
 
-  const llvm::DenseSet<llvm::StringRef> &blockers;
+  llvm::DenseSet<llvm::StringRef> blockers;
   bool allMultiUser; // allow transposed result used in multiple users, all of
                      // them must be legal
   bool multiUser; // allow transposed result used in multiple users, including
@@ -98,7 +98,7 @@ template <typename OTy> struct HloMoveUpPattern : public OpRewritePattern<OTy> {
       : OpRewritePattern<OTy>(ctx), blockers(blocker),
         multiInput(supportMultiInput) {}
 
-  const llvm::DenseSet<llvm::StringRef> &blockers;
+  llvm::DenseSet<llvm::StringRef> blockers;
   bool multiInput; // allow producer of transpose has multiple inputs
   /*
   //  multiInput  = false

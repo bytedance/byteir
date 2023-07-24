@@ -38,6 +38,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include <iostream>
+
 using namespace llvm;
 using namespace mlir;
 
@@ -60,9 +62,9 @@ static void findLibDeviceFile(std::string &libdeviceFile) {
   if (cudaHome.has_value()) {
     defaultPaths.emplace_back(cudaHome.value());
   } else {
-    // try to get libdevice.bc from the default location for CUDA 11.5
+    // try to get libdevice.bc from the default location for CUDA 12.2
     // FIXME change to an input with a default value
-    const char *cudaVer = "11.5";
+    const char *cudaVer = "12.2";
 #ifdef _WIN32
     defaultPaths.push_back(
         std::string(

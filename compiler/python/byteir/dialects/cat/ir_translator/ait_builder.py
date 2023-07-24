@@ -23,78 +23,12 @@ from aitemplate.testing import detect_target
 
 from .backend.ait_registry import *
 
-from byteir.utils import mlir_type_to_torch_str
-
-def _torch_dtype_from_str(dtype_name: str) -> torch.dtype:
-    _map = {
-        "float": torch.float,
-        "float16": torch.float16,
-        "float32": torch.float32,
-        "float64": torch.float64,
-        "double": torch.float64,
-        "int": torch.int,
-        "int8": torch.int8,
-        "int16": torch.int16,
-        "int32": torch.int32,
-        "int64": torch.int64,
-        "bool": torch.bool,
-        # TODO: bfloat16, etc.
-    }
-    return _map.get(dtype_name, None)
-
-def mlir_type_to_dtype(mlir_type):
-    if str(mlir_type) == "f64":
-        return np.float64
-    if str(mlir_type) == "f32":
-        return np.float32
-    if str(mlir_type) == "f16":
-        return np.half
-    if str(mlir_type) == "i64":
-        return np.int64
-    if str(mlir_type) == "ui64":
-        return np.uint64
-    if str(mlir_type) == "i32":
-        return np.int32
-    if str(mlir_type) == "ui32":
-        return np.uint32
-    if str(mlir_type) == "i16":
-        return np.int16
-    if str(mlir_type) == "ui16":
-        return np.uint16
-    if str(mlir_type) == "i8":
-        return np.int8
-    if str(mlir_type) == "ui8":
-        return np.uint8
-    if str(mlir_type) == "i1":
-        return np.bool_
-    if str(mlir_type) == "!tf_type.string":
-        return np.str_
-    if str(mlir_type) == "!ace.string":
-        return np.str_
-    if str(mlir_type) == "index":
-        return np.int64
-    raise NotImplementedError("unsupported mlir type {}".format(mlir_type))
-
-def _numpy_dtype_to_str(np_dtype: np.dtype) -> str:
-    _map = {
-        np.single: "float",
-        np.half: "float16",
-        np.float16: "float16",
-        np.float32: "float32",
-        np.float64: "float64",
-        np.double: "double",
-        np.int8: "int8",
-        np.int16: "int16",
-        np.int32: "int32",
-        np.int64: "int64",
-        np.bool_: "bool",
-    }
-    return _map.get(np_dtype, None)
+from byteir.utils import mlir_type_to_torch_str, torch_dtype_from_str
 
 def _init_torch_tensor(AITTensor):
     assert all(map(lambda s: isinstance(s, IntImm), AITTensor.shape()))
     shape_values = [s.value() for s in AITTensor.shape()]
-    return torch.empty(shape_values, dtype=_torch_dtype_from_str(AITTensor.dtype()))
+    return torch.empty(shape_values, dtype=torch_dtype_from_str(AITTensor.dtype()))
 
 
 # TODO: merge common part of ait & bt builder into a base class
@@ -127,9 +61,8 @@ class ait_builder:
         for i in self.func.arguments:
             shaped_type = ir.ShapedType(i.type)
             shape = shaped_type.shape
-            # TODO: dtype and name here?
-            dtype = mlir_type_to_dtype(shaped_type.element_type)
-            self._value2tensor[i] = Tensor(shape=shape, dtype=_numpy_dtype_to_str(dtype), is_input=True, name=f"input_tensor_{idx}")
+            dtype = mlir_type_to_torch_str(shaped_type.element_type)
+            self._value2tensor[i] = Tensor(shape=shape, dtype=dtype, is_input=True, name=f"input_tensor_{idx}")
             self.inputs.append(self._value2tensor[i])
             idx += 1
 
@@ -152,7 +85,7 @@ class ait_builder:
                 outputs[0]._attrs["name"] = f"const_tensor_{self.constant_idx}"
                 np_array = mlir_attr_to_pyobj(op.attributes["value"])
                 data = torch.from_numpy(np_array).contiguous().cuda()
-                data = data.to(_torch_dtype_from_str(mlir_type_to_torch_str(shaped_type.element_type)))
+                data = data.to(torch_dtype_from_str(mlir_type_to_torch_str(shaped_type.element_type)))
                 self.constants[outputs[0]._attrs["name"]] = data
                 self.constant_idx += 1
             if op.operation.name != "mhlo.constant":
@@ -206,21 +139,21 @@ class ait_builder:
                 rt_shape.append(s.value())
             elif isinstance(s, IntVar):
                 rt_shape.append(random.choice(s._attrs["values"]))
-        dtype = _torch_dtype_from_str(tensor.dtype())
+        dtype = torch_dtype_from_str(tensor.dtype())
         if len(rt_shape) == 0:
-            return torch.tensor(1).to(_torch_dtype_from_str(tensor.dtype())).cuda()
+            return torch.tensor(1).to(torch_dtype_from_str(tensor.dtype())).cuda()
         if dtype == torch.bool:
             return torch.randint(high=1, size=rt_shape, dtype=dtype, device="cuda")
         elif dtype in [torch.int8, torch.int, torch.int16, torch.int32, torch.int64]:
             return torch.randint(high=100, size=rt_shape, dtype=dtype, device="cuda")
         else:
-            return torch.randn(*rt_shape, device="cuda").to(_torch_dtype_from_str(tensor.dtype()))
+            return torch.randn(*rt_shape, device="cuda").to(torch_dtype_from_str(tensor.dtype()))
 
     def execute(self, np_inputs, num_trials=1, benchmark=False):
         rt_inputs = {}
         rt_outputs = {}
         for np_input, in_tensor in zip(np_inputs, self.inputs):
-            rt_inputs[in_tensor._attrs["name"]] = torch.from_numpy(np_input).contiguous().cuda().to(_torch_dtype_from_str(in_tensor.dtype()))
+            rt_inputs[in_tensor._attrs["name"]] = torch.from_numpy(np_input).contiguous().cuda().to(torch_dtype_from_str(in_tensor.dtype()))
         for out_tensor in self.outputs:
             rt_outputs[out_tensor._attrs["name"]] = self._gen_runtime_tensor(out_tensor)
         self.ait_model.run_with_tensors(inputs=rt_inputs, outputs=rt_outputs)

@@ -54,8 +54,11 @@ PYBIND11_MODULE(_byteir, m) {
 
   m.def(
       "translate_to_ptx",
-      [](MlirOperation module, const std::string &ptx_prefix_file_name) {
-        byteirTranslateToPTX(module, toMlirStringRef(ptx_prefix_file_name));
+      [](MlirOperation module, const std::string &ptx_prefix_file_name,
+         const std::string &gpu_arch) {
+        byteirTranslateToPTX(module, toMlirStringRef(ptx_prefix_file_name),
+                             toMlirStringRef(gpu_arch));
       },
-      py::arg("module"), py::arg("ptx_prefix_file_name"));
+      py::arg("module"), py::arg("ptx_prefix_file_name"),
+      py::arg("gpu_arch") = "sm_70");
 }

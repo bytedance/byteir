@@ -76,7 +76,7 @@ bool isProducerElementwiseOpFusable(OpOperand *consumerOpOperand);
 /// Rewrite a fusion pattern of an elementwise consumer with elementwise
 /// producers
 void populateElementwiseOpsProducerConsumerFusionPatterns(
-    RewritePatternSet &patterns,
+    RewritePatternSet &patterns, bool diffShape,
     const linalg::ControlFusionFn &controlElementwiseOpFusion,
     DominanceInfo &dom, PostDominanceInfo &post);
 

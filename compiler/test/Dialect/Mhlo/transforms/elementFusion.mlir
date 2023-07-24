@@ -30,8 +30,11 @@ func.func @mhlo_element_broadcast(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, 
 // CHECK-LABEL: func.func @mhlo_element_broadcast
 // CHECK-NEXT:  mhlo.fusion
 // CHECK-NEXT:    mhlo.add
-// CHECK-NEXT:    mhlo.broadcast_in_dim
 // CHECK-NEXT:    mhlo.abs
+// CHECK-NEXT:    mhlo.return
+// CHECK:  mhlo.fusion
+// CHECK-NEXT:    mhlo.broadcast_in_dim
+
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.broadcast_in_dim
 // CHECK-NEXT:    mhlo.add

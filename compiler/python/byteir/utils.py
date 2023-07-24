@@ -14,8 +14,9 @@
 
 import numpy as np
 from byteir import ir
+import torch
 
-def mlir_type_to_dtype(mlir_type):
+def mlir_type_to_np_dtype(mlir_type):
     if str(mlir_type) == "f64":
         return np.float64
     if str(mlir_type) == "f32":
@@ -68,7 +69,7 @@ def mlir_attr_to_pyobj(attribute):
             dense_attr_type = ir.ShapedType(dense_attr.type)
             return np.array(
                 [i for i in dense_attr],
-                dtype=mlir_type_to_dtype(dense_attr_type.element_type),
+                dtype=mlir_type_to_np_dtype(dense_attr_type.element_type),
             ).reshape(dense_attr_type.shape)
 
     for attr_type_name in [
@@ -86,6 +87,7 @@ def mlir_attr_to_pyobj(attribute):
 
 def mlir_type_to_torch_str(mlir_type) -> str:
     _map = {
+        "bf16": "bfloat16",
         "f16": "float16",
         "f32": "float32",
         "f64": "float64",
@@ -96,3 +98,20 @@ def mlir_type_to_torch_str(mlir_type) -> str:
         "i1": "bool",
     }
     return _map.get(str(mlir_type), None)
+
+def torch_dtype_from_str(dtype_name: str) -> torch.dtype:
+    _map = {
+        "float": torch.float,
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+        "float32": torch.float32,
+        "float64": torch.float64,
+        "double": torch.float64,
+        "int": torch.int,
+        "int8": torch.int8,
+        "int16": torch.int16,
+        "int32": torch.int32,
+        "int64": torch.int64,
+        "bool": torch.bool,
+    }
+    return _map.get(dtype_name, None)

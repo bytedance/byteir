@@ -79,7 +79,10 @@ bool isSplatMhloConstant(Operation *op);
 // like iota
 bool isSplatMhloConstantLike(Operation *op);
 
+// Return true if op is a constant or r another constant-like op like iota
 bool isMhloConstantLike(Operation *op);
+
+bool isDeepMhloFoldable(Operation *op);
 
 bool isSplatMhloConstantValue(Operation *op, int64_t splat_val);
 
