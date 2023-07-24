@@ -49,6 +49,7 @@ GetLayoutFrom3DDotGeneralDimNums(mlir::mhlo::DotDimensionNumbersAttr dims,
     return builder->getStringAttr("crr");
   if (ldims[0] == 1 && rdims[0] == 2)
     return builder->getStringAttr("ccr");
+  llvm_unreachable("unsupported dot dimension_numbers");
 }
 
 mlir::StringAttr
@@ -164,20 +165,20 @@ struct ConvertTransposeReshapeBmmRrrToBmmRcr
 
   LogicalResult matchAndRewrite(cat::BMMRRROp op,
                                 PatternRewriter &rewriter) const override {
-    auto reshape_op = op.getRhs().getDefiningOp<mhlo::ReshapeOp>();
-    if (!reshape_op) {
+    auto reshapeOp = op.getRhs().getDefiningOp<mhlo::ReshapeOp>();
+    if (!reshapeOp) {
       return failure();
     }
-    auto transpose_op =
-        reshape_op.getOperand().getDefiningOp<mhlo::TransposeOp>();
-    if (!transpose_op) {
+    auto transposeOp =
+        reshapeOp.getOperand().getDefiningOp<mhlo::TransposeOp>();
+    if (!transposeOp) {
       return failure();
     }
     SmallVector<int64_t> permutation;
-    getValuesFromDenseIntElementsAttr(transpose_op.getPermutation(),
+    getValuesFromDenseIntElementsAttr(transposeOp.getPermutation(),
                                       permutation);
-    auto transpose_in = transpose_op.getOperand(); // transpose_in = rhs
-    auto transpose_in_shape = transpose_in.getType().getShape();
+    auto transposeIn = transposeOp.getOperand(); // transpose_in = rhs
+    auto transposeInShape = transposeIn.getType().getShape();
     auto lhs = op.getLhs();
     if (permutation.size() != 4) {
       return failure();
@@ -186,26 +187,26 @@ struct ConvertTransposeReshapeBmmRrrToBmmRcr
         permutation[3] != 2) {
       return failure();
     }
-    auto reshape_operand_shape =
-        reshape_op.getOperand().getType().cast<ShapedType>().getShape();
-    auto reshape_result_shape =
-        reshape_op.getResult().getType().cast<ShapedType>().getShape();
-    if (reshape_result_shape.size() != 3) {
+    auto reshapeOperandShape =
+        reshapeOp.getOperand().getType().cast<ShapedType>().getShape();
+    auto reshapeResultShape =
+        reshapeOp.getResult().getType().cast<ShapedType>().getShape();
+    if (reshapeResultShape.size() != 3) {
       return failure();
     }
-    if (reshape_result_shape[0] !=
-            reshape_operand_shape[0] * reshape_operand_shape[1] ||
-        reshape_result_shape[1] != reshape_operand_shape[2] ||
-        reshape_result_shape[2] != reshape_operand_shape[3]) {
+    if (reshapeResultShape[0] !=
+            reshapeOperandShape[0] * reshapeOperandShape[1] ||
+        reshapeResultShape[1] != reshapeOperandShape[2] ||
+        reshapeResultShape[2] != reshapeOperandShape[3]) {
       return failure();
     }
     // build reshape rhs op
-    RankedTensorType transpose_in_reshaped_type =
-        RankedTensorType::get({transpose_in_shape[0] * transpose_in_shape[1],
-                               transpose_in_shape[2], transpose_in_shape[3]},
-                              transpose_in.getType().getElementType());
+    RankedTensorType transposeInReshapedType =
+        RankedTensorType::get({transposeInShape[0] * transposeInShape[1],
+                               transposeInShape[2], transposeInShape[3]},
+                              transposeIn.getType().getElementType());
     auto rhsReshapeOp = rewriter.create<mhlo::ReshapeOp>(
-        op.getLoc(), transpose_in_reshaped_type, transpose_in);
+        op.getLoc(), transposeInReshapedType, transposeIn);
     // build cat bmm rcr op
     auto newOp = rewriter.create<cat::BMMRCROp>(op.getLoc(), op.getType(), lhs,
                                                 rhsReshapeOp);

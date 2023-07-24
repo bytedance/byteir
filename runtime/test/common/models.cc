@@ -1113,5 +1113,52 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
   return m.getAsOpaquePointer();
 }
 
+const void *
+CreateWithEntryAttrs(brt::ir::ByREBuilder &byre_builder, DTypeEnum input_dtype,
+                     const std::vector<int64_t> &shape,
+                     const std::vector<std::string> &inputs,
+                     const std::vector<std::string> &outputs,
+                     const std::vector<std::string> &original_inputs) {
+  mlir::ModuleOp m = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+  auto mlir_type = ConvertDTypeToMLIRType(input_dtype, ctx);
+  auto input_type = MemRefType::get(shape, mlir_type);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{input_type, AT::Input, "A"},
+               {input_type, AT::Input, "B"},
+               {input_type, AT::Output, "C"},
+               {input_type, AT::Output, "D"}});
+
+  // add attributes
+  const auto convert_to_array_attr =
+      [&ctx](const std::vector<std::string> &vec) {
+        llvm::SmallVector<Attribute> attrs_vec;
+        std::transform(vec.begin(), vec.end(), std::back_inserter(attrs_vec),
+                       [&ctx](const std::string &ele) {
+                         return StringAttr::get(ctx, ele);
+                       });
+        return ArrayAttr::get(ctx, attrs_vec);
+      };
+  std::vector<NamedAttribute> byteir_entry_point_attrs;
+  byteir_entry_point_attrs.emplace_back(StringAttr::get(ctx, "inputs"),
+                                        convert_to_array_attr(inputs));
+  byteir_entry_point_attrs.emplace_back(StringAttr::get(ctx, "outputs"),
+                                        convert_to_array_attr(outputs));
+  auto byteir_entry_attrs = DictionaryAttr::get(ctx, byteir_entry_point_attrs);
+  func_op->setAttr("tf.original_input_names",
+                   convert_to_array_attr(original_inputs));
+  func_op->setAttr("byteir.entry_point", byteir_entry_attrs);
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+  //  insert ReturnOp
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+  return m.getAsOpaquePointer();
+}
+
 } // namespace test
 } // namespace brt

@@ -25,11 +25,12 @@
 namespace mlir {
 
 std::unique_ptr<Pass>
-createLinalgElementwiseFusionExtPass(bool enableSharedInput = false);
+createLinalgElementwiseFusionExtPass(bool enableSharedInput = false,
+                                     bool enableDiffShapes = false);
 
 std::unique_ptr<Pass> createLinalgElementwiseFusionExtPass(
     const linalg::ControlFusionFn &controlElementwiseOpFusion,
-    bool enableSharedInput = false);
+    bool enableSharedInput = false, bool enableDiffShapes = false);
 
 } // namespace mlir
 

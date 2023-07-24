@@ -292,9 +292,9 @@ struct ConvertCast : public OpConversionPattern<mhlo::ConvertOp> {
 
     auto inputBitWidth = inputElemTy.getIntOrFloatBitWidth();
     auto outputBitWidth = outputElemTy.getIntOrFloatBitWidth();
-    if (!inputBitWidth == 16 || !inputBitWidth == 32)
+    if (inputBitWidth != 16 || inputBitWidth != 32)
       return failure();
-    if (!outputBitWidth == 16 || !outputBitWidth == 32)
+    if (outputBitWidth != 16 || outputBitWidth != 32)
       return failure();
     auto newOp = rewriter.create<cat::CastOp>(op.getLoc(), op.getType(), input);
     rewriter.replaceOp(op, newOp.getResult());
@@ -307,7 +307,7 @@ Value canFuseBroadcast(mhlo::BroadcastInDimOp broadcast, Value output,
   bool canFuseDirectly = true;
   auto dims = broadcast.getBroadcastDimensions().getValues<int64_t>();
   auto outputRank = output.getType().cast<ShapedType>().getRank();
-  for (auto i = 0; i < dims.size(); ++i) {
+  for (size_t i = 0; i < dims.size(); ++i) {
     canFuseDirectly &= (dims[i] == (outputRank - dims.size() + i));
   }
   if (canFuseDirectly)
@@ -318,12 +318,12 @@ Value canFuseBroadcast(mhlo::BroadcastInDimOp broadcast, Value output,
   llvm::SmallVector<int64_t> resShape(outputRank, 1);
   auto inputShape =
       broadcast.getOperand().getType().cast<ShapedType>().getShape();
-  for (auto i = 0; i < dims.size() - 1; ++i) {
+  for (size_t i = 0; i < dims.size() - 1; ++i) {
     canFuseWithReshape &= (dims[i + 1] > dims[i]); // remains dim ordering
   }
   if (!canFuseWithReshape)
     return nullptr;
-  for (auto i = 0; i < dims.size(); ++i) {
+  for (size_t i = 0; i < dims.size(); ++i) {
     resShape[dims[i]] = inputShape[i];
   }
   auto outputElemTy =

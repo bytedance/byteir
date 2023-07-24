@@ -2,6 +2,44 @@
 
 #map0 = affine_map<(d0, d1) -> (d0, d1)>
 
+// CHECK-LABEL: @one_output
+func.func @one_output(%arg0: tensor<?x?xf32>, %arg1 : tensor<?x?xf32>, %arg2 : tensor<?x?xf32>) -> (tensor<?x?xf32>)
+{
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %0 = tensor.dim %arg0, %c0 : tensor<?x?xf32>
+  %1 = tensor.dim %arg0, %c1 : tensor<?x?xf32>
+  %2 = tensor.empty(%0, %1) : tensor<?x?xf32>
+  %3 = linalg.generic {indexing_maps = [#map0, #map0, #map0], iterator_types = ["parallel", "parallel"]}
+      ins(%arg0, %arg1 : tensor<?x?xf32>, tensor<?x?xf32>)
+      outs(%2 : tensor<?x?xf32>) {
+    ^bb0(%arg3: f32, %arg4: f32, %arg5: f32):       
+      %4 = arith.addf %arg3, %arg4 : f32
+      linalg.yield %4 : f32
+  } -> tensor<?x?xf32>
+  // CHECK: linalg.generic {
+  %4 = linalg.generic {indexing_maps = [#map0, #map0, #map0], iterator_types = ["parallel", "parallel"]}
+      ins(%3, %arg2 : tensor<?x?xf32>, tensor<?x?xf32>)
+      outs(%2 : tensor<?x?xf32>) {
+    // CHECK: ^{{[a-zA-Z0-9_]*}}
+    // CHECK-SAME: [[ARG0:%[a-zA-Z0-9_]*]]
+    // CHECK-SAME: [[ARG1:%[a-zA-Z0-9_]*]]
+    // CHECK-SAME: [[ARG2:%[a-zA-Z0-9_]*]]
+    ^bb0(%arg5: f32, %arg6: f32, %arg7: f32):       
+      // CHECK: [[T1:%[a-zA-Z0-9_]*]] = arith.addf [[ARG0]], [[ARG1]]
+      // CHECK-NOT: linalg.yield
+      // CHECK: [[T2:%[a-zA-Z0-9_]*]] = arith.mulf [[T1]], [[ARG2]]
+      // CHECK: linalg.yield [[T2]]
+      %5 = arith.mulf %arg5, %arg6 : f32
+      linalg.yield %5 : f32
+    } -> tensor<?x?xf32>
+  return %4 : tensor<?x?xf32>
+}
+
+// -----
+
+#map0 = affine_map<(d0, d1) -> (d0, d1)>
+
 // CHECK-LABEL: @two_outputs
 func.func @two_outputs(%arg0: tensor<?x?xf32>, %arg1 : tensor<?x?xf32>, %arg2 : tensor<?x?xf32>) -> (tensor<?x?xf32>, tensor<?x?xf32>)
 {
@@ -331,3 +369,85 @@ func.func @no_more_break_outs_dependency(%arg0 : tensor<?x?xf32>) -> tensor<?x?x
 // CHECK-SAME:     outs(%[[INIT]] : tensor<?x?xf32>)
 // CHECK: return %[[RESULT]]
 
+// -----
+
+#map = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
+#map1 = affine_map<(d0, d1, d2, d3) -> (d0, d1, d2, d3)>
+#map2 = affine_map<(d0, d1, d2, d3) -> (0, 0, d2, d3)>
+
+// CHECK-LABEL: @broadcast_output
+func.func @broadcast_output(%arg0: tensor<96x1024x1024xf16>, %arg1: tensor<1x1x1024x1024xf32>) -> (tensor<1x1x1024x1024xi1>, tensor<8x12x1024x1024xf16>) attributes {__byteir_elementwise_fusion__} {
+  %cst = arith.constant dense<1.250000e-01> : tensor<96x1024x1024xf16>
+  %cst_0 = arith.constant dense<0xFC00> : tensor<8x12x1024x1024xf16>
+  %cst_1 = arith.constant dense<0.000000e+00> : tensor<1x1x1024x1024xf32>
+  %0 = tensor.empty() : tensor<96x1024x1024xf16>
+  %1 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel"]} ins(%arg0, %cst : tensor<96x1024x1024xf16>, tensor<96x1024x1024xf16>) outs(%0 : tensor<96x1024x1024xf16>) {
+  ^bb0(%in: f16, %in_2: f16, %out: f16):
+    %8 = arith.mulf %in, %in_2 : f16
+    linalg.yield %8 : f16
+  } -> tensor<96x1024x1024xf16>
+  %expanded = tensor.expand_shape %1 [[0, 1], [2], [3]] : tensor<96x1024x1024xf16> into tensor<8x12x1024x1024xf16>
+  %2 = tensor.empty() : tensor<1x1x1024x1024xi1>
+// CHECK: linalg.generic {
+// CHECK: arith.cmpf
+// CHECK: linalg.yield
+  %3 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg1, %cst_1 : tensor<1x1x1024x1024xf32>, tensor<1x1x1024x1024xf32>) outs(%2 : tensor<1x1x1024x1024xi1>) {
+  ^bb0(%in: f32, %in_2: f32, %out: i1):
+    %8 = arith.cmpf oeq, %in, %in_2 : f32
+    linalg.yield %8 : i1
+  } -> tensor<1x1x1024x1024xi1>
+  %4 = tensor.empty() : tensor<8x12x1024x1024xi1>
+// CHECK: linalg.generic {
+// CHECK: arith.mulf
+// CHECK: arith.select
+// CHECK: linalg.yield
+  %5 = linalg.generic {indexing_maps = [#map2, #map1], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%3 : tensor<1x1x1024x1024xi1>) outs(%4 : tensor<8x12x1024x1024xi1>) {
+  ^bb0(%in: i1, %out: i1):
+    linalg.yield %in : i1
+  } -> tensor<8x12x1024x1024xi1>
+  %6 = tensor.empty() : tensor<8x12x1024x1024xf16>
+  %7 = linalg.generic {indexing_maps = [#map1, #map1, #map1, #map1], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%5, %cst_0, %expanded : tensor<8x12x1024x1024xi1>, tensor<8x12x1024x1024xf16>, tensor<8x12x1024x1024xf16>) outs(%6 : tensor<8x12x1024x1024xf16>) {
+  ^bb0(%in: i1, %in_2: f16, %in_3: f16, %out: f16):
+    %8 = arith.select %in, %in_2, %in_3 : f16
+    linalg.yield %8 : f16
+  } -> tensor<8x12x1024x1024xf16>
+  return %3, %7 : tensor<1x1x1024x1024xi1>, tensor<8x12x1024x1024xf16>
+}
+
+// -----
+
+#map0 = affine_map<(d0, d1) -> (d0, d1)>
+#map1 = affine_map<(d0) -> (d0)>
+// CHECK-LABEL: @check_collapse_expand
+func.func @check_collapse_expand(%arg0: tensor<3x4xf32>, %arg1 : tensor<3x4xf32>, %arg2 : tensor<12xf32>) -> (tensor<3x4xf32>, tensor<12xf32>, tensor<4x3xf32>, tensor<12xf32>)
+{
+  %2 = tensor.empty() : tensor<3x4xf32>
+  %1 = tensor.empty() : tensor<3x4xf32>
+  %0 = tensor.empty() : tensor<3x4xf32>
+  %3:3 = linalg.generic {indexing_maps = [#map0, #map0, #map0, #map0, #map0], iterator_types = ["parallel", "parallel"]}
+      ins(%arg0, %arg1 : tensor<3x4xf32>, tensor<3x4xf32>)
+      outs(%0, %1, %2 : tensor<3x4xf32>, tensor<3x4xf32>, tensor<3x4xf32>) {
+    ^bb0(%arg3: f32, %arg4: f32, %arg5: f32, %arg6: f32, %arg7: f32):       
+      %4 = arith.addf %arg3, %arg4 : f32
+      %5 = arith.mulf %arg3, %arg4 : f32
+      %6 = arith.subf %arg3, %arg4 : f32
+      linalg.yield %4, %5, %6  : f32, f32, f32
+  } -> (tensor<3x4xf32>, tensor<3x4xf32>, tensor<3x4xf32>)
+  %collapsed = tensor.collapse_shape %3#1 [[0, 1]] : tensor<3x4xf32> into tensor<12xf32>
+  %11 = tensor.empty() : tensor<12xf32>
+  %collapsed_1 = tensor.collapse_shape %3#1 [[0, 1]] : tensor<3x4xf32> into tensor<12xf32>
+  %expanded = tensor.expand_shape %collapsed_1 [[0, 1]] : tensor<12xf32> into tensor<4x3xf32>
+  %4 = linalg.generic {indexing_maps = [#map1, #map1], iterator_types = ["parallel"]}
+// CHECK: linalg.generic {
+// CHECK: arith.addf
+// CHECK-NEXT: arith.mulf
+// CHECK-NEXT: arith.mulf
+// CHECK-NEXT: linalg.yield
+      ins(%collapsed  : tensor<12xf32>)
+      outs(%11 : tensor<12xf32>) {
+    ^bb0(%arg5: f32, %arg6: f32):       
+      %5 = arith.mulf %arg5, %arg5 : f32
+      linalg.yield %5 : f32
+    } -> tensor<12xf32>
+  return %3#0, %collapsed, %expanded, %4 : tensor<3x4xf32>, tensor<12xf32>, tensor<4x3xf32>, tensor<12xf32>
+}

@@ -122,10 +122,14 @@ func::FuncOp mlir::createFuncOpFromPattern(OpBuilder &b, StringRef subFnName,
   return subFnOp;
 }
 
-func::FuncOp mlir::createFuncOpFromPattern(OpBuilder &b, StringRef subFnName,
-                                           const MhloFusionPattern &pattern) {
+FailureOr<func::FuncOp>
+mlir::createFuncOpFromPattern(OpBuilder &b, StringRef subFnName,
+                              const MhloFusionPattern &pattern) {
   SmallVector<Value, 4> inputs = getInputsOfCluster(pattern);
   SmallVector<Value, 4> outputs = getOutputsOfCluster(pattern);
+  if (outputs.size() == 0) {
+    return failure();
+  }
   return createFuncOpFromPattern(b, subFnName, inputs, outputs, pattern);
 }
 
@@ -136,7 +140,6 @@ mhlo::FusionOp
 mlir::createMhloFusionFromPattern(OpBuilder &b, ValueRange inputs,
                                   ValueRange outputs,
                                   const MhloFusionPattern &pattern) {
-
   b.setInsertionPoint(pattern.back());
 
   SmallVector<Location, 4> locations;
@@ -178,11 +181,14 @@ mlir::createMhloFusionFromPattern(OpBuilder &b, ValueRange inputs,
   return fusion;
 }
 
-mhlo::FusionOp
+FailureOr<mhlo::FusionOp>
 mlir::createMhloFusionFromPattern(OpBuilder &b,
                                   const MhloFusionPattern &pattern) {
   SmallVector<Value, 4> inputs = getInputsOfCluster(pattern);
   SmallVector<Value, 4> outputs = getOutputsOfCluster(pattern);
+  if (outputs.size() == 0) {
+    return failure();
+  }
   return createMhloFusionFromPattern(b, inputs, outputs, pattern);
 }
 
@@ -190,8 +196,11 @@ void mlir::applyMhloFusionPattern(const MhloFusionPattern &pattern,
                                   StringRef attachTag) {
   OpBuilder b(pattern.back());
   auto fusion = createMhloFusionFromPattern(b, pattern);
+  if (failed(fusion)) {
+    return;
+  }
   if (!attachTag.empty()) {
-    fusion->setAttr(attachTag, UnitAttr::get(fusion.getContext()));
+    (*fusion)->setAttr(attachTag, UnitAttr::get(fusion->getContext()));
   }
 }
 
@@ -344,12 +353,13 @@ void mlir::ProducerFusionPlanner::run() {
 
   for (auto *op : opIteration) {
 
+    // put fuseStart op into a new leader
     if (fuseStart(op)) {
       auto id = opToNodeId[op];
       fusedLeaders.insert(id);
     }
 
-    // fusion check  when fuseTrigger is true
+    // fusion check when fuseTrigger is true
     if (!fuseTrigger(op)) {
       LLVM_DEBUG(llvm::dbgs()
                  << "skip fusing due to not triggered: " << *op << "\n");
@@ -406,6 +416,8 @@ void mlir::ProducerFusionPlanner::run() {
                for (auto v : it.value()) {
                  llvm::outs() << *v << "\n";
                }
-             });
+             }
+             llvm::dbgs() << "============== end ===============\n";
+             );
   // clang-format on
 }

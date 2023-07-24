@@ -156,6 +156,38 @@ TEST(SessionTest, GraphInfo) {
   EXPECT_EQ(dtype, DTypeEnum::Float32);
 }
 
+TEST(SessionTest, TfEntryAttrs) {
+  Session session;
+
+  ByREBuilder byre_builder;
+  std::vector<std::string> inputs{"Input_0"};
+  std::vector<std::string> outputs{"Output_0"};
+  std::vector<std::string> original_inputs{"Input_0", "Input_1"};
+  auto status_load = session.LoadFromMemory(
+      CreateWithEntryAttrs(byre_builder, dtype_enum_v<float>, {3}, inputs,
+                           outputs, original_inputs),
+      "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  const auto &inputs_attr = session.GetTfInputNamesAttr();
+  EXPECT_EQ(inputs.size(), inputs_attr.size());
+  for (size_t i = 0; i < inputs.size(); i++) {
+    EXPECT_EQ(inputs[i], inputs_attr[i]);
+  }
+
+  const auto &outputs_attr = session.GetTfOutputNamesAttr();
+  EXPECT_EQ(outputs.size(), outputs_attr.size());
+  for (size_t i = 0; i < outputs.size(); i++) {
+    EXPECT_EQ(outputs[i], outputs_attr[i]);
+  }
+
+  const auto &original_names_attr = session.GetTfOriginalInputNamesAttr();
+  EXPECT_EQ(original_inputs.size(), original_names_attr.size());
+  for (size_t i = 0; i < original_inputs.size(); i++) {
+    EXPECT_EQ(original_inputs[i], original_names_attr[i]);
+  }
+}
+
 TEST(SessionTest, NewRequestContext) {
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);

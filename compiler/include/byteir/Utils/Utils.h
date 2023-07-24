@@ -21,9 +21,11 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/FunctionInterfaces.h"
+#include "mlir/IR/Visitors.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include <functional>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -41,6 +43,8 @@ class FuncOp;
 // Return literal from a constant-like value
 // return std::nullopt if not applicable
 std::optional<int64_t> getLiteralFromConstantLike(Value);
+
+std::optional<Attribute> getAttrFromConstantLike(Value);
 
 // Return literal from a constant-like value,
 // return defaultLit if not applicable
@@ -160,6 +164,16 @@ SmallVector<Value, 4> getOutputsOfCluster(
 bool isMemrefTrivial(mlir::Value memref,
                      llvm::ArrayRef<mlir::Operation *> filters);
 
+// deep check an op satisfy check function
+// e.g. deep check an op's leaves are all constant
+bool deepCheck(Operation *op, std::function<bool(mlir::Operation *)> checkFunc);
+
+// deep check an op satisfy check function
+// allow a memory to store previous result for accelerating
+bool deepCheckWithMemory(Operation *op,
+                         std::function<bool(mlir::Operation *)> checkFunc,
+                         llvm::DenseMap<Operation *, bool> &memory);
+
 // count number of a value is used
 // if a value is used twice by a user, it will count twice
 inline int useCount(Value val) {
@@ -220,6 +234,14 @@ template <typename Op> bool isBlockSingleOp(Block *block) {
   }
 
   return false;
+}
+
+// get all RetOp ops within an op's nested regions
+template <typename RetOp, WalkOrder Order = WalkOrder::PostOrder>
+SmallVector<RetOp, 4> getOpsNested(Operation *op) {
+  SmallVector<RetOp, 4> res;
+  op->walk<Order>([&](RetOp ret) { res.push_back(ret); });
+  return res;
 }
 
 } // namespace mlir

@@ -34,3 +34,10 @@ cc_library(
         "@org_tensorflow//tensorflow/core/platform:status",
     ]
 )
+
+cc_library(
+    name = "attributes",
+    hdrs = [
+        "attributes.h",
+    ],
+)

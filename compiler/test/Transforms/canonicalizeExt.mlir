@@ -242,9 +242,11 @@ func.func @slice_reshape_concat_case0(%arg0: tensor<512x1x12xf16>, %arg1: tensor
   return %8 : tensor<512x5x12xf16>
 }
 // CHECK-LABEL: slice_reshape_concat_case0
+// CHECK-SAME: %[[ARG0:[^:[:space:]]+]]
+// CHECK-SAME: %[[ARG1:[^:[:space:]]+]]
 // CHECK-NOT: mhlo.slice
-// CHECK-NEXT: %[[VAL_0:.*]] = mhlo.reshape %arg1
-// CHECK-NEXT: "mhlo.concatenate"(%arg0, %[[VAL_0]])
+// CHECK-NEXT: %[[VAL_0:.*]] = mhlo.reshape %[[ARG1]]
+// CHECK-NEXT: "mhlo.concatenate"(%[[ARG0]], %[[VAL_0]])
 
 func.func @slice_reshape_concat_case1(%arg0: tensor<128x64xf32>, %arg1: tensor<128x128xf32>) -> tensor<128x12x16xf32>{
   %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 16]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x64xf32>) -> tensor<128x16xf32>
@@ -275,8 +277,10 @@ func.func @slice_reshape_concat_case1(%arg0: tensor<128x64xf32>, %arg1: tensor<1
   return %24 : tensor<128x12x16xf32>
 }
 // CHECK-LABEL: slice_reshape_concat_case1
-// CHECK-NEXT: %[[VAL_0:.*]] = mhlo.reshape %arg0
-// CHECK-NEXT: %[[VAL_1:.*]] = mhlo.reshape %arg1
+// CHECK-SAME: %[[ARG0:[^:[:space:]]+]]
+// CHECK-SAME: %[[ARG1:[^:[:space:]]+]]
+// CHECK-DAG: %[[VAL_0:.*]] = mhlo.reshape %[[ARG0]]
+// CHECK-DAG: %[[VAL_1:.*]] = mhlo.reshape %[[ARG1]]
 // CHECK-NEXT: "mhlo.concatenate"(%[[VAL_1]], %[[VAL_0]])
 
 func.func @cumsum_to_iota_case0() -> tensor<1x16xi64> {

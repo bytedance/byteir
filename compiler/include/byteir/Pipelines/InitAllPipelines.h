@@ -32,6 +32,7 @@
 #include "byteir/Pipelines/SCFOpt.h"
 #include "byteir/Pipelines/ShapeOpt.h"
 
+#include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
 #include "byteir/Pipelines/GPU/GPUOpt.h"
 #include "byteir/Pipelines/GPU/LinalgMemrefGPU.h"
 #include "byteir/Pipelines/GPU/NVVMCodegen.h"
@@ -63,6 +64,7 @@ inline void registerAllByteIRGPUPipelines() {
   registerNVVMCodegenPipeline();
   registerLinalgMemrefGPUPipeline();
   registerMatmulEpilogueGPUPipeline();
+  registerGPUElementwiseCodegenPipelines();
 }
 
 inline void registerAllByteIRHostPipelines() {

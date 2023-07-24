@@ -67,7 +67,7 @@ SmallVector<bool> reshapeHandleFlag(mhlo::ReshapeOp op, int64_t rank,
       return res;
     }
   }
-  ArrayRef<bool> inpRes = analysis->getDimFlag(inp);
+  SmallVector<bool> inpRes = analysis->getDimFlag(inp);
   for (unsigned i = 0; i < oupGreaterThanOneIdx.size(); ++i) {
     res[oupGreaterThanOneIdx[i]] = inpRes[inpGreaterThanOneIdx[i]];
   }

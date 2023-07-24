@@ -273,7 +273,7 @@ struct DynamicShapeClusteringPass
           continue;
         OpBuilder b(pattern.back());
         std::string name = namePrefix + std::to_string(idx++);
-        func::FuncOp subFnOp = createFuncOpFromPattern(b, name, pattern);
+        func::FuncOp subFnOp = *createFuncOpFromPattern(b, name, pattern);
         subFnOp->setAttr(getDynamicFuncAttrName(), b.getUnitAttr());
         symTable.insert(subFnOp);
       }

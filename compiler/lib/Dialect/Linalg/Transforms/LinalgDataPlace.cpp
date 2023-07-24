@@ -21,6 +21,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 
 #include "PassDetail.h"
 
@@ -35,7 +36,6 @@ namespace {
 // Local utils
 // Return memory space from 'memSpaces' (a list of memory space) for a gvien
 // idx. If out-of-bound, use the last value.
-
 static int64_t getSpace(ArrayRef<int64_t> memSpaces, unsigned idx) {
   if (memSpaces.size() == 0)
     return getUnplacedSpace();
@@ -44,6 +44,52 @@ static int64_t getSpace(ArrayRef<int64_t> memSpaces, unsigned idx) {
     return memSpaces[idx];
   }
   return memSpaces.back();
+}
+
+// support promote for a Tensor Value
+static LogicalResult promoteTensorValue(OpBuilder &b, mlir::Value val,
+                                        dataPlaceType /*placeType*/) {
+  // only support regular alloc (not space) now
+  // TODO: use placeType to support space and/or alloca
+
+  // only support Tensor only
+  auto valType = val.getType().dyn_cast<TensorType>();
+
+  if (!valType) {
+    return failure();
+  }
+
+  // support DestinationStyleOpInterface and TensorSemantics only
+  auto destOp = val.getDefiningOp<DestinationStyleOpInterface>();
+  if (!destOp || !destOp.hasTensorSemantics()) {
+    return failure();
+  }
+
+  // override DefiningOp init with an empty
+  auto opOperand = destOp.getTiedOpOperand(val.cast<OpResult>());
+  b.setInsertionPoint(destOp);
+  // create an empty for overriding
+  tensor::EmptyOp emptyOp = b.create<tensor::EmptyOp>(
+      destOp.getLoc(), valType.getShape(), valType.getElementType());
+  // override DefiningOp's init
+  destOp->setOperand(opOperand->getOperandNumber(), emptyOp);
+
+  // insert a copy before insertSlice and overide insertSlice's source
+  for (auto user : val.getUsers()) {
+    if (auto insertSlice = dyn_cast<tensor::InsertSliceOp>(user)) {
+      b.setInsertionPoint(insertSlice);
+      auto loc = insertSlice.getLoc();
+      // create an empty for a copy
+      Value cpEmpty = b.create<tensor::EmptyOp>(loc, valType.getShape(),
+                                                valType.getElementType());
+      // insert a copy
+      auto copyOp = b.create<linalg::CopyOp>(loc, val, cpEmpty);
+      // override insertSlice's source
+      insertSlice.getSourceMutable().assign(copyOp->getResult(0));
+    }
+  }
+
+  return success();
 }
 
 static void dataPlaceImpl(OpBuilder &b, LinalgOp op) {
@@ -128,7 +174,7 @@ static void dataPlaceImpl(OpBuilder &b, LinalgOp op) {
 }
 
 static void collectAnchorOp(func::FuncOp func,
-                            SmallVectorImpl<LinalgOp> &collection,
+                            SmallVectorImpl<Operation *> &collection,
                             ArrayRef<int64_t> spaces) {
   auto ctx = func.getContext();
 
@@ -156,25 +202,70 @@ static void collectAnchorOp(func::FuncOp func,
 
 struct LinalgDataPlacePass : public LinalgDataPlaceBase<LinalgDataPlacePass> {
   LinalgDataPlacePass() = default;
-  LinalgDataPlacePass(ArrayRef<int64_t> spaces) { this->memSpaces = spaces; }
+
+  explicit LinalgDataPlacePass(ArrayRef<int64_t> spaces) {
+    this->memSpaces = spaces;
+  }
+
+  LinalgDataPlacePass(dataPlaceCollectType collect, bool useTensor) {
+    isTensor = useTensor;
+    collector = collect;
+  }
 
   void runOnOperation() override {
+    if (collector == nullptr)
+      return;
     func::FuncOp funcOp = getOperation();
 
-    SmallVector<LinalgOp> collection;
-    collectAnchorOp(funcOp, collection, memSpaces);
+    mlir::DenseMap<mlir::Value, dataPlaceType> valCollection;
+    funcOp.walk([&](Operation *op) { collector(op, valCollection); });
 
     OpBuilder b(funcOp.getContext());
-
-    for (auto op : collection) {
-      dataPlaceImpl(b, op);
+    for (const auto &it : valCollection) {
+      (void)promoteTensorValue(b, it.first, it.second);
     }
   }
+
+  bool isTensor;
+  dataPlaceCollectType collector = nullptr;
 };
 
 } // namespace
 
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createLinalgDataPlacePass() {
+  return std::make_unique<LinalgDataPlacePass>(
+      genericElementwiseTensorCollector, /*useTensor*/ true);
+}
+
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createLinalgDataPlacePass(ArrayRef<int64_t> spaces) {
-  return std::make_unique<LinalgDataPlacePass>(spaces);
+mlir::createLinalgDataPlacePass(dataPlaceCollectType collector, bool isTensor) {
+  return std::make_unique<LinalgDataPlacePass>(collector, isTensor);
+}
+
+void mlir::genericElementwiseTensorCollector(
+    mlir::Operation *op,
+    mlir::DenseMap<mlir::Value, dataPlaceType> &collection) {
+
+  auto linalgGeneric = dyn_cast<linalg::GenericOp>(op);
+  // only support GenericOp with tesnor now
+  if (!linalgGeneric || !linalgGeneric.hasTensorSemantics()) {
+    return;
+  }
+
+  bool hasInsertSlice = false;
+  bool hasAnotherGenericInput = false;
+  for (Value res : op->getResults()) {
+    // has user
+    for (auto user : res.getUsers()) {
+      if (isa<tensor::InsertSliceOp>(user)) {
+        hasInsertSlice = true;
+      }
+      if (isa<linalg::GenericOp>(user)) {
+        hasAnotherGenericInput = true;
+      }
+    }
+    if (hasInsertSlice && hasAnotherGenericInput) {
+      collection.insert(std::make_pair(res, std::make_pair(Attribute(), true)));
+    }
+  }
 }

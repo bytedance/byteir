@@ -1,6 +1,7 @@
 // RUN: byteir-opt %s -memory-planning --canonicalize --cse | FileCheck %s
 // RUN: byteir-opt %s -memory-planning="alignment=64" --canonicalize --cse | byteir-stat --alloc-cnt | FileCheck %s --check-prefix CHECK-STAT
 // RUN: byteir-opt %s -memory-planning="alloca" --canonicalize --cse | FileCheck %s --check-prefix CHECK-ALLOCA
+// RUN: byteir-opt %s -memory-planning="alloca mem-space=2" --canonicalize --cse | FileCheck %s --check-prefix CHECK-SPACE
 
 func.func @test_basic_reuse(%arg0 : memref<256xf32>, %arg1 : memref<256xf32>) -> memref<256xf32> attributes {__placeholder__byre.entry_point} {
   %0 = memref.alloc() : memref<256xf32>
@@ -199,3 +200,23 @@ func.func @test_reuse_sub_chunk_i1(%arg0 : memref<512xi1>, %arg1 : memref<512xi1
 
 // CHECK-STAT-LABEL: test_reuse_sub_chunk_i1
 //  CHECK-STAT:   total_static_allocated_memory = 512
+
+func.func @test_reuse_single_memory_space(%arg0 : memref<512xf32, 1>, %arg1 : memref<512xf32, 2>) {
+  %0 = memref.alloc() : memref<512xf32, 1>
+  %1 = memref.alloc() : memref<512xf32, 2>
+  %2 = memref.alloc() : memref<512xf32, 1>
+  %3 = memref.alloc() : memref<512xf32, 2>
+  "lmhlo.add"(%arg0, %arg0, %0) : (memref<512xf32, 1>, memref<512xf32, 1>,  memref<512xf32, 1>) -> ()
+  "lmhlo.add"(%arg1, %arg1, %1) : (memref<512xf32, 2>, memref<512xf32, 2>,  memref<512xf32, 2>) -> ()
+  "lmhlo.add"(%0, %0, %arg0) : (memref<512xf32, 1>, memref<512xf32, 1>,  memref<512xf32, 1>) -> ()
+  "lmhlo.add"(%1, %1, %arg1) : (memref<512xf32, 2>, memref<512xf32, 2>,  memref<512xf32, 2>) -> ()
+  "lmhlo.add"(%arg0, %arg0, %2) : (memref<512xf32, 1>, memref<512xf32, 1>,  memref<512xf32, 1>) -> ()
+  "lmhlo.add"(%arg1, %arg1, %3) : (memref<512xf32, 2>, memref<512xf32, 2>,  memref<512xf32, 2>) -> ()
+  "lmhlo.add"(%2, %2, %arg0) : (memref<512xf32, 1>, memref<512xf32, 1>,  memref<512xf32, 1>) -> ()
+  "lmhlo.add"(%3, %3, %arg1) : (memref<512xf32, 2>, memref<512xf32, 2>,  memref<512xf32, 2>) -> ()
+  return
+}
+// CHECK-SPACE-LABEL: test_reuse_single_memory_space
+// CHECK-SPACE: memref.alloca() : memref<2048xi8, 2>
+// CHECK-SPACE: memref.alloc() : memref<512xf32, 1>
+// CHECK-SPACE: memref.alloc() : memref<512xf32, 1>

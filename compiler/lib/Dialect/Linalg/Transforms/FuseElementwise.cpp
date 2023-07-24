@@ -28,6 +28,7 @@
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 #include "byteir/Utils/Hoist.h"
+#include "byteir/Utils/TypeUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -36,6 +37,8 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "PassDetail.h"
+
+#include <iostream>
 
 using namespace llvm;
 using namespace mlir;
@@ -105,31 +108,86 @@ static bool checkDominateAllUsers(Operation *replaceOp, Value orig,
   return true;
 }
 
+static bool isBroadcast(GenericOp op) {
+  mlir::Block &b = op.getRegion().front();
+  // this is a trick, using 1 as yieldOp only
+  if (b.getOperations().size() == 1) {
+    return true;
+  }
+  return false;
+}
+
+static bool areShapeEqual(GenericOp consumer, OpOperand *producer) {
+  // consumer
+  Value consumerOutput = consumer.getOutputs()[0];
+  auto consumerShapeTy = consumerOutput.getType().dyn_cast<ShapedType>();
+  if (!consumerShapeTy)
+    return false;
+
+  auto producerOp = producer->get().getDefiningOp<GenericOp>();
+  for (auto output : producerOp.getOutputs()) {
+    auto outputShapeTy = output.getType().dyn_cast<ShapedType>();
+    if (!outputShapeTy)
+      return false;
+    if (!areSameShape(consumerShapeTy, outputShapeTy)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool isUsedByReturn(OpOperand *producer) {
+  for (Operation *useOp : producer->get().getUsers()) {
+    if (isa<func::ReturnOp>(useOp))
+      return true;
+  }
+
+  return false;
+}
+
 /// Patterns to fuse a generic op, with the producer of its operands.
 class FuseElementwiseProducerConsumerExt : public OpRewritePattern<GenericOp> {
 public:
-  FuseElementwiseProducerConsumerExt(MLIRContext *context, ControlFusionFn fun,
-                                     DominanceInfo &dom,
+  FuseElementwiseProducerConsumerExt(MLIRContext *context, bool diffShapes,
+                                     ControlFusionFn fun, DominanceInfo &dom,
                                      PostDominanceInfo &post,
                                      PatternBenefit benefit = 1)
       : OpRewritePattern<GenericOp>(context, benefit),
-        controlFn(std::move(fun)), domInfo(dom), postDomInfo(post) {}
+        enableDiffShapes(diffShapes), controlFn(std::move(fun)), domInfo(dom),
+        postDomInfo(post) {}
 
   LogicalResult matchAndRewrite(GenericOp genericOp,
                                 PatternRewriter &rewriter) const override {
+    if (isBroadcast(genericOp)) {
+      return failure();
+    }
 
     // Find the first operand that is defined by another generic op on tensors.
     for (OpOperand &opOperand : genericOp->getOpOperands()) {
       if (!isProducerElementwiseOpFusable(&opOperand)) {
         continue;
       }
+
       if (!controlFn(&opOperand)) {
+        continue;
+      }
+
+      if (!enableDiffShapes && !areShapeEqual(genericOp, &opOperand) &&
+          isUsedByReturn(&opOperand)) {
         continue;
       }
 
       FailureOr<ElementwiseOpFusionResult> fusionResult =
           fuseElementwiseOps(rewriter, &opOperand);
+
       if (succeeded(fusionResult)) {
+        // FIXME(lyq): applyPatternsAndFoldGreedily only trigger dce between
+        // patterns, so producer doesn't be erased when genericOp is replaced.
+        // If applyPatternsAndFoldGreedily's behavior changed, we should fix
+        // this.
+        auto producer = opOperand.get().getDefiningOp<GenericOp>();
+
         Operation *fusedOp = fusionResult->fusedOp;
         auto replacements =
             fusedOp->getResults().take_back(genericOp.getNumResults());
@@ -137,20 +195,21 @@ public:
 
         // Try to replace the producer with fusedOp
         // if fusedOp dominates all of the producer's users
-        auto producer = opOperand.get().getDefiningOp<GenericOp>();
         unsigned idx = 0;
         for (auto &&res : producer.getResults()) {
-          // only check use producer results
-          if (res.use_empty())
+          // only check used producer results
+          if (res.use_empty()) {
             continue;
-          hoistDownDescendantUsers(res, postDomInfo);
+          }
+
+          hoistDownDescendantUsers(res, postDomInfo, /*checkOperand=*/false);
+
           if (!checkDominateAllUsers(fusedOp, res, domInfo)) {
             idx++;
             continue;
           }
           res.replaceAllUsesWith(fusedOp->getResult(idx++));
         }
-
         return success();
       }
     }
@@ -158,6 +217,7 @@ public:
   }
 
 private:
+  bool enableDiffShapes;
   ControlFusionFn controlFn;
   DominanceInfo &domInfo;
   PostDominanceInfo &postDomInfo;
@@ -252,12 +312,12 @@ bool mlir::linalg::isProducerElementwiseOpFusable(OpOperand *fusedOperand) {
 }
 
 void mlir::linalg::populateElementwiseOpsProducerConsumerFusionPatterns(
-    RewritePatternSet &patterns,
+    RewritePatternSet &patterns, bool diffShapes,
     const ControlFusionFn &controlElementwiseOpsFusion, DominanceInfo &dom,
     PostDominanceInfo &postDomInfo) {
   auto *context = patterns.getContext();
   patterns.add<FuseElementwiseProducerConsumerExt>(
-      context, controlElementwiseOpsFusion, dom, postDomInfo);
+      context, diffShapes, controlElementwiseOpsFusion, dom, postDomInfo);
 
   // include the default populateElementwiseOpsFusionPatterns
   // but disable FuseElementwiseOps by passing a always-false ControlFusionFn
@@ -286,9 +346,7 @@ void mlir::linalg_ext::populateRemoveLinalgExtAliasPattern(
 
 namespace {
 static void populateCommonPatterns(RewritePatternSet &patterns,
-                                   const ControlFusionFn &controlFn,
-                                   DominanceInfo &domInfo,
-                                   PostDominanceInfo &postDomInfo) {
+                                   const ControlFusionFn &controlFn) {
   MLIRContext *context = patterns.getContext();
   populateFoldReshapeOpsByExpansionPatterns(patterns, controlFn);
 
@@ -309,17 +367,20 @@ static void populateCommonPatterns(RewritePatternSet &patterns,
 
 struct LinalgElementwiseFusionExtPass
     : public LinalgElementwiseFusionExtBase<LinalgElementwiseFusionExtPass> {
-  explicit LinalgElementwiseFusionExtPass(bool sharedInput)
+  LinalgElementwiseFusionExtPass(bool sharedInput, bool diffShapes)
       : LinalgElementwiseFusionExtBase() {
     this->enableSharedInput = sharedInput;
+    this->enableDiffShapes = diffShapes;
     controlFn = [](OpOperand *fusedOperand) {
       Operation *producer = fusedOperand->get().getDefiningOp();
       return producer != nullptr;
     };
   }
-  LinalgElementwiseFusionExtPass(bool sharedInput,
-                                 linalg::ControlFusionFn controlFunc) {
+
+  LinalgElementwiseFusionExtPass(linalg::ControlFusionFn controlFunc,
+                                 bool sharedInput, bool diffShapes) {
     this->enableSharedInput = sharedInput;
+    this->enableDiffShapes = diffShapes;
     controlFn = std::move(controlFunc);
   }
 
@@ -331,15 +392,16 @@ struct LinalgElementwiseFusionExtPass
     auto &postDomInfo = getAnalysis<PostDominanceInfo>();
 
     // simplify Tensor DimOp first
-    simplifyTensorDimOpUsedInLinalgWithinOp(*op);
+    // simplifyTensorDimOpUsedInLinalgWithinOp(*op);
 
     // do producer-consumer fusion first
     {
       RewritePatternSet patterns(context);
       // Add elementwise op fusion patterns.
       populateElementwiseOpsProducerConsumerFusionPatterns(
-          patterns, controlFn, domInfo, postDomInfo);
-      populateCommonPatterns(patterns, controlFn, domInfo, postDomInfo);
+          patterns, enableDiffShapes, controlFn, domInfo, postDomInfo);
+
+      populateCommonPatterns(patterns, controlFn);
 
       // Use TopDownTraversal for compile time reasons
       GreedyRewriteConfig grc;
@@ -366,9 +428,8 @@ struct LinalgElementwiseFusionExtPass
       auto alwayTrueControlFn = [](OpOperand *fusedOperand) { return true; };
       // Add elementwise op fusion patterns.
       populateElementwiseOpsProducerConsumerFusionPatterns(
-          patterns, alwayTrueControlFn, domInfo, postDomInfo);
-      populateCommonPatterns(patterns, alwayTrueControlFn, domInfo,
-                             postDomInfo);
+          patterns, enableDiffShapes, alwayTrueControlFn, domInfo, postDomInfo);
+      populateCommonPatterns(patterns, alwayTrueControlFn);
 
       // Use TopDownTraversal for compile time reasons
       GreedyRewriteConfig grc;
@@ -394,13 +455,15 @@ struct LinalgElementwiseFusionExtPass
 } // namespace
 
 std::unique_ptr<Pass>
-mlir::createLinalgElementwiseFusionExtPass(bool enableSharedInput) {
-  return std::make_unique<LinalgElementwiseFusionExtPass>(enableSharedInput);
+mlir::createLinalgElementwiseFusionExtPass(bool enableSharedInput,
+                                           bool enableDiffShapes) {
+  return std::make_unique<LinalgElementwiseFusionExtPass>(enableSharedInput,
+                                                          enableDiffShapes);
 }
 
 std::unique_ptr<Pass> mlir::createLinalgElementwiseFusionExtPass(
     const linalg::ControlFusionFn &controlElementwiseOpFusion,
-    bool enableSharedInput) {
+    bool enableSharedInput, bool enableDiffShapes) {
   return std::make_unique<LinalgElementwiseFusionExtPass>(
-      enableSharedInput, controlElementwiseOpFusion);
+      controlElementwiseOpFusion, enableSharedInput, enableDiffShapes);
 }

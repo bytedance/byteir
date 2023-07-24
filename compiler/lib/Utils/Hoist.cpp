@@ -139,7 +139,8 @@ Operation *mlir::findHoistUpInBlock(Operation *op, DominanceInfo &domInfo) {
 
 // return Operation Hoist down within a Block of op
 Operation *mlir::findHoistDownInBlock(Operation *op,
-                                      PostDominanceInfo &postDomInfo) {
+                                      PostDominanceInfo &postDomInfo,
+                                      bool checkOperand) {
   Operation *curPos = op->getBlock()->getTerminator();
   // check all results
   for (auto val : op->getResults()) {
@@ -154,13 +155,15 @@ Operation *mlir::findHoistDownInBlock(Operation *op,
     }
   }
 
-  for (auto val : op->getOperands()) {
-    Operation *leastPostDominant =
-        leastProperlyPostDominantUseInBlock(val, postDomInfo, op);
-    if (leastPostDominant == nullptr)
-      continue;
-    if (postDomInfo.properlyPostDominates(curPos, leastPostDominant)) {
-      curPos = leastPostDominant;
+  if (checkOperand) {
+    for (auto val : op->getOperands()) {
+      Operation *leastPostDominant =
+          leastProperlyPostDominantUseInBlock(val, postDomInfo, op);
+      if (leastPostDominant == nullptr)
+        continue;
+      if (postDomInfo.properlyPostDominates(curPos, leastPostDominant)) {
+        curPos = leastPostDominant;
+      }
     }
   }
 
@@ -172,8 +175,9 @@ void mlir::hoistUpOpInBlock(Operation *op, DominanceInfo &domInfo) {
   op->moveAfter(pos);
 }
 
-void mlir::hoistDownOpInBlock(Operation *op, PostDominanceInfo &postDomInfo) {
-  auto pos = findHoistDownInBlock(op, postDomInfo);
+void mlir::hoistDownOpInBlock(Operation *op, PostDominanceInfo &postDomInfo,
+                              bool checkOperand) {
+  auto pos = findHoistDownInBlock(op, postDomInfo, checkOperand);
   op->moveBefore(pos);
 }
 
@@ -281,20 +285,18 @@ void mlir::hoistDownOpAndUsers(Operation *op, Operation *target,
   }
 }
 
-void mlir::hoistDownDescendantUsers(Value val, PostDominanceInfo &postDomInfo) {
+void mlir::hoistDownDescendantUsers(Value val, PostDominanceInfo &postDomInfo,
+                                    bool checkOperand) {
   for (auto user : val.getUsers()) {
-    for (auto result : user->getResults())
-      hoistDownDescendantUsers(result, postDomInfo);
-
-    hoistDownOpInBlock(user, postDomInfo);
+    hoistDownDescendantUsers(user, postDomInfo, checkOperand);
   }
 }
 
 void mlir::hoistDownDescendantUsers(Operation *user,
-                                    PostDominanceInfo &postDomInfo) {
+                                    PostDominanceInfo &postDomInfo,
+                                    bool checkOperand) {
   for (auto res : user->getResults()) {
-    hoistDownDescendantUsers(res, postDomInfo);
+    hoistDownDescendantUsers(res, postDomInfo, checkOperand);
   }
-
-  hoistDownOpInBlock(user, postDomInfo);
+  hoistDownOpInBlock(user, postDomInfo, checkOperand);
 }

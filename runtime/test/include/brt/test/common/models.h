@@ -128,5 +128,11 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum input_dtype,
                             const std::vector<int64_t> &shape);
 
+const void *
+CreateWithEntryAttrs(brt::ir::ByREBuilder &byre_builder, DTypeEnum input_dtype,
+                     const std::vector<int64_t> &shape,
+                     const std::vector<std::string> &inputs,
+                     const std::vector<std::string> &outputs,
+                     const std::vector<std::string> &original_inputs);
 } // namespace test
 } // namespace brt

@@ -203,8 +203,6 @@ static void modifyLoopBody(OpBuilder &b, linalg::CopyOp oldCopy,
       return;
     b.setInsertionPointToStart(guardedBlock);
     (void)CloneCopy(b, oldCopy, loopIV, prefetchIndex, newDsts.back());
-
-    oldCopy.erase();
   }
 
   if (unroll) {
@@ -223,6 +221,8 @@ static void modifyLoopBody(OpBuilder &b, linalg::CopyOp oldCopy,
                                newDsts[i - 1]->getResult(0));
     }
   }
+
+  oldCopy.erase();
 }
 
 static void prefetchImpl(OpBuilder &b, linalg::CopyOp oldCopy, bool unroll) {

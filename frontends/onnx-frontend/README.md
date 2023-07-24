@@ -21,7 +21,7 @@ pip3 install lit>=14.0.0
 ```
 
 ### Build onnx-frontend from source code and run
-First, build MLIR (llvm-project commit `9acc2f37bdfce08ca0c2faec03392db10d1bb7a9`) with cmake option `-DLLVM_ENABLE_RTTI=ON`.
+First, build MLIR (llvm-project commit `76c83b3595a534c5b28bd80039e2115358ba2291`) with cmake option `-DLLVM_ENABLE_RTTI=ON`.
 Then,
 ```
 mkdir $ONNX_FRONTEND_ROOT/build

@@ -208,6 +208,20 @@ func.func @test_mhlo_reduce_window(%arg: tensor<1x64x112x112xf32>) -> tensor<1x6
 
 // -----
 
+func.func @test_mhlo_cumsum(%arg0: tensor<1x16xi64>) -> tensor<1x16xi64>  attributes {__placeholder__byre.entry_point} {
+  %0 = mhlo.constant dense<0> : tensor<i64>
+  %1 = "mhlo.reduce_window"(%arg0, %0) ({
+    ^bb0(%arg390: tensor<i64>, %arg391: tensor<i64>):
+      %2603 = mhlo.add %arg390, %arg391 : tensor<i64>
+      mhlo.return %2603 : tensor<i64>
+  }) {padding = dense<[[0, 0], [15, 0]]> : tensor<2x2xi64>, window_dilations = dense<1> : tensor<2xi64>, window_dimensions = dense<[1, 16]> : tensor<2xi64>, window_strides = dense<1> : tensor<2xi64>} : (tensor<1x16xi64>, tensor<i64>) -> tensor<1x16xi64>
+  return %1 : tensor<1x16xi64>
+}
+// CHECK-LABEL: func.func @test_mhlo_cumsum
+// CHECK-NEXT: byre.compute @PoolSumOp(%arg0)
+
+// -----
+
 func.func @test_mhlo_select_and_scatter(%arg0: tensor<32x64x112x112xf16>, %arg1: tensor<32x64x56x56xf16>) -> tensor<32x64x112x112xf16> attributes {__placeholder__byre.entry_point} {
   %0 = mhlo.constant dense<0.000000e+00> : tensor<f16>
   %1 = "mhlo.select_and_scatter"(%arg0, %arg1, %0) ({

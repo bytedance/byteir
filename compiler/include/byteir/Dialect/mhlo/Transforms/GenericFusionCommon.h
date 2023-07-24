@@ -101,8 +101,9 @@ public:
     if (funcOp.isPrivate())
       return;
 
+    // replicate foldalbe code
     for (auto &block : funcOp.getBlocks()) {
-      replicateDefiningOp(&block, isMhloConstantLike);
+      deepReplicateAncestorOps(block.getTerminator(), isDeepMhloFoldable);
     }
 
     ProducerFusionPlanner planner(

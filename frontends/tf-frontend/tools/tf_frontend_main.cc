@@ -34,6 +34,7 @@
 #include "tensorflow/compiler/mlir/tensorflow/utils/import_utils.h"
 
 #include "tf_mlir_ext/pipelines/passes.h"
+#include "utils/attributes.h"
 #include "utils/graphdef_opt.h"
 #include "utils/misc.h"
 
@@ -235,7 +236,7 @@ int main(int argc, char **argv) {
           StringAttr::get(module->getContext(), input_name));
     ArrayAttr original_input_name_array_attr =
         ArrayAttr::get(module->getContext(), original_input_name_attrs);
-    additional_main_func_attrs["original_input_names"] =
+    additional_main_func_attrs[getTfOriginalInputNamesKey()] =
         original_input_name_array_attr;
   }
 

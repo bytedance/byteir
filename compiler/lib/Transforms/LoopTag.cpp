@@ -30,7 +30,7 @@ namespace {
 
 struct LoopTagPass : public LoopTagBase<LoopTagPass> {
   LoopTagPass(const std::string &anchor, const std::string &attach,
-              unsigned depth, const std::string &loopType)
+              int64_t depth, const std::string &loopType)
       : LoopTagBase<LoopTagPass>() {
     this->anchorAttr = anchor;
     this->attachAttr = attach;
@@ -77,7 +77,7 @@ struct LoopTagPass : public LoopTagBase<LoopTagPass> {
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createLoopTagPass(llvm::StringRef anchorTag, const std::string &attachTag,
-                        unsigned depth, const std::string &loopType) {
+                        int64_t depth, const std::string &loopType) {
   return std::make_unique<LoopTagPass>(anchorTag.str(), attachTag, depth,
                                        loopType);
 }

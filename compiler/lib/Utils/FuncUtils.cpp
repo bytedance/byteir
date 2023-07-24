@@ -44,7 +44,6 @@ void mlir::getAllExtraFuncAttrs(SmallVectorImpl<mlir::NamedAttribute> &attrs,
 
 void mlir::cloneAllExtraFuncAttrs(func::FuncOp oldFunc, func::FuncOp newFunc,
                                   llvm::ArrayRef<llvm::StringRef> filterOut) {
-
   SmallVector<mlir::NamedAttribute> attrs;
 
   getAllExtraFuncAttrs(attrs, oldFunc, filterOut);

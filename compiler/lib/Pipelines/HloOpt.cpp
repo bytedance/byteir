@@ -19,6 +19,7 @@
 
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Transforms/CanonicalizeExt.h"
 #include "mhlo/transforms/passes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/Passes.h"
@@ -39,6 +40,7 @@ void addGenericHloFusionPatterns(OpPassManager &pm, const std::string &entry,
     pm.addNestedPass<func::FuncOp>(createCatFusionPass(aggressiveCatFusion));
     pm.addPass(createFusionOutliningPass());
   }
+
   pm.addNestedPass<func::FuncOp>(createConvBackwardFusionPass());
   pm.addNestedPass<func::FuncOp>(createIOConvertFusionPass());
   pm.addNestedPass<func::FuncOp>(createDotTransposeFusionPass());
@@ -74,7 +76,6 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
                               const std::string &target,
                               bool outlineSingleElemwiseOp, bool outlineCatOp,
                               bool aggressiveCatFusion) {
-
   pm.addPass(createInlinerPass());
   pm.addPass(createCanonicalizerPass());
 
@@ -98,6 +99,11 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
     addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp,
                                 outlineCatOp, aggressiveCatFusion);
   }
+
+  // note don't apply sccp
+  pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizeExtPass());
+  pm.addPass(createSymbolDCEPass());
 }
 } // namespace
 

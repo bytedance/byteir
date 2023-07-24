@@ -108,6 +108,7 @@ cc_library(
        "rewrite_to_custom_call.inc",
     ],
     deps = [
+      "//utils:attributes",
       "//tf_mlir_ext/utils:tfext_utils",
       "//byteir/Dialect/Ace:ace_dialect",
       ":tfext_pass_inc_gen",
