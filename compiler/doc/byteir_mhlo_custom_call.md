@@ -192,3 +192,31 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 
 - Results:
   - output: Tensor
+
+### byteir.rng_uniform
+- Operands:
+  - low: 0dTensor
+  - high: 0dTensor
+  - seed: 0dTensor
+  - offset: 0dTensor
+  - shape: Optional<1dTensor>
+- Results:
+  - out: Tensor
+- Example:
+```
+// Static Shape Case: out tensor must have static shape
+%high = mhlo.constant dense<1.000000e+00> : tensor<f32>
+%low = mhlo.constant dense<0.000000e+00> : tensor<f32>
+%seed = byre.compute @GetSeed() : tensor<i64>
+%offset = byre.compute @GetOffset() : tensor<i64>
+%0 = "mhlo.custom_call"(%low, %high, %seed, %offset) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>) -> tensor<8x1024x768xf32>
+```
+```
+// Dynamic Shape Case
+%high = mhlo.constant dense<1.000000e+00> : tensor<f32>
+%low = mhlo.constant dense<0.000000e+00> : tensor<f32>
+%seed = byre.compute @GetSeed() : tensor<i64>
+%offset = byre.compute @GetOffset() : tensor<i64>
+%shape = shape.shape_of %arg0 : tensor<3xindex>
+%0 = "mhlo.custom_call"(%low, %high, %seed, %offset, %shape) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>, tensor<3xindex>) -> tensor<?x?x?xf32>
+```

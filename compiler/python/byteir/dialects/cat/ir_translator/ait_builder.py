@@ -14,6 +14,7 @@
 
 import random
 import torch
+import os
 import numpy as np
 from typing import Set
 
@@ -50,6 +51,7 @@ class ait_builder:
         self.ait_module_path = None
         self.ait_model = None
 
+        self.subgraph_name = subgraph_name
         self.workdir = workdir
         self.test_name = "./" + subgraph_name
         self.dll_name = subgraph_name + ".so"
@@ -66,6 +68,12 @@ class ait_builder:
             self.inputs.append(self._value2tensor[i])
             idx += 1
 
+        # Note: variable `lib_path` is constructed according to the code in compile_model()
+        lib_path = os.path.join(self.workdir, self.test_name, self.dll_name,)
+        print("AIT module path {} for {}".format(lib_path, self.dll_name))
+        self.ait_module_path = lib_path
+
+    def compile(self):
         self._visit_block(self.func.entry_block)
         assert self.ait_module_path is not None
         assert self.ait_model is not None
@@ -109,7 +117,7 @@ class ait_builder:
         return self._value2tensor[val]
 
     def _gen_ait_module(self, results):
-        target = detect_target()
+        target = detect_target(use_fp16_acc=False)
         constants = {}
 
         idx = 0

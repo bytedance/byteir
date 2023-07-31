@@ -20,6 +20,7 @@
 
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/SmallVector.h"
@@ -72,6 +73,73 @@ void getGenericEffectsImpl(
         &effects,
     ValueRange results, const OpOperandVector &inputOperands,
     const OpOperandVector &outputOperands);
+
+void calculateTileOffsetsAndSizes(
+    RewriterBase &b, Location loc, ValueRange inductionVars,
+    ArrayRef<OpFoldResult> numTiles, const SmallVector<Range> &loogRanges,
+    bool omitTileOffsetBoundsCheck,
+    std::optional<ArrayRef<OpFoldResult>> nominalTileSizes,
+    SmallVector<OpFoldResult> &tiledOffsets,
+    SmallVector<OpFoldResult> &tiledSizes);
+
+SmallVector<OpFoldResult>
+convertTileNumsToTileSizes(OpBuilder &b, Location loc,
+                           ArrayRef<OpFoldResult> tileNums,
+                           ArrayRef<Range> loopRanges);
+
+namespace scf {
+
+using SCFTileSizeComputationFunctionExt =
+    std::function<SmallVector<Value>(OpBuilder &, TilingInterface)>;
+
+struct SCFTilingOptionsExt {
+  /// Computation function that returns the tile sizes for each operation.
+  /// Delayed construction of constant tile sizes should occur to interoperate
+  /// with folding.
+  SCFTileSizeComputationFunctionExt tileSizeComputationFunction = nullptr;
+
+  SCFTilingOptionsExt &
+  setTileSizeComputationFunction(SCFTileSizeComputationFunctionExt fun) {
+    tileSizeComputationFunction = std::move(fun);
+    return *this;
+  }
+
+  /// Set the `tileSizeComputationFunction` to return the values `ts`. The
+  /// values must not fold away when tiling. Otherwise, use a more robust
+  /// `tileSizeComputationFunction`.
+  SCFTilingOptionsExt &setTileSizes(const SmallVector<Value, 4> &ts) {
+    tileSizeComputationFunction = [=](OpBuilder &, Operation *) { return ts; };
+    return *this;
+  }
+
+  /// Convenience function to set the `tileSizeComputationFunction` to a
+  /// function that computes tile sizes at the point they are needed. Allows
+  /// proper interaction with folding.
+  SCFTilingOptionsExt &setTileSizes(ArrayRef<int64_t> ts);
+
+  /// The interchange vector to reorder the tiled loops.
+  SmallVector<int64_t> interchangeVector = {};
+  SCFTilingOptionsExt &setInterchange(ArrayRef<int64_t> interchange) {
+    interchangeVector = llvm::to_vector(interchange);
+    return *this;
+  }
+};
+
+SmallVector<scf::ForOp> createNestedEmptyScfForOps(OpBuilder &b, Location loc,
+                                                   ArrayRef<Value> lowerBounds,
+                                                   ArrayRef<Value> upperBounds,
+                                                   ArrayRef<Value> steps);
+
+SmallVector<scf::ForOp>
+createNestedEmptyScfForOpsWithZeroLbAndOneStep(OpBuilder &b, Location loc,
+                                               ArrayRef<OpFoldResult> sizes);
+
+LogicalResult tileToExistedLoops(RewriterBase &rewriter, TilingInterface op,
+                                 ArrayRef<OpFoldResult> tileNums,
+                                 ArrayRef<int64_t> interchange,
+                                 scf::SCFTileAndFuseResult &tileAndFuseResult);
+
+} // namespace scf
 
 } // namespace mlir
 

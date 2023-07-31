@@ -57,6 +57,9 @@ constexpr StringRef getByteIRHloAggressiveFusionAttrName() {
 // fuse ReduceWindow with Pad and/or Constant
 void populateFuseReduceWindowPatterns(RewritePatternSet &patterns);
 
+// reshape gather indices to 1D
+void populateReshapeGatherPatterns(RewritePatternSet &patterns);
+
 // fuse ConvForward patterns
 // such as Conv with bias of activation
 void populateFuseConvForwardPatterns(RewritePatternSet &patterns);
@@ -75,6 +78,8 @@ void populateTrivialFusionPattern(RewritePatternSet &patterns,
                                   llvm::StringMap<StringRef> &lut_name);
 
 std::unique_ptr<OperationPass<func::FuncOp>> createReduceFusionPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>> createReshapeGatherPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvBackwardFusionPass();
 

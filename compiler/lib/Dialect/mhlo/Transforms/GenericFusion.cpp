@@ -82,7 +82,7 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) {
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op);
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op);
 }
 
 static GenericFuserConfig config{

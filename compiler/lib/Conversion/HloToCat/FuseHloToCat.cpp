@@ -73,9 +73,23 @@ struct ConvertSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
     if (!byteirAttrs)
       return failure();
     auto axisAttr = byteirAttrs.get("axis").cast<IntegerAttr>();
-    auto newOp = rewriter.create<cat::SoftmaxOp>(
-        op.getLoc(), op.getResultTypes()[0], op.getOperands()[0], axisAttr);
-    rewriter.replaceOp(op, newOp.getResult());
+    auto resultTy = op.getResultTypes()[0].cast<ShapedType>();
+    auto inputTy = op.getOperands()[0].getType().cast<ShapedType>();
+    auto softmaxTy = resultTy;
+    bool needConvert = resultTy.getElementType() != inputTy.getElementType();
+    if (needConvert) {
+      softmaxTy =
+          RankedTensorType::get(resultTy.getShape(), inputTy.getElementType());
+    }
+    auto newOp = rewriter.create<cat::SoftmaxOp>(op.getLoc(), softmaxTy,
+                                                 op.getOperands()[0], axisAttr);
+    if (needConvert) {
+      auto castOp = rewriter.create<mhlo::ConvertOp>(op.getLoc(), resultTy,
+                                                     newOp.getResult());
+      rewriter.replaceOp(op, castOp.getResult());
+    } else {
+      rewriter.replaceOp(op, newOp.getResult());
+    }
     return success();
   }
 };

@@ -224,4 +224,23 @@ def SharedOutputToDistributedStyleOp : Op<Transform_Dialect,
   let hasCustomAssemblyFormat = 1;
 }
 
+def FuseOperandsOp : Op<Transform_Dialect, "structured.fuse_operands",
+    [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Tiles all the operands of the target handle together and fuses
+    their producers greedily using the options provided as attributes.
+  }];
+
+  let arguments =
+    (ins PDL_Operation:$target,
+         DefaultValuedAttr<I64ArrayAttr, "{}">:$tile_nums,
+         DefaultValuedAttr<I64ArrayAttr, "{}">:$tile_interchange);
+  let results = (outs PDL_Operation:$transformed,
+                      Variadic<PDL_Operation>:$loops);
+
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
+}
+
 #endif // BYTEIR_DIALECT_LINALG_TRANSFORMOPS_LINALG_EXT_TRANSFORMOPS

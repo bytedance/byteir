@@ -86,6 +86,7 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
   pm.addNestedPass<func::FuncOp>(createReduceFusionPass());
+  pm.addNestedPass<func::FuncOp>(createReshapeGatherPass());
 
   // rewrite with constraint
   pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());

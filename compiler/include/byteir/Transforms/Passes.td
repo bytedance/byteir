@@ -201,7 +201,14 @@ def GraphClusteringByDevice : Pass<"graph-clustering-by-device", "ModuleOp"> {
     Option<"dupNonSplat", "dup-non-splat", "bool", /*default=*/"false",
            "duplicate a non-splat const if it is used by both host and device side.">,
     Option<"dupOutputs", "dup-outputs", "bool", /*default=*/"false",
-           "duplicate a return value in the internal function if it is returned multiple times in main.">
+           "duplicate a return value in the internal function if it is returned multiple times in main.">,
+    Option<"clusterAlgo", "cluster-algo", "::mlir::GraphClusteringAlgo", /*default=*/"::mlir::GraphClusteringAlgo::kFallback",
+           "The clustering algorithm",
+           [{llvm::cl::values(
+              clEnumValN(mlir::GraphClusteringAlgo::kFallback, "Fallback", "Fallback clustering algorithm"),
+              clEnumValN(mlir::GraphClusteringAlgo::kTopDown, "TopDown", "Create and merge device cluster progressively from top to bottom"),
+              clEnumValN(mlir::GraphClusteringAlgo::kBottomUp, "BottomUp", "Create and merge device cluster progressively from bottom to top")
+            )}]>
   ];
 }
 
