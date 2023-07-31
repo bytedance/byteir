@@ -21,7 +21,6 @@
 #include "brt/core/framework/allocator.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/util.h"
-#include <cassert>
 #include <dlfcn.h>
 
 using namespace brt;
@@ -371,7 +370,7 @@ AITOpKernel::AITOpKernel(const OpKernelInfo &info)
   std::string lib_path = brt::ir::GetParentPath(ir_path);
   lib_path += accessor.GetAttrAsString(std::string("ait_lib_file"));
   aitLibHdl = dlopen(lib_path.c_str(), RTLD_NOW | RTLD_LOCAL);
-  assert(aitLibHdl && "AIT lib .so load failed");
+  BRT_ENFORCE(aitLibHdl != nullptr, "AIT lib .so load failed");
   std::string space = accessor.GetAttrAsString("device");
   IAllocator *alloc = info_.GetAllocator(space);
   workspaceSizeInBytes =

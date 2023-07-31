@@ -2,6 +2,7 @@ add_mlir_library(ByteIRUtils
   AffineUtils.cpp
   AttrUtils.cpp
   FuncUtils.cpp
+  GraphUtils.cpp
   Hoist.cpp
   IRRewrite.cpp
   LoopUtils.cpp

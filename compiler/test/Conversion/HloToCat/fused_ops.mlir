@@ -252,3 +252,13 @@ func.func @test_bmm_rrr_reshape_transpose_to_bmm_rrc_reshape(%arg0: tensor<64x12
 // CHECK-NEXT: cat.bmm_rrc
 // CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: return
+
+func.func @test_softmax_f16(%arg0 : tensor<1x12x1024x1024xf16>) -> tensor<1x12x1024x1024xf32> {
+  %0 = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 3 : i64}} : (tensor<1x12x1024x1024xf16>) -> tensor<1x12x1024x1024xf32>
+  return %0 : tensor<1x12x1024x1024xf32>
+}
+
+// CHECK: func.func @test_softmax_f16
+// CHECK-NEXT: cat.softmax
+// CHECK-NEXT: mhlo.convert
+// CHECK-NEXT: return

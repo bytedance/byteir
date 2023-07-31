@@ -57,6 +57,11 @@ tileConsumerAndFuseProducerUsingSCFForOpExt(
     ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
     bool simplifyLoopIter = true, bool keepIntermediate = false);
 
+FailureOr<scf::SCFTileAndFuseResult>
+tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
+    RewriterBase &rewriter, ArrayRef<Value> tensors,
+    ArrayRef<OpFoldResult> numTiles, ArrayRef<int64_t> interchange);
+
 void labelTileLoopType(Operation *op, ArrayRef<scf::ForOp> loops);
 
 LogicalResult isValidTiling(Operation *tiled);

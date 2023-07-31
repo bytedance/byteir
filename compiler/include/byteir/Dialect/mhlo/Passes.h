@@ -22,6 +22,7 @@
 #include "byteir/Dialect/mhlo/Transforms/ClusterConstraint.h"
 #include "byteir/Dialect/mhlo/Transforms/ConvertFuncToCustomCall.h"
 #include "byteir/Dialect/mhlo/Transforms/ConvertInsertion.h"
+#include "byteir/Dialect/mhlo/Transforms/ConvertRngToCustomCall.h"
 #include "byteir/Dialect/mhlo/Transforms/DTypeConversion.h"
 #include "byteir/Dialect/mhlo/Transforms/DynamicShapeClustering.h"
 #include "byteir/Dialect/mhlo/Transforms/FuncArgRearrangement.h"

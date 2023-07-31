@@ -18,6 +18,7 @@
 #ifndef BYTEIR_TRANSFORMS_PASSDETAIL_H
 #define BYTEIR_TRANSFORMS_PASSDETAIL_H
 
+#include "byteir/Transforms/GraphClusteringAlgo.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
 

@@ -31,5 +31,26 @@ add_library(custom_op SHARED
     dynamic_stitch.cpp
     dynamic_mask_stitch.cpp
 )
+
+# add_library(custom_torch IMPORTED INTERFACE GLOBAL)
+# set_property(
+#   TARGET custom_torch
+#   APPEND
+#   PROPERTY INTERFACE_LINK_LIBRARIES "${Torch_DIR}/../../../lib/libtorch.so")
+# set_property(
+#   TARGET custom_torch
+#   APPEND
+#   PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${Torch_DIR}/../../../include")
+
+# add_library(custom_torch SHARED IMPORTED GLOBAL)
+# set_property(
+#   TARGET custom_torch
+#   PROPERTY IMPORTED_LOCATION
+#   "${Torch_DIR}/../../../lib/libtorch.so"
+# )
+# get_property(custom_torch_include_dir TARGET torch PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+# target_include_directories(custom_op PRIVATE ${custom_torch_include_dir})
+
 target_compile_features(custom_op PRIVATE cxx_std_17)
+# target_link_libraries(custom_op PRIVATE custom_torch)
 target_link_libraries(custom_op PRIVATE "${TORCH_LIBRARIES}")

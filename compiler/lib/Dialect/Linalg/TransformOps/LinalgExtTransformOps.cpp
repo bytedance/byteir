@@ -1348,6 +1348,142 @@ void transform::SharedOutputToDistributedStyleOp::getEffects(
 }
 
 //===----------------------------------------------------------------------===//
+// FuseOperandsOp
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+static LogicalResult applyTilingOperandsToAll(
+    Operation *transformOp, ArrayRef<Operation *> targetPayloadOps,
+    unsigned numLoops, transform::TransformResults &transformResults,
+    function_ref<FailureOr<scf::SCFTileAndFuseResult>(ArrayRef<Value>)>
+        applyFn) {
+  SmallVector<Operation *> tiledLinalgOps;
+  SmallVector<SmallVector<Operation *>> loopOps(numLoops);
+
+  for (Operation *target : targetPayloadOps) {
+    SmallVector<Value> operandValues;
+    operandValues.reserve(target->getNumOperands());
+    for (unsigned i = 0; i < target->getNumOperands(); ++i)
+      operandValues.push_back(target->getOperand(i));
+
+    SimpleRewriter rewriter(target->getContext());
+    rewriter.setInsertionPoint(target);
+    FailureOr<scf::SCFTileAndFuseResult> tileAndFuseResult =
+        applyFn(operandValues);
+    if (failed(tileAndFuseResult)) {
+      LLVM_DEBUG(DBGS() << "Failed to get tileAndFuseResult for " << *target
+                        << "\n");
+      return failure();
+    }
+
+    // Perform the replacement of tiled and fused values.
+    llvm::SetVector<Operation *> opsToReplace;
+    for (Value operand : operandValues)
+      opsToReplace.insert(operand.getDefiningOp());
+    for (Operation *op : tileAndFuseResult->fusedProducers)
+      opsToReplace.insert(op);
+    for (Operation *toReplace : opsToReplace) {
+      SmallVector<Value> replacements;
+      replacements.reserve(toReplace->getNumResults());
+      for (OpResult res : toReplace->getResults()) {
+        auto it = tileAndFuseResult->replacements.find(res);
+        if (it == tileAndFuseResult->replacements.end())
+          replacements.push_back(res);
+        else
+          replacements.push_back(it->getSecond());
+      }
+      rewriter.replaceOp(toReplace, replacements);
+    }
+
+    // Report back the relevant handles to the transform op.
+    tiledLinalgOps.push_back(target);
+    assert(tileAndFuseResult->loops.size() == numLoops &&
+           "Mismatched number of loops, tile and fuse transform should have "
+           "failed");
+    for (unsigned int i = 0; i < numLoops; ++i)
+      loopOps[i].push_back(tileAndFuseResult->loops[i]);
+  }
+
+  transformResults.set(transformOp->getOpResult(0), tiledLinalgOps);
+  for (unsigned int i = 0; i < numLoops; ++i)
+    transformResults.set(transformOp->getOpResult(i + 1), loopOps[i]);
+
+  return success();
+}
+
+} // namespace
+
+DiagnosedSilenceableFailure transform::FuseOperandsOp::apply(
+    mlir::transform::TransformResults &transformResults,
+    mlir::transform::TransformState &state) {
+  SmallVector<int64_t> tileNums = extractFromI64ArrayAttr(getTileNums());
+  SmallVector<int64_t> tileInterchange =
+      extractFromI64ArrayAttr(getTileInterchange());
+  ArrayRef<Operation *> targetPayloadOps = state.getPayloadOps(getTarget());
+
+  LogicalResult result = applyTilingOperandsToAll(
+      getOperation(), targetPayloadOps,
+      tileNums.size() - llvm::count(tileNums, 0), transformResults,
+      [&](ArrayRef<Value> tensors) -> FailureOr<scf::SCFTileAndFuseResult> {
+        SimpleRewriter rewriter(getContext());
+        SmallVector<OpFoldResult> tileNumsFoldResult =
+            getAsIndexOpFoldResult(getContext(), tileNums);
+        return tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
+            rewriter, tensors, tileNumsFoldResult, tileInterchange);
+      });
+
+  return failed(result) ? DiagnosedSilenceableFailure::definiteFailure()
+                        : DiagnosedSilenceableFailure::success();
+}
+
+ParseResult transform::FuseOperandsOp::parse(OpAsmParser &parser,
+                                             OperationState &result) {
+  OpAsmParser::UnresolvedOperand targetOperand;
+  SMLoc opLoc = parser.getCurrentLocation();
+  if (parser.parseOperand(targetOperand))
+    return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
+  StringRef tileNumsAttrName =
+      transform::FuseOperandsOp::getTileNumsAttrName(result.name).getValue();
+  Attribute tileNumsAttr = result.attributes.get(tileNumsAttrName);
+  if (!tileNumsAttr)
+    return parser.emitError(opLoc)
+           << "expected '" << tileNumsAttrName << "' attribute";
+  auto tileNumsArrayAttr = tileNumsAttr.dyn_cast<ArrayAttr>();
+  if (!tileNumsArrayAttr)
+    return parser.emitError(opLoc)
+           << "'" << tileNumsAttrName << "' attribute must be an array";
+  Type pdlOpType = parser.getBuilder().getType<pdl::OperationType>();
+  size_t numExpectedLoops =
+      tileNumsArrayAttr.size() -
+      llvm::count(extractFromI64ArrayAttr(tileNumsArrayAttr), 1);
+  result.addTypes(SmallVector<Type>(numExpectedLoops + 1, pdlOpType));
+  if (parser.resolveOperand(targetOperand, pdlOpType, result.operands))
+    return failure();
+  return success();
+}
+
+void transform::FuseOperandsOp::print(OpAsmPrinter &p) {
+  p << ' ';
+  p << getTarget();
+  p.printOptionalAttrDict((*this)->getAttrs());
+}
+
+LogicalResult transform::FuseOperandsOp::verify() {
+  SmallVector<int64_t> permutation =
+      extractFromI64ArrayAttr(getTileInterchange());
+  auto sequence = llvm::to_vector(llvm::seq<int64_t>(0, permutation.size()));
+  if (!std::is_permutation(sequence.begin(), sequence.end(),
+                           permutation.begin(), permutation.end())) {
+    return emitOpError() << "expects interchange to be a permutation, found "
+                         << getTileInterchange();
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Transform op registration
 //===----------------------------------------------------------------------===//
 

@@ -3,8 +3,14 @@ from byteir.passmanager import PassManager
 
 from pathlib import Path
 import os
+import time
+import multiprocessing
+import torch
 
 BYTEIR_CAT_ATTR = "__byteir_cat_fusion__"
+
+available_cuda_device_num = torch.cuda.device_count()
+MAX_COMPILATION_PARALLELISM = available_cuda_device_num
 
 def func_hash_str(func):
     hash_str = ""
@@ -21,12 +27,14 @@ def func_hash_str(func):
     return hash_str
 
 class IRProcessor:
-    def __init__(self, job_name, workdir):
+    def __init__(self, job_name, workdir, compile_parallelism = MAX_COMPILATION_PARALLELISM):
         self.job_name = job_name
         self.workdir = workdir
         self.module = None
         self.enable_ait_reuse = True
         self.ait_reuse_dict = {} # key: hash key, value: Tuple(dll_name, ait_module_path)
+        self.compile_parallelism = min(compile_parallelism, MAX_COMPILATION_PARALLELISM)
+        self.pool = multiprocessing.Pool(compile_parallelism)
 
     def _get_builder(self, module, subgraph_name, backend="ait"):
         assert module != None
@@ -85,15 +93,18 @@ class IRProcessor:
 
     def ait_opt_pass(self, anchor_only=False, dump_ir=False):
         if not anchor_only:
-            builder = self._get_builder(backend=backend)
+            builder = self._get_builder()
+            builder.compile()
             return self.module
         funcNameArg = ""
         aitLibPathArg = ""
         dllPaths = []
         
+        func_ir_str_list = []
         for func in self.module.body.operations:
             if BYTEIR_CAT_ATTR not in func.attributes:
                 continue
+            func_ir_str = func.get_asm(large_elements_limit=None)
             if self.enable_ait_reuse:
                 hash_str = func_hash_str(func)
                 hash_key = hash(hash_str)
@@ -103,18 +114,32 @@ class IRProcessor:
                     dllPaths.append(self.ait_reuse_dict[hash_key][1])
                 else:
                     builder = self._get_builder(module=func, subgraph_name=func.name.value, backend="ait")
-                    builder.benchmark()
+                    # builder.benchmark()
                     funcNameArg += func.name.value + ","
                     aitLibPathArg += builder.dll_name + ","
                     dllPaths.append(builder.ait_module_path)
                     self.ait_reuse_dict[hash_key] = (builder.dll_name, builder.ait_module_path)
+                    func_ir_str_list.append(func_ir_str)
             else:
                 builder = self._get_builder(module=func, subgraph_name=func.name.value, backend="ait")
-                builder.benchmark()
+                # builder.benchmark()
                 funcNameArg += func.name.value + ","
                 aitLibPathArg += builder.dll_name + ","
                 dllPaths.append(builder.ait_module_path)
+                func_ir_str_list.append(func_ir_str)
         
+        # compile and benchmark
+        print("compile ait module using {} processes".format(min(len(func_ir_str_list), self.compile_parallelism)))
+        t_st = time.time()
+        for func_ir_str in func_ir_str_list:
+            self.pool.apply_async(_parallel_ait_compile, (self.workdir, func_ir_str))
+            # _parallel_ait_compile(self.workdir, func_ir_str)
+        
+        self.pool.close()
+        self.pool.join()
+        t_ed = time.time()
+        print("compilation finished in {}s".format(t_ed-t_st))
+
         with self.module.context:
             pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(funcNameArg, aitLibPathArg))
             pm.run(self.module.operation)
@@ -136,13 +161,27 @@ class IRProcessor:
         module = self.module.body.operations[0]
         subgraph_name = module.name.value
         builder = self._get_builder(module=module, subgraph_name=subgraph_name, backend=backend)
+        builder.compile()
         return builder.execute(inputs)
 
     def benchmark(self, backend="ait", num_trials=5):
         module = self.module.body.operations[0]
         subgraph_name = module.name.value
         builder = self._get_builder(module=module, subgraph_name=subgraph_name, backend=backend)
+        builder.compile()
         builder.benchmark(num_trials)
 
     def profile(self, backend="ait"):
         pass
+
+
+def _parallel_ait_compile(workdir: str, ir_str: str):
+    os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
+    context = ir.Context()
+    module = ir.Module.parse(ir_str, context)
+    assert len(module.body.operations) == 1
+    func = module.body.operations[0]
+    from byteir.dialects.cat.ir_translator.ait_builder import ait_builder
+    builder = ait_builder(func, workdir=workdir, subgraph_name=func.name.value)
+    builder.compile()
+    builder.benchmark()

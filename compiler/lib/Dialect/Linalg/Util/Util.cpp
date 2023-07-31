@@ -21,10 +21,13 @@
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -285,4 +288,383 @@ void mlir::fillStructuredOpRegion(OpBuilder &opBuilder, Region &region,
   // indexing_maps is an auto-generated method.
 
   // iterator_types is an auto-generated method.
+}
+
+/// Build an `affine_max` of all the `vals`.
+static OpFoldResult buildMax(OpBuilder &b, Location loc,
+                             ArrayRef<OpFoldResult> vals) {
+  return makeComposedFoldedAffineMax(
+      b, loc, AffineMap::getMultiDimIdentityMap(vals.size(), loc.getContext()),
+      vals);
+}
+
+/// Build an `affine_min` of all the `vals`.
+static OpFoldResult buildMin(OpBuilder &b, Location loc,
+                             ArrayRef<OpFoldResult> vals) {
+  return makeComposedFoldedAffineMin(
+      b, loc, AffineMap::getMultiDimIdentityMap(vals.size(), loc.getContext()),
+      vals);
+}
+
+/// Returns true if the maximum tile offset `tileSize * numThreads-1` is less
+/// than `iterationSize`.
+static bool canOmitTileOffsetInBoundsCheck(OpFoldResult tileSize,
+                                           OpFoldResult numThreads,
+                                           OpFoldResult iterationSize) {
+  std::optional<int64_t> tileSizeConst = getConstantIntValue(tileSize);
+  std::optional<int64_t> numThreadsConst = getConstantIntValue(numThreads);
+  std::optional<int64_t> iterSizeConst = getConstantIntValue(iterationSize);
+  if (!tileSizeConst || !numThreadsConst || !iterSizeConst)
+    return false;
+  return *tileSizeConst * (*numThreadsConst - 1) < *iterSizeConst;
+}
+
+/// Helper method to adjust the interchange vector to match the iteration
+/// domain.
+static SmallVector<int64_t>
+fillInterchangeVector(ArrayRef<int64_t> interchangeVector,
+                      size_t iterationDomainSize) {
+  SmallVector<int64_t> filledVector = llvm::to_vector(interchangeVector);
+  if (filledVector.size() < iterationDomainSize) {
+    auto range = llvm::seq<int64_t>(filledVector.size(), iterationDomainSize);
+    filledVector.append(range.begin(), range.end());
+  }
+  if (filledVector.size() > iterationDomainSize)
+    filledVector.resize(iterationDomainSize);
+  return filledVector;
+}
+
+void mlir::calculateTileOffsetsAndSizes(
+    RewriterBase &b, Location loc, ValueRange inductionVars,
+    ArrayRef<OpFoldResult> numThreads, const SmallVector<Range> &loopRanges,
+    bool omitTileOffsetBoundsCheck,
+    std::optional<ArrayRef<OpFoldResult>> nominalTileSizes,
+    SmallVector<OpFoldResult> &tiledOffsets,
+    SmallVector<OpFoldResult> &tiledSizes) {
+  OpBuilder::InsertionGuard g(b);
+
+  SmallVector<OpFoldResult> nonZeroNumThreads =
+      llvm::to_vector(llvm::make_filter_range(numThreads, [](OpFoldResult ofr) {
+        return !isConstantIntValue(ofr, 1);
+      }));
+  int64_t nLoops = loopRanges.size();
+  tiledOffsets.reserve(nLoops);
+  tiledSizes.reserve(nLoops);
+  for (unsigned loopIdx = 0, threadIdIdx = 0; loopIdx < nLoops; ++loopIdx) {
+    bool overflow = loopIdx >= numThreads.size();
+    bool isZero = !overflow && isConstantIntValue(numThreads[loopIdx], 1);
+    // Degenerate case: take the whole domain.
+    if (overflow || isZero) {
+      tiledOffsets.push_back(loopRanges[loopIdx].offset);
+      tiledSizes.push_back(loopRanges[loopIdx].size);
+      continue;
+    }
+
+    // Tiled case: compute the offset and size.
+    AffineExpr i, j, m, n, o;
+    bindDims(b.getContext(), i, j);
+    bindSymbols(b.getContext(), m, n, o);
+    OpFoldResult size = loopRanges[loopIdx].size;
+    OpFoldResult offset = loopRanges[loopIdx].offset;
+    OpFoldResult threadId = inductionVars[loopIdx];
+    // Symbolic fixed max size per thread.
+    // TODO: floor + 0/1 depending on case for better load-balancing.
+    OpFoldResult tileSizePerThread =
+        nominalTileSizes.has_value()
+            ? (*nominalTileSizes)[loopIdx]
+            : makeComposedFoldedAffineApply(
+                  b, loc, m.ceilDiv(n),
+                  ArrayRef<OpFoldResult>{size, nonZeroNumThreads[threadIdIdx]});
+    // Dynamic offset shifted by threadId * maxSizePerThread.
+    OpFoldResult offsetPerThread = makeComposedFoldedAffineApply(
+        b, loc, i + j * m, {offset, threadId, tileSizePerThread});
+    // Dynamic upper-bound depending on the threadId.
+    OpFoldResult residualTileSize = makeComposedFoldedAffineApply(
+        b, loc, i + j * m - n,
+        {offset, nonZeroNumThreads[threadIdIdx], tileSizePerThread, size});
+    if (!isConstantIntValue(residualTileSize, 0)) {
+      OpFoldResult sizeMinusOffsetPerThread = makeComposedFoldedAffineApply(
+          b, loc, -i + m, {offsetPerThread, size});
+      tileSizePerThread =
+          buildMin(b, loc, {sizeMinusOffsetPerThread, tileSizePerThread});
+    }
+
+    tiledOffsets.push_back(offsetPerThread);
+    // TODO: if tileSizePerThread <= 0 early exit.
+    if (!omitTileOffsetBoundsCheck &&
+        !canOmitTileOffsetInBoundsCheck(tileSizePerThread,
+                                        nonZeroNumThreads[threadIdIdx], size))
+      tileSizePerThread =
+          buildMax(b, loc, {b.getIndexAttr(0), tileSizePerThread});
+
+    tiledSizes.push_back(tileSizePerThread);
+    ++threadIdIdx;
+  }
+}
+
+SmallVector<OpFoldResult>
+convertTileNumsToTileSizes(OpBuilder &b, Location loc,
+                           ArrayRef<OpFoldResult> tileNums,
+                           ArrayRef<Range> loopRanges) {
+  SmallVector<OpFoldResult> tileSizes;
+  int64_t nLoops = loopRanges.size();
+  tileSizes.reserve(nLoops);
+  for (unsigned loopIdx = 0; loopIdx < nLoops; ++loopIdx) {
+    bool overflow = loopIdx >= tileNums.size();
+    bool isOne = !overflow && isConstantIntValue(tileNums[loopIdx], 1);
+    // Degenerate case: tile size = 0
+    if (overflow || isOne) {
+      tileSizes.push_back(b.getIndexAttr(0));
+      continue;
+    }
+
+    // Tiled case
+    AffineExpr x, y;
+    bindSymbols(b.getContext(), x, y);
+    OpFoldResult size = loopRanges[loopIdx].size;
+    OpFoldResult tileNum = tileNums[loopIdx];
+    OpFoldResult tileSize = makeComposedFoldedAffineApply(
+        b, loc, x.ceilDiv(y), ArrayRef<OpFoldResult>{size, tileNum});
+    tileSizes.push_back(tileSize);
+  }
+  return tileSizes;
+}
+
+scf::SCFTilingOptionsExt &
+scf::SCFTilingOptionsExt::setTileSizes(ArrayRef<int64_t> ts) {
+  assert(!tileSizeComputationFunction && "tile sizes already set");
+  SmallVector<int64_t> tileSizes(ts.begin(), ts.end());
+  tileSizeComputationFunction = [tileSizes](OpBuilder &b, TilingInterface op) {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToStart(
+        &op->getParentWithTrait<OpTrait::IsIsolatedFromAbove>()
+             ->getRegion(0)
+             .front());
+    return llvm::to_vector<4>(map_range(tileSizes, [&](int64_t s) {
+      Value v = b.create<arith::ConstantIndexOp>(op->getLoc(), s);
+      return v;
+    }));
+  };
+  return *this;
+}
+
+SmallVector<scf::ForOp> mlir::scf::createNestedEmptyScfForOps(
+    OpBuilder &b, Location loc, ArrayRef<Value> lowerBounds,
+    ArrayRef<Value> upperBounds, ArrayRef<Value> steps) {
+  OpBuilder::InsertionGuard guard(b);
+  SmallVector<scf::ForOp> loops;
+  assert(lowerBounds.size() == upperBounds.size());
+  assert(lowerBounds.size() == steps.size());
+  for (size_t i = 0; i < lowerBounds.size(); ++i) {
+    auto loop =
+        b.create<scf::ForOp>(loc, lowerBounds[i], upperBounds[i], steps[i]);
+    loops.push_back(loop);
+    b.setInsertionPoint(loop.getBody()->getTerminator());
+  }
+  return loops;
+}
+
+SmallVector<scf::ForOp>
+mlir::scf::createNestedEmptyScfForOpsWithZeroLbAndOneStep(
+    OpBuilder &b, Location loc, ArrayRef<OpFoldResult> sizes) {
+  SmallVector<Value> sizeValues;
+  for (OpFoldResult size : sizes) {
+    sizeValues.push_back(getValueOrCreateConstantIndexOp(b, loc, size));
+  }
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value> zeros(sizeValues.size(), zero);
+  SmallVector<Value> ones(sizeValues.size(), one);
+  return createNestedEmptyScfForOps(b, loc, zeros, sizeValues, ones);
+}
+
+namespace {
+
+// update replacements when oldLoops changing to newLoops
+static void updateReplacements(llvm::DenseMap<Value, Value> &replacements,
+                               ArrayRef<scf::ForOp> oldLoops,
+                               ArrayRef<scf::ForOp> newLoops) {
+  // generate loop map
+  llvm::DenseMap<scf::ForOp, scf::ForOp> oldToNewLoop;
+  for (const auto &en : llvm::enumerate(oldLoops)) {
+    oldToNewLoop[en.value()] = newLoops[en.index()];
+  }
+
+  for (auto &it : replacements) {
+    if (auto oldResult = dyn_cast<OpResult>(it.second)) {
+      if (auto oldLoop = dyn_cast<scf::ForOp>(oldResult.getOwner())) {
+        if (oldToNewLoop.count(oldLoop) > 0) {
+          auto newResult =
+              oldToNewLoop[oldLoop]->getResult(oldResult.getResultNumber());
+          it.second = newResult;
+        }
+      }
+    }
+  }
+}
+
+/// For a value to be yielded (`yieldedValue`) from within a loop nest `loops`,
+/// construct the destructive update pattern that inserts the yielded
+/// value into a destination tensor provided by `initValue` at offset
+/// `tileOffsets` and size `tileSizes`. For example,
+///
+/// ```mlir
+/// scf.for %iv0 = ... {
+///   %0 = tiled_op
+/// }
+/// ```
+///
+/// is transformed to
+///
+/// ```mlir
+/// scf.for %iv0 = ... iter_args(%arg = %0) {
+///   %1 = tensor.extract_slice %arg
+///   %2 = tiled_op
+///   %3 = tensor.insert_slice %2 into %arg
+///   scf.yield %3
+/// }
+/// ```
+/// TODO: This API can be cleaned up by using `SubsetExtractOpInterface`.
+///
+/// This function is modified by adding functionality of updating replacements
+static LogicalResult
+yieldTiledValues(RewriterBase &rewriter, ValueRange initValues,
+                 ValueRange yieldedValues,
+                 ArrayRef<SmallVector<OpFoldResult>> tileOffsetsList,
+                 ArrayRef<SmallVector<OpFoldResult>> tileSizesList,
+                 MutableArrayRef<scf::ForOp> loops,
+                 llvm::DenseMap<Value, Value> &replacements) {
+  NewYieldValueFn yieldValueFn =
+      [&](OpBuilder &b, Location loc,
+          ArrayRef<BlockArgument> newBBArgs) -> SmallVector<Value> {
+    SmallVector<Value> inserts;
+    for (const auto &yieldedValue : llvm::enumerate(yieldedValues)) {
+      ArrayRef<OpFoldResult> tileOffsets =
+          tileOffsetsList[yieldedValue.index()];
+      ArrayRef<OpFoldResult> tileSizes = tileSizesList[yieldedValue.index()];
+      SmallVector<OpFoldResult> tileStrides(tileOffsets.size(),
+                                            b.getIndexAttr(1));
+      Value insert = b.create<tensor::InsertSliceOp>(
+          loc, yieldedValue.value(), newBBArgs[yieldedValue.index()],
+          tileOffsets, tileSizes, tileStrides);
+      inserts.push_back(insert);
+    }
+    return inserts;
+  };
+
+  SmallVector<scf::ForOp> newLoops =
+      replaceLoopNestWithNewYields(rewriter, loops, initValues, yieldValueFn,
+                                   /*replaceIterOperandsUsesInLoop =*/false);
+
+  // this functionality is added on top of the exisitng upstream version
+  updateReplacements(replacements, loops, newLoops);
+
+  // remove loops and make newLoops
+  for (const auto &loop : llvm::enumerate(loops)) {
+    rewriter.eraseOp(loop.value());
+    loops[loop.index()] = newLoops[loop.index()];
+  }
+  return success();
+}
+
+} // namespace
+
+LogicalResult
+mlir::scf::tileToExistedLoops(RewriterBase &rewriter, TilingInterface op,
+                              ArrayRef<OpFoldResult> tileNums,
+                              ArrayRef<int64_t> interchange,
+                              scf::SCFTileAndFuseResult &tileAndFuseResult) {
+  OpBuilder::InsertionGuard guard(rewriter);
+  SmallVector<scf::ForOp> &loops = tileAndFuseResult.loops;
+  assert(!loops.empty() && "loops is empty!");
+  rewriter.setInsertionPoint(loops.back().getBody()->getTerminator());
+
+  // 1. Get the range of the loops that are represented by the operation.
+  SmallVector<Range> iterationDomain = op.getIterationDomain(rewriter);
+  size_t numLoops = iterationDomain.size();
+  if (numLoops == 0) {
+    return rewriter.notifyMatchFailure(
+        op, "unable to tile op with no iteration domain");
+  }
+
+  // 2. Get offsets and sizes
+  SmallVector<OpFoldResult> paddedTileNums{tileNums.begin(), tileNums.end()};
+  if (paddedTileNums.size() < iterationDomain.size())
+    paddedTileNums.append(numLoops - paddedTileNums.size(),
+                          rewriter.getIndexAttr(1));
+  // If there is an interchange specified, permute the iteration domain and
+  // the tile nums.
+  SmallVector<int64_t> paddedInterchange;
+  if (!interchange.empty()) {
+    paddedInterchange =
+        fillInterchangeVector(interchange, iterationDomain.size());
+  }
+  if (!paddedInterchange.empty()) {
+    if (!isPermutationVector(paddedInterchange))
+      return rewriter.notifyMatchFailure(
+          op, "invalid intechange, not a permutation of the entire iteration "
+              "space");
+    applyPermutationToVector(iterationDomain, paddedInterchange);
+    applyPermutationToVector(paddedTileNums, paddedInterchange);
+  }
+  SmallVector<OpFoldResult> offsets;
+  SmallVector<OpFoldResult> sizes;
+  Location loc = op->getLoc();
+  SmallVector<Value> ivs;
+  size_t loopIdx = 0;
+  for (auto loopRange : llvm::enumerate(iterationDomain)) {
+    auto idx = loopRange.index();
+    bool isOne = isConstantIntValue(paddedTileNums[idx], 1);
+    if (isOne)
+      ivs.push_back(nullptr);
+    else
+      ivs.push_back(loops[loopIdx++].getInductionVar());
+  }
+  calculateTileOffsetsAndSizes(rewriter, loc, ivs, paddedTileNums,
+                               iterationDomain, false, std::nullopt, offsets,
+                               sizes);
+  if (!paddedInterchange.empty()) {
+    auto inversePaddedInterchange = invertPermutationVector(paddedInterchange);
+    applyPermutationToVector(offsets, inversePaddedInterchange);
+    applyPermutationToVector(sizes, inversePaddedInterchange);
+  }
+
+  // 3. Generate the tiled implementation within the inner most loop.
+  FailureOr<TilingResult> tiledImplementation =
+      op.getTiledImplementation(rewriter, offsets, sizes);
+  for (Operation *tiledOp : tiledImplementation->tiledOps)
+    tileAndFuseResult.tiledAndFusedOps.insert(tiledOp);
+
+  // 4. Yield all the results of the tiled operation. The surrounding loop
+  //    nest is modified to insert a destructive update pattern to yield
+  //    from the loop nest values to replace the untiled op with.
+  int64_t numResults = op->getNumResults();
+  SmallVector<SmallVector<OpFoldResult>> resultOffsetsList(numResults),
+      resultSizesList(numResults);
+  // TODO: only handle the needed result
+  for (const auto &result : llvm::enumerate(op->getResults())) {
+    if (failed(op.getResultTilePosition(rewriter, result.index(), offsets,
+                                        sizes,
+                                        resultOffsetsList[result.index()],
+                                        resultSizesList[result.index()]))) {
+      return rewriter.notifyMatchFailure(
+          op, "failed to get slice of result produced");
+    }
+  }
+  SmallVector<Value> destinationTensors;
+  if (failed(tensor::getOrCreateDestinations(rewriter, op.getLoc(), op,
+                                             destinationTensors)))
+    return rewriter.notifyMatchFailure(op, "failed to get destinations");
+
+  auto oldNumResult = loops.front()->getNumResults();
+  (void)yieldTiledValues(rewriter, destinationTensors,
+                         tiledImplementation.value().tiledValues,
+                         resultOffsetsList, resultSizesList, loops,
+                         tileAndFuseResult.replacements);
+  for (const auto &en : llvm::enumerate(op->getResults())) {
+    tileAndFuseResult.replacements[en.value()] =
+        loops.front()->getResult(oldNumResult + en.index());
+  }
+
+  return success();
 }
