@@ -27,27 +27,24 @@
 
 #include "gtest/gtest.h"
 
-#define BRT_TEST_CHECK_STATUS(status) \
+#define BRT_TEST_CHECK_STATUS(status)                                          \
   EXPECT_TRUE(status.IsOK()) << status.ErrorMessage()
 
 namespace brt {
 namespace test {
-template <typename T>
-void CheckValues(T *mat, size_t size, T value, T eps) {
+template <typename T> void CheckValues(T *mat, size_t size, T value, T eps) {
   for (size_t i = 0; i < size; ++i) {
     EXPECT_NEAR(mat[i], value, eps);
   }
 }
 
-template <typename T>
-void CheckValues(T *mat, size_t size, T value) {
+template <typename T> void CheckValues(T *mat, size_t size, T value) {
   for (size_t i = 0; i < size; ++i) {
     EXPECT_EQ(mat[i], value);
   }
 }
 
-template <typename T>
-void AssignCPUBuffer(T *mat, size_t size, T value) {
+template <typename T> void AssignCPUBuffer(T *mat, size_t size, T value) {
   for (size_t i = 0; i < size; ++i) {
     mat[i] = value;
   }
@@ -93,8 +90,7 @@ template <typename T,
 }
 
 // check two values same
-template <typename T>
-[[nodiscard]] bool ExpectEQ(T first, T second) {
+template <typename T> [[nodiscard]] bool ExpectEQ(T first, T second) {
   if (first != second) {
     std::cerr << "ExpectEQ Error: first value " << static_cast<double>(first)
               << ", second value " << static_cast<double>(second) << "\n";
@@ -145,5 +141,5 @@ void PrintCPUValues(T *mat, size_t size, size_t print_size = 0) {
   std::cout << "\n";
 }
 
-}  // namespace test
-}  // namespace brt
+} // namespace test
+} // namespace brt

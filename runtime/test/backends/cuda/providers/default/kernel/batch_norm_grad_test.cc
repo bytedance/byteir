@@ -41,13 +41,13 @@ using namespace brt::common;
 using namespace brt::ir;
 using namespace brt::test;
 
-#define index()                                 \
-  if (layout == "NCHW") {                       \
-    id = n * C * H * W + c * H * W + h * W + w; \
-  } else if (layout == "NHWC") {                \
-    id = n * H * W * C + h * W * C + w * C + c; \
-  } else {                                      \
-    BRT_THROW("unsupported layout");            \
+#define index()                                                                \
+  if (layout == "NCHW") {                                                      \
+    id = n * C * H * W + c * H * W + h * W + w;                                \
+  } else if (layout == "NHWC") {                                               \
+    id = n * H * W * C + h * W * C + w * C + c;                                \
+  } else {                                                                     \
+    BRT_THROW("unsupported layout");                                           \
   }
 
 template <typename T>
