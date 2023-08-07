@@ -15,5 +15,8 @@ brt_set_compile_flags(_brt)
 # TODO: linker scripts
 target_link_libraries(_brt PRIVATE brt)
 
+set_target_properties(_brt PROPERTIES INSTALL_RPATH "$ORIGIN/lib")
+install(TARGETS _brt LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/../")
+
 file(COPY ${PYTHON_BINDINGS_ROOT}/examples DESTINATION "${PYTHON_BINDINGS_BIN_ROOT}")
 file(COPY ${REPO_ROOT}/test/test_files DESTINATION "${PYTHON_BINDINGS_BIN_ROOT}/examples" FILES_MATCHING PATTERN "*.mlir")

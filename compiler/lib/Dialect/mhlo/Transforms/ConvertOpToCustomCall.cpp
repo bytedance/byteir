@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Dialect/mhlo/Transforms/ConvertRngToCustomCall.h"
+#include "byteir/Dialect/mhlo/Transforms/ConvertOpToCustomCall.h"
 
 #include "./PassDetail.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
@@ -30,7 +30,7 @@ using namespace mlir;
 
 namespace {
 
-struct ConvertRngUniform : public OpRewritePattern<mhlo::RngOp> {
+struct ConvertRngUniformToCustomCall : public OpRewritePattern<mhlo::RngOp> {
   using OpRewritePattern<mhlo::RngOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::RngOp op,
@@ -67,10 +67,10 @@ struct ConvertRngUniform : public OpRewritePattern<mhlo::RngOp> {
   }
 };
 
-struct ConvertRngToCustomCallPass
-    : public ConvertRngToCustomCallBase<ConvertRngToCustomCallPass> {
+struct ConvertOpToCustomCallPass
+    : public ConvertOpToCustomCallBase<ConvertOpToCustomCallPass> {
 public:
-  ConvertRngToCustomCallPass() = default;
+  ConvertOpToCustomCallPass() = default;
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<byre::ByreDialect>();
@@ -80,8 +80,10 @@ public:
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
     MLIRContext *context = &getContext();
+
     RewritePatternSet patterns(context);
-    populateRngUniformPattern(patterns);
+    populateRngPatternToCustomCall(patterns);
+
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
       signalPassFailure();
@@ -91,11 +93,11 @@ public:
 
 } // namespace
 
-void mlir::populateRngUniformPattern(RewritePatternSet &patterns) {
-  patterns.add<ConvertRngUniform>(patterns.getContext());
+void mlir::populateRngPatternToCustomCall(RewritePatternSet &patterns) {
+  patterns.add<ConvertRngUniformToCustomCall>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createConvertRngToCustomCallPass() {
-  return std::make_unique<ConvertRngToCustomCallPass>();
+mlir::createConvertOpToCustomCallPass() {
+  return std::make_unique<ConvertOpToCustomCallPass>();
 }

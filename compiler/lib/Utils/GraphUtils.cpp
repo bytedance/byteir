@@ -50,3 +50,9 @@ mlir::getNumberOfUsesFromRoots(ArrayRef<Operation *> roots) {
   }
   return val2AllUses;
 }
+
+DenseMap<Value, int64_t> mlir::getNumberOfUsesFromRoots(ArrayRef<Value> roots) {
+  SmallVector<Operation *> rootOps = llvm::to_vector(
+      llvm::map_range(roots, [](Value v) { return v.getDefiningOp(); }));
+  return getNumberOfUsesFromRoots(rootOps);
+}

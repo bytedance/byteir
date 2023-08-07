@@ -9,6 +9,7 @@ add_mlir_library(ByteIRUtils
   MemUtils.cpp
   OpInterfaceUtils.cpp
   PipelineUtils.cpp
+  TileUtils.cpp
   TypeUtils.cpp
   Utils.cpp
 
@@ -19,6 +20,8 @@ add_mlir_library(ByteIRUtils
   MLIRIR
   MLIRAffineDialect
   MLIRArithDialect
+  MLIRCclDialect
   MLIRMemRefDialect
   MLIRSCFDialect
+  MLIRSCFExtUtils
 )

@@ -1,11 +1,11 @@
-import _brt
+import brt
 import torch
 from torch.cuda.memory import caching_allocator_alloc, caching_allocator_delete
 import numpy as np
 import os
 
 def main():
-    session = _brt.Session(alloc_func=caching_allocator_alloc, free_func=caching_allocator_delete)
+    session = brt.Session(alloc_func=caching_allocator_alloc, free_func=caching_allocator_delete)
     ait_dir = os.path.join(os.path.dirname(__file__), "../../test/test_files/AITOp")
     model_path = os.path.join(ait_dir, "bmm_permute_entry.mlir")
     session.load(model_path)

@@ -108,6 +108,6 @@ add_dependencies(TorchFrontendPythonModules TorchMLIRJITIRImporterPybind)
 
 add_custom_target(
   torch_frontend_python_pack
-  COMMAND "python3" "${TORCH_FRONTEND_SRC_ROOT}/torch-frontend/python/setup.py" "bdist_wheel"
+  COMMAND ${Python3_EXECUTABLE} "${TORCH_FRONTEND_SRC_ROOT}/torch-frontend/python/setup.py" "bdist_wheel"
   DEPENDS TorchFrontendPythonModules
 )

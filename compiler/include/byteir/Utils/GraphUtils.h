@@ -27,6 +27,7 @@ class Operation;
 
 DenseMap<Value, int64_t> getNumberOfUsesFromRoot(Operation *root);
 DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Operation *> roots);
+DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Value> roots);
 
 } // namespace mlir
 

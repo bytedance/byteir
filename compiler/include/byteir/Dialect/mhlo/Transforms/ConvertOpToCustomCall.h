@@ -26,9 +26,9 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-void populateRngUniformPattern(RewritePatternSet &patterns);
+void populateRngPatternToCustomCall(RewritePatternSet &patterns);
 
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertRngToCustomCallPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertOpToCustomCallPass();
 
 } // namespace mlir
 

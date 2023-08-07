@@ -13,7 +13,7 @@
 # ==============================================================================
 
 from torch_e2e_testing.framework import generate_golden_trace
-import _brt
+import brt
 import byteir
 from mhlo_tools.ir_executor import Interpreter
 from mhlo_tools.mlir import ir
@@ -110,7 +110,7 @@ def compile_and_run_mlir(mhlo_file, target):
                           numerical_error=None)
     # brt runtime
     try:
-        session = _brt.Session(alloc_func=caching_allocator_alloc,
+        session = brt.Session(alloc_func=caching_allocator_alloc,
                                free_func=caching_allocator_delete)
         session.load(output_mlir_file_name)
         req = session.new_request_context(
@@ -196,7 +196,7 @@ def compile_and_run_torch(test, target):
 
     # runtime
     try:
-        session = _brt.Session(alloc_func=caching_allocator_alloc,
+        session = brt.Session(alloc_func=caching_allocator_alloc,
                                free_func=caching_allocator_delete)
         session.load(output_mlir_file_name)
         req = session.new_request_context(
