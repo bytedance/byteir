@@ -67,10 +67,6 @@ cmake -GNinja \
 
 cmake --build "$BUILD_DIR" --target all --target install
 
-if [[ $BRT_USE_CUDA == "ON" ]]; then
-  export CUDA_VISIBLE_DEVICES=4,5,6,7
-fi
-
 if [[ $BRT_USE_CUDA == "ON" ]] && [[ $BRT_ENABLE_ASAN == "ON" ]]; then
   export ASAN_OPTIONS=protect_shadow_gap=0
 fi
