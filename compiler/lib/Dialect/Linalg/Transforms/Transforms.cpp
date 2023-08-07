@@ -36,6 +36,7 @@
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Util/Util.h"
+#include "byteir/Dialect/SCF/Util/Util.h"
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/GraphUtils.h"
 #include "byteir/Utils/LoopUtils.h"
@@ -1364,42 +1365,63 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   return tileAndFuseResult;
 }
 
-FailureOr<scf::SCFTileAndFuseResult>
-mlir::scf::tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
-    RewriterBase &rewriter, ArrayRef<Value> tensors,
-    ArrayRef<OpFoldResult> tileNums, ArrayRef<int64_t> interchange) {
-  scf::SCFTileAndFuseResult tileAndFuseResult;
+namespace {
 
-  // get operations from tensors
-  DenseSet<TilingInterface> rootOps;
-  DenseSet<Value> rootTensorsSet;
+static LogicalResult checkRootsAndTileOptions(ArrayRef<Value> tensors,
+                                              const TilingOptions &options) {
+  if (tensors.size() == 0) {
+    LLVM_DEBUG(DBGS() << "Expect at least one root tensor.\n");
+    return failure();
+  }
   for (Value tensor : tensors) {
     TilingInterface rootOp = tensor.getDefiningOp<TilingInterface>();
-    if (!rootOp)
-      return rewriter.notifyMatchFailure(
-          tensor.getLoc(),
-          "invalid pattern for tensor with no defining op of tiling interface");
-    rootOps.insert(rootOp);
-    rootTensorsSet.insert(tensor);
+    if (!rootOp) {
+      LLVM_DEBUG(DBGS() << "invalid pattern for tensor with no defining op of "
+                           "tiling interface");
+      return failure();
+    }
+  }
+  if (!options.isValid()) {
+    LLVM_DEBUG(DBGS() << "tile options are not valid\n");
+    return failure();
   }
 
-  // get number of uses from root ops
-  SmallVector<Operation *> rootOpPointers = llvm::to_vector(llvm::map_range(
-      rootOps, [](TilingInterface ti) { return ti.getOperation(); }));
-  mlir::DenseMap<Value, int64_t> val2Uses =
-      getNumberOfUsesFromRoots(rootOpPointers);
+  if (options.isTileSizes() && tensors.size() != 1)
+    return failure();
+
+  return success();
+}
+
+} // namespace
+
+FailureOr<scf::SCFTileAndFuseResult>
+mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
+    RewriterBase &rewriter, ArrayRef<Value> tensors,
+    const TilingOptions &options, bool expectWholeGraphFusion) {
+  if (failed(checkRootsAndTileOptions(tensors, options))) {
+    LLVM_DEBUG(DBGS() << "check root and tile options failed\n");
+    return failure();
+  }
 
   // All ops will be topologically sorted at the end
   OpBuilder::InsertionGuard guard(rewriter);
-  rewriter.setInsertionPointAfter(rootOpPointers[0]);
-  Location loc = rootOpPointers[0]->getLoc();
+  rewriter.setInsertionPoint(tensors[0].getDefiningOp());
+  Location loc = tensors[0].getLoc();
+
+  SmallVector<OpFoldResult> tileNums;
+  if (options.isTileNums())
+    tileNums = options.tileNums;
+  else
+    assert(0 && "currently only support tile nums option");
+  const SmallVector<int64_t> &interchange = options.interchange;
+  scf::SCFTileAndFuseResult tileAndFuseResult;
+  llvm::DenseSet<Value> rootTensorsSet{tensors.begin(), tensors.end()};
+  mlir::DenseMap<Value, int64_t> val2Uses = getNumberOfUsesFromRoots(tensors);
+
   // create scf.for ops
-  SmallVector<OpFoldResult> nonOneTileNums =
-      llvm::to_vector(llvm::make_filter_range(tileNums, [](OpFoldResult ofr) {
-        return !isConstantIntValue(ofr, 1);
-      }));
+  SmallVector<OpFoldResult> validTileNums = getValidTileNums(tileNums);
   tileAndFuseResult.loops = scf::createNestedEmptyScfForOpsWithZeroLbAndOneStep(
-      rewriter, loc, nonOneTileNums);
+      rewriter, loc, validTileNums);
 
   // If there are no loops generated, fusion is immaterial.
   if (tileAndFuseResult.loops.empty())
@@ -1410,6 +1432,7 @@ mlir::scf::tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
     if (val2Uses[tensor] == 0) {
       TilingInterface tileableOp = tensor.getDefiningOp<TilingInterface>();
       if (failed(tileToExistedLoops(rewriter, tileableOp, tileNums, interchange,
+                                    options.useDistributedStyle,
                                     tileAndFuseResult)))
         return rewriter.notifyMatchFailure(tileableOp, "failed to tile");
     }
@@ -1626,6 +1649,28 @@ mlir::scf::tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
   for (auto &loop : tileAndFuseResult.loops) {
     if (!sortTopologically(loop.getBody()))
       return rewriter.notifyMatchFailure(loc, "topological sort fails.");
+  }
+
+  // 4. if expectWholeGraphFusion is true
+  if (expectWholeGraphFusion) {
+    for (Operation *op : tileAndFuseResult.tiledAndFusedOps) {
+      for (Value operand : op->getOperands()) {
+        Operation *defOp = operand.getDefiningOp();
+        if (!defOp)
+          continue;
+        tensor::ExtractSliceOp sliceOp =
+            llvm::dyn_cast<tensor::ExtractSliceOp>(defOp);
+        if (!sliceOp)
+          continue;
+        Value sliceInput = sliceOp.getSource();
+        Operation *sliceInputDefOp = sliceInput.getDefiningOp();
+        if (!sliceInputDefOp)
+          continue;
+        if (!llvm::isa<tensor::EmptyOp, linalg::FillOp>(sliceInputDefOp))
+          return rewriter.notifyMatchFailure(sliceInputDefOp,
+                                             "expect whole graph fusion");
+      }
+    }
   }
 
   return tileAndFuseResult;

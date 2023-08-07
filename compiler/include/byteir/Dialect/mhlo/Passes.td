@@ -71,9 +71,9 @@ def ConvForwardFusion : Pass<"fuse-conv-forward", "mlir::func::FuncOp"> {
 // Convert Rng To CustomCall
 //===----------------------------------------------------------------------===//
 
-def ConvertRngToCustomCall : Pass<"convert-rng-to-customcall", "mlir::func::FuncOp"> {
-  let summary = "Convert mhlo.rng to mhlo.custom_call with seed and offset";
-  let constructor = "mlir::createConvertRngToCustomCallPass()";
+def ConvertOpToCustomCall : Pass<"convert-op-to-customcall", "mlir::func::FuncOp"> {
+  let summary = "Convert op to mhlo.custom_call";
+  let constructor = "mlir::createConvertOpToCustomCallPass()";
 }
 
 //===----------------------------------------------------------------------===//

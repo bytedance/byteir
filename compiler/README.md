@@ -44,7 +44,7 @@ cmake --build . --config Release
 
 ## Testing 
 This command runs all ByteIR unit tests:
-```
+```bash
 cmake --build . --config Release --target check-byteir
 ```
 ByteIR relies on ```llvm-lit``` and ```FileCheck``` for testing.
@@ -53,8 +53,14 @@ All the tests are placed in the folder ```byteir/test```.
 
 
 ## Install (Optional)
-```
+```bash
 cmake --install . --prefix path_to_install_BYTEIR
+```
+
+## Pack Python Wheel (Optional)
+```bash
+cmake --build . --target byteir-python-pack
+# byteir-*.whl in /path_to_byteir/build/python/dist/
 ```
 
 ## IRs (Dialects)

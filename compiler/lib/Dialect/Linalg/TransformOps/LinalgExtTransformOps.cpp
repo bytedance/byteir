@@ -36,6 +36,7 @@
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 #include "byteir/Utils/Hoist.h"
+#include "byteir/Utils/TileUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -1381,8 +1382,6 @@ static LogicalResult applyTilingOperandsToAll(
     llvm::SetVector<Operation *> opsToReplace;
     for (Value operand : operandValues)
       opsToReplace.insert(operand.getDefiningOp());
-    for (Operation *op : tileAndFuseResult->fusedProducers)
-      opsToReplace.insert(op);
     for (Operation *toReplace : opsToReplace) {
       SmallVector<Value> replacements;
       replacements.reserve(toReplace->getNumResults());
@@ -1420,21 +1419,33 @@ DiagnosedSilenceableFailure transform::FuseOperandsOp::apply(
   SmallVector<int64_t> tileNums = extractFromI64ArrayAttr(getTileNums());
   SmallVector<int64_t> tileInterchange =
       extractFromI64ArrayAttr(getTileInterchange());
+  SmallVector<int64_t> useDistributedInt64 =
+      extractFromI64ArrayAttr(getUseDistributed());
+  SmallVector<bool> useDistributed;
+  for (int64_t v : useDistributedInt64)
+    useDistributed.push_back(bool(v));
   ArrayRef<Operation *> targetPayloadOps = state.getPayloadOps(getTarget());
 
   LogicalResult result = applyTilingOperandsToAll(
       getOperation(), targetPayloadOps,
-      tileNums.size() - llvm::count(tileNums, 0), transformResults,
+      tileNums.size() - llvm::count(tileNums, 1), transformResults,
       [&](ArrayRef<Value> tensors) -> FailureOr<scf::SCFTileAndFuseResult> {
         SimpleRewriter rewriter(getContext());
         SmallVector<OpFoldResult> tileNumsFoldResult =
             getAsIndexOpFoldResult(getContext(), tileNums);
-        return tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
-            rewriter, tensors, tileNumsFoldResult, tileInterchange);
+        TilingOptions options;
+        options.setTileNums(tileNumsFoldResult)
+            .setInterchange(tileInterchange)
+            .setUseDistributedStyle(useDistributed);
+        return tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
+            rewriter, tensors, options,
+            getExpectWholeGraphFusionAttr().getValue());
       });
 
-  return failed(result) ? DiagnosedSilenceableFailure::definiteFailure()
-                        : DiagnosedSilenceableFailure::success();
+  if (failed(result)) {
+    return emitSilenceableError() << "tiling and fusion fails";
+  } else
+    return DiagnosedSilenceableFailure::success();
 }
 
 ParseResult transform::FuseOperandsOp::parse(OpAsmParser &parser,

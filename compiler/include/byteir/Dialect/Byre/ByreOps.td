@@ -81,7 +81,7 @@ def Byre_ComputeOp : Byre_Op<"compute",
   // TODO change assemblyFormat to real parser and printer later
   // for more complicated support
   let assemblyFormat = [{
-    $callee `(` $operands `)` attr-dict `:` type($operands) (`->` type($results)^)?
+    $callee `(` $operands `)` attr-dict (`:` type($operands)^)? (`->` type($results)^)?
   }];
 
   let hasVerifier = 1;

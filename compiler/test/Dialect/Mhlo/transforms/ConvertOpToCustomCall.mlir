@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -convert-rng-to-customcall | FileCheck %s
+// RUN: byteir-opt %s -convert-op-to-customcall | FileCheck %s
 
 func.func @convert_rng_static() -> tensor<8x1024x768xf32> attributes {__placeholder__byre.entry_point} {
   %16 = mhlo.constant dense<1.000000e+00> : tensor<f32>

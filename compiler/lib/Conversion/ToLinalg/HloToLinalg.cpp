@@ -817,6 +817,122 @@ public:
   }
 };
 
+static Value castToIndexTensor(OpBuilder &builder, Location loc,
+                               Value shapeOp) {
+  ShapedType resultTy = shape::getExtentTensorType(
+      builder.getContext(), shapeOp.getType().cast<ShapedType>().getDimSize(0));
+  if (shapeOp.getType() == resultTy)
+    return shapeOp; // Nothing to do.
+  return builder.create<arith::IndexCastOp>(loc, resultTy, shapeOp);
+}
+
+class RngUniformCustomCallConverter
+    : public OpConversionPattern<mhlo::CustomCallOp> {
+public:
+  using OpConversionPattern<mhlo::CustomCallOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::CustomCallOp op, mhlo::CustomCallOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    if (op.getCallTargetName() != getRngUniformName())
+      return failure();
+    auto ctx = op.getContext();
+    auto minTy = adaptor.getOperands()[0].getType().dyn_cast<ShapedType>();
+    auto maxTy = adaptor.getOperands()[1].getType().dyn_cast<ShapedType>();
+    if (!minTy.getElementType().dyn_cast<FloatType>() ||
+        !maxTy.getElementType().dyn_cast<FloatType>()) {
+      return rewriter.notifyMatchFailure(
+          op, "expected min/max for rng op to be FloatType");
+    }
+    auto targetTy = op.getResults()[0].getType().cast<ShapedType>();
+    if (!targetTy) {
+      return rewriter.notifyMatchFailure(
+          op, "expected target shape of rng op to be ShapedType");
+    }
+    auto loc = op.getLoc();
+
+    // create empty tensor
+    SmallVector<Value> sizes;
+    if (adaptor.getOperands().size() == 5) {
+      // dynamic shape
+      auto reifiedShape =
+          castToIndexTensor(rewriter, loc, adaptor.getOperands()[4]);
+      for (const auto &en : llvm::enumerate(targetTy.getShape())) {
+        if (en.value() != ShapedType::kDynamic)
+          continue;
+        sizes.push_back(rewriter.create<tensor::ExtractOp>(
+            loc, reifiedShape,
+            ValueRange{
+                rewriter.create<arith::ConstantIndexOp>(loc, en.index())}));
+      }
+    } else {
+      // static shape
+      assert(adaptor.getOperands().size() == 4 &&
+             "static shape byteir.rng_uniform must have 4 operands.");
+    }
+    Value emptyTensor = getEmptyTensor(rewriter, loc, targetTy, sizes);
+
+    // Creates index map using target matrix's rank.
+    auto targetRank = targetTy.getRank();
+    SmallVector<AffineMap, 4> indexingMaps;
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // low
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // high
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // seed
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // offset
+    indexingMaps.push_back(AffineMap::getMultiDimIdentityMap(targetRank, ctx));
+    // Generic region with LCG Algorithm that make use of element index from:
+    // https://reviews.llvm.org/D101364
+    auto linalgOp = rewriter.create<linalg::GenericOp>(
+        loc, /*resultTensors=*/targetTy,
+        /*inputs=*/
+        ValueRange{adaptor.getOperands()[0], adaptor.getOperands()[1],
+                   adaptor.getOperands()[2], adaptor.getOperands()[3]},
+        /*outputs=*/emptyTensor, indexingMaps,
+        getParallelAndReductionIterators(/*nLoops=*/targetRank,
+                                         /*nReduction=*/0),
+        [&](OpBuilder &b, Location loc, ValueRange args) {
+          Value i32Seed =
+              b.create<arith::TruncIOp>(loc, b.getI32Type(), args[2]);
+          Value i32Offset =
+              b.create<arith::TruncIOp>(loc, b.getI32Type(), args[3]);
+          Value kInitialSeed = b.create<arith::AddIOp>(loc, i32Seed, i32Offset);
+          llvm::SmallVector<Value> updateVec = {kInitialSeed}; // seed
+          Value multiplier =
+              b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(1103515245));
+          Value incrementStep =
+              b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(12345));
+          // For output matrix with rank N:
+          // temp1 = (cast(I32, index(D.0)) + seed) * mult + incr
+          // ...
+          // tempN = (cast(I32, index(D.(N))) + tempN_1) * mult + incr
+          for (int i = 0; i < targetRank; i++) {
+            Value update = updateVec.back();
+            Value ind = b.create<linalg::IndexOp>(loc, i);
+            Value castInd =
+                b.create<arith::IndexCastOp>(loc, b.getI32Type(), ind);
+            Value addRes = b.create<arith::AddIOp>(loc, castInd, update);
+            Value multRes = b.create<arith::MulIOp>(loc, addRes, multiplier);
+            Value incRes = b.create<arith::AddIOp>(loc, multRes, incrementStep);
+            updateVec.push_back(incRes);
+          }
+          // Scaling = (max - min) * const(F64, 2.3283064E-10)
+          // which is derived from rand(min,max) = rand()/(RAND_MAX/(max-min)).
+          Value epsilon = b.create<arith::ConstantOp>(
+              loc, b.getFloatAttr(args[0].getType(), 2.3283064E-10));
+          Value range = b.create<arith::SubFOp>(loc, args[1], args[0]);
+          Value scale = b.create<arith::MulFOp>(loc, range, epsilon);
+          // Res = cast(T, cast(F64, tempN) * scaling + min)
+          Value updateCast = b.create<arith::UIToFPOp>(
+              loc, targetTy.getElementType(), updateVec.back());
+          Value scaleUpdate = b.create<arith::MulFOp>(loc, updateCast, scale);
+          Value res = b.create<arith::AddFOp>(loc, scaleUpdate, args[0]);
+          b.create<linalg::YieldOp>(loc, res);
+        },
+        linalg::getPrunedAttributeList(op));
+    rewriter.replaceOp(op, linalgOp.getResults());
+    return success();
+  }
+};
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
@@ -878,6 +994,7 @@ void mlir::populateHloToLinalgExtConversionPattern(
   patterns.add<ScatterOpConversion>(ctx);
   patterns.add<LayerNormCustomCallConverter>(ctx);
   patterns.add<GeLUCustomCallConverter>(ctx);
+  patterns.add<RngUniformCustomCallConverter>(ctx);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

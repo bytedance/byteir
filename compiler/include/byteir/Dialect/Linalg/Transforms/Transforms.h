@@ -34,6 +34,7 @@
 #ifndef BYTEIR_DIALECT_LINALG_TRANSFORMS_TRANSFORMS_H
 #define BYTEIR_DIALECT_LINALG_TRANSFORMS_TRANSFORMS_H
 
+#include "byteir/Utils/TileUtils.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
@@ -57,10 +58,15 @@ tileConsumerAndFuseProducerUsingSCFForOpExt(
     ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
     bool simplifyLoopIter = true, bool keepIntermediate = false);
 
+/// @brief  This is an enhancement version of upstream's
+/// tileConsumerAndFuseProducerGreedilyUsingSCFFor to tile & fuse multiple root
+/// @param tensors the roots of the tile & fuse procedure
+/// @param expectWholeGraphFusion if set True, return failure() if a whole graph
+/// tile & fuse cannot be performed
 FailureOr<scf::SCFTileAndFuseResult>
-tileConsumerAndFuseProducerGreedilyUsingSCFForTensors(
+tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     RewriterBase &rewriter, ArrayRef<Value> tensors,
-    ArrayRef<OpFoldResult> numTiles, ArrayRef<int64_t> interchange);
+    const TilingOptions &options, bool expectWholeGraphFusion = false);
 
 void labelTileLoopType(Operation *op, ArrayRef<scf::ForOp> loops);
 
