@@ -35,8 +35,6 @@ CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 ROOT_PROJ_DIR="$CUR_DIR/../.."
 # path to byteir/runtime
 PROJ_DIR="$ROOT_PROJ_DIR/runtime"
-# path to byteir library
-LIB_DIR="$ROOT_PROJ_DIR/byteir_library"
 
 # dir to build
 BUILD_DIR="$PROJ_DIR/build"
