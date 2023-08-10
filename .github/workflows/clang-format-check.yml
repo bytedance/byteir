@@ -13,4 +13,3 @@ jobs:
       - name: Run clang-format check
         run: ./scripts/clang_format_check.sh
         shell: bash
-        
