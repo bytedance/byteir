@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 # Project
-project(brt C CXX)
+project(brt C CXX CUDA)
 # Needed for Java
 set (CMAKE_C_STANDARD 99)
 
@@ -176,7 +176,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin|iOS")
 endif()
 
 macro(check_nvcc_compiler_flag _FLAG _RESULT)
-    execute_process(COMMAND ${brt_CUDA_HOME}/bin/nvcc "${_FLAG}" RESULT_VARIABLE NVCC_OUT ERROR_VARIABLE NVCC_ERROR)
+    execute_process(COMMAND ${CUDA_HOME}/bin/nvcc "${_FLAG}" RESULT_VARIABLE NVCC_OUT ERROR_VARIABLE NVCC_ERROR)
     message("NVCC_ERROR = ${NVCC_ERROR}")
     message("NVCC_OUT = ${NVCC_OUT}")
     if("${NVCC_OUT}" MATCHES "0")
@@ -215,14 +215,14 @@ set(brt_LINK_DIRS )
 
 # link CUDADNN
 if(brt_USE_CUDA)
-    message(STATUS "brt_USE_CUDA On")
-	find_package(CUDA REQUIRED)
-	include_directories("${CUDA_INCLUDE_DIRS}")
-    #TODO: combine brt_CUDNN_HOME and brt_CUDA_HOME, assume they are the same
+  message(STATUS "brt_USE_CUDA On")
+  find_package(CUDAToolkit REQUIRED)
+	include_directories("${CUDAToolkit_INCLUDE_DIRS}")
+  message("CUDAToolkit Include Dirs = ${CUDAToolkit_INCLUDE_DIRS}")
     if (WIN32)
-      list(APPEND brt_LINK_DIRS ${brt_CUDNN_HOME}/lib/x64 ${brt_CUDA_HOME}/x64/lib64)
+      list(APPEND brt_LINK_DIRS ${CUDA_HOME}/lib/x64 ${CUDA_HOME}/x64/lib64)
     else()
-      list(APPEND brt_LINK_DIRS ${brt_CUDNN_HOME}/lib64 ${brt_CUDA_HOME}/lib64)
+      list(APPEND brt_LINK_DIRS ${CUDA_HOME}/lib64)
     endif()
 endif()
 
@@ -396,13 +396,13 @@ if (brt_USE_CUDA)
   #comment out copying cudnn
   #file(TO_CMAKE_PATH ${brt_CUDNN_HOME} brt_CUDNN_HOME)
   
-  set(BRT_CUDA_LIBRARIES ${CUDA_LIBRARIES})
+  set(BRT_CUDA_LIBRARIES CUDA::cudart)
 
 
   if (brt_ENABLE_NVTX_PROFILE)
-    list(APPEND BRT_CUDA_LIBRARIES cublas cudnn curand cufft nvToolsExt)
+    list(APPEND BRT_CUDA_LIBRARIES CUDA::cublas cudnn CUDA::curand CUDA::cufft CUDA::nvToolsExt)
   else()
-    list(APPEND BRT_CUDA_LIBRARIES cublas cudnn curand cufft)
+    list(APPEND BRT_CUDA_LIBRARIES CUDA::cublas cudnn CUDA::curand CUDA::cufft)
   endif()
 
   if(NOT CMAKE_CUDA_ARCHITECTURES)

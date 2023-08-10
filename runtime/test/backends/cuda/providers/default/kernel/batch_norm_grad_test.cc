@@ -15,6 +15,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cuda_fp16.h>
+#include <cuda_runtime.h>
+
+#include <cmath>
+#include <cstdlib>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "brt/backends/cuda/device/common/dtype.h"
 #include "brt/backends/cuda/device/cuda_allocator.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
@@ -25,13 +34,6 @@
 #include "brt/test/common/cuda/util.h"
 #include "brt/test/common/models.h"
 #include "gtest/gtest.h"
-#include <cmath>
-#include <cstdlib>
-#include <cuda_fp16.h>
-#include <cuda_runtime.h>
-#include <memory>
-#include <string>
-#include <vector>
 
 using namespace std;
 using namespace brt;
@@ -99,9 +101,10 @@ static void GoldenBatchNormGrad(T *input, float *scale, T *grad_output,
         for (int64_t w = 0; w < W; w++) {
           size_t id = 0;
           index();
-          float xhat = (input[id] - mean[c]) * inv_variance[c];
-          _grad_bias += grad_output[id];
-          _grad_scale += grad_output[id] * xhat;
+          float xhat =
+              (static_cast<float>(input[id]) - mean[c]) * inv_variance[c];
+          _grad_bias += static_cast<float>(grad_output[id]);
+          _grad_scale += static_cast<float>(grad_output[id]) * xhat;
         }
       }
     }
@@ -116,7 +119,7 @@ static void GoldenBatchNormGrad(T *input, float *scale, T *grad_output,
         for (int64_t w = 0; w < W; w++) {
           size_t id = 0;
           index();
-          dxhat[id] = grad_output[id] * scale[c];
+          dxhat[id] = static_cast<float>(grad_output[id]) * scale[c];
         }
       }
     }
@@ -132,7 +135,7 @@ static void GoldenBatchNormGrad(T *input, float *scale, T *grad_output,
         for (int64_t w = 0; w < W; w++) {
           size_t id = 0;
           index();
-          float xmu = input[id] - mean[c];
+          float xmu = static_cast<float>(input[id]) - mean[c];
           dvar[c] += dxhat[id] * xmu;
           dmean[c] += dxhat[id];
         }
@@ -152,7 +155,7 @@ static void GoldenBatchNormGrad(T *input, float *scale, T *grad_output,
         for (int64_t w = 0; w < W; w++) {
           size_t id = 0;
           index();
-          float xmu = input[id] - mean[c];
+          float xmu = static_cast<float>(input[id]) - mean[c];
           float _grad_input = dxhat[id] * inv_variance[c] +
                               2.0f * dvar[c] * xmu / (N * H * W) +
                               dmean[c] / (N * H * W);

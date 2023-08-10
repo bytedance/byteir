@@ -14,6 +14,7 @@ function apply_mhlo_patches() {
   for patch in $ROOT_PROJ_DIR/external/patches/mlir-hlo/*; do
     git apply $patch
   done
+  popd
 }
 
 function apply_aitemplate_patches() {
