@@ -1439,7 +1439,7 @@ DiagnosedSilenceableFailure transform::FuseOperandsOp::apply(
             .setUseDistributedStyle(useDistributed);
         return tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
             rewriter, tensors, options,
-            getExpectWholeGraphFusionAttr().getValue());
+            /*tileFunc=*/nullptr, getExpectWholeGraphFusionAttr().getValue());
       });
 
   if (failed(result)) {

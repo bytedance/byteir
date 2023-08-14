@@ -11,12 +11,12 @@ func.func @torch.custom.dynamic_partition_stitch(%arg0: !torch.tensor {torch.typ
   %int2 = torch.constant.int 2
   %int0 = torch.constant.int 0
   %int1 = torch.constant.int 1
-  %0 = torch.custom.dynamic_partition %arg0, %arg1, %int2 : !torch.tensor, !torch.tensor, !torch.int -> !torch.list<tensor>
+  %0 = torch.byteir.dynamic_partition %arg0, %arg1, %int2 : !torch.tensor, !torch.tensor, !torch.int -> !torch.list<tensor>
   %2 = torch.prim.ListConstruct %arg2, %arg3 : (!torch.tensor, !torch.tensor) -> !torch.list<tensor>
   %3 = torch.aten.__getitem__.t %0, %int0 : !torch.list<tensor>, !torch.int -> !torch.tensor
   %4 = torch.aten.__getitem__.t %0, %int1 : !torch.list<tensor>, !torch.int -> !torch.tensor
   %5 = torch.prim.ListConstruct %3, %4 : (!torch.tensor, !torch.tensor) -> !torch.list<tensor>
-  %6 = torch.custom.dynamic_stitch %2, %5 : !torch.list<tensor>, !torch.list<tensor> -> !torch.tensor
+  %6 = torch.byteir.dynamic_stitch %2, %5 : !torch.list<tensor>, !torch.list<tensor> -> !torch.tensor
   return %6 : !torch.tensor
 }
 
@@ -31,10 +31,10 @@ func.func @torch.custom.dynamic_partition_mask_stitch(%arg0: !torch.tensor {torc
   %int2 = torch.constant.int 2
   %int0 = torch.constant.int 0
   %int1 = torch.constant.int 1
-  %0 = torch.custom.dynamic_partition %arg0, %arg1, %int2 : !torch.tensor, !torch.tensor, !torch.int -> !torch.list<tensor>
+  %0 = torch.byteir.dynamic_partition %arg0, %arg1, %int2 : !torch.tensor, !torch.tensor, !torch.int -> !torch.list<tensor>
   %3 = torch.aten.__getitem__.t %0, %int0 : !torch.list<tensor>, !torch.int -> !torch.tensor
   %4 = torch.aten.__getitem__.t %0, %int1 : !torch.list<tensor>, !torch.int -> !torch.tensor
   %5 = torch.prim.ListConstruct %3, %4 : (!torch.tensor, !torch.tensor) -> !torch.list<tensor>
-  %6 = torch.custom.dynamic_mask_stitch %5, %arg1 : !torch.list<tensor>, !torch.tensor -> !torch.tensor
+  %6 = torch.byteir.dynamic_mask_stitch %5, %arg1 : !torch.list<tensor>, !torch.tensor -> !torch.tensor
   return %6 : !torch.tensor
 }

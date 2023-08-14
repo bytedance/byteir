@@ -13,5 +13,5 @@ torch::Tensor custom_dynamic_mask_stitch(std::vector<torch::Tensor> data,
   return torch::cat(res, /*dim=*/0);
 }
 
-static auto registry = torch::RegisterOperators("custom::dynamic_mask_stitch",
+static auto registry = torch::RegisterOperators("byteir::dynamic_mask_stitch",
                                                 &custom_dynamic_mask_stitch);

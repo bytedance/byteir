@@ -217,7 +217,7 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       for (auto operand : user->getOperands()) {
         if (operand == value) {
           continue;
-        } else if (isSplatMhloConstantValue(operand)) {
+        } else if (isDenseMhloConstantValue(operand)) {
           continue;
         } else if (isStaticShapeArg(operand)) {
           // fairly strict condition, so far we only accept static arg
@@ -248,18 +248,19 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
           if (!bvm.contains(operand)) {
             bvm.map(operand, op.getOperand());
           }
-        } else if (isSplatMhloConstantValue(operand)) {
+        } else if (isDenseMhloConstantValue(operand)) {
           OpBuilder::InsertionGuard guard(rewriter);
           rewriter.setInsertionPointAfterValue(operand);
-          ElementsAttr oldConstAttr =
-              operand.getDefiningOp<mhlo::ConstantOp>().getValue();
-          auto newConstAttrType = mixType(
-              /*cloneFromElementType*/ oldConstAttr.getType(),
-              /*cloneFromShape*/ operandType.cast<ShapedType>());
+          DenseElementsAttr oldConstAttr =
+              operand.getDefiningOp<mhlo::ConstantOp>()
+                  .getValue()
+                  .cast<DenseElementsAttr>();
+
           auto newConstAttr =
-              reshapeSplatElementsAttr(oldConstAttr, newConstAttrType);
+              reshapeDenseElementsAttr(oldConstAttr, operandType);
+
           auto newConstOp =
-              rewriter.create<mhlo::ConstantOp>(op->getLoc(), *newConstAttr);
+              rewriter.create<mhlo::ConstantOp>(op->getLoc(), newConstAttr);
           bvm.map(operand, newConstOp.getOutput());
         } else {
           // isStaticShapeArg(operand) == true

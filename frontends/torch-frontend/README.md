@@ -28,5 +28,5 @@ cmake --build ./build --target all
 
 ### Example
 ```bash
-PYTHONPATH=./build/python_packages/ python3 examples/infer_resnet.py
+PYTHONPATH=./build/python_packages/ python3 examples/inference/infer_resnet.py
 ```

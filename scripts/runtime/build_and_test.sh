@@ -2,8 +2,6 @@
 
 set -e
 
-BRT_TEST=ON
-
 while [[ $# -gt 1 ]]; do
   case $1 in
     --cuda)
@@ -46,6 +44,8 @@ BRT_USE_CUDA=${BRT_USE_CUDA:-OFF}
 BRT_ENABLE_ASAN=${BRT_ENABLE_ASAN:-OFF}
 BRT_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS:-OFF}
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
+# test options
+BRT_TEST=${BRT_TEST:-ON}
 
 source $CUR_DIR/../prepare.sh
 prepare_for_runtime

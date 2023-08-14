@@ -64,8 +64,8 @@ bool mlir::isSplatMhloConstantValue(Value val) {
 
 bool mlir::isSplatMhloConstantValue(Operation *op, int64_t splat_val) {
   if (auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(op)) {
-    // only handle DenseFPElementsAttr for now
-    // TODO extend it
+    // only handle DenseIntElementsAttr for now
+    // TODO: extend it
     if (auto denseIntE = constOp.getValue().dyn_cast<DenseIntElementsAttr>()) {
       return isSplatValue(denseIntE, splat_val);
     }
@@ -76,10 +76,17 @@ bool mlir::isSplatMhloConstantValue(Operation *op, int64_t splat_val) {
 bool mlir::isSplatMhloConstantValue(Operation *op, double splat_val) {
   if (auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(op)) {
     // only handle DenseFPElementsAttr for now
-    // TODO extend it
+    // TODO: extend it
     if (auto denseFPE = constOp.getValue().dyn_cast<DenseFPElementsAttr>()) {
       return isSplatValue(denseFPE, splat_val);
     }
+  }
+  return false;
+}
+
+bool mlir::isDenseMhloConstantValue(Value val) {
+  if (auto constOp = val.getDefiningOp<mhlo::ConstantOp>()) {
+    return llvm::isa<DenseElementsAttr>(constOp.getValue());
   }
   return false;
 }
@@ -152,7 +159,7 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
   if (!inputShape.hasRank()) {
     return std::nullopt;
   }
-  int64_t index = -1;
+  int64_t index = K_INITIAL;
   for (size_t i = 0; i < inputShape.getRank(); i++) {
     if (window_dimensions[i] == 1 && padding[i * 2] == 0 &&
         padding[i * 2 + 1] == 0) {
@@ -164,7 +171,7 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
     } else if (window_dimensions[i] == inputShape.getDimSize(i) &&
                padding[i * 2] == inputShape.getDimSize(i) - 1 &&
                padding[i * 2 + 1] == 0) {
-      if (index == -1) {
+      if (index == K_INITIAL) {
         index = i;
       } else {
         // more than one dim to be cumsumed
@@ -180,11 +187,13 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
 byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
   auto base_dilations = op.getBaseDilationsAttr();
   if (base_dilations && !isSplatValue(base_dilations, 1)) {
-    assert(false && "expected base_dilations to be dense<1>");
+    // expected base_dilations to be dense<1>
+    return byteir::NamedLayout::UNKNOWN;
   }
   auto window_dilations = op.getWindowDilationsAttr();
   if (window_dilations && !isSplatValue(window_dilations, 1)) {
-    assert(false && "expected window_dilations to be dense<1>");
+    // expected window_dilations to be dense<1>
+    return byteir::NamedLayout::UNKNOWN;
   }
 
   SmallVector<int64_t> window_dimensions = SmallVector<int64_t>(
@@ -203,7 +212,8 @@ byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
   }
 
   if (rank != 3 && rank != 4 && rank != 5) {
-    assert(false && "expected dimension number to be 3, 4 or 5");
+    // expected dimension number to be 3, 4 or 5
+    return byteir::NamedLayout::UNKNOWN;
   }
   return parsePoolLayout(rank, window_dimensions, strides, padding);
 }

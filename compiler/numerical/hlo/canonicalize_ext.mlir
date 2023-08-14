@@ -185,6 +185,23 @@ func.func @slice_reshape_concat_case1(%arg0: tensor<128x64xf32>, %arg1: tensor<1
 // CHECK-DAG: %[[VAL_1:.*]] = mhlo.reshape %[[ARG1]]
 // CHECK-NEXT: "mhlo.concatenate"(%[[VAL_1]], %[[VAL_0]])
 
+func.func @slice_reshape_concat_case2(%arg0: tensor<1x512x12xf16>, %arg1: tensor<512x48xf16>) -> (tensor<5x512x12xf16>) {
+  %483 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 12]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %484 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 24]> : tensor<2xi64>, start_indices = dense<[0, 12]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %485 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 36]> : tensor<2xi64>, start_indices = dense<[0, 24]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %486 = "mhlo.slice"(%arg1) {limit_indices = dense<[512, 48]> : tensor<2xi64>, start_indices = dense<[0, 36]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x48xf16>) -> tensor<512x12xf16>
+  %1465 = mhlo.reshape %483 : (tensor<512x12xf16>) -> tensor<1x512x12xf16>
+  %1466 = mhlo.reshape %484 : (tensor<512x12xf16>) -> tensor<1x512x12xf16>
+  %1467 = mhlo.reshape %485 : (tensor<512x12xf16>) -> tensor<1x512x12xf16>
+  %1468 = mhlo.reshape %486 : (tensor<512x12xf16>) -> tensor<1x512x12xf16>
+  %1469 = "mhlo.concatenate"(%arg0, %1465, %1466, %1467, %1468) {dimension = 0 : i64} : (tensor<1x512x12xf16>, tensor<1x512x12xf16>, tensor<1x512x12xf16>, tensor<1x512x12xf16>, tensor<1x512x12xf16>) -> tensor<5x512x12xf16>
+  return %1469 : tensor<5x512x12xf16>
+}
+// CHECK-LABEL: slice_reshape_concat_case2
+// CHECK: mhlo.slice
+// CHECK: mhlo.reshape
+// CHECK: mhlo.concatenate
+
 func.func @cumsum_to_iota_case0() -> tensor<1x16xi64> {
   %0 = mhlo.constant dense<1> : tensor<1x16xi64>
   %1 = mhlo.constant dense<0> : tensor<i64>

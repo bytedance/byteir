@@ -228,6 +228,8 @@ static void updateReplacements(llvm::DenseMap<Value, Value> &replacements,
   }
 }
 
+} // namespace
+
 /// For a value to be yielded (`yieldedValue`) from within a loop nest `loops`,
 /// construct the destructive update pattern that inserts the yielded
 /// value into a destination tensor provided by `initValue` at offset
@@ -253,15 +255,14 @@ static void updateReplacements(llvm::DenseMap<Value, Value> &replacements,
 ///
 /// This function is modified by adding functionality of updating replacements
 /// and handling distributed style
-static LogicalResult
-yieldTiledValues(RewriterBase &rewriter, ValueRange initValues,
-                 ValueRange yieldedValues,
-                 ArrayRef<SmallVector<OpFoldResult>> tileOffsetsList,
-                 ArrayRef<SmallVector<OpFoldResult>> tileSizesList,
-                 MutableArrayRef<scf::ForOp> loops,
-                 ArrayRef<utils::IteratorType> compactedLoopTypes,
-                 ArrayRef<bool> compactedUseDistribtuedStyle,
-                 llvm::DenseMap<Value, Value> &replacements) {
+LogicalResult mlir::yieldTiledValuesForMultiDst(
+    RewriterBase &rewriter, ValueRange initValues, ValueRange yieldedValues,
+    ArrayRef<SmallVector<OpFoldResult>> tileOffsetsList,
+    ArrayRef<SmallVector<OpFoldResult>> tileSizesList,
+    MutableArrayRef<scf::ForOp> loops,
+    ArrayRef<utils::IteratorType> compactedLoopTypes,
+    ArrayRef<bool> compactedUseDistribtuedStyle,
+    llvm::DenseMap<Value, Value> &replacements) {
   scf::NewYieldValueFnExt yieldValueFnExt =
       [&](OpBuilder &b, Location loc, ArrayRef<BlockArgument> newBBArgs,
           utils::IteratorType loopType,
@@ -326,9 +327,7 @@ yieldTiledValues(RewriterBase &rewriter, ValueRange initValues,
     loops[loop.index()] = newLoops[loop.index()];
   }
   return success();
-} // namespace
-
-} // namespace
+}
 
 LogicalResult mlir::tileToExistedLoops(
     RewriterBase &rewriter, TilingInterface op, ArrayRef<OpFoldResult> tileNums,
@@ -431,7 +430,7 @@ LogicalResult mlir::tileToExistedLoops(
     }
   }
   auto oldNumResult = loops.front()->getNumResults();
-  (void)yieldTiledValues(
+  (void)yieldTiledValuesForMultiDst(
       rewriter, destinationTensors, tiledImplementation.value().tiledValues,
       resultOffsetsList, resultSizesList, loops, compactedLoopTypes,
       compactedUseDistributedStyle, tileAndFuseResult.replacements);

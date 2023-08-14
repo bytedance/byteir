@@ -1,6 +1,6 @@
-name: Clang Format Check
+name: Format Check
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   clang-format-check:
@@ -13,3 +13,5 @@ jobs:
       - name: Run clang-format check
         run: ./scripts/clang_format_check.sh
         shell: bash
+      - name: Run other format check
+        run: python3 ./scripts/format_check.py --dir $GITHUB_WORKSPACE

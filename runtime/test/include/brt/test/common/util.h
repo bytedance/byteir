@@ -19,13 +19,11 @@
 
 #pragma once
 
-#include <stdlib.h>
-
+#include "gtest/gtest.h"
 #include <algorithm>
 #include <iostream>
+#include <stdlib.h>
 #include <vector>
-
-#include "gtest/gtest.h"
 
 #define BRT_TEST_CHECK_STATUS(status)                                          \
   EXPECT_TRUE(status.IsOK()) << status.ErrorMessage()

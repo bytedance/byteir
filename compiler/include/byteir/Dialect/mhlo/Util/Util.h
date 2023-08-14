@@ -96,6 +96,7 @@ bool isSplatMhloConstantValue(Value val, int64_t splat_val);
 
 bool isSplatMhloConstantValue(Value val, double splat_val);
 
+bool isDenseMhloConstantValue(Value val);
 // return cumsum's index, return nullopt if not a cumsum op
 std::optional<int64_t> getCumsumIndex(mhlo::ReduceWindowOp op);
 
