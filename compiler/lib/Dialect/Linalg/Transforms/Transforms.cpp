@@ -1397,7 +1397,8 @@ static LogicalResult checkRootsAndTileOptions(ArrayRef<Value> tensors,
 FailureOr<scf::SCFTileAndFuseResult>
 mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     RewriterBase &rewriter, ArrayRef<Value> tensors,
-    const TilingOptions &options, bool expectWholeGraphFusion) {
+    const TilingOptions &options, TileFuncType tileFunc,
+    bool expectWholeGraphFusion) {
   if (failed(checkRootsAndTileOptions(tensors, options))) {
     LLVM_DEBUG(DBGS() << "check root and tile options failed\n");
     return failure();
@@ -1428,12 +1429,15 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     return tileAndFuseResult;
 
   // 1. First tile all the root tensors with no uses
+  if (tileFunc == nullptr) {
+    // Use the default tile func
+    tileFunc = tileToExistedLoops;
+  }
   for (Value tensor : tensors) {
     if (val2Uses[tensor] == 0) {
       TilingInterface tileableOp = tensor.getDefiningOp<TilingInterface>();
-      if (failed(tileToExistedLoops(rewriter, tileableOp, tileNums, interchange,
-                                    options.useDistributedStyle,
-                                    tileAndFuseResult)))
+      if (failed(tileFunc(rewriter, tileableOp, tileNums, interchange,
+                          options.useDistributedStyle, tileAndFuseResult)))
         return rewriter.notifyMatchFailure(tileableOp, "failed to tile");
     }
   }

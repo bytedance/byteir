@@ -68,7 +68,7 @@ public:
   /// Note that the operations in this list are not ordered and the current
   /// implementation is computationally expensive (as it iterates over all
   /// blocks in which the given value is live).
-  OperationListT resolveLiveness(mlir::Value value) const;
+  virtual OperationListT resolveLiveness(mlir::Value value) const;
 
   /// Gets the start operation for the given value. This is the first operation
   /// the given value is considered to be live. This could either be the start

@@ -166,6 +166,18 @@ func.func @reshape_move_down_binary_splat_const(%arg0 : tensor<31x20x32xf32>) ->
 // CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: return
 
+func.func @reshape_move_down_binary_dense_const(%arg0 : tensor<2x1xf32>) -> tensor<2xf32> {
+    %0 = mhlo.constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
+    %1 = "mhlo.reshape"(%arg0) : (tensor<2x1xf32>) -> tensor<2xf32>
+    %2 = mhlo.add %1, %0 : tensor<2xf32>
+    return %2 : tensor<2xf32>
+}
+// CHECK-LABEL: func.func @reshape_move_down_binary_dense_const
+// CHECK-NEXT: mhlo.constant
+// CHECK-NEXT: mhlo.add
+// CHECK-NEXT: mhlo.reshape
+// CHECK-NEXT: return
+
 func.func @reshape_move_down_binary_with_arg(%arg0 : tensor<31x20x32xf32>, %arg1 : tensor<31x640xf32>) -> tensor<31x640xf32> {
     %0 = "mhlo.reshape"(%arg0) : (tensor<31x20x32xf32>) -> tensor<31x640xf32>
     %1 = mhlo.add %0, %arg1 : tensor<31x640xf32>

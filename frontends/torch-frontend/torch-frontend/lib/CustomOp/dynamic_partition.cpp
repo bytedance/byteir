@@ -20,5 +20,5 @@ std::vector<torch::Tensor> custom_dynamic_partition(torch::Tensor data,
   return res;
 }
 
-static auto registry = torch::RegisterOperators("custom::dynamic_partition",
+static auto registry = torch::RegisterOperators("byteir::dynamic_partition",
                                                 &custom_dynamic_partition);

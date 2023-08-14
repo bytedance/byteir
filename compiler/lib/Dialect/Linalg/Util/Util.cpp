@@ -242,6 +242,9 @@ FailureOr<TilingResult> mlir::commonGenerateResultTileValue(
   FailureOr<mlir::TilingResult> tileResult =
       tilingInterfaceOp.getTiledImplementation(b, iterationTileOffsets,
                                                iterationTileSizes);
+  if (failed(tileResult)) {
+    return op->emitOpError("failed to generate tiled implementation");
+  }
   SmallVector<Operation *> tiledOp = tileResult->tiledOps;
   if (tiledOp.size() != 1)
     return op->emitOpError("failed to generate tiled implementation");

@@ -2,7 +2,7 @@
 
 set -e
 
-CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null && pwd )"
+CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJ_DIR="$CUR_DIR/../../runtime"
 BRT_INSTALL_DIR="$PROJ_DIR/build/install"
 EXTERNAL_PROJECT_SRC_DIR="$PROJ_DIR/examples/external_project"

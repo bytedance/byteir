@@ -88,6 +88,16 @@ void calculateTileOffsetsAndSizes(
     SmallVector<OpFoldResult> &tiledOffsets,
     SmallVector<OpFoldResult> &tiledSizes);
 
+LogicalResult
+yieldTiledValuesForMultiDst(RewriterBase &rewriter, ValueRange initValues,
+                            ValueRange yieldedValues,
+                            ArrayRef<SmallVector<OpFoldResult>> tileOffsetsList,
+                            ArrayRef<SmallVector<OpFoldResult>> tileSizesList,
+                            MutableArrayRef<scf::ForOp> loops,
+                            ArrayRef<utils::IteratorType> compactedLoopTypes,
+                            ArrayRef<bool> compactedUseDistribtuedStyle,
+                            llvm::DenseMap<Value, Value> &replacements);
+
 LogicalResult tileToExistedLoops(RewriterBase &rewriter, TilingInterface op,
                                  ArrayRef<OpFoldResult> tileNums,
                                  ArrayRef<int64_t> interchange,

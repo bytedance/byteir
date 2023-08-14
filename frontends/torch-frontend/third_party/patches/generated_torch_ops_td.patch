@@ -6,12 +6,12 @@ index 3d7bee6d..89bf77b1 100644
    }];
  }
  
-+def Torch_CustomDynamicPartitionOp : Torch_Op<"custom.dynamic_partition", [
++def Torch_CustomDynamicPartitionOp : Torch_Op<"byteir.dynamic_partition", [
 +    AllowsTypeRefinement,
 +    HasValueSemantics,
 +    ReadOnly
 +  ]> {
-+  let summary = "Generated op for `custom::dynamic_partition : (Tensor, Tensor, int) -> (Tensor[])`";
++  let summary = "Generated op for `byteir::dynamic_partition : (Tensor, Tensor, int) -> (Tensor[])`";
 +  let arguments = (ins
 +    AnyTorchTensorType:$self,
 +    AnyTorchTensorType:$partition,
@@ -31,12 +31,12 @@ index 3d7bee6d..89bf77b1 100644
 +  }];
 +}
 +
-+def Torch_CustomDynamicStitchOp : Torch_Op<"custom.dynamic_stitch", [
++def Torch_CustomDynamicStitchOp : Torch_Op<"byteir.dynamic_stitch", [
 +    AllowsTypeRefinement,
 +    HasValueSemantics,
 +    ReadOnly
 +  ]> {
-+  let summary = "Generated op for `custom::dynamic_stitch : (Tensor[], Tensor[]) -> (Tensor)`";
++  let summary = "Generated op for `byteir::dynamic_stitch : (Tensor[], Tensor[]) -> (Tensor)`";
 +  let arguments = (ins
 +    AnyTorchListOfTensorType:$indices,
 +    AnyTorchListOfTensorType:$data
@@ -55,12 +55,12 @@ index 3d7bee6d..89bf77b1 100644
 +  }];
 +}
 +
-+def Torch_CustomDynamicMaskStitchOp : Torch_Op<"custom.dynamic_mask_stitch", [
++def Torch_CustomDynamicMaskStitchOp : Torch_Op<"byteir.dynamic_mask_stitch", [
 +    AllowsTypeRefinement,
 +    HasValueSemantics,
 +    ReadOnly
 +  ]> {
-+  let summary = "Generated op for `custom::dynamic_mask_stitch : (Tensor[], Tensor) -> (Tensor)`";
++  let summary = "Generated op for `byteir::dynamic_mask_stitch : (Tensor[], Tensor) -> (Tensor)`";
 +  let arguments = (ins
 +    AnyTorchListOfTensorType:$data,
 +    AnyTorchTensorType:$partition

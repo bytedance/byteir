@@ -9,8 +9,8 @@ from torch_frontend import convert_to_mhlo_via_torch_mlir
 torch.ops.load_library("build/lib/libcustom_op.so")
 class DynamicPartitionStitchModule(torch.nn.Module):
     def forward(self, data, partitions, index0, index1):
-        dynamic_partition = torch.ops.custom.dynamic_partition(data, partitions, 2)
-        dynamic_stitch = torch.ops.custom.dynamic_stitch(
+        dynamic_partition = torch.ops.byteir.dynamic_partition(data, partitions, 2)
+        dynamic_stitch = torch.ops.byteir.dynamic_stitch(
             [index0, index1], [dynamic_partition[0], dynamic_partition[1]])
         return dynamic_stitch
 
@@ -39,8 +39,8 @@ def test_dynamic_partition_stitch_gpu():
 
 class DynamicPartitionMaskStitchModule(torch.nn.Module):
     def forward(self, data, partitions):
-        dynamic_partition = torch.ops.custom.dynamic_partition(data, partitions, 2)
-        dynamic_stitch = torch.ops.custom.dynamic_mask_stitch(
+        dynamic_partition = torch.ops.byteir.dynamic_partition(data, partitions, 2)
+        dynamic_stitch = torch.ops.byteir.dynamic_mask_stitch(
             [dynamic_partition[0], dynamic_partition[1]], partitions)
         return dynamic_stitch
 

@@ -16,4 +16,4 @@ torch::Tensor custom_dynamic_stitch(std::vector<torch::Tensor> indices,
 }
 
 static auto registry =
-    torch::RegisterOperators("custom::dynamic_stitch", &custom_dynamic_stitch);
+    torch::RegisterOperators("byteir::dynamic_stitch", &custom_dynamic_stitch);

@@ -37,7 +37,7 @@ cmake --build "$BUILD_DIR" --target byteir-python-pack
 # TODO: make this test more robust
 # test byteir.compile
 pushd $ROOT_PROJ_DIR
-PYTHONPATH=./compiler/build/python_packages/byteir python3 -m byteir.tools.compiler ./compiler/test/E2E/MLPInference/input.mlir ./test.mlir --entry_func forward
+PYTHONPATH=./compiler/build/python_packages/byteir python3 -m byteir.tools.compiler ./compiler/test/E2E/MLPInference/input.mlir -o ./test.mlir --entry_func forward
 rm -f ./test.mlir
 rm -f ./test.mlir.ptx
 popd

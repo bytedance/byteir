@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.18)
 
 # Project
-project(brt C CXX CUDA)
+project(brt C CXX)
 # Needed for Java
 set (CMAKE_C_STANDARD 99)
 

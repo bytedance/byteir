@@ -49,6 +49,11 @@ namespace mlir {
 class DominanceInfo;
 class PostDominanceInfo;
 
+using TileFuncType = std::function<LogicalResult(
+    RewriterBase &rewriter, TilingInterface op, ArrayRef<OpFoldResult> tileNums,
+    ArrayRef<int64_t> interchange, ArrayRef<bool> useDistributdStyle,
+    scf::SCFTileAndFuseResult &tileAndFuseResult)>;
+
 namespace scf {
 /// tileConsumerAndFuseProducerUsingSCFForOpExt is an enhanced version
 /// tileConsumerAndFuseProducerGreedilyUsingSCFForOp.
@@ -66,7 +71,8 @@ tileConsumerAndFuseProducerUsingSCFForOpExt(
 FailureOr<scf::SCFTileAndFuseResult>
 tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     RewriterBase &rewriter, ArrayRef<Value> tensors,
-    const TilingOptions &options, bool expectWholeGraphFusion = false);
+    const TilingOptions &options, TileFuncType tileFunc = nullptr,
+    bool expectWholeGraphFusion = false);
 
 void labelTileLoopType(Operation *op, ArrayRef<scf::ForOp> loops);
 
