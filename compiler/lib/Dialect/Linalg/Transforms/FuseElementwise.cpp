@@ -146,6 +146,322 @@ static bool isUsedByReturn(OpOperand *producer) {
   return false;
 }
 
+/// Append to `fusedOpIndexingMapAttrs` the indexing maps for the operands of
+/// the `producer` to use in the fused operation given the indexing map of the
+/// result of the producer in the consumer.
+static AffineMap getIndexingMapOfProducerOperandsInCoordinatesOfFusedOp(
+    OpOperand *producerOpOperand, AffineMap producerResultIndexMap,
+    AffineMap fusedConsumerArgIndexMap) {
+  // The indexing map in the consumer op (fusedConsumerArgIndexMap) is a map
+  // from consumer loop -> consumer arg tensor index/producer result tensor
+  // index. The fused loop is same as the consumer loop. For each producer arg
+  // the indexing map to be computed is a map from consumer loop -> producer
+  // arg tensor index.
+  // producerResultIndexMap is a map from producer loop -> tensor index.
+  // Compute the inverse to get map from tensor index -> producer loop.
+  // The inverse is a map from producer result tensor index -> producer loop.
+  AffineMap invProducerResultIndexMap =
+      inversePermutation(producerResultIndexMap);
+  assert(invProducerResultIndexMap &&
+         "expected producer result indexing map to be invertible");
+
+  LinalgOp producer = cast<LinalgOp>(producerOpOperand->getOwner());
+  // argMap is a map from producer loop -> producer arg tensor index.
+  AffineMap argMap = producer.getMatchingIndexingMap(producerOpOperand);
+
+  // Compose argMap with invProducerResultIndexMap to get a map from
+  // producer result tensor index -> producer arg tensor index.
+  AffineMap t1 = argMap.compose(invProducerResultIndexMap);
+
+  // Compose t1 with fusedConsumerArgIndexMap gives an indexing map from
+  // consumer loop/ fused loop -> producer arg tensor index.
+  return t1.compose(fusedConsumerArgIndexMap);
+}
+
+static AffineMap
+composeProduceResultAndConsumerOperand(AffineMap producerResultIndexMap,
+                                       AffineMap fusedConsumerArgIndexMap) {
+  AffineMap invProducerResultIndexMap =
+      inversePermutation(producerResultIndexMap);
+  assert(invProducerResultIndexMap &&
+         "expected producer result indexing map to be invertible");
+  return invProducerResultIndexMap.compose(fusedConsumerArgIndexMap);
+}
+
+/// Generate the region of the fused tensor operation. The region of the fused
+/// op must be empty.
+///
+/// This is an variant of upstream's version to support multiple fusedOperands
+static void generateFusedElementwiseOpRegion(
+    RewriterBase &rewriter, GenericOp fusedOp,
+    AffineMap consumerToProducerLoopsMap,
+    llvm::SetVector<OpOperand *> &fusedOperands, unsigned nloops,
+    llvm::SmallDenseSet<int> &preservedProducerResults) {
+  assert(fusedOperands.size() > 0);
+  auto producer = cast<GenericOp>(fusedOperands[0]->get().getDefiningOp());
+  auto consumer = cast<GenericOp>(fusedOperands[0]->getOwner());
+  // Build the region of the fused op.
+  Block &producerBlock = producer->getRegion(0).front();
+  Block &consumerBlock = consumer->getRegion(0).front();
+  Block *fusedBlock = new Block();
+  fusedOp.getRegion().push_back(fusedBlock);
+  IRMapping mapper;
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPointToStart(fusedBlock);
+
+  // 2. Add an index operation for every fused loop dimension and use the
+  // `consumerToProducerLoopsMap` to map the producer indices.
+  if (producer.hasIndexSemantics()) {
+    // Add an index operation for every fused loop dimension.
+    unsigned numFusedOpLoops =
+        std::max(producer.getNumLoops(), consumer.getNumLoops());
+    SmallVector<Value> fusedIndices;
+    fusedIndices.reserve(numFusedOpLoops);
+    llvm::transform(llvm::seq<uint64_t>(0, numFusedOpLoops),
+                    std::back_inserter(fusedIndices), [&](uint64_t dim) {
+                      return rewriter.create<IndexOp>(producer.getLoc(), dim);
+                    });
+    for (IndexOp indexOp :
+         llvm::make_early_inc_range(producerBlock.getOps<IndexOp>())) {
+      Value newIndex = rewriter.create<mlir::AffineApplyOp>(
+          producer.getLoc(),
+          consumerToProducerLoopsMap.getSubMap(indexOp.getDim()), fusedIndices);
+      mapper.map(indexOp.getResult(), newIndex);
+    }
+  }
+  // TODO: allow fusing the producer of an output operand.
+  for (OpOperand *fusedOperand : fusedOperands)
+    assert(consumer.isDpsInput(fusedOperand) &&
+           "expected producer of input operand");
+
+  // Replacing consumerIdx requires getting the cloned, yielded, value from
+  // the (cloned) producer block. This happens in step 9.
+
+  // 3. All of the producer's input operands
+  for (BlockArgument bbArg :
+       producerBlock.getArguments().take_front(producer.getNumDpsInputs()))
+    mapper.map(bbArg, fusedBlock->addArgument(bbArg.getType(), bbArg.getLoc()));
+
+  // 4. All of the consumer's input operands
+  for (auto it : llvm::zip(consumer.getDpsInputOperands(),
+                           consumerBlock.getArguments())) {
+    OpOperand *opOperand = std::get<0>(it);
+    BlockArgument bbArg = std::get<1>(it);
+    if (!fusedOperands.contains(opOperand))
+      mapper.map(bbArg,
+                 fusedBlock->addArgument(bbArg.getType(), bbArg.getLoc()));
+  }
+
+  // 5. All of the producer's output operands
+  for (const auto &bbArg : llvm::enumerate(
+           producerBlock.getArguments().take_back(producer.getNumDpsInits()))) {
+    if (!preservedProducerResults.count(bbArg.index()))
+      continue;
+    mapper.map(bbArg.value(), fusedBlock->addArgument(bbArg.value().getType(),
+                                                      bbArg.value().getLoc()));
+  }
+
+  // 6. All of consumer's output operands.
+  for (BlockArgument bbArg :
+       consumerBlock.getArguments().take_back(consumer.getNumDpsInits()))
+    mapper.map(bbArg, fusedBlock->addArgument(bbArg.getType(), bbArg.getLoc()));
+
+  // 7. Clone all producer operations except for the yield and index operations
+  // to the fused operation.
+  for (auto &op : producerBlock.without_terminator()) {
+    if (!isa<IndexOp>(op))
+      rewriter.clone(op, mapper);
+  }
+  // 8. Now we can map the consumerBlock's `consumerIdx` block argument. Just
+  // forward the yield operand.
+  auto producerYieldOp = cast<linalg::YieldOp>(producerBlock.getTerminator());
+  for (OpOperand *fusedOperand : fusedOperands) {
+    unsigned producerResultNumber =
+        fusedOperand->get().cast<OpResult>().getResultNumber();
+    Value replacement = mapper.lookupOrDefault(
+        producerYieldOp.getOperand(producerResultNumber));
+    // Sanity checks, if replacement is not already in the mapper then it must
+    // be produced outside.
+    if (replacement == producerYieldOp.getOperand(producerResultNumber)) {
+      if (auto bb = replacement.dyn_cast<BlockArgument>())
+        assert(bb.getOwner() != &producerBlock &&
+               "yielded block argument must have been mapped");
+      else
+        assert(!producer->isAncestor(replacement.getDefiningOp()) &&
+               "yielded value must have been mapped");
+    }
+    mapper.map(consumerBlock.getArgument(fusedOperand->getOperandNumber()),
+               replacement);
+  }
+
+  // 9. Clone operations from the consumer to the fused op.
+  for (auto &op : consumerBlock.without_terminator())
+    rewriter.clone(op, mapper);
+
+  // 10. Include the final yield (which is the remapped values for all the
+  // yield)
+  auto consumerYieldOp = cast<linalg::YieldOp>(consumerBlock.getTerminator());
+  SmallVector<Value> fusedYieldValues;
+  fusedYieldValues.reserve(producerYieldOp.getNumOperands() +
+                           consumerYieldOp.getNumOperands());
+  for (const auto &producerYieldVal :
+       llvm::enumerate(producerYieldOp.getOperands())) {
+    if (preservedProducerResults.count(producerYieldVal.index()))
+      fusedYieldValues.push_back(
+          mapper.lookupOrDefault(producerYieldVal.value()));
+  }
+  for (auto consumerYieldVal : consumerYieldOp.getOperands())
+    fusedYieldValues.push_back(mapper.lookupOrDefault(consumerYieldVal));
+  rewriter.create<linalg::YieldOp>(fusedOp.getLoc(), fusedYieldValues);
+
+  // Sanity checks.
+  assert(fusedBlock->getNumArguments() == fusedOp.getNumOperands() &&
+         "Ill-formed GenericOp region");
+}
+
+/// Fuse two `linalg.generic` operations that have a producer-consumer
+/// relationship captured through `fusedOperand`. The method expects
+/// that `areElementwiseOpsFusable` returns true for the given `fusedOperand`.
+///
+/// This is an enhancement of mlir upstream's version to support cases where the
+/// consumer uses multiple results of the producer
+static FailureOr<mlir::linalg::ElementwiseOpFusionResult>
+fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
+  assert(areElementwiseOpsFusable(fusedOperand) &&
+         "expected elementwise operation pre-conditions to pass");
+  auto producerResult = fusedOperand->get().cast<OpResult>();
+  auto producer = cast<GenericOp>(producerResult.getOwner());
+  auto consumer = cast<GenericOp>(fusedOperand->getOwner());
+  // TODO: allow fusing the producer of an output operand.
+  assert(consumer.isDpsInput(fusedOperand) &&
+         "expected producer of input operand");
+  /// Find the results of the producer that have uses outside of the consumer.
+  llvm::SmallDenseSet<int> preservedProducerResults;
+  for (const auto &producerResult : llvm::enumerate(producer->getResults())) {
+    auto *outputOperand = producer.getDpsInitOperand(producerResult.index());
+    if (producer.payloadUsesValueFromOperand(outputOperand) ||
+        !producer.canOpOperandsBeDropped(outputOperand) ||
+        llvm::any_of(producerResult.value().getUsers(), [&](Operation *user) {
+          return user != consumer.getOperation();
+        })) {
+      preservedProducerResults.insert(producerResult.index());
+    }
+  }
+
+  // Compute the fused operands list and indexing maps.
+  SmallVector<Value> fusedInputOperands, fusedOutputOperands;
+  SmallVector<Type> fusedResultTypes;
+  SmallVector<AffineMap> fusedIndexMaps;
+  // In the following, numbering matches that of `generateFusedTensorOpRegion`.
+  // 3. Consumer input operands/maps up to consumerIdx (exclusive).
+  auto consumerInputs = consumer.getDpsInputOperands();
+  SmallVector<OpOperand *> operandsFromProducer = llvm::to_vector(
+      llvm::make_filter_range(consumerInputs, [&](OpOperand *operand) {
+        auto opResult = operand->get().dyn_cast<OpResult>();
+        return opResult && opResult.getOwner() == producer.getOperation();
+      }));
+  llvm::SetVector<OpOperand *> operandsFromProducerSet(
+      operandsFromProducer.begin(), operandsFromProducer.end());
+
+  // 4. Check all the consumer-producer OpOperands' indexing map the same
+  AffineMap producerResultIndexMap =
+      producer.getIndexingMapMatchingResult(producerResult);
+  AffineMap toCheckAffineMap = composeProduceResultAndConsumerOperand(
+      producerResultIndexMap, consumer.getMatchingIndexingMap(fusedOperand));
+  for (OpOperand *consumerOperand : consumerInputs) {
+    if (consumerOperand != fusedOperand &&
+        operandsFromProducerSet.contains(consumerOperand)) {
+      auto curProducerResult = consumerOperand->get().cast<OpResult>();
+      AffineMap curProducerResultIndexMap =
+          producer.getIndexingMapMatchingResult(curProducerResult);
+      AffineMap toCheckWithAffineMap = composeProduceResultAndConsumerOperand(
+          curProducerResultIndexMap,
+          consumer.getMatchingIndexingMap(consumerOperand));
+      if (toCheckAffineMap != toCheckWithAffineMap)
+        return failure();
+    }
+  }
+
+  // 5. Collect all of the producer inputs
+  for (OpOperand *opOperand : producer.getDpsInputOperands()) {
+    fusedInputOperands.push_back(opOperand->get());
+    AffineMap map = getIndexingMapOfProducerOperandsInCoordinatesOfFusedOp(
+        opOperand, producerResultIndexMap,
+        consumer.getMatchingIndexingMap(fusedOperand));
+    fusedIndexMaps.push_back(map);
+  }
+  for (OpOperand *opOperand : consumerInputs) {
+    if (!operandsFromProducerSet.contains(opOperand)) {
+      fusedInputOperands.push_back(opOperand->get());
+      fusedIndexMaps.push_back(consumer.getMatchingIndexingMap(opOperand));
+    }
+  }
+
+  // 6. Collect all of the producer outputs.
+  for (const auto &opOperand : llvm::enumerate(producer.getDpsInitOperands())) {
+    if (!preservedProducerResults.count(opOperand.index()))
+      continue;
+
+    fusedOutputOperands.push_back(opOperand.value()->get());
+    AffineMap map = getIndexingMapOfProducerOperandsInCoordinatesOfFusedOp(
+        opOperand.value(), producerResultIndexMap,
+        consumer.getMatchingIndexingMap(fusedOperand));
+    fusedIndexMaps.push_back(map);
+    fusedResultTypes.push_back(opOperand.value()->get().getType());
+  }
+
+  // 7. All of consumer's output operands (skip operands: added by the builder).
+  for (OpOperand *opOperand : consumer.getDpsInitOperands()) {
+    fusedOutputOperands.push_back(opOperand->get());
+    fusedIndexMaps.push_back(consumer.getMatchingIndexingMap(opOperand));
+    Type resultType = opOperand->get().getType();
+    if (!resultType.isa<MemRefType>())
+      fusedResultTypes.push_back(resultType);
+  }
+
+  // Generate the fused op.
+  auto fusedOp = rewriter.create<GenericOp>(
+      consumer.getLoc(), fusedResultTypes, fusedInputOperands,
+      fusedOutputOperands, rewriter.getAffineMapArrayAttr(fusedIndexMaps),
+      consumer.getIteratorTypes(),
+      /*doc=*/nullptr,
+      /*library_call=*/nullptr);
+  if (!fusedOp.getShapesToLoopsMap()) {
+    // Fused op has invalid indexing maps. Typically this means something is off
+    // in the input, but going ahead here would result in verification errors.
+    // So cleanup and abort.
+    rewriter.eraseOp(fusedOp);
+    return rewriter.notifyMatchFailure(
+        fusedOp, "fused op failed loop bound computation check");
+  }
+
+  // Construct an AffineMap from consumer loops to producer loops.
+  // consumer loop -> tensor index
+  AffineMap consumerResultIndexMap =
+      consumer.getMatchingIndexingMap(fusedOperand);
+  // tensor index -> producer loop
+  AffineMap invProducerResultIndexMap =
+      inversePermutation(producerResultIndexMap);
+  assert(invProducerResultIndexMap &&
+         "expected producer result indexig map to be invertible");
+  // consumer loop -> producer loop
+  AffineMap consumerToProducerLoopsMap =
+      invProducerResultIndexMap.compose(consumerResultIndexMap);
+
+  generateFusedElementwiseOpRegion(
+      rewriter, fusedOp, consumerToProducerLoopsMap, operandsFromProducerSet,
+      consumer.getNumLoops(), preservedProducerResults);
+  ElementwiseOpFusionResult result;
+  result.fusedOp = fusedOp;
+  int resultNum = 0;
+  for (auto [index, producerResult] : llvm::enumerate(producer->getResults()))
+    if (preservedProducerResults.count(index))
+      result.replacements[producerResult] = fusedOp->getResult(resultNum++);
+  for (auto consumerResult : consumer->getResults())
+    result.replacements[consumerResult] = fusedOp->getResult(resultNum++);
+  return result;
+} // namespace
+
 /// Patterns to fuse a generic op, with the producer of its operands.
 class FuseElementwiseProducerConsumerExt : public OpRewritePattern<GenericOp> {
 public:
@@ -179,7 +495,7 @@ public:
       }
 
       FailureOr<ElementwiseOpFusionResult> fusionResult =
-          fuseElementwiseOps(rewriter, &opOperand);
+          fuseElementwiseOpsExt(rewriter, &opOperand);
 
       if (succeeded(fusionResult)) {
         // FIXME(lyq): applyPatternsAndFoldGreedily only trigger dce between
@@ -210,6 +526,7 @@ public:
           }
           res.replaceAllUsesWith(fusedOp->getResult(idx++));
         }
+
         return success();
       }
     }
