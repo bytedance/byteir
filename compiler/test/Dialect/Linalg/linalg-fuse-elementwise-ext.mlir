@@ -451,3 +451,64 @@ func.func @check_collapse_expand(%arg0: tensor<3x4xf32>, %arg1 : tensor<3x4xf32>
     } -> tensor<12xf32>
   return %3#0, %collapsed, %expanded, %4 : tensor<3x4xf32>, tensor<12xf32>, tensor<4x3xf32>, tensor<12xf32>
 }
+
+// -----
+
+#map = affine_map<(d0, d1) -> (d0, d1)>
+
+func.func @consumer_multi_result_from_producer(%arg0: tensor<2x4xf32>, %arg1: tensor<2x4xf32>) -> (tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>) {
+  %0 = tensor.empty() : tensor<2x4xf32>
+  %1 = tensor.empty() : tensor<2x4xf32>
+  %2 = tensor.empty() : tensor<2x4xf32>
+  %3 = tensor.empty() : tensor<2x4xf32>
+  %4:3 = linalg.generic {indexing_maps = [#map, #map, #map, #map, #map], iterator_types = ["parallel", "parallel"]} ins(%arg0, %arg1 : tensor<2x4xf32>, tensor<2x4xf32>) outs(%0, %1, %3 : tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>) {
+  ^bb0(%in: f32, %in_0: f32, %out: f32, %out_1: f32, %out_2: f32):
+    %6 = arith.maxf %in, %in_0 : f32
+    %7 = arith.minf %in, %in_0 : f32
+    %8 = arith.addf %7, %in_0 : f32
+    linalg.yield %7, %8, %6 : f32, f32, f32
+  } -> (tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>)
+  %5 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel"]} ins(%4#1, %4#0 : tensor<2x4xf32>, tensor<2x4xf32>) outs(%2 : tensor<2x4xf32>) {
+  ^bb0(%in: f32, %in_0: f32, %out: f32):
+    %6 = arith.mulf %in, %in_0 : f32
+    linalg.yield %6 : f32
+  } -> tensor<2x4xf32>
+  return %4#1, %4#2, %5 : tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>
+}
+// CHECK-LABEL: @consumer_multi_result_from_producer
+// CHECK: %[[RES:.*]]:3 = linalg.generic
+// CHECK-DAG: %[[V0:.*]] = arith.maxf
+// CHECK-DAG: %[[V1:.*]] = arith.minf
+// CHECK-DAG: %[[V2:.*]] = arith.addf
+// CHECK-DAG: %[[V3:.*]] = arith.mulf
+// CHECK:     linalg.yield %[[V2]], %[[V0]], %[[V3]]
+// CHECK-NOT: linalg.generic
+// CHECK:     return %[[RES]]#0, %[[RES]]#1, %[[RES]]#2
+
+// -----
+
+#map = affine_map<(d0, d1) -> (d0, d1)>
+#map1 = affine_map<(d0, d1) -> (d0, 0)>
+
+func.func @consumer_multi_result_from_producer_with_different_indexing_map(%arg0: tensor<2x4xf32>, %arg1: tensor<2x4xf32>) -> (tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>) {
+  %0 = tensor.empty() : tensor<2x4xf32>
+  %1 = tensor.empty() : tensor<2x4xf32>
+  %2 = tensor.empty() : tensor<2x4xf32>
+  %3 = tensor.empty() : tensor<2x4xf32>
+  %4:3 = linalg.generic {indexing_maps = [#map, #map, #map, #map, #map], iterator_types = ["parallel", "parallel"]} ins(%arg0, %arg1 : tensor<2x4xf32>, tensor<2x4xf32>) outs(%0, %1, %3 : tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>) {
+  ^bb0(%in: f32, %in_0: f32, %out: f32, %out_1: f32, %out_2: f32):
+    %6 = arith.maxf %in, %in_0 : f32
+    %7 = arith.minf %in, %in_0 : f32
+    %8 = arith.addf %7, %in_0 : f32
+    linalg.yield %7, %8, %6 : f32, f32, f32
+  } -> (tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>)
+  %5 = linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel"]} ins(%4#1, %4#0 : tensor<2x4xf32>, tensor<2x4xf32>) outs(%2 : tensor<2x4xf32>) {
+  ^bb0(%in: f32, %in_0: f32, %out: f32):
+    %6 = arith.mulf %in, %in_0 : f32
+    linalg.yield %6 : f32
+  } -> tensor<2x4xf32>
+  return %4#1, %4#2, %5 : tensor<2x4xf32>, tensor<2x4xf32>, tensor<2x4xf32>
+}
+// CHECK-LABEL: @consumer_multi_result_from_producer_with_different_indexing_map
+// CHECK: linalg.generic
+// CHECK: linalg.generic

@@ -482,13 +482,13 @@ func.func @one_dim_indexed_producer_consumer_fusion(%arg0 : tensor<?xi32>,
 //   CHECK-DAG: #[[$MAP1:.*]] = affine_map<(d0, d1) -> (d1)>
 // CHECK-LABEL: func @one_dim_indexed_producer_consumer_fusion
 //       CHECK: linalg.generic
-// CHECK-SAME:    indexing_maps = [#[[$MAP0]], #[[$MAP1]], #[[$MAP0]]]
+// CHECK-SAME:    indexing_maps = [#[[$MAP1]], #[[$MAP0]], #[[$MAP0]]]
 //      CHECK: ^{{[a-zA-Z0-9_]*}}
 // CHECK-SAME: (%[[ARG0:[a-zA-Z0-9_]*]]: i32, %[[ARG1:[a-zA-Z0-9_]*]]: i32
 //      CHECK:   %[[IDX1:.+]] = linalg.index 1 : index
 //      CHECK:   %[[VAL1:.+]] = arith.index_cast %[[IDX1]] : index to i32
-//      CHECK:   %[[VAL2:.+]] = arith.addi %[[ARG1]], %[[VAL1]] : i32
-//      CHECK:   %[[VAL3:.+]] = arith.addi %[[ARG0]], %[[VAL2]] : i32
+//      CHECK:   %[[VAL2:.+]] = arith.addi %[[ARG0]], %[[VAL1]] : i32
+//      CHECK:   %[[VAL3:.+]] = arith.addi %[[ARG1]], %[[VAL2]] : i32
 //      CHECK:   linalg.yield %[[VAL3]] : i32
 //   CHECK-NOT: linalg.generic
 
