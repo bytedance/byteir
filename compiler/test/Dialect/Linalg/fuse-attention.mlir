@@ -9,12 +9,15 @@ func.func @fuse_dot_attention(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf
 // CHECK:       scf.for
 // CHECK:         linalg.fill
 // CHECK:         linalg.matmul
-// CHECK:         linalg_ext.softmax
+// CHECK:         %[[V0:.*]]:4 = linalg_ext.softmax
 // CHECK:         linalg_ext.diag
 // CHECK:         linalg.fill
 // CHECK:         linalg.matmul
-// CHECK:         linalg.matmul
-// CHECK:         scf.yield
+// CHECK:         %[[V1:.*]] = linalg.matmul
+// CHECK:         %[[INS0:.*]] = tensor.insert_slice %[[V1]]
+// CHECK:         %[[INS1:.*]] = tensor.insert_slice %[[V0]]#1
+// CHECK:         %[[INS2:.*]] = tensor.insert_slice %[[V0]]#2
+// CHECK:         scf.yield %[[INS0]], %[[INS1]], %[[INS2]]
 // CHECK:       }
 // CHECK:       scf.yield
 // CHECK:     }
@@ -46,6 +49,7 @@ transform.sequence failures(propagate) {
   %0 = transform.structured.match attributes{"__root__"} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse_ext %0 {tile_sizes = [4, 0, 8], tile_interchange = [2, 1, 0]}
   transform.structured.tile_loop_hint %1 : !pdl.operation
+  cleanup
 }
 
 // -----
