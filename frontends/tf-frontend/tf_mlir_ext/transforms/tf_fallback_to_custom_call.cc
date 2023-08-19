@@ -54,9 +54,9 @@ void ReplaceTFTypeToAceType(SmallVector<Type> &types, MLIRContext *ctx) {
     auto tensor_type = ty.dyn_cast<mlir::TensorType>();
     if (tensor_type) {
       if (tensor_type.getElementType().isa<TF::StringType>()) {
-        ty = tensor_type.cloneWith(llvm::None, ace::StringType::get(ctx));
+        ty = tensor_type.cloneWith(std::nullopt, ace::StringType::get(ctx));
       } else if (tensor_type.getElementType().isa<TF::ResourceType>()) {
-        ty = tensor_type.cloneWith(llvm::None, ace::ResourceType::get(ctx));
+        ty = tensor_type.cloneWith(std::nullopt, ace::ResourceType::get(ctx));
       }
     } else {
       if (ty.isa<TF::StringType>()) {
@@ -112,7 +112,7 @@ void LowerToAceConstant(TF::ConstOp op) {
   OpBuilder builder(op);
 
   auto new_ty =
-      ty.cloneWith(llvm::None, ace::StringType::get(op->getContext()));
+      ty.cloneWith(std::nullopt, ace::StringType::get(op->getContext()));
   llvm::SmallVector<llvm::StringRef> value =
       llvm::to_vector(op.getValue().getValues<llvm::StringRef>());
   ace::ConstOp ace_const_op = builder.create<ace::ConstOp>(

@@ -131,13 +131,13 @@ static void TestConvOp(float abs_eps, float rel_eps, const std::string &layout,
                        int64_t dilateH = 1, int64_t dilateW = 1) {
   auto dtype = dtype_enum_v<T>;
 
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateConv(byre_builder, "ConvOp", dtype, "cuda", N, iC, iH, iW, oC, kH,
                  kW, layout, strideH, strideW, paddingH, paddingW, dilateH,

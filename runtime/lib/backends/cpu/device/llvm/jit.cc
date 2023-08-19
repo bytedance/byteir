@@ -18,7 +18,6 @@
 #include "brt/backends/cpu/device/llvm/jit.h"
 #include "brt/core/common/common.h"
 #include "brt/core/ir/engine_util.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"

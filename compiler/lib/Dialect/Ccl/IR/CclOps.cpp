@@ -94,7 +94,8 @@ void mlir::ccl::AllReduceOp::build(::mlir::OpBuilder &builder,
 
 LogicalResult
 AllReduceOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
-                              ValueRange operands, DictionaryAttr, RegionRange,
+                              ValueRange operands, DictionaryAttr,
+                              OpaqueProperties, RegionRange,
                               SmallVectorImpl<Type> &inferredReturnTypes) {
   if (operands.size() != 1)
     return emitOptionalError(

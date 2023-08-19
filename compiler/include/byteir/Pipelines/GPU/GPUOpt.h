@@ -29,6 +29,11 @@ struct GPUOptPipelineOptions
       *this, "target",
       llvm::cl::desc("An optional attribute to speicify target."),
       llvm::cl::init("")};
+  Option<bool> useBarePtrCallConv{
+      *this, "use-bare-ptr-memref-call-conv",
+      llvm::cl::desc("An optional attribute to speicify whether using bare ptr "
+                     "call convention."),
+      llvm::cl::init(false)};
 };
 
 void createGPUOptPipeline(OpPassManager &pm,

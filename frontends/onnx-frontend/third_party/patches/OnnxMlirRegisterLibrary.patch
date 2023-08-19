@@ -1,0 +1,21 @@
+diff --git a/src/Tools/onnx-mlir-opt/CMakeLists.txt b/src/Tools/onnx-mlir-opt/CMakeLists.txt
+index 6ac7fd90..194ca7d2 100644
+--- a/src/Tools/onnx-mlir-opt/CMakeLists.txt
++++ b/src/Tools/onnx-mlir-opt/CMakeLists.txt
+@@ -18,3 +18,16 @@ add_onnx_mlir_executable(onnx-mlir-opt
+   MLIRMemRefTransforms
+   MLIROptLib
+   )
++
++add_onnx_mlir_library(OMRegisterPasses
++  RegisterPasses.cpp
++
++  EXCLUDE_FROM_OM_LIBS
++
++  LINK_LIBS PUBLIC
++  OMCompilerPasses
++  OMAccelerator
++  MLIRAffineTransforms
++  MLIRLinalgTransforms
++  MLIRMemRefTransforms
++)

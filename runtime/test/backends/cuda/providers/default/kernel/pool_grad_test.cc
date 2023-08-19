@@ -112,13 +112,13 @@ TestPoolMaxGradOp2D(std::vector<int64_t> shape_x, std::vector<int64_t> shape_y,
                     std::vector<int64_t> window_dimensions,
                     std::vector<int64_t> window_strides,
                     const std::string &layout, float abs_eps, float rel_eps) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreatePoolMaxGrad(byre_builder, dtype_enum_v<T>, "cuda", shape_x, shape_y,
                         padding, window_dimensions, window_strides),

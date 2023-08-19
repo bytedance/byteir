@@ -517,8 +517,10 @@ inline void doBufferPacking(mlir::func::FuncOp func, size_t alignment,
 
 struct MemoryPlanningPass : public MemoryPlanningBase<MemoryPlanningPass> {
   MemoryPlanningPass() = default;
-  MemoryPlanningPass(std::function<bool(Value)> couldReuseAllocation)
+  MemoryPlanningPass(size_t alignment,
+                     std::function<bool(Value)> couldReuseAllocation)
       : MemoryPlanningBase() {
+    this->alignment = alignment;
     this->couldReuseAllocation = couldReuseAllocation;
   }
 
@@ -562,6 +564,6 @@ std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMemoryPlanningPass() {
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMemoryPlanningPass(
-    std::function<bool(Value)> couldReuseAllocation) {
-  return std::make_unique<MemoryPlanningPass>(couldReuseAllocation);
+    size_t alignment, std::function<bool(Value)> couldReuseAllocation) {
+  return std::make_unique<MemoryPlanningPass>(alignment, couldReuseAllocation);
 }

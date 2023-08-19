@@ -84,7 +84,7 @@ void mlir::registerTorchIndexSelectInferReturnTypeComponents() {
       [](MLIRContext *context, std::optional<Location> loc,
          ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        mhlo::TorchIndexSelectOp::Adaptor adaptor(operands, attrs, regions);
+        mhlo::TorchIndexSelectOp::Adaptor adaptor(operands, attrs, {}, regions);
         uint64_t batchDims = adaptor.getBatchDims();
         uint64_t dim = adaptor.getDim();
 

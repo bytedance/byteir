@@ -28,6 +28,7 @@
 
 using namespace llvm;
 using namespace mlir;
+using namespace mlir::affine;
 using namespace mlir::linalg;
 using namespace mlir::scf;
 

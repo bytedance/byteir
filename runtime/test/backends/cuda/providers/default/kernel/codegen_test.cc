@@ -55,13 +55,13 @@ TEST(CUDATestCodegenOp, PTXOp_Add) {
   for (int i = 0; i < nr_device; ++i) {
     BRT_CUDA_CHECK(cudaSetDevice(i));
 
+    ByREBuilder byre_builder;
     Session session;
     auto status_allocator = CUDAAllocatorFactory(&session, i);
     BRT_TEST_CHECK_STATUS(status_allocator);
     auto status_cuda = DefaultCUDAExecutionProviderFactory(&session, i);
     BRT_TEST_CHECK_STATUS(status_cuda);
 
-    ByREBuilder byre_builder;
     auto status_load =
         session.LoadFromMemory(CreatePTXAddOp(byre_builder), "byre");
     BRT_TEST_CHECK_STATUS(status_load);

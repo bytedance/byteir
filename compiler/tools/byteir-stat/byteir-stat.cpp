@@ -23,6 +23,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
@@ -50,6 +51,7 @@ int main(int argc, char **argv) {
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registerAllExtensions(registry);
   // register ByteIR's dialects here
   registry.insert<mlir::ace::AceDialect>();
   registry.insert<mlir::byre::ByreDialect>();

@@ -14,7 +14,7 @@ add_byteir_translation_library(ByteIRTargetCUDA
   MLIRSCFDialect
   MLIRControlFlowDialect
   MLIRMemRefDialect
-  MLIRGPUOps
+  MLIRGPUDialect
   MLIRSupport
   # MLIRTranslation
   ByteIRTargetCpp

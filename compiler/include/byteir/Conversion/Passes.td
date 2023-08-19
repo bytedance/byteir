@@ -33,6 +33,10 @@ def GPUToNVVMExt : Pass<"gpu-to-nvvm-ext", "gpu::GPUModuleOp"> {
     "cf::ControlFlowDialect"
   ];
   let options = [
+    Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
+           /*default=*/"false",
+           "Replace memref arguments in GPU functions with bare pointers."
+           "All memrefs must have static shape">,
     Option<"indexBitwidth", "index-bitwidth", "unsigned",
            /*default=kDeriveIndexBitwidthFromDataLayout*/"0",
            "Bitwidth of the index type, 0 to use size of machine word">
@@ -234,6 +238,12 @@ def ConvertLmhloToByre : Pass<"convert-lmhlo-to-byre", "func::FuncOp"> {
 def GenPTXConfig : Pass<"gen-ptx-config", "func::FuncOp"> {
   let summary = "Generate PTX configuration";
   let constructor = "mlir::createGenPTXConfigPass()";
+  let options = [
+    Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
+           /*default=*/"false",
+           "Replace memref arguments in GPU functions with bare pointers."
+           "All memrefs must have static shape">
+  ];
 }
 
 def CollectGPUKernel : Pass<"collect-gpu-kernel", "ModuleOp"> {

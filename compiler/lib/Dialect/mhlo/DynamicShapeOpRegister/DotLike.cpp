@@ -132,7 +132,7 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
       [](MLIRContext *context, std::optional<Location> loc,
          ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        mhlo::DotGeneralOp::Adaptor adaptor(operands, attrs, regions);
+        mhlo::DotGeneralOp::Adaptor adaptor(operands, attrs, {}, regions);
         auto lhsType = operands.getTypes()[0].dyn_cast<ShapedType>();
         auto rhsType = operands.getTypes()[1].dyn_cast<ShapedType>();
         if (!lhsType || !rhsType)

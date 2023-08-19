@@ -1,111 +1,8 @@
-diff --git a/src/Conversion/ONNXToMhlo/Math/Reduction.cpp b/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
-index 1dbd10ce..0c2ed30b 100644
---- a/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
-+++ b/src/Conversion/ONNXToMhlo/Math/Reduction.cpp
-@@ -24,43 +24,41 @@ namespace {
- 
- template <typename Op>
- Value getIdentityValue(
--    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-   return nullptr;
- }
- 
- template <>
- Value getIdentityValue<ONNXReduceMaxV13Op>(
--    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-+  MathBuilder createMath(rewriter, loc);
-   return rewriter.create<mhlo::ConstantOp>(
--      loc, rewriter.getFloatAttr(
--               elemType, APFloat::getInf(elemType.getFloatSemantics(),
--                             /*isNegative=*/true)));
-+      loc, createMath.negativeInfAttr(elemType));
- }
- 
- template <>
- Value getIdentityValue<ONNXReduceMinV13Op>(
--    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-+  MathBuilder createMath(rewriter, loc);
-   return rewriter.create<mhlo::ConstantOp>(
--      loc, rewriter.getFloatAttr(
--               elemType, APFloat::getInf(elemType.getFloatSemantics(),
--                             /*isNegative=*/false)));
-+      loc, createMath.positiveInfAttr(elemType));
- }
- 
- template <>
- Value getIdentityValue<ONNXReduceSumOp>(
--    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
- }
- 
- template <>
- Value getIdentityValue<ONNXReduceSumV11Op>(
--    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
- }
- 
- template <>
- Value getIdentityValue<ONNXReduceMeanV13Op>(
--    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
-+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
-   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
- }
- 
-@@ -272,7 +270,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
-     ShapedType outputType = resultType.cast<ShapedType>();
-     if (outputType == nullptr)
-       return failure();
--    FloatType elemType = inputType.getElementType().cast<FloatType>();
-+    Type elemType = inputType.getElementType();
-     Value identity = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
-     int64_t inRank = inputType.getRank();
- 
-@@ -310,8 +308,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
-         reduceResult =
-             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
-       } else {
--        Value ones = rewriter.create<mhlo::ConstantOp>(
--            loc, rewriter.getFloatAttr(elemType, 1.0));
-+        Value ones;
-+        if (elemType.isa<IntegerType>())
-+          ones = rewriter.create<mhlo::ConstantOp>(
-+              loc, rewriter.getIntegerAttr(elemType, 1));
-+        else
-+          ones = rewriter.create<mhlo::ConstantOp>(
-+              loc, rewriter.getFloatAttr(elemType, 1.0));
-         Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
-         Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-             loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
-diff --git a/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp b/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
-index b960ef17..a0b4b998 100644
---- a/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
-+++ b/src/Conversion/ONNXToMhlo/Tensor/Expand.cpp
-@@ -53,8 +53,13 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
-     int64_t outputRank = outputShapedType.getRank();
- 
-     Operation *shapeDefOp = shape.getDefiningOp();
--    Value ones = rewriter.create<mhlo::ConstantOp>(
--        loc, rewriter.getFloatAttr(elementType, 1.0));
-+    Value ones;
-+    if (elementType.isa<IntegerType>())
-+      ones = rewriter.create<mhlo::ConstantOp>(
-+          loc, rewriter.getIntegerAttr(elementType, 1));
-+    else
-+      ones = rewriter.create<mhlo::ConstantOp>(
-+          loc, rewriter.getFloatAttr(elementType, 1.0));
-     Value broadcastedOnes;
-     if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
-       assert(shapeOp.getData().getType().isa<ShapedType>() &&
 diff --git a/src/Dialect/ONNX/ONNXOps/OpHelper.cpp b/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
 index 7f7c28ef..b512bf1b 100644
 --- a/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
 +++ b/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
-@@ -311,6 +311,23 @@ ONNXConstantOp getONNXConstantOp(Value value) {
+@@ -316,6 +316,23 @@ ONNXConstantOp getONNXConstantOp(Value value) {
    return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
  }
  
@@ -133,7 +30,7 @@ diff --git a/src/Dialect/ONNX/ONNXOps/OpHelper.hpp b/src/Dialect/ONNX/ONNXOps/Op
 index f1a4ba8a..87404d72 100644
 --- a/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
 +++ b/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
-@@ -170,9 +170,7 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
+@@ -183,9 +183,7 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
  // difference whether it's a constant (the result of ONNXNoneOp) or the
  // optional result of some other op (e.g. ONNXDropoutOp mask result).
  // Note: It's ok to inline the isa<NoneType> test and not call this function.
@@ -144,17 +41,3 @@ index f1a4ba8a..87404d72 100644
  
  //===----------------------------------------------------------------------===//
  // Support for transpose patterns.
-diff --git a/src/Transform/ONNX/Decompose.cpp b/src/Transform/ONNX/Decompose.cpp
-index 67b05ca6..3ed9eb03 100644
---- a/src/Transform/ONNX/Decompose.cpp
-+++ b/src/Transform/ONNX/Decompose.cpp
-@@ -769,7 +769,9 @@ void DecomposeONNXToONNXPass::runOnOperation() {
-   target.addIllegalOp<ONNXPadV2Op>();
-   target.addIllegalOp<ONNXPadV11Op>();
-   target.addIllegalOp<ONNXReduceL1Op>();
-+  target.addIllegalOp<ONNXReduceL1V13Op>();
-   target.addIllegalOp<ONNXReduceL2Op>();
-+  target.addIllegalOp<ONNXReduceL2V13Op>();
-   target.addIllegalOp<ONNXReduceLogSumOp>();
-   target.addIllegalOp<ONNXReduceLogSumExpOp>();
-   target.addIllegalOp<ONNXReduceSumSquareOp>();

@@ -30,11 +30,11 @@ using namespace brt::test;
 using namespace mlir;
 
 TEST(IRTest, IterateNode) {
+  ByREBuilder byre_builder;
   ByREHandle hdl;
   auto status_init = hdl.Initialize();
   BRT_TEST_CHECK_STATUS(status_init);
 
-  ByREBuilder byre_builder;
   auto status_load =
       hdl.LoadFromMemory(CreateAddOp2(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -64,11 +64,11 @@ TEST(IRTest, IterateNode) {
 }
 
 TEST(IRTest, IterateNodeWithInterrupt) {
+  ByREBuilder byre_builder;
   ByREHandle hdl;
   auto status_init = hdl.Initialize();
   BRT_TEST_CHECK_STATUS(status_init);
 
-  ByREBuilder byre_builder;
   auto status_load =
       hdl.LoadFromMemory(CreateUnknown(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -92,11 +92,11 @@ TEST(IRTest, IterateNodeWithInterrupt) {
 }
 
 TEST(IRTest, IterateEntryFuncArg) {
+  ByREBuilder byre_builder;
   ByREHandle hdl;
   auto status_init = hdl.Initialize();
   BRT_TEST_CHECK_STATUS(status_init);
 
-  ByREBuilder byre_builder;
   auto status_load =
       hdl.LoadFromMemory(CreateAddOp2(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

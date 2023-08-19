@@ -22,12 +22,21 @@
 #include "mlir/Pass/PassRegistry.h"
 
 namespace mlir {
+struct NVVMCodegenPipelineOptions
+    : public PassPipelineOptions<NVVMCodegenPipelineOptions> {
+  Option<bool> useBarePtrCallConv{
+      *this, "use-bare-ptr-memref-call-conv",
+      llvm::cl::desc("An optional attribute to speicify whether using bare ptr "
+                     "call convention."),
+      llvm::cl::init(false)};
+};
 
-void createNVVMCodegenPipeline(OpPassManager &pm);
+void createNVVMCodegenPipeline(OpPassManager &pm,
+                               const NVVMCodegenPipelineOptions &options);
 
 inline void registerNVVMCodegenPipeline() {
-  PassPipelineRegistration<>("nvvm-codegen", "NVVM Codegen Pipeline",
-                             createNVVMCodegenPipeline);
+  PassPipelineRegistration<NVVMCodegenPipelineOptions>(
+      "nvvm-codegen", "NVVM Codegen Pipeline", createNVVMCodegenPipeline);
 }
 
 } // namespace mlir

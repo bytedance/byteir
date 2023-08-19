@@ -77,6 +77,7 @@ TEST(SessionOnCUDATest, DefaultCUDArovider) {
 }
 
 TEST(SessionOnCUDATest, NewRequestContext) {
+  ByREBuilder byre_builder;
   Session session;
 
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -85,7 +86,6 @@ TEST(SessionOnCUDATest, NewRequestContext) {
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -96,6 +96,7 @@ TEST(SessionOnCUDATest, NewRequestContext) {
 }
 
 TEST(SessionOnCUDATest, NewRequestContextWithWeight) {
+  ByREBuilder byre_builder;
   Session session;
 
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -104,7 +105,6 @@ TEST(SessionOnCUDATest, NewRequestContextWithWeight) {
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateAddWeight(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -115,6 +115,7 @@ TEST(SessionOnCUDATest, NewRequestContextWithWeight) {
 }
 
 TEST(SessionOnCUDATest, Run) {
+  ByREBuilder byre_builder;
   Session session;
 
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -123,7 +124,6 @@ TEST(SessionOnCUDATest, Run) {
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -142,6 +142,7 @@ TEST(SessionOnCUDATest, Run) {
 }
 
 TEST(SessionOnCUDATest, RunWithWeight) {
+  ByREBuilder byre_builder;
   Session session;
 
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -150,7 +151,6 @@ TEST(SessionOnCUDATest, RunWithWeight) {
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateAddWeight(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

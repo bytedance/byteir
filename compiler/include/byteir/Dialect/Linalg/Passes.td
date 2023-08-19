@@ -29,7 +29,7 @@ def LinalgExtBufferize : Pass<"linalg-ext-bufferize", "func::FuncOp"> {
   let summary = "Bufferize the linalg-ext and linalg dialect";
   let constructor = "mlir::createLinalgExtBufferizePass()";
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "bufferization::BufferizationDialect",
     "linalg::LinalgDialect",
     "linalg_ext::LinalgExtDialect",
@@ -48,7 +48,7 @@ def LinalgExtLowerToLoops : Pass<"convert-linalg-ext-to-loops", "func::FuncOp"> 
     "linalg_ext::LinalgExtDialect",
     "memref::MemRefDialect",
     "scf::SCFDialect",
-    "AffineDialect"
+    "affine::AffineDialect"
   ];
 }
 
@@ -78,8 +78,8 @@ def LinalgElementwiseFusionExt : Pass<"linalg-fuse-elementwise-ext"> {
   let summary = "Extension of elementwise fusion on tensors";
   let constructor = "mlir::createLinalgElementwiseFusionExtPass()";
   let dependentDialects = [
-    "AffineDialect", 
-    "linalg::LinalgDialect", 
+    "affine::AffineDialect",
+    "linalg::LinalgDialect",
     "linalg_ext::LinalgExtDialect",
     "memref::MemRefDialect"
   ];
@@ -99,7 +99,7 @@ def LinalgOpTiling : Pass<"linalg-op-tile", "func::FuncOp"> {
   let summary = "Tile operations in the linalg and linalg-ext dialect";
   let constructor = "mlir::createLinalgOpTilingPass()";
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "linalg::LinalgDialect",
     "linalg_ext::LinalgExtDialect",
     "memref::MemRefDialect",
@@ -123,7 +123,7 @@ def LinalgPrefetch : Pass<"linalg-prefetch", "func::FuncOp"> {
     Option<"prefetchCnt", "count", "int64_t", /*default=*/"1",
            "prefetch count, <= 0 implies disabled">,
     Option<"unroll", "unroll", "bool", /*default=*/"false",
-           "unroll prefetch">,	
+           "unroll prefetch">,
   ];
 }
 
@@ -135,7 +135,7 @@ def LinalgScopeTiling : Pass<"linalg-scope-tile", "func::FuncOp"> {
   let summary = "Perform Tile linalg operations within a scope";
   let constructor = "mlir::createLinalgScopeTilingPass()";
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "arith::ArithDialect",
     "memref::MemRefDialect",
     "scf::SCFDialect"
@@ -146,11 +146,11 @@ def LinalgScopeTiling : Pass<"linalg-scope-tile", "func::FuncOp"> {
     Option<"tileSize", "tile-size", "int64_t", /*default=*/"0",
            "tile size">,
     Option<"parallelizeReduction", "par-reduce", "bool", /*default=*/"false",
-            "force parallelize reduction">,	
+            "force parallelize reduction">,
     Option<"loopType", "loop-type", "std::string", /*default=*/"\"scf\"",
            "Specify the type of loops to generate: scf, affine, tiled_loop">,
     Option<"keepTag", "keep-tag", "bool", /*default=*/"false",
-           "keep tag">,	
+           "keep tag">,
   ];
 }
 

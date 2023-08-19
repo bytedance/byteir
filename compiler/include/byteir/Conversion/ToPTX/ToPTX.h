@@ -28,7 +28,8 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createGenPTXConfigPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createGenPTXConfigPass(bool useBarePtrCallConv = false);
 
 // TODO move to general GPU
 std::unique_ptr<OperationPass<ModuleOp>>

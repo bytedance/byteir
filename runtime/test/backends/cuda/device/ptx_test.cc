@@ -44,6 +44,8 @@ static std::string test_file_nvcc_ptx = "test/test_files/nvcc_ptx_add.ptx";
 static std::string test_file_nvcc_ptx_kerenl = "nvcc_ptx_test_kernel";
 
 static std::string test_file_llvm_ptx = "test/test_files/llvm_ptx_add.ptx";
+static std::string test_file_llvm_bare_ptr_ptx =
+    "test/test_files/llvm_ptx_add_bare_ptr.ptx";
 static std::string test_file_llvm_ptx_kerenl = "add_kernel";
 
 TEST(MLIREngineMemRefDescriptor, 2D) {
@@ -184,6 +186,83 @@ TEST(PTXTest, LLVMPTX) {
     InsertMemDescToArgs(desc2, args2);
     InsertMemDescToArgs(desc1, args2);
     InsertMemDescToArgs(desc3, args2);
+
+    wq.AddTask(5, (void *)funcs[i], args2.data());
+
+    wq.Sync();
+
+    CheckResult(arr3[i], n, 3.0f);
+  }
+
+  // cleanup
+  for (int i = 0; i < nr_device; ++i) {
+    BRT_CUDA_CHECK(cudaFree(arr1[i]));
+    BRT_CUDA_CHECK(cudaFree(arr2[i]));
+    BRT_CUDA_CHECK(cudaFree(arr3[i]));
+  }
+}
+
+TEST(PTXTest, LLVMPTXBarePtr) {
+  int nr_device;
+  BRT_CUDA_CHECK(cudaGetDeviceCount(&nr_device));
+  if (!nr_device)
+    return;
+
+  PTXCompilation *ptx_handle = PTXCompilation::GetInstance();
+  std::vector<std::unique_ptr<CUDAWorkQueue>> work_queues;
+  std::vector<CUfunction> funcs(nr_device);
+  std::vector<float *> arr1(nr_device), arr2(nr_device), arr3(nr_device);
+
+  int gx = 4;
+  int bx = 256;
+
+  dim3 grid(gx, 1, 1);
+  dim3 block(bx, 1, 1);
+  size_t shared_size = 0;
+
+  int n = gx * bx;
+  size_t count = n * sizeof(float);
+
+  // initialize ptx compiler, work queue and compile CUFunction
+  for (int i = 0; i < nr_device; ++i) {
+    PTXCompiler *ptx_compiler = ptx_handle->GetCompiler(i);
+    work_queues.emplace_back(std::make_unique<CUDAWorkQueue>(i));
+    auto status_ptx = ptx_compiler->GetOrCreateFunction(
+        funcs[i], test_file_llvm_ptx_kerenl, test_file_llvm_bare_ptr_ptx);
+    BRT_TEST_CHECK_STATUS(status_ptx);
+  }
+
+  // prepare in/out buffers
+  for (int i = 0; i < nr_device; ++i) {
+    BRT_CUDA_CHECK(cudaSetDevice(i));
+    BRT_CUDA_CHECK(cudaMalloc(&arr1[i], count));
+    BRT_CUDA_CHECK(cudaMalloc(&arr2[i], count));
+    BRT_CUDA_CHECK(cudaMalloc(&arr3[i], count));
+
+    AssignCUDABuffer(arr1[i], n, 1.0f);
+  }
+  cudaDeviceSynchronize();
+
+  // run and check
+  for (int i = 0; i < nr_device; ++i) {
+    std::vector<void *> args1;
+    args1.push_back(&grid);
+    args1.push_back(&block);
+    args1.push_back(&shared_size);
+    args1.push_back(&arr1[i]);
+    args1.push_back(&arr1[i]);
+    args1.push_back(&arr2[i]);
+
+    auto &wq = *work_queues[i];
+    wq.AddTask(5, (void *)funcs[i], args1.data());
+
+    std::vector<void *> args2;
+    args2.push_back(&grid);
+    args2.push_back(&block);
+    args2.push_back(&shared_size);
+    args2.push_back(&arr2[i]);
+    args2.push_back(&arr1[i]);
+    args2.push_back(&arr3[i]);
 
     wq.AddTask(5, (void *)funcs[i], args2.data());
 

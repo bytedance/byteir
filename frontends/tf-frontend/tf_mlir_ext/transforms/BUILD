@@ -1,4 +1,4 @@
-load("@org_tensorflow//tensorflow:tensorflow.default.bzl", "get_compatible_with_cloud")
+load("@org_tensorflow//tensorflow:tensorflow.default.bzl", "get_compatible_with_portable")
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "td_library")
 
 
@@ -32,7 +32,7 @@ td_library(
         "fuse_tf_ops.td",
         "rewrite_to_custom_call.td",
     ],
-    compatible_with = get_compatible_with_cloud(),
+    compatible_with = get_compatible_with_portable(),
     visibility = ["//visibility:private"],
     includes = ["../../external/tensorflow"], # patch tensorflow_ops_td_files's `includes`
     deps = [

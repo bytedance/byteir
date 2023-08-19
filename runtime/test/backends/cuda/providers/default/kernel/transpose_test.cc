@@ -105,13 +105,13 @@ static void TestTranspose(std::vector<int64_t> shape_input,
                           std::vector<int64_t> shape_output,
                           std::vector<int64_t> perm) {
 
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateTranspose(byre_builder, dtype_enum_v<T>, "cuda", shape_input,
                       shape_output, perm),

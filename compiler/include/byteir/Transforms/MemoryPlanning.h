@@ -34,7 +34,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> createMemoryPlanningPass();
 /// parameter and returns whether the allocation corresponding to the Value can
 /// be reused
 std::unique_ptr<OperationPass<func::FuncOp>>
-createMemoryPlanningPass(std::function<bool(Value)> couldReuseAllocation);
+createMemoryPlanningPass(size_t alignment,
+                         std::function<bool(Value)> couldReuseAllocation);
 
 } // namespace mlir
 

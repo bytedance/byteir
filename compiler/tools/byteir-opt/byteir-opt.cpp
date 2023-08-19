@@ -50,6 +50,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -83,6 +84,7 @@ void registerTestPrintSymbolicShapePass();
 void registerTestPrintShapeAnalysisPass();
 void registerTestByreOpInterfacePass();
 void registerTestBroadcastDenseElementsAttrPass();
+void registerTestMergeTwoModulesPass();
 } // namespace test
 } // namespace byteir
 
@@ -101,6 +103,7 @@ void registerTestPasses() {
   byteir::test::registerTestPrintShapeAnalysisPass();
   byteir::test::registerTestByreOpInterfacePass();
   byteir::test::registerTestBroadcastDenseElementsAttrPass();
+  byteir::test::registerTestMergeTwoModulesPass();
 }
 #endif
 
@@ -138,6 +141,7 @@ int main(int argc, char **argv) {
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registerAllExtensions(registry);
   registeOpInterfaceExtensions(registry);
 
   // register ByteIR's dialects here
@@ -158,6 +162,5 @@ int main(int argc, char **argv) {
   tensor_ext::registerTilingInterfaceExternalModels(registry);
 
   return mlir::asMainReturnCode(
-      mlir::MlirOptMain(argc, argv, "ByteIR pass driver\n", registry,
-                        /*preloadDialectsInContext=*/false));
+      mlir::MlirOptMain(argc, argv, "ByteIR pass driver\n", registry));
 }

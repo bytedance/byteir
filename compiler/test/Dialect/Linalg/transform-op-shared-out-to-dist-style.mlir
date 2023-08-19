@@ -26,6 +26,7 @@ transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
   %0 = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %loop, %init, %tiled, %merge = transform.structured.tile_reduction_using_forall %0
-    by num_threads = [0, 5], tile_sizes = []
+    by num_threads = [0, 5], tile_sizes = [] :
+    (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation)
   %new_loop, %new_init = transform.structured.shared_output_to_distributed_style %loop, %init, %merge
 }

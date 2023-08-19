@@ -138,3 +138,29 @@ transform.sequence failures(propagate) {
   %1, %loops:2 = transform.structured.fuse_operands %0 {tile_nums = [32, 16], tile_interchange = [1, 0], expect_whole_graph_fusion = true}
   cleanup
 }
+
+// -----
+
+func.func @only_replace_not_tiled_user(%arg0: tensor<1x1024x16x16xf16>, %arg1: tensor<1x1024x16x16xf16>) -> (tensor<1x1024x16x16xf16>, tensor<1x16x16x1024xf16>) {
+  %0 = tensor.empty() : tensor<1x1024x16x16xf16>
+  %1 = linalg.elemwise_binary ins(%arg0, %arg1 : tensor<1x1024x16x16xf16>, tensor<1x1024x16x16xf16>) outs(%0 : tensor<1x1024x16x16xf16>) -> tensor<1x1024x16x16xf16>
+  %2 = tensor.empty() : tensor<1x16x16x1024xf16>
+  %transposed = linalg.transpose ins(%1 : tensor<1x1024x16x16xf16>) outs(%2 : tensor<1x16x16x1024xf16>) permutation = [0, 2, 3, 1] 
+  %3 = tensor.empty() : tensor<1x16x16x1024xf16>
+  %4 = tensor.empty() : tensor<1x16x16x1024xf16>
+  %5 = linalg.elemwise_binary ins(%transposed, %4 : tensor<1x16x16x1024xf16>, tensor<1x16x16x1024xf16>) outs(%3 : tensor<1x16x16x1024xf16>) -> tensor<1x16x16x1024xf16>
+  return %1, %5 : tensor<1x1024x16x16xf16>, tensor<1x16x16x1024xf16>
+}
+
+// CHECK-LABEL: func.func @only_replace_not_tiled_user
+// CHECK:         %[[arg_1:.*]] = linalg.elemwise_binary
+// CHECK:         %[[transposed:.*]] = linalg.transpose ins(%[[arg_1]] : tensor<1x1024x16x16xf16>)
+// CHECK:         %[[arg_5:.*]] = linalg.elemwise_binary ins(%[[transposed]], {{.*}})
+// CHECK:         %[[arg_6:.*]]:2 = scf.for
+// CHECK:         return %[[arg_6]]#1, %[[arg_6]]#0
+
+transform.sequence  failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match ops{["func.return"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %transformed, %loops = transform.structured.fuse_operands %0 {expect_whole_graph_fusion = false, tile_interchange = [], tile_nums = [1, 8], use_distributed = []}
+}

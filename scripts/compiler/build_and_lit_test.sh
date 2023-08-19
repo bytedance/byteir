@@ -30,7 +30,7 @@ cmake "-H$PROJ_DIR/cmake" \
       -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
       -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
-cmake --build "$BUILD_DIR" --config Release --target all check-byteir install
+cmake --build "$BUILD_DIR" --target all check-byteir install
 cmake --build "$BUILD_DIR" --target check-byteir-numerical
 cmake --build "$BUILD_DIR" --target byteir-python-pack
 

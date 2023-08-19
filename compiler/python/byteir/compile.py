@@ -43,6 +43,7 @@ def compile_cuda(
     target = "cuda"
     output_file_dir = os.path.dirname(output)
     output_file_name = os.path.basename(output)
+    useBarePtrCallConv = False # all tensor must have static shapes if True
 
     context = ir.Context()
 
@@ -78,7 +79,10 @@ def compile_cuda(
     if verbose:
         _print_verbose(module, "// IR Dump After SCF Opt:")
     with context:
-        PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(module.operation)
+        else:
+            PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
     if verbose:
         _print_verbose(module, "// IR Dump After GPU Opt:")
     with context:
@@ -96,7 +100,10 @@ def compile_cuda(
     module_str = module.operation.get_asm(print_generic_op_form=True)
     with ir.Context() as new_context:
         device_module = ir.Module.parse(module_str, new_context)
-        PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true})").run(device_module.operation)
+        else:
+            PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         if verbose:
             _print_verbose(device_module, "// IR Dump After NVVM Codegen:")
         # write to output device ptx
@@ -124,6 +131,7 @@ def compile_cuda_with_ait(
     target = "cuda"
     output_file_dir = os.path.dirname(output)
     output_file_name = os.path.basename(output)
+    useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = ir.Context()
 
@@ -180,7 +188,10 @@ def compile_cuda_with_ait(
     if verbose:
         _print_verbose(processor.module, "// IR Dump After SCF Opt:")
     with context:
-        PassManager.parse("builtin.module(gpu-opt)").run(processor.module.operation)
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(processor.module.operation)
+        else:
+            PassManager.parse("builtin.module(gpu-opt)").run(processor.module.operation)
     if verbose:
         _print_verbose(processor.module, "// IR Dump After GPU Opt:")
     with context:
@@ -198,7 +209,10 @@ def compile_cuda_with_ait(
     module_str = processor.module.operation.get_asm(print_generic_op_form=True)
     with ir.Context() as new_context:
         device_module = ir.Module.parse(module_str, new_context)
-        PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true})").run(device_module.operation)
+        else:
+            PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         if verbose:
             _print_verbose(device_module, "// IR Dump After NVVM Codegen:")
         # write to output device ptx

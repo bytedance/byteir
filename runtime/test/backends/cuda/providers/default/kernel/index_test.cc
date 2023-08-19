@@ -100,13 +100,13 @@ void CheckAliasThenIndexPutFisrtDimCUDAValue(
 void CheckIndexPutFirstDim(const std::vector<int64_t> &inout_shape,
                            const std::vector<int64_t> &index_shape) {
 
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateIndexPut(byre_builder, "cuda", inout_shape, 0 /*dim*/, index_shape),
       "byre");
@@ -237,13 +237,13 @@ void CheckIndexSelectHost(void *d_input, void *d_index, void *d_output,
 void CheckIndexSelectSingle(const std::vector<int64_t> &input_shape, size_t dim,
                             const std::vector<int64_t> &index_shape,
                             bool is_ui32_index) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateIndexSelect(byre_builder, "cuda", input_shape, dim, index_shape,
                         is_ui32_index),

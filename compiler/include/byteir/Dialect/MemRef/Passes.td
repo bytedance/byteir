@@ -38,7 +38,7 @@ def RemoveCopy : Pass<"remove-copy", "func::FuncOp"> {
   let summary = "Remove copy";
   let constructor = "mlir::createRemoveCopyPass()";
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "memref::MemRefDialect"
   ];
 }
@@ -52,7 +52,7 @@ def SimplifyView : Pass<"simplify-view", "func::FuncOp"> {
                 "offset of subview is dynamic.";
   let constructor = "mlir::createSimplifyViewPass()";
   let dependentDialects = [
-    "AffineDialect"
+    "affine::AffineDialect"
   ];
 }
 

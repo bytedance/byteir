@@ -264,7 +264,8 @@ Value createLayerNormAndAffine(PatternRewriter &rewriter, Location loc,
   }
 
   Type elemType = inputType.getElementType();
-  Type WeightBiasType = mlir::RankedTensorType::get(spatialShape, elemType);
+  RankedTensorType WeightBiasType =
+      mlir::RankedTensorType::get(spatialShape, elemType);
   Value weight = rewriter.create<mhlo::ConstantOp>(
       loc, DenseElementsAttr::get(WeightBiasType,
                                   rewriter.getFloatAttr(elemType, 1.0)));
@@ -392,19 +393,22 @@ Value createLayerNormWithoutLastAdd(PatternRewriter &rewriter, Location loc,
 //===----------------------------------------------------------------------===//
 // GeLU
 //===----------------------------------------------------------------------===//
-bool isSplatFP(ElementsAttr attr, double value) {
-  if (!attr)
+bool isSplatFP(Attribute attr, double value) {
+  ElementsAttr elementsAttr = attr.cast<ElementsAttr>();
+  if (!elementsAttr)
     return false;
-  return attr.isSplat() &&
-         attr.getSplatValue<FloatAttr>().getValueAsDouble() == value;
+  return elementsAttr.isSplat() &&
+         elementsAttr.getSplatValue<FloatAttr>().getValueAsDouble() == value;
 }
 
-bool isSplatFPCloseTo(ElementsAttr attr, double value, double eps = 1e-5) {
-  if (!attr)
+bool isSplatFPCloseTo(Attribute attr, double value, double eps = 1e-5) {
+  ElementsAttr elementsAttr = attr.cast<ElementsAttr>();
+  if (!elementsAttr)
     return false;
-  if (!attr.isSplat())
+  if (!elementsAttr.isSplat())
     return false;
-  double diff = attr.getSplatValue<FloatAttr>().getValueAsDouble() - value;
+  double diff =
+      elementsAttr.getSplatValue<FloatAttr>().getValueAsDouble() - value;
   return fabs(diff) < eps;
 }
 

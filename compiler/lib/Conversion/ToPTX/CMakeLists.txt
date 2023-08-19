@@ -11,6 +11,6 @@ add_byteir_conversion_library(ByteIRToPTX
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRMemRefDialect
-  MLIRGPUOps
+  MLIRGPUDialect
   MLIRTransforms
   )

@@ -98,13 +98,13 @@ void CheckAliasThenIndexPutFisrtDimCUDAValue(
 void CheckIndexPutFirstDim(const std::vector<int64_t> &inout_shape,
                            int64_t idx_src_len, int64_t idx_dst_len,
                            int32_t idx_offset) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateAliasThenIndexPut(byre_builder, "cuda", inout_shape, idx_src_len,
                               idx_dst_len, idx_offset),

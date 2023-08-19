@@ -17,6 +17,7 @@ add_onnx_frontend_executable(onnx-frontend-opt
   INSTALL
 
   LINK_LIBS PRIVATE
+  OMRegisterPasses
   OFCompiler
   MLIROptLib
   )
