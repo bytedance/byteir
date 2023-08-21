@@ -235,8 +235,8 @@ LogicalResult mlir::deepFold(Operation *op, IRMapping &bvm,
       auto attr = foldResult.dyn_cast<Attribute>();
       constOpernadAttrs.push_back(attr);
       if (!bvm.contains(opRes)) {
-        Value newConst =
-            b.create<arith::ConstantOp>(defOp->getLoc(), attr, opRes.getType());
+        Value newConst = arith::ConstantOp::materialize(
+            b, attr, opRes.getType(), defOp->getLoc());
         bvm.map(opRes, newConst);
       }
     }
@@ -311,11 +311,11 @@ struct NearestDomAndPostInfo {
 };
 
 static bool isLoad(Operation *op) {
-  return isa<AffineLoadOp>(op) || isa<LoadOp>(op);
+  return isa<affine::AffineLoadOp>(op) || isa<LoadOp>(op);
 }
 
 static bool isStore(Operation *op) {
-  return isa<AffineStoreOp>(op) || isa<StoreOp>(op);
+  return isa<affine::AffineStoreOp>(op) || isa<StoreOp>(op);
 }
 template <typename T> bool isSameAccessImpl(Operation *x, Operation *y) {
   if (auto tX = dyn_cast<T>(x)) {
@@ -328,9 +328,9 @@ template <typename T> bool isSameAccessImpl(Operation *x, Operation *y) {
 }
 
 static bool isSameAccessPattern(Operation *x, Operation *y) {
-  if (isSameAccessImpl<AffineLoadOp>(x, y))
+  if (isSameAccessImpl<affine::AffineLoadOp>(x, y))
     return true;
-  if (isSameAccessImpl<AffineStoreOp>(x, y))
+  if (isSameAccessImpl<affine::AffineStoreOp>(x, y))
     return true;
   if (isSameAccessImpl<LoadOp>(x, y))
     return true;
@@ -344,7 +344,7 @@ static bool isSameOperation(Operation *x, Operation *y) {
 }
 
 static Value getMemoryAccessBase(Operation *op) {
-  if (auto load = dyn_cast<AffineLoadOp>(op)) {
+  if (auto load = dyn_cast<affine::AffineLoadOp>(op)) {
     return load.getMemref();
   }
 
@@ -352,7 +352,7 @@ static Value getMemoryAccessBase(Operation *op) {
     return load.getMemref();
   }
 
-  if (auto store = dyn_cast<AffineStoreOp>(op)) {
+  if (auto store = dyn_cast<affine::AffineStoreOp>(op)) {
     return store.getMemref();
   }
 

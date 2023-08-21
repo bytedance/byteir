@@ -33,7 +33,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/OpBase.td"
 
 
-def AnnotateOp : Op<Transform_Dialect, "annotate",
+def AnnotateExtOp : Op<Transform_Dialect, "annotate_ext",
        [DeclareOpInterfaceMethods<TransformOpInterface>,
         DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let description = [{
@@ -177,9 +177,9 @@ def TileLoopHintOp : Op<Transform_Dialect, "structured.tile_loop_hint",
     this is a tile annotation labeling whether a loop parallel
   }];
 
-  let arguments = (ins PDL_Operation:$target);
+  let arguments = (ins TransformHandleTypeInterface:$target);
 
-  let hasCustomAssemblyFormat = 1;
+  let assemblyFormat = "$target attr-dict `:` type($target)";
 }
 
 def TileExtOp : Op<Transform_Dialect, "structured.tile_ext",

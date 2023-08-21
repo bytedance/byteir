@@ -1,9 +1,14 @@
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
+
 add_mlir_public_c_api_library(ByteIRCAPI
   Dialects.cpp
   Passes.cpp
   Translation.cpp
 
   LINK_LIBS PUBLIC
+  ${dialect_libs}
+  ${extension_libs}
   MLIRCatDialect
   MLIRCclTransformOps
 

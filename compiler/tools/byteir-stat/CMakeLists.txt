@@ -1,9 +1,11 @@
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 get_property(byteir_stat_libs GLOBAL PROPERTY BYTEIR_STAT_LIBS)
 
 set(LIBS
   ${byteir_stat_libs}
   ${dialect_libs}
+  ${extension_libs}
   MLIRDialect
   MLIRParser
   MLIRSupport

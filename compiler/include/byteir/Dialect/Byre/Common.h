@@ -38,6 +38,10 @@ inline std::string getByreArgOffsetAttrName() { return "arg_offsets"; }
 
 inline std::string getByreArgRankAttrName() { return "arg_ranks"; }
 
+inline std::string getKernelCallConventionAttrName() {
+  return "call_convention";
+}
+
 inline llvm::StringRef getByreForceComputeNameAttrName() {
   return "byre_force_compute_name";
 }

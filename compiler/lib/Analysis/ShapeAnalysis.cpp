@@ -203,9 +203,9 @@ LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
     ValueShapeRange range(op->getOperands(), shapeKnowledges,
                           shapeValueKnowledges);
     if (shapeInterface
-            .inferReturnTypeComponents(op->getContext(), op->getLoc(), range,
-                                       op->getAttrDictionary(),
-                                       op->getRegions(), results)
+            .inferReturnTypeComponents(
+                op->getContext(), op->getLoc(), range, op->getAttrDictionary(),
+                op->getPropertiesStorage(), op->getRegions(), results)
             .succeeded()) {
       return success();
     }
@@ -221,7 +221,8 @@ LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
     llvm::SmallVector<Type> inferredType;
     if (typeInterface
             .inferReturnTypes(op->getContext(), op->getLoc(), op->getOperands(),
-                              op->getAttrDictionary(), op->getRegions(),
+                              op->getAttrDictionary(),
+                              op->getPropertiesStorage(), op->getRegions(),
                               inferredType)
             .succeeded()) {
       results.assign(llvm::to_vector(llvm::map_range(

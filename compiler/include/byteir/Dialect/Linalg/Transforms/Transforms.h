@@ -38,6 +38,7 @@
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
+#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/PatternMatch.h"
@@ -60,8 +61,9 @@ namespace scf {
 FailureOr<scf::SCFTileAndFuseResult>
 tileConsumerAndFuseProducerUsingSCFForOpExt(
     RewriterBase &rewriter, TilingInterface consumer,
-    ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
-    bool simplifyLoopIter = true, bool keepIntermediate = false);
+    mlir::transform::TransformState &state, ArrayRef<Operation *> stop,
+    const scf::SCFTileAndFuseOptions &options, bool simplifyLoopIter = true,
+    bool keepIntermediate = false);
 
 /// @brief  This is an enhancement version of upstream's
 /// tileConsumerAndFuseProducerGreedilyUsingSCFFor to tile & fuse multiple root

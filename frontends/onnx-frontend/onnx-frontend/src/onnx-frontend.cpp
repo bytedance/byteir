@@ -18,9 +18,11 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/Timing.h"
 
+#include "third_party/onnx-mlir/src/Compiler/CompilerOptions.hpp"
 #include "third_party/onnx-mlir/src/Compiler/CompilerUtils.hpp"
 #include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXDialect.hpp"
 #include "third_party/onnx-mlir/src/Version/Version.hpp"

@@ -251,6 +251,7 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
         } else if (isDenseMhloConstantValue(operand)) {
           OpBuilder::InsertionGuard guard(rewriter);
           rewriter.setInsertionPointAfterValue(operand);
+
           DenseElementsAttr oldConstAttr =
               operand.getDefiningOp<mhlo::ConstantOp>()
                   .getValue()

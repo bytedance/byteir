@@ -207,7 +207,8 @@ void populateGpuMemorySpaceAttributeConversions(
 // https://github.com/llvm/llvm-project/blob/main/mlir/lib/Conversion/GPUToNVVM/LowerGpuOpsToNVVMOps.cpp
 struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
   GPUToNVVMExtPass() = default;
-  GPUToNVVMExtPass(unsigned indexBitwidth) {
+  GPUToNVVMExtPass(bool useBarePtrCallConv, unsigned indexBitwidth) {
+    this->useBarePtrCallConv = useBarePtrCallConv;
     this->indexBitwidth = indexBitwidth;
   }
 
@@ -224,6 +225,8 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
     LowerToLLVMOptions options(
         m.getContext(),
         DataLayout(cast<DataLayoutOpInterface>(m.getOperation())));
+    if (this->useBarePtrCallConv)
+      options.useBarePtrCallConv = true;
     if (indexBitwidth != kDeriveIndexBitwidthFromDataLayout)
       options.overrideIndexBitwidth(indexBitwidth);
 
@@ -302,6 +305,6 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
 } // anonymous namespace
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
-mlir::createGPUToNVVMExtPass(unsigned indexBitwidth) {
-  return std::make_unique<GPUToNVVMExtPass>(indexBitwidth);
+mlir::createGPUToNVVMExtPass(bool useBarePtrCallConv, unsigned indexBitwidth) {
+  return std::make_unique<GPUToNVVMExtPass>(useBarePtrCallConv, indexBitwidth);
 }

@@ -176,6 +176,7 @@ static void GoldenBatchNormGrad(T *input, float *scale, T *grad_output,
 template <typename T>
 static void TestBatchNormGradOp(std::vector<int64_t> shape_input,
                                 const std::string &layout) {
+  ByREBuilder byre_builder;
   float epsilon = 9.99999974E-6f;
   int64_t N, C, H, W, feature_index;
   if (layout == "NCHW") {
@@ -201,7 +202,6 @@ static void TestBatchNormGradOp(std::vector<int64_t> shape_input,
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateBatchNormGrad(byre_builder, dtype_enum_v<T>, "cuda", shape_input,
                           feature_index, epsilon),

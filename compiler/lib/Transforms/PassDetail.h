@@ -25,7 +25,10 @@
 // forward dialects for conversions
 namespace mlir {
 class ModuleOp;
+
+namespace affine {
 class AffineDialect;
+} // namespace affine
 
 namespace cf {
 class ControlFlowDialect;

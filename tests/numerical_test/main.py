@@ -39,7 +39,10 @@ EXCLUDE_TORCH_TESTS = []
 
 SM80_PLUS_TESTS = [
     "dot_f32.mlir",
-    "MatmulF32Module_basic"
+    "MatmulF32Module_basic",
+    "bmm_rrr_add_f32.mlir",
+    "bmm_rrr_f32.mlir",
+    "bmm_rrr_permute_f32.mlir",
 ]
 
 

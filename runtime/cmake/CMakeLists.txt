@@ -390,7 +390,7 @@ if (brt_USE_CUDA)
     endforeach()
   else()
     #CUDA 10.2 on Linux doesn't support C++17
-    set(CMAKE_CUDA_STANDARD 14)
+    set(CMAKE_CUDA_STANDARD 17)
   endif()
   
   #comment out copying cudnn

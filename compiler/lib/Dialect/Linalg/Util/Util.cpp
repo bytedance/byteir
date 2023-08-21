@@ -30,8 +30,9 @@
 #include "llvm/Support/Debug.h"
 
 using namespace mlir;
-using namespace mlir::linalg_ext;
+using namespace mlir::affine;
 using namespace mlir::linalg;
+using namespace mlir::linalg_ext;
 
 /// Common parsing used for both named structured ops created by ods-gen and by
 /// manually defined C++ ops. Does not handle regions.

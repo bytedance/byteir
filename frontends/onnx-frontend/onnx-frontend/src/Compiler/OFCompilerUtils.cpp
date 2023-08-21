@@ -14,7 +14,10 @@
 
 #include "onnx/onnx_pb.h"
 #include "onnx/shape_inference/implementation.h"
+#include "llvm/Support/Debug.h"
 
+#include "third_party/onnx-mlir/src/Builder/FrontendDialectTransformer.hpp"
+#include "third_party/onnx-mlir/src/Compiler/CompilerOptions.hpp"
 #include "third_party/onnx-mlir/src/Compiler/CompilerUtils.hpp"
 
 #include "onnx-frontend/src/Compiler/OFCompilerOptions.hpp"

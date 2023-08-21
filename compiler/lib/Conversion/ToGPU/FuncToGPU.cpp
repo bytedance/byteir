@@ -378,8 +378,8 @@ static IRMapping getMaxGPUConfigAttrs(OpBuilder &b, gpu::GPUFuncOp gFunc,
       continue;
 
     b.setInsertionPoint(threadId);
-    Value newConst = b.create<arith::ConstantOp>(threadId->getLoc(), *attr,
-                                                 threadId.getType());
+    Value newConst = arith::ConstantOp::materialize(
+        b, *attr, threadId.getType(), threadId.getLoc());
     bvm.map(threadId.getResult(), newConst);
   }
 
@@ -388,8 +388,8 @@ static IRMapping getMaxGPUConfigAttrs(OpBuilder &b, gpu::GPUFuncOp gFunc,
     if (!attr)
       continue;
     b.setInsertionPoint(blockId);
-    Value newConst = b.create<arith::ConstantOp>(blockId->getLoc(), *attr,
-                                                 blockId.getType());
+    Value newConst = arith::ConstantOp::materialize(b, *attr, blockId.getType(),
+                                                    blockId.getLoc());
     bvm.map(blockId.getResult(), newConst);
   }
   return bvm;
@@ -416,8 +416,8 @@ static void simplifyGuards(gpu::GPUFuncOp gFunc, gpu::LaunchFuncOp launch) {
         // if so, override the condition into true
         if (attr.cast<IntegerAttr>().getInt() != 0) {
           builder.setInsertionPoint(ifOp);
-          Value newConst = builder.create<arith::ConstantOp>(cmp.getLoc(), attr,
-                                                             cmp.getType());
+          Value newConst = arith::ConstantOp::materialize(
+              builder, attr, cmp.getType(), cmp.getLoc());
           ifOp.setOperand(newConst);
         }
       }

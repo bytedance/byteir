@@ -23,6 +23,7 @@
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/TransformOps/DialectExtension.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
@@ -122,11 +123,12 @@ struct FuseExtTransformInsertionPass
       SmallVector<int64_t, 4> tileSizes = {};
       SmallVector<int64_t, 4> tileInterchange = {};
       if (auto tileSizesAttr = op->getAttrOfType<ArrayAttr>(tileSizeAttrName)) {
-        tileSizes = extractFromI64ArrayAttr(tileSizesAttr);
+        tileSizes = extractFromIntegerArrayAttr<int64_t>(tileSizesAttr);
       }
       if (auto tileInterchangeAttr =
               op->getAttrOfType<ArrayAttr>(tileInterchangeAttrName)) {
-        tileInterchange = extractFromI64ArrayAttr(tileInterchangeAttr);
+        tileInterchange =
+            extractFromIntegerArrayAttr<int64_t>(tileInterchangeAttr);
       }
 
       if (tileSizes.empty())

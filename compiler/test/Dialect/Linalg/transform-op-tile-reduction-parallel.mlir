@@ -14,6 +14,7 @@ transform.sequence failures(propagate) {
   ^bb0(%arg0: !pdl.operation):
     %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
     %loop, %init, %tiled, %merge = transform.structured.tile_reduction_using_forall %0
-                                      by num_threads = [0, 0, 0, 8], tile_sizes = []
+                                      by num_threads = [0, 0, 0, 8], tile_sizes = [] :
+        (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation, !pdl.operation)
     cleanup
 }

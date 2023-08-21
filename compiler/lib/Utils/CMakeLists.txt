@@ -7,6 +7,7 @@ add_mlir_library(ByteIRUtils
   IRRewrite.cpp
   LoopUtils.cpp
   MemUtils.cpp
+  ModuleUtils.cpp
   OpInterfaceUtils.cpp
   PipelineUtils.cpp
   TileUtils.cpp

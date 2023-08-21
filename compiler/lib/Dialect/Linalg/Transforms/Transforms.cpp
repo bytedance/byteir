@@ -45,6 +45,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Transforms/TopologicalSortUtils.h"
@@ -471,7 +472,7 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
       }
 
       // handle apply case
-      if (auto apply = argVal.getDefiningOp<AffineApplyOp>()) {
+      if (auto apply = argVal.getDefiningOp<affine::AffineApplyOp>()) {
         // supporting 1D case for now
         // TODO: extend to n-D cases
         if (apply.getAffineMap().getNumDims() == 1 &&
@@ -998,8 +999,9 @@ mergeSliceOps(SmallVector<tensor::ExtractSliceOp> &sliceOps) {
 FailureOr<scf::SCFTileAndFuseResult>
 mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     RewriterBase &rewriter, TilingInterface consumer,
-    ArrayRef<Operation *> stopOps, const scf::SCFTileAndFuseOptions &options,
-    bool simplifyLoopIter, bool keepIntermediate) {
+    mlir::transform::TransformState &state, ArrayRef<Operation *> stopOps,
+    const scf::SCFTileAndFuseOptions &options, bool simplifyLoopIter,
+    bool keepIntermediate) {
   // This transformation is only valid for ops that return values (i.e. not
   // valid to use with operations that have memref operands).
   if (!consumer->getNumResults()) {

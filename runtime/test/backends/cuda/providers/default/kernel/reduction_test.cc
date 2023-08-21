@@ -95,13 +95,13 @@ template <typename ReduceOp, typename T = typename ReduceOp::type_t>
 void CheckReductionSingle(const std::vector<int64_t> &input_shape,
                           const std::vector<int64_t> &dimensions,
                           std::string op_name) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateReduction(byre_builder, "cuda", input_shape, dimensions, op_name),
       "byre");
@@ -181,13 +181,13 @@ template <typename ReduceOp> void CheckReduction(std::string op_name) {
 
 void CheckNanPropagation(std::string op_name) {
   const static size_t nr_elems = 1024;
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateReduction(byre_builder, "cuda", {nr_elems}, {0}, op_name), "byre");
 

@@ -1,3 +1,5 @@
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 add_byteir_translation_library(ByteIRTargetPTX
   TranslateRegistration.cpp
@@ -11,6 +13,8 @@ add_byteir_translation_library(ByteIRTargetPTX
   Core
 
   LINK_LIBS PUBLIC
+  ${dialect_libs}
+  ${extension_libs}
   MLIRIR
   MLIRLLVMDialect
   MLIRAMDGPUDialect

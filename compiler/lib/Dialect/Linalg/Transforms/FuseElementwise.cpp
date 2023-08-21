@@ -223,7 +223,7 @@ static void generateFusedElementwiseOpRegion(
                     });
     for (IndexOp indexOp :
          llvm::make_early_inc_range(producerBlock.getOps<IndexOp>())) {
-      Value newIndex = rewriter.create<mlir::AffineApplyOp>(
+      Value newIndex = rewriter.create<affine::AffineApplyOp>(
           producer.getLoc(),
           consumerToProducerLoopsMap.getSubMap(indexOp.getDim()), fusedIndices);
       mapper.map(indexOp.getResult(), newIndex);
@@ -277,13 +277,13 @@ static void generateFusedElementwiseOpRegion(
   auto producerYieldOp = cast<linalg::YieldOp>(producerBlock.getTerminator());
   for (OpOperand *fusedOperand : fusedOperands) {
     unsigned producerResultNumber =
-        fusedOperand->get().cast<OpResult>().getResultNumber();
+        cast<OpResult>(fusedOperand->get()).getResultNumber();
     Value replacement = mapper.lookupOrDefault(
         producerYieldOp.getOperand(producerResultNumber));
     // Sanity checks, if replacement is not already in the mapper then it must
     // be produced outside.
     if (replacement == producerYieldOp.getOperand(producerResultNumber)) {
-      if (auto bb = replacement.dyn_cast<BlockArgument>())
+      if (auto bb = dyn_cast<BlockArgument>(replacement))
         assert(bb.getOwner() != &producerBlock &&
                "yielded block argument must have been mapped");
       else
@@ -329,7 +329,7 @@ static FailureOr<mlir::linalg::ElementwiseOpFusionResult>
 fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
   assert(areElementwiseOpsFusable(fusedOperand) &&
          "expected elementwise operation pre-conditions to pass");
-  auto producerResult = fusedOperand->get().cast<OpResult>();
+  auto producerResult = cast<OpResult>(fusedOperand->get());
   auto producer = cast<GenericOp>(producerResult.getOwner());
   auto consumer = cast<GenericOp>(fusedOperand->getOwner());
   // TODO: allow fusing the producer of an output operand.
@@ -460,7 +460,7 @@ fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
   for (auto consumerResult : consumer->getResults())
     result.replacements[consumerResult] = fusedOp->getResult(resultNum++);
   return result;
-} // namespace
+}
 
 /// Patterns to fuse a generic op, with the producer of its operands.
 class FuseElementwiseProducerConsumerExt : public OpRewritePattern<GenericOp> {
@@ -526,7 +526,6 @@ public:
           }
           res.replaceAllUsesWith(fusedOp->getResult(idx++));
         }
-
         return success();
       }
     }
@@ -671,7 +670,7 @@ static void populateCommonPatterns(RewritePatternSet &patterns,
   populateMapOpToGenericPattern(patterns);
 
   // General canonicalization patterns.
-  AffineApplyOp::getCanonicalizationPatterns(patterns, context);
+  affine::AffineApplyOp::getCanonicalizationPatterns(patterns, context);
   GenericOp::getCanonicalizationPatterns(patterns, context);
   tensor::ExpandShapeOp::getCanonicalizationPatterns(patterns, context);
   tensor::CollapseShapeOp::getCanonicalizationPatterns(patterns, context);

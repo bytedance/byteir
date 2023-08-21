@@ -56,7 +56,7 @@ static SmallVector<OpFoldResult> conversionBetweenTileNumsAndTileSizes(
     bindSymbols(b.getContext(), x, y);
     OpFoldResult size = loopRanges[i].size;
     OpFoldResult tileNum = tileNumsOrSizes[i];
-    OpFoldResult tileDiv = makeComposedFoldedAffineApply(
+    OpFoldResult tileDiv = affine::makeComposedFoldedAffineApply(
         b, loc, x.ceilDiv(y), ArrayRef<OpFoldResult>{size, tileNum});
     tileRes.push_back(tileDiv);
   }
@@ -66,7 +66,7 @@ static SmallVector<OpFoldResult> conversionBetweenTileNumsAndTileSizes(
 /// Build an `affine_max` of all the `vals`.
 static OpFoldResult buildMax(OpBuilder &b, Location loc,
                              ArrayRef<OpFoldResult> vals) {
-  return makeComposedFoldedAffineMax(
+  return affine::makeComposedFoldedAffineMax(
       b, loc, AffineMap::getMultiDimIdentityMap(vals.size(), loc.getContext()),
       vals);
 }
@@ -74,7 +74,7 @@ static OpFoldResult buildMax(OpBuilder &b, Location loc,
 /// Build an `affine_min` of all the `vals`.
 static OpFoldResult buildMin(OpBuilder &b, Location loc,
                              ArrayRef<OpFoldResult> vals) {
-  return makeComposedFoldedAffineMin(
+  return affine::makeComposedFoldedAffineMin(
       b, loc, AffineMap::getMultiDimIdentityMap(vals.size(), loc.getContext()),
       vals);
 }
@@ -158,19 +158,20 @@ void mlir::calculateTileOffsetsAndSizes(
     OpFoldResult tileSizePerThread =
         nominalTileSizes.has_value()
             ? (*nominalTileSizes)[loopIdx]
-            : makeComposedFoldedAffineApply(
+            : affine::makeComposedFoldedAffineApply(
                   b, loc, m.ceilDiv(n),
                   ArrayRef<OpFoldResult>{size, nonZeroNumThreads[threadIdIdx]});
     // Dynamic offset shifted by threadId * maxSizePerThread.
-    OpFoldResult offsetPerThread = makeComposedFoldedAffineApply(
+    OpFoldResult offsetPerThread = affine::makeComposedFoldedAffineApply(
         b, loc, i + j * m, {offset, threadId, tileSizePerThread});
     // Dynamic upper-bound depending on the threadId.
-    OpFoldResult residualTileSize = makeComposedFoldedAffineApply(
+    OpFoldResult residualTileSize = affine::makeComposedFoldedAffineApply(
         b, loc, i + j * m - n,
         {offset, nonZeroNumThreads[threadIdIdx], tileSizePerThread, size});
     if (!isConstantIntValue(residualTileSize, 0)) {
-      OpFoldResult sizeMinusOffsetPerThread = makeComposedFoldedAffineApply(
-          b, loc, -i + m, {offsetPerThread, size});
+      OpFoldResult sizeMinusOffsetPerThread =
+          affine::makeComposedFoldedAffineApply(b, loc, -i + m,
+                                                {offsetPerThread, size});
       tileSizePerThread =
           buildMin(b, loc, {sizeMinusOffsetPerThread, tileSizePerThread});
     }

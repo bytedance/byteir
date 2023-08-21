@@ -65,11 +65,8 @@ namespace mhlo {
     using Type = lmhlo::OpName;                                                \
   }
 
-MAP_HLO_TO_LHLO(ReverseOp);
-
-MAP_HLO_TO_LHLO(AllReduceOp);
 MAP_HLO_TO_LHLO(MapOp);
-MAP_HLO_TO_LHLO(ReduceScatterOp);
+MAP_HLO_TO_LHLO(ReverseOp);
 MAP_HLO_TO_LHLO(ScatterOp);
 MAP_HLO_TO_LHLO(SelectAndScatterOp);
 MAP_HLO_TO_LHLO(SortOp);
@@ -432,11 +429,10 @@ public:
 
     // LWC: lmhlo::ScatterOp's body allow mhlo
     target.addDynamicallyLegalDialect<mhlo::MhloDialect>([&](Operation *op) {
-      return isa_and_nonnull<
-          mhlo::AllReduceOp, lmhlo::AllReduceOp, mhlo::MapOp, lmhlo::MapOp,
-          mhlo::ReduceScatterOp, lmhlo::ReduceScatterOp, mhlo::ScatterOp,
-          lmhlo::ScatterOp, mhlo::SelectAndScatterOp, lmhlo::SelectAndScatterOp,
-          mhlo::SortOp, lmhlo::SortOp>(op->getParentOp());
+      return isa_and_nonnull<mhlo::MapOp, lmhlo::MapOp, mhlo::ScatterOp,
+                             lmhlo::ScatterOp, mhlo::SelectAndScatterOp,
+                             lmhlo::SelectAndScatterOp, mhlo::SortOp,
+                             lmhlo::SortOp>(op->getParentOp());
     });
 
     // Declare tensor_store illegal. tensor_load may be used to reify output
@@ -505,9 +501,7 @@ void mlir::populateHLOToLHLOConversionPatternExtension(
 
   patterns->insert<HloToLhloOpConverterLocal<mhlo::ReverseOp>,
                    HloToLhloOpConverterLocal<mhlo::ClampOp>,
-                   HloToLhloOpWithHloRegionsConverter<mhlo::AllReduceOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::MapOp>,
-                   HloToLhloOpWithHloRegionsConverter<mhlo::ReduceScatterOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::ScatterOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::SelectAndScatterOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::SortOp>,

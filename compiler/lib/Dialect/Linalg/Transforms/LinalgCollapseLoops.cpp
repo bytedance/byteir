@@ -43,8 +43,8 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/Support/Debug.h"
+#include <optional>
 
 #include "PassDetail.h"
 
@@ -532,7 +532,7 @@ public:
     // `collapseGenericOpIterationDimsEx` is similar to
     // `collapseGenericOpIterationDims` in upstream but allow buffer semantics
     // additionally
-    Optional<SmallVector<Value>> replacements =
+    std::optional<SmallVector<Value>> replacements =
         collapseGenericOpIterationDimsEx(op, loops, rewriter);
 
     if (!replacements) {

@@ -125,7 +125,7 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
               b.getIndexAttr(constExpr.getValue()));
         } else {
           resSliceParameters.offsets.push_back(
-              b.create<AffineApplyOp>(
+              b.create<affine::AffineApplyOp>(
                    loc, AffineMap::inferFromExprList({expr}).front(),
                    collapsedOffset.dyn_cast<Value>())
                   ->getResult(0));
@@ -218,7 +218,8 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
             {mlir::getAffineDimExpr(0, ctx).floorDiv(productOfDimSizes)})
             .front();
     resSliceParameters.offsets.push_back(
-        b.create<AffineApplyOp>(loc, map, collapsedOffsetVal)->getResult(0));
+        b.create<affine::AffineApplyOp>(loc, map, collapsedOffsetVal)
+            ->getResult(0));
 
     // add the size and offset of the remaining dimensions
     for (int64_t expandedIdx : expandedIndicesRef) {
@@ -283,7 +284,7 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
       resSliceParameters.sizes.push_back(
           expandedSliceParams.sizes[expandedIndicesRef.back()]);
       resSliceParameters.offsets.push_back(
-          b.create<AffineApplyOp>(
+          b.create<affine::AffineApplyOp>(
                loc, AffineMap::inferFromExprList({offsetExpr}).front(),
                offsetValues)
               ->getResult(0));
@@ -374,7 +375,8 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
             {mlir::getAffineDimExpr(0, ctx) * productOfExpandedTileSize})
             .front();
     resSliceParameters.offsets.push_back(
-        b.create<AffineApplyOp>(loc, map, firstNotOneOffsetVal)->getResult(0));
+        b.create<affine::AffineApplyOp>(loc, map, firstNotOneOffsetVal)
+            ->getResult(0));
   }
 
   return resSliceParameters;
@@ -441,7 +443,8 @@ struct ExpandShapeOpTiling
                   {mlir::getAffineDimExpr(0, ctx).floorDiv(product)})
                   .front();
           loopRanges[dynamicDim].size =
-              b.create<AffineApplyOp>(loc, map, dynDimSize)->getResult(0);
+              b.create<affine::AffineApplyOp>(loc, map, dynDimSize)
+                  ->getResult(0);
         }
       }
     }
@@ -572,7 +575,8 @@ struct CollapseShapeOpTiling
                               {mlir::getAffineDimExpr(0, ctx) * product})
                               .front();
           loopRanges[dim].size =
-              b.create<AffineApplyOp>(loc, map, dynDimSize)->getResult(0);
+              b.create<affine::AffineApplyOp>(loc, map, dynDimSize)
+                  ->getResult(0);
         }
       }
     }
