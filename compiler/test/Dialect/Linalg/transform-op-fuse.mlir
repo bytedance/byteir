@@ -80,6 +80,34 @@ transform.sequence failures(propagate) {
 
 // -----
 
+// CHECK-LABEL: func.func @fuse_with_multi_stops
+func.func @fuse_with_multi_stops(%arg0: tensor<1024x512xf32>, %arg1: tensor<1024x512xf32>, %arg2: tensor<1024x512xf32>) -> tensor<1024x512xf32> {
+  %0 = tensor.empty() : tensor<1024x512xf32>
+  %1 = linalg.elemwise_unary ins(%arg0 : tensor<1024x512xf32>) outs(%0 : tensor<1024x512xf32>) -> tensor<1024x512xf32>
+  // CHECK: __stop__
+  // CHECK: __stop__
+  %2 = linalg.elemwise_unary {__stop__} ins(%arg1 : tensor<1024x512xf32>) outs(%0 : tensor<1024x512xf32>) -> tensor<1024x512xf32>
+  %3 = linalg.elemwise_unary {__stop__} ins(%arg2 : tensor<1024x512xf32>) outs(%0 : tensor<1024x512xf32>) -> tensor<1024x512xf32>
+  // CHECK: scf.for
+  // CHECK:     linalg.elemwise_unary
+  // CHECK:     linalg.elemwise_binary
+  // CHECK:     linalg.elemwise_binary
+  // CHECK:     __root__
+  // CHECK:     scf.yield
+  %4 = linalg.elemwise_binary ins(%1, %2 : tensor<1024x512xf32>, tensor<1024x512xf32>) outs(%0 : tensor<1024x512xf32>) -> tensor<1024x512xf32>
+  %5 = linalg.elemwise_binary {__root__} ins(%4, %3 : tensor<1024x512xf32>, tensor<1024x512xf32>) outs(%0 : tensor<1024x512xf32>) -> tensor<1024x512xf32>
+  return %5 : tensor<1024x512xf32>
+}
+transform.sequence failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %stops = transform.structured.match attributes {__stop__} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %transformed, %loops = transform.structured.fuse_ext %0, %stops {tile_interchange = [], tile_sizes = [4]}
+  cleanup
+}
+
+// -----
+
 // CHECK-LABEL: func.func @interchange_reduction
 //  CHECK-SAME: (%[[INPUT:.+]]: tensor<12x7x25xf32>)
 func.func @interchange_reduction(%input: tensor<12x7x25xf32>) -> tensor<12x25xf32> {
