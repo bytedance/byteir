@@ -320,7 +320,7 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
 
       BroadcastInDimOp newBroadInDimOp = builder.create<mhlo::BroadcastInDimOp>(
           constOp->getLoc(), weightType, constOp.getOutput(),
-          rewriter.getI64TensorAttr({weightFeatureDim}));
+          rewriter.getI64TensorAttr({static_cast<int64_t>(weightFeatureDim)}));
       MulOp newMulOp = builder.create<MulOp>(constOp->getLoc(), weight,
                                              newBroadInDimOp->getResult(0));
       convOrDotOp->setOperand(1, newMulOp->getResult(0));
