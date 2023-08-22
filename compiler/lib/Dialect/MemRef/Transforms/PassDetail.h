@@ -23,7 +23,11 @@
 
 // forward dialects for conversions
 namespace mlir {
+
+namespace affine {
 class AffineDialect;
+} // namespace affine
+
 namespace arith {
 class ArithDialect;
 } // namespace arith

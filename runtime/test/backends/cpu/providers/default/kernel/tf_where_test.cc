@@ -43,13 +43,13 @@ template <typename T, typename ContainerT = std::vector<T>>
 void CheckTFWhereSingle(const std::vector<int64_t> &shape,
                         const ContainerT &data,
                         const std::vector<int64_t> &expect_result) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateTFWhereOp(byre_builder, dtype_enum_v<T>, shape), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

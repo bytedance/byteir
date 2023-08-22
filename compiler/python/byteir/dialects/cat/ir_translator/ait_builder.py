@@ -117,7 +117,7 @@ class ait_builder:
         return self._value2tensor[val]
 
     def _gen_ait_module(self, results):
-        target = detect_target(use_fp16_acc=False)
+        target = detect_target(use_fp16_acc=False, no_tf32=True)
         constants = {}
 
         idx = 0

@@ -1,8 +1,8 @@
 diff --git a/tensorflow/BUILD b/tensorflow/BUILD
-index c3774dbc3b5..6f7a7cc69a9 100644
+index bfda3dfb6dc..7f14db5bcf5 100644
 --- a/tensorflow/BUILD
 +++ b/tensorflow/BUILD
-@@ -128,7 +128,7 @@ PACKAGE_STATIC_DEPS = [
+@@ -133,7 +133,7 @@ PACKAGE_STATIC_DEPS = [
  
  package(
      # copybara:uncomment default_applicable_licenses = [":license"],
@@ -12,24 +12,26 @@ index c3774dbc3b5..6f7a7cc69a9 100644
  
  # copybara:uncomment_begin
 diff --git a/tensorflow/c/BUILD b/tensorflow/c/BUILD
-index 2b19a7656f4..45f51d8825a 100644
+index 29dc30bedf9..f7559339aba 100644
 --- a/tensorflow/c/BUILD
 +++ b/tensorflow/c/BUILD
-@@ -268,8 +268,7 @@ tf_cuda_library(
+@@ -271,10 +271,7 @@ tf_cuda_library(
+         "c_api.h",
      ],
      copts = tf_copts(),
-     visibility = [
+-    visibility = [
 -        "//tensorflow:__subpackages__",
 -        "//tensorflow/python:__subpackages__",
-+        "//visibility:public"
-     ],
+-    ],
++    visibility = ["//visibility:public"],
      deps = [
          ":c_api_internal",
+         ":tf_attrtype",
 diff --git a/tensorflow/c/eager/BUILD b/tensorflow/c/eager/BUILD
-index 06b59eca8d2..701b503c442 100644
+index 0b543f7dcbf..211a98f2a84 100644
 --- a/tensorflow/c/eager/BUILD
 +++ b/tensorflow/c/eager/BUILD
-@@ -139,7 +139,7 @@ cc_library(
+@@ -140,7 +140,7 @@ cc_library(
          "c_api_experimental.h",
          "c_api_internal.h",
      ],
@@ -39,23 +41,25 @@ index 06b59eca8d2..701b503c442 100644
          ":c_api",
          ":tfe_cancellation_manager_internal",
 diff --git a/tensorflow/compiler/jit/BUILD b/tensorflow/compiler/jit/BUILD
-index 59705cda817..3d6a15f9cb0 100644
+index ab84540ec8c..64da9759906 100644
 --- a/tensorflow/compiler/jit/BUILD
 +++ b/tensorflow/compiler/jit/BUILD
-@@ -793,7 +793,7 @@ cc_library(
+@@ -878,8 +878,8 @@ cc_library(
      name = "shape_inference",
      srcs = ["shape_inference.cc"],
      hdrs = ["shape_inference.h"],
 -    visibility = [":friends"],
+-    deps = [
 +    visibility = ["//visibility:public"],
-     deps = [
++	deps = [
          ":shape_inference_helpers",
          "//tensorflow/compiler/xla:statusor",
+         "//tensorflow/core:core_cpu_internal",
 diff --git a/tensorflow/compiler/mlir/BUILD b/tensorflow/compiler/mlir/BUILD
-index e578b622bab..90b27716fbd 100644
+index dc58c4ddbc1..cd1615e4c23 100644
 --- a/tensorflow/compiler/mlir/BUILD
 +++ b/tensorflow/compiler/mlir/BUILD
-@@ -78,10 +78,6 @@ cc_library(
+@@ -79,10 +79,6 @@ cc_library(
  
  cc_library(
      name = "passes",
@@ -67,7 +71,7 @@ index e578b622bab..90b27716fbd 100644
          "@llvm-project//mlir:AffineDialect",
          "@llvm-project//mlir:QuantOps",
 diff --git a/tensorflow/compiler/mlir/lite/BUILD b/tensorflow/compiler/mlir/lite/BUILD
-index 7c9c458a463..2428bc26888 100644
+index af0cf97c31b..ccac9cdf276 100644
 --- a/tensorflow/compiler/mlir/lite/BUILD
 +++ b/tensorflow/compiler/mlir/lite/BUILD
 @@ -8,10 +8,7 @@ package(
@@ -83,10 +87,19 @@ index 7c9c458a463..2428bc26888 100644
      licenses = ["notice"],
  )
 diff --git a/tensorflow/compiler/mlir/tensorflow/BUILD b/tensorflow/compiler/mlir/tensorflow/BUILD
-index c275c563e74..5d40ec69de8 100644
+index 207ec7970aa..63f475e7b18 100644
 --- a/tensorflow/compiler/mlir/tensorflow/BUILD
 +++ b/tensorflow/compiler/mlir/tensorflow/BUILD
-@@ -1459,7 +1459,7 @@ cc_library(
+@@ -1474,7 +1474,7 @@ cc_library(
+     hdrs = [
+         "transforms/shape_inference.h",
+     ],
+-    deps = [
++	deps = [
+         ":dynamic_shape_utils",
+         ":serialize_mlir_module_utils",
+         ":shape_inference_utils",
+@@ -1522,7 +1522,7 @@ cc_library(
  
  cc_library(
      name = "tensorflow_test_passes",
@@ -95,7 +108,7 @@ index c275c563e74..5d40ec69de8 100644
      srcs = [
          "transforms/init_text_file_to_import_test_pass.cc",
          "transforms/initialize_variables_in_session_init_test_pass.cc",
-@@ -1958,7 +1958,7 @@ cc_library(
+@@ -2022,7 +2022,7 @@ cc_library(
      name = "error_util",
      srcs = ["utils/error_util.cc"],
      hdrs = ["utils/error_util.h"],
@@ -104,7 +117,7 @@ index c275c563e74..5d40ec69de8 100644
      deps = [
          "//tensorflow/compiler/xla/mlir/utils:error_util",
          "//tensorflow/core/platform:errors",
-@@ -2201,7 +2201,7 @@ cc_library(
+@@ -2267,7 +2267,7 @@ cc_library(
  
  cc_library(
      name = "tf_xla_mlir_translate",
@@ -114,10 +127,10 @@ index c275c563e74..5d40ec69de8 100644
      deps = [
          ":mlir_roundtrip_flags",
 diff --git a/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD b/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD
-index f040ca2af3b..2695155f0b9 100644
+index 05dbdcc437d..62a18df5c76 100644
 --- a/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD
 +++ b/tensorflow/compiler/mlir/tools/kernel_gen/ir/BUILD
-@@ -5,9 +5,7 @@ load("//tensorflow:tensorflow.default.bzl", "get_compatible_with_cloud")
+@@ -5,9 +5,7 @@ load("//tensorflow:tensorflow.default.bzl", "get_compatible_with_portable")
  package(
      # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
      default_visibility = [
@@ -129,7 +142,7 @@ index f040ca2af3b..2695155f0b9 100644
      licenses = ["notice"],
  )
 diff --git a/tensorflow/compiler/mlir/tosa/BUILD b/tensorflow/compiler/mlir/tosa/BUILD
-index b456496bc5b..417ca4eee95 100644
+index 33eb74dc1f9..2f384675685 100644
 --- a/tensorflow/compiler/mlir/tosa/BUILD
 +++ b/tensorflow/compiler/mlir/tosa/BUILD
 @@ -9,7 +9,7 @@ load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library")
@@ -141,35 +154,35 @@ index b456496bc5b..417ca4eee95 100644
      licenses = ["notice"],
  )
  
-@@ -135,7 +135,6 @@ cc_library(
+@@ -136,7 +136,6 @@ cc_library(
          "transforms/passes.h",
      ],
-     compatible_with = get_compatible_with_cloud(),
+     compatible_with = get_compatible_with_portable(),
 -    visibility = [":friends"],
      deps = [
          ":legalize_common",
          ":passes_header",
-@@ -189,7 +188,6 @@ cc_library(
+@@ -195,7 +194,6 @@ cc_library(
          "transforms/passes.h",
      ],
-     compatible_with = get_compatible_with_cloud(),
+     compatible_with = get_compatible_with_portable(),
 -    visibility = [":friends"],
      deps = [
          ":legalize_common",
          ":passes_header",
-@@ -221,7 +219,6 @@ cc_library(
+@@ -229,7 +227,6 @@ cc_library(
          "transforms/passes.h",
      ],
-     compatible_with = get_compatible_with_cloud(),
+     compatible_with = get_compatible_with_portable(),
 -    visibility = [":friends"],
      deps = [
          ":legalize_common",
          ":passes_header",
 diff --git a/tensorflow/compiler/tf2xla/BUILD b/tensorflow/compiler/tf2xla/BUILD
-index 9e5126075ab..add35d7b84c 100644
+index dcf4d4880a3..9bafc135d95 100644
 --- a/tensorflow/compiler/tf2xla/BUILD
 +++ b/tensorflow/compiler/tf2xla/BUILD
-@@ -21,7 +21,7 @@ load("//tensorflow/compiler/xla/service/cpu:build_defs.bzl", "runtime_copts")
+@@ -22,7 +22,7 @@ load("//tensorflow/compiler/xla/service/cpu:build_defs.bzl", "runtime_copts")
  
  package(
      # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -178,7 +191,7 @@ index 9e5126075ab..add35d7b84c 100644
      licenses = ["notice"],
  )
  
-@@ -658,7 +658,6 @@ cc_library(
+@@ -670,7 +670,6 @@ cc_library(
      hdrs = [
          "xla_helpers.h",
      ],
@@ -186,7 +199,7 @@ index 9e5126075ab..add35d7b84c 100644
      deps = [
          ":common",
          ":host_compute_metadata_proto_cc",
-@@ -740,7 +739,6 @@ cc_library(
+@@ -752,7 +751,6 @@ cc_library(
          "shape_util.h",
          "type_util.h",
      ],
@@ -195,10 +208,10 @@ index 9e5126075ab..add35d7b84c 100644
          "//tensorflow/compiler/xla:literal",
          "//tensorflow/compiler/xla:shape_util",
 diff --git a/tensorflow/compiler/xla/service/BUILD b/tensorflow/compiler/xla/service/BUILD
-index 286320cd5b5..00cb39e2e9f 100644
+index 36924224482..27b88505956 100644
 --- a/tensorflow/compiler/xla/service/BUILD
 +++ b/tensorflow/compiler/xla/service/BUILD
-@@ -31,7 +31,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
+@@ -34,7 +34,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
  
  package(
      # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
@@ -207,8 +220,21 @@ index 286320cd5b5..00cb39e2e9f 100644
      licenses = ["notice"],
  )
  
+diff --git a/tensorflow/compiler/xla/service/topk_rewriter.cc b/tensorflow/compiler/xla/service/topk_rewriter.cc
+index 37e5bbca234..78f500c6a8b 100644
+--- a/tensorflow/compiler/xla/service/topk_rewriter.cc
++++ b/tensorflow/compiler/xla/service/topk_rewriter.cc
+@@ -170,7 +170,7 @@ static bool IsNanSafeGt(HloComputation* comp) {
+ // Look for the instructions emitted from: xla/client/lib/sorting.cc
+ static bool HasIota(HloSortInstruction* sort, HloInstruction* data) {
+   namespace m = match;
+-  const std::array<int64_t, 1> sort_dims = {
++  const absl::Span<const int64_t> sort_dims = {
+       data->shape().dimensions(sort->sort_dimension())};
+   auto match_iota = [](auto dims) {
+     return m::Iota().WithShape(m::Shape().WithElementType(S32).WithDims(dims));
 diff --git a/tensorflow/core/BUILD b/tensorflow/core/BUILD
-index c9103ef9fef..90d569e3c1e 100644
+index 18c419a7623..94c2a8900f4 100644
 --- a/tensorflow/core/BUILD
 +++ b/tensorflow/core/BUILD
 @@ -114,11 +114,7 @@ load(
@@ -225,7 +251,7 @@ index c9103ef9fef..90d569e3c1e 100644
          "-layering_check",
          "-parse_headers",
 diff --git a/tensorflow/core/common_runtime/BUILD b/tensorflow/core/common_runtime/BUILD
-index 71b34d32e40..df86dbe215c 100644
+index c239c6ce053..8498e08090c 100644
 --- a/tensorflow/core/common_runtime/BUILD
 +++ b/tensorflow/core/common_runtime/BUILD
 @@ -48,7 +48,7 @@ default_package_visibility = [
@@ -238,7 +264,7 @@ index 71b34d32e40..df86dbe215c 100644
          [
              "-layering_check",
 diff --git a/tensorflow/core/grappler/optimizers/data/BUILD b/tensorflow/core/grappler/optimizers/data/BUILD
-index dccbac09df4..b6c29da7b03 100644
+index 977ab674d00..f18458d8d4d 100644
 --- a/tensorflow/core/grappler/optimizers/data/BUILD
 +++ b/tensorflow/core/grappler/optimizers/data/BUILD
 @@ -5,11 +5,7 @@ load("//tensorflow/core/platform:build_config.bzl", "tf_protos_all")

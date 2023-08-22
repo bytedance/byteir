@@ -19,8 +19,8 @@ transform.sequence failures(propagate) {
   %0 = transform.structured.match attributes{"__root__"} in %arg1 : (!pdl.operation) -> !pdl.operation
   %loop, %fill, %split, %merge = transform.structured.tile_reduction_using_scf %0
     by tile_sizes = [0, 16]
-  transform.annotate %split { __split__ }
-  transform.annotate %merge { __merge__ }
+  transform.annotate_ext %split { __split__ }
+  transform.annotate_ext %merge { __merge__ }
   cleanup
   //%1 = transform.structured.match attributes{"__split__"} in %arg1 : (!pdl.operation) -> !pdl.operation
   //transform.dump(%1 : !pdl.operation) "__split__"

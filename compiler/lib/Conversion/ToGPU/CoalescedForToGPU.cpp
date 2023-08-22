@@ -52,7 +52,8 @@ using namespace mlir::gpu;
 
 namespace {
 
-static LogicalResult checkACoalescedffineLoopMappable(AffineForOp forOp) {
+static LogicalResult
+checkACoalescedffineLoopMappable(affine::AffineForOp forOp) {
   Region &limit = forOp.getRegion();
 
   if (!areValuesDefinedAbove(forOp.getLowerBoundOperands(), limit) ||
@@ -64,9 +65,9 @@ static LogicalResult checkACoalescedffineLoopMappable(AffineForOp forOp) {
 }
 
 struct CoalescedAffineLoopToGpuConverter {
-  bool collectBound(AffineForOp forOp);
+  bool collectBound(affine::AffineForOp forOp);
 
-  void createLaunch(AffineForOp forOp, unsigned blockSize);
+  void createLaunch(affine::AffineForOp forOp, unsigned blockSize);
 
   // Range of the loop mapped to linearized blocks and threads.
   Value dim;
@@ -97,7 +98,7 @@ static Value createLinearizedIndex(OpBuilder &builder, mlir::Location loc,
 }
 
 // Replace the for with a GPU launch operation.
-void CoalescedAffineLoopToGpuConverter::createLaunch(AffineForOp forOp,
+void CoalescedAffineLoopToGpuConverter::createLaunch(affine::AffineForOp forOp,
                                                      unsigned blockSize) {
   OpBuilder builder(forOp.getOperation());
   // Prepare the grid and block sizes for the launch operation.  If there is
@@ -155,7 +156,8 @@ void CoalescedAffineLoopToGpuConverter::createLaunch(AffineForOp forOp,
 
 // Collect range, bound, step and induction variable in preparation for
 // mapping a loop at "forOp" to a GPU kernel.
-bool CoalescedAffineLoopToGpuConverter::collectBound(AffineForOp forOp) {
+bool CoalescedAffineLoopToGpuConverter::collectBound(
+    affine::AffineForOp forOp) {
   OpBuilder builder(forOp.getOperation());
   auto loc = forOp.getLoc();
   lb = lowerAffineLowerBound(forOp, builder);
@@ -177,8 +179,9 @@ bool CoalescedAffineLoopToGpuConverter::collectBound(AffineForOp forOp) {
 }
 
 // Generic loop to GPU kernel conversion function.
-static LogicalResult convertCoalescedAffineLoopToGPULaunch(AffineForOp forOp,
-                                                           unsigned blockSize) {
+static LogicalResult
+convertCoalescedAffineLoopToGPULaunch(affine::AffineForOp forOp,
+                                      unsigned blockSize) {
   if (failed(checkACoalescedffineLoopMappable(forOp))) {
     return failure();
   }
@@ -202,7 +205,7 @@ struct CoalescedForToGPULaunchPass
     func::FuncOp f = getOperation();
 
     for (Operation &op : llvm::make_early_inc_range(f.getOps())) {
-      if (auto forOp = dyn_cast<AffineForOp>(&op)) {
+      if (auto forOp = dyn_cast<affine::AffineForOp>(&op)) {
         if (failed(convertCoalescedAffineLoopToGPULaunch(forOp, blockSize))) {
           signalPassFailure();
         }

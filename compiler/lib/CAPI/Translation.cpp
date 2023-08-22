@@ -21,6 +21,7 @@
 #include "mlir/CAPI/Support.h"
 #include "mlir/CAPI/Utils.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
 #include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
@@ -30,9 +31,12 @@ using namespace mlir;
 
 void byteirRegisterTranslationDialects(MlirContext context) {
   registerAllDialects(*unwrap(context));
+  DialectRegistry registry;
+  registerAllExtensions(registry);
   registerLLVMDialectTranslation(*unwrap(context));
   registerNVVMDialectTranslation(*unwrap(context));
   registerGPUDialectTranslation(*unwrap(context));
+  unwrap(context)->appendDialectRegistry(registry);
 }
 
 void byteirTranslateToPTX(MlirOperation op, MlirStringRef ptxFilePrefixName,

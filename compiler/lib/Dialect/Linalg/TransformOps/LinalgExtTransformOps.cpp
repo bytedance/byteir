@@ -59,6 +59,7 @@
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "mlir/Transforms/RegionUtils.h"
+#include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
@@ -83,25 +84,26 @@ public:
 } // namespace
 
 //===----------------------------------------------------------------------===//
-// AnnotateOp
+// AnnotateExtOp
 //===----------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform::AnnotateOp::apply(TransformResults &transformResults,
-                             TransformState &state) {
+transform::AnnotateExtOp::apply(TransformRewriter &rewriter,
+                                TransformResults &transformResults,
+                                TransformState &state) {
 
-  ArrayRef<Operation *> targets = state.getPayloadOps(getTarget());
-
+  auto targets = state.getPayloadOps(getTarget());
+  SmallVector<Operation *> targetOps;
   auto attrs = getOperation()->getAttrs();
-  for (auto &target : targets) {
+  for (Operation *target : targets) {
     addAttrs(target, attrs);
+    targetOps.push_back(target);
   }
-
-  transformResults.set(getTransformed().cast<OpResult>(), targets);
+  transformResults.set(getTransformed().cast<OpResult>(), targetOps);
   return DiagnosedSilenceableFailure::success();
 }
 
-void transform::AnnotateOp::getEffects(
+void transform::AnnotateExtOp::getEffects(
     SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
   onlyReadsHandle(getTarget(), effects);
   modifiesPayload(effects);
@@ -113,7 +115,8 @@ void transform::AnnotateOp::getEffects(
 //===----------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform::CollapseDimsOp::apply(transform::TransformResults &results,
+transform::CollapseDimsOp::apply(transform::TransformRewriter &rewriter,
+                                 transform::TransformResults &results,
                                  transform::TransformState &state) {
   SmallVector<Operation *> collapsed;
   for (Operation *target : state.getPayloadOps(getTarget())) {
@@ -309,7 +312,8 @@ replaceUnitExtents(GenericOp genericOp, PatternRewriter &rewriter) {
 } // namespace
 
 DiagnosedSilenceableFailure
-transform::FoldUnitExtentDimsOp::apply(transform::TransformResults &results,
+transform::FoldUnitExtentDimsOp::apply(transform::TransformRewriter &rewriter,
+                                       transform::TransformResults &results,
                                        transform::TransformState &state) {
   SmallVector<Operation *> transformed;
   for (Operation *target : state.getPayloadOps(getTarget())) {
@@ -346,7 +350,8 @@ namespace {
 /// Apply a tiling transformation to all payload ops and store both the
 /// tiled operation as well as the created tile loops.
 static LogicalResult applyTilingToAll(
-    Operation *transformOp, ArrayRef<Operation *> targetPayloadOps,
+    Operation *transformOp, mlir::transform::TransformState &state,
+    ArrayRef<Operation *> targetPayloadOps,
     ArrayRef<Operation *> stopPayloadOps, unsigned numLoops,
     transform::TransformResults &transformResults,
     function_ref<FailureOr<scf::SCFTileAndFuseResult>(TilingInterface)>
@@ -358,7 +363,7 @@ static LogicalResult applyTilingToAll(
   SmallVector<Operation *> tiledLinalgOps;
   SmallVector<SmallVector<Operation *>> loopOps(numLoops);
   for (unsigned int i = 0; i < numLoops; ++i)
-    loopOps[i].reserve(targetPayloadOps.size());
+    loopOps[i].reserve(llvm::range_size(targetPayloadOps));
 
   auto ctx = transformOp->getContext();
   RewritePatternSet patterns(ctx);
@@ -366,7 +371,6 @@ static LogicalResult applyTilingToAll(
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
   for (Operation *target : targetPayloadOps) {
-
     auto funcOp = target->getParentOfType<func::FuncOp>();
 
     // simplify tensor::DimOp
@@ -489,7 +493,7 @@ static ParseResult parseTileLikeOp(OpAsmParser &parser, OperationState &result,
   Type pdlOpType = parser.getBuilder().getType<pdl::OperationType>();
   size_t numExpectedLoops =
       sizesArrayAttr.size() -
-      llvm::count(extractFromI64ArrayAttr(sizesArrayAttr), 0);
+      llvm::count(extractFromIntegerArrayAttr<int64_t>(sizesArrayAttr), 0);
   result.addTypes(SmallVector<Type>(numExpectedLoops + 1, pdlOpType));
   if (parser.resolveOperand(targetOperand, pdlOpType, result.operands))
     return failure();
@@ -502,32 +506,35 @@ static ParseResult parseTileLikeOp(OpAsmParser &parser, OperationState &result,
 } // namespace
 
 DiagnosedSilenceableFailure
-transform::FuseExtOp::apply(mlir::transform::TransformResults &transformResults,
+transform::FuseExtOp::apply(mlir::transform::TransformRewriter &rewriter,
+                            mlir::transform::TransformResults &transformResults,
                             mlir::transform::TransformState &state) {
-  SmallVector<int64_t> tileSizes = extractFromI64ArrayAttr(getTileSizes());
+  SmallVector<int64_t> tileSizes =
+      extractFromIntegerArrayAttr<int64_t>(getTileSizes());
   SmallVector<int64_t> tileInterchange =
-      extractFromI64ArrayAttr(getTileInterchange());
+      extractFromIntegerArrayAttr<int64_t>(getTileInterchange());
 
   scf::SCFTilingOptions tilingOptions;
   tilingOptions.interchangeVector = tileInterchange;
   tilingOptions = tilingOptions.setTileSizes(tileSizes);
   scf::SCFTileAndFuseOptions tileAndFuseOptions;
   tileAndFuseOptions.tilingOptions = tilingOptions;
-  ArrayRef<Operation *> targetPayloadOps = state.getPayloadOps(getTarget());
+  SmallVector<Operation *> targetOps =
+      llvm::to_vector(state.getPayloadOps(getTarget()));
   Value stop = getStop();
-  ArrayRef<Operation *> stopPayloadOps;
+  SmallVector<Operation *> stopOps;
   if (stop) {
-    stopPayloadOps = state.getPayloadOps(stop);
+    stopOps = llvm::to_vector(state.getPayloadOps(stop));
   }
 
   LogicalResult result = applyTilingToAll(
-      getOperation(), targetPayloadOps, stopPayloadOps,
+      getOperation(), state, targetOps, stopOps,
       tileSizes.size() - llvm::count(tileSizes, 0), transformResults,
       [&](TilingInterface tilingInterfaceOp)
           -> FailureOr<scf::SCFTileAndFuseResult> {
         SimpleRewriter rewriter(getContext());
         return tileConsumerAndFuseProducerUsingSCFForOpExt(
-            rewriter, tilingInterfaceOp, stopPayloadOps, tileAndFuseOptions,
+            rewriter, tilingInterfaceOp, state, stopOps, tileAndFuseOptions,
             /*simplifyLoopIter*/ true,
             /*keepIntermediate*/ getKeepIntermediates());
       });
@@ -559,7 +566,7 @@ void transform::FuseExtOp::print(OpAsmPrinter &p) {
 
 LogicalResult transform::FuseExtOp::verify() {
   SmallVector<int64_t> permutation =
-      extractFromI64ArrayAttr(getTileInterchange());
+      extractFromIntegerArrayAttr<int64_t>(getTileInterchange());
   auto sequence = llvm::to_vector(llvm::seq<int64_t>(0, permutation.size()));
   if (!std::is_permutation(sequence.begin(), sequence.end(),
                            permutation.begin(), permutation.end())) {
@@ -630,9 +637,10 @@ void transform::LowerToLoopsOp::print(OpAsmPrinter &p) {
 }
 
 DiagnosedSilenceableFailure
-transform::LowerToLoopsOp::apply(TransformResults &transformResults,
+transform::LowerToLoopsOp::apply(TransformRewriter &rewriter,
+                                 TransformResults &transformResults,
                                  TransformState &state) {
-  ArrayRef<Operation *> targets = state.getPayloadOps(getTarget());
+  auto targets = state.getPayloadOps(getTarget());
 
   for (auto op : targets) {
     SimpleRewriter rewriter(op->getContext());
@@ -664,7 +672,7 @@ transform::LowerToLoopsOp::apply(TransformResults &transformResults,
       }
 
       transformResults.set(getLoops()[en.index()].cast<OpResult>(),
-                           (*loops)[loopId].getOperation());
+                           {(*loops)[loopId].getOperation()});
     }
     rewriter.eraseOp(op);
   }
@@ -697,7 +705,8 @@ struct SimpleInliner : public InlinerInterface {
 } // namespace
 
 DiagnosedSilenceableFailure
-transform::InlineOp::apply(transform::TransformResults &results,
+transform::InlineOp::apply(transform::TransformRewriter &rewriter,
+                           transform::TransformResults &results,
                            transform::TransformState &state) {
   SmallVector<Operation *> inlined;
   SimpleInliner inliner(getContext());
@@ -778,7 +787,8 @@ bool anyUsedValuesDefinedAbove(MutableArrayRef<Region> regions) {
 } // namespace
 
 DiagnosedSilenceableFailure
-transform::LinalgOutlineOp::apply(transform::TransformResults &results,
+transform::LinalgOutlineOp::apply(transform::TransformRewriter &rewriter,
+                                  transform::TransformResults &results,
                                   transform::TransformState &state) {
   llvm::SmallSetVector<Operation *, 4> funcs;
   SmallVector<Operation *> calls;
@@ -806,9 +816,10 @@ transform::LinalgOutlineOp::apply(transform::TransformResults &results,
 //===----------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform::TileLoopHintOp::apply(TransformResults &transformResults,
+transform::TileLoopHintOp::apply(TransformRewriter &rewriter,
+                                 TransformResults &transformResults,
                                  TransformState &state) {
-  ArrayRef<Operation *> targets = state.getPayloadOps(getTarget());
+  auto targets = state.getPayloadOps(getTarget());
   for (auto op : targets) {
     if (!isa<TilingInterface>(op)) {
       DiagnosedSilenceableFailure diag =
@@ -840,22 +851,6 @@ transform::TileLoopHintOp::apply(TransformResults &transformResults,
     labelTileLoopType(op, loops);
   }
   return DiagnosedSilenceableFailure::success();
-}
-
-ParseResult transform::TileLoopHintOp::parse(OpAsmParser &parser,
-                                             OperationState &result) {
-  OpAsmParser::UnresolvedOperand target;
-  auto pdlOperationType = pdl::OperationType::get(parser.getContext());
-  if (parser.parseOperand(target) ||
-      parser.resolveOperand(target, pdlOperationType, result.operands) ||
-      parser.parseOptionalAttrDict(result.attributes))
-    return ParseResult::failure();
-  return success();
-}
-
-void TileLoopHintOp::print(OpAsmPrinter &p) {
-  p << ' ' << getTarget();
-  p.printOptionalAttrDict((*this)->getAttrs());
 }
 
 void transform::TileLoopHintOp::getEffects(
@@ -900,16 +895,17 @@ static void printOptionalInterchange(OpAsmPrinter &p,
 } // namespace
 
 DiagnosedSilenceableFailure
-transform::TileExtOp::apply(TransformResults &transformResults,
+transform::TileExtOp::apply(TransformRewriter &rewriter,
+                            TransformResults &transformResults,
                             TransformState &state) {
   ArrayRef<int64_t> tileSizes = getStaticSizes();
 
-  ArrayRef<Operation *> targets = state.getPayloadOps(getTarget());
-  SmallVector<ArrayRef<Operation *>> dynamicSizeProducers;
+  auto targets = SmallVector<Operation *>(state.getPayloadOps(getTarget()));
+  SmallVector<SmallVector<Operation *>> dynamicSizeProducers;
   dynamicSizeProducers.reserve(getDynamicSizes().size());
   for (Value dynamicSizeProducerHandle : getDynamicSizes()) {
-    dynamicSizeProducers.push_back(
-        state.getPayloadOps(dynamicSizeProducerHandle));
+    dynamicSizeProducers.push_back(SmallVector<Operation *>(
+        state.getPayloadOps(dynamicSizeProducerHandle)));
 
     if (dynamicSizeProducers.back().size() != targets.size()) {
       DiagnosedSilenceableFailure diag =
@@ -1125,10 +1121,14 @@ getNParallelLoopsAttrs(unsigned nParallelLoops) {
 } // namespace
 
 DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
-    TransformResults &transformResults, TransformState &state) {
-  ArrayRef<Operation *> loops = state.getPayloadOps(getLoop());
-  ArrayRef<Operation *> inits = state.getPayloadOps(getInit());
-  ArrayRef<Operation *> merges = state.getPayloadOps(getMerge());
+    TransformRewriter &rewriter, TransformResults &transformResults,
+    TransformState &state) {
+  SmallVector<Operation *> loops =
+      SmallVector<Operation *>(state.getPayloadOps(getLoop()));
+  SmallVector<Operation *> inits =
+      SmallVector<Operation *>(state.getPayloadOps(getInit()));
+  SmallVector<Operation *> merges =
+      SmallVector<Operation *>(state.getPayloadOps(getMerge()));
 
   if (loops.size() != inits.size() || loops.size() != merges.size()) {
     DiagnosedSilenceableFailure diag =
@@ -1379,20 +1379,21 @@ static LogicalResult applyTilingOperandsToAll(
     }
 
     // Perform the replacement of tiled and fused values.
-    llvm::SetVector<Operation *> opsToReplace;
-    for (Value operand : operandValues)
-      opsToReplace.insert(operand.getDefiningOp());
-    for (Operation *toReplace : opsToReplace) {
-      SmallVector<Value> replacements;
-      replacements.reserve(toReplace->getNumResults());
-      for (OpResult res : toReplace->getResults()) {
-        auto it = tileAndFuseResult->replacements.find(res);
-        if (it == tileAndFuseResult->replacements.end())
-          replacements.push_back(res);
-        else
-          replacements.push_back(it->getSecond());
+    for (Value operand : operandValues) {
+      auto res = tileAndFuseResult->replacements.find(operand);
+      assert(res != tileAndFuseResult->replacements.end() &&
+             "must find tile res.");
+      SmallPtrSet<Operation *, 4> excepts;
+      for (auto user : operand.getUsers()) {
+        // the op is tiled not need to replace.
+        if (tileAndFuseResult->fusedProducers.contains(user)) {
+          excepts.insert(user);
+        }
       }
-      rewriter.replaceOp(toReplace, replacements);
+      operand.replaceAllUsesExcept(res->second, excepts);
+    }
+    if (!sortTopologically(target->getBlock())) {
+      return rewriter.notifyMatchFailure(target, "topological sort fails.");
     }
 
     // Report back the relevant handles to the transform op.
@@ -1414,17 +1415,20 @@ static LogicalResult applyTilingOperandsToAll(
 } // namespace
 
 DiagnosedSilenceableFailure transform::FuseOperandsOp::apply(
+    transform::TransformRewriter &rewriter,
     mlir::transform::TransformResults &transformResults,
     mlir::transform::TransformState &state) {
-  SmallVector<int64_t> tileNums = extractFromI64ArrayAttr(getTileNums());
+  SmallVector<int64_t> tileNums =
+      extractFromIntegerArrayAttr<int64_t>(getTileNums());
   SmallVector<int64_t> tileInterchange =
-      extractFromI64ArrayAttr(getTileInterchange());
+      extractFromIntegerArrayAttr<int64_t>(getTileInterchange());
   SmallVector<int64_t> useDistributedInt64 =
-      extractFromI64ArrayAttr(getUseDistributed());
+      extractFromIntegerArrayAttr<int64_t>(getUseDistributed());
   SmallVector<bool> useDistributed;
   for (int64_t v : useDistributedInt64)
     useDistributed.push_back(bool(v));
-  ArrayRef<Operation *> targetPayloadOps = state.getPayloadOps(getTarget());
+  SmallVector<Operation *> targetPayloadOps =
+      llvm::to_vector(state.getPayloadOps(getTarget()));
 
   LogicalResult result = applyTilingOperandsToAll(
       getOperation(), targetPayloadOps,
@@ -1469,7 +1473,7 @@ ParseResult transform::FuseOperandsOp::parse(OpAsmParser &parser,
   Type pdlOpType = parser.getBuilder().getType<pdl::OperationType>();
   size_t numExpectedLoops =
       tileNumsArrayAttr.size() -
-      llvm::count(extractFromI64ArrayAttr(tileNumsArrayAttr), 1);
+      llvm::count(extractFromIntegerArrayAttr<int64_t>(tileNumsArrayAttr), 1);
   result.addTypes(SmallVector<Type>(numExpectedLoops + 1, pdlOpType));
   if (parser.resolveOperand(targetOperand, pdlOpType, result.operands))
     return failure();
@@ -1484,7 +1488,7 @@ void transform::FuseOperandsOp::print(OpAsmPrinter &p) {
 
 LogicalResult transform::FuseOperandsOp::verify() {
   SmallVector<int64_t> permutation =
-      extractFromI64ArrayAttr(getTileInterchange());
+      extractFromIntegerArrayAttr<int64_t>(getTileInterchange());
   auto sequence = llvm::to_vector(llvm::seq<int64_t>(0, permutation.size()));
   if (!std::is_permutation(sequence.begin(), sequence.end(),
                            permutation.begin(), permutation.end())) {
@@ -1512,7 +1516,7 @@ public:
     declareDependentDialect<pdl::PDLDialect>();
     declareDependentDialect<LinalgDialect>();
     declareDependentDialect<LinalgExtDialect>();
-    declareGeneratedDialect<AffineDialect>();
+    declareGeneratedDialect<affine::AffineDialect>();
     declareGeneratedDialect<arith::ArithDialect>();
     declareGeneratedDialect<scf::SCFDialect>();
     declareGeneratedDialect<vector::VectorDialect>();

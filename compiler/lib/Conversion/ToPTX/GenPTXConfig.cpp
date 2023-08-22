@@ -56,7 +56,7 @@ static bool isAliasOp(Operation &op) {
 // support static for now
 // TODO extend it to support dynamic block/grid sizes
 // TODO unify CUDA/PTX into the same pass with compilation option
-static void addFuncAttrs(func::FuncOp func) {
+static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
   // handle elementwise fusion
   if (func->hasAttr(getByteIRElementwiseFusionAttrName())) {
     mlir::OpBuilder opBuilder(func);
@@ -82,6 +82,9 @@ static void addFuncAttrs(func::FuncOp func) {
 
     func->setAttr(getByreComputeName(), opBuilder.getStringAttr("PTXOp"));
     func->setAttr(getByreForceComputeNameAttrName(), opBuilder.getUnitAttr());
+    if (useBarePtrCallConv)
+      func->setAttr(getByrePrefix() + getKernelCallConventionAttrName(),
+                    opBuilder.getStringAttr("bare_ptr"));
 
     // Handle arg mapping here
     // LWC: this is tentative when we are using GPU Kernel Outlining.
@@ -144,17 +147,19 @@ static void addFuncAttrs(func::FuncOp func) {
 
 // Main Pass
 struct GenPTXConfigPass : public GenPTXConfigBase<GenPTXConfigPass> {
-
-  GenPTXConfigPass() : GenPTXConfigBase() {}
+  GenPTXConfigPass(bool useBarePtrCallConv) : GenPTXConfigBase() {
+    this->useBarePtrCallConv = useBarePtrCallConv;
+  }
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    addFuncAttrs(func);
+    addFuncAttrs(func, this->useBarePtrCallConv);
   }
 };
 
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createGenPTXConfigPass() {
-  return std::make_unique<GenPTXConfigPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createGenPTXConfigPass(bool useBarePtrCallConv) {
+  return std::make_unique<GenPTXConfigPass>(useBarePtrCallConv);
 }

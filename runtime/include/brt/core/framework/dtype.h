@@ -99,30 +99,50 @@ BRT_DEF_DTYPE_TRAITS_FROM_CTYPE(UInt64, uint64_t)
 template <typename ctype>
 inline constexpr DTypeEnum dtype_enum_v = ctype_to_dtype<ctype>::value;
 
+#define BRT_DISPATCH_NUMBER_TYPES(dtype, CASE)                                 \
+  switch (dtype) {                                                             \
+    CASE(Float32);                                                             \
+    CASE(Int32);                                                               \
+    CASE(Int64);                                                               \
+    CASE(UInt8);                                                               \
+    CASE(UInt32);                                                              \
+    CASE(Float64);                                                             \
+    CASE(Float16);                                                             \
+    CASE(Bool);                                                                \
+    CASE(Int8);                                                                \
+    CASE(Int16);                                                               \
+    CASE(UInt16);                                                              \
+    CASE(UInt64);                                                              \
+  default:                                                                     \
+    BRT_THROW("invalid brt dtype");                                            \
+  }
+
+#define BRT_DISPATCH_ALL_DTYPES(dtype, CASE)                                   \
+  switch (dtype) {                                                             \
+    CASE(Float32);                                                             \
+    CASE(Int32);                                                               \
+    CASE(Int64);                                                               \
+    CASE(UInt8);                                                               \
+    CASE(UInt32);                                                              \
+    CASE(Float64);                                                             \
+    CASE(Float16);                                                             \
+    CASE(Bool);                                                                \
+    CASE(StringView);                                                          \
+    CASE(Int8);                                                                \
+    CASE(Int16);                                                               \
+    CASE(UInt16);                                                              \
+    CASE(UInt64);                                                              \
+  default:                                                                     \
+    BRT_THROW("invalid brt dtype");                                            \
+  }
+
 inline size_t GetDTypeByte(DTypeEnum dtype) {
-  switch (dtype) {
-#define Case(D)                                                                \
+#define CASE(D)                                                                \
   case DTypeEnum::D: {                                                         \
     return sizeof(DTypeTraits<DTypeEnum::D>::type_t);                          \
   }
-    Case(Float32);
-    Case(Int32);
-    Case(Int64);
-    Case(UInt8);
-    Case(UInt32);
-    Case(Float64);
-    Case(Float16);
-    Case(Bool);
-    Case(StringView);
-    Case(Int8);
-    Case(Int16);
-    Case(UInt16);
-    Case(UInt64);
-#undef Case
-  default: {
-    BRT_THROW("invalid brt dtype");
-  }
-  }
+  BRT_DISPATCH_ALL_DTYPES(dtype, CASE)
+#undef CASE
 }
 
 } // namespace brt

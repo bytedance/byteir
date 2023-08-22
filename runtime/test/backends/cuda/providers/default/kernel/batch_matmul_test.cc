@@ -66,13 +66,13 @@ static void CheckBatchMatmul(float *d_A, float *d_B, float *d_C,
 }
 
 TEST(CUDAOpKerenlTest, BatchMatmulOp) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateBatchMatmul(byre_builder, "cuda"), "byre");
 

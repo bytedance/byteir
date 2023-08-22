@@ -67,6 +67,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SMLoc.h"
+#include <optional>
 
 #define DEBUG_TYPE "linalg-ext-ops"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
@@ -74,6 +75,7 @@
 using namespace mlir;
 using namespace mlir::linalg_ext;
 using namespace mlir::linalg;
+using namespace mlir::arith;
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOpsDialect.cpp.inc"
 
@@ -179,7 +181,7 @@ FailureOr<Operation *> commonGenerateInitialTensorForPartialReduction(
     return op->emitOpError("Failed to anaysis the reduction operation.");
 
   Operation *reductionOp = combinerOps[0];
-  Optional<Attribute> identity = getNeutralElement(reductionOp);
+  std::optional<TypedAttr> identity = getNeutralElement(reductionOp);
   if (!identity.has_value())
     return op->emitOpError(
         "Failed to get an identity value for the reduction operation.");
@@ -235,7 +237,7 @@ Operation *commonTileToPartialReduction(Operation *op, OpBuilder &b,
   // Step 1: Extract a slice of the input operands.
   SmallVector<Value> valuesToTile = linalgOp.getDpsInputOperands();
   SmallVector<Value, 4> tiledOperands =
-      makeTiledShapes(b, loc, op, valuesToTile, offsets, sizes, {}, true);
+      makeTiledShapes(b, loc, linalgOp, valuesToTile, offsets, sizes, {}, true);
 
   // Step 2: Extract the accumulator operands
   SmallVector<OpFoldResult> strides(offsets.size(), b.getIndexAttr(1));
@@ -970,7 +972,8 @@ mlir::LogicalResult validSoftmaxConsumer(Operation *op) {
 }
 
 Value getSoftmaxScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
-                                SoftmaxOp softmax, Value consumerOutput) {
+                                mlir::linalg_ext::SoftmaxOp softmax,
+                                Value consumerOutput) {
   auto scale = softmax->getResult(3);
   if (auto scaleTensorTy = scale.getType().dyn_cast<TensorType>()) {
     if (!consumerOutput.getType().isa<TensorType>()) {
@@ -1008,8 +1011,9 @@ Value getSoftmaxScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
   return Value();
 }
 
-void rewriteSoftmaxFusedConsumer(OpBuilder &b, SoftmaxOp fused, Value result,
-                                 Operation *consumer) {
+void rewriteSoftmaxFusedConsumer(OpBuilder &b,
+                                 mlir::linalg_ext::SoftmaxOp fused,
+                                 Value result, Operation *consumer) {
   if (consumer == nullptr)
     return;
 
@@ -1028,7 +1032,8 @@ void rewriteSoftmaxFusedConsumer(OpBuilder &b, SoftmaxOp fused, Value result,
 }
 
 void rewriteSoftmaxFusedConsumers(OpBuilder &b, Operation *unfused,
-                                  SoftmaxOp fused, Value result) {
+                                  mlir::linalg_ext::SoftmaxOp fused,
+                                  Value result) {
   if (unfused == nullptr)
     return;
 
@@ -2037,7 +2042,7 @@ DEFINE_OP_GET_EFFECTS(DiagOp)
 DEFINE_OP_GET_EFFECTS(LayerNormOp)
 DEFINE_OP_GET_EFFECTS(ScanOp)
 DEFINE_OP_GET_EFFECTS(ScatterOp)
-DEFINE_OP_GET_EFFECTS(SoftmaxOp)
+DEFINE_OP_GET_EFFECTS(mlir::linalg_ext::SoftmaxOp)
 DEFINE_OP_GET_EFFECTS(TopkOp)
 
 namespace {
@@ -2061,7 +2066,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
 
 DEFINE_OP_FOLD(DiagOp)
 DEFINE_OP_FOLD(ScanOp)
-DEFINE_OP_FOLD(SoftmaxOp)
+DEFINE_OP_FOLD(mlir::linalg_ext::SoftmaxOp)
 DEFINE_OP_FOLD(TopkOp)
 
 namespace {

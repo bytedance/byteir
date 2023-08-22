@@ -36,14 +36,13 @@ using namespace mlir;
 //===----------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform::DecomposeAllReduceOp::apply(TransformResults &transformResults,
+transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
+                                       TransformResults &transformResults,
                                        TransformState &state) {
-
-  ArrayRef<Operation *> targets = state.getPayloadOps(getTarget());
   SmallVector<Operation *> reduceScatters;
   SmallVector<Operation *> allGathers;
 
-  for (Operation *target : targets) {
+  for (Operation *target : state.getPayloadOps(getTarget())) {
     ccl::AllReduceOp allReduceOp = dyn_cast<ccl::AllReduceOp>(target);
     if (!allReduceOp) {
       DiagnosedSilenceableFailure diag =

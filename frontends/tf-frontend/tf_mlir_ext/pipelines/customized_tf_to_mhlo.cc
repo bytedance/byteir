@@ -155,9 +155,9 @@ struct CustomizedTfToMhloPipelinePass
 
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-        /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/llvm::None, false));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(
+        /*legalize_chlo=*/true,
+        /*tf2xla_fallback_device_type=*/std::nullopt, false));
     pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
 
@@ -173,9 +173,9 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-        /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/llvm::None, false));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(
+        /*legalize_chlo=*/true,
+        /*tf2xla_fallback_device_type=*/std::nullopt, false));
 
     // if (CanInlineFunctionsPostLegalization(device_type))
     //   pm.addPass(mlir::createInlinerPass());
@@ -194,9 +194,9 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-        /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/llvm::None, false));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(
+        /*legalize_chlo=*/true,
+        /*tf2xla_fallback_device_type=*/std::nullopt, false));
 
     pm.addPass(mlir::createInlinerPass());
 

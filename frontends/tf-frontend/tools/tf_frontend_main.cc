@@ -200,12 +200,21 @@ int main(int argc, char **argv) {
   input_dtypes = tensorflow::join(new_input_dtypes_vec, ",");
   input_shapes = tensorflow::join(new_input_shapes_vec, ":");
 
+  tensorflow::GraphdefToMlirOptions options = {
+      "",                 // debug_info_file
+      "",                 // xla_compile_device_type
+      prune_unused_nodes, // prune_unused_nodes
+      false,              // convert_legacy_fed_inputs
+      graph_as_function,  // graph_as_function
+      false,              // upgrade_legacy
+      false,              // enable_shape_inference
+      false,              // unconditionally_use_set_output_shapes
+      false               // enable_soft_placement
+  };
   tsl::StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> module_or =
       tensorflow::GraphdefToMlirTranslateFunction(
-          opted_graph_def.SerializeAsString(), "",
-          /*xla_compile_device_type=*/"", input_arrays, input_dtypes,
-          input_shapes, output_arrays, control_output_arrays,
-          prune_unused_nodes, false, graph_as_function, false, false, false,
+          opted_graph_def.SerializeAsString(), input_arrays, input_dtypes,
+          input_shapes, output_arrays, control_output_arrays, options,
           &context);
   if (!module_or.status().ok()) {
     return 1;

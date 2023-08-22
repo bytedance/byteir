@@ -347,6 +347,7 @@ LogicalResult mlir::loopUnrollByFactorExt(
   // Compute tripCount = ceilDiv((upperBound - lowerBound), step) and populate
   // 'upperBoundUnrolled' and 'stepUnrolled' for static and dynamic cases.
   OpBuilder boundsBuilder(forOp);
+  IRRewriter rewriter(forOp.getContext());
   auto loc = forOp.getLoc();
   Value step = forOp.getStep();
   Value upperBoundUnrolled;
@@ -415,7 +416,7 @@ LogicalResult mlir::loopUnrollByFactorExt(
     }
     epilogueForOp->setOperands(epilogueForOp.getNumControlOperands(),
                                epilogueForOp.getNumIterOperands(), results);
-    (void)promoteIfSingleIteration(epilogueForOp);
+    (void)epilogueForOp.promoteIfSingleIteration(rewriter);
   }
 
   // Create unrolled loop.
@@ -435,7 +436,7 @@ LogicalResult mlir::loopUnrollByFactorExt(
       },
       annotateFn, iterArgs, yieldedValues);
   // Promote the loop body up if this has turned into a single iteration loop.
-  (void)promoteIfSingleIteration(forOp);
+  (void)forOp.promoteIfSingleIteration(rewriter);
   return success();
 }
 

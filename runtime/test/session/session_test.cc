@@ -50,9 +50,9 @@ TEST(SessionTest, LoadNoProvider) {
 }
 
 TEST(SessionTest, LoadFromMemoryNoProvider) {
+  ByREBuilder byre_builder;
   Session session;
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   EXPECT_FALSE(status_load.IsOK());
@@ -92,35 +92,35 @@ TEST(SessionTest, Load) {
 }
 
 TEST(SessionTest, LoadFromMemory) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 }
 
 TEST(SessionTest, LoadUnknownOp) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateUnknown(byre_builder, "cpu"), "byre");
   EXPECT_FALSE(status_load.IsOK());
 }
 
 TEST(SessionTest, GraphInfo) {
+  ByREBuilder byre_builder;
   Session session;
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
 
@@ -157,9 +157,9 @@ TEST(SessionTest, GraphInfo) {
 }
 
 TEST(SessionTest, TfEntryAttrs) {
+  ByREBuilder byre_builder;
   Session session;
 
-  ByREBuilder byre_builder;
   std::vector<std::string> inputs{"Input_0"};
   std::vector<std::string> outputs{"Output_0"};
   std::vector<std::string> original_inputs{"Input_0", "Input_1"};
@@ -189,13 +189,13 @@ TEST(SessionTest, TfEntryAttrs) {
 }
 
 TEST(SessionTest, NewRequestContext) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -206,13 +206,13 @@ TEST(SessionTest, NewRequestContext) {
 }
 
 TEST(SessionTest, Run) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

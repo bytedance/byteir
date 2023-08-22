@@ -17,6 +17,7 @@
 
 #include "byteir/Transforms/Bufferize.h"
 
+#include "./PassDetail.h"
 #include "byteir/Dialect/Ace/AceDialect.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Transforms/BufferizableOpInterfaceImpl.h"
@@ -61,8 +62,6 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 
-#include "./PassDetail.h"
-
 using namespace mlir;
 using namespace mlir::bufferization;
 
@@ -75,7 +74,6 @@ namespace {
 
 struct OneShotBufferizePass
     : public impl::OneShotBufferizeBase<OneShotBufferizePass> {
-
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<ace::AceDialect, bufferization::BufferizationDialect,
                     byre::ByreDialect, linalg::LinalgDialect,
@@ -99,8 +97,8 @@ struct OneShotBufferizePass
     bufferization::OneShotBufferizationOptions opts;
     opts.allowReturnAllocs = true;
     opts.bufferizeFunctionBoundaries = true;
-    opts.functionBoundaryTypeConversion =
-        bufferization::LayoutMapOption::IdentityLayoutMap;
+    opts.setFunctionBoundaryTypeConversion(
+        bufferization::LayoutMapOption::IdentityLayoutMap);
     opts.createDeallocs = false;
     opts.bufferAlignment = 0;
 

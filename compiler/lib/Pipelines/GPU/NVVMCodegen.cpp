@@ -33,24 +33,30 @@
 
 using namespace mlir;
 
-void mlir::createNVVMCodegenPipeline(OpPassManager &pm) {
-  invokeOpPassPipelineBuilder(
-      [](OpPassManager &pm) {
-        // TODO add target for supporting different SMs
-        // TODO use target to decide passes
-        pm.addPass(createCollectGPUKernelPass());
-        pm.addPass(createConvertSCFToCFPass());
-        pm.addPass(createExtractAddressComputationPass());
-        pm.addPass(memref::createExpandStridedMetadataPass());
-        pm.addPass(createLowerAffinePass());
-        pm.addPass(createCanonicalizerPass());
-        pm.addPass(createSimplifyLinearizedIndexPass());
-        pm.addPass(createCanonicalizerPass());
-        pm.addPass(createCSEPass());
-        pm.addNestedPass<gpu::GPUModuleOp>(createGPUToNVVMExtPass());
-        pm.addPass(createCSEPass());
-        pm.addPass(createReconcileUnrealizedCastsPass());
-        addMultiCSEPipeline(pm, 3);
-      },
-      pm);
+namespace {
+void createNVVMCodegenPipelineImpl(OpPassManager &pm,
+                                   const bool &useBarePtrCallConv) {
+  // TODO add target for supporting different SMs
+  // TODO use target to decide passes
+  pm.addPass(createCollectGPUKernelPass());
+  pm.addPass(createConvertSCFToCFPass());
+  pm.addPass(createExtractAddressComputationPass());
+  pm.addPass(memref::createExpandStridedMetadataPass());
+  pm.addPass(createLowerAffinePass());
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createSimplifyLinearizedIndexPass());
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createCSEPass());
+  pm.addNestedPass<gpu::GPUModuleOp>(
+      createGPUToNVVMExtPass(useBarePtrCallConv));
+  pm.addPass(createCSEPass());
+  pm.addPass(createReconcileUnrealizedCastsPass());
+  addMultiCSEPipeline(pm, 3);
+}
+} // namespace
+
+void mlir::createNVVMCodegenPipeline(
+    OpPassManager &pm, const NVVMCodegenPipelineOptions &options) {
+  invokeOpPassPipelineBuilder(createNVVMCodegenPipelineImpl, pm,
+                              options.useBarePtrCallConv);
 }

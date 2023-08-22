@@ -45,7 +45,7 @@ transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %0 = transform.structured.match attributes{"__root__"} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse_ext %0 {tile_sizes = [4, 0, 8], tile_interchange = [2, 1, 0]}
-  transform.structured.tile_loop_hint %1 
+  transform.structured.tile_loop_hint %1 : !pdl.operation
 }
 
 // -----
@@ -97,7 +97,7 @@ transform.sequence failures(propagate) {
 ^bb1(%arg1: !pdl.operation):
   %0 = transform.structured.match attributes{"__root__"} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:3 = transform.structured.fuse_ext %0 {tile_sizes = [2, 0, 8, 0, 4], tile_interchange = [0, 1, 4, 3, 2]}
-  transform.structured.tile_loop_hint %1 
+  transform.structured.tile_loop_hint %1 : !pdl.operation
 }
 
 // -----

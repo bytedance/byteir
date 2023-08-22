@@ -84,8 +84,8 @@ def RewriteInstanceNorm : Pat<
 // Resize Pattern
 //===----------------------------------------------------------------------===//
 def RewriteResize : Pat<
-  (ONNXResizeOp:$output $input, $roi, $scale, $size, $coordinate_transformation_mode, $cubic_coeff_a,
-                $exclude_outside, $exttrapolation_value, $mode, $nearest_mode),
+  (ONNXResizeOp:$output $input, $roi, $scale, $size, $antialias, $axes, $coordinate_transformation_mode, $cubic_coeff_a,
+                $exclude_outside, $extrapolation_value, $keep_aspect_ratio_policy, $mode, $nearest_mode),
   (NativeCodeCall<"createResize($_builder, $_loc, $0, $1, $2, $3, $4, $5, $6)"> $input, $scale, $size, $coordinate_transformation_mode, $mode, $nearest_mode, $output)>;
 
 //===----------------------------------------------------------------------===//

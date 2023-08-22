@@ -14,7 +14,7 @@ add_byteir_conversion_library(ByteIRToGPU
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRAffineDialect
-  MLIRGPUOps
+  MLIRGPUDialect
   MLIRMemRefDialect
   MLIRSCFDialect
   MLIRTransforms

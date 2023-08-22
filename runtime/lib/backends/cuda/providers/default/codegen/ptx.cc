@@ -40,6 +40,7 @@ using namespace mlir;
 #define GRID_SIZE_ATTR "GridSize.x"
 #define BLOCK_SIZE_ATTR "BlockSize.x"
 #define ARG_RANKS_ATTR "arg_ranks"
+#define CALL_CONVENTION_ATTR "call_convention"
 
 namespace brt {
 namespace cuda {
@@ -75,6 +76,7 @@ struct PTXImpl {
   std::vector<size_t> tensor_ids;
   std::vector<size_t> tensor_ranks;
   size_t arg_reserve_size;
+  std::string call_convention;
 
   CUfunction GetOrCreateFunction(int device_id) {
     // TODO: thread safe
@@ -107,7 +109,14 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
           .str();
   impl_->kernel_info.file_name = brt::ir::GetParentPath(info.GetIRPath()) +
                                  "/" + GetFileName(info.GetOperation());
-
+  if (info.GetOperation()->hasAttrOfType<StringAttr>(CALL_CONVENTION_ATTR))
+    impl_->call_convention =
+        info.GetOperation()
+            ->getAttrOfType<StringAttr>(CALL_CONVENTION_ATTR)
+            .getValue()
+            .str();
+  else
+    impl_->call_convention = "all";
   // static assignment for config
   // TODO extend to support dynamic
   if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_ATTR)) {
@@ -134,7 +143,6 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
   impl_->grid = dim3(gx, 1, 1);
   impl_->block = dim3(bx, 1, 1);
   impl_->shared_size = 0;
-
   impl_->arg_reserve_size = 3; // initial 3 for grid/block/shared_size
 
   // store tensor meta
@@ -144,27 +152,32 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
     impl_->tensor_ids.push_back(GetTensorIndexFromOpArgIndex(info_, i));
     int rank = ranks[i];
     impl_->tensor_ranks.push_back(rank);
-    impl_->arg_reserve_size += 3 + rank * 2; // 3 as data, aligned_data, offset
+    if (impl_->call_convention == "bare_ptr")
+      impl_->arg_reserve_size += 1;
+    else
+      impl_->arg_reserve_size +=
+          3 + rank * 2; // 3 as data, aligned_data, offset
   }
 }
 
 PTXOpKernel::~PTXOpKernel() {}
 
 common::Status PTXOpKernel::RunImpl(const ExecutionContext &ctx) {
-  std::vector<MLIREngineMemRefDescriptor> descs;
   std::vector<void *> args;
-
-  descs.reserve(impl_->tensor_ids.size());
+  std::vector<MLIREngineMemRefDescriptor> descs;
   args.reserve(impl_->arg_reserve_size);
-
   args.push_back(&(impl_->grid));
   args.push_back(&(impl_->block));
   args.push_back(&(impl_->shared_size));
 
+  descs.reserve(impl_->tensor_ids.size());
   for (size_t i = 0; i < impl_->tensor_ids.size(); ++i) {
     descs.emplace_back(ctx.exec_frame->GetAsyncValueRef(impl_->tensor_ids[i]),
                        impl_->tensor_ranks[i]);
-    InsertMemDescToArgs(descs.back(), args);
+    if (impl_->call_convention == "bare_ptr")
+      args.push_back(&descs.back().data);
+    else
+      InsertMemDescToArgs(descs.back(), args);
   }
 
   auto work_queue = static_cast<CUDAWorkQueue *>(ctx.work_queue);

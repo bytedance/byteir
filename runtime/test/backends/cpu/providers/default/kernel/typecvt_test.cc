@@ -83,13 +83,13 @@ void CheckResult(const src_type *src, half_float::half *dst, size_t len) {
 
 template <typename src_type, typename dst_type>
 void CheckTypecvtSingle(const std::vector<int64_t> &shape) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateTypecvt(byre_builder, dtype_enum_v<src_type>,
                                            dtype_enum_v<dst_type>, shape),

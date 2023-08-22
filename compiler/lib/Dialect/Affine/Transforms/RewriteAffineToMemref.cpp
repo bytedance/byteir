@@ -27,13 +27,14 @@
 
 using namespace llvm;
 using namespace mlir;
+using namespace mlir::affine;
 using namespace mlir::memref;
 
 namespace {
 
-class ConvertLoad : public OpRewritePattern<mlir::AffineLoadOp> {
+class ConvertLoad : public OpRewritePattern<AffineLoadOp> {
 public:
-  using OpRewritePattern<mlir::AffineLoadOp>::OpRewritePattern;
+  using OpRewritePattern<AffineLoadOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(AffineLoadOp op,
                                 PatternRewriter &rewriter) const override {
@@ -87,7 +88,7 @@ public:
 
     target.addLegalDialect<cf::ControlFlowDialect, memref::MemRefDialect>();
 
-    target.addIllegalOp<mlir::AffineLoadOp, mlir::AffineStoreOp>();
+    target.addIllegalOp<affine::AffineLoadOp, affine::AffineStoreOp>();
 
     RewritePatternSet patterns(&ctx);
     populateAffineLoadStoreConversionPatterns(patterns);

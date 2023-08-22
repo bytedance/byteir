@@ -31,6 +31,7 @@
 #include "mlir/Transforms/Passes.h"
 
 using namespace mlir;
+using namespace mlir::affine;
 
 namespace {
 void addGenericAffineOptPasses(OpPassManager &pm) {

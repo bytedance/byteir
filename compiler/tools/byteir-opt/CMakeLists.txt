@@ -33,6 +33,7 @@ if(BYTEIR_INCLUDE_TESTS)
 endif()
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 set(LLVM_LINK_COMPONENTS
   Core
@@ -62,6 +63,7 @@ set(MHLO_LIBS
 
 set(LIBS
   ${dialect_libs}
+  ${extension_libs}
   ${conversion_libs}
   ${BYTEIR_LIBS}
   ${MHLO_LIBS}

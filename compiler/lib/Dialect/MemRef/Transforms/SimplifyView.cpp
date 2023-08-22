@@ -261,8 +261,8 @@ struct ComposeSubViewOfSubView : public OpRewritePattern<memref::SubViewOp> {
             getExpr(opOffset) * sourceStrideInt + getExpr(sourceOffset);
 
         AffineMap map = AffineMap::get(0, affineApplyOperands.size(), expr);
-        Value result = rewriter.create<AffineApplyOp>(op.getLoc(), map,
-                                                      affineApplyOperands);
+        Value result = rewriter.create<affine::AffineApplyOp>(
+            op.getLoc(), map, affineApplyOperands);
         offsets.push_back(result);
       }
     }

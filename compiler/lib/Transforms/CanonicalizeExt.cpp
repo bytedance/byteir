@@ -45,7 +45,7 @@ LogicalResult removeEmptyFuncCall(func::CallOp op, PatternRewriter &rewriter) {
     // also check func body
     auto funcOp = getFuncOp(op);
     if (funcOp.getBody().front().without_terminator().empty()) {
-      rewriter.replaceOp(op, {});
+      rewriter.eraseOp(op);
       // Note should NOT remove func here.
       return success();
     }

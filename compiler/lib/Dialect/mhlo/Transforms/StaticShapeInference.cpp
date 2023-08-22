@@ -120,7 +120,7 @@ LogicalResult mlir::runStaticShapeInfer(func::FuncOp funcOp,
         ShapedType newType;
         if (auto lattice = solver.lookupState<ShapeLattice>(it)) {
           if (!lattice->getValue().isUninitialized())
-            newType = lattice->getValue().getType();
+            newType = lattice->getValue().getType().dyn_cast<ShapedType>();
         }
 
         if (!newType || !newType.hasRank())

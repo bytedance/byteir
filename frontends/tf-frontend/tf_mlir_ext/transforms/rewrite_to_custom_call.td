@@ -24,7 +24,7 @@ include "mhlo/IR/hlo_ops.td"
 def OneSize : Constraint<CPred<"$0.size() == 1">, "one size">;
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are the same">;
-def OneRank : Constraint<CPred<"$0.getType().getRank() == 1">, "ElementsAttr type' rank should be 1">;
+def OneRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 1">, "ElementsAttr type' rank should be 1">;
 
 //===----------------------------------------------------------------------===//
 // LayerNorm Pattern

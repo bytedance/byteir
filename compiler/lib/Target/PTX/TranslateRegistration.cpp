@@ -33,6 +33,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
 #include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
@@ -90,6 +91,7 @@ void registerToPTXTranslation() {
       },
       [](DialectRegistry &registry) {
         registerAllDialects(registry);
+        registerAllExtensions(registry);
         registerLLVMDialectTranslation(registry);
         registerNVVMDialectTranslation(registry);
         registerGPUDialectTranslation(registry);

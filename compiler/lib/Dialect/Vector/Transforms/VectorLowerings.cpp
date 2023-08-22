@@ -53,7 +53,7 @@ struct VectorTransposeLoweringPass
 
     vector::populateVectorTransposeLoweringPatterns(
         patterns, vector::VectorTransformsOptions().setVectorTransposeLowering(
-                      vector::VectorTransposeLowering::Shuffle));
+                      vector::VectorTransposeLowering::Shuffle1D));
 
     if (enableAVX2.getValue()) {
       x86vector::avx2::populateSpecializedTransposeLoweringPatterns(

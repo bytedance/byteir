@@ -51,13 +51,13 @@ static void CheckResult(float *d_ptr, float *h_ptr, size_t size) {
 } // namespace
 
 TEST(CUDAOpKerenlTest, CopyH2DOp) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCopyOp(byre_builder, "cpu", "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -99,13 +99,13 @@ TEST(CUDAOpKerenlTest, CopyH2DOp) {
 }
 
 TEST(CUDAOpKerenlTest, CopyD2HOp) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCopyOp(byre_builder, "cuda", "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -147,13 +147,13 @@ TEST(CUDAOpKerenlTest, CopyD2HOp) {
 }
 
 TEST(CUDAOpKerenlTest, CopyD2DOp) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateCopyOp(byre_builder, "cuda", "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
