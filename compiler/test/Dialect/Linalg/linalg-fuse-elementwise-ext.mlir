@@ -512,3 +512,33 @@ func.func @consumer_multi_result_from_producer_with_different_indexing_map(%arg0
 // CHECK-LABEL: @consumer_multi_result_from_producer_with_different_indexing_map
 // CHECK: linalg.generic
 // CHECK: linalg.generic
+
+// -----
+
+#map = affine_map<(d0, d1, d2) -> (d0, d1, d2)>
+#map1 = affine_map<(d0, d1) -> (d0, 0)>
+#map2 = affine_map<(d0, d1) -> (d0, d1)>
+
+func.func @constant_in_affine_map_with_collapse_shape(%arg0: tensor<1x256x1024xf32>, %arg1: tensor<256x1024xf16>, %arg2: tensor<256x1xf32>, %arg3: tensor<256x1xf32>) -> tensor<256x1024xf32> {
+  %expanded = tensor.expand_shape %arg1 [[0, 1], [2]] : tensor<256x1024xf16> into tensor<1x256x1024xf16>
+  %0 = tensor.empty() : tensor<1x256x1024xf32>
+  %1 = tensor.empty() : tensor<256x1024xf32>
+  %2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel"]} ins(%expanded, %arg0 : tensor<1x256x1024xf16>, tensor<1x256x1024xf32>) outs(%0 : tensor<1x256x1024xf32>) {
+  ^bb0(%in: f16, %in_0: f32, %out: f32):
+    %4 = arith.extf %in : f16 to f32
+    %5 = arith.addf %in_0, %4 : f32
+    linalg.yield %5 : f32
+  } -> tensor<1x256x1024xf32>
+  %collapsed = tensor.collapse_shape %2 [[0, 1], [2]] : tensor<1x256x1024xf32> into tensor<256x1024xf32>
+  %3 = linalg.generic {indexing_maps = [#map1, #map1, #map2, #map2], iterator_types = ["parallel", "parallel"]} ins(%arg3, %arg2, %collapsed : tensor<256x1xf32>, tensor<256x1xf32>, tensor<256x1024xf32>) outs(%1 : tensor<256x1024xf32>) {
+  ^bb0(%in: f32, %in_0: f32, %in_1: f32, %out: f32):
+    %4 = arith.subf %in_1, %in_0 : f32
+    %5 = arith.mulf %4, %in : f32
+    linalg.yield %5 : f32
+  } -> tensor<256x1024xf32>
+  return %3 : tensor<256x1024xf32>
+}
+
+// CHECK-LABEL: @constant_in_affine_map_with_collapse_shape
+// CHECK: linalg.generic
+// CHECK-NOT: linalg.generic
