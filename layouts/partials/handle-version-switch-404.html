@@ -1,0 +1,9 @@
+<script type='text/javascript'>
+  (function() {
+    var sameBaseUrlRegExp = new RegExp('^' + location.protocol + '//' + location.host.replace('.', '\\.') + '/.*', 'i');
+    var Project_NameDocumentationUrlRegExp = new RegExp('^https?://(.+\\.)?Project_Name.io/.*', 'i');
+    if (!sameBaseUrlRegExp.test(document.referrer) && Project_NameDocumentationUrlRegExp.test(document.referrer)) {
+      location.replace('/');
+    }
+  })();
+</script>

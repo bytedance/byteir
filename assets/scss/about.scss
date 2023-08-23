@@ -1,0 +1,43 @@
+.about-project {
+  text-align: center;
+
+  p {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+.about-flex-box {
+  display: flex;
+  align-items: space-between;
+  .about-flex-left {
+    width: 50%;
+    padding: 0 2rem 0 10%;
+    text-align: right;
+  }
+
+  .about-flex-right {
+    width: 50%;
+    padding: 0 10% 0 2rem;
+    text-align: left;
+  }
+
+  .about-img {
+    width: 90%;
+  }
+  .about-img-multi-box {
+    display: flex;
+
+    img {
+      width: 50%;
+    }
+  }
+
+  p {
+    text-align: left;
+  }
+
+  .about-b {
+    font-weight: bold;
+  }
+}

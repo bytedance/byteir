@@ -1,0 +1,86 @@
+
+project_short_desc = "项目的简短描述"
+
+project_short_desc_en = "This is a short description content"
+
+why_choose_this = "请描述项目的优势和亮点"
+
+why_choose_this_en = "Please write the project highlights and features in here."
+
+# 项目优势和特点（中文）
+[[features]]
+feature = "特征1"
+feature_desc = "特征1的简要描述内容"
+
+[[features]]
+feature = "特征2"
+feature_desc = "特征2的简要描述内容"
+
+[[features]]
+feature = "特征3"
+feature_desc = "特征3的简要描述内容"
+
+
+# 项目优势和特点（英文）
+[[features_en]]
+feature = "Project_Feature_One"
+feature_desc = "Project_Feature_One_Desc"
+
+[[features_en]]
+feature = "Project_Feature_Two"
+feature_desc = "Project_Feature_Two_Desc"
+
+[[features_en]]
+feature = "Project_Feature_Three"
+feature_desc = "Project_Feature_Three_Desc"
+
+# 原理图地址
+how_it_work_href = ""
+
+# 出品方信息
+[[created_by_info]]
+href = '/'
+imgSrc = '/img/usedby/bytedance.png'
+alt = 'bytedance logo'
+
+# 谁在用的信息
+[[used_by_info]]
+href = 'https://www.douyin.com/'
+imgSrc = '/img/usedby/douyin.png'
+alt = 'douyin logo'
+
+[[used_by_info]]
+href = 'https://www.toutiao.com/'
+imgSrc = '/img/usedby/toutiao.png'
+alt = 'toutiao logo'
+
+[[used_by_info]]
+href = 'https://www.ixigua.com/'
+imgSrc = '/img/usedby/xigua.png'
+alt = 'xigua logo'
+
+[[used_by_info]]
+href = 'https://www.dongchedi.com/'
+imgSrc = '/img/usedby/dongchedi.png'
+alt = 'dongchedi logo'
+
+[[used_by_info]]
+href = 'https://www.capcut.cn/'
+imgSrc = '/img/usedby/jianying.png'
+alt = 'jianying logo'
+
+[[used_by_info]]
+href = 'https://fanqienovel.com/'
+imgSrc = '/img/usedby/fanqie.png'
+alt = 'fanqie logo'
+
+[[used_by_info]]
+href = 'https://www.feishu.com/'
+imgSrc = '/img/usedby/feishu.png'
+alt = 'feishu logo'
+
+# 底部展示文档内容
+[[docs_info]]
+href = "/docs"
+name = "文档名称"
+name_en = "DocsEnglishName"

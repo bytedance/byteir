@@ -1,0 +1,43 @@
+{{ with .Site.Params.algolia_docsearch }}
+<!-- scripts for algolia docsearch -->
+<script src="/js/docsearch.js"></script>
+
+<script type="text/javascript">
+  let siteLang = window.location.pathname.startsWith('/zh/') ? 'zh' : 'en';
+  docsearch({
+    appId: 'V7I042F992',
+    apiKey: '8380a7ac88106841cb43fb000fa2edb4',
+    indexName: 'Project_Name',
+    container: '#docsearch',
+    searchParameters: {
+      hitsPerPage: 5,
+      facetFilters: [`lang:${siteLang}`],
+    },
+    //debug: true, // Set debug to true if you want to inspect the modal
+    //resultsFooterComponent({ state }) {
+    //  return {
+    //    // The HTML `tag`
+    //    type: 'a',
+    //    ref: undefined,
+    //    constructor: undefined,
+    //    key: state.query,
+    //    // Its props
+    //    props: {
+    //      href: '',
+    //      target: '_blank',
+    //      onClick: (event) => {
+    //        console.log(event);
+    //      },
+    //      // Raw text rendered in the HTML element
+    //      children: `${state.context.nbHits} hits found!`,
+    //    },
+    //    __v: null,
+    //  };
+    //},
+  });
+</script>
+
+{{ end }}
+
+<script src="/js/outbound-link.js"></script>
+<script src="/js/navScroll.js"></script>

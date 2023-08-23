@@ -1,0 +1,79 @@
+{{ $_hugo_config := `{ "version": 1 }` }}
+{{ $col_id := .Get "color" | default .Ordinal }}
+{{ $height := .Get "height" | default "auto"  }}
+{{ $type   := .Get "type" | default "" }}
+{{ $_class  := .Get "class" | default "" }}
+{{ $info_source := .Get "info" | default "custom" }}
+{{ $icon := .Get "icon" | default "fab" }}
+{{ $lang := .Site.Language.Lang }}
+{{ $how_it_works_href := .Site.Data.overview.how_it_work_href }}
+{{ $feature := (cond (eq $lang "en") .Site.Data.overview.features_en .Site.Data.overview.features)}}
+<a id="td-block-{{ .Ordinal }}" class="td-offset-anchor"></a>
+<section class="row td-box td-box--{{ $col_id }} td-box--gradient td-box--height-{{ $height }} {{ $_class }}">
+	<div class="col">
+		<div class="row {{ $type }}">
+			{{ if eq $info_source "feature" }}
+				{{ range $feature }}
+				<div class="col-lg-4 mb-5 mb-lg-0 text-center ">
+					<div class="mb-4 h1">
+						<i class="{{ if not (or (hasPrefix $icon "fas ") (hasPrefix $icon "fab ")) }}fas {{ end }}{{ $icon }}"></i>
+					</div>
+					<h4 class="h3">
+						{{ .feature }}
+					</h4>
+					<p class="mb-0">
+						{{ .feature_desc }}
+					</p>
+				</div>
+				{{ end }}
+			{{ else if eq $info_source "work"}}
+                <h2 class="home-section-title">{{ i18n "how_work" }}</h2>
+                <div class="row home-used-by-wrapper">
+                    <img class="home-used-by-item" src="{{ $how_it_works_href }}" alt="how it works picture">
+                </div>
+            {{ else if eq $info_source "create_use"}}
+                <h2 class="home-section-title">{{ i18n "created_by" }}</h2>
+                <div class="row home-used-by-wrapper home-used-by-created">
+                    {{ range .Site.Data.overview.created_by_info }}
+                    <a class="home-used-by-item" href="{{ .href }}" target="_blank" rel="noopener">
+                        <img class="used-by-logo" src="{{ .imgSrc }}" alt="{{ .alt }}">
+                    </a>
+                    {{ end }}
+                </div>
+                <h2 class="home-section-title">{{ i18n "used_by"  }}</h2>
+                <div class="row home-used-by-wrapper">
+                    {{ range .Site.Data.overview.used_by_info }}
+                    <a class="home-used-by-item" href="{{ .href }}" target="_blank" rel="noopener">
+                        <img class="used-by-logo" src="{{ .imgSrc }}" alt="{{ .alt }}">
+                    </a>
+                    {{ end }}
+                    </a>
+                </div>
+            {{ else if eq $info_source "contact" }}
+                <div class="row top-hr home-footer-links">
+                    <div class="col-md-4 col-sm-6 col-xs-12 home-footer-links-item">
+                        <div class="home-footer-links-item-title">{{ i18n "docs" }}</div>
+                        {{ range .Site.Data.overview.docs_info }}
+                            <ul>
+                                <li><a href="{{ .href }}">{{ cond (eq $lang "en") .name_en .name }}</a></li>
+                            </ul>
+                        {{ end }}
+                    </div>
+                    <div class="col-md-4 col-sm-6 col-xs-12 home-footer-links-item">
+                        <div class="home-footer-links-item-title">{{ i18n "contact_us" }}</div>
+                        <ul>
+                            <li><a href="mailto:conduct@Project_Name.io">{{ i18n "email" }}: {{ .Site.Params.project_email }}</a></li>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            {{ else }}
+				{{ if eq .Page.File.Ext "md" }}
+					{{ .Inner | markdownify }}
+				{{ else }}
+					{{ .Inner | htmlUnescape | safeHTML }}
+				{{ end }}
+			{{ end }}
+		</div>
+	</div>
+</section>

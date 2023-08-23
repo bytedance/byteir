@@ -1,0 +1,353 @@
+#banner {
+  aspect-ratio: 1500 / 293;
+  display: block;
+  width: 100%;
+  margin: 0 0 2.5em 0;
+  object-fit: cover;
+  overflow: clip;
+}
+
+.intro {
+  p {
+    font-size: 17px;
+  }
+}
+#gallery {
+  display: flex;
+  max-width: 100%;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+
+  img {
+    display: block;
+    flex-basis: 0;
+    flex-grow: 0;
+    height: 24vh;
+    width: 90%;
+  }
+
+  img.community-gallery-mobile {
+    display: none;
+  }
+}
+
+.full-button {
+  display: inline-block;
+  margin: 2rem auto auto;
+  background-color: rgb(37, 170, 187);
+  color: white;
+  font-size: 18px;
+  padding: 2% 2.5%;
+  letter-spacing: 0.07em;
+  font-weight: bold;
+}
+
+.community-title {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 42px;
+}
+
+.community-content {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 20px;
+}
+
+.community__navbar {
+  text-align: center;
+  padding-top: 2%;
+  padding-bottom: 2%;
+  text-decoration: none;
+  text-transform: uppercase;
+  font-weight: 400;
+  color: #303030;
+  font-size: 14px;
+  margin-top: 1%;
+  margin-bottom: 4%;
+  width: 100%;
+  float: left;
+  letter-spacing: 0.07em;
+  border-bottom: 1px solid #aaaaaa;
+  border-top: 1px solid #aaaaaa;
+}
+
+.list-center {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2rem;
+
+  div {
+    margin-top: 2%;
+
+    a {
+      text-align: center;
+      padding-top: 2%;
+      padding-bottom: 2%;
+      text-decoration: none;
+      font-weight: 400;
+      font-size: 28px;
+    }
+  }
+}
+
+.develop-contribute {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 20px;
+}
+
+.resources {
+  width: 100%;
+  margin-top: 5%;
+  margin-bottom: 3%;
+  float: left;
+}
+
+.resource-container {
+  width: 100%;
+  margin-top: 3%;
+  margin-left: 10%;
+}
+
+.resource-box {
+  float: left;
+  margin: 1%;
+  border: 1px solid grey;
+  padding: 2%;
+  font-size: 1em;
+  color: #0662EE;
+  height: 120px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  font-weight: bold;
+  line-height: 1.3em;
+  letter-spacing: 0.05em;
+  width: 20%;
+  min-height: 330px;
+  text-align: center;
+}
+
+.resource-box-text {
+  width: 90% !important;
+  margin-left: 5% !important;
+  font-weight: 400 !important;
+  margin-top: 5% !important;
+  padding: 3%;
+  font-size: 0.7em !important;
+}
+
+
+.community-section {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  padding: 0.5em 0;
+  justify-content: space-evenly;
+  align-items: baseline;
+  align-content: space-between;
+  min-height: 10em;
+  text-align: center;
+
+  h2 {
+    font-weight: 200;
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 39px;
+    margin-top: 2%;
+  }
+
+  > p:not(.community-simple) {
+    line-height: 1.5em;
+    text-align: center;
+    font-size: 20px;
+  }
+
+  .container {
+    width: 100%;
+    display: flex;
+    gap: 2em;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #navigation-items {
+    max-width: 85em;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+#navigation-items {
+  width: 100vw;
+  max-width: 100%;
+
+  margin-top: 2.5em;
+  margin-bottom: 2.5em;
+
+  gap: 1.25em;
+
+  border-bottom: 1px solid #aaaaaa;
+  border-top: 1px solid #aaaaaa;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding: 0.25em calc((100vw - min(85vw, 120em)) / 2);
+
+  .community-nav-item {
+    flex-grow: 1;
+    text-align: center;
+    letter-spacing: 0.08em;
+    padding-top: 0.2em;
+    padding-bottom: 0.2em;
+    word-spacing: initial;
+    text-decoration: none;
+    text-transform: uppercase;
+    font-weight: 400;
+    color: #303030;
+    background: #ffffff;
+    font-size: 1.2em;
+    padding: 0.2em;
+    margin: 0;
+    max-width: 75vw;
+    min-width: 10%;
+    min-height: 2em;
+  }
+}
+
+#resources {
+  margin-top: 5%;
+  margin-bottom: 3%;
+
+  .container {
+    width: 100%;
+    display: flex;
+    gap: 2em;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+
+    .community-resource {
+      flex-basis: auto;
+      width: 100%;
+      flex-shrink: 1;
+
+      a {
+        img {
+          max-height: 96px;
+          max-width: 96px;
+          display: block;
+          margin: 1em auto 0.75em auto;
+        }
+      }
+    }
+  }
+}
+
+#twitter > a:nth-child(1) > img {
+  width: 96px;
+  height: 96px;
+  display: block;
+  margin: 1em auto 0.75em auto;
+}
+
+#github > a:nth-child(1) > img {
+  width: 96px;
+  height: 96px;
+  display: block;
+  margin: 1em auto 0.75em auto;
+}
+
+
+
+a.community-cta-button {
+  display: inline-block;
+  margin: 0.75em auto 0 auto; /* gap before button */
+
+  background-color: #36c4d7;
+  color: white;
+
+  border-radius: 6px;
+  padding: 0.75em;
+  min-height: 3em;
+  min-width: max(5em, 9em);
+
+  text-align: center;
+}
+
+a.community-cta-button > span.community-cta {
+  color: inherit;
+  background: transparent;
+
+  letter-spacing: 0.02em;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.events {
+  background-image: url('/img/community/event-bg.jpg');
+  float: left;
+  width: 100%;
+  font-size: 14px;
+  //margin-bottom: 3%;
+}
+
+.event-container {
+  width: 100%;
+  margin-top: 5%;
+  margin-bottom: 3%;
+  margin-left: 0;
+}
+
+@media only screen and (max-width: 1360px){
+  #gallery img.community-gallery-desktop {
+    display: none;
+  }
+
+  #gallery img.community-gallery-mobile {
+    display: initial;
+    max-width: 95vw;
+    height: auto;
+  }
+}
+
+@media only screen and (max-width: 640px) {
+  .newcommunitywrapper > div:nth-child(7) > div > div > a {
+    font-size: 20px;
+  }
+
+  #navigation-items {
+    justify-content: flex-start;
+    text-align: left;
+    gap: 0.125em;
+
+    div.community-nav-item {
+      width: 100%;
+      text-align: left;
+      min-height: initial;
+      flex-shrink: 0;
+    }
+  }
+
+  #resources .container {
+    flex-wrap: wrap;
+    .community-resource {
+      max-width: 80vw;
+    }
+  }
+}
+
+#activity {
+  p {
+    span {
+      font-size: 16px;
+      font-weight: 1000
+    }
+  }
+}
+

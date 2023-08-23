@@ -1,0 +1,66 @@
+{{ $_hugo_config := `{ "version": 1 }` }}
+{{ $blockID := printf "td-cover-block-%d" .Ordinal }}
+{{ $promo_image := (.Page.Resources.ByType "image").GetMatch "**background*" }}
+{{ $logo_image := (.Page.Resources.ByType "image").GetMatch "**logo*" }}
+{{ $col_id := .Get "color" | default "dark" }}
+{{ $image_anchor := .Get "image_anchor" | default "smart" }}
+{{ $logo_anchor := .Get "logo_anchor" | default "smart" }}
+{{ $lang := .Site.Language.Lang }}
+{{/* Height can be one of: auto, min, med, max, full. */}}
+{{ $height := .Get "height" | default "max" }}
+{{ $byline := .Get "byline" | default "" }}
+{{ with $promo_image }}
+{{ $promo_image_big := (.Fill (printf "1920x1080 %s" $image_anchor)) }}
+{{ $promo_image_small := (.Fill (printf "960x540 %s" $image_anchor)) }}
+<link rel="preload" as="image" href="{{ $promo_image_small.RelPermalink }}" media="(max-width: 1200px)">
+<link rel="preload" as="image" href="{{ $promo_image_big.RelPermalink }}" media="(min-width: 1200px)">
+<style>
+#{{ $blockID }} {
+    background-image: url({{ $promo_image_small.RelPermalink }}); 
+}
+@media only screen and (min-width: 1200px) {
+    #{{ $blockID }} {
+        background-image: url({{ $promo_image_big.RelPermalink }}); 
+    }
+}
+</style>
+{{ end }}
+<section id="{{ $blockID }}" class="row td-cover-block td-cover-block--height-{{ $height }} js-td-cover td-overlay td-overlay--dark -bg-{{ $col_id }}">
+  <div class="container td-overlay__inner">
+    <div class="text-center">
+      <h1 class="display-1 home-overview-title mt-0 mt-md-5 pb-4">{{ i18n "welcome" }} {{ $title := .Site.Params.project_name }}{{ with $logo_image }}{{ $logo_image_resized := (.Fit (printf "70x70 %s" $logo_anchor)) }}<img class="td-cover-logo" src="{{ $logo_image_resized.RelPermalink }}" alt="{{ $title | html }} Logo">{{ end }}{{ $title | html }}</h1>
+      <div class="pt-3 lead">
+        <div class="home-overview">
+          <p class="home-overview-subtitle">
+            {{ if eq $lang "en" }}
+            {{ .Site.Data.overview.project_short_desc_en }}
+            {{ else }}
+            {{ .Site.Data.overview.project_short_desc }}
+            {{ end }}
+          </p>
+          <p class="home-overview-btn-group">
+            <a class="home-overview-btn" href="/docs">
+            <span class="home-overview-btn-bg"></span>
+            {{ i18n "start" }} <i class="fas fa-arrow-alt-circle-right ml-2"></i>
+            </a>
+            <a class="home-overview-btn home-overview-btn-with-no-margin" href="{{  .Site.Params.github_repo }}">
+                <span class="home-overview-btn-bg"></span>
+                Github <i class="fab fa-github ml-2 "></i>
+            </a>
+          </p>
+          <div class="home-overview-link-down">
+            {{ $id := $.Get "id" | default (printf "td-block-%d" ( add .Ordinal 1 ))  }}
+            {{ $color := $.Get "color_bt" | default "blue" }}
+            <a class="btn btn-link text-{{ $color }}" href="#{{ $id }}" aria-label="{{ T "ui_read_more"}}"><i class="fa fa-chevron-circle-down" style="font-size: 400%"></i></a>
+          </div>
+          {{ .Inner }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {{ if $byline }}
+  <div class="byline">
+    <small>{{ $byline }}</small>
+  </div>
+  {{ end }}
+</section>

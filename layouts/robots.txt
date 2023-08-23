@@ -1,0 +1,7 @@
+User-agent: *
+
+Disallow: /404/
+Disallow: /404.html
+
+
+SITEMAP: {{ "sitemap.xml" | absLangURL }}

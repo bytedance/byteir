@@ -1,0 +1,273 @@
+// overview section
+.home-overview-subtitle {
+    margin-bottom: 3rem;
+    padding: 0 30%;
+}
+
+
+.home-overview-btn-group {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 3rem;
+}
+
+.home-overview-btn {
+    display: inline-block;
+    position: relative;
+    color: #fff !important;
+    border-radius: 2px;
+    border: unset;
+    padding: 0.5rem 0;
+    width: 180px;
+    margin-right: 1rem;
+}
+
+.home-overview-btn-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: inline-block;
+    background: #fff;
+    opacity: 0.3;
+}
+
+.home-overview-btn:hover {
+    color: #fff !important;
+    opacity: 0.9;
+}
+
+.home-overview-btn-with-no-margin {
+    margin: unset;
+}
+
+.home-overview-link-down {
+    position: absolute;
+    bottom: 2rem;
+    left: 0;
+    right: 0;
+}
+
+// section title
+.home-section-title {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.home-section-title-projects {
+    margin-bottom: 64px;
+}
+
+// home-description
+.home-description {
+    text-align: left;
+    font-weight: 300;
+    font-size: 1.25rem;
+    line-height: 2rem;
+}
+
+// feature-section
+.home-feature-item {
+    font-weight: 300;
+}
+
+// home-project-list
+.home-project-item {
+    font-weight: 300;
+    cursor: pointer;
+    margin: 0 8px;
+    padding: 16px;
+    max-width: calc(25% - 16px);
+    box-shadow: 0 0 4px #eee;
+    border: 1px solid #f0f0f0;
+}
+
+.home-project-item a {
+    text-decoration: none;
+    color: none;
+}
+
+.home-project-item h2 {
+    font-weight: 300;
+    color: #3c8fa8;
+    font-size: 25px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: normal;
+}
+
+.home-project-item .fa {
+    margin-right: 5px;
+    color: #3c8fa8;
+}
+
+.home-project-item p {
+    font-size: 16px;
+    line-height: 1.8em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    margin-bottom: unset;
+    color: #000;
+}
+
+.home-project-item:hover {
+    transition: 0.4s all;
+    background-color: #63b0c7;
+    border-radius: 3px;
+    color: #fff;
+    box-shadow: 0 0 4px #80c6db;
+    border: 1px solid #63b0c7;
+}
+
+.home-project-item:hover p,
+.home-project-item:hover h2 {
+    color: #fff;
+}
+
+// quote section
+.home-quote {
+    font-weight: 300;
+    margin: 25px 0 25px 0;
+    font-family: 'Lato', sans-serif;
+    color: #fff;
+    text-align: center;
+}
+
+.home-quote-text {
+    width: 60%;
+    margin: auto;
+    font-size: 22px;
+    font-style: italic;
+}
+
+.home-quote-author {
+    font-size: 16px;
+    margin-top: 15px;
+    margin-left: 50px;
+}
+
+// used-by section
+.home-used-by-wrapper {
+    padding: 0 15vw !important;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+}
+
+.home-used-by-created {
+    width: 100%;
+    margin-bottom: 3rem;
+}
+
+.home-used-by-item {
+    margin: 8px 16px;
+    border: 1px solid #fff;
+    text-align: center;
+    padding: 16px;
+}
+
+.home-used-by-item img {
+    max-width: 12rem;
+    max-height: 4rem;
+}
+
+.home-used-by-item:hover {
+    border-radius: 3px;
+    box-shadow: 0 0 4px #f3f4f5;
+    border: 1px solid #e0e2e6;
+}
+
+// footer section
+.home-footer-links {
+    color: #fff;
+    flex: 1;
+}
+
+.home-footer-links-item {
+    max-width: calc(33% - 16px);
+    margin: 0 8px;
+}
+
+.home-footer-links-item-title {
+    color: #fff;
+    font-size: 1.5rem;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #acacac;
+}
+
+.home-footer-links-item ul {
+    color: #fff;
+    list-style: none;
+    margin: unset;
+    padding: unset;
+}
+
+.home-footer-links-item ul li {
+    line-height: 2rem;
+}
+
+.home-footer-links-item ul a {
+    color: #fff;
+}
+
+.home-footer-links-item ul a:hover {
+    color: #cfdbe7;
+}
+
+@media (min-width: 768px) {
+    .home-overview-title {
+        margin-top: 8rem !important;
+    }
+
+    .td-block-padding,
+    .td-default main section {
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }
+}
+
+.home-landscape {
+    background-color: #bae0eb;
+    color: #000;
+
+    .home-landscape-wrapper {
+        text-align: center;
+        width: 100%;
+    }
+
+    .home-landscape-desc {
+        padding: 12px 0;
+    }
+
+    a {
+        color: #3c8fa8 !important;
+    }
+}
+
+@media(max-width: 768px) {
+    .td-box .row {
+        flex-direction: column !important;
+    }
+    .home-project-item {
+        margin: 8px 0;
+        max-width: unset;
+    }
+
+    .home-quote-text {
+        width: 100%;
+    }
+
+    .home-footer-links-item {
+        max-width: unset;
+    }
+
+    .home-overview-subtitle {
+        padding: unset;
+    }
+}

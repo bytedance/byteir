@@ -1,0 +1,30 @@
+{{ $_hugo_config := `{ "version": 1 }` }}
+{{ $col_id := .Get "color" | default .Ordinal }}
+{{ $height := .Get "height" | default "auto"  }}
+{{ $info_source := .Get "info" | default "custom" }}
+{{ $lang := .Site.Language.Lang }}
+{{/* Height can be one of: auto, min, med, max, full. */}}
+<a id="td-block-{{ .Ordinal }}" class="td-offset-anchor"></a>
+<section class="row td-box td-box--{{ $col_id }} position-relative td-box--gradient td-box--height-{{ $height }}">
+	<div class="container text-center td-arrow-down">
+		<span class="h4 mb-0">
+			{{ if eq $info_source "overview" }}
+				<h2 class="home-section-title">{{ i18n "why_choose" }} {{ .Site.Params.project_name }}?</h2>
+				<p class="home-description">
+					{{ if eq $lang "en" }}
+					{{ .Site.Data.overview.why_choose_this_en}}
+					{{ else }}
+					{{ .Site.Data.overview.why_choose_this}}
+					{{ end }}
+				</p>
+			{{ else }}
+				{{ if eq .Page.File.Ext "md" }}
+					{{ .Inner | markdownify }}
+				{{ else }}
+					{{ .Inner | htmlUnescape | safeHTML }}
+				{{ end }}
+			{{ end }}
+			
+		</span>
+	</div>
+</section>

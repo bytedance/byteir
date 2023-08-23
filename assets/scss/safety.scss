@@ -1,0 +1,57 @@
+.safety-bulletin {
+  margin: 20px auto 20px auto;
+  width: auto;
+  .search-table {
+    margin-top: 50px;
+    .btn-group {
+      .btn {
+        padding: 6px 14px;
+        border-radius: 0px;
+      }
+      .btn-outline-primary{
+        color: #4b4b4b;
+        border-color: #989898;
+      }
+
+      .btn-outline-primary:hover{
+        color: #fff;
+        background: #4075d9;
+        border-color: #4075d9;
+      }
+
+      .btn-group > .btn:not(:last-child):not(.dropdown-toggle),
+      .btn-group > .btn-group:not(:last-child) > .btn {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+
+      .btn-outline-primary:not(:disabled):not(.disabled):active,
+      .btn-outline-primary:not(:disabled):not(.disabled).active,
+      .show > .btn-outline-primary.dropdown-toggle {
+        color: #fff;
+        background: #4075d9;
+      }
+    }
+  }
+  .custom-table {
+    margin-top: 30px;
+  }
+  .pagination-box{
+    margin-top: 30px;
+    display: flex;
+    flex-flow: row-reverse;
+    .total{
+      height: 38px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      // margin-right: 20px;
+    }
+    .page-item.active .page-link {
+      z-index: 3;
+      color: #fff;
+      background-color: #4075d9;
+      border-color: #4075d9;
+    }
+  }
+}

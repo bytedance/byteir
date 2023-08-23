@@ -1,0 +1,23 @@
+// See https://github.com/DavidAnson/markdownlint
+{
+  // Default state for all rules
+  "default": true,
+  // MD010/no-hard-tabs - Hard tabs
+  "MD010": {
+    // Include code blocks
+    // https://github.com/DavidAnson/markdownlint/issues/82
+    "code_blocks": false
+  },
+  // MD013/line-length: Line length
+  "MD013": false,
+  // MD034/no-bare-urls: Bare URL used
+  "MD034": false,
+  // MD024/no-duplicate-heading/no-duplicate-header: Multiple headings with the same content
+  "MD024": {
+    // Only check sibling headings
+    "siblings_only": true
+  },
+  // MD037/no-space-in-emphasis - Spaces inside emphasis markers
+  // Since our documentation does not use escape symbols, a lot of math expressions need to be changed.
+  "MD037": false
+}

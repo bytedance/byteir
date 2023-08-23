@@ -1,0 +1,258 @@
+.markdown {
+  width: 100% ;
+  margin: 0 auto 100px;
+}
+
+.markdown [id]:before {
+  content: "";
+  display: block;
+  height: 60px;
+  margin-top: -60px;
+  visibility: hidden
+}
+
+@media (max-width:1000px) {
+  .markdown {
+    width: 100%;
+    padding: 0 30px;
+    margin-bottom: 80px;
+    margin-top: 40px
+  }
+}
+
+.markdown div[class*=language-] {
+  margin-bottom: 16px;
+  background: rgba(225,230,238,.3);
+  border: 1px solid #979797;
+  border-radius: 0
+}
+
+@media (max-width:1000px) {
+  .markdown div[class*=language-] {
+    margin-bottom: 8px
+  }
+}
+
+.markdown div[class*=language-] pre {
+  padding: 1em;
+  margin: .5em 0;
+  overflow: auto
+}
+
+.markdown div[class*=language-] pre code {
+  color: rgba(0,0,0,.5)
+}
+
+.markdown h2 {
+  line-height: 24px;
+  font-size: 24px;
+  margin: 40px 0 20px
+}
+
+@media (max-width:1000px) {
+  .markdown h2 {
+    font-size: 18px;
+    line-height: 18px;
+    margin: 30px 0 20px
+  }
+}
+
+.markdown h3 {
+  line-height: 20px;
+  font-size: 20px;
+  margin: 30px 0 20px
+}
+
+@media (max-width:1000px) {
+  .markdown h3 {
+    font-size: 16px;
+    line-height: 16px;
+    margin: 30px 0 20px
+  }
+}
+
+.markdown h4 {
+  line-height: 18px;
+  font-size: 18px;
+  margin: 30px 0 20px
+}
+
+@media (max-width:1000px) {
+  .markdown h4 {
+    font-size: 15px;
+    line-height: 15px;
+    margin: 30px 0 20px
+  }
+}
+
+.markdown h5 {
+  line-height: 16px;
+  font-size: 16px;
+  margin: 30px 0 20px
+}
+
+@media (max-width:1000px) {
+  .markdown h5 {
+    font-size: 14px;
+    line-height: 14px;
+    margin: 30px 0 20px
+  }
+}
+
+.markdown ol li,.markdown p,.markdown ul li {
+  font-size: 14px;
+  color: rgba(0,0,0,.5);
+  line-height: 24px;
+  letter-spacing: .8px
+}
+
+@media (max-width:1000px) {
+  .markdown ol li,.markdown p,.markdown ul li {
+    line-height: 30px
+  }
+}
+
+.markdown ol li a,.markdown p a,.markdown ul li a {
+  color: #002fa7;
+  text-decoration: none;
+  cursor: pointer
+}
+
+.markdown ol li b,.markdown p b,.markdown ul li b {
+  color: #000
+}
+
+.markdown .icon.outbound,.markdown a[href^="#"] {
+  display: none
+}
+
+@media (max-width:1000px) {
+  .markdown a,.markdown li,.markdown p {
+    word-break: break-all;
+    word-wrap: break-word
+  }
+}
+
+.markdown table {
+  width: 100%;
+  font-size: 14px;
+  table-layout: fixed;
+  word-break: break-word
+}
+
+.markdown table tr {
+  height: 60px;
+  color: rgba(0,0,0,.5)
+}
+
+@media (max-width:1000px) {
+  .markdown table tr {
+    height: 52px
+  }
+}
+
+.markdown table tr th {
+  background-color: #f2f2f2;
+  color: #000
+}
+
+.markdown table tr td,.markdown table tr th {
+  padding-left: 30px
+}
+
+@media (max-width:1000px) {
+  .markdown table tr td,.markdown table tr th {
+    padding-left: 10px
+  }
+}
+
+.markdown table tr:nth-child(2n) td,.markdown table tr:nth-child(2n) th {
+  background-color: #f2f2f2
+}
+
+.markdown ol,.markdown ul {
+  list-style: initial;
+  padding-left: 30px
+}
+
+.markdown ol {
+  list-style: decimal
+}
+
+.markdown strong {
+  font-weight: 700
+}
+
+.markdown img {
+  max-width: 100%
+}
+
+.common-banner {
+  margin:0 auto;
+  height:320px
+}
+
+@media screen and (max-width:1000px) {
+  .common-banner {
+    width:100%;
+    padding:0 30px;
+    height:unset
+  }
+}.common-banner .banner {
+   height:100%;
+   width:100%;
+   position:relative
+ }
+@media screen and (max-width:1000px) {
+  .common-banner .banner {
+    display:none
+  }
+}.common-banner .banner .common-img {
+   height:280px;
+   width:300px;
+   position:absolute;
+   right:40px;
+   top:40px
+ }
+.common-banner .banner .inside {
+  position:absolute;
+  left:0;
+  top:120px;
+  font-size:60px;
+  line-height:60px;
+  color:rgba(0,0,0,.05)
+}
+.common-banner .banner .outside {
+  position:absolute;
+  left:0;
+  top:156px;
+  font-size:48px;
+  line-height:48px;
+  color:#000;
+  font-weight:400
+}
+.common-banner .banner-mobile {
+  display:none;
+  width:100%
+}
+@media screen and (max-width:1000px) {
+  .common-banner .banner-mobile {
+    display:block
+  }
+}.common-banner .banner-mobile h3 {
+   font-size:24px;
+   line-height:34px;
+   text-align:center;
+   margin-top:40px
+ }
+.common-banner .banner-mobile .common-img {
+  margin:10px auto 0;
+  width:260px;
+  height:200px;
+  display:block
+}
+@media screen and (min-width:1000px) and (max-width:1120px) {
+  .common-banner {
+    width:100%!important
+  }
+}

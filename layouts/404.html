@@ -1,0 +1,23 @@
+{{ define "main"}}
+{{ partial "handle-version-switch-404.html" . }}
+<section id='error-404' style='max-width: 1100px;margin: 1.25em auto 0;'>
+  <div class='header-hero text-black pb-2 bot-bar no-sub'>
+    <div class='main-section'>
+      <h1>{{ T "error_page_title" }}</h1>
+    </div>
+  </div>
+  <p style='margin-top: 1em;margin-bottom: 1em;font-size: 20px'>
+    {{ T "error_404_were_you_looking_for" }}
+  </p>
+  <ul style='max-width: 1100px;margin:auto 0;font-size: 15px'>
+    {{ $sections := slice "docs" "about" "blog" "community" "cooperation" "security" }}
+    {{ range $sections }}
+    {{ with site.GetPage . }}
+    <li><a href='{{ .RelPermalink }}' style='font-size: 17px'>{{ .Title }}</a></li>
+    {{ end }}
+    {{ end }}
+  </ul>
+</section>
+{{ end }}
+
+
