@@ -27,6 +27,7 @@
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
+#include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/Hoist.h"
 #include "byteir/Utils/TypeUtils.h"
 #include "byteir/Utils/Utils.h"
@@ -35,6 +36,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/Support/Debug.h"
 
 #include "PassDetail.h"
 
@@ -462,6 +464,493 @@ fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
   return result;
 }
 
+//===---------------------------------------------------------------------===//
+// Methods and patterns that fuse reshape ops with elementwise operations by
+// expanding the dimensionality of the elementwise operations.
+//===---------------------------------------------------------------------===//
+
+/// Conditions for folding a generic operation with a reshape op by expanding
+/// the iteration space dimensionality for tensor operations. These are
+/// preconditions assumed by `foldReshapeByDimExpansion` which implements the
+/// following fusion pattern.
+///
+///  Consider
+///
+///  %c = linalg.generic ins(%a, %b : memref<?x?x?xf32>, memref<?x?xf32>)
+///         indexing_maps = [affine_map<(d0, d1, d2) -> (d1, d0, d2)>,
+///                          affine_map<(d0, d1, d2) -> (d1, d2)>,
+///                          affine_map<(d0, d1, d2) -> (d0, d2, d1)>]
+///  %d = tensor.expand_shape %c [[0, 1], [2], [3, 4, 5]]
+///       : tensor<?x?x?xf32> into tensor<?x?x?x?x?x?xf32>
+///
+///  The reshape can be folded into the `genericOp` if its loop dimensionality
+///  is increased to match the result (operand) of the tensor.expand_shape.
+///  The indexing_map of the fused tensor in the `genericOp` and the
+///  reassociation map helps compute the indexing maps of the modified op.
+///  For the above example, based on the reassociation map it
+///  can be concluded that
+///
+///  - The loop used to access the first dimension of the fused tensor is split
+///    into two.
+///  - The loop used to access the second dimension of the fused tensor is kept
+///    as is.
+///  - The loop used to access the third dimension of the fused tensor is split
+///    into three.
+///
+///  i.e. (e0, e1, e2, e3, e4) is the domain of the indexing map of the modified
+///  op, then
+///
+///   d0 -> e0, e1
+///   d1 -> e2, e3, e4
+///   d2 -> e5
+///
+///  substituting this, the generic op can be rewritten as
+///
+///  %d = linalg.generic ins(%0, %1 : )
+///        indexing_maps =
+///         [affine_map<(e0, e1, e2, e3, e4, e5) -> (e2, e3, e4, e0, e1, e5)>,
+///          affine_map<(e0, e1, e2, e3, e4, e5) -> (e2, e3, e4, e5)>,
+///          affine_map<(e0, e1, e2, e3, e4, e5) -> (e0, e1, e5, e2, e3, e4)>]
+///
+///  Since operands to the linalg generic are now 5D, reshapes can be introduced
+///  to make it consistent
+///
+///  %0 = tensor.expand_shape %a [[0, 1, 2], [3, 4], [5]]
+///       : tensor<?x?x?xf32> into tensor<?x?x?x?x?x?xf32>
+///  %1 = tensor.expand_shape %b [[0, 1, 2], [3]]
+///       : tensor<?x?x?xf32> into tensor<?x?x?x?xf32>
+///
+///  The added reshapes are again expanding patterns, so they will get fused
+///  with its producers if possible.
+///
+/// This is a modification of upstream's version to allow const in affine map
+static bool isFusableWithReshapeByDimExpansion(GenericOp genericOp,
+                                               OpOperand *fusableOpOperand) {
+  // Is fusable only if:
+  // - All the indexing maps for operands and results are projected
+  //   permutations.
+  // - The fused tensor is not a scalar.
+  // - All the loops are parallel loops.
+  return genericOp.hasTensorSemantics() &&
+         llvm::all_of(llvm::enumerate(genericOp.getIndexingMaps().getValue()),
+                      [&](auto it) {
+                        Attribute attr = it.value();
+                        int64_t idx = it.index();
+                        AffineMap map = cast<AffineMapAttr>(attr).getValue();
+                        // TODO: enhance ExpansionInfo::compute to allow const
+                        // in fusableOpOperand's affine map
+                        if (idx == fusableOpOperand->getOperandNumber())
+                          return map.isProjectedPermutation();
+                        else
+                          return isProjectedPermutationAndAllowConst(map);
+                      }) &&
+         genericOp.getMatchingIndexingMap(fusableOpOperand).getNumResults() >
+             0 &&
+         llvm::all_of(genericOp.getIteratorTypesArray(), isParallelIterator);
+}
+
+class ExpansionInfo {
+public:
+  // Computes the mapping from original dimensions of the op to the dimensions
+  // of the expanded op given the `indexingMap` of the fused operand/result of
+  // the generic op, the `reassocationMaps` of the reshape op and the shape of
+  // the expanded op.
+  LogicalResult compute(LinalgOp linalgOp, OpOperand *fusableOpOperand,
+                        ArrayRef<AffineMap> reassociationMaps,
+                        ArrayRef<int64_t> expandedShape,
+                        ArrayRef<int64_t> collapsedShape,
+                        PatternRewriter &rewriter);
+  unsigned getOrigOpNumDims() const { return reassociation.size(); }
+  unsigned getExpandedOpNumDims() const { return expandedOpNumDims; }
+  ReassociationIndicesRef getExpandedDims(unsigned i) const {
+    return reassociation[i];
+  }
+  ArrayRef<int64_t> getExpandedShapeOfDim(unsigned i) const {
+    return expandedShapeMap[i];
+  }
+  ArrayRef<int64_t> getOriginalShape() const { return originalLoopExtent; }
+
+private:
+  /// Reassociation from the dimensions in the original operation to the
+  /// dimension of the expanded operation.
+  SmallVector<ReassociationIndices> reassociation;
+  /// Mapping from extent of loops in the original operation, to the extent of
+  /// loops in the expanded operation.
+  SmallVector<SmallVector<int64_t>> expandedShapeMap;
+  /// Extent of the loop in the original operation.
+  SmallVector<int64_t> originalLoopExtent;
+  unsigned expandedOpNumDims;
+};
+
+LogicalResult ExpansionInfo::compute(LinalgOp linalgOp,
+                                     OpOperand *fusableOpOperand,
+                                     ArrayRef<AffineMap> reassociationMaps,
+                                     ArrayRef<int64_t> expandedShape,
+                                     ArrayRef<int64_t> collapsedShape,
+                                     PatternRewriter &rewriter) {
+  if (reassociationMaps.empty())
+    return failure();
+  AffineMap fusedIndexMap = linalgOp.getMatchingIndexingMap(fusableOpOperand);
+
+  SmallVector<int64_t, 4> originalLoopRange = linalgOp.getStaticLoopRanges();
+  originalLoopExtent.assign(originalLoopRange.begin(), originalLoopRange.end());
+
+  reassociation.clear();
+  expandedShapeMap.clear();
+  // Compute the number of dimension in the expanded op that correspond to each
+  // dimension of the original op.
+  SmallVector<unsigned> numExpandedDims(fusedIndexMap.getNumDims(), 1);
+  expandedShapeMap.resize(fusedIndexMap.getNumDims());
+  for (const auto &resultExpr : llvm::enumerate(fusedIndexMap.getResults())) {
+    unsigned pos = resultExpr.value().cast<AffineDimExpr>().getPosition();
+    AffineMap foldedDims = reassociationMaps[resultExpr.index()];
+    numExpandedDims[pos] = foldedDims.getNumResults();
+    ArrayRef<int64_t> shape =
+        expandedShape.slice(foldedDims.getDimPosition(0), numExpandedDims[pos]);
+    expandedShapeMap[pos].assign(shape.begin(), shape.end());
+  }
+  // The remaining dimensions remain the same.
+  for (unsigned i : llvm::seq<unsigned>(0, fusedIndexMap.getNumDims()))
+    if (expandedShapeMap[i].empty())
+      expandedShapeMap[i] = {originalLoopExtent[i]};
+
+  // Compute reassociation map from the original op to the expanded op.
+  unsigned sum = 0;
+  reassociation.reserve(fusedIndexMap.getNumDims());
+  for (const auto &numFoldedDim : llvm::enumerate(numExpandedDims)) {
+    auto seq = llvm::seq<int64_t>(sum, sum + numFoldedDim.value());
+    reassociation.emplace_back(seq.begin(), seq.end());
+    sum += numFoldedDim.value();
+  }
+  expandedOpNumDims = sum;
+  return success();
+}
+
+/// Epanding the body of a linalg operation requires adaptations of the accessed
+/// loop indices. Specifically, access of indices in the original operation need
+/// to be replaced with linearizations of indices in the expanded op. That
+/// requires the shape of the expanded dimensions to be static (at least all but
+/// the most significant). For now check that these are all statically sized.
+/// Note that this could be extended to handle dynamic case, but the
+/// implementation below uses `affine.apply` which seems to have issues when the
+/// shapes are not static.
+static LogicalResult isGenericOpExpandable(GenericOp genericOp,
+                                           const ExpansionInfo &expansionInfo,
+                                           PatternRewriter &rewriter) {
+  if (!genericOp.hasIndexSemantics())
+    return success();
+  for (unsigned i : llvm::seq<unsigned>(0, expansionInfo.getOrigOpNumDims())) {
+    ArrayRef<int64_t> expandedShape = expansionInfo.getExpandedShapeOfDim(i);
+    if (expandedShape.size() == 1)
+      continue;
+    for (int64_t shape : expandedShape.drop_front()) {
+      if (ShapedType::isDynamic(shape)) {
+        return rewriter.notifyMatchFailure(
+            genericOp, "cannot expand due to index semantics and dynamic dims");
+      }
+    }
+  }
+  return success();
+}
+
+/// Return the indexing map to use in the expanded op for a given the
+/// `indexingMap` of the original operation.
+///
+/// This is a modification of upstream's version to allow const in affine map
+static AffineMap
+getIndexingMapInExpandedOp(OpBuilder &builder, AffineMap indexingMap,
+                           const ExpansionInfo &expansionInfo) {
+  SmallVector<AffineExpr> newExprs;
+  for (AffineExpr expr : indexingMap.getResults()) {
+    if (expr.isa<AffineConstantExpr>()) {
+      newExprs.push_back(expr);
+      continue;
+    }
+    unsigned pos = expr.cast<AffineDimExpr>().getPosition();
+    SmallVector<AffineExpr, 4> expandedExprs = llvm::to_vector<4>(
+        llvm::map_range(expansionInfo.getExpandedDims(pos), [&](int64_t v) {
+          return builder.getAffineDimExpr(static_cast<unsigned>(v));
+        }));
+    newExprs.append(expandedExprs.begin(), expandedExprs.end());
+  }
+  return AffineMap::get(expansionInfo.getExpandedOpNumDims(),
+                        indexingMap.getNumSymbols(), newExprs,
+                        builder.getContext());
+}
+
+/// Return the type of the operand/result to use in the expanded op given the
+/// type in the original op.
+///
+/// This is a modification of upstream's version to allow const in affine map
+static RankedTensorType getExpandedType(RankedTensorType originalType,
+                                        AffineMap indexingMap,
+                                        const ExpansionInfo &expansionInfo) {
+  SmallVector<int64_t> expandedShape;
+  for (auto it : llvm::enumerate(indexingMap.getResults())) {
+    AffineExpr expr = it.value();
+    int64_t idx = it.index();
+    if (expr.isa<AffineConstantExpr>()) {
+      expandedShape.push_back(originalType.getDimSize(idx));
+      continue;
+    }
+    unsigned dim = expr.cast<AffineDimExpr>().getPosition();
+    auto dimExpansion = expansionInfo.getExpandedShapeOfDim(dim);
+    expandedShape.append(dimExpansion.begin(), dimExpansion.end());
+  }
+  return RankedTensorType::get(expandedShape, originalType.getElementType());
+}
+
+/// Returns the reassociation maps to use in the `tensor.expand_shape`
+/// operation to convert the operands of the original operation to operands of
+/// the expanded operation. The same method is used to compute the
+/// `tensor.collapse_shape` used to collapse the result of the expanded
+/// op to get the value that can replace all uses of the results of the original
+/// op.
+///
+/// This is a modification of upstream's version to allow const in affine map
+static SmallVector<ReassociationIndices>
+getReassociationForExpansion(AffineMap indexingMap,
+                             const ExpansionInfo &expansionInfo) {
+  SmallVector<ReassociationIndices> reassociation;
+  unsigned numReshapeDims = 0;
+  for (AffineExpr expr : indexingMap.getResults()) {
+    if (expr.isa<AffineConstantExpr>()) {
+      reassociation.push_back({numReshapeDims++});
+      continue;
+    }
+    unsigned dim = expr.cast<AffineDimExpr>().getPosition();
+    auto numExpandedDims = expansionInfo.getExpandedDims(dim).size();
+    SmallVector<int64_t, 2> indices = llvm::to_vector<2>(
+        llvm::seq<int64_t>(numReshapeDims, numReshapeDims + numExpandedDims));
+    reassociation.emplace_back(std::move(indices));
+    numReshapeDims += numExpandedDims;
+  }
+  return reassociation;
+}
+
+/// Update the body of an expanded linalg operation having index semantics. The
+/// indices of the original operation need to be recovered by linearizing the
+/// indices of the correspoding dimensions of the expanded operation. For now it
+/// is assumed that the shapes of the expanded operation needed for
+/// linearization are static.
+static void updateExpandedGenericOpRegion(PatternRewriter &rewriter,
+                                          Location loc, Region &fusedRegion,
+                                          const ExpansionInfo &expansionInfo) {
+  // Replace the original indices by the linearization of the expanded indices.
+  for (IndexOp indexOp :
+       llvm::make_early_inc_range(fusedRegion.front().getOps<IndexOp>())) {
+    ArrayRef<int64_t> expandedDims =
+        expansionInfo.getExpandedDims(indexOp.getDim());
+    assert(!expandedDims.empty() && "expected valid expansion info");
+
+    // Skip index operations that are not affected by the expansion.
+    if (expandedDims.size() == 1 &&
+        expandedDims.front() == (int64_t)indexOp.getDim())
+      continue;
+
+    // Linearize the expanded indices of the original index dimension.
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(indexOp);
+    ArrayRef<int64_t> expandedDimsShape =
+        expansionInfo.getExpandedShapeOfDim(indexOp.getDim()).drop_front();
+    SmallVector<Value> expandedIndices;
+    expandedIndices.reserve(expandedDims.size() - 1);
+    llvm::transform(
+        expandedDims.drop_front(), std::back_inserter(expandedIndices),
+        [&](int64_t dim) { return rewriter.create<IndexOp>(loc, dim); });
+    Value newIndex = rewriter.create<IndexOp>(loc, expandedDims.front());
+    for (auto it : llvm::zip(expandedDimsShape, expandedIndices)) {
+      assert(!ShapedType::isDynamic(std::get<0>(it)));
+      AffineExpr idx, acc;
+      bindDims(rewriter.getContext(), idx, acc);
+      newIndex = rewriter.create<affine::AffineApplyOp>(
+          indexOp.getLoc(), idx + acc * std::get<0>(it),
+          ValueRange{std::get<1>(it), newIndex});
+    }
+    rewriter.replaceOp(indexOp, newIndex);
+  }
+}
+
+/// Implements the fusion of a tensor.collapse_shape or a tensor.expand_shape op
+/// and a generic op as explained in `isFusableWithReshapeByExpansion`. Assumes
+/// that those conditions have been satisfied.
+static std::optional<SmallVector<Value>>
+fuseWithReshapeByExpansion(GenericOp genericOp, Operation *reshapeOp,
+                           OpOperand *fusableOpOperand,
+                           PatternRewriter &rewriter) {
+  assert(isFusableWithReshapeByDimExpansion(genericOp, fusableOpOperand) &&
+         "preconditions for fuse operation failed");
+  // Check if reshape is expanding or collapsing.
+  auto expandingReshapeOp = dyn_cast<tensor::ExpandShapeOp>(*reshapeOp);
+  auto collapsingReshapeOp = dyn_cast<tensor::CollapseShapeOp>(*reshapeOp);
+  bool isExpanding = (expandingReshapeOp != nullptr);
+  RankedTensorType expandedType = isExpanding
+                                      ? expandingReshapeOp.getResultType()
+                                      : collapsingReshapeOp.getSrcType();
+  RankedTensorType collapsedType = isExpanding
+                                       ? expandingReshapeOp.getSrcType()
+                                       : collapsingReshapeOp.getResultType();
+
+  ExpansionInfo expansionInfo;
+  if (failed(expansionInfo.compute(
+          genericOp, fusableOpOperand,
+          isExpanding ? expandingReshapeOp.getReassociationMaps()
+                      : collapsingReshapeOp.getReassociationMaps(),
+          expandedType.getShape(), collapsedType.getShape(), rewriter)))
+    return std::nullopt;
+
+  if (failed(isGenericOpExpandable(genericOp, expansionInfo, rewriter)))
+    return std::nullopt;
+
+  SmallVector<AffineMap, 4> expandedOpIndexingMaps = llvm::to_vector<4>(
+      llvm::map_range(genericOp.getIndexingMapsArray(), [&](AffineMap m) {
+        return getIndexingMapInExpandedOp(rewriter, m, expansionInfo);
+      }));
+
+  // Set insertion point to the generic op.
+  OpBuilder::InsertionGuard g(rewriter);
+  rewriter.setInsertionPoint(genericOp);
+
+  SmallVector<Value> expandedOpOperands;
+  expandedOpOperands.reserve(genericOp.getNumDpsInputs());
+  for (OpOperand *opOperand : genericOp.getDpsInputOperands()) {
+    if (opOperand == fusableOpOperand) {
+      expandedOpOperands.push_back(isExpanding ? expandingReshapeOp.getSrc()
+                                               : collapsingReshapeOp.getSrc());
+      continue;
+    }
+    if (auto opOperandType =
+            dyn_cast<RankedTensorType>(opOperand->get().getType())) {
+      AffineMap indexingMap = genericOp.getMatchingIndexingMap(opOperand);
+      RankedTensorType expandedOperandType =
+          getExpandedType(opOperandType, indexingMap, expansionInfo);
+      if (expandedOperandType != opOperand->get().getType()) {
+        // Reshape the operand to get the right type.
+        SmallVector<ReassociationIndices> reassociation =
+            getReassociationForExpansion(indexingMap, expansionInfo);
+        if (failed(reshapeLikeShapesAreCompatible(
+                [&](const Twine &msg) {
+                  return rewriter.notifyMatchFailure(genericOp, msg);
+                },
+                opOperandType.getShape(), expandedOperandType.getShape(),
+                reassociation,
+                /*isExpandingReshape=*/true)))
+          return std::nullopt;
+        expandedOpOperands.push_back(rewriter.create<tensor::ExpandShapeOp>(
+            genericOp.getLoc(), expandedOperandType, opOperand->get(),
+            reassociation));
+        continue;
+      }
+    }
+    expandedOpOperands.push_back(opOperand->get());
+  }
+
+  Location loc = genericOp.getLoc();
+  SmallVector<Value> outputs;
+  for (OpOperand *opOperand : genericOp.getDpsInitOperands()) {
+    AffineMap indexingMap = genericOp.getMatchingIndexingMap(opOperand);
+    auto opOperandType = cast<RankedTensorType>(opOperand->get().getType());
+    RankedTensorType expandedOutputType =
+        getExpandedType(opOperandType, indexingMap, expansionInfo);
+    if (expandedOutputType != opOperand->get().getType()) {
+      SmallVector<ReassociationIndices> reassociation =
+          getReassociationForExpansion(indexingMap, expansionInfo);
+      if (failed(reshapeLikeShapesAreCompatible(
+              [&](const Twine &msg) {
+                return rewriter.notifyMatchFailure(genericOp, msg);
+              },
+              opOperandType.getShape(), expandedOutputType.getShape(),
+              reassociation,
+              /*isExpandingReshape=*/true)))
+        return std::nullopt;
+      outputs.push_back(rewriter.create<tensor::ExpandShapeOp>(
+          genericOp.getLoc(), expandedOutputType, opOperand->get(),
+          reassociation));
+    } else {
+      outputs.push_back(opOperand->get());
+    }
+  }
+
+  // The iterator types of the expanded op are all parallel.
+  SmallVector<utils::IteratorType> iteratorTypes(
+      expansionInfo.getExpandedOpNumDims(), utils::IteratorType::parallel);
+
+  TypeRange resultTypes = ValueRange(outputs).getTypes();
+  auto fusedOp =
+      rewriter.create<GenericOp>(genericOp.getLoc(), resultTypes,
+                                 /*inputs=*/expandedOpOperands, outputs,
+                                 expandedOpIndexingMaps, iteratorTypes);
+  Region &fusedRegion = fusedOp->getRegion(0);
+  Region &originalRegion = genericOp->getRegion(0);
+  rewriter.cloneRegionBefore(originalRegion, fusedRegion, fusedRegion.begin());
+
+  // Update the index accesses after the expansion.
+  updateExpandedGenericOpRegion(rewriter, loc, fusedRegion, expansionInfo);
+
+  // Reshape the result values to their original shape if this is a collapsing
+  // reshape folded into its consumer.
+  SmallVector<Value> resultVals;
+  for (OpResult opResult : genericOp->getOpResults()) {
+    int64_t resultNumber = opResult.getResultNumber();
+    if (resultTypes[resultNumber] != opResult.getType()) {
+      SmallVector<ReassociationIndices> reassociation =
+          getReassociationForExpansion(
+              genericOp.getMatchingIndexingMap(
+                  genericOp.getDpsInitOperand(resultNumber)),
+              expansionInfo);
+      resultVals.push_back(rewriter.create<tensor::CollapseShapeOp>(
+          genericOp.getLoc(), opResult.getType(),
+          fusedOp->getResult(resultNumber), reassociation));
+    } else {
+      resultVals.push_back(fusedOp->getResult(resultNumber));
+    }
+  }
+  // Assuming a single result.
+  return resultVals;
+}
+
+/// Pattern to fuse a tensor.collapse_shape op with its consumer generic op,
+/// when the reshape op is collapsing dimensions. The dimensionality of the loop
+/// in the consumer is expanded.
+class FoldWithProducerReshapeOpByExpansionExt
+    : public OpRewritePattern<GenericOp> {
+public:
+  FoldWithProducerReshapeOpByExpansionExt(MLIRContext *context,
+                                          ControlFusionFn foldReshapes,
+                                          PatternBenefit benefit = 1)
+      : OpRewritePattern<GenericOp>(context, benefit),
+        controlFoldingReshapes(std::move(foldReshapes)) {}
+
+  LogicalResult matchAndRewrite(GenericOp genericOp,
+                                PatternRewriter &rewriter) const override {
+    for (OpOperand *opOperand : genericOp.getDpsInputOperands()) {
+      tensor::CollapseShapeOp reshapeOp =
+          opOperand->get().getDefiningOp<tensor::CollapseShapeOp>();
+      if (!reshapeOp)
+        continue;
+      // Fold only if
+      // - The tensor reshape op is folding.
+      // - All constraints of fusing with reshape by expansion are met.
+      if (!isFusableWithReshapeByDimExpansion(genericOp, opOperand) ||
+          (!controlFoldingReshapes(opOperand))) {
+        continue;
+      }
+
+      std::optional<SmallVector<Value>> replacementValues =
+          fuseWithReshapeByExpansion(genericOp, reshapeOp, opOperand, rewriter);
+      if (!replacementValues) {
+        return failure();
+      }
+      rewriter.replaceOp(genericOp, *replacementValues);
+      return success();
+    }
+    return failure();
+  }
+
+private:
+  ControlFusionFn controlFoldingReshapes;
+};
+
 /// Patterns to fuse a generic op, with the producer of its operands.
 class FuseElementwiseProducerConsumerExt : public OpRewritePattern<GenericOp> {
 public:
@@ -496,6 +985,10 @@ public:
 
       FailureOr<ElementwiseOpFusionResult> fusionResult =
           fuseElementwiseOpsExt(rewriter, &opOperand);
+
+      if (failed(fusionResult)) {
+        continue;
+      }
 
       if (succeeded(fusionResult)) {
         // FIXME(lyq): applyPatternsAndFoldGreedily only trigger dce between
@@ -665,6 +1158,8 @@ static void populateCommonPatterns(RewritePatternSet &patterns,
                                    const ControlFusionFn &controlFn) {
   MLIRContext *context = patterns.getContext();
   populateFoldReshapeOpsByExpansionPatterns(patterns, controlFn);
+  patterns.add<FoldWithProducerReshapeOpByExpansionExt>(patterns.getContext(),
+                                                        controlFn);
 
   // convert a MapOp-to-GenericOp pattern to extend fusion possibility
   populateMapOpToGenericPattern(patterns);

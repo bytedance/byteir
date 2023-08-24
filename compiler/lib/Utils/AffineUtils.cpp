@@ -135,3 +135,25 @@ AffineMap mlir::getMultiDimIdentityMapWithTargets(unsigned numDims,
   }
   return result;
 }
+
+bool mlir::isProjectedPermutationAndAllowConst(AffineMap map) {
+  if (map.getNumSymbols() > 0)
+    return false;
+
+  if (map.getNumResults() > map.getNumInputs())
+    return false;
+
+  SmallVector<bool, 8> seen(map.getNumInputs(), false);
+  for (auto expr : map.getResults()) {
+    if (auto dim = expr.dyn_cast<AffineDimExpr>()) {
+      if (seen[dim.getPosition()])
+        return false;
+      seen[dim.getPosition()] = true;
+    } else {
+      if (!expr.isa<AffineConstantExpr>())
+        return false;
+    }
+  }
+
+  return true;
+}
