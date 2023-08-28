@@ -13,6 +13,9 @@ on:
       - "frontends/**"
   workflow_dispatch:
 
+env:
+  NUM_BUILDERS: 4
+
 jobs:
   clear_workspace:
     name: Clear workspace
