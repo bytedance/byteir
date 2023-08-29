@@ -45,6 +45,11 @@ AffineMap getMultiDimIdentityMapWithTargets(unsigned numDims,
                                             ArrayRef<int64_t> targets,
                                             MLIRContext *context);
 
+/// Returns true if the AffineMap represents a subset (i.e. a projection) of a
+/// symbol-less permutation map. It allows projected permutation maps with
+/// constant result expressions.
+bool isProjectedPermutationAndAllowConst(AffineMap map);
+
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_AFFINEUTILS_H
