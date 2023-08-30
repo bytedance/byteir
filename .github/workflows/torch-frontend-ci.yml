@@ -5,18 +5,14 @@ on:
     branches:
       - main
     paths:
-      - "frontends/torch-frontend"
-      - "scripts/frontends/torch-frontend"
-    paths-ignore:
-      - "!**/*.md"
+      - "frontends/torch-frontend/**"
+      - "scripts/frontends/torch-frontend/**"
   pull_request:
     branches:
       - main
     paths:
-      - "frontends/torch-frontend"
-      - "scripts/frontends/torch-frontend"
-    paths-ignore:
-      - "!**/*.md"
+      - "frontends/torch-frontend/**"
+      - "scripts/frontends/torch-frontend/**"
   workflow_dispatch:
 
 jobs:
