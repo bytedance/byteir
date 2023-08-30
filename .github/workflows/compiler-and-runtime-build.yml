@@ -6,11 +6,13 @@ on:
       - main
     paths-ignore:
       - "frontends/**"
+      - "scripts/frontends/**"
   pull_request:
     branches:
       - main
     paths-ignore:
       - "frontends/**"
+      - "scripts/frontends/**"
   workflow_dispatch:
 
 jobs:
