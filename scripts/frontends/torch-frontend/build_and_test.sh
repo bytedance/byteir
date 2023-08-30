@@ -10,6 +10,9 @@ ROOT_PROJ_DIR="$CUR_DIR/../../.."
 # path to byteir/frontends/torch-frontend
 PROJ_DIR="$ROOT_PROJ_DIR/frontends/torch-frontend"
 
+source $CUR_DIR/envsetup.sh
+prepare_for_build
+
 LLVM_INSTALL_DIR="$1"
 
 pushd $PROJ_DIR
