@@ -354,15 +354,15 @@ LogicalResult mlir::scf::isValidTiling(Operation *tiled) {
 //===----------------------------------------------------------------------===//
 
 bool mlir::scf::isResultLoopInvariant(Operation *op, int64_t resultNumber,
-                                      bool hasOneOrZeroUse, bool allParallel) {
+                                      bool passUsesCheck, bool allParallel) {
   if (op == nullptr)
     return false;
 
   if (auto linalgExtOp = dyn_cast<linalg_ext::LinalgExtOp>(op)) {
-    return linalgExtOp.isResultLoopInvariant(resultNumber, hasOneOrZeroUse,
+    return linalgExtOp.isResultLoopInvariant(resultNumber, passUsesCheck,
                                              allParallel);
   } else if (isa<linalg::LinalgOp>(op)) {
-    return hasOneOrZeroUse && allParallel;
+    return passUsesCheck && allParallel;
   }
   return false;
 }
@@ -1281,6 +1281,13 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     // check getLoopIteratorTypes for each fusedOp
     // if parallel, corresponding getRegionIterArgs will be simplified
     unsigned resultOffset = 0;
+
+    llvm::DenseSet<Operation *> unfusedOpsSet;
+    for (auto &p : fusedOps) {
+      Operation *unfusedOp = p.first;
+      unfusedOpsSet.insert(unfusedOp);
+    }
+
     for (const auto &p : fusedOps) {
       auto unfusedOp = p.first;
       auto fusedOp = p.second;
@@ -1300,18 +1307,19 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
         auto result = unfusedOp->getResult(i);
 
         auto effectiveUseCnt =
-            llvm::count_if(result.getUses(), [](OpOperand &opOperand) {
+            llvm::count_if(result.getUses(), [&](OpOperand &opOperand) {
+              if (unfusedOpsSet.contains(opOperand.getOwner()))
+                return false;
+
               if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(
                       opOperand.getOwner())) {
                 return !dstOp.isDpsInit(&opOperand);
               }
+
               return !isa<tensor::DimOp>(opOperand.getOwner());
             });
 
-        bool hasOneOrZeroUseGeneral =
-            unfusedOp == consumer ? effectiveUseCnt < 1 : effectiveUseCnt <= 1;
-
-        bool hasOneOrZeroUseForExtract = effectiveUseCnt <= 1;
+        bool hasZeroOutsideUse = effectiveUseCnt == 0;
 
         auto confirmAllParallel = [&](size_t loopCnt) {
           bool allParallel = true;
@@ -1343,7 +1351,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
           auto iterArg = forOp.getRegionIterArg(resultOffset + i);
           auto iterOperand = forOp.getIterOperands()[resultOffset + i];
 
-          if (isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseGeneral,
+          if (isResultLoopInvariant(unfusedOp, i, hasZeroOutsideUse,
                                     confirmedAllParallel)) {
             iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
               return (opCollection.contains(use.getOwner()) ||
@@ -1351,9 +1359,20 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
             });
           }
 
+          // The following replace is used to optimize the following IR:
+          //
+          // %0 = tensor.empty
+          // scf.for ... (%arg0 = %0, ...)
+          //    %1 = tensor.extract %arg0
+          //    "use"(%1)...
+          //
+          // to
+          //
+          // scf.for ...
+          //   %0 = tensor.empty
+          //   "use"(%0)
           if (simplifyLoopIter &&
-              isResultLoopInvariant(unfusedOp, i, hasOneOrZeroUseForExtract,
-                                    confirmedAllParallel)) {
+              isResultLoopInvariant(unfusedOp, i, true, confirmedAllParallel)) {
             iterArg.replaceUsesWithIf(iterOperand, [&](OpOperand &use) {
               return isa<tensor::ExtractSliceOp>(use.getOwner());
             });
