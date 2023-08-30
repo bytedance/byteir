@@ -1,0 +1,38 @@
+name: TorchFrontend CI
+
+on: 
+  push:
+    branches:
+      - main
+    paths:
+      - "frontends/torch-frontend"
+      - "scripts/frontends/torch-frontend"
+    paths-ignore:
+      - "!**/*.md"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "frontends/torch-frontend"
+      - "scripts/frontends/torch-frontend"
+    paths-ignore:
+      - "!**/*.md"
+  workflow_dispatch:
+
+jobs:
+  clear_workspace:
+    name: Clear workspace
+    runs-on: self-hosted
+    steps:
+      - name: clear workspace
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+  torch_frontend_build_and_test:
+    name: torch-frontend CI
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+      - name: Checkout byteir repo
+        uses: actions/checkout@v3
+      - name: Build TorchFrontend
+        run: ./scripts/frontends/torch-frontend/build_and_test.sh ${{ secrets.LLVM_INSTALL_DIR }}
+        shell: bash
