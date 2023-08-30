@@ -13,13 +13,10 @@ PROJ_DIR="$ROOT_PROJ_DIR/frontends/torch-frontend"
 source $CUR_DIR/envsetup.sh
 prepare_for_build
 
-LLVM_INSTALL_DIR="$1"
-
 pushd $PROJ_DIR
 cmake -S . \
       -B ./build \
       -GNinja \
-      -DMLIR_DIR="$LLVM_INSTALL_DIR/lib/cmake/mlir" \
       -DLLVM_EXTERNAL_LIT=$(which lit) \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=gcc \
