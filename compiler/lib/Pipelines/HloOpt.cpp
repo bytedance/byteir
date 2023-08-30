@@ -32,8 +32,8 @@ void addGenericHloFusionPatterns(OpPassManager &pm, const std::string &entry,
                                  bool outlineSingleElemwiseOp,
                                  bool outlineCatOp, bool aggressiveCatFusion) {
   // cluster constraint
-  pm.addNestedPass<func::FuncOp>(createClusterConstraintPass());
-  pm.addPass(createFusionOutliningPass());
+  // pm.addNestedPass<func::FuncOp>(createClusterConstraintPass());
+  // pm.addPass(createFusionOutliningPass());
 
   // Fusion passes
   if (outlineCatOp) {
@@ -87,6 +87,7 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
   pm.addNestedPass<func::FuncOp>(createReduceFusionPass());
   pm.addNestedPass<func::FuncOp>(createReshapeGatherPass());
+  pm.addPass(createConvertOpToCustomCallPass());
 
   // rewrite with constraint
   pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());

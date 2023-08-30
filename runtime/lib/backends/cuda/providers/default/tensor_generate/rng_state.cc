@@ -39,13 +39,15 @@ common::Status GetSeedOpKernel::RunImpl(const ExecutionContext &ctx) {
   int64_t rngSeed = rngStateHandle->getSeed();
   OpAccessor accessor(info_, ctx.exec_frame);
   DTypeEnum dtype = accessor.GetArgDTypeEnum(0);
+  cudaStream_t stream =
+      static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   void *device_p = accessor.GetArgAsyncValueRef(0);
 #define CASE(D)                                                                \
   case DTypeEnum::D: {                                                         \
     using ctype = DTypeTraits<DTypeEnum::D>::type_t;                           \
     ctype castedRngSeed = static_cast<ctype>(rngSeed);                         \
-    cudaMemcpy(device_p, &castedRngSeed, sizeof(ctype),                        \
-               cudaMemcpyHostToDevice);                                        \
+    cudaMemcpyAsync(device_p, &castedRngSeed, sizeof(ctype),                   \
+                    cudaMemcpyHostToDevice, stream);                           \
     return common::Status::OK();                                               \
   }
   BRT_DISPATCH_NUMBER_TYPES(dtype, CASE)
@@ -73,13 +75,15 @@ common::Status NextOffsetOpKernel::RunImpl(const ExecutionContext &ctx) {
   int64_t rngOffset = rngStateHandle->nextOffset();
   OpAccessor accessor(info_, ctx.exec_frame);
   DTypeEnum dtype = accessor.GetArgDTypeEnum(0);
+  cudaStream_t stream =
+      static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   void *device_p = accessor.GetArgAsyncValueRef(0);
 #define CASE(D)                                                                \
   case DTypeEnum::D: {                                                         \
     using ctype = DTypeTraits<DTypeEnum::D>::type_t;                           \
     ctype casteRngOffset = static_cast<ctype>(rngOffset);                      \
-    cudaMemcpy(device_p, &casteRngOffset, sizeof(ctype),                       \
-               cudaMemcpyHostToDevice);                                        \
+    cudaMemcpyAsync(device_p, &casteRngOffset, sizeof(ctype),                  \
+                    cudaMemcpyHostToDevice, stream);                           \
     return common::Status::OK();                                               \
   }
   BRT_DISPATCH_NUMBER_TYPES(dtype, CASE)

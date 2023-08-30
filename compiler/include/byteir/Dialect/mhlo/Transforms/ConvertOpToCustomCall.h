@@ -22,13 +22,13 @@
 #include <memory>
 
 namespace mlir {
-namespace func {
-class FuncOp;
-} // namespace func
+
+class ModuleOp;
 
 void populateRngPatternToCustomCall(RewritePatternSet &patterns);
 
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertOpToCustomCallPass();
+std::unique_ptr<OperationPass<ModuleOp>>
+createConvertOpToCustomCallPass(llvm::StringRef anchor = "");
 
 } // namespace mlir
 

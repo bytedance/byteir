@@ -8,8 +8,11 @@ module {
     %0 = "tf.Add"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
     %1 = "tf.Mul"(%0, %arg0) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
     %2 = "mhlo.add"(%1, %arg0) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
-    %3 = "mhlo.add"(%1, %2) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
-    return %3 : tensor<2x4xf32>
+    %11 = mhlo.convert %1 : (tensor<2x4xf32>) -> tensor<2x4xf16>
+    %21 = mhlo.convert %2 : (tensor<2x4xf32>) -> tensor<2x4xf16>
+    %3 = "mhlo.add"(%11, %21) : (tensor<2x4xf16>, tensor<2x4xf16>) -> tensor<2x4xf16>
+    %31 = mhlo.custom_call @byteir.softmax(%3) {backend_config = "", byteir_attrs = {axis = 1 : i64}} : (tensor<2x4xf16>) -> tensor<2x4xf32>
+    return %31 : tensor<2x4xf32>
   }
   func.func @tf_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<2x4xf32>) -> (tensor<2x4xf32>) {
     %0 = "tf.Add"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
@@ -28,7 +31,9 @@ module {
 // DEFAULT: func.call 1 f32 f32
 // DEFAULT: func.func 2 NA  NA
 // DEFAULT: func.return 2 f32 NA
-// DEFAULT: mhlo.add 6 f32 f32
+// DEFAULT: mhlo.add 6 f16,f32 f16,f32
+// DEFAULT: mhlo.convert 2 f32 f16
+// DEFAULT: mhlo.custom_call 1 f16 f32
 // DEFAULT: mhlo.fusion 1 f32 f32
 // DEFAULT: mhlo.return 1 f32 NA
 // DEFAULT: tf.Add 2 f32 f32
@@ -45,7 +50,9 @@ module {
 
 // TOPONLY: func.call 1 f32 f32
 // TOPONLY: func.return 2 f32 NA
-// TOPONLY: mhlo.add 4 f32 f32
+// TOPONLY: mhlo.add 4 f16,f32 f16,f32
+// TOPONLY: mhlo.convert 2 f32 f16
+// TOPONLY: mhlo.custom_call 1 f16 f32
 // TOPONLY: mhlo.fusion 1 f32 f32
 // TOPONLY: tf.Add 2 f32 f32
 // TOPONLY: tf.Mul 2 f32 f32

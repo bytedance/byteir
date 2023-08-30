@@ -32,7 +32,7 @@ def HasOneUse : Constraint<CPred<"$0.hasOneUse()">, "value has exactly one use">
 //===----------------------------------------------------------------------===//
 // L2Norm Pattern
 //===----------------------------------------------------------------------===//
-def RewriteL2Norm : Pat<
+def RewriteL2NormPat1 : Pat<
   (ONNXDivOp
     $input,
     (ONNXExpandOp
@@ -45,6 +45,14 @@ def RewriteL2Norm : Pat<
   ),
   (NativeCodeCall<"createL2Norm($_builder, $_loc, $0, $1, $2)"> $input, $axis_attr, $epsilon_attr),
   [(IsOneSize $axis_attr), (TrueBoolAttr $keep_dims), (IsOneSizeElements $epsilon_attr)]>;
+
+def RewriteL2NormPat2 : Pat<
+  (ONNXDivOp
+    $input,
+    (ONNXReduceL2V13Op $input, $axis_attr, $keep_dims)
+  ),
+  (NativeCodeCall<"createL2NormWithoutEps($_builder, $_loc, $0, $1)"> $input, $axis_attr),
+  [(IsOneSize $axis_attr), (TrueBoolAttr $keep_dims)]>;
 
 //===----------------------------------------------------------------------===//
 // Quantize/Dequantize Pattern

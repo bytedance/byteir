@@ -1,0 +1,103 @@
+diff --git a/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp b/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp
+index d7dff949..95ad6b4c 100644
+--- a/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp
++++ b/src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp
+@@ -760,6 +760,18 @@ struct ONNXResizeOpShapeHelper : public ONNXOpShapeHelper {
+   llvm::SmallVector<IndexExpr, 4> scales;
+ };
+ 
++struct ONNXResizeV13OpShapeHelper : public ONNXOpShapeHelper {
++  ONNXResizeV13OpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
++      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
++      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
++  virtual ~ONNXResizeV13OpShapeHelper() {}
++  mlir::LogicalResult computeShape() final;
++  // Values set by computeShape: scales is a float index expression. It is
++  // directly the `scale` argument when scale is provided by the op. When
++  // `size` is provided, then scale is float(`size`)/float(dim).
++  llvm::SmallVector<IndexExpr, 4> scales;
++};
++
+ //===----------------------------------------------------------------------===//
+ // Non specific Ops, namely ops that
+ //   * need customization only for themselves (no sharing of code)
+diff --git a/src/Dialect/ONNX/ONNXOps/Tensor/Resize.cpp b/src/Dialect/ONNX/ONNXOps/Tensor/Resize.cpp
+index d8e11c29..abedb620 100644
+--- a/src/Dialect/ONNX/ONNXOps/Tensor/Resize.cpp
++++ b/src/Dialect/ONNX/ONNXOps/Tensor/Resize.cpp
+@@ -86,6 +86,48 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
+   return success();
+ }
+ 
++LogicalResult ONNXResizeV13OpShapeHelper::computeShape() {
++  ONNXResizeV13OpAdaptor operandAdaptor(operands);
++  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
++  DimsExpr inputDims, outputDims;
++  createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
++  bool scalesIsAbsent = isAbsent(operandAdaptor.getScales());
++
++  if (!scalesIsAbsent) {
++    // Read and save scales as float.
++    createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getScales(), scales);
++    if (inputDims.size() != scales.size())
++      return op->emitError("expected scales to have the same rank as input");
++    // Compute output dims = int(floor(float(input dims) * scales)).
++    for (uint64_t i = 0; i < rank; ++i) {
++      // Special case for scale == 1.0 as converts are then needed.
++      if (scales[i].isLiteralAndIdenticalTo(1.0)) {
++        outputDims.emplace_back(inputDims[i]);
++      } else {
++        IndexExpr floatInputDim = inputDims[i].convertToFloat();
++        IndexExpr floatProduct = floatInputDim * scales[i];
++        // Formula has a floor, but convert of positive number already rounds
++        // toward zero, so skip the floor.
++        outputDims.emplace_back(floatProduct.convertToIndex());
++      }
++    }
++  } else {
++    // Output size is defined by input `sizes`.
++    createIE->getIntFromArrayAsSymbols(operandAdaptor.getSizes(), outputDims);
++    if (inputDims.size() != outputDims.size())
++      return op->emitError("expected scales to have the same rank as input");
++    // Compute scales as float(output dims) / float(input dims).
++    for (uint64_t i = 0; i < rank; ++i) {
++      IndexExpr floatInputDim = inputDims[i].convertToFloat();
++      IndexExpr floatOutputDim = outputDims[i].convertToFloat();
++      scales.emplace_back(floatOutputDim / floatInputDim);
++    }
++  }
++  // Save output dims
++  setOutputDims(outputDims);
++  return success();
++}
++
+ } // namespace onnx_mlir
+ 
+ //===----------------------------------------------------------------------===//
+@@ -127,3 +191,13 @@ LogicalResult ONNXResizeOp::inferShapes(
+   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
+   return shapeHelper.computeShapeAndUpdateType(elementType);
+ }
++
++LogicalResult ONNXResizeV13Op::inferShapes(
++    std::function<void(Region &)> doShapeInference) {
++  if (!hasShapeAndRank(getX()))
++    return success();
++
++  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
++  ONNXResizeV13OpShapeHelper shapeHelper(getOperation(), {});
++  return shapeHelper.computeShapeAndUpdateType(elementType);
++}
+diff --git a/src/Dialect/ONNX/ONNXUnsupportedOps.hpp b/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
+index baa23f55..e8bce2a0 100644
+--- a/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
++++ b/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
+@@ -62,7 +62,7 @@ UNSUPPORTED_OPS(ONNXRandomUniformLikeOp)
+ UNSUPPORTED_OPS(ONNXRandomUniformOp)
+ UNSUPPORTED_OPS(ONNXResizeV10Op)
+ UNSUPPORTED_OPS(ONNXResizeV11Op)
+-UNSUPPORTED_OPS(ONNXResizeV13Op)
++// UNSUPPORTED_OPS(ONNXResizeV13Op)
+ UNSUPPORTED_OPS(ONNXSequenceMapOp)
+ UNSUPPORTED_OPS(ONNXSVMClassifierOp)
+ UNSUPPORTED_OPS(ONNXSVMRegressorOp)

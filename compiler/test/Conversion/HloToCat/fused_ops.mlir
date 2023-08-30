@@ -253,6 +253,17 @@ func.func @test_bmm_rrr_reshape_transpose_to_bmm_rrc_reshape(%arg0: tensor<64x12
 // CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: return
 
+func.func @test_bmm_crr_reshape_transpose_to_bmm_crc_reshape(%arg0: tensor<512x128x128xf16>, %arg1: tensor<512x128x128xf16>) -> tensor<16x32x128x128xf16> {
+    %0 = "cat.bmm_crr"(%arg0, %arg1) : (tensor<512x128x128xf16>, tensor<512x128x128xf16>) -> tensor<512x128x128xf16>
+    %1 = mhlo.reshape %0 : (tensor<512x128x128xf16>) -> tensor<16x32x128x128xf16>
+    %2 = "mhlo.transpose"(%1) {permutation = dense<[0, 1, 3, 2]> : tensor<4xi64>} : (tensor<16x32x128x128xf16>) -> tensor<16x32x128x128xf16>
+    return %2 : tensor<16x32x128x128xf16>
+}
+// CHECK: func.func @test_bmm_crr_reshape_transpose_to_bmm_crc_reshape
+// CHECK-NEXT: cat.bmm_crc
+// CHECK-NEXT: mhlo.reshape
+// CHECK-NEXT: return
+
 func.func @test_softmax_f16(%arg0 : tensor<1x12x1024x1024xf16>) -> tensor<1x12x1024x1024xf32> {
   %0 = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 3 : i64}} : (tensor<1x12x1024x1024xf16>) -> tensor<1x12x1024x1024xf32>
   return %0 : tensor<1x12x1024x1024xf32>
