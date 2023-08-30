@@ -44,9 +44,13 @@ void addCustomizedONNXToMhloPasses(
         onnx_frontend::createOFRewriteToCustomCallPass(customCallOps));
     pm.addNestedPass<mlir::func::FuncOp>(
         onnx_mlir::createDecomposeONNXToONNXPass("mhlo"));
-    pm.addPass(onnx_mlir::createShapeInferencePass());
-    pm.addPass(onnx_frontend::createOFCanonicalizerPass());
-    pm.addPass(onnx_mlir::createShapeInferencePass());
+    for (int i = 0; i < onnx_frontend::ofRepeatStatic; i++) {
+      pm.addPass(onnx_mlir::createShapeInferencePass());
+      pm.addPass(onnx_frontend::createOFCanonicalizerPass());
+      pm.addPass(onnx_mlir::createShapeInferencePass());
+      pm.addNestedPass<mlir::func::FuncOp>(
+          onnx_mlir::createConstPropONNXToONNXPass());
+    }
   }
 
   // There are more opportunities for const propagation once all tensors have

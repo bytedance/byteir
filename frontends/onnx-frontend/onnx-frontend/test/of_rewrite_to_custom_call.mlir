@@ -155,7 +155,7 @@ func.func @test_gelu_without_last_mul(%arg0: tensor<1x3x5x5xf32>, %arg1: tensor<
 
 // -----
 
-func.func @test_l2_norm(%267: tensor<16x128xf32>) -> tensor<16x128xf32> {
+func.func @test_l2_norm_pat1(%267: tensor<16x128xf32>) -> tensor<16x128xf32> {
   %5 = "onnx.Constant"() {value = dense<9.99999996E-13> : tensor<f32>} : () -> tensor<f32>
   %126 = "onnx.Constant"() {value = dense<[16, 128]> : tensor<2xi64>} : () -> tensor<2xi64>
   %268 = "onnx.ReduceL2V13"(%267) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceL2_213"} : (tensor<16x128xf32>) -> tensor<16x1xf32>
@@ -163,10 +163,22 @@ func.func @test_l2_norm(%267: tensor<16x128xf32>) -> tensor<16x128xf32> {
   %270 = "onnx.Expand"(%269, %126) {onnx_node_name = "Expand_217"} : (tensor<16x1xf32>, tensor<2xi64>) -> tensor<16x128xf32>
   %271 = "onnx.Div"(%267, %270) {onnx_node_name = "Div_218"} : (tensor<16x128xf32>, tensor<16x128xf32>) -> tensor<16x128xf32>
   return %271 : tensor<16x128xf32>
-// CHECK-LABEL:  @test_l2_norm
+// CHECK-LABEL:  @test_l2_norm_pat1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<16x128xf32>) -> tensor<16x128xf32> {
 // CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.l2_norm(%arg0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.999999960041972E-13 : f64}} : (tensor<16x128xf32>) -> tensor<16x128xf32>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<16x128xf32>
+}
+
+// -----
+
+func.func @test_l2_norm_pat2(%1146: tensor<12x128xf32>) -> tensor<12x128xf32> {
+  %1147 = "onnx.ReduceL2V13"(%1146) {axes = [1], keepdims = 1 : si64, onnx_node_name = "ReduceL2_769"} : (tensor<12x128xf32>) -> tensor<12x1xf32>
+  %1148 = "onnx.Div"(%1146, %1147) {onnx_node_name = "Div_770"} : (tensor<12x128xf32>, tensor<12x1xf32>) -> tensor<12x128xf32>
+  return %1148 : tensor<12x128xf32>
+// CHECK-LABEL:  @test_l2_norm_pat2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x128xf32>) -> tensor<12x128xf32> {
+// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.l2_norm(%arg0) {backend_config = "", byteir_attrs = {axis = [1]}} : (tensor<12x128xf32>) -> tensor<12x128xf32>
+// CHECK-NEXT:   return [[VAR_0_]] : tensor<12x128xf32>
 }
 
 // -----

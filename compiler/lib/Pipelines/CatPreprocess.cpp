@@ -17,15 +17,10 @@
 
 #include "byteir/Pipelines/CatPreprocess.h"
 
-#include "byteir/Dialect/mhlo/Transforms/FuseBMMDimension.h"
-#include "byteir/Dialect/mhlo/Transforms/HloFolder.h"
-#include "byteir/Dialect/mhlo/Transforms/HloMove.h"
-#include "byteir/Dialect/mhlo/Transforms/LayoutTransformation.h"
-#include "byteir/Dialect/mhlo/Transforms/MatmulLayoutTransform.h"
+#include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/CanonicalizeExt.h"
 #include "mhlo/IR/hlo_ops.h"
-#include "mhlo/transforms/passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -39,7 +34,7 @@ void createCatPreprocessPipelineImpl(OpPassManager &pm,
                                      const std::string &convLayout) {
   pm.addNestedPass<func::FuncOp>(createFuseBMMDimensionPass());
   pm.addNestedPass<func::FuncOp>(createMatmulLayoutTransformPass(true, "rcr"));
-  pm.addNestedPass<func::FuncOp>(createTestUnfuseBatchNormPass());
+  pm.addNestedPass<func::FuncOp>(createUnfuseBatchNormPass());
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createLayoutTransformationPass(convLayout));
   pm.addNestedPass<func::FuncOp>(createHloMoveDownPass());

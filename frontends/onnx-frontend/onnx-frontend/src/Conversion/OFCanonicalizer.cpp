@@ -30,14 +30,18 @@ struct OFCanonicalizerPass
 
   LogicalResult initialize(MLIRContext *context) override {
     RewritePatternSet owningPatterns(context);
+    SmallVector<std::string> disabledPatterns{
+        "FuseBatchNormInferenceModeConvPattern",
+        "RewriteBatchNormInferenceModeConvPattern1",
+        "RewriteBatchNormInferenceModeConvPattern2"};
     for (auto *dialect : context->getLoadedDialects())
       dialect->getCanonicalizationPatterns(owningPatterns);
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(owningPatterns, context);
 
-    patterns = FrozenRewritePatternSet(std::move(owningPatterns),
-                                       /*disabledPatterns*/ {},
-                                       /*enabledPatterns*/ {});
+    patterns =
+        FrozenRewritePatternSet(std::move(owningPatterns), disabledPatterns,
+                                /*enabledPatterns*/ {});
     return success();
   }
 

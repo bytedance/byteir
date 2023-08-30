@@ -167,6 +167,33 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
+                             Value input, ArrayAttr axis_attr) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "L2Norm input type must be ranked");
+
+  int64_t axis = axis_attr[0].cast<IntegerAttr>().getInt();
+  // canonicalize axis to be positive
+  if (axis < 0) {
+    axis = inputType.getRank() + axis;
+  }
+
+  std::string call_target_name = getL2NormNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{inputType}, llvm::ArrayRef<Value>{input},
+      call_target_name, false, rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+
+  return customCallOp.getResults()[0];
+}
+
 //===----------------------------------------------------------------------===//
 // Quantize/Dequantize
 //===----------------------------------------------------------------------===//
@@ -524,7 +551,9 @@ struct OFRewriteToCustomCallPass
                        llvm::SmallVector<std::unique_ptr<RewritePattern>>>
         validOpSet;
     validOpSet[getL2NormName()].emplace_back(
-        std::make_unique<RewriteL2Norm>(context));
+        std::make_unique<RewriteL2NormPat1>(context));
+    validOpSet[getL2NormName()].emplace_back(
+        std::make_unique<RewriteL2NormPat2>(context));
     validOpSet[getQuantizeName()].emplace_back(
         std::make_unique<RewriteQuantize>(context));
     validOpSet[getDequantizeName()].emplace_back(

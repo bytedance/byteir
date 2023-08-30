@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -linalg-bufferize --transform-dialect-interpreter -cse -canonicalize | FileCheck %s
+// RUN: byteir-opt %s --transform-dialect-interpreter -cse -canonicalize --split-input-file | FileCheck %s
 
 transform.sequence failures(propagate) {
 ^bb0(%arg1: !pdl.operation):
@@ -18,6 +18,26 @@ transform.sequence failures(propagate) {
 // CHECK-LABEL: func.func @hgemm
 func.func @hgemm(%arg0: memref<5376x2048xf16>, %arg1: memref<2048x5376xf16, #map>, %arg2: memref<5376x5376xf16>) {
   // CHECK: linalg.matmul
+  linalg.matmul ins(%arg0, %arg1: memref<5376x2048xf16>, memref<2048x5376xf16, #map>)
+                     outs(%arg2: memref<5376x5376xf16>)
+  return
+}
+
+// -----
+
+transform.sequence failures(propagate) {
+^bb0(%arg1: !pdl.operation):
+  %0 = transform.structured.match ops{["linalg.matmul"]} in %arg1 : (!pdl.operation) -> !pdl.operation
+  %1 = transform.param.constant "test_attr" -> !pdl.attribute
+  transform.annotate %0 "test_name" = %1 : !pdl.operation, !pdl.attribute
+}
+
+#map = affine_map<(d0, d1) -> (d1 * 2048 + d0)>
+
+// CHECK-LABEL: func.func @hgemm
+func.func @hgemm(%arg0: memref<5376x2048xf16>, %arg1: memref<2048x5376xf16, #map>, %arg2: memref<5376x5376xf16>) {
+  // CHECK: linalg.matmul
+  //   CHECK-SAME: test_name = "test_attr"
   linalg.matmul ins(%arg0, %arg1: memref<5376x2048xf16>, memref<2048x5376xf16, #map>)
                      outs(%arg2: memref<5376x5376xf16>)
   return

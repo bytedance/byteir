@@ -208,7 +208,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 %high = mhlo.constant dense<1.000000e+00> : tensor<f32>
 %low = mhlo.constant dense<0.000000e+00> : tensor<f32>
 %seed = byre.compute @GetSeed() : tensor<i64>
-%offset = byre.compute @GetOffset() : tensor<i64>
+%offset = byre.compute @NextOffset() : tensor<i64>
 %0 = "mhlo.custom_call"(%low, %high, %seed, %offset) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>) -> tensor<8x1024x768xf32>
 ```
 ```
@@ -216,7 +216,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 %high = mhlo.constant dense<1.000000e+00> : tensor<f32>
 %low = mhlo.constant dense<0.000000e+00> : tensor<f32>
 %seed = byre.compute @GetSeed() : tensor<i64>
-%offset = byre.compute @GetOffset() : tensor<i64>
+%offset = byre.compute @NextOffset() : tensor<i64>
 %shape = shape.shape_of %arg0 : tensor<3xindex>
 %0 = "mhlo.custom_call"(%low, %high, %seed, %offset, %shape) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>, tensor<3xindex>) -> tensor<?x?x?xf32>
 ```

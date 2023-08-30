@@ -18,6 +18,7 @@
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 
 #include "byteir/Dialect/mhlo/Transforms/GenericFusionCommon.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Dialect/mhlo/Util/FusionUtil.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/IRRewrite.h"
@@ -36,13 +37,21 @@ using namespace mlir::mhlo;
 namespace {
 namespace elementwise {
 
+bool isCustomMhloRngOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRngUniformName();
+  }
+  return false;
+}
+
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
   return isMhlo(op) &&
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
           isSplatMhloConstantLike(op) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op));
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op) ||
+          isCustomMhloRngOp(op));
 }
 
 // every candidate can start
@@ -51,7 +60,7 @@ bool isFusibleStart(Operation *op) { return true; }
 bool isFusibleTrigger(Operation *op) {
   if (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
       op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-      isa<mhlo::ReshapeOp>(op)) {
+      isa<mhlo::ReshapeOp>(op) || isCustomMhloRngOp(op)) {
     return true;
   }
 
@@ -76,13 +85,15 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) {
          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
          isSplatMhloConstantLike(target) ||
          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target);
+             target) ||
+         isCustomMhloRngOp(target);
 }
 
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op);
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op) ||
+         isCustomMhloRngOp(op);
 }
 
 static GenericFuserConfig config{

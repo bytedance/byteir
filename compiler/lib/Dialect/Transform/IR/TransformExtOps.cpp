@@ -37,6 +37,24 @@ using namespace mlir;
 using namespace mlir::transform_ext;
 
 //===---------------------------------------------------------------------===//
+// Type Extensions
+//===---------------------------------------------------------------------===//
+namespace {
+struct PDLAttributeTypeTransformParamTypeInterfaceImpl
+    : public transform::TransformParamTypeInterface::ExternalModel<
+          PDLAttributeTypeTransformParamTypeInterfaceImpl, pdl::AttributeType> {
+
+  /// Accept any attribute.
+  DiagnosedSilenceableFailure checkPayload(Type type, Location loc,
+                                           ArrayRef<Attribute> payload) const {
+    return DiagnosedSilenceableFailure::success();
+  }
+};
+} // namespace
+
+//===---------------------------------------------------------------------===//
+// Op Extensions
+//
 // CanonicalizeExtOp
 //===---------------------------------------------------------------------===//
 
@@ -154,6 +172,11 @@ public:
 #define GET_OP_LIST
 #include "byteir/Dialect/Transform/IR/TransformExtOps.cpp.inc"
         >();
+
+    addCustomInitializationStep([](MLIRContext *context) {
+      pdl::AttributeType::attachInterface<
+          PDLAttributeTypeTransformParamTypeInterfaceImpl>(*context);
+    });
   }
 };
 } // namespace
