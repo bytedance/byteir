@@ -1136,7 +1136,6 @@ func.func @elew_pad_elew(%arg0: tensor<12x12xf32>) -> tensor<14x14xf32> {
   %3 = linalg.elemwise_unary {__root__} ins(%padded : tensor<14x14xf32>) outs(%2 : tensor<14x14xf32>) -> tensor<14x14xf32>
   return %3 : tensor<14x14xf32>
 }
-
 // CHECK-LABEL: func.func @elew_pad_elew
 // CHECK: scf.for
 // CHECK:   scf.for
@@ -1150,3 +1149,37 @@ func.func @elew_pad_elew(%arg0: tensor<12x12xf32>) -> tensor<14x14xf32> {
 // CHECK:     scf.yield
 // CHECK:   scf.yield
 
+// -----
+
+#map = affine_map<(d0) -> (d0)>
+
+func.func @multi_results_one_in_tile_fuse_path_one_in_terminator(%arg0: tensor<1024xf32>, %arg1: tensor<1024xf32>, %arg2: tensor<1024xf32>) -> (tensor<1024xf32>, tensor<1024xf32>) {
+  // CHECK-LABEL: func.func @multi_results_one_in_tile_fuse_path_one_in_terminator
+  // CHECK: %[[E0:.*]] = tensor.empty() : tensor<1024xf32>
+  // CHECK: scf.for {{.*}} iter_args(%[[ARG0:.*]] = %[[E0]], %[[ARG1:.*]] = %[[E0]])
+  // CHECK:     %[[V0:.*]]:2 = linalg.generic{{.*}}__g0__
+  // CHECK:     %[[V1:.*]] = linalg.generic{{.*}}__g1__
+  // CHECK-DAG: %[[INS0:.*]] = tensor.insert_slice %[[V1]] into %[[ARG0]]
+  // CHECK-DAG: %[[INS1:.*]] = tensor.insert_slice %[[V0]]#1 into %[[ARG1]]
+  // CHECK:     scf.yield %[[INS0]], %[[INS1]]
+  %0 = tensor.empty() : tensor<1024xf32>
+  %1:2 = linalg.generic {__g0__, indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel"]} ins(%arg0, %arg1 : tensor<1024xf32>, tensor<1024xf32>) outs(%0, %0 : tensor<1024xf32>, tensor<1024xf32>) {
+  ^bb0(%in_0: f32, %in_1: f32, %out_0: f32, %out_1: f32):
+    %2 = arith.addf %in_0, %in_1 : f32
+    %3 = arith.subf %in_0, %in_1 : f32
+    linalg.yield %2, %3 : f32, f32
+  } -> (tensor<1024xf32>, tensor<1024xf32>)
+  %2 = linalg.generic {__root__, __g1__, indexing_maps = [#map, #map, #map], iterator_types = ["parallel"]} ins(%arg2, %1#0 : tensor<1024xf32>, tensor<1024xf32>) outs(%0 : tensor<1024xf32>) {
+  ^bb0(%in_0: f32, %in_1: f32, %out : f32):
+    %2 = arith.addf %in_0, %in_1 : f32
+    linalg.yield %2 : f32
+  } -> tensor<1024xf32>
+  return %1#1, %2 : tensor<1024xf32>, tensor<1024xf32>
+}
+
+transform.sequence  failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %transformed, %loops = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [1]}
+  cleanup
+}
