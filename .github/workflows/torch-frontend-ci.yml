@@ -16,19 +16,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  clear_workspace:
-    name: Clear workspace
+  torch_frontend_build_and_test:
+    name: torch-frontend CI
     runs-on: self-hosted
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
-  torch_frontend_build_and_test:
-    name: torch-frontend CI
-    runs-on: self-hosted
-    needs: [clear_workspace]
-    steps:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Build and test TorchFrontend
         run: ./scripts/frontends/torch-frontend/build_and_test.sh
         shell: bash
+        - name: clear workspace
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
