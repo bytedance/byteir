@@ -14,6 +14,8 @@
 
 #include "onnx/onnx_pb.h"
 #include "onnx/shape_inference/implementation.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 
 #include "third_party/onnx-mlir/src/Builder/FrontendDialectTransformer.hpp"
@@ -25,6 +27,7 @@
 
 #define DEBUG_TYPE "OFCompilerUtils"
 
+#include <cassert>
 #include <fstream>
 
 namespace onnx_mlir {
@@ -35,6 +38,28 @@ void ImportFrontendModelInternal(onnx::ModelProto &model,
 } // namespace onnx_mlir
 
 namespace onnx_frontend {
+
+void ParseStrToVectorIntMaps(
+    llvm::StringRef name_and_shapes,
+    std::unordered_map<std::string, std::vector<int>> &name2shape) {
+  // llvm split string into vector
+  llvm::SmallVector<llvm::StringRef, 4> name_and_shape_vec;
+  name_and_shapes.split(name_and_shape_vec, ':', -1, false);
+  for (const auto &name_and_shape : name_and_shape_vec) {
+    llvm::SmallVector<llvm::StringRef, 4> tokens;
+    name_and_shape.split(tokens, ',', -1, false);
+    if (tokens.size() <= 1) {
+      printf("Not valid name and shape str: %s\n", name_and_shape.data());
+      assert(false);
+    }
+    std::string name = tokens[0].str();
+    std::vector<int> shape;
+    for (unsigned int i = 1; i < tokens.size(); ++i) {
+      shape.push_back(std::stoi(tokens[i].str()));
+    }
+    name2shape[name] = shape;
+  }
+}
 
 void SetBatchSize(onnx::ModelProto &model) {
   if (batchSize <= 0) {
@@ -96,6 +121,45 @@ void SetBatchSize(onnx::ModelProto &model) {
   }
 }
 
+void SetInputShapes(onnx::ModelProto &model) {
+  std::unordered_map<std::string, std::vector<int>> name2shape;
+  ParseStrToVectorIntMaps(inputShapes, name2shape);
+  onnx::GraphProto *graph = model.mutable_graph();
+  for (auto &input : *(graph->mutable_input())) {
+    if (!name2shape.count(input.name())) {
+      continue;
+    }
+    auto *type = input.mutable_type();
+    if (type->value_case() != onnx::TypeProto::kTensorType) {
+      continue;
+    }
+    auto *tensorType = type->mutable_tensor_type();
+    if (!tensorType->has_shape()) {
+      continue;
+    }
+    onnx::TensorShapeProto *shape = tensorType->mutable_shape();
+    if (shape->dim_size() == 0) {
+      continue;
+    }
+    auto shapeVec = name2shape[input.name()];
+    int rank = shapeVec.size();
+    assert(shape->dim_size() == rank);
+    for (int i = 0; i < rank; ++i) {
+      auto *dim = shape->mutable_dim(i);
+      dim->set_dim_value(shapeVec[i]);
+      dim->clear_dim_param();
+    }
+  }
+  for (auto &output : *(graph->mutable_output())) {
+    auto *type = output.mutable_type();
+    if (type->value_case() != onnx::TypeProto::kTensorType) {
+      continue;
+    }
+    auto *tensorType = type->mutable_tensor_type();
+    tensorType->clear_shape();
+  }
+}
+
 namespace {
 std::string dirName(llvm::StringRef inputFilename) {
   llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
@@ -140,6 +204,9 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     return onnx_mlir::InvalidOnnxFormat;
   }
   SetBatchSize(model);
+  if (!inputShapes.empty()) {
+    SetInputShapes(model);
+  }
   onnx_mlir::ImportFrontendModelInternal(model, context, module, options);
   return onnx_mlir::CompilerSuccess;
 }

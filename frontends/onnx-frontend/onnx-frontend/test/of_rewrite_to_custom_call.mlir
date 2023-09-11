@@ -25,8 +25,7 @@ func.func @test_arg_min(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
 func.func @test_layer_norm(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
   %22 = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], onnx_node_name = "ReduceMean_25"} : (tensor<2x4x3xf32>) -> tensor<2x4x1xf32>
   %23 = "onnx.Sub"(%arg0, %22) {onnx_node_name = "Sub_26"} : (tensor<2x4x3xf32>, tensor<2x4x1xf32>) -> tensor<2x4x3xf32>
-  %24 = "onnx.Constant"() {value = dense<2.000000e+00> : tensor<f32>} : () -> tensor<f32>
-  %25 = "onnx.Pow"(%23, %24) {onnx_node_name = "Pow_28"} : (tensor<2x4x3xf32>, tensor<f32>) -> tensor<2x4x3xf32>
+  %25 = "onnx.Mul"(%23, %23) : (tensor<2x4x3xf32>, tensor<2x4x3xf32>) -> tensor<2x4x3xf32>
   %26 = "onnx.ReduceMeanV13"(%25) {axes = [-1], onnx_node_name = "ReduceMean_29"} : (tensor<2x4x3xf32>) -> tensor<2x4x1xf32>
   %27 = "onnx.Constant"() {value = dense<9.99999974E-6> : tensor<f32>} : () -> tensor<f32>
   %28 = "onnx.Add"(%26, %27) {onnx_node_name = "Add_31"} : (tensor<2x4x1xf32>, tensor<f32>) -> tensor<2x4x1xf32>
@@ -49,8 +48,7 @@ func.func @test_layer_norm(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
 func.func @test_layer_norm_multi_add(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
   %22 = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], onnx_node_name = "ReduceMean_25"} : (tensor<2x4x3xf32>) -> tensor<2x4x1xf32>
   %23 = "onnx.Sub"(%arg0, %22) {onnx_node_name = "Sub_26"} : (tensor<2x4x3xf32>, tensor<2x4x1xf32>) -> tensor<2x4x3xf32>
-  %24 = "onnx.Constant"() {value = dense<2.000000e+00> : tensor<f32>} : () -> tensor<f32>
-  %25 = "onnx.Pow"(%23, %24) {onnx_node_name = "Pow_28"} : (tensor<2x4x3xf32>, tensor<f32>) -> tensor<2x4x3xf32>
+  %25 = "onnx.Mul"(%23, %23) : (tensor<2x4x3xf32>, tensor<2x4x3xf32>) -> tensor<2x4x3xf32>
   %26 = "onnx.ReduceMeanV13"(%25) {axes = [-1], onnx_node_name = "ReduceMean_29"} : (tensor<2x4x3xf32>) -> tensor<2x4x1xf32>
   %27 = "onnx.Constant"() {value = dense<9.99999974E-6> : tensor<f32>} : () -> tensor<f32>
   %28 = "onnx.Add"(%26, %27) {onnx_node_name = "Add_31"} : (tensor<2x4x1xf32>, tensor<f32>) -> tensor<2x4x1xf32>
@@ -84,7 +82,7 @@ func.func @test_layer_norm_without_last_add(%arg0: tensor<1x3xf32>) -> tensor<1x
   %526 = "onnx.Constant"() {value = dense<[0.15, 0.2, 0.25]> : tensor<3xf32>} : () -> tensor<3xf32>
   %963 = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_536"} : (tensor<1x3xf32>) -> tensor<1x1xf32>
   %964 = "onnx.Sub"(%arg0, %963) {onnx_node_name = "Sub_537"} : (tensor<1x3xf32>, tensor<1x1xf32>) -> tensor<1x3xf32>
-  %965 = "onnx.Pow"(%964, %550) {onnx_node_name = "Pow_539"} : (tensor<1x3xf32>, tensor<f32>) -> tensor<1x3xf32>
+  %965 = "onnx.Mul"(%964, %964) : (tensor<1x3xf32>, tensor<1x3xf32>) -> tensor<1x3xf32>
   %966 = "onnx.ReduceMeanV13"(%965) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_540"} : (tensor<1x3xf32>) -> tensor<1x1xf32>
   %967 = "onnx.Add"(%966, %551) {onnx_node_name = "Add_542"} : (tensor<1x1xf32>, tensor<f32>) -> tensor<1x1xf32>
   %968 = "onnx.Sqrt"(%967) {onnx_node_name = "Sqrt_543"} : (tensor<1x1xf32>) -> tensor<1x1xf32>

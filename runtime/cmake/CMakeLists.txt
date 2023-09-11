@@ -35,6 +35,11 @@ option(brt_USE_CUDA "Build with CUDA support" OFF)
 option(brt_BUILD_UNIT_TESTS "Build Runtime unit tests" ON)
 option(brt_CROSS_COMPILING "Cross compiling for another platform" OFF)
 
+option(brt_ENABLE_FLASH_ATTENSION "Build with flash attension" OFF)
+if (brt_ENABLE_FLASH_ATTENSION AND NOT brt_USE_CUDA)
+  message(FATAL_ERROR "config brt_ENABLE_FLASH_ATTENSION=ON must with brt_USE_CUDA=ON")
+endif()
+
 # Parameters for LLVM
 set(LLVM_INSTALL_PATH "" CACHE STRING "The path to the installed LLVM library")
 
@@ -216,6 +221,9 @@ set(brt_LINK_DIRS )
 # link CUDADNN
 if(brt_USE_CUDA)
   message(STATUS "brt_USE_CUDA On")
+  if (brt_ENABLE_FLASH_ATTENSION)
+    message(STATUS "brt_ENABLE_FLASH_ATTENSION On")
+  endif()
   find_package(CUDAToolkit REQUIRED)
 	include_directories("${CUDAToolkit_INCLUDE_DIRS}")
   message("CUDAToolkit Include Dirs = ${CUDAToolkit_INCLUDE_DIRS}")
@@ -240,9 +248,13 @@ set(BRT_PROVIDER_FLAGS)
 set(BRT_PROVIDER_CMAKE_FLAGS)
 
 if (brt_USE_CUDA)
-    list(APPEND BRT_PROVIDER_FLAGS -DUSE_CUDA=1)
+    list(APPEND BRT_PROVIDER_FLAGS -DBRT_USE_CUDA=1)
     list(APPEND BRT_PROVIDER_CMAKE_FLAGS -Dbrt_USE_CUDA=1)
     list(APPEND BRT_PROVIDER_NAMES cuda)
+    if (brt_ENABLE_FLASH_ATTENSION)
+      list(APPEND BRT_PROVIDER_FLAGS -DBRT_ENABLE_FLASH_ATTENSION=1)
+      list(APPEND BRT_PROVIDER_CMAKE_FLAGS -Dbrt_ENABLE_FLASH_ATTENSION=1)
+    endif()
 endif()
 
 # utility functions 

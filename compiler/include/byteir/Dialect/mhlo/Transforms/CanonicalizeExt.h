@@ -44,6 +44,7 @@ class ReduceWindowOp;
 class ReshapeOp;
 class MulOp;
 class SliceOp;
+class ReverseOp;
 
 // Most of these will push back to upstream
 // So this file only includes patterns, not a pass.
@@ -138,6 +139,9 @@ LogicalResult simplifyCumsumToIota(mhlo::ReduceWindowOp op,
 // transpose(reshape(transpose(x))) => reshape(x)
 LogicalResult simplifyTransposeReshapeTranspose(mhlo::TransposeOp op,
                                                 PatternRewriter &rewriter);
+
+LogicalResult foldReverseWithConstant(mhlo::ReverseOp op,
+                                      PatternRewriter &rewriter);
 
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,

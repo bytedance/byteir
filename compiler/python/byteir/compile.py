@@ -5,6 +5,7 @@ from byteir.dialects.cat import IRProcessor
 from pathlib import Path
 import os
 from subprocess import PIPE, Popen
+from shutil import copymode
 
 def _print_verbose(module, pipeline_msg: str):
     print(pipeline_msg)
@@ -126,6 +127,7 @@ def compile_cuda_with_ait(
     name: str = "model",
     aggressive_mode: bool = False,
     parallelism: int = 1,
+    disable_ait_cache: bool = False,
     **kwargs,
 ):
     target = "cuda"
@@ -138,7 +140,11 @@ def compile_cuda_with_ait(
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
 
-    processor = IRProcessor(name, "./workspace", compile_parallelism=parallelism)
+    processor = IRProcessor(name, 
+                            "./workspace", 
+                            compile_parallelism=parallelism,
+                            disable_ait_cache=disable_ait_cache,
+                            verbose=verbose)
     with context:
         processor.load_from_file(input)
     if verbose:
@@ -164,8 +170,8 @@ def compile_cuda_with_ait(
     # move .so to target
     target_dir = Path(output)
     for dll_path in dll_paths:
-        print("cp {} {}".format(dll_path, target_dir.parent.absolute()))
-        os.system("cp {} {}".format(dll_path, target_dir.parent.absolute()))
+        print("cp -p {} {}".format(dll_path, target_dir.parent.absolute()))
+        os.system("cp -p {} {}".format(dll_path, target_dir.parent.absolute()))
 
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(processor.module.operation)
@@ -234,13 +240,25 @@ def compile(
     target: str = "cuda",
     verbose: bool = False,
     parallelism: int = 1,
+    disable_ait_cache: bool = False,
     **kwargs,
 ):
     if target == "cuda":
         compile_cuda(input, output, entry_func, verbose)
     elif target == "cuda_with_ait":
-        compile_cuda_with_ait(input, output, entry_func, verbose, parallelism=parallelism)
+        compile_cuda_with_ait(input, 
+                              output, 
+                              entry_func, 
+                              verbose, 
+                              parallelism=parallelism, 
+                              disable_ait_cache=disable_ait_cache)
     elif target == "cuda_with_ait_aggressive":
-        compile_cuda_with_ait(input, output, entry_func, verbose, aggressive_mode=True, parallelism=parallelism)
+        compile_cuda_with_ait(input, 
+                              output, 
+                              entry_func, 
+                              verbose, 
+                              aggressive_mode=True, 
+                              parallelism=parallelism,
+                              disable_ait_cache=disable_ait_cache)
     else:
         raise NotImplemented("not implemented target: {}".format(target))

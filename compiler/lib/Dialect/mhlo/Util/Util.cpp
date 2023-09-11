@@ -184,18 +184,79 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
   return index;
 }
 
-byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
-  auto base_dilations = op.getBaseDilationsAttr();
-  if (base_dilations && !isSplatValue(base_dilations, 1)) {
-    // expected base_dilations to be dense<1>
-    return byteir::NamedLayout::UNKNOWN;
+template <typename OpTy> bool mlir::isValidPoolOrPoolGradLayout(OpTy op) {
+  SmallVector<int64_t> window_dimensions;
+  size_t rank;
+  if (std::is_same_v<OpTy, mhlo::ReduceWindowOp>) {
+    auto reduceWindowOp = dyn_cast<mhlo::ReduceWindowOp>(&op);
+    auto base_dilations = reduceWindowOp->getBaseDilationsAttr();
+    if (base_dilations && !isSplatValue(base_dilations, 1)) {
+      return false;
+    }
+    auto window_dilations = reduceWindowOp->getWindowDilationsAttr();
+    if (window_dilations && !isSplatValue(window_dilations, 1)) {
+      return false;
+    }
+    window_dimensions =
+        SmallVector<int64_t>(reduceWindowOp->getWindowDimensions()
+                                 .template getValues<int64_t>()
+                                 .begin(),
+                             reduceWindowOp->getWindowDimensions()
+                                 .template getValues<int64_t>()
+                                 .end());
+    rank = window_dimensions.size();
+    if (rank != 3 && rank != 4 && rank != 5) {
+      return false;
+    }
+  } else if (std::is_same_v<OpTy, mhlo::SelectAndScatterOp>) {
+    auto selectAndScatterOp = dyn_cast<mhlo::SelectAndScatterOp>(&op);
+    if (auto window_dimensions_ =
+            selectAndScatterOp->getWindowDimensionsAttr()) {
+      window_dimensions = SmallVector<int64_t>(
+          window_dimensions_.template getValues<int64_t>().begin(),
+          window_dimensions_.template getValues<int64_t>().end());
+    } else {
+      return false;
+    }
+    rank = window_dimensions.size();
+    if (rank != 4 && rank != 5) {
+      return false;
+    }
+  } else {
+    assert(false && "The operation type is unexpected\n");
   }
-  auto window_dilations = op.getWindowDilationsAttr();
-  if (window_dilations && !isSplatValue(window_dilations, 1)) {
-    // expected window_dilations to be dense<1>
-    return byteir::NamedLayout::UNKNOWN;
+  if ((window_dimensions[0] != 1) ||
+      (window_dimensions[1] != 1 && window_dimensions[rank - 1] != 1)) {
+    return false;
   }
 
+  if (auto window_strides = op.getWindowStridesAttr()) {
+    SmallVector<int64_t> strides(
+        window_strides.template getValues<int64_t>().begin(),
+        window_strides.template getValues<int64_t>().end());
+    if ((strides[0] != 1) || (strides[1] != 1 && strides[rank - 1] != 1)) {
+      return false;
+    }
+  }
+  if (auto padding_ = op.getPaddingAttr()) {
+    SmallVector<int64_t> padding(padding_.template getValues<int64_t>().begin(),
+                                 padding_.template getValues<int64_t>().end());
+    if (padding[0] != 0 || padding[1] != 0 ||
+        ((padding[2] != 0 || padding[3] != 0) &&
+         (padding[2 * rank - 1 != 0] || padding[2 * rank - 2] != 0))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template bool isValidPoolOrPoolGradLayout(mlir::mhlo::ReduceWindowOp);
+template bool isValidPoolOrPoolGradLayout(mlir::mhlo::SelectAndScatterOp);
+
+byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
+  if (!mlir::isValidPoolOrPoolGradLayout(op)) {
+    return byteir::NamedLayout::UNKNOWN;
+  }
   SmallVector<int64_t> window_dimensions = SmallVector<int64_t>(
       op.getWindowDimensions().getValues<int64_t>().begin(),
       op.getWindowDimensions().getValues<int64_t>().end());
@@ -211,14 +272,13 @@ byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
                                    padding_.getValues<int64_t>().end());
   }
 
-  if (rank != 3 && rank != 4 && rank != 5) {
-    // expected dimension number to be 3, 4 or 5
-    return byteir::NamedLayout::UNKNOWN;
-  }
   return parsePoolLayout(rank, window_dimensions, strides, padding);
 }
 
 byteir::NamedLayout mlir::getPoolGradLayout(mlir::mhlo::SelectAndScatterOp op) {
+  if (!mlir::isValidPoolOrPoolGradLayout(op)) {
+    return byteir::NamedLayout::UNKNOWN;
+  }
   SmallVector<int64_t> window_dimensions;
   if (auto window_dimensions_ = op.getWindowDimensionsAttr()) {
     window_dimensions =
@@ -236,8 +296,6 @@ byteir::NamedLayout mlir::getPoolGradLayout(mlir::mhlo::SelectAndScatterOp op) {
     padding = SmallVector<int64_t>(padding_.getValues<int64_t>().begin(),
                                    padding_.getValues<int64_t>().end());
   }
-
-  assert(rank == 4 || rank == 5);
   return parsePoolLayout(rank, window_dimensions, strides, padding);
 }
 

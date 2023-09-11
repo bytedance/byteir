@@ -19,6 +19,7 @@ import re
 from execute import compile_and_run_mlir, compile_and_run_torch
 from torch_e2e_testing.registry import GLOBAL_TORCH_TEST_REGISTRY
 from torch_e2e_testing.test_suite import register_all_torch_tests
+from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
 from utils import report_results
 import sys
 from subprocess import PIPE, Popen
@@ -119,6 +120,8 @@ def main():
     elif args.config == 'torch':
         results = run_torch_test(arch)
     failed = report_results(results)
+    # TODO(zzk): use test infra for dynamo tests
+    run_torch_dynamo_tests(arch)
     sys.exit(1 if failed else 0)
 
 

@@ -110,9 +110,9 @@ def RewriteLayerNorm : Pat<
         (ONNXSqrtOp
           (ONNXAddOp
             (ONNXReduceMeanV13Op
-              (ONNXPowOp
+              (ONNXMulOp
                 $input_zero_mean_1,
-                (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)
+                $input_zero_mean_1
               ), $axis_attr_1, $_
             ),
             (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
@@ -141,9 +141,9 @@ def RewriteLayerNormWithoutLastAdd : Pat<
       (ONNXSqrtOp
         (ONNXAddOp
           (ONNXReduceMeanV13Op
-            (ONNXPowOp
+            (ONNXMulOp
               $input_zero_mean_1,
-              (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)
+              $input_zero_mean_1
             ), $axis_attr_1, $_
           ),
           (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)

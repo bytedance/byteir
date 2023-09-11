@@ -100,6 +100,8 @@ bool isDenseMhloConstantValue(Value val);
 // return cumsum's index, return nullopt if not a cumsum op
 std::optional<int64_t> getCumsumIndex(mhlo::ReduceWindowOp op);
 
+template <typename OpTy> bool isValidPoolOrPoolGradLayout(OpTy op);
+
 // Return layout if success, return UNKNOWN if failed.
 byteir::NamedLayout getPoolLayout(mhlo::ReduceWindowOp op);
 
