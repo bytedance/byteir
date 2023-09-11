@@ -26,8 +26,3 @@ The following example uses ByteIR lowering features, and executes with BRT (Byte
 python3 -m byteir.dialects.cat.execute --mhlo_path /path/to/mhlo/mlir --preprocess --dump_ir
 ```
 
-## TODOs
-
-- Lowering from cat to byre
-- BRT support for byre ComputeOp
-- Integration with torch.dynamo

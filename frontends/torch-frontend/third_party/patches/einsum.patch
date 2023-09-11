@@ -1,0 +1,372 @@
+diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
+index 09147dc8..4b69e9cd 100644
+--- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
++++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
+@@ -7801,6 +7801,31 @@ def Torch_AtenOneHotOp : Torch_Op<"aten.one_hot", [
+   }];
+ }
+ 
++def Torch_AtenEinsumOp : Torch_Op<"aten.einsum", [
++    AllowsTypeRefinement,
++    HasValueSemantics,
++    ReadOnly
++  ]> {
++  let summary = "Generated op for `aten::einsum : (str, Tensor[], int[]?) -> (Tensor)`";
++  let arguments = (ins
++    Torch_StringType:$equation,
++    AnyTorchListOfTensorType:$tensors,
++    AnyTorchOptionalListOfTorchIntType:$path
++  );
++  let results = (outs
++    AnyTorchTensorType:$result
++  );
++  let hasCustomAssemblyFormat = 1;
++  let extraClassDefinition = [{
++    ParseResult AtenEinsumOp::parse(OpAsmParser &parser, OperationState &result) {
++      return parseDefaultTorchOp(parser, result, 3, 1);
++    }
++    void AtenEinsumOp::print(OpAsmPrinter &printer) {
++      printDefaultTorchOp(printer, *this, 3, 1);
++    }
++  }];
++}
++
+ def Torch_AtenBucketizeTensorOp : Torch_Op<"aten.bucketize.Tensor", [
+     AllowsTypeRefinement,
+     HasValueSemantics,
+diff --git a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
+index 4dafed1d..a3c908bf 100644
+--- a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
++++ b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
+@@ -5061,6 +5061,311 @@ public:
+ };
+ } // namespace
+ 
++namespace {
++// Decompose AtenEinsumOp to AtenMmOp or AtenBmmOp
++// Step 1: split input equation to input/result tokens and find batchingDims and
++// contractingDims for future use
++// Step 2: transpose the input tensors to [batchingDims[0,1,2],
++// otherDims[0,1,2], contractingDims[0,1,2]]
++// Step 3: reshape the input tensors, the final shape should
++// be[batchingDims, otherDims, contractingDims]
++// Step 4: use AtenMatmulOp to get the result, loop util we get the final
++// result
++// notice: support static shape only
++
++static bool parseEquation(const std::string &equation,
++                          SmallVector<SmallVector<char>> &inputTokens,
++                          SmallVector<char> &resultTokens) {
++  SmallVector<char> inputToken;
++  size_t index = 0;
++  enum EquationVariable { kIsInput, kIsResult };
++  EquationVariable currentVariable = kIsInput;
++  while (index < equation.size()) {
++    if (std::isalpha(equation[index])) {
++      if (currentVariable == kIsInput) {
++        inputToken.push_back(equation[index]);
++      } else {
++        resultTokens.push_back(equation[index]);
++      }
++    } else if (equation[index] == ',') {
++      inputTokens.push_back(inputToken);
++      inputToken.clear();
++    } else if ((index < (equation.size() - 1)) &&
++               (equation.substr(index, 2).find("->") != std::string::npos)) {
++      inputTokens.push_back(inputToken);
++      inputToken.clear();
++      currentVariable = kIsResult;
++      index++;
++    } else {
++      return false;
++    }
++    index++;
++  }
++  return true;
++}
++
++// Prepare Tensor for Matmul Operations, we will transpose the input tensor
++// to make it in order as [batchingDims, otherDims, contractingDims]
++// example: bcwd,bcdh->bcwh
++// Step1 : [b,c,h,d]
++// Step2 : [b*c,h,d]
++// Step3 : [e(=b*c), h, d]
++static Value prepareTensorForMatmulOperations(
++    PatternRewriter &rewriter, Operation *op, Value inputTensor,
++    const SmallVector<Value> &shape, const SmallVector<int64_t> &contractingDims,
++    const SmallVector<int64_t> &batchingDims, SmallVector<Value> &finalShape,
++    const SmallVector<char> &tokens) {
++  SmallVector<int64_t> otherDims;
++  Value middleDimProduct =
++      rewriter.create<ConstantIntOp>(op->getLoc(), rewriter.getI64IntegerAttr(1));
++  for (size_t i = 0; i < shape.size(); ++i) {
++    if (std::find(batchingDims.begin(), batchingDims.end(), i) ==
++            batchingDims.end() &&
++        std::find(contractingDims.begin(), contractingDims.end(), i) ==
++            contractingDims.end()) {
++      middleDimProduct =
++          rewriter.create<AtenMulIntOp>(op->getLoc(), middleDimProduct, shape[i]);
++      otherDims.push_back(i);
++    }
++  }
++  int64_t otherDimsSize = otherDims.size();
++  if (!batchingDims.empty()) {
++    int64_t usedOtherDim = 0;
++    Value batchingDimProduct =
++        rewriter.create<ConstantIntOp>(op->getLoc(), rewriter.getI64IntegerAttr(1));
++    int64_t batchingDimsRank = batchingDims.size();
++    for (int64_t i = 0; i < batchingDimsRank; ++i) {
++      batchingDimProduct =
++          rewriter.create<AtenMulIntOp>(op->getLoc(), batchingDimProduct,
++                                        shape[batchingDims[i]]);
++      if (batchingDims[i] != i) {
++        Value batchingDim =
++            rewriter.create<ConstantIntOp>(op->getLoc(),
++                                           rewriter.getI64IntegerAttr(
++                                               batchingDims[i]));
++        Value indexDim = rewriter.create<ConstantIntOp>(
++            op->getLoc(), rewriter.getI64IntegerAttr(otherDims[usedOtherDim]));
++        inputTensor = rewriter.create<AtenTransposeIntOp>(
++            op->getLoc(), op->getResultTypes(), inputTensor, batchingDim, indexDim);
++        usedOtherDim += 1;
++      }
++    }
++    finalShape.push_back(batchingDimProduct);
++  }
++  finalShape.push_back(middleDimProduct);
++  if (!contractingDims.empty()) {
++    int64_t usedOtherDim = 1;
++    int64_t rank = tokens.size();
++    Value contractingDimProduct =
++        rewriter.create<ConstantIntOp>(op->getLoc(), rewriter.getI64IntegerAttr(1));
++    int64_t contractingDimsRank = contractingDims.size();
++    for (int64_t i = contractingDimsRank - 1; i > -1; --i) {
++      contractingDimProduct =
++          rewriter.create<AtenMulIntOp>(op->getLoc(), contractingDimProduct,
++                                        shape[contractingDims[i]]);
++      if (contractingDims[i] != rank - contractingDimsRank + i) {
++        Value contractingDim =
++            rewriter.create<ConstantIntOp>(op->getLoc(),
++                                           rewriter.getI64IntegerAttr(
++                                               contractingDims[i]));
++        Value indexDim = rewriter.create<ConstantIntOp>(
++            op->getLoc(), rewriter.getI64IntegerAttr(
++                     otherDims[otherDimsSize - usedOtherDim]));
++        inputTensor = rewriter.create<AtenTransposeIntOp>(
++            op->getLoc(), op->getResultTypes(), inputTensor, contractingDim, indexDim);
++        usedOtherDim += 1;
++      }
++    }
++    finalShape.push_back(contractingDimProduct);
++  }
++  return inputTensor;
++}
++
++static Value createReshapedTensor(PatternRewriter &rewriter, Location loc,
++                                  Operation* op, Type tensorType, Value tensor,
++                                  SmallVector<Value> &shape) {
++  auto listType = Torch::ListType::get(Torch::IntType::get(op->getContext()));
++  Value reshapedDims =
++      rewriter.create<PrimListConstructOp>(loc, listType, shape);
++  return rewriter.create<AtenReshapeOp>(loc, tensorType, tensor, reshapedDims);
++}
++
++
++class DecomposeAtenEinsumOp : public OpRewritePattern<AtenEinsumOp> {
++ public:
++  using OpRewritePattern::OpRewritePattern;
++  LogicalResult matchAndRewrite(AtenEinsumOp op,
++                                PatternRewriter &rewriter) const override {
++    Location loc = op.getLoc();
++    std::string equation;
++    if (!matchPattern(op.getEquation(), m_TorchConstantStr(equation))) {
++      return rewriter.notifyMatchFailure(op, "Unsupported value of equation");
++    }
++    SmallVector<char> resultTokens;
++    SmallVector<SmallVector<char>> inputTokens;
++    if (!parseEquation(equation, inputTokens, resultTokens)) {
++      return rewriter.notifyMatchFailure(op, "Unexpected character in equations encountered");
++    }
++
++    SmallVector<Value> inputTensors;
++    SmallVector<SmallVector<Value>> inputShapes;
++    if (!getListConstructElements(op.getTensors(), inputTensors)) {
++      return rewriter.notifyMatchFailure(
++          op, "input should comes from a PrimListConstructOp");
++    }
++
++    for (size_t i = 0; i < inputTensors.size(); i++) {
++      BaseTensorType tensorType =
++          inputTensors[i].getType().cast<BaseTensorType>();
++      if (!tensorType.hasSizes()) {
++        return rewriter.notifyMatchFailure(
++            op, "unimplemented: input tensor must have known sizes");
++      }
++      ArrayRef<int64_t> inputShape = tensorType.getSizes();
++      SmallVector<Value> inputValueShape;
++      for (unsigned j = 0; j < inputShape.size(); j++) {
++        inputValueShape.push_back(rewriter.create<AtenSizeIntOp>(
++                                        loc, inputTensors[i],
++                                        rewriter.create<Torch::ConstantIntOp>(
++                                            loc, rewriter.getI64IntegerAttr(j))));
++      }
++      inputShapes.push_back(inputValueShape);
++    }
++
++    auto collectOperandDims = [resultTokens](
++                                  const SmallVector<Value> operandShape,
++                                  const SmallVector<char> operandTokens,
++                                  const SmallVector<char> others,
++                                  SmallVectorImpl<int64_t> &contractingDims,
++                                  SmallVectorImpl<int64_t> &batchingDims,
++                                  SmallVector<char> &dotResultTokens,
++                                  SmallVector<Value> &dotResultShape) {
++      llvm::SmallDenseSet<char> othersSet(others.begin(), others.end());
++      llvm::SmallDenseSet<char> resultTokensSet(resultTokens.begin(),
++                                                resultTokens.end());
++      for (const auto &en : llvm::enumerate(operandTokens)) {
++        bool isResultToken = resultTokensSet.contains(en.value());
++        bool isOtherToken = othersSet.contains(en.value());
++        if (!isResultToken && isOtherToken) {
++          contractingDims.push_back(en.index());
++        } else if (isOtherToken) {
++          batchingDims.push_back(en.index());
++        } else {
++          dotResultTokens.push_back(en.value());
++          dotResultShape.push_back(operandShape[en.index()]);
++        }
++      }
++    };
++
++    Value constZero =
++        rewriter.create<ConstantIntOp>(loc, rewriter.getI64IntegerAttr(0));
++    Value constOne =
++        rewriter.create<ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
++    Value constTwo =
++        rewriter.create<ConstantIntOp>(loc, rewriter.getI64IntegerAttr(2));
++    if (inputTensors.size() == 1) {
++      return rewriter.notifyMatchFailure(
++            op, "unimplemented: single input tensor is not supported");
++    }
++    while (inputTensors.size() > 1) {
++      SmallVector<int64_t> lhsContractingDims, lhsBatchingDims,
++          rhsContractingDims, rhsBatchingDims;
++      SmallVector<char> dotResultTokens;
++      SmallVector<Value> dotResultShape;
++      SmallVector<Value> lhsShape = inputShapes[0];
++      SmallVector<Value> rhsShape = inputShapes[1];
++      SmallVector<char> lhsTokens = inputTokens[0];
++      SmallVector<char> rhsTokens = inputTokens[1];
++      Value lhsTensor = inputTensors[0];
++      Value rhsTensor = inputTensors[1];
++      // Step 1: split input equation to input/result tokens
++      collectOperandDims(lhsShape, lhsTokens, rhsTokens, lhsContractingDims,
++                         lhsBatchingDims, dotResultTokens, dotResultShape);
++      collectOperandDims(rhsShape, rhsTokens, lhsTokens, rhsContractingDims,
++                         rhsBatchingDims, dotResultTokens, dotResultShape);
++      // Prepend batch tokens.
++      for (const auto &it : llvm::enumerate(lhsBatchingDims)) {
++        char batchingToken = lhsTokens[it.value()];
++        Value batchingShapeDim = lhsShape[it.value()];
++        dotResultTokens.insert(dotResultTokens.begin() + it.index(),
++                               batchingToken);
++        dotResultShape.insert(dotResultShape.begin() + it.index(),
++                              batchingShapeDim);
++      }
++      // Lowering to dot_general does not support a mismatch between the number
++      // of result dims and the number of non-contracting dims.
++
++      SmallVector<Value> lhsFinalShape, rhsFinalShape;
++      SmallVector<Value> finalShape = dotResultShape;
++      // Step 2: transpose the input tensors to [batchingDims[0,1,2],
++      // otherDims[0,1,2], contractingDims[0,1,2]]
++      lhsTensor = prepareTensorForMatmulOperations(rewriter, op, lhsTensor, lhsShape,
++                               lhsContractingDims, lhsBatchingDims,
++                               lhsFinalShape, lhsTokens);
++      rhsTensor = prepareTensorForMatmulOperations(rewriter, op, rhsTensor, rhsShape,
++                               rhsContractingDims, rhsBatchingDims,
++                               rhsFinalShape, rhsTokens);
++
++      // Step 3: reshape the input tensors, the final shape should
++      // be[batchingDims, otherDims, contractingDims]
++      auto listType = Torch::ListType::get(Torch::IntType::get(op->getContext()));
++      Value lhsReshapedDims =
++          rewriter.create<PrimListConstructOp>(loc, listType, lhsFinalShape);
++      Value lhs = rewriter.create<AtenReshapeOp>(loc, op.getType(), lhsTensor, lhsReshapedDims);
++      Value rhsReshapedDims =
++          rewriter.create<PrimListConstructOp>(loc, listType, rhsFinalShape);
++      Value rhs = rewriter.create<AtenReshapeOp>(loc, op.getType(), rhsTensor, rhsReshapedDims);
++      Value result;
++
++      // Step 4: use AtenMatmulOp to get the result, loop util we
++      // get the final result
++      if (!rhsContractingDims.empty() && !rhsBatchingDims.empty()){
++        rhs = rewriter.create<AtenTransposeIntOp>(loc, op.getType(), rhs, constOne, constTwo);
++      } else if (!rhsContractingDims.empty()){
++        rhs = rewriter.create<AtenTransposeIntOp>(loc, op.getType(), rhs, constZero, constOne);
++      }
++      result = rewriter.create<AtenMatmulOp>(loc, op.getType(), lhs, rhs);
++      result = createReshapedTensor(rewriter, loc, op, op.getType(), result, finalShape);
++
++      inputTensors.erase(inputTensors.begin(), inputTensors.begin() + 2);
++      inputTokens.erase(inputTokens.begin(), inputTokens.begin() + 2);
++      inputShapes.erase(inputShapes.begin(), inputShapes.begin() + 2);
++      inputTensors.push_back(result);
++      inputTokens.push_back(dotResultTokens);
++      inputShapes.push_back(dotResultShape);
++      if (inputTokens.size() == 1) {
++        // Lowering to dot_general does not support a mismatch between the number
++        // of result dims and the number of non-contracting dims.
++        if (dotResultTokens.size() != resultTokens.size()) {
++          return rewriter.notifyMatchFailure(op,
++                                            "rank reducing einsum not supported");
++        }
++        int64_t resultSize = 0;
++        for (char resultToken : resultTokens) {
++          auto *foundIt = std::find(dotResultTokens.begin(), dotResultTokens.end(),
++                                    resultToken);
++          if (foundIt == dotResultTokens.end()) {
++            return rewriter.notifyMatchFailure(
++                op, "result token not found in operands");
++          }
++          auto resultIndex = std::distance(dotResultTokens.begin(), foundIt);
++          if (resultIndex > resultSize) {
++            Value first = rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(resultSize));
++            Value second = rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(resultIndex));
++            result = rewriter.create<AtenTransposeIntOp>(loc, op.getType(), result, first, second);
++          }
++          resultSize += 1;
++        } 
++        // The dot_general is already in an appropriate result order.
++        rewriter.replaceOp(op, ValueRange{result});
++      }
++    }
++    return success();
++  }
++};
++} // namespace
++
++
+ namespace {
+ class DecomposeComplexOpsPass
+     : public DecomposeComplexOpsBase<DecomposeComplexOpsPass> {
+@@ -5164,6 +5469,7 @@ public:
+     addPatternIfTargetOpIsIllegal<DecomposeAtenRandLikeOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenHardsigmoidOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenRelu6Op>(patterns);
++    addPatternIfTargetOpIsIllegal<DecomposeAtenEinsumOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenHardswishOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenSoftplusOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenSiluOp>(patterns);
+diff --git a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
+index 76119828..179440c6 100644
+--- a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
++++ b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
+@@ -384,6 +384,7 @@ static void markDecomposedOpsAsIllegal(MLIRContext *context,
+   target.addIllegalOp<AtenReshapeOp>();
+   target.addIllegalOp<Aten_SoftmaxBackwardDataOp>();
+   target.addIllegalOp<AtenTanhBackwardOp>();
++  target.addIllegalOp<AtenEinsumOp>();
+   target.addIllegalOp<AtenAddmmOp>();
+   target.addIllegalOp<AtenMeanOp>();
+   target.addIllegalOp<AtenMeanDimOp>();

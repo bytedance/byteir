@@ -1,4 +1,5 @@
 import brt
+import brt.utils
 import torch
 from torch.cuda.memory import caching_allocator_alloc, caching_allocator_delete
 import numpy as np
@@ -8,26 +9,6 @@ import time
 
 LLM_MODEL_PATH = sys.argv[1]
 
-def ToTorchDType(dtype : brt.DType):
-    if dtype == brt.DType.float32:
-        return torch.float32
-    if dtype == brt.DType.int32:
-        return torch.int32
-    if dtype == brt.DType.int64:
-        return torch.int64
-    if dtype == brt.DType.uint8:
-        return torch.uint8
-    if dtype == brt.DType.float16:
-        return torch.float16
-    if dtype == brt.DType.float64:
-        return torch.float64
-    if dtype == brt.DType.bool:
-        return torch.bool
-    if dtype == brt.DType.int8:
-        return torch.int8
-    if dtype == brt.DType.int16:
-        return torch.int16
-    raise RuntimeError("unsupporetd data type: {}".format(int(dtype)))
 
 def main():
     session = brt.Session(alloc_func=caching_allocator_alloc, free_func=caching_allocator_delete)
@@ -39,7 +20,7 @@ def main():
     outputs = []
 
     for offset in session.get_input_arg_offsets():
-        dtype = ToTorchDType(session.get_data_type(offset))
+        dtype = brt.utils.brt_dtype_to_torch_dtype(session.get_data_type(offset))
         if dtype in [torch.int64, torch.int32, torch.int16, torch.int8, torch.bool]:
             inputs.append(torch.zeros(session.get_static_shape(offset), dtype=dtype, device="cuda"))
         else:
@@ -48,7 +29,7 @@ def main():
         req.bind_arg(offset, inputs[-1].data_ptr())
 
     for offset in session.get_output_arg_offsets():
-        dtype = ToTorchDType(session.get_data_type(offset))
+        dtype = brt.utils.brt_dtype_to_torch_dtype(session.get_data_type(offset))
         outputs.append(torch.empty(session.get_static_shape(offset), dtype=dtype, device="cuda"))
         req.bind_arg(offset, outputs[-1].data_ptr())
 

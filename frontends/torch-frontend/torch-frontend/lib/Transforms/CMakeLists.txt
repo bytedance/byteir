@@ -6,6 +6,7 @@ add_mlir_library(TorchFrontendTransforms
 
   DEPENDS
   TorchFrontendTransformsPassIncGen
+  TorchMLIRTorchDialect
 
   LINK_COMPONENTS
   Core
@@ -14,6 +15,7 @@ add_mlir_library(TorchFrontendTransforms
   MLIRIR
   MLIRPass
   MLIRDialect
+  TorchMLIRTorchDialect
   # MLIRTransforms
   # MLIRMhloUtils
   # ChloOps
@@ -22,7 +24,6 @@ add_mlir_library(TorchFrontendTransforms
   # MhloToLinalg
   # MhloTypeConversion
   # TorchMLIRConversionUtils
-  # TorchMLIRTorchDialect
   # TorchMLIRTorchPasses
   # TorchMLIRTorchToMhlo
   # TorchMLIRTorchConversionPasses

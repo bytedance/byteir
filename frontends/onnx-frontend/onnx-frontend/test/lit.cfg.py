@@ -35,6 +35,7 @@ tool_dirs = [
 
 tools = [
     'onnx-frontend-opt',
+    'onnx-frontend'
 ]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)

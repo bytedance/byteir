@@ -27,8 +27,8 @@
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include <unordered_set>
 
-// TODO avoid using USE_CUDA
-#if USE_CUDA
+// TODO avoid using BRT_USE_CUDA
+#if BRT_USE_CUDA
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #endif
 
@@ -474,8 +474,8 @@ common::Status StaticBRTExecutionPlan::EpiloguePerSession() {
 void StaticBRTExecutionPlan::CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) {
   // create WQ
   // TODO remove this
-  // TODO avoid using USE_CUDA
-#if USE_CUDA
+  // TODO avoid using BRT_USE_CUDA
+#if BRT_USE_CUDA
   // wq_ = std::unique_ptr<WorkQueue>(new CUDAWorkQueue());
   *wq = std::unique_ptr<WorkQueue>(new CUDASingleStreamWorkQueue(0));
 #endif

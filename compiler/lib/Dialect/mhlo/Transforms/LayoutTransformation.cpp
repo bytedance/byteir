@@ -36,6 +36,8 @@ using namespace llvm;
 
 namespace {
 
+static constexpr char TransformationDisableKey[] = "__transformaion_disable__";
+
 Value createNCHW2NHWCValue(PatternRewriter &rewriter, Location loc,
                            Value input) {
   auto inputType = input.getType().cast<RankedTensorType>();
@@ -157,10 +159,10 @@ DenseIntElementsAttr createNCDHW2NDHWCAttr2(PatternRewriter &rewriter,
                             {5, 2}, &rewriter);
 }
 
-struct ConvLayoutTransformationPattern
+struct ConvLayoutTransformationNCHWPattern
     : public OpRewritePattern<mhlo::ConvolutionOp> {
-  ConvLayoutTransformationPattern(MLIRContext *context,
-                                  std::string targetLayout)
+  ConvLayoutTransformationNCHWPattern(MLIRContext *context,
+                                      const std::string &targetLayout)
       : OpRewritePattern<mhlo::ConvolutionOp>(context),
         targetLayout(targetLayout) {}
 
@@ -197,24 +199,32 @@ struct ConvLayoutTransformationPattern
             createNHWC2NCHWValue(rewriter, op->getLoc(), newOp.getResult());
         rewriter.replaceOp(op, outputTranspose);
         return success();
-      } else if (inputLayout == byteir::NamedLayout::NHWC &&
-                 kernelLayout == byteir::NamedLayout::HWCN &&
-                 outputLayout == byteir::NamedLayout::NHWC) {
-        Value rhsTranspose =
-            createHWCN2NHWCValue(rewriter, op->getLoc(), op.getRhs());
-        auto newDimensionNumbers = mhlo::ConvDimensionNumbersAttr::get(
-            rewriter.getContext(), 0, 3, {1, 2}, 3, 0, {1, 2}, 0, 3, {1, 2});
-        mhlo::ConvolutionOp newOp = rewriter.create<mhlo::ConvolutionOp>(
-            op->getLoc(), op.getType(), op.getLhs(), rhsTranspose,
-            op.getWindowStridesAttr(), op.getPaddingAttr(),
-            op.getLhsDilationAttr(), op.getRhsDilationAttr(),
-            op.getWindowReversalAttr(), newDimensionNumbers,
-            op.getFeatureGroupCountAttr(), op.getBatchGroupCountAttr(),
-            op.getPrecisionConfigAttr());
-        rewriter.replaceOp(op, newOp.getResult());
-        return success();
       }
-    } else if (targetLayout == "NDHWC") {
+    }
+    return failure();
+  }
+  std::string targetLayout;
+};
+
+struct ConvLayoutTransformationNCDHWPattern
+    : public OpRewritePattern<mhlo::ConvolutionOp> {
+  ConvLayoutTransformationNCDHWPattern(MLIRContext *context,
+                                       const std::string &targetLayout)
+      : OpRewritePattern<mhlo::ConvolutionOp>(context),
+        targetLayout(targetLayout) {}
+
+  LogicalResult matchAndRewrite(mhlo::ConvolutionOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->getParentOfType<mhlo::FusionOp>()) {
+      return failure();
+    }
+    auto dimensionNumbers = op.getDimensionNumbers();
+    auto convLayout = getConvLayout(dimensionNumbers);
+    auto inputLayout = std::get<0>(convLayout);
+    auto kernelLayout = std::get<1>(convLayout);
+    auto outputLayout = std::get<2>(convLayout);
+
+    if (targetLayout == "NDHWC") {
       if (inputLayout == byteir::NamedLayout::NCDHW &&
           kernelLayout == byteir::NamedLayout::NCDHW &&
           outputLayout == byteir::NamedLayout::NCDHW) {
@@ -244,10 +254,52 @@ struct ConvLayoutTransformationPattern
   std::string targetLayout;
 };
 
+struct ConvLayoutTransformationNHWCPattern
+    : public OpRewritePattern<mhlo::ConvolutionOp> {
+  ConvLayoutTransformationNHWCPattern(MLIRContext *context,
+                                      const std::string &targetLayout)
+      : OpRewritePattern<mhlo::ConvolutionOp>(context),
+        targetLayout(targetLayout) {}
+
+  LogicalResult matchAndRewrite(mhlo::ConvolutionOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->getParentOfType<mhlo::FusionOp>()) {
+      return failure();
+    }
+    auto dimensionNumbers = op.getDimensionNumbers();
+    auto convLayout = getConvLayout(dimensionNumbers);
+    auto inputLayout = std::get<0>(convLayout);
+    auto kernelLayout = std::get<1>(convLayout);
+    auto outputLayout = std::get<2>(convLayout);
+
+    if (targetLayout == "NHWC") {
+      if (inputLayout == byteir::NamedLayout::NHWC &&
+          kernelLayout == byteir::NamedLayout::HWCN &&
+          outputLayout == byteir::NamedLayout::NHWC) {
+        Value rhsTranspose =
+            createHWCN2NHWCValue(rewriter, op->getLoc(), op.getRhs());
+        auto newDimensionNumbers = mhlo::ConvDimensionNumbersAttr::get(
+            rewriter.getContext(), 0, 3, {1, 2}, 3, 0, {1, 2}, 0, 3, {1, 2});
+        mhlo::ConvolutionOp newOp = rewriter.create<mhlo::ConvolutionOp>(
+            op->getLoc(), op.getType(), op.getLhs(), rhsTranspose,
+            op.getWindowStridesAttr(), op.getPaddingAttr(),
+            op.getLhsDilationAttr(), op.getRhsDilationAttr(),
+            op.getWindowReversalAttr(), newDimensionNumbers,
+            op.getFeatureGroupCountAttr(), op.getBatchGroupCountAttr(),
+            op.getPrecisionConfigAttr());
+        rewriter.replaceOp(op, newOp.getResult());
+        return success();
+      }
+    }
+    return failure();
+  }
+  std::string targetLayout;
+};
+
 struct ConvBackwardLayoutTransformationPattern
     : public OpRewritePattern<mhlo::FusionOp> {
   ConvBackwardLayoutTransformationPattern(MLIRContext *context,
-                                          std::string targetLayout)
+                                          const std::string &targetLayout)
       : OpRewritePattern<mhlo::FusionOp>(context), targetLayout(targetLayout) {}
 
   LogicalResult matchAndRewrite(mhlo::FusionOp op,
@@ -320,10 +372,10 @@ struct ConvBackwardLayoutTransformationPattern
   std::string targetLayout;
 };
 
-struct ReduceWindownLayoutTransformationPattern
+struct ReduceWindownLayoutTransformationNCHWPattern
     : public OpRewritePattern<mhlo::ReduceWindowOp> {
-  ReduceWindownLayoutTransformationPattern(MLIRContext *context,
-                                           std::string targetLayout)
+  ReduceWindownLayoutTransformationNCHWPattern(MLIRContext *context,
+                                               const std::string &targetLayout)
       : OpRewritePattern<mhlo::ReduceWindowOp>(context),
         targetLayout(targetLayout) {}
   LogicalResult matchAndRewrite(mhlo::ReduceWindowOp op,
@@ -336,9 +388,12 @@ struct ReduceWindownLayoutTransformationPattern
       return failure();
     }
     auto operand = *(op.getInputs().begin());
-    auto layout = getPoolLayout(op);
+    if (!isValidPoolOrPoolGradLayout(op) ||
+        op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
 
-    if (targetLayout == "NHWC" && layout == byteir::NamedLayout::NCHW) {
+    if (targetLayout == "NHWC") {
       Value operandTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), operand);
       Type outputType = createNCHW2NHWCType(op->getResults()[0].getType());
@@ -356,9 +411,36 @@ struct ReduceWindownLayoutTransformationPattern
       Value outputTranspose =
           createNHWC2NCHWValue(rewriter, op->getLoc(), newOp->getResults()[0]);
       rewriter.replaceOp(op, outputTranspose);
+      newOp->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
       return success();
-    } else if (targetLayout == "NDHWC" &&
-               layout == byteir::NamedLayout::NCDHW) {
+    }
+    return failure();
+  }
+  std::string targetLayout;
+};
+
+struct ReduceWindownLayoutTransformationNCDHWPattern
+    : public OpRewritePattern<mhlo::ReduceWindowOp> {
+  ReduceWindownLayoutTransformationNCDHWPattern(MLIRContext *context,
+                                                const std::string &targetLayout)
+      : OpRewritePattern<mhlo::ReduceWindowOp>(context),
+        targetLayout(targetLayout) {}
+  LogicalResult matchAndRewrite(mhlo::ReduceWindowOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->getParentOfType<mhlo::FusionOp>()) {
+      return failure();
+    }
+    if (op.getInputs().size() != 1 || op.getInitValues().size() != 1 ||
+        op->getResults().size() != 1) {
+      return failure();
+    }
+    auto operand = *(op.getInputs().begin());
+    if (!isValidPoolOrPoolGradLayout(op) ||
+        op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
+
+    if (targetLayout == "NDHWC") {
       Value operandTranspose =
           createNCDHW2NDHWCValue(rewriter, op->getLoc(), operand);
       Type outputType = createNCDHW2NDHWCType(op->getResults()[0].getType());
@@ -376,6 +458,7 @@ struct ReduceWindownLayoutTransformationPattern
       Value outputTranspose = createNDHWC2NCDHWValue(rewriter, op->getLoc(),
                                                      newOp->getResults()[0]);
       rewriter.replaceOp(op, outputTranspose);
+      newOp->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
       return success();
     }
     return failure();
@@ -383,10 +466,10 @@ struct ReduceWindownLayoutTransformationPattern
   std::string targetLayout;
 };
 
-struct SelectAndScatterLayoutTransformationPattern
+struct SelectAndScatterLayoutTransformationNCHWPattern
     : public OpRewritePattern<mhlo::SelectAndScatterOp> {
-  SelectAndScatterLayoutTransformationPattern(MLIRContext *context,
-                                              std::string targetLayout)
+  SelectAndScatterLayoutTransformationNCHWPattern(
+      MLIRContext *context, const std::string &targetLayout)
       : OpRewritePattern<mhlo::SelectAndScatterOp>(context),
         targetLayout(targetLayout) {}
   LogicalResult matchAndRewrite(mhlo::SelectAndScatterOp op,
@@ -394,9 +477,12 @@ struct SelectAndScatterLayoutTransformationPattern
     if (op->getParentOfType<mhlo::FusionOp>()) {
       return failure();
     }
-    auto layout = getPoolGradLayout(op);
+    if (!isValidPoolOrPoolGradLayout(op) ||
+        op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
 
-    if (targetLayout == "NHWC" && layout == byteir::NamedLayout::NCHW) {
+    if (targetLayout == "NHWC") {
       Value operandTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
       Value sourceTranspose =
@@ -415,9 +501,31 @@ struct SelectAndScatterLayoutTransformationPattern
       Value outputTranspose =
           createNHWC2NCHWValue(rewriter, op->getLoc(), newOp.getResult());
       rewriter.replaceOp(op, outputTranspose);
+      newOp->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
       return success();
-    } else if (targetLayout == "NDHWC" &&
-               layout == byteir::NamedLayout::NCDHW) {
+    }
+    return failure();
+  }
+  std::string targetLayout;
+};
+
+struct SelectAndScatterLayoutTransformationNCDHWPattern
+    : public OpRewritePattern<mhlo::SelectAndScatterOp> {
+  SelectAndScatterLayoutTransformationNCDHWPattern(
+      MLIRContext *context, const std::string &targetLayout)
+      : OpRewritePattern<mhlo::SelectAndScatterOp>(context),
+        targetLayout(targetLayout) {}
+  LogicalResult matchAndRewrite(mhlo::SelectAndScatterOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->getParentOfType<mhlo::FusionOp>()) {
+      return failure();
+    }
+    if (!isValidPoolOrPoolGradLayout(op) ||
+        op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
+
+    if (targetLayout == "NDHWC") {
       Value operandTranspose =
           createNCDHW2NDHWCValue(rewriter, op->getLoc(), op.getOperand());
       Value sourceTranspose =
@@ -436,6 +544,7 @@ struct SelectAndScatterLayoutTransformationPattern
       Value outputTranspose =
           createNDHWC2NCDHWValue(rewriter, op->getLoc(), newOp.getResult());
       rewriter.replaceOp(op, outputTranspose);
+      newOp->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
       return success();
     }
     return failure();
@@ -446,7 +555,7 @@ struct SelectAndScatterLayoutTransformationPattern
 struct BatchNormTrainingLayoutTransformationPattern
     : public OpRewritePattern<mhlo::BatchNormTrainingOp> {
   BatchNormTrainingLayoutTransformationPattern(MLIRContext *context,
-                                               std::string targetLayout)
+                                               const std::string &targetLayout)
       : OpRewritePattern<mhlo::BatchNormTrainingOp>(context),
         targetLayout(targetLayout) {}
 
@@ -455,9 +564,11 @@ struct BatchNormTrainingLayoutTransformationPattern
     if (op->getParentOfType<mhlo::FusionOp>()) {
       return failure();
     }
+    if (op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
     auto inputType = op.getOperand().getType().cast<RankedTensorType>();
-    if (targetLayout == "NHWC" && inputType.getRank() == 4 &&
-        op.getFeatureIndex() == 1) {
+    if (targetLayout == "NHWC") {
       Value inputTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
       Type outputType = createNCHW2NHWCType(op.getOutput().getType());
@@ -473,6 +584,45 @@ struct BatchNormTrainingLayoutTransformationPattern
 
       rewriter.replaceOp(op, {outputTranspose, opTranspose.getBatchMean(),
                               opTranspose.getBatchVar()});
+      opTranspose->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
+      return success();
+    } else {
+      return failure();
+    }
+  }
+  std::string targetLayout;
+};
+
+struct BatchNormInferenceLayoutTransformationPattern
+    : public OpRewritePattern<mhlo::BatchNormInferenceOp> {
+  BatchNormInferenceLayoutTransformationPattern(MLIRContext *context,
+                                                const std::string &targetLayout)
+      : OpRewritePattern<mhlo::BatchNormInferenceOp>(context),
+        targetLayout(targetLayout) {}
+
+  LogicalResult matchAndRewrite(mhlo::BatchNormInferenceOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op->getParentOfType<mhlo::FusionOp>()) {
+      return failure();
+    }
+    if (op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
+    auto inputType = op.getOperand().getType().cast<RankedTensorType>();
+    if (targetLayout == "NHWC") {
+      Value inputTranspose =
+          createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
+      Type resultType = createNCHW2NHWCType(op.getResult().getType());
+      mhlo::BatchNormInferenceOp opTranspose =
+          rewriter.create<mhlo::BatchNormInferenceOp>(
+              op->getLoc(), resultType, inputTranspose, op.getScale(),
+              op.getOffset(), op.getMean(), op.getVariance(),
+              op.getEpsilonAttr(), rewriter.getI64IntegerAttr(3));
+      Value outputTranspose =
+          createNHWC2NCHWValue(rewriter, op->getLoc(), opTranspose.getResult());
+
+      rewriter.replaceOp(op, outputTranspose);
+      opTranspose->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
       return success();
     } else {
       return failure();
@@ -484,7 +634,7 @@ struct BatchNormTrainingLayoutTransformationPattern
 struct BatchNormGradLayoutTransformationPattern
     : public OpRewritePattern<mhlo::BatchNormGradOp> {
   BatchNormGradLayoutTransformationPattern(MLIRContext *context,
-                                           std::string targetLayout)
+                                           const std::string &targetLayout)
       : OpRewritePattern<mhlo::BatchNormGradOp>(context),
         targetLayout(targetLayout) {}
   LogicalResult matchAndRewrite(mhlo::BatchNormGradOp op,
@@ -492,9 +642,11 @@ struct BatchNormGradLayoutTransformationPattern
     if (op->getParentOfType<mhlo::FusionOp>()) {
       return failure();
     }
+    if (op->hasAttr(TransformationDisableKey)) {
+      return failure();
+    }
     auto inputType = op.getOperand().getType().cast<RankedTensorType>();
-    if (targetLayout == "NHWC" && inputType.getRank() == 4 &&
-        op.getFeatureIndex() == 1) {
+    if (targetLayout == "NHWC") {
       Value operandTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
       Value gradOutputTranspose =
@@ -512,6 +664,7 @@ struct BatchNormGradLayoutTransformationPattern
           rewriter, op->getLoc(), opTranspose.getGradOperand());
       rewriter.replaceOp(op, {outputTranspose, opTranspose.getGradScale(),
                               opTranspose.getGradOffset()});
+      opTranspose->setAttr(TransformationDisableKey, rewriter.getUnitAttr());
       return success();
     }
     return failure();
@@ -519,15 +672,58 @@ struct BatchNormGradLayoutTransformationPattern
   std::string targetLayout;
 };
 
+// return NamedLayout::UNKNOWN when there is no conv op in funcOp
+// or when there are different layout between conv ops in funcOp
+// return the input layout of conv op when there are conv op which have
+// the same input layout in funcOp
+byteir::NamedLayout findGlobalLayout(func::FuncOp func) {
+  Region &body = func.getBody();
+  byteir::NamedLayout inputLayout = byteir::NamedLayout::UNKNOWN;
+
+  func.walk([&inputLayout](mhlo::ConvolutionOp conv) {
+    auto convDimNumAttr = conv.getDimensionNumbers();
+    byteir::NamedLayout localLayout =
+        std::get<0>(getConvLayout(convDimNumAttr));
+    if (inputLayout == byteir::NamedLayout::UNKNOWN) {
+      inputLayout = localLayout;
+    } else {
+      if (inputLayout != localLayout) {
+        inputLayout = byteir::NamedLayout::UNKNOWN;
+      }
+    }
+  });
+
+  return inputLayout;
+}
+
 struct LayoutTransformationPass
     : LayoutTransformationBase<LayoutTransformationPass> {
-  LayoutTransformationPass(std::string target_layout)
+  LayoutTransformationPass(const std::string &targetLayout)
       : LayoutTransformationBase() {
-    this->targetLayout = target_layout;
+    this->targetLayout = targetLayout;
   }
 
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
+    auto attr = funcOp->getAttr("byteir.layout").dyn_cast_or_null<StringAttr>();
+    std::string globalLayoutStr;
+    if (attr) {
+      globalLayoutStr = attr.str();
+    } else {
+      byteir::NamedLayout globalLayout = findGlobalLayout(funcOp);
+      globalLayoutStr = stringifyEnum(globalLayout);
+    }
+    if (globalLayoutStr == "UNKNOWN") {
+      funcOp.emitWarning("LayoutTransformationPass: global layout is unknown");
+      return;
+    } else if (globalLayoutStr.size() != this->targetLayout.size()) {
+      funcOp.emitWarning(
+          "LayoutTransformationPass doesn't support that the dimension numbers "
+          "of global layout and target layout are different. The global layout "
+          "is ")
+          << globalLayoutStr << ", the target layout is " << this->targetLayout;
+      return;
+    }
     if (this->targetLayout != "NHWC" && this->targetLayout != "NDHWC") {
       funcOp.emitError(
           "LayoutTransformationPass doesn't support target layout: ")
@@ -536,31 +732,50 @@ struct LayoutTransformationPass
     }
 
     RewritePatternSet patterns(funcOp.getContext());
-    populateLayoutTransformationPattern(patterns, this->targetLayout);
+    populateLayoutTransformationPattern(patterns, this->targetLayout,
+                                        globalLayoutStr);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
       funcOp.emitError("LayoutTransformationPass applyPatternsAndFoldGreedily "
                        "does not converge");
       signalPassFailure();
     }
+    funcOp.walk([](Operation *op) {
+      if (op->hasAttr(TransformationDisableKey))
+        op->removeAttr(TransformationDisableKey);
+    });
   }
 };
 } // namespace
 
-void mlir::populateLayoutTransformationPattern(RewritePatternSet &patterns,
-                                               std::string targetLayout) {
-  // clang-format off
-  patterns.add<ConvLayoutTransformationPattern,
-               ConvBackwardLayoutTransformationPattern,
-               ReduceWindownLayoutTransformationPattern,
-               SelectAndScatterLayoutTransformationPattern,
-               BatchNormTrainingLayoutTransformationPattern,
-               BatchNormGradLayoutTransformationPattern>(patterns.getContext(),
-                                                         targetLayout);
-  // clang-format on
+void mlir::populateLayoutTransformationPattern(
+    RewritePatternSet &patterns, const std::string &targetLayout,
+    const std::string &globalLayoutStr) {
+  if (globalLayoutStr == "NHWC") {
+    patterns.add<ConvLayoutTransformationNHWCPattern>(patterns.getContext(),
+                                                      targetLayout);
+  } else if (globalLayoutStr == "NCHW") {
+    // clang-format off
+    patterns.add<ConvLayoutTransformationNCHWPattern,
+                ConvBackwardLayoutTransformationPattern,
+                ReduceWindownLayoutTransformationNCHWPattern,
+                SelectAndScatterLayoutTransformationNCHWPattern,
+                BatchNormTrainingLayoutTransformationPattern,
+                BatchNormGradLayoutTransformationPattern,
+                BatchNormInferenceLayoutTransformationPattern>(patterns.getContext(),
+                                                          targetLayout);
+    // clang-format on
+  } else if (globalLayoutStr == "NCDHW") {
+    // clang-format off
+    patterns.add<ConvLayoutTransformationNCDHWPattern,
+                ReduceWindownLayoutTransformationNCDHWPattern,
+                SelectAndScatterLayoutTransformationNCDHWPattern>(patterns.getContext(),
+                                                          targetLayout);
+    // clang-format on
+  }
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createLayoutTransformationPass(std::string target_layout) {
-  return std::make_unique<LayoutTransformationPass>(target_layout);
+mlir::createLayoutTransformationPass(const std::string &targetLayout) {
+  return std::make_unique<LayoutTransformationPass>(targetLayout);
 }

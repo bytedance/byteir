@@ -28,7 +28,7 @@
 
 #include "brt/core/context/work_queue.h"
 
-#ifdef USE_CUDA
+#ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
@@ -233,7 +233,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
              if (device != "CUDA") {
                throw std::runtime_error("unsupported device type " + device);
              }
-#ifdef USE_CUDA
+#ifdef BRT_USE_CUDA
              else {
                if (!alloc_f || !free_f) {
                  THROW_ON_FAIL(
@@ -262,7 +262,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
           "new_request_context",
           [](std::shared_ptr<Session> session, std::optional<size_t> stream) {
             std::unique_ptr<WorkQueue> work_queue;
-#ifdef USE_CUDA
+#ifdef BRT_USE_CUDA
             if (stream.has_value()) {
               work_queue.reset(new CUDAExternalStreamWorkQueue(
                   reinterpret_cast<CUstream_st *>(stream.value())));
