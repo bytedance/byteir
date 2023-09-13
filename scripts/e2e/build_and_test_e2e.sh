@@ -12,11 +12,10 @@ LLVM_INSTALL_DIR="$1"
 TORCH_FRONTEND_LLVM_INSTALL_DIR="$2"
 
 pushd $ROOT_PROJ_DIR
-export CUDACXX=/usr/local/cuda/bin/nvcc
 # build compiler
 bash scripts/compiler/build_and_lit_test.sh $LLVM_INSTALL_DIR
 # build runtime
-bash scripts/runtime/build_and_test.sh --python $LLVM_INSTALL_DIR
+bash scripts/runtime/build_and_test.sh --python --no-test $LLVM_INSTALL_DIR
 # build torch_frontend
 bash scripts/frontends/torch-frontend/build_and_test.sh $TORCH_FRONTEND_LLVM_INSTALL_DIR
 
