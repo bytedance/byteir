@@ -200,3 +200,29 @@ func.func @torch.aten.nll_loss_backward(%arg0: !torch.vtensor<[],f32>, %arg1: !t
 // CHECK-SAME: @byteir.nll_loss_backward
 // CHECK: byteir_attrs = {ignore_index = -1 : i64, reduction = 1 : i64}
 // CHECH-NOT: torch.aten.nll_loss_backward
+
+func.func @torch.byteir.flash_attn_fwd(%arg0: !torch.vtensor<[2,12,256,128],f32>, %arg1: !torch.vtensor<[2,12,256,128],f32>, %arg2: !torch.vtensor<[2,12,256,128],f32>) -> (!torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,256,12],f32>, !torch.vtensor<[2],si64>) {
+  %float1.000000e00 = torch.constant.float 1.000000e+00
+  %float1.000000e-01 = torch.constant.float 1.000000e-01
+  %false = torch.constant.bool false
+  %0:8 = torch.operator "byteir.flash_attn_fwd"(%arg0, %arg1, %arg2, %float1.000000e-01, %float1.000000e00, %false, %false) : (!torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.float, !torch.float, !torch.bool, !torch.bool) -> (!torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,256,12],f32>, !torch.vtensor<[2,256,12,12],f32>, !torch.vtensor<[2],si64>)
+  return %0#0, %0#1, %0#2, %0#3, %0#4, %0#5, %0#7 : !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,256,12],f32>, !torch.vtensor<[2],si64>
+}
+// CHECK-LABEL: func.func @torch.byteir.flash_attn_fwd
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.flash_attn_fwd
+// CHECK: byteir_attrs = {causal = false, dropout_p = 1.000000e-01 : f64, return_softmax = false, softmax_scale = 1.000000e+00 : f64}
+// CHECH-NOT: torch.operator
+
+func.func @torch.byteir.flash_attn_bwd(%arg0: !torch.vtensor<[2,256,12,128],f16>, %arg1: !torch.vtensor<[2,256,12,128],f16>, %arg2: !torch.vtensor<[2,256,12,128],f16>, %arg3: !torch.vtensor<[2,256,12,128],f16>, %arg4: !torch.vtensor<[2,256,12,128],f16>, %arg5: !torch.vtensor<[2,12,256],f32>, %arg6: !torch.vtensor<[2],si64>) -> (!torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,12,256],f32>, !torch.vtensor<[2,12,256,128],f32>) {
+  %float1.000000e00 = torch.constant.float 1.000000e+00
+  %float1.000000e-01 = torch.constant.float 1.000000e-01
+  %true = torch.constant.bool true
+  %0:5 = torch.operator "byteir.flash_attn_bwd"(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %float1.000000e-01, %float1.000000e00, %true, %arg6) : (!torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,12,256],f32>, !torch.float, !torch.float, !torch.bool, !torch.vtensor<[2],si64>) -> (!torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,12,256],f32>, !torch.vtensor<[2,12,256,128],f32>)
+  return %0#0, %0#1, %0#2, %0#3, %0#4: !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,12,256],f32>, !torch.vtensor<[2,12,256,128],f32>
+}
+// CHECK-LABEL: func.func @torch.byteir.flash_attn_bwd
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.flash_attn_bwd
+// CHECK: byteir_attrs = {causal = true, dropout_p = 1.000000e-01 : f64, softmax_scale = 1.000000e+00 : f64}
+// CHECH-NOT: torch.operator

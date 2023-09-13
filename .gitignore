@@ -23,6 +23,8 @@
 
 # Nested build directory
 build/
+__pycache__/
+.pytest_cache/
 
 # bazel
 **/bazel*

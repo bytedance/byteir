@@ -93,6 +93,13 @@ constexpr llvm::StringRef getDynamicMaskStitchName() {
   return TF_NAME_PREFIX "DynamicMaskStitch";
 }
 
+constexpr llvm::StringRef getFlashAttnFwdName() {
+  return CUSTOM_CALL_NAME_PREFIX "flash_attn_fwd";
+}
+
+constexpr llvm::StringRef getFlashAttnBwdName() {
+  return CUSTOM_CALL_NAME_PREFIX "flash_attn_bwd";
+}
 } // namespace mlir
 
 #endif // TORCH_FRONTEND_UTILS_CUSTOMCALLUTIL_H

@@ -142,6 +142,7 @@ struct TfFallbackToCustomCallPass
       Type elementType =
           tensor_type == nullptr ? t : tensor_type.getElementType();
       return elementType.isa<TF::StringType>() ||
+             elementType.isa<ace::StringType>() ||
              elementType.isa<TF::ResourceType>();
     };
 

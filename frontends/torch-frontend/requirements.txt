@@ -10,7 +10,7 @@ torchvision==0.16.0.dev20230820
 # torch==2.1.0.dev20230820+cu118
 # torchvision==0.16.0.dev20230820+cu118
 
-# transformers
+transformers==4.29.2
 
 
 # The following copied from torch-mlir

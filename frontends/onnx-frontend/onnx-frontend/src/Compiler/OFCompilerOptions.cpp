@@ -39,6 +39,11 @@ llvm::cl::opt<bool> forceSetBatchSize(
                    "even if it is already set"),
     llvm::cl::init(false), llvm::cl::cat(OnnxFrontendOptions));
 
+llvm::cl::opt<std::string> inputShapes(
+    "input-name-and-shapes",
+    llvm::cl::desc("Specify some input's shapes. Ex. name0,2,3:name1,3,4"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxFrontendOptions));
+
 llvm::cl::opt<int>
     ofRepeatStatic("of-repeat-static",
                    llvm::cl::desc("invoke onnx transform pass (shape "

@@ -1599,6 +1599,104 @@ mlir::mhlo::simplifyTransposeReshapeTranspose(mhlo::TransposeOp op,
                                                transposeOp.getOperand());
   return success();
 }
+namespace {
+template <typename T>
+Attribute foldReverseHelper(DenseElementsAttr &attr, ShapedType &type,
+                            DenseIntElementsAttr &dims) {
+  int64_t numElements = attr.getNumElements();
+  // No-op if the tensor has 0 elements.
+  // No-op if the result of folding is too large.
+  if (numElements == 0)
+    return {};
+
+  SmallVector<T> result(attr.getValues<T>().begin(), attr.getValues<T>().end());
+
+  size_t rank = type.getRank();
+  SmallVector<int64_t> stride(rank + 1, numElements);
+  for (size_t i = 0; i < rank; i++) {
+    if (type.getDimSize(i) == 0)
+      return {};
+    stride[i + 1] = stride[i] / type.getDimSize(i);
+  }
+
+  for (auto dim : dims.getValues<int64_t>()) {
+    // For example, given:
+    //   * tensor: tensor<2x3x2xi32>
+    //     [[[1, 2], [3, 4], [5, 6]], [[7, 8], [9,10], [11, 12]]]
+    //   * dim: [1]
+    //
+    // We're going to reverse the tensor with respect to dim as follows:
+    //   1) Split the tensor into blocks, i.e. smaller tensors whose type is
+    //   derived from the tensor by dropping the first `dim` dimensions, i.e.
+    //   tensor<3x2xi32> for the running example.
+    //   2) Split each block into windows, i.e. even smaller tensors whose
+    //   type is derived from the block by dropping the first dimension of the
+    //   block, i.e. tensor<2xi32> for the running example.
+    //   3) Within each block, swap windows but don't change the order of
+    //   elements within the windows: 0th window goes to N-1st spot, 1st
+    //   window goes to N-2nd spot etc.
+    //
+    // For the running example, the result will be:
+    //   [[[5, 6], [3, 4], [1, 2]], [[11, 12], [9, 10], [7, 8]]].
+    //
+    // Note how elements within windows haven't changed their order with
+    // respect to each other and how blocks haven't changed their order with
+    // respect to each other.
+    int64_t numWindows = type.getDimSize(dim);
+    int64_t windowSize = stride[dim] / numWindows;
+
+    for (int64_t index = 0; index < numElements; index++) {
+      int64_t blockNumber = index / stride[dim];
+      int64_t windowNumber = (index % stride[dim]) / windowSize;
+      int64_t reversedWindowNumber = numWindows - windowNumber - 1;
+      if (windowNumber >= reversedWindowNumber)
+        continue;
+      int64_t reversedIndex = blockNumber * stride[dim] +
+                              reversedWindowNumber * windowSize +
+                              index % windowSize;
+      std::swap(result[index], result[reversedIndex]);
+    }
+  }
+  return DenseElementsAttr::get(type, result);
+}
+} // namespace
+
+// this pattern almost copy from mlir-hlo/mhlo/IR/hlo_ops.cc,
+// but drop the upper limit of tensor's size to fold the large constant tensor
+LogicalResult mlir::mhlo::foldReverseWithConstant(mhlo::ReverseOp op,
+                                                  PatternRewriter &rewriter) {
+  auto constantOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+  if (!constantOp) {
+    return failure();
+  }
+  mlir::DenseElementsAttr constVal =
+      constantOp.getValue().dyn_cast<mlir::DenseElementsAttr>();
+  auto shapedType = constVal.getType();
+  DenseIntElementsAttr dims = op.getDimensions();
+
+  if (constVal.isSplat()) {
+    rewriter.replaceOp(op, constantOp);
+  } else if (dims.getNumElements() == 0) {
+    rewriter.replaceOp(op, constantOp);
+  } else if (llvm::all_of(dims.getValues<int64_t>(), [&](int64_t dim) {
+               return shapedType.getDimSize(dim) == 1;
+             })) {
+    // If size of all dimensions to reverse equals 1, then the reverse is a
+    // no-op. Eg. Reverse dimensions {0,1} of a 1x1x2 tensor
+    rewriter.replaceOp(op, constantOp);
+  } else {
+    Attribute newConstAttr;
+    auto etype = constVal.getElementType();
+    if (etype.isa<IntegerType>())
+      newConstAttr = foldReverseHelper<APInt>(constVal, shapedType, dims);
+    if (etype.isa<FloatType>())
+      newConstAttr = foldReverseHelper<APFloat>(constVal, shapedType, dims);
+    auto newConstOp =
+        rewriter.create<mhlo::ConstantOp>(op.getLoc(), newConstAttr);
+    rewriter.replaceOp(op, newConstOp);
+  }
+  return success();
+}
 
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
@@ -1626,6 +1724,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::foldConcatWithSlicesAndRehape);
   patterns.add(mlir::mhlo::simplifyCumsumToIota);
   patterns.add(mlir::mhlo::simplifyTransposeReshapeTranspose);
+  patterns.add(mlir::mhlo::foldReverseWithConstant);
   if (blindFold) {
     patterns.add(mlir::mhlo::foldLargeConcatenate);
   }

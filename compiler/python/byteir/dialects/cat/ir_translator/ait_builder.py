@@ -69,7 +69,7 @@ class ait_builder:
             idx += 1
 
         # Note: variable `lib_path` is constructed according to the code in compile_model()
-        lib_path = os.path.join(self.workdir, self.test_name, self.dll_name,)
+        lib_path = os.path.join(self.workdir, self.test_name, self.dll_name)
         print("AIT module path {} for {}".format(lib_path, self.dll_name))
         self.ait_module_path = lib_path
 

@@ -15,6 +15,7 @@
 import numpy as np
 from byteir import ir
 import torch
+from subprocess import PIPE, Popen
 
 def mlir_type_to_np_dtype(mlir_type):
     if str(mlir_type) == "f64":
@@ -115,3 +116,22 @@ def torch_dtype_from_str(dtype_name: str) -> torch.dtype:
         "bool": torch.bool,
     }
     return _map.get(dtype_name, None)
+
+def get_gpu_type():
+    try:
+        proc = Popen(
+            ["nvidia-smi", "-L"],
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+        stdout, stderr = proc.communicate()
+        stdout = stdout.decode("utf-8")
+        lines = stdout.split("\n")
+        # only check device 0
+        line = lines[0] 
+        # line is like: GPU 0: NVIDIA A10 (UUID: GPU-xxx-xxx-xxx-xxx-xxxx)
+        _, line = line.split(":", 1)
+        line, _ = line.split("(")
+        return line.strip()
+    except Exception:
+        return None

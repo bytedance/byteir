@@ -1,7 +1,7 @@
 // RUN: byteir-opt %s -transform-layout="target-layout=NHWC" | FileCheck %s
 // RUN: byteir-opt %s -transform-layout="target-layout=NDHWC" | FileCheck %s --check-prefix NDHWC
 
-func.func @batch_norm_training_fp16(%arg0: tensor<1x64x56x56xf16>, %arg1: tensor<64xf32>, %arg2: tensor<64xf32>) -> tensor<1x64x56x56xf16> {
+func.func @batch_norm_training_fp16(%arg0: tensor<1x64x56x56xf16>, %arg1: tensor<64xf32>, %arg2: tensor<64xf32>) -> tensor<1x64x56x56xf16> attributes {byteir.layout = "NCHW"}{
   %0 = "mhlo.convert"(%arg0) : (tensor<1x64x56x56xf16>) -> tensor<1x64x56x56xf32>
   %1:3 = "mhlo.batch_norm_training"(%0, %arg1, %arg2) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64} : (tensor<1x64x56x56xf32>, tensor<64xf32>, tensor<64xf32>) -> (tensor<1x64x56x56xf32>, tensor<64xf32>, tensor<64xf32>)
   %2 = "mhlo.convert"(%1#0) : (tensor<1x64x56x56xf32>) -> tensor<1x64x56x56xf16>
@@ -15,7 +15,7 @@ func.func @batch_norm_training_fp16(%arg0: tensor<1x64x56x56xf16>, %arg1: tensor
 // CHECK-NEXT:  mhlo.convert
 // CHECK-NEXT:  return
 
-func.func @batch_norm_grad_fp16(%arg0: tensor<32x256x14x14xf16>, %arg1: tensor<32x256x14x14xf16>, %arg2: tensor<256xf32>, %arg3: tensor<256xf32>, %7: tensor<256xf32>) -> (tensor<32x256x14x14xf16>, tensor<256xf32>, tensor<256xf32>) {
+func.func @batch_norm_grad_fp16(%arg0: tensor<32x256x14x14xf16>, %arg1: tensor<32x256x14x14xf16>, %arg2: tensor<256xf32>, %arg3: tensor<256xf32>, %7: tensor<256xf32>) -> (tensor<32x256x14x14xf16>, tensor<256xf32>, tensor<256xf32>) attributes {byteir.layout = "NCHW"} {
   %0 = "mhlo.convert"(%arg1) : (tensor<32x256x14x14xf16>) -> tensor<32x256x14x14xf32>
   %8 = "mhlo.convert"(%arg0) : (tensor<32x256x14x14xf16>) -> tensor<32x256x14x14xf32>
   %9:3 = "mhlo.batch_norm_grad"(%0, %arg2, %arg3, %7, %8) {epsilon = 9.99999974E-6 : f32, feature_index = 1 : i64} : (tensor<32x256x14x14xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<32x256x14x14xf32>) -> (tensor<32x256x14x14xf32>, tensor<256xf32>, tensor<256xf32>)
@@ -51,7 +51,7 @@ func.func @conv_NHWC(%125: tensor<1x56x56x64xf32>, %54: tensor<1x1x64x256xf32>) 
 // CHECK-NEXT:  %0 = "mhlo.transpose"(%arg1) {permutation = dense<[3, 0, 1, 2]> : tensor<4xi64>} : (tensor<1x1x64x256xf32>) -> tensor<256x1x1x64xf32>
 // CHECK-NEXT:  %1 = mhlo.convolution(%arg0, %0) dim_numbers = [b, 0, 1, f]x[o, 0, 1, i]->[b, 0, 1, f], window = {stride = [1, 1], pad = {{\[}}[0, 0], [0, 0]{{\]}}, lhs_dilate = [1, 1], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<1x56x56x64xf32>, tensor<256x1x1x64xf32>) -> tensor<1x56x56x256xf32>
 
-func.func @conv_backward_data(%arg0: tensor<32x64x56x56xf16>, %arg1: tensor<64x64x3x3xf16>) -> tensor<32x64x56x56xf16> {
+func.func @conv_backward_data(%arg0: tensor<32x64x56x56xf16>, %arg1: tensor<64x64x3x3xf16>) -> tensor<32x64x56x56xf16> attributes {byteir.layout = "NCHW"}{
   %0 = "mhlo.fusion"(%arg0, %arg1) ({
     %1 = "mhlo.transpose"(%arg1) {permutation = dense<[2, 3, 1, 0]> : tensor<4xi64>} : (tensor<64x64x3x3xf16>) -> tensor<3x3x64x64xf16>
     %2 = "mhlo.reverse"(%1) {dimensions = dense<[0, 1]> : tensor<2xi64>, minor_to_major = dense<[1, 0, 2, 3]> : tensor<4xindex>} : (tensor<3x3x64x64xf16>) -> tensor<3x3x64x64xf16>
@@ -77,7 +77,7 @@ func.func @conv_backward_data(%arg0: tensor<32x64x56x56xf16>, %arg1: tensor<64x6
 // CHECK-NEXT:  %[[V3:.*]] = "mhlo.transpose"(%[[V2]]) {permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (tensor<32x56x56x64xf16>) -> tensor<32x64x56x56xf16>
 // CHECK-NEXT:  return %[[V3]]
 
-func.func @max_pool_NCHW(%181: tensor<1x32x128x128xf32>) -> tensor<1x32x64x64xf32> {
+func.func @max_pool_NCHW(%181: tensor<1x32x128x128xf32>) -> tensor<1x32x64x64xf32> attributes {byteir.layout = "NCHW"}{
   %163 = mhlo.constant dense<0xFF800000> : tensor<f32>
   %182 = "mhlo.reduce_window"(%181, %163) ( {
     ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):  // no predecessors
@@ -94,7 +94,7 @@ func.func @max_pool_NCHW(%181: tensor<1x32x128x128xf32>) -> tensor<1x32x64x64xf3
 // CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
 // CHECK-NEXT:  return
 
-func.func @avg_pool_NCHW(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x2x3xf32> {
+func.func @avg_pool_NCHW(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x2x3xf32> attributes {byteir.layout = "NCHW"}{
   %0 = mhlo.constant dense<0.000000e+00> : tensor<f32>
   %1 = mhlo.constant dense<4.000000e+00> : tensor<1x1x2x3xf32>
   %2 = "mhlo.reduce_window"(%arg0, %0) ( {
@@ -115,7 +115,7 @@ func.func @avg_pool_NCHW(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x2x3xf32> {
 // CHECK-NEXT:  mhlo.divide
 // CHECK-NEXT:  return
 
-func.func @pool_grad_NCHW(%arg83: tensor<1x64x112x112xf16>, %76: tensor<1x64x56x56xf16>) -> tensor<1x64x112x112xf16> {
+func.func @pool_grad_NCHW(%arg83: tensor<1x64x112x112xf16>, %76: tensor<1x64x56x56xf16>) -> tensor<1x64x112x112xf16> attributes {byteir.layout = "NCHW"}{
   %0 = mhlo.constant dense<0.000000e+00> : tensor<f16>
   %77 = "mhlo.select_and_scatter"(%arg83, %76, %0) ({
     ^bb0(%arg142: tensor<f16>, %arg143: tensor<f16>):
@@ -137,7 +137,7 @@ func.func @pool_grad_NCHW(%arg83: tensor<1x64x112x112xf16>, %76: tensor<1x64x56x
 // CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
 // CHECK-NEXT:  return
 
-func.func @conv3d_NCDHW(%140: tensor<1x3x100x27x48xf32>, %16: tensor<32x3x1x3x3xf32>) -> tensor<1x32x100x27x48xf32> {
+func.func @conv3d_NCDHW(%140: tensor<1x3x100x27x48xf32>, %16: tensor<32x3x1x3x3xf32>) -> tensor<1x32x100x27x48xf32>{
   %141 = "mhlo.convolution"(%140, %16) {batch_group_count = 1 : i64, dimension_numbers = #mhlo.conv<[b, f, 0, 1, 2]x[o, i, 0, 1, 2]->[b, f, 0, 1, 2]>, feature_group_count = 1 : i64, padding = dense<[[0, 0], [1, 1], [1, 1]]> : tensor<3x2xi64>, rhs_dilation = dense<1> : tensor<3xi64>, window_strides = dense<1> : tensor<3xi64>} : (tensor<1x3x100x27x48xf32>, tensor<32x3x1x3x3xf32>) -> tensor<1x32x100x27x48xf32>
   return %141 : tensor<1x32x100x27x48xf32>
 }
@@ -148,7 +148,7 @@ func.func @conv3d_NCDHW(%140: tensor<1x3x100x27x48xf32>, %16: tensor<32x3x1x3x3x
 // NDHWC-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 4, 1, 2, 3]>
 // NDHWC-NEXT:  return
 
-func.func @avg_pool3d_NDHWC(%187: tensor<1x100x27x48x64xf32>) -> tensor<1x100x13x24x64xf32> {
+func.func @avg_pool3d_NDHWC(%187: tensor<1x100x27x48x64xf32>) -> tensor<1x100x13x24x64xf32> attributes {byteir.layout = "NDHWC"}{
   %84 = mhlo.constant dense<4.000000e+00> : tensor<1x100x13x24x64xf32>
   %94 = mhlo.constant dense<0.000000e+00> : tensor<f32>
   %188 = "mhlo.reduce_window"(%187, %94) ({
@@ -162,7 +162,7 @@ func.func @avg_pool3d_NDHWC(%187: tensor<1x100x27x48x64xf32>) -> tensor<1x100x13
 // NDHWC-LABEL: func.func @avg_pool3d_NDHWC
 // NDHWC-NOT: mhlo.transpose
 
-func.func @avg_pool3d_NCDHW(%187: tensor<1x64x100x27x48xf32>) -> tensor<1x64x100x13x24xf32> {
+func.func @avg_pool3d_NCDHW(%187: tensor<1x64x100x27x48xf32>) -> tensor<1x64x100x13x24xf32> attributes {byteir.layout = "NCDHW"}{
   %84 = mhlo.constant dense<4.000000e+00> : tensor<1x64x100x13x24xf32>
   %94 = mhlo.constant dense<0.000000e+00> : tensor<f32>
   %188 = "mhlo.reduce_window"(%187, %94) ({
@@ -182,3 +182,15 @@ func.func @avg_pool3d_NCDHW(%187: tensor<1x64x100x27x48xf32>) -> tensor<1x64x100
 // NDHWC-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 4, 1, 2, 3]>
 // NDHWC-NEXT:  mhlo.divide
 // NDHWC-NEXT:  return
+
+func.func @batch_norm_inference(%input: tensor<4x256x64x64xf32>, %scale: tensor<256xf32>, %offset: tensor<256xf32>, %mean: tensor<256xf32>, %variance: tensor<256xf32>) -> (tensor<4x256x64x64xf32>) attributes{byteir.layout="NCHW"} {
+  %0 = "mhlo.batch_norm_inference" (%input, %scale, %offset, %mean, %variance) {epsilon = 1.001000e-05 : f32, feature_index = 1 : i64} :
+      (tensor<4x256x64x64xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>,
+        tensor<256xf32>) -> tensor<4x256x64x64xf32>
+  return %0 : tensor<4x256x64x64xf32>
+}
+// CHECK-LABEL: func.func @batch_norm_inference
+// CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 2, 3, 1]>
+// CHECK-NEXT:  mhlo.batch_norm_inference{{.*}}feature_index = 3
+// CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
+// CHECK-NEXT:  return

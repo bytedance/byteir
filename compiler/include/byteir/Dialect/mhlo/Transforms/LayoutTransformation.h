@@ -29,10 +29,11 @@ class FuncOp;
 } // namespace func
 
 void populateLayoutTransformationPattern(RewritePatternSet &patterns,
-                                         std::string targetLayout);
+                                         const std::string &targetLayout,
+                                         const std::string &globalLayoutStr);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createLayoutTransformationPass(std::string target_layout = "");
+createLayoutTransformationPass(const std::string &targetLayout = "");
 
 } // namespace mlir
 
