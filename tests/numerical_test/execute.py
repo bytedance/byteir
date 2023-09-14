@@ -86,6 +86,7 @@ def get_entry_func_name(interp):
 
 
 def compile_and_run_mlir(mhlo_file, target):
+    np.random.seed(0)
     try:
         interp = Interpreter.load_from_file(mhlo_file)
         np_inputs = generate_np_inputs(interp)
@@ -226,6 +227,7 @@ def compile_and_run_torch(test, target):
     # numerical check
     golden_output = trace_item.output.detach().cpu()
     actual_output = torch_outputs[0].detach().cpu()
+    print("golden", golden_output, "actual", actual_output)
 
     try:
         torch.testing.assert_close(golden_output, actual_output)
