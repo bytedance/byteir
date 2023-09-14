@@ -24,7 +24,7 @@ def _detect_cuda_with_nvidia_smi():
         sm_names = {
             "sm_70": ["V100"],
             "sm_75": ["T4", "Quadro T2000"],
-            "sm_80": ["PG509", "A100", "A10", "RTX 30", "A30", "RTX 40"],
+            "sm_80": ["PG509", "A100", "A10", "RTX 30", "A30", "RTX 40", "A16"],
             "sm_90": ["H100"],
         }
         for sm, names in sm_names.items():
