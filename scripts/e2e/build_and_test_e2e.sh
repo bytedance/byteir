@@ -19,10 +19,10 @@ bash scripts/runtime/build_and_test.sh --python --no-test $LLVM_INSTALL_DIR
 # build torch_frontend
 bash scripts/frontends/torch-frontend/build_and_test.sh $TORCH_FRONTEND_LLVM_INSTALL_DIR
 
-pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl 
-pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl
-pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl
-pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl 
+pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl --force-reinstall
+pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl --force-reinstall
+pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl --force-reinstall
+pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl --force-reinstall
 pip3 install -r $ROOT_PROJ_DIR/frontends/torch-frontend/torch-requirements.txt
 
 python3 tests/numerical_test/main.py

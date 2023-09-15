@@ -21,7 +21,6 @@ def _detect_cuda_with_nvidia_smi():
         )
         stdout, stderr = proc.communicate()
         stdout = stdout.decode("utf-8")
-        print("nvidia-smi output", stdout)
         sm_names = {
             "sm_70": ["V100"],
             "sm_75": ["T4", "Quadro T2000"],
