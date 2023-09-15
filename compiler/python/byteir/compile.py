@@ -21,6 +21,7 @@ def _detect_cuda_with_nvidia_smi():
         )
         stdout, stderr = proc.communicate()
         stdout = stdout.decode("utf-8")
+        print("nvidia-smi output", stdout)
         sm_names = {
             "sm_70": ["V100"],
             "sm_75": ["T4", "Quadro T2000"],
@@ -222,6 +223,7 @@ def compile_cuda_with_ait(
         if verbose:
             _print_verbose(device_module, "// IR Dump After NVVM Codegen:")
         # write to output device ptx
+        assert _detect_cuda_with_nvidia_smi() != None
         byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name, _detect_cuda_with_nvidia_smi())
 
     with context:
