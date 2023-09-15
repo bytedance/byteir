@@ -58,3 +58,31 @@ class MatmulF32Module(torch.nn.Module):
 @register_test_case(module_factory=lambda: MatmulF32Module())
 def MatmulF32Module_basic(module, tu: TestUtils):
     module.forward(tu.rand(5, 6), tu.rand(6, 10))
+
+
+class BatchMatmulF32Module(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a, b):
+        return torch.bmm(a, b)
+
+
+@register_test_case(module_factory=lambda: BatchMatmulF32Module())
+def BatchMatmulF32Module_basic(module, tu: TestUtils):
+    module.forward(tu.rand(2, 5, 6), tu.rand(2, 6, 10))
+
+
+class BatchMatmulAddF32Module(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a, b, c):
+        return c + torch.bmm(a, b)
+
+
+@register_test_case(module_factory=lambda: BatchMatmulAddF32Module())
+def BatchMatmulAddF32Module_basic(module, tu: TestUtils):
+    module.forward(tu.rand(2, 5, 6), tu.rand(2, 6, 10), tu.rand(2, 5, 10))

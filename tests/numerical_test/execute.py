@@ -86,6 +86,7 @@ def get_entry_func_name(interp):
 
 
 def compile_and_run_mlir(mhlo_file, target):
+    np.random.seed(0)
     try:
         interp = Interpreter.load_from_file(mhlo_file)
         np_inputs = generate_np_inputs(interp)

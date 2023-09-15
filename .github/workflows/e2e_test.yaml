@@ -1,18 +1,12 @@
-name: TorchFrontend CI
+name: e2e Numerical test CI
 
 on: 
   push:
     branches:
       - main
-    paths:
-      - "frontends/torch-frontend/**"
-      - "scripts/frontends/torch-frontend/**"
   pull_request:
     branches:
       - main
-    paths:
-      - "frontends/torch-frontend/**"
-      - "scripts/frontends/torch-frontend/**"
   workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same
@@ -24,14 +18,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  torch_frontend_build_and_test:
-    name: torch-frontend CI
+  numerical_e2e_test:
+    name: e2e CI
     runs-on: self-hosted
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout byteir repo
         uses: actions/checkout@v3
-      - name: Build and test TorchFrontend
-        run: ./scripts/frontends/torch-frontend/build_and_test.sh ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
+      - name: Build and test e2e
+        run: ./scripts/e2e/build_and_test_e2e.sh ${{ secrets.LLVM_INSTALL_DIR }} ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
         shell: bash
