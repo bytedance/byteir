@@ -244,6 +244,10 @@ SmallVector<RetOp, 4> getOpsNested(Operation *op) {
   return res;
 }
 
+// expand `array` to size of `expandedSize` with empty sub-array
+void expandArrayOfArray(SmallVector<SmallVector<int64_t>> &array,
+                        int64_t expandedSize);
+
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_UTILS_H

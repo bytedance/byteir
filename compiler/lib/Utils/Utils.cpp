@@ -471,3 +471,9 @@ mlir::canonicalizeOpFoldResult(ArrayRef<OpFoldResult> ofrs, bool enableFold) {
     return canonicalizeOpFoldResult(ofr, enableFold);
   }));
 }
+
+void mlir::expandArrayOfArray(SmallVector<SmallVector<int64_t>> &array,
+                              int64_t expandedSize) {
+  if ((int64_t)array.size() < expandedSize)
+    array.append(expandedSize - array.size(), {});
+}

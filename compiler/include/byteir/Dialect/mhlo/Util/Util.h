@@ -146,6 +146,9 @@ std::optional<int64_t> computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp);
 // TODO: move this to lmhlo
 bool isLmhloConstantValue(mlir::Value value);
 
+void getReduceSumBlock(OpBuilder &b, Location loc, Region &region,
+                       Type elementType);
+
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_MHLO_UTIL_UTIL_H

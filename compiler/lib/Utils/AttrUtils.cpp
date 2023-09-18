@@ -117,3 +117,50 @@ std::optional<ElementsAttr> mlir::cloneSplatElementsAttr(ElementsAttr attr,
 FloatAttr mlir::castFloatAttr(FloatAttr floatAttr, Type type) {
   return FloatAttr::get(type, floatAttr.getValueAsDouble());
 }
+
+mlir::SmallVector<int64_t> mlir::getI64Array(ArrayAttr arrayAttr) {
+  auto range = arrayAttr.getAsRange<IntegerAttr>();
+  mlir::SmallVector<int64_t> res;
+  res.reserve(arrayAttr.size());
+  for (auto it = range.begin(), eit = range.end(); it != eit; ++it)
+    res.push_back((*it).getValue().getSExtValue());
+  return res;
+}
+
+FailureOr<mlir::SmallVector<mlir::SmallVector<int64_t>>>
+mlir::getArrayOfIntArray(ArrayAttr arrayAttr) {
+  mlir::SmallVector<mlir::SmallVector<int64_t>> res;
+  for (Attribute attr : arrayAttr) {
+    if (auto subArrayAttr = attr.dyn_cast<ArrayAttr>()) {
+      for (Attribute subAttr : subArrayAttr) {
+        if (!llvm::isa<IntegerAttr>(subAttr))
+          return failure();
+      }
+      res.push_back(getI64Array(subArrayAttr));
+    } else
+      return failure();
+  }
+  return res;
+}
+
+FailureOr<SmallVector<SmallVector<int64_t>>>
+mlir::getArrayOfIntArray(ArrayRef<ArrayAttr> arrayAttr) {
+  mlir::SmallVector<mlir::SmallVector<int64_t>> res;
+  for (ArrayAttr attr : arrayAttr) {
+    for (Attribute subAttr : attr) {
+      if (!llvm::isa<IntegerAttr>(subAttr))
+        return failure();
+    }
+    res.push_back(getI64Array(attr));
+  }
+  return res;
+}
+
+ArrayAttr mlir::convertArrayOfI64ArrayToAttr(
+    OpBuilder &b, mlir::ArrayRef<mlir::SmallVector<int64_t>> arrayOfArray) {
+  mlir::SmallVector<Attribute> attrs;
+  for (const auto &array : arrayOfArray) {
+    attrs.push_back(b.getI64ArrayAttr(array));
+  }
+  return ArrayAttr::get(b.getContext(), attrs);
+}

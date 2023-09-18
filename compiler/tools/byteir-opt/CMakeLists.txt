@@ -4,6 +4,7 @@ set(BYTEIR_LIBS
   MLIRByreDialect
   MLIRCclDialect
   MLIRLaceDialect
+  MLIRMeshDialect
   MLIRTransformExtDialect
   MLIRCclTransformOps
   ByteIRAffinePasses
@@ -12,6 +13,7 @@ set(BYTEIR_LIBS
   ByteIRHostPipelines
   ByteIRLinalgPasses
   ByteIRMemRefPasses
+  ByteIRMeshPasses
   ByteIRMhloUtils
   ByteIRMhloPasses
   ByteIRPipelines
