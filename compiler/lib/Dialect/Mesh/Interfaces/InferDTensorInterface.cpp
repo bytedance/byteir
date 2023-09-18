@@ -1,4 +1,4 @@
-//===- GraphUtils.h ------------------------------------------------ C++---===//
+//===- InferDTensorInterface.cpp ---------------------------------*- C++-*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +15,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_UTILS_GRAPHUTILS_H
-#define BYTEIR_UTILS_GRAPHUTILS_H
-
+#include "byteir/Dialect/Mesh/Interfaces/InferDTensorInterface.h"
+#include "byteir/Dialect/Mesh/IR/MeshOps.h"
+#include "byteir/Utils/AttrUtils.h"
+#include "byteir/Utils/Utils.h"
+#include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/IR/AffineMap.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/FunctionInterfaces.h"
 #include "mlir/Support/LLVM.h"
-#include <vector>
+#include "llvm/ADT/SetOperations.h"
 
-namespace mlir {
+using namespace mlir;
+using namespace mlir::mesh;
 
-class Value;
-class Operation;
-class Block;
-
-DenseMap<Value, int64_t> getNumberOfUsesFromRoot(Operation *root);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Operation *> roots);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Value> roots);
-
-std::vector<Operation *> getOperationsVector(Block &block);
-std::vector<Operation *> getReversedOperationsVector(Block &block);
-
-} // namespace mlir
-
-#endif // BYTEIR_UTILS_GRAPHUTILS_H
+#include "byteir/Dialect/Mesh/Interfaces/InferDTensorInterface.cpp.inc"

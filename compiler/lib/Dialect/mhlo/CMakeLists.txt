@@ -136,3 +136,5 @@ add_mlir_dialect_library(ByteIRMhloPasses
   MLIRAceDialect
   MLIRQuantDialect # FIXME: this should link at MhloDialect
   )
+
+  add_subdirectory(IR)

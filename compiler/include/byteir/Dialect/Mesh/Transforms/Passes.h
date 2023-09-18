@@ -1,4 +1,4 @@
-//===- GraphUtils.h ------------------------------------------------ C++---===//
+//===- Passes.h --------------------------------------------------- C++ --===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +15,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_UTILS_GRAPHUTILS_H
-#define BYTEIR_UTILS_GRAPHUTILS_H
+#ifndef BYTEIR_DIALECT_MESH_TRANSFORMS_PASSES_H
+#define BYTEIR_DIALECT_MESH_TRANSFORMS_PASSES_H
 
-#include "mlir/Support/LLVM.h"
-#include <vector>
+#include "byteir/Dialect/Mesh/Transforms/ShardingPartition.h"
+#include "byteir/Dialect/Mesh/Transforms/ShardingPropagation.h"
 
 namespace mlir {
 
-class Value;
-class Operation;
-class Block;
-
-DenseMap<Value, int64_t> getNumberOfUsesFromRoot(Operation *root);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Operation *> roots);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Value> roots);
-
-std::vector<Operation *> getOperationsVector(Block &block);
-std::vector<Operation *> getReversedOperationsVector(Block &block);
+/// Generate the code for registering transforms passes.
+#define GEN_PASS_REGISTRATION
+#include "byteir/Dialect/Mesh/Transforms/Passes.h.inc"
 
 } // namespace mlir
 
-#endif // BYTEIR_UTILS_GRAPHUTILS_H
+#endif // BYTEIR_DIALECT_MESH_TRANSFORMS_PASSES_H

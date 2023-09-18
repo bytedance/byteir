@@ -26,6 +26,8 @@
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 #include "byteir/Dialect/MemRef/Passes.h"
+#include "byteir/Dialect/Mesh/IR/MeshOps.h"
+#include "byteir/Dialect/Mesh/Transforms/Passes.h"
 #include "byteir/Dialect/SCF/Passes.h"
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/Shape/Passes.h"
@@ -33,6 +35,7 @@
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Passes.h"
 #include "byteir/Dialect/Vector/Transforms/Passes.h"
+#include "byteir/Dialect/mhlo/IR/ShardingInterfaceImpl.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
 #include "byteir/Transforms/Passes.h"
@@ -125,6 +128,7 @@ int main(int argc, char **argv) {
   registerByteIRCclPasses();
   registerByteIRLinalgPasses();
   registerByteIRMemRefPasses();
+  registerByteIRMeshPasses();
   registerByteIRMhloPassesExt();
   registerByteIRSCFPasses();
   registerByteIRShapePasses();
@@ -154,12 +158,14 @@ int main(int argc, char **argv) {
   registry.insert<mlir::lmhlo::LmhloDialect>();
   registry.insert<mlir::shape_ext::ShapeExtDialect>();
   registry.insert<mlir::linalg_ext::LinalgExtDialect>();
+  registry.insert<mlir::mesh::MeshDialect>();
 
   // register extension
   ccl::registerTransformDialectExtension(registry);
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
   tensor_ext::registerTilingInterfaceExternalModels(registry);
+  mhlo::registerShardingInterfaceExternalModels(registry);
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "ByteIR pass driver\n", registry));

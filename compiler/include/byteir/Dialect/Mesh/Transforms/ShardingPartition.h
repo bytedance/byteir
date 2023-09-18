@@ -1,4 +1,4 @@
-//===- GraphUtils.h ------------------------------------------------ C++---===//
+//===- ShardingPartition.h ----------------------------------------- C++ --===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +15,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_UTILS_GRAPHUTILS_H
-#define BYTEIR_UTILS_GRAPHUTILS_H
+#ifndef BYTEIR_DIALECT_MESH_TRANSFORMS_SHRDINGPARTITION_H
+#define BYTEIR_DIALECT_MESH_TRANSFORMS_SHRDINGPARTITION_H
 
-#include "mlir/Support/LLVM.h"
-#include <vector>
+#include "mhlo/IR/hlo_ops.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
 
-class Value;
-class Operation;
-class Block;
+namespace func {
+class FuncOp;
+} // namespace func
 
-DenseMap<Value, int64_t> getNumberOfUsesFromRoot(Operation *root);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Operation *> roots);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Value> roots);
-
-std::vector<Operation *> getOperationsVector(Block &block);
-std::vector<Operation *> getReversedOperationsVector(Block &block);
+std::unique_ptr<OperationPass<func::FuncOp>>
+createShardingPartitionPass(bool allowSignatureChange = true);
 
 } // namespace mlir
 
-#endif // BYTEIR_UTILS_GRAPHUTILS_H
+#endif // BYTEIR_DIALECT_MESH_TRANSFORMS_SHRDINGPARTITION_H

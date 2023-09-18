@@ -56,3 +56,21 @@ DenseMap<Value, int64_t> mlir::getNumberOfUsesFromRoots(ArrayRef<Value> roots) {
       llvm::map_range(roots, [](Value v) { return v.getDefiningOp(); }));
   return getNumberOfUsesFromRoots(rootOps);
 }
+
+std::vector<Operation *> mlir::getOperationsVector(Block &block) {
+  std::vector<Operation *> res;
+  for (auto it = block.begin(); it != block.end(); ++it) {
+    Operation *op = &*it;
+    res.push_back(op);
+  }
+  return res;
+}
+
+std::vector<Operation *> mlir::getReversedOperationsVector(Block &block) {
+  std::vector<Operation *> res;
+  for (auto it = block.rbegin(); it != block.rend(); ++it) {
+    Operation *op = &*it;
+    res.push_back(op);
+  }
+  return res;
+}

@@ -631,3 +631,16 @@ mlir::computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp) {
   }
   return std::nullopt;
 }
+
+Block *mlir::getReduceSumBlock(OpBuilder &b, Location loc, Region &region,
+                               Type elementType) {
+  Block *block = new Block();
+  region.push_back(block);
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPoint(block, block->begin());
+  RankedTensorType argType = RankedTensorType::get({}, elementType);
+  block->addArguments({argType, argType}, {loc, loc});
+  mhlo::AddOp addOp =
+      b.create<mhlo::AddOp>(loc, block->getArgument(0), block->getArgument(1));
+  b.create<mhlo::ReturnOp>(loc, addOp.getResult());
+}

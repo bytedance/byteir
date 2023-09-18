@@ -1,4 +1,4 @@
-//===- GraphUtils.h ------------------------------------------------ C++---===//
+//===- ShardingInterface.h --------------------------------------*- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +15,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_UTILS_GRAPHUTILS_H
-#define BYTEIR_UTILS_GRAPHUTILS_H
+#ifndef BYTEIR_DIALECT_MESH_INTERFACES_INFER_DTENSOR_INTERFACE_H
+#define BYTEIR_DIALECT_MESH_INTERFACES_INFER_DTENSOR_INTERFACE_H
 
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/Support/LLVM.h"
-#include <vector>
 
-namespace mlir {
+/// Include the ODS generated interface header files.
+#include "byteir/Dialect/Mesh/Interfaces/InferDTensorInterface.h.inc"
 
-class Value;
-class Operation;
-class Block;
-
-DenseMap<Value, int64_t> getNumberOfUsesFromRoot(Operation *root);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Operation *> roots);
-DenseMap<Value, int64_t> getNumberOfUsesFromRoots(ArrayRef<Value> roots);
-
-std::vector<Operation *> getOperationsVector(Block &block);
-std::vector<Operation *> getReversedOperationsVector(Block &block);
-
-} // namespace mlir
-
-#endif // BYTEIR_UTILS_GRAPHUTILS_H
+#endif // BYTEIR_DIALECT_MESH_INTERFACES_INFER_DTENSOR_INTERFACE_H

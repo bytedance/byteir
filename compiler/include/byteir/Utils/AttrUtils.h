@@ -18,6 +18,10 @@
 #ifndef BYTEIR_UTILS_ATTRUTILS_H
 #define BYTEIR_UTILS_ATTRUTILS_H
 
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/Support/LLVM.h"
+#include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/ArrayRef.h"
 #include <optional>
 
@@ -57,6 +61,18 @@ std::optional<ElementsAttr> cloneSplatElementsAttr(ElementsAttr attr,
 // cast FloatAttr to another with `type`
 // e.g. f64 FloatAttr to f32 FloatAttr
 FloatAttr castFloatAttr(FloatAttr floatAttr, Type type);
+
+SmallVector<int64_t> getI64Array(ArrayAttr arrayAttr);
+
+FailureOr<SmallVector<SmallVector<int64_t>>>
+getArrayOfIntArray(ArrayAttr arrayAttr);
+
+FailureOr<SmallVector<SmallVector<int64_t>>>
+getArrayOfIntArray(ArrayRef<ArrayAttr> arrayAttr);
+
+ArrayAttr
+convertArrayOfI64ArrayToAttr(OpBuilder &b,
+                             ArrayRef<SmallVector<int64_t>> arrayOfArray);
 
 } // namespace mlir
 
