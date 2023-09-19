@@ -26,12 +26,14 @@ concurrency:
 jobs:
   clear_workspace:
     name: Clear workspace
+    environment: github-ci
     runs-on: self-hosted
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
   byteir_compiler_build_and_test:
     name: byteir compiler build and test
+    environment: github-ci
     runs-on: self-hosted
     needs: [clear_workspace]
     steps:
@@ -42,6 +44,7 @@ jobs:
         shell: bash
   brt_check_cpu:
     name: BRT cpu test
+    environment: github-ci
     runs-on: self-hosted
     needs: [clear_workspace]
     steps:
@@ -55,6 +58,7 @@ jobs:
       shell: bash
   brt_check_cuda:
     name: BRT CUDA test
+    environment: github-ci
     runs-on: self-hosted
     needs: [clear_workspace]
     steps:
@@ -65,6 +69,7 @@ jobs:
       shell: bash
   brt_check_asan:
     name: BRT test with asan
+    environment: github-ci
     runs-on: self-hosted
     needs: [clear_workspace]
     steps:
@@ -75,6 +80,7 @@ jobs:
       shell: bash
   byteir_compiler_build_and_test_python:
     name: byteir cat test CI
+    environment: github-ci
     runs-on: self-hosted
     needs: [clear_workspace]
     steps:
