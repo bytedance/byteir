@@ -21,18 +21,32 @@
 #include "./index_select.h"
 #include "brt/core/framework/kernel_registry.h"
 
+#include <cuda_fp16.h>
+
 namespace brt {
 namespace cuda {
 
 void RegisterIndexingOps(KernelRegistry *registry) {
   registry->Register(
-      "IndexSelectOpf32ui32f32",
+      "IndexSelectOp_f32ui32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<IndexSelect<float>>(info);
+        return std::make_shared<IndexSelect<float, uint32_t>>(info);
       });
 
   registry->Register(
-      "IndexPutOpf32i64f32f32",
+      "IndexSelectOp_f32i64_f32",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<IndexSelect<float, int64_t>>(info);
+      });
+
+  registry->Register(
+      "IndexSelectOp_f16i64_f16",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<IndexSelect<__half, int64_t>>(info);
+      });
+
+  registry->Register(
+      "IndexPutOp_f32i64f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<IndexPut<float>>(info);
       });

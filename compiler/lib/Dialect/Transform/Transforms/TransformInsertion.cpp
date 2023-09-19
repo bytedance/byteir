@@ -18,18 +18,20 @@
 #include "byteir/Dialect/Transform/Transforms/TransformInsertion.h"
 
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
+#include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Utils/IRRewrite.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/TransformOps/DialectExtension.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include <optional>
@@ -41,131 +43,143 @@ using namespace mlir;
 using namespace llvm;
 
 namespace {
+inline std::string getAnnotationUniqueIdentifier(const std::string &prefix) {
+  static size_t cnt = 0;
+  return prefix + "_" + std::to_string(cnt++);
+}
 
-static int tilingCount = 0;
+// TODO maybe move to public
+void insertTransformIR(func::FuncOp funcOp, OpBuilder &builder,
+                       const TransformInsertionConfig &config) {
+  funcOp->walk([&](Operation *op) {
+    if (config.opFilter(op)) {
+      ImplicitLocOpBuilder b(op->getLoc(), builder);
+      MLIRContext *ctx = b.getContext();
 
-struct TilingMetadata {
-  // Tiling info
-  SmallVector<int64_t, 4> tileSizes;
-  SmallVector<int64_t, 4> tileInterchange;
-  // Tiling annotation for matchOp
-  std::string annotation;
-};
+      auto annotation = getAnnotationUniqueIdentifier(config.matchPrefix);
+      op->setAttr(annotation, UnitAttr::get(ctx));
 
-struct TransformInsertionPass
-    : public TransformInsertionBase<TransformInsertionPass> {
+      auto pdlOperationType = pdl::OperationType::get(ctx);
+      b.create<transform::SequenceOp>(
+          TypeRange(), transform::FailurePropagationMode::Propagate,
+          pdlOperationType, [&](OpBuilder &b, Location loc, Value blockArg) {
+            auto annotationAttr = DictionaryAttr::get(
+                ctx, b.getNamedAttr(annotation, UnitAttr::get(ctx)));
+            auto match = b.create<transform::MatchOp>(
+                loc, blockArg.getType(), blockArg, ArrayAttr(),
+                transform::MatchInterfaceEnumAttr(), annotationAttr,
+                TypeAttr());
+            ImplicitLocOpBuilder ib(loc, b);
+            config.transformBuilder(ib, op, match);
+            b.create<transform::YieldOp>(loc);
+          });
+    }
+  });
+}
 
-  TransformInsertionPass(const std::string &anchor, const std::string &prefix,
-                         const std::string &tileSizeAttrName,
-                         const std::string &tileInterchangeAttrName)
-      : TransformInsertionBase<TransformInsertionPass>() {
-    this->funcAnchorAttr = anchor;
-    this->matchPrefix = prefix;
+void insertTransformIR(ModuleOp m, const TransformInsertionConfig &config) {
+  OpBuilder builder = OpBuilder::atBlockEnd(m.getBody());
+  for (auto funcOp : m.getOps<func::FuncOp>()) {
+    // only tile on device functions
+    if (!config.funcAnchor.empty() && !funcOp->hasAttr(config.funcAnchor)) {
+      continue;
+    }
+
+    insertTransformIR(funcOp, builder, config);
+  }
+}
+
+struct FuseExtTransformInsertionPass
+    : public FuseExtTransformInsertionBase<FuseExtTransformInsertionPass> {
+  explicit FuseExtTransformInsertionPass(
+      const std::string &funcAnchor, const std::string &matchPrefix,
+      const std::string &tileSizeAttrName,
+      const std::string &tileInterchangeAttrName, const bool keepIntermediates)
+      : FuseExtTransformInsertionBase() {
+    this->funcAnchorAttr = funcAnchor;
+    this->matchPrefix = matchPrefix;
     this->tileSizeAttrName = tileSizeAttrName;
     this->tileInterchangeAttrName = tileInterchangeAttrName;
+    this->keepIntermediates = keepIntermediates;
   }
-
-  void runOnOperation() override;
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<transform::TransformDialect>();
     linalg::registerTransformDialectExtension(registry);
   }
+
+  void runOnOperation() override {
+    auto opFilter = [](Operation *op) {
+      if (auto funcOp = op->getParentOfType<func::FuncOp>()) {
+        Operation *retOp = funcOp.getBody().front().getTerminator();
+        if (retOp->getOperand(0).getDefiningOp() == op)
+          return true;
+      }
+      return false;
+    };
+
+    auto transformBuilder = [&](ImplicitLocOpBuilder &b, Operation *op,
+                                Value pdlValue) {
+      SmallVector<int64_t, 4> tileSizes = {};
+      SmallVector<int64_t, 4> tileInterchange = {};
+      if (auto tileSizesAttr = op->getAttrOfType<ArrayAttr>(tileSizeAttrName)) {
+        tileSizes = extractFromIntegerArrayAttr<int64_t>(tileSizesAttr);
+      }
+      if (auto tileInterchangeAttr =
+              op->getAttrOfType<ArrayAttr>(tileInterchangeAttrName)) {
+        tileInterchange =
+            extractFromIntegerArrayAttr<int64_t>(tileInterchangeAttr);
+      }
+
+      if (tileSizes.empty())
+        tileSizes = {1};
+
+      auto pdlType = pdl::OperationType::get(b.getContext());
+      SmallVector<Type> resultTypes(1 + tileSizes.size(), pdlType);
+
+      b.create<transform::FuseExtOp>(
+          resultTypes, pdlValue, nullptr, b.getI64ArrayAttr(tileSizes),
+          b.getI64ArrayAttr(tileInterchange), b.getBoolAttr(keepIntermediates));
+      b.create<transform_ext::CleanupOp>(std::nullopt, std::nullopt);
+    };
+
+    insertTransformIR(getOperation(), {funcAnchorAttr, matchPrefix, opFilter,
+                                       transformBuilder});
+  }
 };
 
-std::optional<TilingMetadata>
-getTilingMetadata(Value value, const std::string &prefix,
-                  const std::string &tileSizeAttrName,
-                  const std::string &tileInterchangeAttrName) {
-  if (!value.getDefiningOp())
-    return std::nullopt;
+struct GenericTransformInsertionPass
+    : public PassWrapper<GenericTransformInsertionPass,
+                         OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(GenericTransformInsertionPass)
 
-  auto op = value.getDefiningOp();
-  SmallVector<int64_t, 4> tileSizes = {};
-  SmallVector<int64_t, 4> tileInterchange = {};
-  if (auto tileSizesAttr = op->getAttrOfType<ArrayAttr>(tileSizeAttrName)) {
-    tileSizes = extractFromI64ArrayAttr(tileSizesAttr);
-  }
-  if (auto tileInterchangeAttr =
-          op->getAttrOfType<ArrayAttr>(tileInterchangeAttrName)) {
-    tileInterchange = extractFromI64ArrayAttr(tileInterchangeAttr);
+  GenericTransformInsertionPass(const TransformInsertionConfig &config)
+      : config(config) {}
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<transform::TransformDialect>();
+    linalg::registerTransformDialectExtension(registry);
   }
 
-  if (tileSizes.empty())
-    tileSizes = {1};
+  void runOnOperation() override { insertTransformIR(getOperation(), config); }
 
-  TilingMetadata metadata;
-  metadata.tileSizes = tileSizes;
-  metadata.tileInterchange = tileInterchange;
-  metadata.annotation = prefix + std::to_string(tilingCount);
-  tilingCount++;
-  return metadata;
-}
-
-// TODO maybe move to public
-void InsertTransformIR(func::FuncOp funcOp, OpBuilder &b, StringRef prefix,
-                       const std::string &tileSizeAttrName,
-                       const std::string &tileInterchangeAttrName) {
-  Operation *retOp = funcOp.getBody().front().getTerminator();
-  MLIRContext *ctx = b.getContext();
-
-  // only support 1 output for now
-  assert(retOp->getNumOperands() == 1);
-  Value operand = retOp->getOperand(0);
-  auto tilingMetadata = getTilingMetadata(
-      operand, prefix.str(), tileSizeAttrName, tileInterchangeAttrName);
-  if (!tilingMetadata.has_value())
-    return;
-
-  auto metadata = *tilingMetadata;
-  auto op = operand.getDefiningOp();
-  op->setAttr(metadata.annotation, UnitAttr::get(ctx));
-  auto unknownLoc = UnknownLoc::get(ctx);
-
-  auto pdlType = pdl::OperationType::get(ctx);
-  SmallVector<Type> resultTypes(1 + metadata.tileSizes.size(), pdlType);
-
-  auto seq = b.create<transform::SequenceOp>(
-      unknownLoc, TypeRange(), transform::FailurePropagationMode::Propagate,
-      nullptr);
-  OpBuilder::InsertionGuard guard(b);
-
-  Block *bodyBlock =
-      b.createBlock(&seq.getBody(), seq.getBody().begin(),
-                    {pdl::OperationType::get(ctx)}, {unknownLoc});
-  b.setInsertionPointToStart(bodyBlock);
-  auto annotationAttr = DictionaryAttr::get(
-      ctx, b.getNamedAttr(metadata.annotation, UnitAttr::get(ctx)));
-  auto match = b.create<transform::MatchOp>(
-      unknownLoc, bodyBlock->getArgument(0).getType(),
-      bodyBlock->getArgument(0), ArrayAttr(),
-      transform::MatchInterfaceEnumAttr(), annotationAttr, TypeAttr());
-  b.create<transform::FuseExtOp>(unknownLoc, resultTypes, match,
-                                 b.getI64ArrayAttr(metadata.tileSizes),
-                                 b.getI64ArrayAttr(metadata.tileInterchange));
-  b.create<transform::YieldOp>(unknownLoc);
-}
-
-void TransformInsertionPass::runOnOperation() {
-  ModuleOp m = getOperation();
-  OpBuilder builder = OpBuilder::atBlockEnd(m.getBody());
-  for (auto funcOp : m.getOps<func::FuncOp>()) {
-    // only tile on device functions
-    if (!funcAnchorAttr.empty() && !funcOp->hasAttr(funcAnchorAttr)) {
-      continue;
-    }
-    InsertTransformIR(funcOp, builder, matchPrefix, this->tileSizeAttrName,
-                      this->tileInterchangeAttrName);
-  }
-}
-
+protected:
+  TransformInsertionConfig config;
+};
 } // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createTransformInsertionPass(const std::string &funcAnchor,
-                                   const std::string &matchPrefix,
-                                   const std::string &tileSizeAttrName,
-                                   const std::string &tileInterchangeAttrName) {
-  return std::make_unique<TransformInsertionPass>(
-      funcAnchor, matchPrefix, tileSizeAttrName, tileInterchangeAttrName);
+mlir::createFuseExtTransformInsertionPass(
+    const std::string &funcAnchor, const std::string &matchPrefix,
+    const std::string &tileSizeAttrName,
+    const std::string &tileInterchangeAttrName, const bool keepIntermediates) {
+  return std::make_unique<FuseExtTransformInsertionPass>(
+      funcAnchor, matchPrefix, tileSizeAttrName, tileInterchangeAttrName,
+      keepIntermediates);
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createGenericTransformInsertionPass(
+    const TransformInsertionConfig &config) {
+  return std::make_unique<GenericTransformInsertionPass>(config);
 }

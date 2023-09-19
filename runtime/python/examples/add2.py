@@ -1,12 +1,12 @@
-import _brt
+import brt
 import torch
 from torch.cuda.memory import caching_allocator_alloc, caching_allocator_delete
 import numpy as np
 import os
 
 def main():
-    session = _brt.Session(alloc_func=caching_allocator_alloc, free_func=caching_allocator_delete)
-    model_path = os.path.join(os.path.dirname(__file__), "test_files/add2.mlir")
+    session = brt.Session(alloc_func=caching_allocator_alloc, free_func=caching_allocator_delete)
+    model_path = os.path.join(os.path.dirname(__file__), "add2.mlir")
     session.load(model_path)
     req = session.new_request_context(torch.cuda.current_stream()._as_parameter_.value)
 

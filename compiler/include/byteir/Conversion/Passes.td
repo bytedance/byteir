@@ -33,6 +33,10 @@ def GPUToNVVMExt : Pass<"gpu-to-nvvm-ext", "gpu::GPUModuleOp"> {
     "cf::ControlFlowDialect"
   ];
   let options = [
+    Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
+           /*default=*/"false",
+           "Replace memref arguments in GPU functions with bare pointers."
+           "All memrefs must have static shape">,
     Option<"indexBitwidth", "index-bitwidth", "unsigned",
            /*default=kDeriveIndexBitwidthFromDataLayout*/"0",
            "Bitwidth of the index type, 0 to use size of machine word">
@@ -90,6 +94,11 @@ def TensorToLinalg : Pass<"tensor-to-linalg", "func::FuncOp"> {
   let dependentDialects = [
     "mlir::linalg::LinalgDialect",
   ];
+}
+
+def LinalgExtToLinalg : Pass<"linalg-ext-to-linalg", "func::FuncOp"> {
+  let summary = "Convert LinalgExt ops to Linalg";
+  let constructor = "mlir::createLinalgExtToLinalgPass()";
 }
 
 //===----------------------------------------------------------------------===//
@@ -162,6 +171,21 @@ def ConvertMhloToAce : Pass<"convert-mhlo-to-ace", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ToAIT
+//===----------------------------------------------------------------------===//
+
+def GenAITConfig : Pass<"gen-ait-config", "func::FuncOp"> {
+  let summary = "Generate AIT configuration";
+  let constructor = "mlir::createGenAITConfigPass()";
+  let options = [
+    ListOption<"funcNames", "func-names", "std::string",
+               "names of all cat func for AIT backends.">,
+    ListOption<"aitLibPaths", "ait-lib-paths", "std::string",
+               "paths to all AIT-generated .so libs">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ToByre
 //===----------------------------------------------------------------------===//
 
@@ -182,11 +206,14 @@ def ConvertFuncAndCallToByre : Pass<"convert-func-and-call-to-byre", "ModuleOp">
   let summary = "Convert func and call to Byre";
   let constructor = "mlir::createConvertFuncAndCallToByrePass()";
   let dependentDialects = [
+    "mlir::memref::MemRefDialect",
     "mlir::byre::ByreDialect",
   ];
   let options = [
     Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
            "append arg types to Byre">,
+    Option<"removeDupOutputs", "remove-dup-outputs", "bool", /*default=*/"false",
+            "remove dup function outputs to avoid inserting copy">,
   ];
 }
 
@@ -211,6 +238,12 @@ def ConvertLmhloToByre : Pass<"convert-lmhlo-to-byre", "func::FuncOp"> {
 def GenPTXConfig : Pass<"gen-ptx-config", "func::FuncOp"> {
   let summary = "Generate PTX configuration";
   let constructor = "mlir::createGenPTXConfigPass()";
+  let options = [
+    Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
+           /*default=*/"false",
+           "Replace memref arguments in GPU functions with bare pointers."
+           "All memrefs must have static shape">
+  ];
 }
 
 def CollectGPUKernel : Pass<"collect-gpu-kernel", "ModuleOp"> {
@@ -251,6 +284,121 @@ def CollectFuncToLLVM : Pass<"collect-func-to-llvm", "mlir::ModuleOp"> {
   let summary =
       "Collect functions to submodule which will be converted to llvmir";
   let constructor = "mlir::createCollectFuncToLLVMPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// FuseMhloToCat
+//===----------------------------------------------------------------------===//
+
+def FuseMhloToCat : Pass<"fuse-mhlo-to-cat", "func::FuncOp"> {
+  let summary = "Fuse mhlo ops to Cat Op.";
+  let constructor = "mlir::createFuseMhloToCatPass()";
+  let dependentDialects = [
+    "mlir::cat::CatDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ToCat
+//===----------------------------------------------------------------------===//
+
+def MhloToCat : Pass<"mhlo-to-cat", "func::FuncOp"> {
+  let summary = "Convert mhlo op to Cat Op.";
+  let constructor = "mlir::createMhloToCatPass()";
+  let dependentDialects = [
+    "mlir::cat::CatDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// HloToByreTensor
+//===----------------------------------------------------------------------===//
+
+def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "func::FuncOp"> {
+  let summary = "Convert hlo op to byre tensor op.";
+  let constructor = "mlir::createConvertHloToByreTensorPass()";
+  let dependentDialects = [
+    "mlir::arith::ArithDialect",
+    "mlir::byre::ByreDialect",
+    "mlir::tensor::TensorDialect"
+  ];
+
+  let options = [
+    Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
+           "append arg types to Byre">,
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// FuncToByreTensor
+//===----------------------------------------------------------------------===//
+
+def ConvertFuncToByreTensor : Pass<"func-to-byre-tensor", "ModuleOp"> {
+  let summary = "Convert func op to byre tensor compute op.";
+  let constructor = "mlir::createConvertFuncToByreTensorPass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::tensor::TensorDialect"
+  ];
+
+  let options = [
+    Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
+           "append arg types to Byre">,
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// MemrefToByre
+//===----------------------------------------------------------------------===//
+
+def ConvertMemrefToByre : Pass<"memref-to-byre", "func::FuncOp"> {
+  let summary = "Convert memref op to byre op.";
+  let constructor = "mlir::createConvertMemrefToByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::memref::MemRefDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// FuncToByre
+//===----------------------------------------------------------------------===//
+
+// def ConvertFuncToByreTensor : Pass<"func-to-byre", "ModuleOp"> {
+//   let summary = "Convert func op to byre compute op.";
+//   let constructor = "mlir::createConvertFuncToByrePass()";
+//   let dependentDialects = [
+//     "mlir::memref::MemRefDialect",
+//     "mlir::byre::ByreDialect",
+//   ];
+//   let options = [
+//     Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
+//            "append arg types to Byre">,
+//     Option<"removeDupOutputs", "remove-dup-outputs", "bool", /*default=*/"false",
+//             "remove dup function outputs to avoid inserting copy">,
+//   ];
+// }
+
+
+def MemrefCopyToLinalgPass :
+    Pass<"memrefcopy-to-linalg", "ModuleOp"> {
+  let summary = "Convert memref.copy to linalg op";
+  let constructor = "mlir::createMemrefCopyToLinalgPass()";
+  let dependentDialects = [
+    "mlir::linalg::LinalgDialect",
+    "mlir::memref::MemRefDialect",
+  ];
+
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">,
+    Option<"attachAttr", "attach-attr", "std::string",
+            /*default=*/"",
+            "An optional unit attribute attaching on target functions: <attr_name>">,
+  ];
 }
 
 #endif // BYTEIR_CONVERSION_PASSES

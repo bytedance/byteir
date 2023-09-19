@@ -40,6 +40,7 @@
 #include "mlir/Dialect/Bufferization/Transforms/BufferViewFlowAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
 #include <list>
@@ -60,7 +61,8 @@ size_t computeUserangeSize(const UseInterval &interval) {
 /// Compute the byte size of a given Value.
 size_t computeByteSize(const Value &v) {
   auto type = v.getType().cast<ShapedType>();
-  return (type.getSizeInBits() + 7) >> 3;
+  auto dtypeSize = (type.getElementTypeBitWidth() + 7) >> 3;
+  return dtypeSize * type.getNumElements();
 }
 
 /// Compute the \p alignment byte alinged segments of a given Value.
@@ -83,13 +85,31 @@ public:
 /// other buffers.
 struct PackedBuffer {
 public:
-  PackedBuffer(size_t numSegments,
+  PackedBuffer() : sizeInBytes(0) {}
+  PackedBuffer(size_t sizeInBytes,
                std::vector<AllocBufferOffset> &packedBuffers,
                Attribute memorySpace)
-      : numSegments(numSegments), allocBufferOffsets(packedBuffers),
+      : sizeInBytes(sizeInBytes), allocBufferOffsets(packedBuffers),
         memorySpace(memorySpace) {}
 
-  size_t numSegments;
+  bool tryMergeInto(PackedBuffer &other) {
+    if (memorySpace != other.memorySpace)
+      return false;
+
+    for (auto &&alloc : allocBufferOffsets) {
+      other.allocBufferOffsets.emplace_back(alloc.source,
+                                            alloc.offset + other.sizeInBytes);
+    }
+
+    other.sizeInBytes += sizeInBytes;
+
+    sizeInBytes = 0;
+    allocBufferOffsets.clear();
+    memorySpace = Attribute();
+    return true;
+  }
+
+  size_t sizeInBytes;
   std::vector<AllocBufferOffset> allocBufferOffsets;
   Attribute memorySpace;
 };
@@ -331,7 +351,7 @@ private:
 
     for (auto &allocEntry : allocs) {
       Value v = std::get<0>(allocEntry);
-      if (!isValidAllocation(v)) {
+      if (isValidAllocation && !isValidAllocation(v)) {
         continue;
       }
 
@@ -383,70 +403,33 @@ private:
 /// Pass to pack buffer together to optimize the memeory consumption and to
 /// save allocation operations. A strategy must be passed as a template
 /// argument.
+template <typename AllocOpT>
 class BufferPacking : bufferization::BufferPlacementTransformationBase {
 public:
   template <typename StrategyT>
   BufferPacking(Operation *op, StrategyT strategy,
                 std::function<bool(Value)> couldReuseAllocation)
       : BufferPlacementTransformationBase(op), liveness(op),
-        userangeAnalysis(op, &liveness, allocs, aliases), dominators(op) {
+        userangeAnalysis(op, &liveness, initAllocs(op), aliases),
+        dominators(op) {
     std::vector<PackedBuffer> packedBuffers;
-    strategy.optimze(
-        allocs, userangeAnalysis, packedBuffers,
-        [root = op, couldReuseAllocation](Value v) {
-          if (root->isProperAncestor(v.getParentBlock()->getParentOp())) {
-            // don't involve allocation in nested block
-            return false;
-          }
+    strategy.optimze(allocs, userangeAnalysis, packedBuffers,
+                     couldReuseAllocation);
 
-          if (couldReuseAllocation) {
-            return couldReuseAllocation(v);
-          }
+    std::sort(packedBuffers.begin(), packedBuffers.end(),
+              [](const PackedBuffer &lhs, const PackedBuffer &rhs) {
+                return lhs.memorySpace.getAsOpaquePointer() <
+                       rhs.memorySpace.getAsOpaquePointer();
+              });
 
-          return true;
-        });
-
-    for (auto &packedBuffer : packedBuffers) {
-      // Find common dominators.
-      Block *block = findAllocationsDominator(packedBuffer.allocBufferOffsets);
-      // Find alloc position operation.
-      mlir::OpBuilder packBuilder(&(block->front()));
-      auto location = block->front().getLoc();
-      auto memrefType = MemRefType::get(
-          {static_cast<int64_t>(packedBuffer.numSegments)},
-          packBuilder.getIntegerType(8), nullptr, packedBuffer.memorySpace);
-      Value targetBuffer =
-          packBuilder.create<memref::AllocOp>(location, memrefType);
-
-      for (auto &packInfo : packedBuffer.allocBufferOffsets) {
-        Value currentAlloc = packInfo.source;
-        size_t offset = packInfo.offset;
-        Operation *viewDefOp = currentAlloc.getDefiningOp();
-        Location loc = viewDefOp->getLoc();
-        mlir::OpBuilder viewBuilder(viewDefOp);
-
-        // Create a arith ConstantOp with the aligned offset.
-        Value constantOp = viewBuilder.create<mlir::arith::ConstantOp>(
-            loc, viewBuilder.getIndexType(),
-            viewBuilder.getIntegerAttr(viewBuilder.getIndexType(), offset));
-
-        // Store the operands for the ViewOp.
-        SmallVector<Value, 4> newOperands{targetBuffer};
-        newOperands.push_back(constantOp);
-
-        auto shape = currentAlloc.getType().cast<MemRefType>();
-
-        // Create a ViewOp with the shape of the old alloc and use the created
-        // packed alloc and the constant for the operands.
-        Value viewOp =
-            viewBuilder.create<memref::ViewOp>(loc, shape, newOperands);
-
-        // Replace all old allocs references with the created ViewOp and
-        // afterwards remove the old allocs.
-        currentAlloc.replaceAllUsesWith(viewOp);
-        viewDefOp->erase();
+    PackedBuffer largeBuffer;
+    for (auto &curBuffer : packedBuffers) {
+      if (!curBuffer.tryMergeInto(largeBuffer)) {
+        createBufferAndViews(largeBuffer);
+        largeBuffer = curBuffer;
       }
     }
+    createBufferAndViews(largeBuffer);
   }
 
 private:
@@ -467,30 +450,108 @@ private:
     return findCommonDominator(packingInfos.begin()->source, allocValues,
                                dominators);
   }
+
+  const bufferization::BufferPlacementAllocs &initAllocs(Operation *op) {
+    if constexpr (std::is_same_v<AllocOpT, memref::AllocaOp>) {
+      op->walk([&](memref::AllocaOp alloca) {
+        allocs.registerAlloc({alloca.getResult(), nullptr});
+      });
+    }
+    return allocs;
+  }
+
+  void createBufferAndViews(const PackedBuffer &packedBuffer) {
+    if (packedBuffer.allocBufferOffsets.empty())
+      return;
+
+    // Find common dominators.
+    Block *block = findAllocationsDominator(packedBuffer.allocBufferOffsets);
+    // Find alloc position operation.
+    mlir::OpBuilder packBuilder(&(block->front()));
+    auto location = block->front().getLoc();
+    auto memrefType = MemRefType::get(
+        {static_cast<int64_t>(packedBuffer.sizeInBytes)},
+        packBuilder.getIntegerType(8), nullptr, packedBuffer.memorySpace);
+    Value targetBuffer = packBuilder.create<AllocOpT>(location, memrefType);
+
+    for (auto &packInfo : packedBuffer.allocBufferOffsets) {
+      Value currentAlloc = packInfo.source;
+      auto memref = currentAlloc.getType().cast<MemRefType>();
+      SmallVector<int64_t> strides;
+      int64_t memrefOffset;
+      if (failed(getStridesAndOffset(memref, strides, memrefOffset)))
+        continue;
+
+      Operation *allocOp = currentAlloc.getDefiningOp();
+      mlir::ImplicitLocOpBuilder builder(allocOp->getLoc(), allocOp);
+      // Create a arith ConstantOp with the aligned offset.
+      Value constantOp = builder.create<mlir::arith::ConstantOp>(
+          builder.getIndexAttr(packInfo.offset));
+
+      MemRefType viewMemref = MemRefType::Builder(memref).setLayout({});
+      Value viewOp = builder.create<memref::ViewOp>(
+          viewMemref, ValueRange{targetBuffer, constantOp});
+      if (!memref.getLayout().isIdentity()) {
+        viewOp = builder.create<memref::ReinterpretCastOp>(
+            memref, viewOp, memrefOffset, memref.getShape(), strides);
+      }
+
+      // Replace all old allocs references with the created ViewOp and
+      // afterwards remove the old allocs.
+      currentAlloc.replaceAllUsesWith(viewOp);
+      allocOp->erase();
+    }
+  }
 };
 
+template <typename AllocOp>
 inline void doBufferPacking(mlir::func::FuncOp func, size_t alignment,
                             std::function<bool(Value)> couldReuseAllocation) {
   SortedPackingStrategy<AllocInfoMemSizeCompare> strategy(
       0,         // windowSize
       alignment, // alignment
       AllocInfoMemSizeCompare());
-  BufferPacking packing(func, strategy, couldReuseAllocation);
+  BufferPacking<AllocOp> packing(func, strategy, couldReuseAllocation);
 }
 } // namespace buffer_packing
 
 struct MemoryPlanningPass : public MemoryPlanningBase<MemoryPlanningPass> {
   MemoryPlanningPass() = default;
-  MemoryPlanningPass(std::function<bool(Value)> couldReuseAllocation)
+  MemoryPlanningPass(size_t alignment,
+                     std::function<bool(Value)> couldReuseAllocation)
       : MemoryPlanningBase() {
+    this->alignment = alignment;
     this->couldReuseAllocation = couldReuseAllocation;
   }
 
   void runOnOperation() override {
     // use the buffer packing algorithm which mostly refers to the
     // implementation of mhlo
-    buffer_packing::doBufferPacking(getOperation(), this->alignment,
-                                    this->couldReuseAllocation);
+    std::function<bool(Value)> callback = this->couldReuseAllocation;
+    if (this->memSpace > 0) {
+      // if specified the memSpace, only consider the given memSpace
+      callback = [&](Value v) {
+        if (this->couldReuseAllocation && !this->couldReuseAllocation(v))
+          return false;
+        if (auto memType = v.getType().dyn_cast<MemRefType>()) {
+          if (auto space = memType.getMemorySpace()) {
+            if (auto asInt = space.dyn_cast<IntegerAttr>()) {
+              if (asInt.getInt() == (int)this->memSpace) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+    }
+    if (this->alloca) {
+      buffer_packing::doBufferPacking<memref::AllocaOp>(
+          getOperation(), this->alignment, callback);
+    } else {
+      buffer_packing::doBufferPacking<memref::AllocOp>(
+          getOperation(), this->alignment, callback);
+    }
     // TODO: other memory planning algorithm
   }
 
@@ -503,6 +564,6 @@ std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMemoryPlanningPass() {
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMemoryPlanningPass(
-    std::function<bool(Value)> couldReuseAllocation) {
-  return std::make_unique<MemoryPlanningPass>(couldReuseAllocation);
+    size_t alignment, std::function<bool(Value)> couldReuseAllocation) {
+  return std::make_unique<MemoryPlanningPass>(alignment, couldReuseAllocation);
 }

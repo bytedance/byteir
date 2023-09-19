@@ -1,8 +1,8 @@
 diff --git a/tensorflow/compiler/mlir/lite/transforms/dilated_conv.h b/tensorflow/compiler/mlir/lite/transforms/dilated_conv.h
-index c4ba044caf7..4dd5f6372ca 100644
+index 27c4763f179..f8b0f7788cc 100644
 --- a/tensorflow/compiler/mlir/lite/transforms/dilated_conv.h
 +++ b/tensorflow/compiler/mlir/lite/transforms/dilated_conv.h
-@@ -111,9 +111,9 @@ LogicalResult ConvertTFDilatedConvOp<Conv2dOpTy>::matchAndRewrite(
+@@ -112,9 +112,9 @@ LogicalResult ConvertTFDilatedConvOp<Conv2dOpTy>::matchAndRewrite(
    // Allow dynamic width and height dimensions only.
    auto result_ty = op.getResult().getType().template cast<TensorType>();
    if (!result_ty.hasRank() || result_ty.getRank() != 4 ||

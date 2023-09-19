@@ -23,7 +23,10 @@
 
 // forward dialects for conversions
 namespace mlir {
+
+namespace affine {
 class AffineDialect;
+} // namespace affine
 
 namespace arith {
 class ArithDialect;
@@ -52,6 +55,10 @@ class MemRefDialect;
 namespace scf {
 class SCFDialect;
 } // namespace scf
+
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
 
 namespace transform {
 class TransformDialect;

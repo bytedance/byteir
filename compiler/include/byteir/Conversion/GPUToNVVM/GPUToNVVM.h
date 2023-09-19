@@ -28,6 +28,7 @@ class GPUModuleOp;
 } // namespace gpu
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>> createGPUToNVVMExtPass(
+    bool useBarePtrCallConv = false,
     unsigned indexBitwidth = kDeriveIndexBitwidthFromDataLayout);
 
 } // namespace mlir

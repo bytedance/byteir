@@ -37,8 +37,8 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-CopyOpKernel::CopyOpKernel(const OpKernelInfo &info, int type)
-    : OpKernel(info), task_type(type) {
+CopyOpKernel::CopyOpKernel(const OpKernelInfo &info, int task_type)
+    : OpKernel(info), task_type(task_type) {
   src_id = GetTensorIndexFromOpArgIndex(info_, 0);
   dst_id = GetTensorIndexFromOpArgIndex(info_, 1);
 
@@ -57,6 +57,9 @@ common::Status CopyOpKernel::RunImpl(const ExecutionContext &ctx) {
   std::vector<void *> args(3);
   AsyncValueRef dst_value = ctx.exec_frame->GetAsyncValueRef(dst_id);
   AsyncValueRef src_value = ctx.exec_frame->GetAsyncValueRef(src_id);
+  if (dst_value == src_value) {
+    return common::Status::OK();
+  }
   args[0] = &dst_value;
   args[1] = &src_value;
   args[2] = &byte_size;

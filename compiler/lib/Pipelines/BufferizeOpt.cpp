@@ -21,10 +21,10 @@
 #include "byteir/Dialect/MemRef/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"
-#include "mlir-hlo/Transforms/passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/Passes.h"
+#include "transforms/passes.h"
 
 using namespace mlir;
 
@@ -32,8 +32,6 @@ void mlir::createByteIRBufferizeOptPipeline(
     OpPassManager &pm, const ByteIRBufferizeOptions &options) {
   invokeOpPassPipelineBuilder(
       [&](OpPassManager &pm) {
-        pm.addPass(createConvertHloToLHloPass());
-        addCleanUpExtPassPipeline(pm);
         pm.addNestedPass<func::FuncOp>(
             bufferization::createEmptyTensorToAllocTensorPass());
         pm.addPass(byteir::createOneShotBufferizePass());

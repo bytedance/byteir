@@ -19,6 +19,7 @@
 
 #include "brt/core/framework/value.h"
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -58,16 +59,18 @@ public:
       IAllocator *last_allc,
       const std::unordered_map<void *, size_t> &tensor_to_idx,
       const std::unordered_map<void *, size_t> &scalar_to_idx,
-      const std::vector<AsyncValue> &weights, const std::string &ir_path)
+      const std::vector<AsyncValue> &weights, size_t intermediate_begin,
+      const std::string &ir_path)
       : provider_(provider), handle_(handle), op_(op), allocators_(alloc),
         last_allocator_(last_allc), tensor_to_idx_(tensor_to_idx),
-        scalar_to_idx_(scalar_to_idx), weights_(weights), ir_path_(ir_path) {}
+        scalar_to_idx_(scalar_to_idx), weights_(weights),
+        intermediate_begin_(intermediate_begin), ir_path_(ir_path) {}
 
   OpKernelInfo(const OpKernelInfo &other)
       : OpKernelInfo(other.provider_, other.handle_, other.op_,
                      other.allocators_, other.last_allocator_,
                      other.tensor_to_idx_, other.scalar_to_idx_, other.weights_,
-                     other.ir_path_) {}
+                     other.intermediate_begin_, other.ir_path_) {}
 
   const ExecutionProvider &GetExecutionProvider() const { return provider_; }
 
@@ -102,6 +105,8 @@ public:
 
   std::string GetByREOpName() const;
 
+  inline bool IsIntermediateArg(size_t idx) const;
+
 private:
   const ExecutionProvider &provider_;
   const brt::ir::IRHandle &handle_;
@@ -117,6 +122,8 @@ private:
   const std::unordered_map<void *, size_t> &scalar_to_idx_;
 
   const std::vector<AsyncValue> &weights_;
+
+  size_t intermediate_begin_;
 
   const std::string &ir_path_;
 
@@ -154,5 +161,9 @@ AsyncValueRef GetWeightFromOpArgIndex(const OpKernelInfo &, unsigned int i);
 // Get MLIR Attribule by name of OpKernelInfo
 mlir::Attribute GetMLIRAttributeFromName(const OpKernelInfo &info,
                                          llvm::StringRef name);
+
+bool OpKernelInfo::IsIntermediateArg(size_t idx) const {
+  return GetTensorIndexFromOpArgIndex(*this, idx) >= intermediate_begin_;
+}
 
 } // namespace brt

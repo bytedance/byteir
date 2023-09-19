@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/ir/builder.h"
@@ -42,19 +43,20 @@ template <typename T, typename ContainerT = std::vector<T>>
 void CheckTFWhereSingle(const std::vector<int64_t> &shape,
                         const ContainerT &data,
                         const std::vector<int64_t> &expect_result) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateTFWhereOp(byre_builder, dtype_enum_v<T>, shape), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   int64_t linearized_shape = LinearizedShape(shape);

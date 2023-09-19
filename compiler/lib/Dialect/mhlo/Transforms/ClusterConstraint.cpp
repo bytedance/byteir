@@ -60,7 +60,7 @@ static inline mhlo::FusionOp fuseWithConstantArgs(Operation *op,
     pattern.push_back(cloned);
   }
   pattern.push_back(op);
-  return createMhloFusionFromPattern(rewriter, pattern);
+  return *createMhloFusionFromPattern(rewriter, pattern);
 }
 
 struct RngConstraint : public OpRewritePattern<mhlo::RngOp> {
@@ -86,13 +86,17 @@ struct RngConstraint : public OpRewritePattern<mhlo::RngOp> {
     }
 
     auto fusion = fuseWithConstantArgs(op, {0, 1, 2}, rewriter);
+    fusion->setAttr(byre::getRemoveFuncBodyAttrName(),
+                    UnitAttr::get(fusion.getContext()));
     fusion->setAttr(byre::getByreForceComputeNameAttrName(),
                     UnitAttr::get(fusion.getContext()));
     if (op.getRngDistribution() == mhlo::RngDistribution::UNIFORM) {
       fusion->setAttr(byre::getByrePrefix() + "low", a);
       fusion->setAttr(byre::getByrePrefix() + "high", b);
-      fusion->setAttr(byre::getByreComputeName(),
-                      rewriter.getStringAttr("RngUniform"));
+      auto key = byre::getByreKey("RngUniform",
+                                  {op.getA().getType(), op.getB().getType()},
+                                  {op.getResult().getType()}, true);
+      fusion->setAttr(byre::getByreComputeName(), rewriter.getStringAttr(key));
     } else if (op.getRngDistribution() == mhlo::RngDistribution::NORMAL) {
       fusion->setAttr(byre::getByrePrefix() + "mu", a);
       fusion->setAttr(byre::getByrePrefix() + "sigma", b);

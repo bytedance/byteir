@@ -19,6 +19,7 @@
 
 #include "./fill.h"
 #include "./rng.h"
+#include "./rng_state.h"
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
@@ -26,14 +27,29 @@ namespace cuda {
 
 void RegisterTensorGenerateOps(KernelRegistry *registry) {
   registry->Register(
+      "GetSeed",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<GetSeedOpKernel>(info);
+      });
+  registry->Register(
+      "NextOffset",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<NextOffsetOpKernel>(info);
+      });
+  registry->Register(
       "FillOp",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<FillOpKernel>(info);
       });
   registry->Register(
-      "RngUniform",
+      "RngUniform_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<RngUniform>(info);
+        return std::make_shared<RngUniform<float>>(info);
+      });
+  registry->Register(
+      "RngUniform_f64f64_f64",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<RngUniform<double>>(info);
       });
   registry->Register(
       "RngNormal",

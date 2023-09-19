@@ -176,6 +176,18 @@ const std::vector<std::string> &Session::GetOutputNames() {
   return execution_plan_->GetGraphInfo().output_names;
 }
 
+const std::vector<std::string> &Session::GetTfInputNamesAttr() {
+  return execution_plan_->GetGraphInfo().tf_input_names_attr;
+}
+
+const std::vector<std::string> &Session::GetTfOriginalInputNamesAttr() {
+  return execution_plan_->GetGraphInfo().tf_original_input_names_attr;
+}
+
+const std::vector<std::string> &Session::GetTfOutputNamesAttr() {
+  return execution_plan_->GetGraphInfo().tf_output_names_attr;
+}
+
 const std::vector<size_t> &Session::GetWeightArgOffsets() {
   return execution_plan_->GetGraphInfo().weight_arg_offsets;
 }
@@ -198,8 +210,17 @@ DTypeEnum Session::GetDType(size_t idx) {
   return execution_plan_->GetDType(idx);
 }
 
+std::string Session::GetSpace(size_t idx) {
+  BRT_ENFORCE(idx < execution_plan_->GetGraphInfo().GetArgNum());
+  return execution_plan_->GetSpace(idx);
+}
+
 int Session::GetGraphArgOffset(const std::string &name) {
   return execution_plan_->GetGraphInfo().GetGraphArgOffset(name);
+}
+
+int Session::GetGraphArgAliasOffset(const size_t arg_offset) {
+  return execution_plan_->GetGraphInfo().GetGraphArgAliasOffset(arg_offset);
 }
 
 common::Status

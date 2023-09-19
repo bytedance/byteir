@@ -73,10 +73,28 @@ mlir::reshapeSplatElementsAttr(ElementsAttr attr,
 std::optional<ElementsAttr>
 mlir::reshapeSplatElementsAttr(ElementsAttr attr, ShapedType newShape) {
   if (auto splat = attr.dyn_cast_or_null<SplatElementsAttr>()) {
-    ElementsAttr ret = splat.reshape(newShape);
-    return ret;
+    return reshapeDenseElementsAttr(splat, newShape);
   }
   return std::nullopt;
+}
+
+DenseElementsAttr
+mlir::reshapeDenseElementsAttr(DenseElementsAttr attr,
+                               llvm::ArrayRef<int64_t> newShape) {
+  auto type = RankedTensorType::get(newShape, attr.getElementType());
+  return reshapeDenseElementsAttr(attr, type);
+}
+
+// this function copied from mlir-hlo/mhlo/IR/hlo_ops.cc
+DenseElementsAttr mlir::reshapeDenseElementsAttr(DenseElementsAttr attr,
+                                                 ShapedType newShape) {
+  // TODO(b/232866626): DenseElementsAttr::reshape is broken for bool splats.
+  // Once that ticket is fixed, we can remove this conditional.
+  if (attr.isSplat() && newShape.getElementType().isInteger(/*width=*/1)) {
+    auto splatValue = attr.getValues<bool>()[0];
+    return DenseElementsAttr::get(newShape, {splatValue});
+  }
+  return attr.reshape(newShape);
 }
 
 std::optional<ElementsAttr> mlir::cloneSplatElementsAttr(ElementsAttr attr,
@@ -94,4 +112,8 @@ std::optional<ElementsAttr> mlir::cloneSplatElementsAttr(ElementsAttr attr,
     return ret;
   }
   return std::nullopt;
+}
+
+FloatAttr mlir::castFloatAttr(FloatAttr floatAttr, Type type) {
+  return FloatAttr::get(type, floatAttr.getValueAsDouble());
 }

@@ -48,7 +48,8 @@ struct TestMhloCanonicalizeExtPass
     MLIRContext *context = &getContext();
 
     RewritePatternSet patterns(context);
-    mhlo::populateCanonicalizeExtPatterns(patterns);
+    mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(patterns, context,
+                                                           /*blindFold=*/true);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {

@@ -17,13 +17,14 @@
 
 #include "brt/backends/cpu/device/llvm/jit.h"
 #include "brt/core/common/common.h"
-#include "llvm/ADT/Optional.h"
+#include "brt/core/ir/engine_util.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h"
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -47,9 +48,37 @@ namespace {
 constexpr static llvm::StringRef llvmJittedObjbufferSuffix =
     "-jitted-objectbuffer";
 
-inline void consumeLLVMError(llvm::Error err) {
-  // use CAPI to avoid involving VTable of llvm::ErrorInfoBase
-  LLVMConsumeError(llvm::wrap(std::move(err)));
+inline std::string errorToString(llvm::Error err) {
+  char *errMsg = LLVMGetErrorMessage(llvm::wrap(std::move(err)));
+  std::string ret(errMsg);
+  LLVMDisposeErrorMessage(errMsg);
+  return ret;
+}
+
+inline Status LLVMErrorToBRTStatus(llvm::Error err,
+                                   const char *errMsg = nullptr) {
+  if (err) {
+    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
+                          errMsg ? errMsg + errorToString(std::move(err))
+                                 : errorToString(std::move(err)));
+  }
+  return Status::OK();
+}
+
+template <typename T>
+T checkAndThrow(llvm::Expected<T> ValOrErr, const char *errMsg = nullptr) {
+  if (ValOrErr)
+    return std::move(*ValOrErr);
+
+  else {
+    if (!errMsg)
+      errMsg = "failed on checkAndThrow";
+
+    std::string buf;
+    llvm::raw_string_ostream OS(buf);
+    OS << errMsg << " : " << errorToString(ValOrErr.takeError());
+    BRT_THROW(OS.str().c_str());
+  }
 }
 
 inline std::optional<llvm::OptimizationLevel>
@@ -143,7 +172,7 @@ void packFunctionArguments(llvm::Module *module) {
     llvm::Value *argList = interfaceFunc->arg_begin();
     llvm::SmallVector<llvm::Value *, 8> args;
     args.reserve(llvm::size(func.args()));
-    for (auto &indexedArg : llvm::enumerate(func.args())) {
+    for (auto &&indexedArg : llvm::enumerate(func.args())) {
       llvm::Value *argIndex = llvm::Constant::getIntegerValue(
           builder.getInt64Ty(), llvm::APInt(64, indexedArg.index()));
       llvm::Value *argPtrPtr =
@@ -175,6 +204,82 @@ void packFunctionArguments(llvm::Module *module) {
     builder.CreateRetVoid();
   }
 }
+
+extern "C" void memrefCopy(int64_t elemSize,
+                           MLIRUnrankedMemRefType<char> *srcArg,
+                           MLIRUnrankedMemRefType<char> *dstArg) {
+
+  MLIRDynamicMemRefType<char> src(*srcArg);
+  MLIRDynamicMemRefType<char> dst(*dstArg);
+
+  int64_t rank = src.rank;
+
+  // Handle empty shapes -> nothing to copy.
+  for (int rankp = 0; rankp < rank; ++rankp)
+    if (src.sizes[rankp] == 0)
+      return;
+
+  char *srcPtr = src.data + src.offset * elemSize;
+  char *dstPtr = dst.data + dst.offset * elemSize;
+
+  if (rank == 0) {
+    memcpy(dstPtr, srcPtr, elemSize);
+    return;
+  }
+
+  int64_t *indices = static_cast<int64_t *>(alloca(sizeof(int64_t) * rank));
+  int64_t *srcStrides = static_cast<int64_t *>(alloca(sizeof(int64_t) * rank));
+  int64_t *dstStrides = static_cast<int64_t *>(alloca(sizeof(int64_t) * rank));
+
+  // Initialize index and scale strides.
+  for (int rankp = 0; rankp < rank; ++rankp) {
+    indices[rankp] = 0;
+    srcStrides[rankp] = src.strides[rankp] * elemSize;
+    dstStrides[rankp] = dst.strides[rankp] * elemSize;
+  }
+
+  int64_t readIndex = 0, writeIndex = 0;
+  for (;;) {
+    // Copy over the element, byte by byte.
+    memcpy(dstPtr + writeIndex, srcPtr + readIndex, elemSize);
+    // Advance index and read position.
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      // Advance at current axis.
+      auto newIndex = ++indices[axis];
+      readIndex += srcStrides[axis];
+      writeIndex += dstStrides[axis];
+      // If this is a valid index, we have our next index, so continue copying.
+      if (src.sizes[axis] != newIndex)
+        break;
+      // We reached the end of this axis. If this is axis 0, we are done.
+      if (axis == 0)
+        return;
+      // Else, reset to 0 and undo the advancement of the linear index that
+      // this axis had. Then continue with the axis one outer.
+      indices[axis] = 0;
+      readIndex -= src.sizes[axis] * srcStrides[axis];
+      writeIndex -= dst.sizes[axis] * dstStrides[axis];
+    }
+  }
+}
+
+void InitJITKernelRTSymbols(LLVMJIT *jit) {
+#define REG2(name, symbol)                                                     \
+  if (!jit->Lookup(name, nullptr).IsOK()) {                                    \
+    BRT_ENFORCE(                                                               \
+        jit->RegisterSymbol(name, reinterpret_cast<void *>(&symbol)).IsOK());  \
+  }
+#define REG(symbol) REG2(#symbol, symbol)
+
+  REG(memrefCopy);
+  // TODO: replace with the call of session host allocator's corresponding
+  // method
+  REG2("malloc", ::malloc);
+  REG2("free", ::free);
+
+#undef REG
+#undef REG2
+}
 } // namespace
 // thin wrapper around LLJIT but use brt::Status as return code
 class LLVMJITImpl {
@@ -205,8 +310,6 @@ public:
   common::Status DumpObject(const std::string &identifier, std::ostream &os);
 
 private:
-  void InitRuntimeLibcalls();
-
   struct DebugInfo {
     // TODO?: multi-threads
     std::unordered_map<std::string, std::string> identifier2mod;
@@ -215,27 +318,26 @@ private:
 
   Options options;
   std::unique_ptr<llvm::orc::LLJIT> jit;
-  llvm::DenseSet<llvm::orc::SymbolStringPtr> rt_libcalls;
   DebugInfo dbgInfo;
 };
 
 LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
   if (opt.debug) {
-    jit = llvm::cantFail(llvm::orc::LLJITBuilder()
-                             .setObjectLinkingLayerCreator(
-                                 createRTDyldObjectLinkingLayerWithGDBListner)
-                             .create());
+    jit = checkAndThrow(llvm::orc::LLJITBuilder()
+                            .setObjectLinkingLayerCreator(
+                                createRTDyldObjectLinkingLayerWithGDBListner)
+                            .create(),
+                        "failed to create lljit builder");
   } else {
-    jit = llvm::cantFail(llvm::orc::LLJITBuilder().create());
+    jit = checkAndThrow(llvm::orc::LLJITBuilder().create(),
+                        "failed to create lljit builder");
   }
 
   // Make sure that our process symbols are visible to JIT'd code.
-  jit->getMainJITDylib().addGenerator(llvm::cantFail(
+  jit->getMainJITDylib().addGenerator(checkAndThrow(
       llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-          jit->getDataLayout().getGlobalPrefix(),
-          [this](const llvm::orc::SymbolStringPtr &name) {
-            return rt_libcalls.count(name);
-          })));
+          jit->getDataLayout().getGlobalPrefix()),
+      "failed to create DynamicLibrarySearchGenerator for current process"));
 
   jit->getIRTransformLayer().setTransform(
       [this](llvm::orc::ThreadSafeModule TSM,
@@ -243,9 +345,11 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
           -> llvm::Expected<llvm::orc::ThreadSafeModule> {
         TSM.withModuleDo([&](llvm::Module &M) {
           if (options.optLevel.has_value()) {
-            auto JTMB = llvm::cantFail(
-                llvm::orc::JITTargetMachineBuilder::detectHost());
-            auto TM = llvm::cantFail(JTMB.createTargetMachine());
+            auto JTMB = checkAndThrow(
+                llvm::orc::JITTargetMachineBuilder::detectHost(),
+                "failed to create JITTargetMachineBuilder for the host system");
+            auto TM = checkAndThrow(JTMB.createTargetMachine(),
+                                    "failed to create target machine");
             runLLVMDefaultOptimizationPipeline(M, options.optLevel.value(),
                                                TM.get());
           }
@@ -273,19 +377,12 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
         }
         return std::move(MB);
       });
-
-  InitRuntimeLibcalls();
 }
 
 common::Status LLVMJITImpl::LoadTSM(llvm::orc::ThreadSafeModule &&tsm) {
   tsm.withModuleDo([&](llvm::Module &M) { packFunctionArguments(&M); });
   auto err = jit->addIRModule(std::move(tsm));
-  if (err) {
-    consumeLLVMError(std::move(err));
-    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Load TSM failed");
-  }
-  return common::Status::OK();
+  return LLVMErrorToBRTStatus(std::move(err), "Load TSM failed");
 }
 
 common::Status LLVMJITImpl::ParseIRFile(const std::string &path) {
@@ -306,9 +403,8 @@ common::Status LLVMJITImpl::Lookup(const std::string &symbolName,
                                    void **symbol) {
   auto expectedSymbol = jit->lookup(symbolName);
   if (!expectedSymbol) {
-    consumeLLVMError(expectedSymbol.takeError());
-    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Unexpected symbol in llvm module");
+    return LLVMErrorToBRTStatus(expectedSymbol.takeError(),
+                                "Unexpected symbol in llvm module");
   }
   if (symbol) {
     *symbol = expectedSymbol->toPtr<void *>();
@@ -322,14 +418,10 @@ common::Status LLVMJITImpl::RegisterSymbol(const std::string &symbol,
   auto interner = llvm::orc::MangleAndInterner(
       mainJitDylib.getExecutionSession(), jit->getDataLayout());
   llvm::orc::SymbolMap symbolMap;
-  symbolMap[interner(symbol)] = llvm::JITEvaluatedSymbol::fromPointer(addr);
+  symbolMap[interner(symbol)] = {llvm::orc::ExecutorAddr::fromPtr(addr),
+                                 llvm::JITSymbolFlags::Exported};
   auto err = mainJitDylib.define(llvm::orc::absoluteSymbols(symbolMap));
-  if (err) {
-    consumeLLVMError(std::move(err));
-    return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Failed to register symbol");
-  }
-  return common::Status::OK();
+  return LLVMErrorToBRTStatus(std::move(err), "Failed to register symbol");
 }
 
 common::Status LLVMJITImpl::PrintOptimizedModule(const std::string &identifier,
@@ -354,16 +446,6 @@ common::Status LLVMJITImpl::DumpObject(const std::string &identifier,
   }
   os << iter->second;
   return common::Status::OK();
-}
-
-void LLVMJITImpl::InitRuntimeLibcalls() {
-  llvm::orc::MangleAndInterner mangle(jit->getExecutionSession(),
-                                      jit->getDataLayout());
-#define HANDLE_LIBCALL(code, name)                                             \
-  if (name)                                                                    \
-    rt_libcalls.insert(mangle(name ? name : ""));
-#include "llvm/IR/RuntimeLibcalls.def"
-#undef HANDLE_LIBCALL
 }
 
 #if BRT_LLJIT_DEBUG
@@ -409,16 +491,45 @@ common::Status LLVMJIT::DumpObject(const std::string &identifier,
   return impl->DumpObject(identifier, os);
 }
 
-LLVMJIT *LLVMJIT::Instance() {
+std::unique_ptr<LLVMJIT> LLVMJIT::Create() {
   static auto initLLVM = [] {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
     return true;
   }();
   static_cast<void>(initLLVM);
 
-  static LLVMJIT inst;
-  return &inst;
+  return std::make_unique<LLVMJIT>();
+}
+
+#define BRT_LLJIT_PTR_NAME "LLJIT_POINTER"
+
+LLVMJIT *GetLLJIT(const brt::ExecutionContext &ctx) {
+  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
+  size_t handle_offset = state_info.GetStateOffset(BRT_LLJIT_PTR_NAME);
+  return static_cast<LLVMJIT *>(ctx.exec_frame->GetState(handle_offset));
+}
+
+common::Status CreateLLJIT(const brt::ExecutionContext &ctx) {
+  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
+  return state_info.CreateStateIfNotExist(
+      BRT_LLJIT_PTR_NAME, ctx.exec_frame, []() {
+        auto lljit = LLVMJIT::Create();
+        InitJITKernelRTSymbols(lljit.get());
+        return static_cast<void *>(lljit.release());
+      });
+}
+
+common::Status DeleteLLJIT(const brt::ExecutionContext &ctx) {
+  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
+  size_t offset = state_info.GetStateOffset(BRT_LLJIT_PTR_NAME);
+  void *ptr = ctx.exec_frame->GetAndResetState(offset);
+  if (ptr != nullptr) {
+    LLVMJIT *lljit = static_cast<LLVMJIT *>(ptr);
+    delete lljit;
+  }
+  return brt::common::Status::OK();
 }
 } // namespace cpu
 } // namespace brt

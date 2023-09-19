@@ -24,7 +24,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
@@ -114,7 +114,7 @@ struct BoundedShapeInferencePass
     SmallVector<Type> newFuncArgTypes;
     if (failed(constructNewArgumentTypes(funcOp, newArgumentTypes,
                                          newFuncArgTypes, builder))) {
-      return;
+      return signalPassFailure();
     }
 
     func::ReturnOp returnOp;
@@ -140,7 +140,7 @@ struct BoundedShapeInferencePass
           ShapedType newType;
           if (auto lattice = solver.lookupState<ShapeLattice>(it)) {
             if (!lattice->getValue().isUninitialized())
-              newType = lattice->getValue().getType();
+              newType = lattice->getValue().getType().dyn_cast<ShapedType>();
           }
 
           if (!newType || !newType.hasRank())
@@ -158,7 +158,7 @@ struct BoundedShapeInferencePass
           }
         }
         if (isa<func::ReturnOp>(op)) {
-          returnOp = dyn_cast<func::ReturnOp>(op);
+          returnOp = cast<func::ReturnOp>(op);
         }
       });
     }

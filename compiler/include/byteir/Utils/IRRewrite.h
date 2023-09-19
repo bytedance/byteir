@@ -27,12 +27,22 @@ namespace mlir {
 class OpBuilder;
 class Operation;
 class Block;
-class BlockAndValueMapping;
+class IRMapping;
 class DominanceInfo;
 class FunctionOpInterface;
+class OpFoldResult;
 class PostDominanceInfo;
 class ShapedType;
 class TypeRange;
+
+// deep replicate specific op and its ancestor based a checkFunc
+void deepReplicateAncestorOps(Operation *op,
+                              std::function<bool(Operation *)> checkFunc);
+
+// deep replicate op's opIdx-th DefinitingOp
+// and set op's opIdx-th operand as cloned's resIdx-th result.
+Operation *deepReplicateDefiningOp(OpBuilder &b, Operation *op, unsigned opIdx,
+                                   unsigned resIdx);
 
 // replicate specific ops satisfying func
 void replicateDefiningOp(Block *block,
@@ -46,8 +56,18 @@ Operation *replicateDefiningOp(OpBuilder &b, Operation *op, unsigned opIdx,
 // clone a new op and force to replace its result types without doing type
 // inference
 Operation *cloneAndReplaceResultTypes(OpBuilder &b, Operation *op,
-                                      BlockAndValueMapping bvm,
-                                      TypeRange types);
+                                      IRMapping bvm, TypeRange types);
+
+// deep clone an op with IRMapping
+Operation *deepClone(OpBuilder &b, Operation *op, IRMapping &mapper);
+Operation *deepClone(OpBuilder &b, Operation *op);
+
+// deep fold an op by IRMapping bvm
+// return success if the op can be folded, and return FoldResult in results.
+// return failure if the op cannot be folded, results will be undefined.
+// Note deepFold not involve in any cloning.
+LogicalResult deepFold(Operation *op, IRMapping &bvm,
+                       SmallVectorImpl<mlir::OpFoldResult> &results);
 
 // create a new type by mixing two ShapedType
 // aka cloneFromElementType.clone(cloneFromShape.getShape());

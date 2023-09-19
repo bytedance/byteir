@@ -30,11 +30,11 @@ using namespace brt::test;
 using namespace mlir;
 
 TEST(IRTest, IterateNode) {
+  ByREBuilder byre_builder;
   ByREHandle hdl;
   auto status_init = hdl.Initialize();
   BRT_TEST_CHECK_STATUS(status_init);
 
-  ByREBuilder byre_builder;
   auto status_load =
       hdl.LoadFromMemory(CreateAddOp2(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -44,9 +44,9 @@ TEST(IRTest, IterateNode) {
   auto status_iterate_final = hdl.IterateNode([&](Operation *op) {
     if (auto byre_op = dyn_cast<byre::ByreOp>(op)) {
       auto key = ByREHandle::GetKey(byre_op);
-      if (key != "AddOpf32f32f32") {
+      if (key != "AddOp_f32f32_f32") {
         status_iterate_internal =
-            Status(BRT, FAIL, "Expect get AddOpf32f32f32 but get " + key);
+            Status(BRT, FAIL, "Expect get AddOp_f32f32_f32 but get " + key);
         return WalkResult::interrupt();
       }
       for (auto opArg : byre_op->getOperands()) {
@@ -64,11 +64,11 @@ TEST(IRTest, IterateNode) {
 }
 
 TEST(IRTest, IterateNodeWithInterrupt) {
+  ByREBuilder byre_builder;
   ByREHandle hdl;
   auto status_init = hdl.Initialize();
   BRT_TEST_CHECK_STATUS(status_init);
 
-  ByREBuilder byre_builder;
   auto status_load =
       hdl.LoadFromMemory(CreateUnknown(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -92,11 +92,11 @@ TEST(IRTest, IterateNodeWithInterrupt) {
 }
 
 TEST(IRTest, IterateEntryFuncArg) {
+  ByREBuilder byre_builder;
   ByREHandle hdl;
   auto status_init = hdl.Initialize();
   BRT_TEST_CHECK_STATUS(status_init);
 
-  ByREBuilder byre_builder;
   auto status_load =
       hdl.LoadFromMemory(CreateAddOp2(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

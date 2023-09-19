@@ -18,9 +18,11 @@
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 
 #include "byteir/Dialect/mhlo/Transforms/GenericFusionCommon.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Dialect/mhlo/Util/FusionUtil.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/IRRewrite.h"
+#include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Matchers.h"
@@ -35,27 +37,44 @@ using namespace mlir::mhlo;
 namespace {
 namespace elementwise {
 
+bool isCustomMhloRngOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRngUniformName();
+  }
+  return false;
+}
+
+// TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
   return isMhlo(op) &&
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-          isMhloConstantLike(op) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op));
+          isSplatMhloConstantLike(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op) ||
+          isCustomMhloRngOp(op));
 }
 
+// every candidate can start
 bool isFusibleStart(Operation *op) { return true; }
 
 bool isFusibleTrigger(Operation *op) {
   if (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
       op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-      isa<mhlo::ReshapeOp>(op)) {
+      isa<mhlo::ReshapeOp>(op) || isCustomMhloRngOp(op)) {
     return true;
   }
 
+  // if broadcast, check whether its operand is only used in broadcast
   if (isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op)) {
-    auto val = op->getOperand(0);
-    auto def_op = val.getDefiningOp();
-    return def_op && isMhloConstantLike(def_op);
+    auto src = op->getOperand(0);
+    // is foldable we just allow
+    if (isDeepMhloFoldable(src.getDefiningOp())) {
+      return true;
+    }
+    // otherwise, check it is only used in broadcast
+    // return useCount(src) == 1;
+    // LWC FIXME: change back to above after broadcast fusion resolve.
+    return false;
   }
 
   return false;
@@ -64,14 +83,17 @@ bool isFusibleTrigger(Operation *op) {
 bool isFusibleWith(Operation *target, Operation * /*start*/) {
   return target->hasTrait<::mlir::OpTrait::Elementwise>() ||
          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isMhloConstantLike(target) ||
+         isSplatMhloConstantLike(target) ||
          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target);
+             target) ||
+         isCustomMhloRngOp(target);
 }
 
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-         op->hasTrait<hlo::OpTrait::BroadcastingElementwise>();
+         op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op) ||
+         isCustomMhloRngOp(op);
 }
 
 static GenericFuserConfig config{

@@ -46,6 +46,7 @@
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "../PassDetail.h"
 
@@ -64,11 +65,8 @@ namespace mhlo {
     using Type = lmhlo::OpName;                                                \
   }
 
-MAP_HLO_TO_LHLO(ReverseOp);
-
-MAP_HLO_TO_LHLO(AllReduceOp);
 MAP_HLO_TO_LHLO(MapOp);
-MAP_HLO_TO_LHLO(ReduceScatterOp);
+MAP_HLO_TO_LHLO(ReverseOp);
 MAP_HLO_TO_LHLO(ScatterOp);
 MAP_HLO_TO_LHLO(SelectAndScatterOp);
 MAP_HLO_TO_LHLO(SortOp);
@@ -207,8 +205,8 @@ public:
       return failure();
     rewriter.create<mhlo::HloToLhloOp<HloOpTy>>(op->getLoc(), std::nullopt,
                                                 buffer_args, op->getAttrs());
-    rewriter.replaceOp(
-        op, llvm::makeArrayRef(buffer_args).drop_front(operands.size()));
+    rewriter.replaceOp(op,
+                       llvm::ArrayRef(buffer_args).drop_front(operands.size()));
     return success();
   }
 };
@@ -390,12 +388,21 @@ public:
                                   new_op->getRegion(i).end());
     }
 
-    rewriter.replaceOp(
-        op, llvm::makeArrayRef(buffer_args).drop_front(operands.size()));
+    rewriter.replaceOp(op,
+                       llvm::ArrayRef(buffer_args).drop_front(operands.size()));
 
     return success();
   }
 };
+
+LogicalResult rewriteToTensorOp(bufferization::ToTensorOp op,
+                                PatternRewriter &rewriter) {
+  if (op.getRestrict())
+    return failure();
+
+  op.setRestrict(true);
+  return success();
+}
 
 struct ConvertHloToLHloPass
     : public ConvertHloToLHloBase<ConvertHloToLHloPass> {
@@ -422,11 +429,10 @@ public:
 
     // LWC: lmhlo::ScatterOp's body allow mhlo
     target.addDynamicallyLegalDialect<mhlo::MhloDialect>([&](Operation *op) {
-      return isa_and_nonnull<
-          mhlo::AllReduceOp, lmhlo::AllReduceOp, mhlo::MapOp, lmhlo::MapOp,
-          mhlo::ReduceScatterOp, lmhlo::ReduceScatterOp, mhlo::ScatterOp,
-          lmhlo::ScatterOp, mhlo::SelectAndScatterOp, lmhlo::SelectAndScatterOp,
-          mhlo::SortOp, lmhlo::SortOp>(op->getParentOp());
+      return isa_and_nonnull<mhlo::MapOp, lmhlo::MapOp, mhlo::ScatterOp,
+                             lmhlo::ScatterOp, mhlo::SelectAndScatterOp,
+                             lmhlo::SelectAndScatterOp, mhlo::SortOp,
+                             lmhlo::SortOp>(op->getParentOp());
     });
 
     // Declare tensor_store illegal. tensor_load may be used to reify output
@@ -476,6 +482,14 @@ public:
             applyPartialConversion(getOperation(), target, frozenPatterns))) {
       signalPassFailure();
     }
+
+    RewritePatternSet toTensorPatterns(&context);
+    toTensorPatterns.add(rewriteToTensorOp);
+    FrozenRewritePatternSet toTensorFrozenPatterns(std::move(toTensorPatterns));
+    if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                            toTensorFrozenPatterns))) {
+      signalPassFailure();
+    }
   }
 };
 } // namespace
@@ -487,9 +501,7 @@ void mlir::populateHLOToLHLOConversionPatternExtension(
 
   patterns->insert<HloToLhloOpConverterLocal<mhlo::ReverseOp>,
                    HloToLhloOpConverterLocal<mhlo::ClampOp>,
-                   HloToLhloOpWithHloRegionsConverter<mhlo::AllReduceOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::MapOp>,
-                   HloToLhloOpWithHloRegionsConverter<mhlo::ReduceScatterOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::ScatterOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::SelectAndScatterOp>,
                    HloToLhloOpWithHloRegionsConverter<mhlo::SortOp>,

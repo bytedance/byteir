@@ -30,8 +30,9 @@ class FuncOp;
 
 namespace tfext {
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createRewriteFuncAttrToByteIRPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createRewriteFuncAttrToByteIRPass(
+    const std::unordered_map<std::string, Attribute>
+        &additional_main_func_attrs = {});
 } // namespace tfext
 } // namespace mlir
 

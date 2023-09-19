@@ -23,8 +23,8 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/IRMapping.h"
 
 #include "PassDetail.h"
 
@@ -88,7 +88,7 @@ static Operation *CloneCopy(OpBuilder &b, linalg::CopyOp oldCopy, Value iv,
   assert(oldCopy.getOutputs().size() == 1);
 
   auto inputDef = oldCopy.getInputs()[0].getDefiningOp();
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   bvm.map(iv, index);
   auto input = b.clone(*inputDef, bvm);
 
@@ -154,7 +154,7 @@ static void modifyLoopBody(OpBuilder &b, linalg::CopyOp oldCopy,
       // unrollIndex is for non-prefetch
       auto unrollIndex = createRelativeIndexValue(b, looplike, i + 1);
 
-      BlockAndValueMapping bvm;
+      IRMapping bvm;
       bvm.map(loopIV, unrollIndex);
       bvm.map(oldCopy.getOutputs()[0], newDsts[i]->getResult(0));
 
@@ -203,8 +203,6 @@ static void modifyLoopBody(OpBuilder &b, linalg::CopyOp oldCopy,
       return;
     b.setInsertionPointToStart(guardedBlock);
     (void)CloneCopy(b, oldCopy, loopIV, prefetchIndex, newDsts.back());
-
-    oldCopy.erase();
   }
 
   if (unroll) {
@@ -223,6 +221,8 @@ static void modifyLoopBody(OpBuilder &b, linalg::CopyOp oldCopy,
                                newDsts[i - 1]->getResult(0));
     }
   }
+
+  oldCopy.erase();
 }
 
 static void prefetchImpl(OpBuilder &b, linalg::CopyOp oldCopy, bool unroll) {

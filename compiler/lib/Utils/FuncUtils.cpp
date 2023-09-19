@@ -1,4 +1,4 @@
-//===- Functils.cpp -------------------------------------------------------===//
+//===- FuncUtils.cpp ------------------------------------------------------===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,6 @@ void mlir::getAllExtraFuncAttrs(SmallVectorImpl<mlir::NamedAttribute> &attrs,
 
 void mlir::cloneAllExtraFuncAttrs(func::FuncOp oldFunc, func::FuncOp newFunc,
                                   llvm::ArrayRef<llvm::StringRef> filterOut) {
-
   SmallVector<mlir::NamedAttribute> attrs;
 
   getAllExtraFuncAttrs(attrs, oldFunc, filterOut);

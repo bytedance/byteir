@@ -95,13 +95,13 @@ template <typename ReduceOp, typename T = typename ReduceOp::type_t>
 void CheckReductionSingle(const std::vector<int64_t> &input_shape,
                           const std::vector<int64_t> &dimensions,
                           std::string op_name) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateReduction(byre_builder, "cuda", input_shape, dimensions, op_name),
       "byre");
@@ -181,13 +181,13 @@ template <typename ReduceOp> void CheckReduction(std::string op_name) {
 
 void CheckNanPropagation(std::string op_name) {
   const static size_t nr_elems = 1024;
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateReduction(byre_builder, "cuda", {nr_elems}, {0}, op_name), "byre");
 
@@ -216,15 +216,15 @@ void CheckNanPropagation(std::string op_name) {
 } // namespace
 
 TEST(CUDATestReductionOp, ReduceSum) {
-  CheckReduction<ReduceSumOp<float>>("ReduceSumOpf32f32");
+  CheckReduction<ReduceSumOp<float>>("ReduceSumOp_f32_f32");
 }
 
 TEST(CUDATestReductionOp, ReduceMax) {
-  CheckReduction<ReduceMaxOp<float>>("ReduceMaxOpf32f32");
+  CheckReduction<ReduceMaxOp<float>>("ReduceMaxOp_f32_f32");
   // TODO(liuyuanqiang): add fp16 test and resolve precision problem.
 }
 
 TEST(CUDATestReductionOp, NanPropagation) {
-  CheckNanPropagation("ReduceSumOpf32f32");
-  CheckNanPropagation("ReduceMaxOpf32f32");
+  CheckNanPropagation("ReduceSumOp_f32_f32");
+  CheckNanPropagation("ReduceMaxOp_f32_f32");
 }

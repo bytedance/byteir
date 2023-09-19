@@ -3,12 +3,13 @@ set(LLVM_LINK_COMPONENTS
   )
 
 get_property(byteir_translation_libs GLOBAL PROPERTY BYTEIR_TRANSLATION_LIBS)
-
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 
 set(LIBS
   ${dialect_libs}
+  ${extension_libs}
   ${byteir_translation_libs}
   ${translation_libs}
   MLIRIR

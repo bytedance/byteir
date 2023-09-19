@@ -1,4 +1,4 @@
-//===- TypeUtils.h ------------------------------------------------ C++---===//
+//===- TypeUtils.h ------------------------------------------------- C++---===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,9 @@ namespace mlir {
 // note: if origin has non-DictionaryAttr, will replace it.
 RankedTensorType appendTensorEncodingAttr(RankedTensorType origin,
                                           NamedAttribute attr);
+
+// return whether two ShapedType has a same Shape
+bool areSameShape(ShapedType lhs, ShapedType rhs);
 
 } // namespace mlir
 

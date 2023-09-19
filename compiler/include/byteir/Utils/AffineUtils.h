@@ -31,6 +31,25 @@ FailureOr<unsigned> getIterAxisFromDim(AffineMap affineMap, unsigned dimIndex);
 AffineMap getFlattenAffineMap(mlir::MLIRContext *,
                               ArrayRef<int64_t> staticShape);
 
+/// return a `numDims` affineMap without dim `skips`
+/// E.g. if numDims = 3, skips = {1, 2}
+/// return affineMap = (d0, d1, d2)-> (d0)
+AffineMap getMultiDimIdentityMapWithSkips(unsigned numDims,
+                                          ArrayRef<int64_t> skips,
+                                          MLIRContext *context);
+
+/// return a `numDims` affineMap with only dim `targets`
+/// E.g. if numDims = 3, targets = {1, 2}
+/// return affineMap = (d0, d1, d2)-> (d1, d2)
+AffineMap getMultiDimIdentityMapWithTargets(unsigned numDims,
+                                            ArrayRef<int64_t> targets,
+                                            MLIRContext *context);
+
+/// Returns true if the AffineMap represents a subset (i.e. a projection) of a
+/// symbol-less permutation map. It allows projected permutation maps with
+/// constant result expressions.
+bool isProjectedPermutationAndAllowConst(AffineMap map);
+
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_AFFINEUTILS_H

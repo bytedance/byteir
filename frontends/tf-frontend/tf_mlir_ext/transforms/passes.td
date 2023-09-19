@@ -66,6 +66,7 @@ def MhloLegalizeTfExt: Pass<"mhlo-legalize-tf-ext", "func::FuncOp"> {
   let dependentDialects = [
     "mlir::TF::TensorFlowDialect",
     "mlir::mhlo::MhloDialect",
+    "mlir::tensor::TensorDialect",
   ];
 }
 

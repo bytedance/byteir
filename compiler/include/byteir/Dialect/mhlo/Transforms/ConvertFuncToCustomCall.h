@@ -34,10 +34,6 @@ class Value;
 class ValueRange;
 class TypeRange;
 
-constexpr llvm::StringRef getByteIRCustomCallAttrName() {
-  return "byteir_attrs";
-}
-
 // the abstract class of FuncToCustomCallConverter
 // Some member functions are implemented for trival cases
 struct FuncToCustomCallConverterBase {

@@ -28,12 +28,13 @@
 
 using namespace mlir;
 using namespace mlir::tfext;
+using namespace llvm;
 
 namespace {
 
 #include "tf_mlir_ext/transforms/fuse_tf_ops.inc"
 
-llvm::Optional<ArrayAttr>
+std::optional<ArrayAttr>
 ExtractDilationsAttrFromBlockShape(Value stb_block_shape, Value bts_block_shape,
                                    PatternRewriter &rewriter) {
   DenseIntElementsAttr stb_bs_attr, bts_bs_attr;
@@ -129,7 +130,7 @@ struct FuseDilatedConv3DPattern : public OpRewritePattern<TF::Conv3DOp> {
           "SpaceToBatchND op's padding doesn't have same shape/type with "
           "BatchToSpaceND op's crops");
     }
-    llvm::Optional<ArrayAttr> dilations_attr =
+    std::optional<ArrayAttr> dilations_attr =
         ExtractDilationsAttrFromBlockShape(stb_op.getBlockShape(),
                                            bts_op.getBlockShape(), rewriter);
     if (!dilations_attr.has_value()) {

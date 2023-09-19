@@ -38,6 +38,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 
+#include <iostream>
+
 using namespace llvm;
 using namespace mlir;
 
@@ -60,9 +62,9 @@ static void findLibDeviceFile(std::string &libdeviceFile) {
   if (cudaHome.has_value()) {
     defaultPaths.emplace_back(cudaHome.value());
   } else {
-    // try to get libdevice.bc from the default location for CUDA 11.5
+    // try to get libdevice.bc from the default location for CUDA 12.2
     // FIXME change to an input with a default value
-    const char *cudaVer = "11.5";
+    const char *cudaVer = "12.2";
 #ifdef _WIN32
     defaultPaths.push_back(
         std::string(
@@ -130,9 +132,8 @@ struct ptxGenerator {
                                   StringRef passName, bool saveOutput = true,
                                   bool gpuPass = false) {
     printVerbose("Start running pass " + passName + "\n");
-    mlir::PassManager pm(moduleOp.getContext(),
-                         OpPassManager::Nesting::Implicit);
-    applyPassManagerCLOptions(pm);
+    mlir::PassManager pm(moduleOp->getName(), OpPassManager::Nesting::Implicit);
+    (void)applyPassManagerCLOptions(pm);
     if (gpuPass) {
       auto &kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
       kernelPm.addPass(std::move(pass));
@@ -219,9 +220,8 @@ struct ptxGenerator {
   }
 
   LogicalResult emitOperation(ModuleOp m) {
-    auto context = m.getContext();
-    PassManager pm(context, OpPassManager::Nesting::Implicit);
-    applyPassManagerCLOptions(pm);
+    PassManager pm(m->getName(), OpPassManager::Nesting::Implicit);
+    (void)applyPassManagerCLOptions(pm);
 
     initGenPtxPasses();
     std::string outPrefixName = outPrefix + ".genptx.mlir";
@@ -244,10 +244,9 @@ struct ptxGenerator {
 
 } // namespace
 
-LogicalResult mlir::translateToPTX(Operation *op, raw_ostream &os,
-                                   const std::string &prefix, OptLevel level,
-                                   const std::string &gpuArch, bool dumpPtx,
-                                   bool saveTemp, bool verbose) {
+LogicalResult mlir::translateToPTX(Operation *op, const std::string &prefix,
+                                   OptLevel level, const std::string &gpuArch,
+                                   bool dumpPtx, bool saveTemp, bool verbose) {
   // only take module
   auto m = dyn_cast<ModuleOp>(op);
   if (!m)

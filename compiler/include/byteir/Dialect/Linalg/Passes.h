@@ -20,13 +20,16 @@
 
 #include "byteir/Dialect/Linalg/Transforms/Bufferize.h"
 #include "byteir/Dialect/Linalg/Transforms/FuseElementwise.h"
+#include "byteir/Dialect/Linalg/Transforms/LinalgCollapseLoops.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgDataPlace.h"
+#include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgPrefetch.h"
 #include "byteir/Dialect/Linalg/Transforms/Tiling.h"
 
 namespace mlir {
 
 /// Generate the code for registering transforms passes.
+#define GEN_PASS_DECL_LINALGGENERALIZATIONEXT
 #define GEN_PASS_REGISTRATION
 #include "byteir/Dialect/Linalg/Passes.h.inc"
 

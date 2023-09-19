@@ -35,7 +35,7 @@ void mlir::registerRealDynamicSliceInferReturnTypeComponents() {
       [](MLIRContext *context, std::optional<Location> loc,
          ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        mhlo::RealDynamicSliceOp::Adaptor adaptor(operands, attrs, regions);
+        mhlo::RealDynamicSliceOp::Adaptor adaptor(operands, attrs, {}, regions);
 
         // here `getValueAsShape` just get the constant values, they're
         // in fact not shapes, but the start,limit,stride indices of slice.

@@ -33,7 +33,7 @@ using namespace brt::test;
 
 static std::string test_file_add_2 = "test/test_files/add2_cpu.mlir";
 static std::string test_file_add_2_dynamic =
-    "test/test_files/add2_cpu_dynamic.mlir";
+    "test/test_files/DynamicShapes/Add2/entry.mlir";
 
 static void CheckCPUResult(void *h_ptr, size_t size, char val) {
   char *h_char_ptr = (char *)h_ptr;
@@ -50,9 +50,9 @@ TEST(SessionTest, LoadNoProvider) {
 }
 
 TEST(SessionTest, LoadFromMemoryNoProvider) {
+  ByREBuilder byre_builder;
   Session session;
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   EXPECT_FALSE(status_load.IsOK());
@@ -92,35 +92,35 @@ TEST(SessionTest, Load) {
 }
 
 TEST(SessionTest, LoadFromMemory) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 }
 
 TEST(SessionTest, LoadUnknownOp) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateUnknown(byre_builder, "cpu"), "byre");
   EXPECT_FALSE(status_load.IsOK());
 }
 
 TEST(SessionTest, GraphInfo) {
+  ByREBuilder byre_builder;
   Session session;
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
 
@@ -156,14 +156,46 @@ TEST(SessionTest, GraphInfo) {
   EXPECT_EQ(dtype, DTypeEnum::Float32);
 }
 
+TEST(SessionTest, TfEntryAttrs) {
+  ByREBuilder byre_builder;
+  Session session;
+
+  std::vector<std::string> inputs{"Input_0"};
+  std::vector<std::string> outputs{"Output_0"};
+  std::vector<std::string> original_inputs{"Input_0", "Input_1"};
+  auto status_load = session.LoadFromMemory(
+      CreateWithEntryAttrs(byre_builder, dtype_enum_v<float>, {3}, inputs,
+                           outputs, original_inputs),
+      "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  const auto &inputs_attr = session.GetTfInputNamesAttr();
+  EXPECT_EQ(inputs.size(), inputs_attr.size());
+  for (size_t i = 0; i < inputs.size(); i++) {
+    EXPECT_EQ(inputs[i], inputs_attr[i]);
+  }
+
+  const auto &outputs_attr = session.GetTfOutputNamesAttr();
+  EXPECT_EQ(outputs.size(), outputs_attr.size());
+  for (size_t i = 0; i < outputs.size(); i++) {
+    EXPECT_EQ(outputs[i], outputs_attr[i]);
+  }
+
+  const auto &original_names_attr = session.GetTfOriginalInputNamesAttr();
+  EXPECT_EQ(original_inputs.size(), original_names_attr.size());
+  for (size_t i = 0; i < original_inputs.size(); i++) {
+    EXPECT_EQ(original_inputs[i], original_names_attr[i]);
+  }
+}
+
 TEST(SessionTest, NewRequestContext) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -174,13 +206,13 @@ TEST(SessionTest, NewRequestContext) {
 }
 
 TEST(SessionTest, Run) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateCustom(byre_builder, "cpu"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

@@ -36,6 +36,7 @@ enum CUDATaskType : int {
   kRecordEvent = 3,
   kWaitEvent = 4,
   kComputeDrv = 5,
+  kD2D = 6,
 };
 
 /**
@@ -62,6 +63,11 @@ public:
   virtual common::Status Sync() override;
 
   virtual CUstream_st *GetComputeStream() { return nullptr; }
+
+  common::Status AddHostTask(std::function<void(void)> &&task) override {
+    task();
+    return common::Status::OK();
+  }
 
   cuda::CudaEnv &GetCudaEnv() { return env_; }
 

@@ -32,6 +32,4 @@ namespace onnx_frontend {
 
 bool EndsWith(const std::string& x, const std::string& y);
 
-bool CloseTo(float x, float y, float eps = 1e-7);
-
 }  // namespace onnx_frontend

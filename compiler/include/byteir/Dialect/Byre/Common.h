@@ -28,11 +28,19 @@ namespace byre {
 // byre.compute attribute name
 inline llvm::StringRef getByreComputeName() { return "byre_compute_name"; }
 
+inline llvm::StringRef getRemoveFuncBodyAttrName() {
+  return "remove_func_body";
+}
+
 inline std::string getByrePassThroughArgAttrName() { return "passthrough_arg"; }
 
 inline std::string getByreArgOffsetAttrName() { return "arg_offsets"; }
 
 inline std::string getByreArgRankAttrName() { return "arg_ranks"; }
+
+inline std::string getKernelCallConventionAttrName() {
+  return "call_convention";
+}
 
 inline llvm::StringRef getByreForceComputeNameAttrName() {
   return "byre_force_compute_name";
@@ -66,6 +74,8 @@ inline NamedAttribute removeByrePrefix(NamedAttribute attr) {
   return NamedAttribute{identifier, attr.getValue()};
 }
 
+std::string getByreKey(llvm::StringRef original, mlir::TypeRange inTypes,
+                       mlir::TypeRange outTypes, bool appendArgTypes);
 } // end namespace byre
 } // end namespace mlir
 

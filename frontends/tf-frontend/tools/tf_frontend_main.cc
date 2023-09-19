@@ -34,6 +34,7 @@
 #include "tensorflow/compiler/mlir/tensorflow/utils/import_utils.h"
 
 #include "tf_mlir_ext/pipelines/passes.h"
+#include "utils/attributes.h"
 #include "utils/graphdef_opt.h"
 #include "utils/misc.h"
 
@@ -43,6 +44,7 @@
 #include <vector>
 
 using namespace tensorflow;
+using namespace mlir;
 
 static llvm::cl::opt<std::string> input_filename(llvm::cl::Positional,
                                                  llvm::cl::desc("<input file>"),
@@ -112,6 +114,11 @@ static llvm::cl::opt<bool> stop_after_rewrite_customcall(
     llvm::cl::desc("pipeline stop after rewrite customcall ops for debug"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> keep_original_input_names(
+    "keep-original-input-names",
+    llvm::cl::desc("put original input names in main func as an ArrayAttr"),
+    llvm::cl::init(false));
+
 int main(int argc, char **argv) {
   tensorflow::InitMlir y(&argc, &argv);
 
@@ -156,15 +163,14 @@ int main(int argc, char **argv) {
     }
   }
 
-  std::unordered_map<std::string, std::vector<int>> name2shape;
-  std::vector<tensorflow::InputInfo> input_infos =
-      GetPlaceholderInputsWithSpecifiedBatchSize(input_graph_def, -1, false,
-                                                 name2shape);
   std::vector<std::string> input_names_vec;
-  for (const auto &info : input_infos) {
-    input_names_vec.push_back(info.name);
+  if (input_arrays != "") {
+    (void)tensorflow::ParseNodeNames(input_arrays, input_names_vec);
+  } else {
+    input_names_vec = GetPlaceholderNames(input_graph_def);
   }
 
+  // grappler optimization
   std::vector<std::string> output_array_vector;
   (void)tensorflow::ParseNodeNames(output_arrays, output_array_vector);
   tensorflow::GraphDef opted_graph_def = tensorflow::OptimizeGraphDef(
@@ -176,27 +182,39 @@ int main(int argc, char **argv) {
     return 0;
   }
 
+  std::unordered_map<std::string, std::vector<int>> name2shape;
   (void)ParseStrToVectorIntMaps(input_name_and_shapes, name2shape);
   std::vector<tensorflow::InputInfo> new_input_infos =
-      GetPlaceholderInputsWithSpecifiedBatchSize(
-          opted_graph_def, tfext_batch_size, force_set_batch_size, name2shape);
+      GetInputsByNameWithSpecifiedBatchSize(opted_graph_def, input_names_vec,
+                                            tfext_batch_size,
+                                            force_set_batch_size, name2shape);
   std::vector<std::string> new_input_dtypes_vec;
   std::vector<std::string> new_input_names_vec;
   std::vector<std::string> new_input_shapes_vec;
   for (const auto &info : new_input_infos) {
-    new_input_dtypes_vec.push_back(info.dtype);
     new_input_names_vec.push_back(info.name);
+    new_input_dtypes_vec.push_back(info.dtype);
     new_input_shapes_vec.push_back(info.shape_str);
   }
   input_arrays = tensorflow::join(new_input_names_vec, ",");
   input_dtypes = tensorflow::join(new_input_dtypes_vec, ",");
   input_shapes = tensorflow::join(new_input_shapes_vec, ":");
 
-  stream_executor::port::StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> module_or =
+  tensorflow::GraphdefToMlirOptions options = {
+      "",                 // debug_info_file
+      "",                 // xla_compile_device_type
+      prune_unused_nodes, // prune_unused_nodes
+      false,              // convert_legacy_fed_inputs
+      graph_as_function,  // graph_as_function
+      false,              // upgrade_legacy
+      false,              // enable_shape_inference
+      false,              // unconditionally_use_set_output_shapes
+      false               // enable_soft_placement
+  };
+  tsl::StatusOr<mlir::OwningOpRef<mlir::ModuleOp>> module_or =
       tensorflow::GraphdefToMlirTranslateFunction(
-          opted_graph_def.SerializeAsString(), "", input_arrays, input_dtypes,
-          input_shapes, output_arrays, control_output_arrays,
-          prune_unused_nodes, false, graph_as_function, false, false, false,
+          opted_graph_def.SerializeAsString(), input_arrays, input_dtypes,
+          input_shapes, output_arrays, control_output_arrays, options,
           &context);
   if (!module_or.status().ok()) {
     return 1;
@@ -216,10 +234,25 @@ int main(int argc, char **argv) {
     module->getContext()->disableMultithreading();
     tf_frontend_manager.enableCrashReproducerGeneration(reproducer_file, true);
   }
+
+  std::unordered_map<std::string, Attribute> additional_main_func_attrs;
+
+  if (keep_original_input_names) {
+    llvm::SmallVector<Attribute> original_input_name_attrs;
+    original_input_name_attrs.reserve(input_names_vec.size());
+    for (const std::string &input_name : input_names_vec)
+      original_input_name_attrs.push_back(
+          StringAttr::get(module->getContext(), input_name));
+    ArrayAttr original_input_name_array_attr =
+        ArrayAttr::get(module->getContext(), original_input_name_attrs);
+    additional_main_func_attrs[getTfOriginalInputNamesKey()] =
+        original_input_name_array_attr;
+  }
+
   tf_frontend_manager.addPass(
       ::mlir::tfext::createCustomizedTfToMhloPipelinePass(
           customcall_ops_array, remove_control_flow, staticalize_dynamic_shape,
-          stop_after_rewrite_customcall));
+          stop_after_rewrite_customcall, additional_main_func_attrs));
   if (mlir::failed(tf_frontend_manager.run(*module))) {
     llvm::outs() << "tf frontend customized-tf-to-mhlo pipeline failed\n";
     return 1;

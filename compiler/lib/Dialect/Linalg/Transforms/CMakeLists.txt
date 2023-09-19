@@ -1,8 +1,12 @@
 add_mlir_dialect_library(ByteIRLinalgPasses
   BufferizableOpInterfaceImpl.cpp
   Bufferize.cpp
+  CanonicalizeExt.cpp
   FuseElementwise.cpp
+  LinalgCollapseLoops.cpp
   LinalgDataPlace.cpp
+  LinalgExtToLoops.cpp
+  LinalgGeneralizationExt.cpp
   LinalgPrefetch.cpp
   Tiling.cpp
   ScopeTiling.cpp
@@ -15,11 +19,11 @@ add_mlir_dialect_library(ByteIRLinalgPasses
 
   DEPENDS
   ByteIRLinalgPassIncGen
-  MLIRLinalgExtTransformOpsIncGen
   ByteIRUtils
   MLIRDestinationStyleOpInterface
-  MLIRLinalgExt
   MLIRLinalgDialect
+  MLIRLinalgExt
+  MLIRLinalgExtTransformOpsIncGen
 
   LINK_LIBS PUBLIC
   ByteIRUtils

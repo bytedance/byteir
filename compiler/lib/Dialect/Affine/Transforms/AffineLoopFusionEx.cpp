@@ -29,6 +29,7 @@
 
 using namespace llvm;
 using namespace mlir;
+using namespace mlir::affine;
 
 namespace {
 
@@ -52,7 +53,7 @@ void collectAffineLopps(func::FuncOp funcOp,
 }
 
 // This is a temp fix for affine fusion
-void updateComputationSliceState(mlir::ComputationSliceState &sliceUnion,
+void updateComputationSliceState(ComputationSliceState &sliceUnion,
                                  MLIRContext *ctx) {
   sliceUnion.lbs[0] = AffineMap::getMultiDimIdentityMap(1, ctx);
   // generate d0 + 1

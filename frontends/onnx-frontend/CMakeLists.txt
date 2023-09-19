@@ -49,7 +49,7 @@ include(MLIR.cmake)
 
 if (ONNX_MLIR_ENABLE_MHLO)
   llvm_update_compile_flags(stablehlo-opt)
-  llvm_update_compile_flags(stablehlo-interpreter)
+  llvm_update_compile_flags(stablehlo-translate)
   llvm_update_compile_flags(mlir-hlo-opt)
 endif()
 

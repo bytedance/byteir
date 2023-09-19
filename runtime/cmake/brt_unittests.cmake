@@ -174,5 +174,5 @@ target_link_libraries(external_kernels PRIVATE -Wl,--unresolved-symbols=ignore-i
 add_dependencies(brt_test_all external_kernels)
 
 ## copy test files
-configure_files(${TEST_SRC_DIR}/test_files ${CMAKE_BINARY_DIR}/test/test_files)
+file(COPY ${TEST_SRC_DIR}/test_files DESTINATION ${CMAKE_BINARY_DIR}/test/)
 

@@ -1,4 +1,5 @@
 // RUN: byteir-opt %s -hlo-fold | FileCheck %s
+// RUN: byteir-opt %s -unfuse-batch-norm -hlo-fold | FileCheck %s --check-prefix UNFUSEBN
 
 func.func @add_scatteradd_right(%arg0 : tensor<30522x128xf32>, %arg1 : tensor<256x1xi64>, %arg2 : tensor<256x128xf32>) -> tensor<30522x128xf32> {
     %0 = mhlo.constant dense<0.000000e+00> : tensor<30522x128xf32>
@@ -296,3 +297,22 @@ func.func @pad_maxpooling_with_padding(%arg0: tensor<32x64x112x112xf16>) -> tens
 // CHECK-NEXT:  %0 = mhlo.constant dense<0xFC00> : tensor<f16>
 // CHECK-NEXT:  mhlo.reduce_window
 // CHECK{LITERAL}:  padding = dense<[[0, 0], [0, 0], [2, 2], [2, 2]]> : tensor<4x2xi64>
+
+func.func @dot_bn(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32> {
+  %1 = mhlo.constant dense<[1.0,3.0]> : tensor<2xf32>
+  %2 = mhlo.constant dense<[3.0,4.0]> : tensor<2xf32>
+  %3 = mhlo.constant dense<[1.0,1.0]> : tensor<2xf32>
+  %4 = mhlo.constant dense<[1.0,1.0]> : tensor<2xf32>
+  %5 = mhlo.constant dense<[[2.000000e+00,2.000000e+00],[3.000000e+00,3.000000e+00]]> : tensor<2x2xf32>
+  %6 = mhlo.constant dense<[2.000000e+00,3.000000e+00]> : tensor<2xf32>
+  %7 = "mhlo.broadcast_in_dim"(%6) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<2xf32>) -> tensor<2x2xf32>
+  %8 = "mhlo.dot"(%arg0, %5) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xf32>
+  %9 = mhlo.add %8, %7 : tensor<2x2xf32>
+  %10 = "mhlo.batch_norm_inference"(%9, %1, %2, %3, %4) {epsilon = 0.0 : f32, feature_index = 1 : i64} : (tensor<2x2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<2x2xf32>
+  func.return %10 : tensor<2x2xf32>
+}
+// UNFUSEBN-LABEL: dot_bn
+// UNFUSEBN-DAG{LITERAL}: mhlo.constant dense<[4.000000e+00, 1.000000e+01]> : tensor<2xf32>
+// UNFUSEBN-DAG{LITERAL}: mhlo.constant dense<[[2.000000e+00, 6.000000e+00], [3.000000e+00, 9.000000e+00]]> : tensor<2x2xf32>
+// UNFUSEBN: "mhlo.dot"
+// UNFUSEBN-NOT:  mhlo.batch_norm_inference

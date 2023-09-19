@@ -22,6 +22,7 @@
 #include "mlir/IR/Block.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -51,26 +52,31 @@ using MhloFusionPlan = llvm::SmallVector<MhloFusionPattern, 8>;
 // This version will automatically scan and generate input/output with the
 // sequence of defOp in the fusion's basic block.
 // Often used: when input/output sequence order or number has no constraint.
-mhlo::FusionOp createMhloFusionFromPattern(OpBuilder &b,
-                                           const MhloFusionPattern &pattern);
+// Note it will return failure, if there is no output.
+FailureOr<mhlo::FusionOp>
+createMhloFusionFromPattern(OpBuilder &b, const MhloFusionPattern &pattern);
 
 // This version with inputs/outputs will use explicit given inputs/outputs.
 // Often used: 1) when requiring the input/output sequence order,
 //             2) when creating arg/return for unused input/output.
+// Note outputs cannot be empty.
 mhlo::FusionOp createMhloFusionFromPattern(OpBuilder &b, ValueRange inputs,
                                            ValueRange outputs,
                                            const MhloFusionPattern &pattern);
 
 // This is similar to createMhloFusionFromPattern, and it will create a outlined
 // FuncOp instead.
+// Note outputs cannot be empty.
 func::FuncOp createFuncOpFromPattern(OpBuilder &b, StringRef sub_fn_name,
                                      ValueRange inputs, ValueRange outputs,
                                      const MhloFusionPattern &pattern);
 
 // This is similar to createMhloFusionFromPattern, and it will create a outlined
 // FuncOp instead.
-func::FuncOp createFuncOpFromPattern(OpBuilder &b, StringRef sub_fn_name,
-                                     const MhloFusionPattern &pattern);
+// Note it will return failure, if there is no output.
+FailureOr<func::FuncOp>
+createFuncOpFromPattern(OpBuilder &b, StringRef sub_fn_name,
+                        const MhloFusionPattern &pattern);
 
 void applyMhloFusionPattern(const MhloFusionPattern &pattern,
                             llvm::StringRef tag);

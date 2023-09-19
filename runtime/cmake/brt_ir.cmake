@@ -46,7 +46,6 @@ set(MLIR_REQUIRE_LIBS
   MLIRMemRefDialect
   MLIRTensorDialect
   MLIRViewLikeInterface
-  MLIRMemRefUtils
   MLIRSideEffectInterfaces
   MLIRCallInterfaces
   MLIRControlFlowInterfaces

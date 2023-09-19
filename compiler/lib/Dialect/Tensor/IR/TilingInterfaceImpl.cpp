@@ -16,12 +16,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
+#include "byteir/Utils/OpInterfaceUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Tensor/IR/TensorTilingInterfaceImpl.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "llvm/Support/Debug.h"
@@ -53,6 +55,23 @@ static bool isNoTile(OpFoldResult tileSize, OpFoldResult offset,
   return false;
 }
 
+static bool isUnitTile(OpFoldResult tileSize, int64_t dim) {
+  std::optional<int64_t> maybeIntTileSize = getConstantIntValue(tileSize);
+  if (maybeIntTileSize.has_value()) {
+    return maybeIntTileSize.value() == 1;
+  }
+  return false;
+}
+
+static bool isValidTile(OpFoldResult tileSize, ArrayRef<int64_t> shape,
+                        int64_t dim) {
+  std::optional<int64_t> maybeIntTileSize = getConstantIntValue(tileSize);
+  if (maybeIntTileSize.has_value()) {
+    return shape[dim] % maybeIntTileSize.value() == 0;
+  }
+  return false;
+}
+
 static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
     OpBuilder &b, Location loc, ArrayRef<ReassociationIndices> associations,
     const TensorSliceParameters &collapsedSliceParams,
@@ -68,7 +87,7 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
     OpFoldResult collapsedTileSize = collapsedSliceParams.sizes[collapsedIdx];
     OpFoldResult collapsedOffset = collapsedSliceParams.offsets[collapsedIdx];
 
-    // Case 0: if a dimension of the collapsed value isn't tiled, all the
+    // Case 0a: if a dimension of the collapsed value isn't tiled, all the
     // correspond dimensions of the expanded value won't be tiled.
     if (isNoTile(collapsedTileSize, collapsedOffset, collapsedShape,
                  collapsedIdx)) {
@@ -81,6 +100,44 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
     }
 
     ArrayRef<int64_t> expandedIndicesRef = expandedIndices;
+    // Case 0b: if the last dimension of the expanded value was the multiple of
+    // the tileSize N of the collapsed dimension, the expanded value could be
+    // tiled by [1, ...,1, N]
+    if (isValidTile(collapsedTileSize, expandedShape,
+                    expandedIndicesRef.back())) {
+      std::optional<int64_t> maybeIntOffset =
+          getConstantIntValue(collapsedOffset);
+      AffineExpr offsetExpr;
+      if (!maybeIntOffset.has_value()) {
+        offsetExpr = getAffineDimExpr(0, ctx);
+      } else {
+        offsetExpr = getAffineConstantExpr(*maybeIntOffset, ctx);
+      }
+      SmallVector<AffineExpr> offsetExprs;
+      for (auto &&dim : llvm::reverse(expandedIndicesRef)) {
+        offsetExprs.push_back({offsetExpr % expandedShape[dim]});
+        offsetExpr = offsetExpr.floorDiv(expandedShape[dim]);
+      }
+
+      for (auto &&expr : llvm::reverse(offsetExprs)) {
+        if (auto constExpr = expr.dyn_cast<AffineConstantExpr>()) {
+          resSliceParameters.offsets.push_back(
+              b.getIndexAttr(constExpr.getValue()));
+        } else {
+          resSliceParameters.offsets.push_back(
+              b.create<affine::AffineApplyOp>(
+                   loc, AffineMap::inferFromExprList({expr}).front(),
+                   collapsedOffset.dyn_cast<Value>())
+                  ->getResult(0));
+        }
+      }
+      resSliceParameters.sizes.append(expandedIndicesRef.size() - 1,
+                                      b.getIndexAttr(1));
+      resSliceParameters.sizes.push_back(collapsedTileSize);
+
+      continue;
+    }
+
     // handle the leading dimensions whose size is equal to 1
     expandedIndicesRef = expandedIndicesRef.drop_while([&](int64_t idx) {
       bool isOne = expandedShape[idx] == 1;
@@ -161,7 +218,8 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
             {mlir::getAffineDimExpr(0, ctx).floorDiv(productOfDimSizes)})
             .front();
     resSliceParameters.offsets.push_back(
-        b.create<AffineApplyOp>(loc, map, collapsedOffsetVal)->getResult(0));
+        b.create<affine::AffineApplyOp>(loc, map, collapsedOffsetVal)
+            ->getResult(0));
 
     // add the size and offset of the remaining dimensions
     for (int64_t expandedIdx : expandedIndicesRef) {
@@ -185,9 +243,9 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
   resSliceParameters.offsets.reserve(collapsedShape.size());
   resSliceParameters.sizes.reserve(collapsedShape.size());
 
-  // Case 0: If all the dimensions of the expanded value aren't tiled, the
-  // corresponding collapsed dimension of the collapsed value won't be tiled.
   for (auto [collapsedIdx, expandedIndices] : llvm::enumerate(associations)) {
+    // Case 0a: If all the dimensions of the expanded value aren't tiled, the
+    // corresponding collapsed dimension of the collapsed value won't be tiled.
     if (llvm::all_of(expandedIndices, [&](int64_t dim) {
           OpFoldResult expandedTileSize = expandedSliceParams.sizes[dim];
           OpFoldResult expandedOffset = expandedSliceParams.offsets[dim];
@@ -200,6 +258,39 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
     }
 
     ArrayRef<int64_t> expandedIndicesRef = expandedIndices;
+    // Case 0b: If expanded value are tiled by (1, ...,1, N), the corresponding
+    // collapsed dimensionof the collapsed value will be tiled by N
+    if (llvm::all_of(expandedIndicesRef.drop_back(1), [&](int64_t dim) {
+          OpFoldResult expandedTileSize = expandedSliceParams.sizes[dim];
+          return isUnitTile(expandedTileSize, dim);
+        })) {
+      auto offsetExpr = getAffineConstantExpr(0, ctx);
+      SmallVector<Value> offsetValues;
+      int64_t ind = 0;
+      for (auto &&dim : expandedIndicesRef) {
+        offsetExpr =
+            offsetExpr * getAffineConstantExpr(expandedShape[dim], ctx);
+        std::optional<int64_t> maybeIntOffset =
+            getConstantIntValue(expandedSliceParams.offsets[dim]);
+        if (!maybeIntOffset.has_value()) {
+          offsetExpr = offsetExpr + getAffineDimExpr(ind++, ctx);
+          offsetValues.push_back(
+              expandedSliceParams.offsets[dim].dyn_cast<Value>());
+        } else {
+          offsetExpr = offsetExpr + getAffineConstantExpr(*maybeIntOffset, ctx);
+        }
+      }
+
+      resSliceParameters.sizes.push_back(
+          expandedSliceParams.sizes[expandedIndicesRef.back()]);
+      resSliceParameters.offsets.push_back(
+          b.create<affine::AffineApplyOp>(
+               loc, AffineMap::inferFromExprList({offsetExpr}).front(),
+               offsetValues)
+              ->getResult(0));
+      continue;
+    }
+
     // handle the leading dimensions whose size is equal to 1
     expandedIndicesRef = expandedIndicesRef.drop_while([&](int64_t idx) {
       bool isOne = expandedShape[idx] == 1;
@@ -284,21 +375,22 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
             {mlir::getAffineDimExpr(0, ctx) * productOfExpandedTileSize})
             .front();
     resSliceParameters.offsets.push_back(
-        b.create<AffineApplyOp>(loc, map, firstNotOneOffsetVal)->getResult(0));
+        b.create<affine::AffineApplyOp>(loc, map, firstNotOneOffsetVal)
+            ->getResult(0));
   }
 
   return resSliceParameters;
 }
 
-static FailureOr<Value> commonGenerateResultTileValue(
+static FailureOr<TilingResult> commonGenerateResultTileValue(
     Operation *op, OpBuilder &b, unsigned resultNumber,
     ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes) {
   auto tilingInterfaceOp = cast<TilingInterface>(op);
-  SmallVector<Operation *> tiledOp =
+  FailureOr<TilingResult> tilingResult =
       tilingInterfaceOp.getTiledImplementation(b, offsets, sizes);
-  if (tiledOp.size() != 1)
-    return op->emitOpError("failed to generate tiled implementation");
-  return tiledOp[0]->getResult(resultNumber);
+  if (failed(tilingResult))
+    return failure();
+  return tilingResult.value();
 }
 
 // ------------------------------------------------------------------------ //
@@ -351,7 +443,8 @@ struct ExpandShapeOpTiling
                   {mlir::getAffineDimExpr(0, ctx).floorDiv(product)})
                   .front();
           loopRanges[dynamicDim].size =
-              b.create<AffineApplyOp>(loc, map, dynDimSize)->getResult(0);
+              b.create<affine::AffineApplyOp>(loc, map, dynDimSize)
+                  ->getResult(0);
         }
       }
     }
@@ -372,7 +465,7 @@ struct ExpandShapeOpTiling
     return success();
   }
 
-  SmallVector<Operation *>
+  FailureOr<TilingResult>
   getTiledImplementation(Operation *op, OpBuilder &b,
                          ArrayRef<OpFoldResult> offsets,
                          ArrayRef<OpFoldResult> sizes) const {
@@ -417,13 +510,14 @@ struct ExpandShapeOpTiling
     Operation *tiledExpandShapeOp =
         b.create<tensor::ExpandShapeOp>(loc, resType, tiledSrc, op->getAttrs());
 
-    return {tiledExpandShapeOp};
+    return TilingResult{{tiledExpandShapeOp},
+                        SmallVector<Value>(tiledExpandShapeOp->getResults())};
   }
 
-  FailureOr<Value> generateResultTileValue(Operation *op, OpBuilder &b,
-                                           unsigned resultNumber,
-                                           ArrayRef<OpFoldResult> offsets,
-                                           ArrayRef<OpFoldResult> sizes) const {
+  FailureOr<TilingResult>
+  generateResultTileValue(Operation *op, OpBuilder &b, unsigned resultNumber,
+                          ArrayRef<OpFoldResult> offsets,
+                          ArrayRef<OpFoldResult> sizes) const {
     return commonGenerateResultTileValue(op, b, resultNumber, offsets, sizes);
   }
 };
@@ -481,7 +575,8 @@ struct CollapseShapeOpTiling
                               {mlir::getAffineDimExpr(0, ctx) * product})
                               .front();
           loopRanges[dim].size =
-              b.create<AffineApplyOp>(loc, map, dynDimSize)->getResult(0);
+              b.create<affine::AffineApplyOp>(loc, map, dynDimSize)
+                  ->getResult(0);
         }
       }
     }
@@ -503,7 +598,7 @@ struct CollapseShapeOpTiling
     return success();
   }
 
-  SmallVector<Operation *>
+  FailureOr<TilingResult>
   getTiledImplementation(Operation *op, OpBuilder &b,
                          ArrayRef<OpFoldResult> offsets,
                          ArrayRef<OpFoldResult> sizes) const {
@@ -548,18 +643,56 @@ struct CollapseShapeOpTiling
     Operation *tiledCollapseShapeOp = b.create<tensor::CollapseShapeOp>(
         loc, resType, tiledSrc, op->getAttrs());
 
-    return {tiledCollapseShapeOp};
+    return TilingResult{{tiledCollapseShapeOp},
+                        SmallVector<Value>(tiledCollapseShapeOp->getResults())};
   }
 
-  FailureOr<Value> generateResultTileValue(Operation *op, OpBuilder &b,
-                                           unsigned resultNumber,
-                                           ArrayRef<OpFoldResult> offsets,
-                                           ArrayRef<OpFoldResult> sizes) const {
+  FailureOr<TilingResult>
+  generateResultTileValue(Operation *op, OpBuilder &b, unsigned resultNumber,
+                          ArrayRef<OpFoldResult> offsets,
+                          ArrayRef<OpFoldResult> sizes) const {
     return commonGenerateResultTileValue(op, b, resultNumber, offsets, sizes);
   }
 };
 
+// ------------------------------------------------------------------------ //
+// Patch of PadOpTilingInterface
+// ------------------------------------------------------------------------ //
+namespace PadOpTilingInterfacePatch {
+FailureOr<TilingResult> getTiledImplementation(Operation *op, OpBuilder &b,
+                                               ArrayRef<OpFoldResult> offsets,
+                                               ArrayRef<OpFoldResult> sizes) {
+  FailureOr<TilingResult> result =
+      tensor::bubbleUpPadSlice(b, llvm::cast<tensor::PadOp>(op), offsets, sizes,
+                               /*generateZeroSliceGuard*/ false);
+  if (failed(result))
+    return failure();
+  return result.value();
+}
+
+FailureOr<TilingResult> generateResultTileValue(Operation *op, OpBuilder &b,
+                                                unsigned resultNumber,
+                                                ArrayRef<OpFoldResult> offsets,
+                                                ArrayRef<OpFoldResult> sizes) {
+  FailureOr<TilingResult> tilingResult =
+      getTiledImplementation(op, b, offsets, sizes);
+  if (failed(tilingResult))
+    return failure();
+  return tilingResult.value();
+}
+} // namespace PadOpTilingInterfacePatch
 } // namespace
+
+// TODO: removed this once upstrem fixed it
+RegisterOpInterfaceOverride(
+    /*Op=*/tensor::PadOp, /*Interface=*/TilingInterface,
+    /*InterfaceMethod=*/getTiledImplementation,
+    /*Impl=*/&PadOpTilingInterfacePatch::getTiledImplementation);
+
+RegisterOpInterfaceOverride(
+    /*Op=*/tensor::PadOp, /*Interface=*/TilingInterface,
+    /*InterfaceMethod=*/generateResultTileValue,
+    /*Impl=*/&PadOpTilingInterfacePatch::generateResultTileValue);
 
 void mlir::tensor_ext::registerTilingInterfaceExternalModels(
     DialectRegistry &registry) {

@@ -21,17 +21,10 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include <optional>
 #include <stdint.h>
 #include <string>
 #include <tuple>
-
-namespace mlir {
-class Attribute;
-class Block;
-class NamedAttrList;
-class Operation;
-class OpBuilder;
-class Value;
 
 namespace byteir {
 
@@ -64,10 +57,21 @@ inline std::string stringifyEnum(NamedLayout layout) {
     return "DHWCN";
   case NamedLayout::NCW:
     return "NCW";
+  default:
+    return "UNKNOWN";
   }
 }
 
 } // namespace byteir
+
+namespace mlir {
+class Attribute;
+class Block;
+class NamedAttrList;
+class Operation;
+class OpBuilder;
+class Value;
+class ShapedType;
 
 bool isMhlo(Operation *op);
 
@@ -77,7 +81,10 @@ bool isSplatMhloConstant(Operation *op);
 // like iota
 bool isSplatMhloConstantLike(Operation *op);
 
+// Return true if op is a constant or r another constant-like op like iota
 bool isMhloConstantLike(Operation *op);
+
+bool isDeepMhloFoldable(Operation *op);
 
 bool isSplatMhloConstantValue(Operation *op, int64_t splat_val);
 
@@ -89,8 +96,11 @@ bool isSplatMhloConstantValue(Value val, int64_t splat_val);
 
 bool isSplatMhloConstantValue(Value val, double splat_val);
 
-// Return ture if block contains single op: AddOp, MaxOp, MinOp
-template <typename Op> bool isBlockSingleOp(Block *block);
+bool isDenseMhloConstantValue(Value val);
+// return cumsum's index, return nullopt if not a cumsum op
+std::optional<int64_t> getCumsumIndex(mhlo::ReduceWindowOp op);
+
+template <typename OpTy> bool isValidPoolOrPoolGradLayout(OpTy op);
 
 // Return layout if success, return UNKNOWN if failed.
 byteir::NamedLayout getPoolLayout(mhlo::ReduceWindowOp op);
@@ -110,6 +120,31 @@ std::optional<Attribute>
 createBroadcastedDenseElementsAttr(DenseElementsAttr originAttr,
                                    ShapedType newType,
                                    ArrayRef<int64_t> broadcastDims);
+
+// compute mhlo.reshape input's rank index in output
+// if there is no valid full input rank mapping, return nullopt
+// ex1: reshape(<16x32xf32>) : <1x16x32xf32>, return [1, 2]
+// ex2: reshape(<1x32xf32>) : <1x1x32xf32>, return [0, 2]
+// ex3: reshape(<1x1x32xf32>) : <1x1x1x32xf32>, return [0, 1, 3]
+// ex4: reshape(<16x32xf32>) : <32x16xf32>, return nullopt
+// ex5: reshape(<1x32xf32>) : <32x1xf32>, return nullopt
+// ex6: reshape(<1x16x32xf32>) : <16x32xf32> return nullopt
+std::optional<SmallVector<int64_t>>
+computeReshapeInputOutputRankMapIndex(ShapedType inputType,
+                                      ShapedType outputType);
+
+// compute the index of the reshape's expand dimension
+// Don't support that the number of expand dimension is more than 1
+// ex1: reshape(<16x32xf32>) : <1x16x32xf32>, return 0
+// ex2: reshape(<1x32xf32>) : <1x1x32xf32>, return 1
+// ex3: reshape(<1x1x32xf32>) : <1x1x1x32xf32>, return 2
+// ex4: reshape(<1x32xf32>) : <1x1x1x32xf32>, return nullopt
+// ex5: reshape(<1x32xf32>) : <2x16xf32>, return nullopt
+// ex6: reshape(<1x16x32xf32>) : <16x32xf32> return nullopt
+std::optional<int64_t> computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp);
+
+// TODO: move this to lmhlo
+bool isLmhloConstantValue(mlir::Value value);
 
 } // namespace mlir
 

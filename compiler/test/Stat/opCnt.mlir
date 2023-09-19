@@ -8,7 +8,7 @@ module {
     %0 = "tf.Add"(%arg0, %arg1) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
     %1 = "tf.Mul"(%0, %arg0) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
     %2 = "mhlo.add"(%1, %arg0) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
-    %3 = "mhlo.add"(%1, %2) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32> 
+    %3 = "mhlo.add"(%1, %2) : (tensor<2x4xf32>, tensor<2x4xf32>) -> tensor<2x4xf32>
     return %3 : tensor<2x4xf32>
   }
   func.func @tf_add(%arg0 : tensor<2x4xf32>, %arg1 : tensor<2x4xf32>) -> (tensor<2x4xf32>) {
@@ -25,34 +25,34 @@ module {
     return %5 : tensor<2x4xf32>
   }
 }
-// DEFAULT: func.call 1
-// DEFAULT: func.func 2
-// DEFAULT: func.return 2
-// DEFAULT: mhlo.add 6
-// DEFAULT: mhlo.fusion 1
-// DEFAULT: mhlo.return 1
-// DEFAULT: tf.Add 2
-// DEFAULT: tf.Mul 2
+// DEFAULT: func.call 1 f32 f32
+// DEFAULT: func.func 2 NA  NA
+// DEFAULT: func.return 2 f32 NA
+// DEFAULT: mhlo.add 6 f32 f32
+// DEFAULT: mhlo.fusion 1 f32 f32
+// DEFAULT: mhlo.return 1 f32 NA
+// DEFAULT: tf.Add 2 f32 f32
+// DEFAULT: tf.Mul 2 f32 f32
 
-// FUNCNAME: func.call 1
+// FUNCNAME: func.call 1 f32 f32
 // FUNCNAME: func.func 1
-// FUNCNAME: func.return 1
-// FUNCNAME: mhlo.add 4
-// FUNCNAME: mhlo.fusion 1
-// FUNCNAME: mhlo.return 1
-// FUNCNAME: tf.Add 1
-// FUNCNAME: tf.Mul 1
+// FUNCNAME: func.return 1 f32 NA
+// FUNCNAME: mhlo.add 4 f32 f32
+// FUNCNAME: mhlo.fusion 1 f32 f32
+// FUNCNAME: mhlo.return 1 f32 NA
+// FUNCNAME: tf.Add 1 f32 f32
+// FUNCNAME: tf.Mul 1 f32 f32
 
-// TOPONLY: func.call 1
-// TOPONLY: func.return 2
-// TOPONLY: mhlo.add 4
-// TOPONLY: mhlo.fusion 1
-// TOPONLY: tf.Add 2
-// TOPONLY: tf.Mul 2
+// TOPONLY: func.call 1 f32 f32
+// TOPONLY: func.return 2 f32 NA
+// TOPONLY: mhlo.add 4 f32 f32
+// TOPONLY: mhlo.fusion 1 f32 f32
+// TOPONLY: tf.Add 2 f32 f32
+// TOPONLY: tf.Mul 2 f32 f32
 
-// FUNCNAMETOPONLY: func.call 1
-// FUNCNAMETOPONLY: func.return 1
-// FUNCNAMETOPONLY: mhlo.add 2
-// FUNCNAMETOPONLY: mhlo.fusion 1
-// FUNCNAMETOPONLY: tf.Add 1
-// FUNCNAMETOPONLY: tf.Mul 1
+// FUNCNAMETOPONLY: func.call 1 f32 f32
+// FUNCNAMETOPONLY: func.return 1 f32 NA
+// FUNCNAMETOPONLY: mhlo.add 2 f32 f32
+// FUNCNAMETOPONLY: mhlo.fusion 1 f32 f32
+// FUNCNAMETOPONLY: tf.Add 1 f32 f32
+// FUNCNAMETOPONLY: tf.Mul 1 f32 f32

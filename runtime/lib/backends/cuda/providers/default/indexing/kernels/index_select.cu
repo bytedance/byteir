@@ -17,14 +17,15 @@
 
 #include "./index_select.h"
 #include <algorithm>
+#include <cuda_fp16.h>
 
 namespace brt {
 namespace cuda {
 namespace kernel {
 
-template <typename T>
-__global__ void naive_index_select_kernel(const T *input, const uint32_t *index,
-                                          T *output, const int A, const int IB,
+template <typename InputTy, typename IndexTy>
+__global__ void naive_index_select_kernel(const InputTy *input, const IndexTy *index,
+                                          InputTy *output, const int A, const int IB,
                                           const int OB, const int C) {
   for (int outIdx = blockIdx.x * blockDim.x + threadIdx.x; outIdx < A * OB * C;
        outIdx += gridDim.x * blockDim.x) {
@@ -35,8 +36,8 @@ __global__ void naive_index_select_kernel(const T *input, const uint32_t *index,
   }
 }
 
-template <typename T>
-void index_select(const T *input, const uint32_t *index, T *output, const int A,
+template <typename InputTy, typename IndexTy>
+void index_select(const InputTy *input, const IndexTy *index, InputTy *output, const int A,
                   const int IB, const int OB, const int C,
                   cudaStream_t stream) {
   dim3 grid = std::min(256, (A * OB * C + 63) / 64);
@@ -45,10 +46,17 @@ void index_select(const T *input, const uint32_t *index, T *output, const int A,
                                                         IB, OB, C);
 }
 
-template void index_select<float>(const float *, const uint32_t *, float *,
+template void index_select<float, uint32_t>(const float *, const uint32_t *, float *,
                                   const int, const int, const int, const int,
                                   cudaStream_t);
 
+template void index_select<float, int64_t>(const float *, const int64_t *, float *,
+                                  const int, const int, const int, const int,
+                                  cudaStream_t);
+
+template void index_select<__half, int64_t>(const __half *, const int64_t *, __half *,
+                                   const int, const int, const int, const int,
+                                   cudaStream_t);
 } // namespace kernel
 } // namespace cuda
 } // namespace brt

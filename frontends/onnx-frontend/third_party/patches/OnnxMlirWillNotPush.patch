@@ -1,0 +1,16 @@
+diff --git a/src/Transform/ONNX/ONNXOpTransformPass.cpp b/src/Transform/ONNX/ONNXOpTransformPass.cpp
+index 238d5eca..22c20a3a 100644
+--- a/src/Transform/ONNX/ONNXOpTransformPass.cpp
++++ b/src/Transform/ONNX/ONNXOpTransformPass.cpp
+@@ -70,11 +70,7 @@ void ONNXOpTransformPass::runOnOperation() {
+   OperationFingerPrint before(module);
+   do {
+     OpPassManager dynamicPM("builtin.module");
+-    dynamicPM.addNestedPass<func::FuncOp>(
+-        onnx_mlir::createDecomposeONNXToONNXPass());
+-    dynamicPM.addNestedPass<func::FuncOp>(
+-        onnx_mlir::createShapeInferencePass());
+     dynamicPM.addPass(mlir::createCanonicalizerPass());
+     dynamicPM.addNestedPass<func::FuncOp>(
+         onnx_mlir::createShapeInferencePass());
+     // Convolution Optimization currently only for CPU.

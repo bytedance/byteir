@@ -26,6 +26,7 @@ namespace mlir {
 // StaticShapeInfer Registration
 //===----------------------------------------------------------------------===//
 void registerConvolutionInferReturnTypeComponents();
+void registerDotInferReturnTypeComponents();
 void registerDotGeneralInferReturnTypeComponents();
 void registerDynamicBroadcastInDimInferReturnTypeComponents();
 void registerDynamicReshapeInferReturnTypeComponents();
@@ -33,9 +34,11 @@ void registerRealDynamicSliceInferReturnTypeComponents();
 void registerReduceInferReturnTypeComponents();
 void registerSoftmaxInferReturnTypeComponents();
 void registerTorchIndexSelectInferReturnTypeComponents();
+void registerGeLUInferReturnTypeComponents();
 
 inline void registerAllMhloInferReturnTypeComponents() {
   registerConvolutionInferReturnTypeComponents();
+  registerDotInferReturnTypeComponents();
   registerDotGeneralInferReturnTypeComponents();
   registerDynamicBroadcastInDimInferReturnTypeComponents();
   registerDynamicReshapeInferReturnTypeComponents();
@@ -43,6 +46,7 @@ inline void registerAllMhloInferReturnTypeComponents() {
   registerReduceInferReturnTypeComponents();
   registerSoftmaxInferReturnTypeComponents();
   registerTorchIndexSelectInferReturnTypeComponents();
+  registerGeLUInferReturnTypeComponents();
 }
 
 //===----------------------------------------------------------------------===//
@@ -67,6 +71,7 @@ void registerDynamicMaskStitchReifyReturnTypeShapes();
 void registerDynamicBroadcastInDimReifyReturnTypeShapes();
 void registerSoftmaxReifyReturnTypeShapes();
 void registerTorchIndexSelectReifyReturnTypeShapes();
+void registerGeLUReifyReturnTypeShapes();
 
 inline void registerAllMhloReifyReturnTypeShapes() {
   registerDotReifyReturnTypeShapes();
@@ -75,11 +80,13 @@ inline void registerAllMhloReifyReturnTypeShapes() {
   registerDynamicBroadcastInDimReifyReturnTypeShapes();
   registerSoftmaxReifyReturnTypeShapes();
   registerTorchIndexSelectReifyReturnTypeShapes();
+  registerGeLUReifyReturnTypeShapes();
 }
 
 //===----------------------------------------------------------------------===//
 // ShapeConstraint Registration
 //===----------------------------------------------------------------------===//
+void registerConcatenateShapeConstraints();
 void registerDotGeneralShapeConstraints();
 void registerDynamicPartitionShapeConstraints();
 void registerDynamicReshapeShapeConstraints();
@@ -87,6 +94,7 @@ void registerEinsumShapeConstraints();
 void registerReshapeShapeConstraints();
 
 inline void registerAllMhloShapeConstraints() {
+  registerConcatenateShapeConstraints();
   registerDotGeneralShapeConstraints();
   registerDynamicPartitionShapeConstraints();
   registerDynamicReshapeShapeConstraints();

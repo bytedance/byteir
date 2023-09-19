@@ -2,8 +2,10 @@ get_property(byteir_conversion_libs GLOBAL PROPERTY BYTEIR_CONVERSION_LIBS)
 set(BYTEIR_LIBS
   MLIRAceDialect
   MLIRByreDialect
+  MLIRCclDialect
   MLIRLaceDialect
   MLIRTransformExtDialect
+  MLIRCclTransformOps
   ByteIRAffinePasses
   ByteIRByrePasses
   ByteIRGPUPipelines
@@ -16,6 +18,7 @@ set(BYTEIR_LIBS
   ByteIRSCFPasses
   ByteIRTransformPasses
   ByteIRTransforms
+  ByteIRVectorPasses
   ${byteir_conversion_libs}
   MLIRLinalgTransformOps
 )
@@ -26,11 +29,11 @@ if(BYTEIR_INCLUDE_TESTS)
     ByteIRTestInterface
     ByteIRTestTransformation
     ByteIRTestUtils
-    MLIRTestTransformDialect
     )
 endif()
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 set(LLVM_LINK_COMPONENTS
   Core
@@ -49,14 +52,18 @@ set(MHLO_LIBS
   LmhloPasses
   AllMhloPasses
   AllThloPasses
+  DeallocationDialect
+  DeallocationPasses
   MLIRBufferTransforms
   MLIRHLOGPUTransforms
   MLIRHLOAnalysis
   MLIRHLOTestAnalysis
+  MhloTestAnalysis
 )
 
 set(LIBS
   ${dialect_libs}
+  ${extension_libs}
   ${conversion_libs}
   ${BYTEIR_LIBS}
   ${MHLO_LIBS}

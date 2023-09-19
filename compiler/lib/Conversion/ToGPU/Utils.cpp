@@ -20,8 +20,8 @@
 #include "byteir/Analysis/Alias.h"
 #include "byteir/Utils/MemUtils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -150,7 +150,7 @@ gpu::GPUFuncOp mlir::cloneFuncToGPUFunc(OpBuilder &builder, func::FuncOp func,
   auto gpuFunc = builder.create<gpu::GPUFuncOp>(
       gm.getLoc(), func.getName(), newFuncType, workgroupAttrTypes);
 
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   for (unsigned i = 0; i < func.getNumArguments(); ++i) {
     bvm.map(func.getArgument(i), gpuFunc.getArgument(i));
   }

@@ -90,7 +90,7 @@ void unrollLoop(LoopLikeOpInterface loop, unsigned unrollFactor,
       (void)loopUnrollByFactor(*forOp, unrollFactor,
                                annotation ? getByteIRLoopIdxAttrName() : "");
     }
-  } else if (auto *forOp = dyn_cast<AffineForOp>(&loop)) {
+  } else if (auto *forOp = dyn_cast<affine::AffineForOp>(&loop)) {
     assert(!annotation && "Affine loop unrolling with annotation TBD");
     if (unrollUpToFactor) {
       (void)loopUnrollUpToFactor(*forOp, unrollFactor);
@@ -137,6 +137,7 @@ struct LoopUnrollPass : public LoopUnrollBase<LoopUnrollPass> {
     }
   }
 };
+
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>

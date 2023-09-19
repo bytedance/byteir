@@ -50,18 +50,6 @@ func.func @select_and_scatter(%arg0: tensor<32x64x112x112xf16>, %arg1: tensor<32
 }
 // CHECK: lmhlo.select_and_scatter
 
-func.func @reduce_scatter(%data: tensor<4x16xf32>) -> tensor<4x4xf32> {
-  %0 = "mhlo.reduce_scatter"(%data) ({
-    // reduction computation
-    ^bb0(%arg2: tensor<f32>, %arg3: tensor<f32>):
-    %1 = mhlo.add %arg2, %arg3 : tensor<f32>
-    "mhlo.return"(%1) : (tensor<f32>) -> ()
-  }) {replica_groups = dense<[[0, 1, 2, 3]]> : tensor<1x4xi64>,
-      scatter_dimension = 1 : i64} : (tensor<4x16xf32>) -> tensor<4x4xf32>
-  return %0 : tensor<4x4xf32>
-}
-// CHECK: lmhlo.reduce_scatter
-
 func.func @map(%arg0: tensor<16xf32>, %arg1: tensor<16xf32>) -> tensor<16xf32> {
   %0 = "mhlo.map"(%arg0, %arg1) ({
     ^bb0(%arg2: tensor<f32>, %arg3: tensor<f32>):
@@ -81,13 +69,3 @@ func.func @sort(%input0: tensor<16x16xf32>, %input1: tensor<16x16xi32>) {
   return
 }
 // CHECK: lmhlo.sort
-
-func.func @all_reduce(%arg0: tensor<10xf32>) -> tensor<10xf32> {
-  %0 = "mhlo.all_reduce"(%arg0) ({
-    ^bb0(%lhs: tensor<f32>, %rhs: tensor<f32>):
-    %max = mhlo.maximum %lhs, %rhs : tensor<f32>
-    "mhlo.return"(%max) : (tensor<f32>) -> ()
-  }) {replica_groups = dense<[[0, 2, 4, 6], [1, 3, 5, 7]]> : tensor<2x4xi64>}: (tensor<10xf32>) -> tensor<10xf32>
-  return  %0: tensor<10xf32>
-}
-// CHECK: lmhlo.all_reduce

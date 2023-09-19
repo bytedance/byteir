@@ -68,6 +68,20 @@ def ConvForwardFusion : Pass<"fuse-conv-forward", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// Convert Rng To CustomCall
+//===----------------------------------------------------------------------===//
+
+def ConvertOpToCustomCall : Pass<"convert-op-to-customcall", "ModuleOp"> {
+  let summary = "Convert op to mhlo.custom_call";
+  let constructor = "mlir::createConvertOpToCustomCallPass()";
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ConvertFuncToCustomCall // No command-line
 //===----------------------------------------------------------------------===//
 
@@ -128,6 +142,15 @@ def DynamicShapeClustering : Pass<"dynamic-shape-clustering", "mlir::ModuleOp"> 
 //            "An optional Unit attribute anchoring on target functions.">,
 //  ];
 //}
+
+//===----------------------------------------------------------------------===//
+// FuseBMMDimension
+//===----------------------------------------------------------------------===//
+
+def FuseBMMDimension : Pass<"fuse-bmm-dimension", "func::FuncOp"> {
+  let summary = "rewrite bmm operators as 3d bmm, may add reshapeOp";
+  let constructor = "mlir::createFuseBMMDimensionPass()";
+}
 
 //===----------------------------------------------------------------------===//
 // FusionOutlining
@@ -202,6 +225,15 @@ def HloMoveDown : Pass<"hlo-move-down", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// SliceMoveDownAndMerge
+//===----------------------------------------------------------------------===//
+
+def SliceMoveDownAndMerge : Pass<"slice-move-down-and-merge", "mlir::func::FuncOp"> {
+  let summary = "Slice move down and merge branch";
+  let constructor = "mlir::createSliceMoveDownAndMergePass()";
+}
+
+//===----------------------------------------------------------------------===//
 // HloMoveUp
 //===----------------------------------------------------------------------===//
 
@@ -256,6 +288,15 @@ def ReduceFusion : Pass<"fuse-reduce", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ReshapeGather
+//===----------------------------------------------------------------------===//
+
+def ReshapeGather : Pass<"reshape-gather", "mlir::func::FuncOp"> {
+  let summary = "Reshape gather index to be 1D";
+  let constructor = "mlir::createReshapeGatherPass()";
+}
+
+//===----------------------------------------------------------------------===//
 // RewriteWithConstraint
 //===----------------------------------------------------------------------===//
 
@@ -290,6 +331,11 @@ def ShapeReification : Pass<"byteir-shape-reification", "func::FuncOp"> {
 def StaticShapeInference : Pass<"static-shape-infer", "func::FuncOp"> {
   let summary = "Static shape inference";
   let constructor = "mlir::createStaticShapeInferencePass()";
+  let options = [
+    Option<"overrideShape", "override-shape", 
+           "bool", /*default=*/"true",
+           "whether to override shape with infered shape">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -299,6 +345,15 @@ def StaticShapeInference : Pass<"static-shape-infer", "func::FuncOp"> {
 def TrivialFusion : Pass<"fuse-trivial", "mlir::func::FuncOp"> {
   let summary = "Fuse trivial single ops";
   let constructor = "mlir::createTrivialFusionPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// Unfuse BatchNorm
+//===----------------------------------------------------------------------===//
+
+def UnfuseBatchNorm : Pass<"unfuse-batch-norm", "mlir::func::FuncOp"> {
+  let summary = "unfuse batch norm into multiplication and addition";
+  let constructor = "mlir::createUnfuseBatchNormPass()";
 }
 
 #endif // BYTEIR_DIALECT_MHLO_PASSES

@@ -64,13 +64,13 @@ const void *CreateAddOp2(brt::ir::ByREBuilder &byre_builder,
 
   // insert AddOp
   op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "AddOpf32f32f32",
+      UnknownLoc::get(ctx), "AddOp_f32f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
 
   // insert AddOp
   op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "AddOpf32f32f32",
+      UnknownLoc::get(ctx), "AddOp_f32f32_f32",
       ValueRange{entry_block->getArgument(1), entry_block->getArgument(2)},
       ValueRange{entry_block->getArgument(3)});
 
@@ -105,13 +105,13 @@ const void *CreateAddWeight(brt::ir::ByREBuilder &byre_builder,
 
   // insert AddOp
   op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "AddOpf32f32f32",
+      UnknownLoc::get(ctx), "AddOp_f32f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
 
   // insert AddOp
   op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "AddOpf32f32f32",
+      UnknownLoc::get(ctx), "AddOp_f32f32_f32",
       ValueRange{entry_block->getArgument(1), entry_block->getArgument(2)},
       ValueRange{entry_block->getArgument(3)});
 
@@ -185,7 +185,7 @@ const void *CreateCustom(brt::ir::ByREBuilder &byre_builder,
 
   // insert AddOp
   op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "AddOpf32f32f32",
+      UnknownLoc::get(ctx), "AddOp_f32f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
 
@@ -226,7 +226,7 @@ const void *CreateUnknown(brt::ir::ByREBuilder &byre_builder,
 
   // insert AddOp
   op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "AddOpf32f32f32",
+      UnknownLoc::get(ctx), "AddOp_f32f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
 
@@ -257,10 +257,10 @@ const void *CreateMatmul(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
   std::string op_name = "MatmulOp";
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = op_name + "f32f32f32";
+    op_name = op_name + "_f32f32_f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = op_name + "f16f16f16";
+    op_name = op_name + "_f16f16_f16";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -362,7 +362,7 @@ const void *CreateMatmul2(brt::ir::ByREBuilder &byre_builder,
 
   // insert Ops
   auto matmul_op1 = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "MatmulOpf32f32f32",
+      UnknownLoc::get(ctx), "MatmulOp_f32f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(3)});
   matmul_op1->setAttr("lhs_contracting_dimension",
@@ -371,7 +371,7 @@ const void *CreateMatmul2(brt::ir::ByREBuilder &byre_builder,
                       op_builder.getI64IntegerAttr(0));
 
   auto matmul_op2 = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "MatmulOpf32f32f32",
+      UnknownLoc::get(ctx), "MatmulOp_f32f32_f32",
       ValueRange{entry_block->getArgument(3), entry_block->getArgument(2)},
       ValueRange{entry_block->getArgument(4)});
   matmul_op2->setAttr("lhs_contracting_dimension",
@@ -423,7 +423,7 @@ const void *CreateBatchMatmul(brt::ir::ByREBuilder &byre_builder,
 
   // insert Op
   auto compute_op = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "BatchMatmulOpf32f32f32",
+      UnknownLoc::get(ctx), "BatchMatmulOp_f32f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
 
@@ -470,10 +470,10 @@ const void *CreateConv(brt::ir::ByREBuilder &byre_builder, const std::string op,
   std::string op_name;
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = op + "f32f32f32";
+    op_name = op + "_f32f32_f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = op + "f16f16f16";
+    op_name = op + "_f16f16_f16";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -552,10 +552,10 @@ const void *CreatePoolMax(brt::ir::ByREBuilder &byre_builder,
   std::string op_name;
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = "PoolMaxOpf32f32";
+    op_name = "PoolMaxOp_f32_f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = "PoolMaxOpf16f16";
+    op_name = "PoolMaxOp_f16_f16";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -608,10 +608,10 @@ const void *CreatePoolMaxGrad(brt::ir::ByREBuilder &byre_builder,
   std::string op_name;
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = "PoolMaxGradOpf32f32f32";
+    op_name = "PoolMaxGradOp_f32f32_f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = "PoolMaxGradOpf16f16f16";
+    op_name = "PoolMaxGradOp_f16f16_f16";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -665,10 +665,10 @@ const void *CreateBatchNormTraining(brt::ir::ByREBuilder &byre_builder,
   std::string op_name;
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = "BatchNormTrainingOpf32f32f32f32f32f32";
+    op_name = "BatchNormTrainingOp_f32f32f32_f32f32f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = "BatchNormTrainingOpf16f32f32f16f32f32";
+    op_name = "BatchNormTrainingOp_f16f32f32_f16f32f32";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -720,10 +720,10 @@ const void *CreateBatchNormGrad(brt::ir::ByREBuilder &byre_builder,
   std::string op_name;
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = "BatchNormGradOpf32f32f32f32f32f32";
+    op_name = "BatchNormGradOp_f32f32f32_f32f32f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = "BatchNormGradOpf16f32f16f16f32f32";
+    op_name = "BatchNormGradOp_f16f32f16_f16f32f32";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -802,7 +802,7 @@ const void *CreateIndexPut(brt::ir::ByREBuilder &byre_builder,
 
   // insert Op
   auto compute_op = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "IndexPutOpf32i64f32f32",
+      UnknownLoc::get(ctx), "IndexPutOp_f32i64f32_f32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1),
                  entry_block->getArgument(2)},
       ValueRange{entry_block->getArgument(3)});
@@ -815,7 +815,8 @@ const void *CreateIndexPut(brt::ir::ByREBuilder &byre_builder,
 const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
                               const std::string &space,
                               std::vector<int64_t> src_shape, size_t dim,
-                              std::vector<int64_t> idx_shape) {
+                              std::vector<int64_t> idx_shape,
+                              bool is_ui32_index) {
   mlir::ModuleOp module_op = byre_builder.GetModuleOp();
   auto ctx = byre_builder.GetMLIRContext();
   auto op_builder = OpBuilder(ctx);
@@ -824,9 +825,11 @@ const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
   auto space_attr = StringAttr::get(ctx, space);
   auto src = MemRefType::get(src_shape, op_builder.getF32Type(),
                              MemRefLayoutAttrInterface{}, space_attr);
-  auto index = MemRefType::get(
-      idx_shape, op_builder.getIntegerType(32, false /*isSigned*/),
-      MemRefLayoutAttrInterface{}, space_attr);
+  auto index_elem_type = is_ui32_index
+                             ? op_builder.getIntegerType(32, /*isSigned=*/false)
+                             : op_builder.getI64Type();
+  auto index = MemRefType::get(idx_shape, index_elem_type,
+                               MemRefLayoutAttrInterface{}, space_attr);
   std::vector<int64_t> dst_shape = src_shape;
   dst_shape[dim] = idx_shape[0];
   auto dst = MemRefType::get(dst_shape, op_builder.getF32Type(),
@@ -842,8 +845,10 @@ const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
   op_builder.setInsertionPointToStart(entry_block);
 
   // insert Op
+  std::string op_name =
+      is_ui32_index ? "IndexSelectOp_f32ui32_f32" : "IndexSelectOp_f32i64_f32";
   auto compute_op = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "IndexSelectOpf32ui32f32",
+      UnknownLoc::get(ctx), op_name,
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
   compute_op->setAttr("dim", op_builder.getI32IntegerAttr(dim));
@@ -906,10 +911,10 @@ const void *CreateTranspose(brt::ir::ByREBuilder &byre_builder,
   std::string op_name;
   mlir::Type type;
   if (dataType == DTypeEnum::Float32) {
-    op_name = "TransposeOpf32f32";
+    op_name = "TransposeOp_f32_f32";
     type = op_builder.getF32Type();
   } else if (dataType == DTypeEnum::Float16) {
-    op_name = "TransposeOpf16f16";
+    op_name = "TransposeOp_f16_f16";
     type = op_builder.getF16Type();
   } else {
     BRT_THROW("invalid data type");
@@ -958,7 +963,7 @@ const void *CreateTypecvt(brt::ir::ByREBuilder &byre_builder,
 
   std::string op_name = "Typecvt";
   llvm::raw_string_ostream os(op_name);
-  os << src_mlir_type << dst_mlir_type;
+  os << "_" << src_mlir_type << "_" << dst_mlir_type;
 
   // create an entry func
   func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
@@ -1028,7 +1033,7 @@ const void *CreateAliasThenIndexPut(brt::ir::ByREBuilder &byre_builder,
 
   // IndexPut
   auto indexput_op = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "IndexPutOpf32i64f32f32",
+      UnknownLoc::get(ctx), "IndexPutOp_f32i64f32_f32",
       ValueRange{entry_block->getArgument(0), alias_op.getResult(),
                  entry_block->getArgument(2)},
       ValueRange{entry_block->getArgument(3)});
@@ -1104,6 +1109,53 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
   op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "tf.Where",
                                      ValueRange{entry_block->getArgument(0)},
                                      ValueRange{entry_block->getArgument(1)});
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+  return m.getAsOpaquePointer();
+}
+
+const void *
+CreateWithEntryAttrs(brt::ir::ByREBuilder &byre_builder, DTypeEnum input_dtype,
+                     const std::vector<int64_t> &shape,
+                     const std::vector<std::string> &inputs,
+                     const std::vector<std::string> &outputs,
+                     const std::vector<std::string> &original_inputs) {
+  mlir::ModuleOp m = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+  auto mlir_type = ConvertDTypeToMLIRType(input_dtype, ctx);
+  auto input_type = MemRefType::get(shape, mlir_type);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{input_type, AT::Input, "A"},
+               {input_type, AT::Input, "B"},
+               {input_type, AT::Output, "C"},
+               {input_type, AT::Output, "D"}});
+
+  // add attributes
+  const auto convert_to_array_attr =
+      [&ctx](const std::vector<std::string> &vec) {
+        llvm::SmallVector<Attribute> attrs_vec;
+        std::transform(vec.begin(), vec.end(), std::back_inserter(attrs_vec),
+                       [&ctx](const std::string &ele) {
+                         return StringAttr::get(ctx, ele);
+                       });
+        return ArrayAttr::get(ctx, attrs_vec);
+      };
+  std::vector<NamedAttribute> byteir_entry_point_attrs;
+  byteir_entry_point_attrs.emplace_back(StringAttr::get(ctx, "inputs"),
+                                        convert_to_array_attr(inputs));
+  byteir_entry_point_attrs.emplace_back(StringAttr::get(ctx, "outputs"),
+                                        convert_to_array_attr(outputs));
+  auto byteir_entry_attrs = DictionaryAttr::get(ctx, byteir_entry_point_attrs);
+  func_op->setAttr("tf.original_input_names",
+                   convert_to_array_attr(original_inputs));
+  func_op->setAttr("byteir.entry_point", byteir_entry_attrs);
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+  //  insert ReturnOp
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
   return m.getAsOpaquePointer();
 }

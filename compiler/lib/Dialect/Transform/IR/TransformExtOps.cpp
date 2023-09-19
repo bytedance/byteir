@@ -37,10 +37,29 @@ using namespace mlir;
 using namespace mlir::transform_ext;
 
 //===---------------------------------------------------------------------===//
+// Type Extensions
+//===---------------------------------------------------------------------===//
+namespace {
+struct PDLAttributeTypeTransformParamTypeInterfaceImpl
+    : public transform::TransformParamTypeInterface::ExternalModel<
+          PDLAttributeTypeTransformParamTypeInterfaceImpl, pdl::AttributeType> {
+
+  /// Accept any attribute.
+  DiagnosedSilenceableFailure checkPayload(Type type, Location loc,
+                                           ArrayRef<Attribute> payload) const {
+    return DiagnosedSilenceableFailure::success();
+  }
+};
+} // namespace
+
+//===---------------------------------------------------------------------===//
+// Op Extensions
+//
 // CanonicalizeExtOp
 //===---------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure transform_ext::CanonicalizeExtOp::apply(
+    mlir::transform::TransformRewriter &rewriter,
     mlir::transform::TransformResults &results,
     mlir::transform::TransformState &state) {
   static auto applyToOne = [](Operation *op) {
@@ -72,7 +91,8 @@ DiagnosedSilenceableFailure transform_ext::CanonicalizeExtOp::apply(
 //===---------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform_ext::CleanupOp::apply(mlir::transform::TransformResults &results,
+transform_ext::CleanupOp::apply(mlir::transform::TransformRewriter &rewriter,
+                                mlir::transform::TransformResults &results,
                                 mlir::transform::TransformState &state) {
   static auto applyToOne = [](Operation *op) {
     PassManager pm(op->getContext(), op->getName().getStringRef());
@@ -108,7 +128,8 @@ transform_ext::CleanupOp::apply(mlir::transform::TransformResults &results,
 //===---------------------------------------------------------------------===//
 
 DiagnosedSilenceableFailure
-transform_ext::DumpOp::apply(mlir::transform::TransformResults & /* result*/,
+transform_ext::DumpOp::apply(mlir::transform::TransformRewriter &rewriter,
+                             mlir::transform::TransformResults & /* result*/,
                              mlir::transform::TransformState &state) {
   llvm::errs() << getMessage() << "\n";
   if (auto targetHandle = getTarget()) {
@@ -140,7 +161,7 @@ public:
     declareDependentDialect<linalg_ext::LinalgExtDialect>();
     declareDependentDialect<mhlo::MhloDialect>();
 #if 0
-    declareGeneratedDialect<AffineDialect>();
+    declareGeneratedDialect<affine::AffineDialect>();
     declareGeneratedDialect<arith::ArithDialect>();
     declareGeneratedDialect<scf::SCFDialect>();
     declareGeneratedDialect<vector::VectorDialect>();
@@ -151,6 +172,11 @@ public:
 #define GET_OP_LIST
 #include "byteir/Dialect/Transform/IR/TransformExtOps.cpp.inc"
         >();
+
+    addCustomInitializationStep([](MLIRContext *context) {
+      pdl::AttributeType::attachInterface<
+          PDLAttributeTypeTransformParamTypeInterfaceImpl>(*context);
+    });
   }
 };
 } // namespace

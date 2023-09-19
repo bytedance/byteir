@@ -23,6 +23,7 @@
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
+#include "byteir/Utils/HashUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "lhlo/IR/lhlo_ops.h" // LmhloDialect
 #include "mhlo/IR/hlo_ops.h"
@@ -41,8 +42,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
+
 #include <functional>
 #include <string>
+#include <unordered_map>
 
 #include "../PassDetail.h"
 
@@ -72,15 +75,6 @@ bool isArgAlias(SmallVectorImpl<Value> &operands, Value src, Value dst) {
   }
   return is_arg_alias;
 }
-
-// return whether given constant should relocate to function arg
-template <typename ConstantOp>
-bool shouldConstantRelocate(ConstantOp constant) {
-  return false;
-}
-bool shouldConstantRelocate(lmhlo::ConstantOp op) {
-  return !op.getValue().isSplat();
-}
 } // namespace
 
 namespace mlir {
@@ -88,7 +82,6 @@ template <>
 LogicalResult ConvertToByrePattern<lmhlo::GatherOp>::matchAndRewrite(
     lmhlo::GatherOp op, typename lmhlo::GatherOp::Adaptor adaptor,
     ConversionPatternRewriter &rewriter) const {
-
   auto found = srcToCallee.find(op.getOperation()->getName().getStringRef());
   if (found == srcToCallee.end()) {
     return op->emitOpError() << "can not find matched byre_compute_name";
@@ -115,9 +108,9 @@ LogicalResult ConvertToByrePattern<lmhlo::GatherOp>::matchAndRewrite(
   }
 
   // Index select only works across a single dimension.
-  if (startIndicesTy.getShape().empty() || startIndicesTy.getRank() != 1) {
+  if (startIndicesTy.getShape().empty()) {
     return rewriter.notifyMatchFailure(
-        op, "start_indices index vector dimension not 1");
+        op, "empty start_indices index vector dimension");
   }
 
   // Only support the default case for start_index_map.
@@ -166,13 +159,21 @@ LogicalResult ConvertToByrePattern<lmhlo::GatherOp>::matchAndRewrite(
     return rewriter.notifyMatchFailure(op, "collapsed_slice_dims != [0]");
   }
 
-  auto key = getByreKey(found->second, op->getOperandTypes(), appendArgTypes);
+  SmallVector<Type, 2> inputTypes{adaptor.getOperand().getType(),
+                                  adaptor.getStartIndices().getType()};
+  SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+  auto key = getByreKey(found->second, inputTypes, outputTypes, appendArgTypes);
 
   auto computeOp =
       replaceLmhloOpWithByreComputeOp(rewriter, op, key, adaptor.getOperands());
 
-  // FIXME: currently only support select on dim0
-  computeOp->setAttr("dim", rewriter.getI32IntegerAttr(0));
+  // FIXME: currently only support select starting from 0
+  SmallVector<int32_t> dimensions;
+  dimensions.reserve(indexVectorDim);
+  for (int32_t i = 0; i < indexVectorDim; ++i) {
+    dimensions.push_back(i);
+  }
+  computeOp->setAttr("dimensions", rewriter.getI32TensorAttr(dimensions));
 
   return success();
 }
@@ -199,7 +200,11 @@ LogicalResult ConvertToByrePattern<lmhlo::ScatterOp>::matchAndRewrite(
     return rewriter.notifyMatchFailure(op, "unsupported block in scatter");
   }
 
-  auto key = getByreKey(found->second, op->getOperandTypes(), appendArgTypes);
+  SmallVector<Type, 3> inputTypes{adaptor.getOperand().getType(),
+                                  adaptor.getScatterIndices().getType(),
+                                  adaptor.getUpdates().getType()};
+  SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+  auto key = getByreKey(found->second, inputTypes, outputTypes, appendArgTypes);
 
   // TODO support inplace
   auto newOp =
@@ -314,7 +319,7 @@ public:
   matchAndRewrite(func::CallOp op, func::CallOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
 
-    auto funcOp = getFuncOp(op);
+    func::FuncOp funcOp = getFuncOp(op);
     if (funcOp == nullptr) {
       return failure();
     }
@@ -371,13 +376,16 @@ public:
         memoryEffectsAttr = rewriter.getArrayAttr(memoryEffectAttrs);
       }
     }
-
-    auto key = getByreKey(nameAttr.getValue(), op->getOperandTypes(),
+    SmallVector<Type> argTypes;
+    for (auto val : funcOp.getArguments())
+      argTypes.push_back(val.getType());
+    auto resTypes = funcOp.getResultTypes();
+    auto key = getByreKey(nameAttr.getValue(), argTypes, resTypes,
                           effectiveAppendArgTypes);
 
     mlir::byre::ComputeOp computeOp =
-        rewriter.replaceOpWithNewOp<byre::ComputeOp>(op, key, operands,
-                                                     memoryEffectsAttr);
+        rewriter.replaceOpWithNewOp<byre::ComputeOp>(
+            op, TypeRange{}, key, operands, memoryEffectsAttr);
 
     // copy byre attr, and remove prefix
     SmallVector<NamedAttribute> attrs;
@@ -414,7 +422,11 @@ public:
                                                        dst, 0);
           } else {
             // copy src to dst
-            rewriter.create<byre::CopyOp>(loc, src, dst);
+            if (src.getType() != dst.getType()) {
+              src = rewriter.create<byre::AliasOp>(op->getLoc(), dst.getType(),
+                                                   src, 0);
+            }
+            rewriter.create<memref::CopyOp>(loc, src, dst);
           }
         }
       }
@@ -445,7 +457,11 @@ public:
     assert(dotDimensionNumbers.getRhsContractingDimensions().size() == 1);
     if (dotDimensionNumbers.getLhsBatchingDimensions().size() == 0) {
       // convert to MatmulOp
-      auto key = getByreKey("MatmulOp", op->getOperandTypes(), appendArgTypes);
+      SmallVector<Type, 2> inputTypes{adaptor.getLhs().getType(),
+                                      adaptor.getRhs().getType()};
+      SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+      auto key =
+          getByreKey("MatmulOp", inputTypes, outputTypes, appendArgTypes);
 
       auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                        adaptor.getOperands());
@@ -476,8 +492,11 @@ public:
                << "can not handle unregular batching_dimensions";
       }
 
+      SmallVector<Type, 2> inputTypes{adaptor.getLhs().getType(),
+                                      adaptor.getRhs().getType()};
+      SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
       auto key =
-          getByreKey("BatchMatmulOp", op->getOperandTypes(), appendArgTypes);
+          getByreKey("BatchMatmulOp", inputTypes, outputTypes, appendArgTypes);
       auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                        adaptor.getOperands());
 
@@ -519,7 +538,10 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     NamedAttrList attrs;
     handleConvAttribute(attrs, op, rewriter);
-    auto key = getByreKey("ConvOp", op->getOperandTypes(), appendArgTypes);
+    SmallVector<Type, 2> inputTypes{adaptor.getLhs().getType(),
+                                    adaptor.getRhs().getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOutput().getType()};
+    auto key = getByreKey("ConvOp", inputTypes, outputTypes, appendArgTypes);
     auto computeOp = replaceLmhloOpWithByreComputeOp(rewriter, op, key,
                                                      adaptor.getOperands());
     addAttrs(computeOp.getOperation(), attrs.getAttrs());
@@ -645,11 +667,11 @@ public:
     // TODO: more SelectAndScatterOp supported
     std::string poolingGradOp = "PoolMaxGradOp";
 
-    SmallVector<Type, 2> operandTypes{adaptor.getOperand().getType(),
-                                      adaptor.getSource().getType(),
-                                      adaptor.getOut().getType()};
-
-    auto key = getByreKey(poolingGradOp, operandTypes, appendArgTypes);
+    SmallVector<Type, 2> inputTypes{adaptor.getOperand().getType(),
+                                    adaptor.getSource().getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOut().getType()};
+    auto key =
+        getByreKey(poolingGradOp, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, key, ValueRange{adaptor.getOperand(), adaptor.getSource()},
@@ -764,10 +786,9 @@ public:
             op, "only consecutive dimensions were support");
     }
 
-    SmallVector<Type, 2> operandTypes{adaptor.getInputs()[0].getType(),
-                                      adaptor.getOut()[0].getType()};
-
-    auto key = getByreKey(ReduceOp, operandTypes, appendArgTypes);
+    SmallVector<Type, 1> inputTypes{adaptor.getInputs()[0].getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOut()[0].getType()};
+    auto key = getByreKey(ReduceOp, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, key, ValueRange{adaptor.getInputs()[0]},
@@ -867,10 +888,9 @@ public:
         })) {
       return failure();
     }
-    SmallVector<Type, 2> operandTypes{adaptor.getInputs()[0].getType(),
-                                      adaptor.getOut()[0].getType()};
-
-    auto key = getByreKey(ReduceWinOp, operandTypes, appendArgTypes);
+    SmallVector<Type, 1> inputTypes{adaptor.getInputs()[0].getType()};
+    SmallVector<Type, 1> outputTypes{adaptor.getOut()[0].getType()};
+    auto key = getByreKey(ReduceWinOp, inputTypes, outputTypes, appendArgTypes);
 
     auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, key, ValueRange{adaptor.getInputs()[0]},
@@ -893,10 +913,6 @@ public:
   LogicalResult
   matchAndRewrite(ConstantOp op, typename ConstantOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // it should be already relocated to function arg
-    if (shouldConstantRelocate(op))
-      return failure();
-
     // FIXME: only allow allocated memref for now
     auto alloc = op.getOutput().template getDefiningOp<memref::AllocOp>();
     if (!alloc)
@@ -1003,9 +1019,10 @@ struct ConvertToByrePass : public ConvertToByreBase<ConvertToByrePass> {
 
 struct ConvertFuncAndCallToByrePass
     : public ConvertFuncAndCallToByreBase<ConvertFuncAndCallToByrePass> {
-  ConvertFuncAndCallToByrePass(bool appendArgTypes)
+  ConvertFuncAndCallToByrePass(bool appendArgTypes, bool removeDupOutputs)
       : ConvertFuncAndCallToByreBase() {
     this->appendArgTypes = appendArgTypes;
+    this->removeDupOutputs = removeDupOutputs;
 
     // insert attrNames
     attrNames.push_back(byre::ByreDialect::getEntryPointFunctionAttrName());
@@ -1083,28 +1100,80 @@ static void identifyEntryPointFuncAndCalls(
   }
 }
 
-static inline void relocateFuncOpResultsForLmhlo(func::FuncOp func) {
+static inline void relocateFuncOpResults(func::FuncOp func,
+                                         bool removeDupOutputs) {
   unsigned idx = func.getNumArguments();
   replicateFuncOpResults(func, [&](func::ReturnOp retOp) {
-    llvm::SmallPtrSet<mlir::Operation *, 16> removeOps;
+    std::unordered_map<mlir::Operation *, mlir::BlockArgument> removeAllocOps;
+    std::unordered_map<mlir::Value, unsigned, byteir::MlirValueHash>
+        lmhloConstantValue;
     mlir::OpBuilder opBuilder(retOp);
-    for (auto retVal : retOp.getOperands()) {
-      if (auto allocOp =
-              dyn_cast_or_null<memref::AllocOp>(retVal.getDefiningOp())) {
-        removeOps.insert(allocOp);
+    for (auto retValIter : llvm::enumerate(retOp.getOperands())) {
+      auto retVal = retValIter.value();
+      if (isLmhloConstantValue(retVal)) {
+        // if return constant value, insert a memref.copy
+        opBuilder.setInsertionPoint(retOp);
+        opBuilder.create<memref::CopyOp>(
+            retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
+        if (lmhloConstantValue.find(retVal) == lmhloConstantValue.end()) {
+          lmhloConstantValue[retVal] = idx + retValIter.index();
+        } else {
+          // append byre.arg_alias_index to func op
+          func.setArgAttr(
+              idx + retValIter.index(),
+              ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
+              opBuilder.getI64IntegerAttr(lmhloConstantValue[retVal]));
+        }
+      } else if (auto allocOp = retVal.getDefiningOp<memref::AllocOp>()) {
+        if (removeAllocOps.find(allocOp.getOperation()) ==
+            removeAllocOps.end()) {
+          // add alloc op to remove list
+          removeAllocOps[allocOp.getOperation()] =
+              func.getArgument(idx + retValIter.index());
+        } else if (removeDupOutputs) {
+          assert(false && "Not implemented: remove dup function outputs");
+        } else {
+          // if not to remove dup memref.alloc values, insert a memref.copy
+          opBuilder.setInsertionPoint(retOp);
+          opBuilder.create<memref::CopyOp>(
+              retOp.getLoc(), retVal,
+              func.getArgument(idx + retValIter.index()));
+          // append byre.arg_alias_index to func op
+          func.setArgAttr(
+              idx + retValIter.index(),
+              ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
+              opBuilder.getI64IntegerAttr(
+                  removeAllocOps[allocOp.getOperation()].getArgNumber()));
+        }
+      } else if (retVal.isa<BlockArgument>()) {
+        // if return value is input from entry function, insert a memref.copy
+        opBuilder.setInsertionPoint(retOp);
+        opBuilder.create<memref::CopyOp>(
+            retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
+        // append byre.argalias to func op
+        func.setArgAttr(idx + retValIter.index(),
+                        ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
+                        opBuilder.getI64IntegerAttr(
+                            retVal.cast<BlockArgument>().getArgNumber()));
+      } else {
+        // if return value not alloced in entry function (like alloced in inner
+        // function), insert a memref.copy.
+        opBuilder.setInsertionPoint(retOp);
+        opBuilder.create<memref::CopyOp>(
+            retOp.getLoc(), retVal, func.getArgument(idx + retValIter.index()));
       }
-      retVal.replaceAllUsesExcept(func.getArgument(idx++), retOp);
+    }
+    // replace alloc ops
+    for (auto op : removeAllocOps) {
+      auto value = op.first->getResult(0);
+      value.replaceAllUsesWith(op.second);
+      op.first->erase();
     }
 
     // build and remove return first
     opBuilder.setInsertionPoint(retOp);
     opBuilder.create<func::ReturnOp>(retOp.getLoc());
     retOp.erase();
-
-    // remove all remove ops
-    for (auto op : removeOps) {
-      op->erase();
-    }
   });
 }
 
@@ -1138,43 +1207,9 @@ static inline void rewriteCallOpsForFuncOp(ArrayRef<func::CallOp> calls) {
 
   // remove all remove ops
   for (auto op : calls) {
-    op->erase();
+    if (!op->hasAttr(getByreCallOpReadonlyOperandNumAttrName()))
+      op->erase();
   }
-}
-
-static inline void relocateFuncOpConstantLikeForLmhlo(func::FuncOp func,
-                                                      unsigned unknownCnt) {
-
-  MLIRContext *ctx = func.getContext();
-  SmallVector<Attribute, 16> weightAttrs;
-
-  lmhlo::ConstantOp op;
-
-  relocateFuncOpConstantLike(
-      func,
-      [&](mlir::Operation *op) {
-        if (auto constant = dyn_cast<lmhlo::ConstantOp>(op)) {
-          return shouldConstantRelocate(constant);
-        }
-        return false;
-      },
-      [&](mlir::Operation *op) {
-        NamedAttrList attrList;
-        auto attr = op->getAttr("name");
-        if (attr != nullptr) {
-          attrList.append(byre::ByreDialect::getEntryPointFuncArgNameAttrName(),
-                          attr);
-        } else {
-          auto strAttr =
-              StringAttr::get(ctx, Twine("UnknowWeight") + Twine(unknownCnt++));
-          attrList.append(byre::ByreDialect::getEntryPointFuncArgNameAttrName(),
-                          strAttr);
-        }
-        attrList.append(byre::ByreDialect::getEntryPointFuncArgTypeAttrName(),
-                        byre::EntryFuncArgTypeAttr::get(
-                            op->getContext(), byre::EntryFuncArgType::Weight));
-        return std::make_tuple(op->getOperand(0), attrList);
-      });
 }
 
 static inline void markFuncOpInOutTypeForLmhlo(func::FuncOp func,
@@ -1257,7 +1292,6 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
   // rewrite private calls
   rewriteCallOpsForFuncOp(callCollector);
 
-  unsigned unknownWeightCnt = 0;
   unsigned inputCnt = 0, outputCnt = 0;
   for (auto func : entryCollector) {
     // Note: In this process we will give all arguments and results of given
@@ -1269,11 +1303,7 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
 
     rewriteByreResultAttrsToFuncResultAttr(func);
 
-    relocateFuncOpResultsForLmhlo(func);
-
-    if (isFuncWithEntryPointPlaceholder(func)) {
-      relocateFuncOpConstantLikeForLmhlo(func, unknownWeightCnt);
-    }
+    relocateFuncOpResults(func, this->removeDupOutputs);
 
     removeAttrPlaceholders(func, attrNames);
 
@@ -1413,8 +1443,10 @@ mlir::createConvertToByrePass(bool appendArgTypes) {
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createConvertFuncAndCallToByrePass(bool appendArgTypes) {
-  return std::make_unique<ConvertFuncAndCallToByrePass>(appendArgTypes);
+mlir::createConvertFuncAndCallToByrePass(bool appendArgTypes,
+                                         bool removeDupOutputs) {
+  return std::make_unique<ConvertFuncAndCallToByrePass>(appendArgTypes,
+                                                        removeDupOutputs);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

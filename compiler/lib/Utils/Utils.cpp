@@ -53,6 +53,13 @@ std::optional<int64_t> mlir::getLiteralFromConstantLike(Value v) {
   return std::nullopt;
 }
 
+std::optional<Attribute> mlir::getAttrFromConstantLike(Value v) {
+  if (auto cOp = dyn_cast_or_null<arith::ConstantOp>(v.getDefiningOp())) {
+    return cOp.getValue();
+  }
+  return std::nullopt;
+}
+
 int64_t mlir::getLiteralFromConstantLike(Value v, int64_t defaultLit) {
   auto maybeI64 = getLiteralFromConstantLike(v);
   if (maybeI64.has_value())
@@ -109,8 +116,15 @@ bool mlir::isZeroAttribute(Attribute value) {
 }
 
 bool mlir::isMinValueAttribute(Attribute value) {
-  if (auto intValue = value.dyn_cast<IntegerAttr>())
-    return intValue.getValue().isMinValue();
+  if (auto intValue = value.dyn_cast<IntegerAttr>()) {
+    if (intValue.getType().isUnsignedInteger() ||
+        intValue.getType().getIntOrFloatBitWidth() == 1) {
+      return intValue.getValue().isMinValue();
+    } else {
+      // treating signless as signed
+      return intValue.getValue().isMinSignedValue();
+    }
+  }
   if (auto fpValue = value.dyn_cast<FloatAttr>())
     return fpValue.getValue().isInfinity() &&
            fpValue.getValue().isNegative(); // -inf
@@ -121,6 +135,29 @@ bool mlir::isMinValueAttribute(Attribute value) {
                         isMinValueAttribute);
   if (auto arrayValue = value.dyn_cast<ArrayAttr>())
     return llvm::all_of(arrayValue.getValue(), isMinValueAttribute);
+  return false;
+}
+
+bool mlir::isMaxValueAttribute(Attribute value) {
+  if (auto intValue = value.dyn_cast<IntegerAttr>()) {
+    if (intValue.getType().isUnsignedInteger() ||
+        intValue.getType().getIntOrFloatBitWidth() == 1) {
+      return intValue.getValue().isMaxValue();
+    } else {
+      // treating signless as signed
+      return intValue.getValue().isMaxSignedValue();
+    }
+  }
+  if (auto fpValue = value.dyn_cast<FloatAttr>())
+    return fpValue.getValue().isInfinity() &&
+           !fpValue.getValue().isNegative(); // inf
+  if (auto splatValue = value.dyn_cast<SplatElementsAttr>())
+    return isMaxValueAttribute(splatValue.getSplatValue<Attribute>());
+  if (auto elementsValue = value.dyn_cast<ElementsAttr>())
+    return llvm::all_of(elementsValue.getValues<Attribute>(),
+                        isMaxValueAttribute);
+  if (auto arrayValue = value.dyn_cast<ArrayAttr>())
+    return llvm::all_of(arrayValue.getValue(), isMaxValueAttribute);
   return false;
 }
 
@@ -153,10 +190,6 @@ bool mlir::isSplatCloseToValue(DenseFPElementsAttr attr, double value,
   if ((x >= -EPSILON) && (x <= EPSILON))
     return true;
   return false;
-}
-
-std::string mlir::getAttrPlaceholderName(StringRef name) {
-  return "__placeholder__" + name.str();
 }
 
 void mlir::removeAttrPlaceholders(mlir::Operation *op,
@@ -321,6 +354,53 @@ bool mlir::isMemrefTrivial(mlir::Value memref,
     }
   }
   return true;
+}
+
+bool mlir::deepCheck(Operation *op,
+                     std::function<bool(mlir::Operation *)> checkFunc) {
+  if (!op) {
+    return checkFunc(op);
+  }
+
+  for (auto operand : op->getOperands()) {
+    auto defOp = operand.getDefiningOp();
+    if (!deepCheck(defOp, checkFunc)) {
+      return false;
+    }
+  }
+  return checkFunc(op);
+}
+
+bool mlir::deepCheckWithMemory(Operation *op,
+                               std::function<bool(mlir::Operation *)> checkFunc,
+                               llvm::DenseMap<Operation *, bool> &memory) {
+  if (memory.contains(op)) {
+    return memory.lookup(op);
+  }
+
+  if (!op) {
+    auto result = checkFunc(op);
+    memory.try_emplace(op, result);
+    return result;
+  }
+
+  bool operandFalse = false;
+  for (auto operand : op->getOperands()) {
+    auto defOp = operand.getDefiningOp();
+    if (!deepCheckWithMemory(defOp, checkFunc, memory)) {
+      memory.try_emplace(op, false);
+      operandFalse = true;
+    }
+  }
+
+  if (operandFalse) {
+    memory.try_emplace(op, false);
+    return false;
+  }
+
+  auto result = checkFunc(op);
+  memory.try_emplace(op, result);
+  return result;
 }
 
 int mlir::userCount(Value val) {

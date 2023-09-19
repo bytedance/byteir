@@ -43,9 +43,13 @@ void populateHloMoveUpPattern(
     const llvm::DenseSet<llvm::StringRef> &blocker = {},
     bool multiInput = false);
 
+void populateSliceMoveDownAndMergePattern(RewritePatternSet &patterns);
+
 // TODO add more target or list of op in arg
 std::unique_ptr<OperationPass<func::FuncOp>>
 createHloMoveDownPass(bool allMultiUser = false, bool multiUser = false);
+
+std::unique_ptr<OperationPass<func::FuncOp>> createSliceMoveDownAndMergePass();
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createHloMoveUpPass(bool multiInput = false);

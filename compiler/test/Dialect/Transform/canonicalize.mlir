@@ -50,17 +50,6 @@ func.func @fold_useless_shape_broadcast(%arg0: tensor<?x4xf32>) -> tensor<?x4xf3
 // CHECK-LABEL: fold_useless_shape_broadcast
 // CHECK-NOT: shape.broadcast
 
-// FIXME: make constant really large or trigger canonicalize-ext anywhy.
-func.func @fold_large_constant_binary_op() -> tensor<2xf32> {
-  %0 = mhlo.constant dense<[0.00000e+0, 1.00000e+0]> : tensor<2xf32>
-  %1 = mhlo.constant dense<[1.00000e+0, 1.00000e+0]> : tensor<2xf32>
-  %2 = mhlo.add %0, %1 : tensor<2xf32>
-  return %2 : tensor<2xf32>
-}
-// CHECK-LABEL: fold_large_constant_binary_op
-// CHECK-NOT: mhlo.add
-// CHECK: mhlo.constant dense<[1.000000e+00, 2.000000e+00]>
-
 func.func @fold_concat_of_continuous_slices(%arg0: tensor<4x11xf32>) -> tensor<4x11xf32> {
   %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[4, 7]> : tensor<2xi64>, start_indices = dense<[0, 5]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<4x11xf32>) -> tensor<4x2xf32>
   %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[4, 11]> : tensor<2xi64>, start_indices = dense<[0, 7]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<4x11xf32>) -> tensor<4x4xf32>
@@ -109,17 +98,6 @@ func.func @concat_const_folding_with_dup_value() -> tensor<3x2xi64> {
 // CHECK: %0 = mhlo.constant dense<{{\[}}[1, 1], [2, 3], [2, 3]{{\]}}> : tensor<3x2xi64>
 // CHECK: return %0 : tensor<3x2xi64>
 
-func.func @const_const_folding_case1(%arg0: tensor<1x2xi64>) -> tensor<5x2xi64> {
-  %0 = mhlo.constant dense<1> : tensor<1x2xi64>
-  %1 = mhlo.constant dense<[[2, 3]]> : tensor<1x2xi64>
-  %2 = mhlo.constant dense<[[3, 4]]> : tensor<1x2xi64>
-  %4 = "mhlo.concatenate"(%0, %1, %arg0, %2, %2) {dimension = 0 : i64} : (tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>, tensor<1x2xi64>) -> tensor<5x2xi64>
-  return %4 : tensor<5x2xi64>
-}
-// CHECK-LABEL: const_const_folding_case1
-// CHECK:  %0 = mhlo.constant dense<{{\[}}[1, 1], [2, 3]{{\]}}> : tensor<2x2xi64>
-// CHECK:  %1 = mhlo.constant dense<{{\[}}[3, 4], [3, 4]{{\]}}> : tensor<2x2xi64>
-
 func.func @canonicalize_const_broadcast() -> tensor<1x10x2xi64> {
   %0 = mhlo.constant dense<[[2, 3]]> : tensor<1x2xi64>
   %1 = "mhlo.broadcast_in_dim"(%0) {broadcast_dimensions = dense<[0, 2]> : tensor<2xi64>} : (tensor<1x2xi64>) -> (tensor<1x10x2xi64>)
@@ -128,17 +106,6 @@ func.func @canonicalize_const_broadcast() -> tensor<1x10x2xi64> {
 // CHECK-LABEL: canonicalize_const_broadcast
 // CHECK: %[[V0:.*]] = mhlo.constant dense<[2, 3]> : tensor<2xi64>
 // CHECK: "mhlo.broadcast_in_dim"(%[[V0]]) {broadcast_dimensions = dense<2> : tensor<1xi64>} : (tensor<2xi64>) -> tensor<1x10x2xi64>
-
-func.func @fold_clamp() -> tensor<5xi64> {
-  %1 = mhlo.constant dense<[-1, 100, 200, 0, 149]> : tensor<5xi64>
-  %2 = mhlo.constant dense<149> : tensor<i64>
-  %3 = mhlo.constant dense<0> : tensor<i64>
-  %4 = mhlo.clamp %3, %1, %2 : (tensor<i64>, tensor<5xi64>, tensor<i64>) -> tensor<5xi64>
-  return %4 : tensor<5xi64>
-}
-// CHECK-LABEL: fold_clamp
-// CHECK: mhlo.constant dense<[0, 100, 149, 0, 149]> : tensor<5xi64>
-// CHECK-NOT: mhlo.clamp
 
 func.func @simplify_byteir_addn(%arg0: tensor<150x768xf16>, %arg1: tensor<150x768xf16>) -> tensor<150x768xf16> {
   %0 = "mhlo.custom_call"(%arg0, %arg1) {api_version = 1 : i32, backend_config = "", byteir_attrs = {_grappler_ArithmeticOptimizer_AddOpsRewriteStage = true}, call_target_name = "byteir.addn", called_computations = [], has_side_effect = false, output_operand_aliases = []} : (tensor<150x768xf16>, tensor<150x768xf16>) -> tensor<150x768xf16>
@@ -152,7 +119,7 @@ func.func @simplify_byteir_addn(%arg0: tensor<150x768xf16>, %arg1: tensor<150x76
 
 transform.sequence failures(propagate) {
   ^bb0(%arg0: !pdl.operation):
-    %0 = transform.structured.match attributes{"__test__"} in %arg0
+    %0 = transform.structured.match attributes{"__test__"} in %arg0 : (!pdl.operation) -> !pdl.operation
     transform.sequence %0 : !pdl.operation failures(propagate) {
       ^bb0(%arg1: !pdl.operation):
         %1 = transform.canonicalize(%arg1 : !pdl.operation) -> !pdl.operation

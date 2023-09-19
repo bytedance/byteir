@@ -49,17 +49,19 @@ common::Status TFEqual::RunImpl(const ExecutionContext &ctx) {
   case DTypeEnum::StringView: {
     StringView *ss0 = reinterpret_cast<StringView *>(src0),
                *ss1 = reinterpret_cast<StringView *>(src1);
-    if (require_broadcast) {
-      StringView scalar = arg0_length == 1 ? ss0[0] : ss1[0];
-      StringView *ss = arg0_length == 1 ? ss1 : ss0;
-      for (int64_t i = 0; i < length; ++i) {
-        dst[i] = (ss[i] == scalar);
+    DispatchHostTask(ctx.work_queue, {
+      if (require_broadcast) {
+        StringView scalar = arg0_length == 1 ? ss0[0] : ss1[0];
+        StringView *ss = arg0_length == 1 ? ss1 : ss0;
+        for (int64_t i = 0; i < length; ++i) {
+          dst[i] = (ss[i] == scalar);
+        }
+      } else {
+        for (int64_t i = 0; i < length; ++i) {
+          dst[i] = (ss0[i] == ss1[i]);
+        }
       }
-    } else {
-      for (int64_t i = 0; i < length; ++i) {
-        dst[i] = (ss0[i] == ss1[i]);
-      }
-    }
+    });
     return common::Status::OK();
   }
   default:

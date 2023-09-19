@@ -22,7 +22,7 @@
 
 #include "third_party/onnx-mlir/src/Compiler/CompilerUtils.hpp"
 #include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXDialect.hpp"
-#include "third_party/onnx-mlir/src/InitOMPasses.hpp"
+#include "third_party/onnx-mlir/src/Tools/onnx-mlir-opt/RegisterPasses.hpp"
 
 #include "onnx-frontend/src/Conversion/OFPasses.hpp"
 
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
 
   mlir::registerTransformsPasses();
-  onnx_mlir::initOMPasses(onnx_mlir::O0);
+  onnx_mlir::registerPasses(onnx_mlir::O0);
   onnx_frontend::registerOFConversionPasses();
 
   mlir::DialectRegistry registry;
@@ -39,7 +39,6 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
 
-  return failed(mlir::MlirOptMain(
-      argc, argv, "ONNX-Frontend modular optimizer driver\n", registry,
-      /*preloadDialectsInContext=*/true));
+  return mlir::failed(mlir::MlirOptMain(
+      argc, argv, "ONNX-Frontend modular optimizer driver\n", registry));
 }

@@ -18,6 +18,7 @@
 #ifndef BYTEIR_TRANSFORMS_GRAPHCLUSTERINGBYDEVICE_H
 #define BYTEIR_TRANSFORMS_GRAPHCLUSTERINGBYDEVICE_H
 
+#include "byteir/Transforms/GraphClusteringAlgo.h"
 #include "mlir/Pass/Pass.h"
 #include <memory>
 
@@ -34,7 +35,8 @@ constexpr StringRef getHostAnchorName() { return "__byteir_host_device__"; }
 std::unique_ptr<OperationPass<ModuleOp>> createGraphClusteringByDevicePass(
     std::string attrName = "device", std::string device = "test",
     std::string deviceAnchorName = "__byteir_test_device__",
-    bool dupNonSplat = false, bool dupOutputs = false);
+    bool dupNonSplat = false, bool dupOutputs = false,
+    GraphClusteringAlgo clusterAlgo = GraphClusteringAlgo::kFallback);
 
 } // namespace mlir
 

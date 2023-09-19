@@ -48,6 +48,23 @@ class TestOpsTensor(TestBase):
         }
         self.run(model_filename="gather.onnx", model_onnx_pb=proto, input_data=input_data)
 
+    def test_gather_elements(self):
+        input_shape_dtype = [
+            ["X", (3, 2), "float32"],
+            ["Y", (2, 2), "int64"],
+        ]
+        output_shape_dtype = [
+            ["Z", (2, 2), "float32"],
+        ]
+        proto = build_onnx("GatherElements", input_shape_dtype, output_shape_dtype, axis=0)
+
+        np.random.seed(0)
+        input_data = {
+            "X": np.random.rand(3, 2).astype(np.float32),
+            "Y": np.array([[0, 1], [1, 2]], dtype=np.int64),
+        }
+        self.run(model_filename="gather_elments.onnx", model_onnx_pb=proto, input_data=input_data)
+
     def test_split(self):
         input_shape_dtype = [
             ["X", (12, 2), "float32"],
@@ -76,7 +93,7 @@ class TestOpsTensor(TestBase):
     def test_unsqueeze(self):
         input_shape_dtype = [
             ["X", (20, 10, 5), "float32"],
-            ["axes", (2,), "int64"],
+            ["axes", None, None],
         ]
         output_shape_dtype = [
             ["Y", (20, 1, 10, 5, 1), "float32"],
@@ -109,8 +126,8 @@ class TestOpsTensor(TestBase):
     def test_pad(self):
         input_shape_dtype = [
             ["X", (1, 3, 5, 5), "float32"],
-            ["pads", (8,), "int64"],
-            ["constant_value", tuple(), "float32"],
+            ["pads", None, None],
+            ["constant_value", None, None],
         ]
         output_shape_dtype = [
             ["Y", (1, 3, 7, 7), "float32"],
@@ -123,6 +140,90 @@ class TestOpsTensor(TestBase):
             "Pad", input_shape_dtype, output_shape_dtype,
             initializer=[pads_tensor, constant_value_tensor], mode="constant"
         )
-        input_shape_dtype.pop()
-        input_shape_dtype.pop()
+        input_shape_dtype = [input_shape_dtype[0]]
         self.run(model_filename="pad.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_resize_nearest_v10(self):
+        input_shape_dtype = [
+            ["725", (1, 384, 20, 20), "float32"],
+        ]
+        self.run(model_filename="resize_nearest_v10.onnx", input_shape_dtype=input_shape_dtype)
+
+    def test_resize_nearest(self):
+        input_shape_dtype = [
+            ["X", (1, 3, 5, 5), "float32"],
+            ["", None, None],
+            ["", None, None],
+            ["sizes", None, None],
+        ]
+        output_shape_dtype = [
+            ["Y", (1, 3, 7, 7), "float32"],
+        ]
+        sizes_tensor = onnx.helper.make_tensor(
+            "sizes", onnx.TensorProto.INT64, [4], np.array([1, 3, 7, 7]))
+        proto = build_onnx(
+            "Resize", input_shape_dtype, output_shape_dtype,
+            initializer=[sizes_tensor],
+            coordinate_transformation_mode="asymmetric",
+            mode="nearest",
+            nearest_mode="floor",
+        )
+        input_shape_dtype = [input_shape_dtype[0]]
+        self.run(model_filename="resize_nearest.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_resize_linear_align_corners(self):
+        input_shape_dtype = [
+            ["X", (1, 3, 5, 5), "float32"],
+            ["", None, None],
+            ["", None, None],
+            ["sizes", None, None],
+        ]
+        output_shape_dtype = [
+            ["Y", (1, 3, 10, 10), "float32"],
+        ]
+        sizes_tensor = onnx.helper.make_tensor(
+            "sizes", onnx.TensorProto.INT64, [4], np.array([1, 3, 10, 10]))
+        proto = build_onnx(
+            "Resize", input_shape_dtype, output_shape_dtype,
+            initializer=[sizes_tensor],
+            coordinate_transformation_mode="align_corners",
+            mode="linear",
+        )
+        input_shape_dtype = [input_shape_dtype[0]]
+        self.run(model_filename="resize_linear_align_corners.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_constant_of_shape_1(self):
+        input_shape_dtype = [
+            ["shape", None, None],
+        ]
+        output_shape_dtype = [
+            ["output", (1, 3, 5, 5), "float32"],
+        ]
+        shape_tensor = onnx.helper.make_tensor(
+            "shape", onnx.TensorProto.INT64, [4], np.array([1, 3, 5, 5]))
+        proto = build_onnx(
+            "ConstantOfShape", input_shape_dtype, output_shape_dtype,
+            initializer=[shape_tensor],
+        )
+        input_shape_dtype = []
+        self.run(model_filename="constant_of_shape_1.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_constant_of_shape_2(self):
+        input_shape_dtype = [
+            ["shape", None, None],
+        ]
+        output_shape_dtype = [
+            ["output", (1, 3, 5, 5), "int32"],
+        ]
+        shape_tensor = onnx.helper.make_tensor(
+            "shape", onnx.TensorProto.INT64, [4], np.array([1, 3, 5, 5]))
+        value_tensor = onnx.helper.make_tensor(
+            "value", onnx.TensorProto.INT32, [1], [10]
+        )
+        proto = build_onnx(
+            "ConstantOfShape", input_shape_dtype, output_shape_dtype,
+            initializer=[shape_tensor],
+            value=value_tensor
+        )
+        input_shape_dtype = []
+        self.run(model_filename="constant_of_shape_2.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)

@@ -67,6 +67,8 @@ public:
 
   virtual DTypeEnum GetDType(size_t) = 0;
 
+  virtual std::string GetSpace(size_t) = 0;
+
   inline brt::ir::GraphInfo &GetGraphInfo() { return graph_info_; }
 
   virtual common::Status LoadWeights(const std::string &url,
@@ -121,6 +123,8 @@ public:
   const Shape GetStaticShape(size_t) override;
 
   DTypeEnum GetDType(size_t) override;
+
+  std::string GetSpace(size_t) override;
 
   common::Status LoadWeights(const std::string &url,
                              const std::string &fmt) override;

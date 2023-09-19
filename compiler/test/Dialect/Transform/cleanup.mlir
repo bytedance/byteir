@@ -55,7 +55,7 @@ func.func @sccp_no_control_flow(%arg0: i32) -> i32 {
 
 transform.sequence failures(propagate) {
   ^bb0(%arg0: !pdl.operation):
-    %0 = transform.structured.match attributes{"__test__.foo"} in %arg0
+    %0 = transform.structured.match attributes{"__test__.foo"} in %arg0 : (!pdl.operation) -> !pdl.operation
     transform.sequence %0 : !pdl.operation failures(propagate) {
       ^bb0(%arg1: !pdl.operation):
         %1 = transform.cleanup(%arg1 : !pdl.operation) -> !pdl.operation

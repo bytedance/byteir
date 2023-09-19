@@ -92,13 +92,13 @@ static void TestMatmulOp(float eps, int64_t m, int64_t n, int64_t k,
                          int64_t rhs_contracting_dimension,
                          bool output_transpose, bool compute_on_fp16 = false) {
   auto dtype = dtype_enum_v<T>;
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateMatmul(byre_builder, dtype, "cuda", m, n, k,
                    lhs_contracting_dimension, rhs_contracting_dimension,
@@ -212,13 +212,13 @@ TEST(CUDAOpKerenlTest, MatmulOpFp16) {
 }
 
 TEST(CUDAOpKerenlTest, MatmulOp2) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateMatmul2(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);

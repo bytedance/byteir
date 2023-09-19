@@ -1,0 +1,190 @@
+diff --git a/include/torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h b/include/torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h
+new file mode 100644
+index 00000000..a60a0472
+--- /dev/null
++++ b/include/torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h
+@@ -0,0 +1,26 @@
++//===----------------------------------------------------------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++// Also available under a BSD-style license. See LICENSE.
++//
++//===----------------------------------------------------------------------===//
++
++#include "mlir/Pass/Pass.h"
++#include "llvm/ADT/StringMap.h"
++#include <memory>
++#include <string>
++
++namespace mlir {
++
++constexpr StringRef getCustomOpAttrName() { return "custom_op_attrs"; }
++
++constexpr StringRef getCustomOpName() { return "custom_op_name"; }
++
++constexpr StringRef getDynamicPartitionCustomName() { return "dynamic_partition"; }
++
++constexpr StringRef getDynamicStitchCustomName() { return "dynamic_stitch"; }
++
++constexpr StringRef getDynamicMaskStitchCustomName() { return "dynamic_mask_stitch"; }
++} // namespace mlir
+\ No newline at end of file
+diff --git a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
+index 1669be7c..1379f337 100644
+--- a/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
++++ b/lib/Dialect/Torch/Transforms/SimplifyShapeCalculations.cpp
+@@ -10,8 +10,13 @@
+ #include "PassDetail.h"
+ 
+ #include "SimplifyAbstractInterpCalculationsUtils.h"
++#include "mlir/IR/Builders.h"
++#include "mlir/IR/BuiltinAttributes.h"
++#include "mlir/IR/PatternMatch.h"
+ #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
++#include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
+ #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
++#include "torch-mlir/Dialect/Torch/Utils/CustomOpUtils.h"
+ #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
+ 
+ using namespace mlir;
+@@ -130,6 +135,138 @@ class SimplifyShapeCalculationsPass
+   void runOnOperation() override {
+     MLIRContext *context = &getContext();
+ 
++    func::FuncOp func = getOperation();
++    func.getBody().walk([&](CustomOp op) {
++      bool hasSizesAndDtype = llvm::all_of(op.getResults(), [](Value v) {
++        auto t = v.getType().cast<BaseTensorType>();
++        return t.hasSizes() && t.hasDtype();
++      });
++      if (hasSizesAndDtype) {
++        return;
++      }
++
++      std::string opName =
++          op->getAttrOfType<StringAttr>(getCustomOpName()).str();
++      if (opName == getDynamicPartitionCustomName()) {
++        auto inputTy = op->getOperand(0).getType().cast<BaseTensorType>();
++        if (!inputTy.hasSizes())
++          return;
++        std::vector<int64_t> sizes;
++        sizes.push_back(kUnknownSize);
++        for (size_t i = 1; i < inputTy.getSizes().size(); i++)
++          sizes.push_back(inputTy.getSizes()[i]);
++        auto newResultType =
++            inputTy.getWithSizesAndDtype(sizes, inputTy.getOptionalDtype());
++        OpBuilder builder(context);
++        auto loc = op.getLoc();
++        for (size_t i = 0; i < op.getNumResults(); i++) {
++          auto originalResultType = op->getResult(i).getType();
++          op->getResult(i).setType(newResultType);
++          Value originalTypedValue;
++          for (OpOperand &use :
++               llvm::make_early_inc_range(op->getResult(0).getUses())) {
++            if (use.getOwner()
++                    ->hasTrait<
++                        mlir::torch::Torch::OpTrait::AllowsTypeRefinement>()) {
++              continue;
++            }
++            if (!originalTypedValue) {
++              builder.setInsertionPointAfter(op);
++              if (originalResultType.isa<BaseTensorType>()) {
++                originalTypedValue = builder.create<TensorStaticInfoCastOp>(
++                    loc, originalResultType, op.getResult(i));
++              }
++            }
++            use.set(originalTypedValue);
++          }
++        }
++      } else if (opName == getDynamicStitchCustomName()) {
++        assert(op->getNumOperands() > 1 &&
++               "Dynamic stitch custom op expect more than 2 inputs");
++        SmallVector<int64_t> outputSizes = {0};
++        for (size_t i = 0; i < op.getNumOperands() / 2; ++i) {
++          auto indexTy = op.getOperand(i).getType().cast<BaseTensorType>();
++          if (!indexTy.hasSizes())
++            return;
++          if (indexTy.getSizes()[0] == kUnknownSize ||
++              outputSizes[0] == kUnknownSize) {
++            outputSizes[0] = kUnknownSize;
++          } else {
++            outputSizes[0] += indexTy.getSizes()[0];
++          }
++        }
++        auto dataTy = op->getOperands().back().getType().cast<BaseTensorType>();
++        if (!dataTy.hasSizes())
++          return;
++        for (size_t i = 1; i < dataTy.getSizes().size(); i++) {
++          outputSizes.push_back(dataTy.getSizes()[i]);
++        }
++        auto resultType =
++            dataTy.getWithSizesAndDtype(outputSizes, dataTy.getOptionalDtype());
++        auto originalResultType = op->getResult(0).getType();
++        op->getResult(0).setType(resultType);
++
++        OpBuilder builder(context);
++        auto loc = op.getLoc();
++        Value originalTypedValue;
++        for (OpOperand &use :
++             llvm::make_early_inc_range(op->getResult(0).getUses())) {
++          if (use.getOwner()
++                  ->hasTrait<
++                      mlir::torch::Torch::OpTrait::AllowsTypeRefinement>()) {
++            continue;
++          }
++          if (!originalTypedValue) {
++            builder.setInsertionPointAfter(op);
++            if (originalResultType.isa<BaseTensorType>()) {
++              originalTypedValue = builder.create<TensorStaticInfoCastOp>(
++                  loc, originalResultType, op->getResult(0));
++            }
++          }
++          use.set(originalTypedValue);
++        }
++      } else if (opName == getDynamicMaskStitchCustomName()) {
++        assert(op->getNumOperands() > 1 &&
++               "Dynamic mask stitch custom op expect more than 2 inputs");
++        auto dataTy = op->getOperand(0).getType().cast<BaseTensorType>();
++        if (!dataTy.hasSizes())
++          return;
++        SmallVector<int64_t> outputSizes;
++        auto indexTy =
++            op->getOperands().back().getType().cast<BaseTensorType>();
++        if (!indexTy.hasSizes())
++          return;
++        outputSizes.push_back(indexTy.getSizes()[0]);
++        for (size_t i = 1; i < dataTy.getSizes().size(); i++) {
++          outputSizes.push_back(dataTy.getSizes()[i]);
++        }
++        auto resultType =
++            dataTy.getWithSizesAndDtype(outputSizes, dataTy.getOptionalDtype());
++        auto originalResultType = op->getResult(0).getType();
++        op->getResult(0).setType(resultType);
++
++        OpBuilder builder(context);
++        auto loc = op.getLoc();
++        Value originalTypedValue;
++        for (OpOperand &use :
++             llvm::make_early_inc_range(op->getResult(0).getUses())) {
++          if (use.getOwner()
++                  ->hasTrait<
++                      mlir::torch::Torch::OpTrait::AllowsTypeRefinement>()) {
++            continue;
++          }
++          if (!originalTypedValue) {
++            builder.setInsertionPointAfter(op);
++            if (originalResultType.isa<BaseTensorType>()) {
++              originalTypedValue = builder.create<TensorStaticInfoCastOp>(
++                  loc, originalResultType, op->getResult(0));
++            }
++          }
++          use.set(originalTypedValue);
++        }
++      }
++    });
++
+     RewritePatternSet patterns(context);
+     populateFullyUnrollPrimLoopOpPattern(patterns, context);
+     populateAbstractlyInterpretListOpsWithinABlockPattern(patterns, context);

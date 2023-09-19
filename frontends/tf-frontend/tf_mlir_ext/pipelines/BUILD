@@ -52,7 +52,7 @@ cc_library(
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_dialect_registration",
         "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:mhlo_passes",
-        "@org_tensorflow//tensorflow/compiler/mlir/xla:tf_xla_passes",
-        "@stablehlo//:chlo_ops",
+        "@org_tensorflow//tensorflow/compiler/mlir/tf2xla/transforms:tf_xla_passes",
+		"@stablehlo//:chlo_ops",
     ]
 )

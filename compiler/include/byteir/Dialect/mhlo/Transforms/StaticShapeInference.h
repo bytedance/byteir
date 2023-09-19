@@ -26,7 +26,12 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createStaticShapeInferencePass();
+constexpr StringRef getStaticShapeAttrName() { return "byteir.static_shape"; }
+
+LogicalResult runStaticShapeInfer(func::FuncOp funcOp, bool overrideShape);
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+createStaticShapeInferencePass(bool overrideShape = true);
 
 } // namespace mlir
 

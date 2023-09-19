@@ -38,6 +38,7 @@ def RemoveCopy : Pass<"remove-copy", "func::FuncOp"> {
   let summary = "Remove copy";
   let constructor = "mlir::createRemoveCopyPass()";
   let dependentDialects = [
+    "affine::AffineDialect",
     "memref::MemRefDialect"
   ];
 }
@@ -51,9 +52,48 @@ def SimplifyView : Pass<"simplify-view", "func::FuncOp"> {
                 "offset of subview is dynamic.";
   let constructor = "mlir::createSimplifyViewPass()";
   let dependentDialects = [
-    "AffineDialect"
+    "affine::AffineDialect"
   ];
 }
+
+//===----------------------------------------------------------------------===//
+// ExtractAddressComputationSimplify
+//===----------------------------------------------------------------------===//
+def ExtractAddressComputation: Pass<"extract-address-computation"> {
+  let summary = "Extract address computations from memory accesses";
+  let description = [{
+    Extract the address computation from the instructions with memory
+    accesses such that these memory accesses use only a base pointer.
+
+    For instance,
+    ```mlir
+    memref.load %base[%off0, ...]
+    ```
+
+    Will be rewritten in:
+    ```mlir
+    %new_base = memref.subview %base[%off0,...][1,...][1,...]
+    memref.load %new_base[%c0,...]
+    ```
+  }];
+  let constructor = "mlir::createExtractAddressComputationPass()";
+  let dependentDialects = [
+      "memref::MemRefDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// SimplifyLinearizedIndex
+//===----------------------------------------------------------------------===//
+def SimplifyLinearizedIndex: Pass<"simplify-linearized-index"> {
+  let summary = "Simplify linearized index";
+  let constructor = "mlir::createSimplifyLinearizedIndexPass()";
+  let dependentDialects = [
+      "memref::MemRefDialect",
+      "arith::ArithDialect"
+  ];
+}
+
 
 
 #endif // BYTEIR_DIALECT_MEMREF_PASSES

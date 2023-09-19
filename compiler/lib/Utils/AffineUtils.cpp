@@ -17,6 +17,7 @@
 
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/Utils.h"
+#include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;
 
@@ -103,4 +104,56 @@ AffineMap mlir::getFlattenAffineMap(mlir::MLIRContext *ctx,
   SmallVector<AffineExpr, 2> results;
   results.push_back(result);
   return AffineMap::get(numDim, 0, results, ctx);
+}
+
+AffineMap mlir::getMultiDimIdentityMapWithSkips(unsigned numDims,
+                                                ArrayRef<int64_t> skips,
+                                                MLIRContext *context) {
+  llvm::SmallSet<int64_t, 4> skipSet;
+  skipSet.insert(skips.begin(), skips.end());
+  SmallVector<AffineExpr, 4> dimExprs;
+  dimExprs.reserve(numDims);
+  for (unsigned i = 0; i < numDims; ++i) {
+    if (skipSet.contains(i)) {
+      continue;
+    }
+    dimExprs.push_back(mlir::getAffineDimExpr(i, context));
+  }
+  return AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, dimExprs,
+                        context);
+}
+
+AffineMap mlir::getMultiDimIdentityMapWithTargets(unsigned numDims,
+                                                  ArrayRef<int64_t> targets,
+                                                  MLIRContext *context) {
+  AffineMap result =
+      AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, context);
+  int64_t pos = 0;
+  for (int64_t t : targets) {
+    result = result.insertResult(getAffineDimExpr(t, context), pos);
+    pos += 1;
+  }
+  return result;
+}
+
+bool mlir::isProjectedPermutationAndAllowConst(AffineMap map) {
+  if (map.getNumSymbols() > 0)
+    return false;
+
+  if (map.getNumResults() > map.getNumInputs())
+    return false;
+
+  SmallVector<bool, 8> seen(map.getNumInputs(), false);
+  for (auto expr : map.getResults()) {
+    if (auto dim = expr.dyn_cast<AffineDimExpr>()) {
+      if (seen[dim.getPosition()])
+        return false;
+      seen[dim.getPosition()] = true;
+    } else {
+      if (!expr.isa<AffineConstantExpr>())
+        return false;
+    }
+  }
+
+  return true;
 }

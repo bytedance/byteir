@@ -80,6 +80,10 @@ public:
   // Return -1 if not found
   int GetGraphArgOffset(const std::string &name);
 
+  // Return the first tensor index which the arg_offset's tensor alias to
+  // Return -1 if not found
+  int GetGraphArgAliasOffset(const size_t arg_offset);
+
   // Run a model for a given RequestContext
   common::Status Run(RequestContext &request_ctx);
 
@@ -95,6 +99,13 @@ public:
   const std::vector<std::string> &GetWeightNames();
   const std::vector<std::string> &GetInputNames();
   const std::vector<std::string> &GetOutputNames();
+
+  // Return tf Attributes
+  const std::vector<std::string> &GetTfInputNamesAttr();
+  // without unused input pruning
+  const std::vector<std::string> &GetTfOriginalInputNamesAttr();
+  const std::vector<std::string> &GetTfOutputNamesAttr();
+
   const std::vector<size_t> &GetWeightArgOffsets();
   const std::vector<size_t> &GetInputArgOffsets();
   const std::vector<size_t> &GetOutputArgOffsets();
@@ -104,6 +115,9 @@ public:
 
   // Return dtype from a Tensor Index
   DTypeEnum GetDType(size_t id);
+
+  // Return space from a Tensor Index
+  std::string GetSpace(size_t id);
 
   /**
    * Add an ExecutionProivder into a Session

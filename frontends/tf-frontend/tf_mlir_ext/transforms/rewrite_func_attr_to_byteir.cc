@@ -23,6 +23,7 @@
 #include "tf_mlir_ext/transforms/passes_detail.h"
 #include "tf_mlir_ext/transforms/rewrite_func_attr_to_byteir.h"
 #include "tf_mlir_ext/utils/customcall.h"
+#include "utils/attributes.h"
 
 #include <string>
 #include <vector>
@@ -34,15 +35,19 @@ namespace {
 
 struct RewriteFuncAttrToByteIRPass
     : public RewriteFuncAttrToByteIRBase<RewriteFuncAttrToByteIRPass> {
-  RewriteFuncAttrToByteIRPass() = default;
+  RewriteFuncAttrToByteIRPass(const std::unordered_map<std::string, Attribute>
+                                  &additional_main_func_attrs) {
+    this->additional_main_func_attrs = additional_main_func_attrs;
+  }
+
   void runOnOperation() override final {
     MLIRContext *context = &getContext();
     func::FuncOp funcOp = getOperation();
     OpBuilder builder(context);
 
-    if (funcOp->hasAttr("tf.entry_function")) {
-      auto entryFunction =
-          funcOp->getAttrOfType<DictionaryAttr>("tf.entry_function");
+    if (funcOp->hasAttr(tensorflow::getTfEntryFuncKey())) {
+      auto entryFunction = funcOp->getAttrOfType<DictionaryAttr>(
+          tensorflow::getTfEntryFuncKey());
       StringRef inputs =
           entryFunction.get("inputs").cast<StringAttr>().getValue();
       StringRef outputs =
@@ -67,18 +72,28 @@ struct RewriteFuncAttrToByteIRPass
           NamedAttribute(builder.getStringAttr("inputs"), inputsAttr),
           NamedAttribute(builder.getStringAttr("outputs"), outputsAttr)};
 
-      funcOp->setAttr("byteir.entry_point",
+      funcOp->setAttr(tensorflow::getByteIREntryPointKey(),
                       builder.getDictionaryAttr(byteirAttrs));
-      funcOp->removeAttr("tf.entry_function");
+      funcOp->removeAttr(tensorflow::getTfEntryFuncKey());
+
+      for (auto it : additional_main_func_attrs) {
+        funcOp->setAttr(it.first, it.second);
+      }
 
       // remove argument attributes
       funcOp->removeAttr("arg_attrs");
     }
   }
+
+private:
+  std::unordered_map<std::string, Attribute> additional_main_func_attrs;
 };
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::tfext::createRewriteFuncAttrToByteIRPass() {
-  return std::make_unique<RewriteFuncAttrToByteIRPass>();
+mlir::tfext::createRewriteFuncAttrToByteIRPass(
+    const std::unordered_map<std::string, Attribute>
+        &additional_main_func_attrs) {
+  return std::make_unique<RewriteFuncAttrToByteIRPass>(
+      additional_main_func_attrs);
 }

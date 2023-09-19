@@ -11,11 +11,12 @@ add_byteir_conversion_library(ByteIRGPUToNVVM
   LINK_LIBS PUBLIC
   MLIRArithToLLVM
   MLIRFuncToLLVM
-  MLIRGPUOps
+  MLIRGPUDialect
   MLIRGPUToGPURuntimeTransforms
   MLIRGPUToNVVMTransforms
   MLIRLLVMCommonConversion
   MLIRLLVMDialect
+  MLIRMathTransforms
   MLIRMemRefDialect
   MLIRMemRefToLLVM
   MLIRNVVMDialect

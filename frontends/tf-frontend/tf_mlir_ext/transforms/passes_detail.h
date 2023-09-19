@@ -41,6 +41,10 @@ namespace ace {
 class AceDialect;
 } // namespace ace
 
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
+
 #define GEN_PASS_CLASSES
 #include "tf_mlir_ext/transforms/passes.h.inc"
 

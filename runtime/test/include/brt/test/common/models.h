@@ -96,7 +96,8 @@ const void *CreateIndexPut(brt::ir::ByREBuilder &byre_builder,
 const void *CreateIndexSelect(brt::ir::ByREBuilder &byre_builder,
                               const std::string &space,
                               std::vector<int64_t> src_shape, size_t dim,
-                              std::vector<int64_t> idx_shape);
+                              std::vector<int64_t> idx_shape,
+                              bool is_ui32_index);
 
 const void *CreateReduction(brt::ir::ByREBuilder &byre_builder,
                             const std::string &space,
@@ -127,5 +128,11 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum input_dtype,
                             const std::vector<int64_t> &shape);
 
+const void *
+CreateWithEntryAttrs(brt::ir::ByREBuilder &byre_builder, DTypeEnum input_dtype,
+                     const std::vector<int64_t> &shape,
+                     const std::vector<std::string> &inputs,
+                     const std::vector<std::string> &outputs,
+                     const std::vector<std::string> &original_inputs);
 } // namespace test
 } // namespace brt

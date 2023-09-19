@@ -18,8 +18,10 @@
 #include "byteir/Dialect/MemRef/Transforms/RemoveCopy.h"
 #include "byteir/Dialect/MemRef/Utils/MemEffect.h"
 #include "byteir/Utils/Hoist.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/MemRef/Transforms/ComposeSubView.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
@@ -27,12 +29,26 @@
 #include "PassDetail.h"
 
 #define DEBUG_TYPE "remove-copy"
+#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
 
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::memref;
 
 namespace {
+
+// to check whether all uses of oldValue can be safely replaced with newValue
+bool anyIncompatibleUse(Value oldValue, Value newValue) {
+  return llvm::any_of(oldValue.getUses(),
+                      [](OpOperand &operand) {
+                        Operation *op = operand.getOwner();
+                        Dialect *dialect = op->getDialect();
+                        return llvm::isa<memref::CollapseShapeOp, func::CallOp>(
+                                   op) ||
+                               (dialect && dialect->getNamespace() == "byre");
+                      }) &&
+         (oldValue.getType() != newValue.getType());
+}
 
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
 public:
@@ -78,7 +94,7 @@ public:
     }
 
     SmallVector<SmallVector<Value>, 2> aliases(2);
-    getAllAlias(copyOp, aliases);
+    getAllAlias(copyOp, aliases, /*skipNonOverlapedSubviews*/ true);
 
     llvm::DenseMap<Operation *, unsigned> opToIdx;
     unsigned idx = 0;
@@ -120,6 +136,21 @@ public:
       return failure();
     }
 
+    auto isGlobalConstant = [](Value value) -> bool {
+      if (auto getGlobalOp = value.getDefiningOp<memref::GetGlobalOp>()) {
+        if (auto globalOp =
+                SymbolTable::lookupNearestSymbolFrom<memref::GlobalOp>(
+                    getGlobalOp, getGlobalOp.getNameAttr())) {
+          return globalOp.getConstant();
+        }
+      }
+      return false;
+    };
+    if (llvm::any_of(aliases[0], isGlobalConstant)) {
+      LLVM_DEBUG(llvm::dbgs() << "failed to replace constant src");
+      return failure();
+    }
+
     // now it is legal to rewrite.
     // we prefer target alloc over src alloc in this implementation
     if (auto targetAlloc = target.getDefiningOp<memref::AllocOp>()) {
@@ -134,8 +165,11 @@ public:
                                 << " not dominated by " << targetAlloc << "\n");
         return failure();
       }
-      rewriter.replaceOp(targetAlloc, {src});
-      return success();
+
+      if (!anyIncompatibleUse(target, src)) {
+        rewriter.replaceOp(targetAlloc, {src});
+        return success();
+      }
     }
 
     if (auto srcAlloc = src.getDefiningOp<memref::AllocOp>()) {
@@ -149,8 +183,11 @@ public:
                                 << " not dominated by " << srcAlloc << "\n");
         return failure();
       }
-      rewriter.replaceOp(srcAlloc, {target});
-      return success();
+
+      if (!anyIncompatibleUse(src, target)) {
+        rewriter.replaceOp(srcAlloc, {target});
+        return success();
+      }
     }
 
     return failure();
@@ -175,6 +212,10 @@ public:
     memref::AllocOp::getCanonicalizationPatterns(patterns, &ctx);
     memref::CopyOp::getCanonicalizationPatterns(patterns, &ctx);
     memref::SubViewOp::getCanonicalizationPatterns(patterns, &ctx);
+
+    // To eliminate subview of subview where the second subview might have
+    // incorrect strides.
+    memref::populateComposeSubViewPatterns(patterns, &ctx);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 

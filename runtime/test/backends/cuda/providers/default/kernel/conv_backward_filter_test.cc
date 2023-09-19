@@ -106,13 +106,13 @@ static void TestConvBackwardFilterOp(float abs_eps, float rel_eps,
                                      int64_t paddingH, int64_t paddingW) {
   auto dtype = dtype_enum_v<T>;
 
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateConv(byre_builder, "ConvBackwardFilterOp", dtype, "cuda", N, iC, iH,
                  iW, oC, kH, kW, layout, strideH, strideW, paddingH, paddingW,

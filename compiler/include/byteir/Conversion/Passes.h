@@ -18,10 +18,16 @@
 #ifndef BYTEIR_CONVERSION_PASSES_H
 #define BYTEIR_CONVERSION_PASSES_H
 
+#include "byteir/Conversion/FuncToByre/FuncToByre.h"
 #include "byteir/Conversion/GPUToNVVM/GPUToNVVM.h"
+#include "byteir/Conversion/HloToByreTensor/HloToByreTensor.h"
+#include "byteir/Conversion/HloToCat/FuseHloToCat.h"
+#include "byteir/Conversion/HloToCat/HloToCat.h"
 #include "byteir/Conversion/HloToLHlo/HloToLHlo.h"
 #include "byteir/Conversion/LmhloToLace/LmhloToLace.h"
 #include "byteir/Conversion/LmhloToMemref/LmhloToMemref.h"
+#include "byteir/Conversion/MemrefToByre/MemrefToByre.h"
+#include "byteir/Conversion/ToAIT/ToAIT.h"
 #include "byteir/Conversion/ToAce/MhloToAce.h"
 #include "byteir/Conversion/ToByre/ToByre.h"
 #include "byteir/Conversion/ToGPU/ToGPU.h"

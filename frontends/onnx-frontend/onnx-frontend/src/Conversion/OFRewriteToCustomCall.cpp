@@ -17,6 +17,8 @@
 
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.hpp"
 
+#include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
@@ -32,12 +34,14 @@ namespace {
     func(arg_min, ArgMin)          \
     func(erf, Erf)                 \
     func(dequantize, Dequantize)   \
-    func(gelu, Gelu)               \
+    func(gelu, GeLU)               \
     func(instance_norm, InstanceNorm) \
     func(l2_norm, L2Norm)          \
     func(layer_norm, LayerNorm)    \
     func(quantize, Quantize)       \
-    func(softmax, Softmax)
+    func(resize, Resize)           \
+    func(softmax, Softmax)         \
+    func(log_softmax, LogSoftmax)
 
 #define GEN_FUNCNAME(call_target_name, func_name)                            \
   constexpr const char *get##func_name##NameWithPrefix() {                   \
@@ -163,6 +167,33 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
+                             Value input, ArrayAttr axis_attr) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "L2Norm input type must be ranked");
+
+  int64_t axis = axis_attr[0].cast<IntegerAttr>().getInt();
+  // canonicalize axis to be positive
+  if (axis < 0) {
+    axis = inputType.getRank() + axis;
+  }
+
+  std::string call_target_name = getL2NormNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{inputType}, llvm::ArrayRef<Value>{input},
+      call_target_name, false, rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+
+  return customCallOp.getResults()[0];
+}
+
 //===----------------------------------------------------------------------===//
 // Quantize/Dequantize
 //===----------------------------------------------------------------------===//
@@ -260,7 +291,8 @@ Value createLayerNormAndAffine(PatternRewriter &rewriter, Location loc,
   }
 
   Type elemType = inputType.getElementType();
-  Type WeightBiasType = mlir::RankedTensorType::get(spatialShape, elemType);
+  RankedTensorType WeightBiasType =
+      mlir::RankedTensorType::get(spatialShape, elemType);
   Value weight = rewriter.create<mhlo::ConstantOp>(
       loc, DenseElementsAttr::get(WeightBiasType,
                                   rewriter.getFloatAttr(elemType, 1.0)));
@@ -297,183 +329,144 @@ Value createLayerNormAndAffine(PatternRewriter &rewriter, Location loc,
   return result;
 }
 
+//===----------------------------------------------------------------------===//
+// Resize
+//===----------------------------------------------------------------------===//
+Value createResize(PatternRewriter &rewriter, Location loc, Value input,
+                   Value scale, Value size,
+                   StringAttr coordinate_transformation_mode, StringAttr mode,
+                   StringAttr nearest_mode, Value output) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "Resize input type must be ranked");
+
+  Value target;
+  StringAttr target_mode;
+  if (onnx_mlir::isNoneValue(size)) {
+    assert(!onnx_mlir::isNoneValue(scale) &&
+           "One of size/scale must be of NoneType");
+    target = scale;
+    target_mode = rewriter.getStringAttr("scale");
+  } else {
+    assert(onnx_mlir::isNoneValue(scale) &&
+           "One of size/scale must be of NoneType");
+    target = size;
+    target_mode = rewriter.getStringAttr("size");
+  }
+  std::string call_target_name = getResizeNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{output.getType()},
+      llvm::ArrayRef<Value>{input, target}, call_target_name, false,
+      rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("coordinate_transformation_mode",
+                coordinate_transformation_mode);
+  attrs.setAttr("mode", mode);
+  attrs.setAttr("target_mode", target_mode);
+  if (mode.getValue() == "nearest") {
+    assert(nearest_mode.getValue() == "floor" &&
+           "Only support 'floor' mode for nearest resize currently");
+  }
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+  return customCallOp.getResults()[0];
+}
+
+//===----------------------------------------------------------------------===//
+// LayerNorm
+//===----------------------------------------------------------------------===//
+Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
+                      Value scale, Value B, ArrayAttr axis_attr,
+                      Attribute epsilon_attr) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "Input type must be ranked");
+  int64_t axis = axis_attr[0].cast<IntegerAttr>().getInt();
+  // canonicalize axis to be positive
+  if (axis < 0) {
+    axis = inputType.getRank() + axis;
+  }
+  double eps = (*epsilon_attr.cast<ElementsAttr>().getValues<APFloat>().begin())
+                   .convertToDouble();
+  std::string call_target_name = getLayerNormNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{inputType},
+      llvm::ArrayRef<Value>{input, scale, B}, call_target_name, false,
+      rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("epsilon", rewriter.getF64FloatAttr(eps));
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+  return customCallOp.getResults()[0];
+}
+
+Value createLayerNormWithoutLastAdd(PatternRewriter &rewriter, Location loc,
+                                    Value input, Value scale,
+                                    ArrayAttr axis_attr,
+                                    Attribute epsilon_attr) {
+  Attribute zero = rewriter.getZeroAttr(scale.getType());
+  Value B = rewriter.create<ONNXConstantOp>(loc, Attribute(), zero);
+  return createLayerNorm(rewriter, loc, input, scale, B, axis_attr,
+                         epsilon_attr);
+}
+
+//===----------------------------------------------------------------------===//
+// GeLU
+//===----------------------------------------------------------------------===//
+bool isSplatFP(Attribute attr, double value) {
+  ElementsAttr elementsAttr = attr.cast<ElementsAttr>();
+  if (!elementsAttr)
+    return false;
+  return elementsAttr.isSplat() &&
+         elementsAttr.getSplatValue<FloatAttr>().getValueAsDouble() == value;
+}
+
+bool isSplatFPCloseTo(Attribute attr, double value, double eps = 1e-5) {
+  ElementsAttr elementsAttr = attr.cast<ElementsAttr>();
+  if (!elementsAttr)
+    return false;
+  if (!elementsAttr.isSplat())
+    return false;
+  double diff =
+      elementsAttr.getSplatValue<FloatAttr>().getValueAsDouble() - value;
+  return fabs(diff) < eps;
+}
+
+Value createGeLU(PatternRewriter &rewriter, Location loc, Value input) {
+  std::string call_target_name = getGeLUNameWithPrefix();
+  mhlo::CustomCallOp customCallOp = rewriter.create<mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{input.getType()}, llvm::ArrayRef<Value>{input},
+      call_target_name, false, rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("approximate", rewriter.getStringAttr("erf"));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+  return customCallOp.getResults()[0];
+}
+
+Value createGeLUWithoutLastMul(PatternRewriter &rewriter, Location loc,
+                               Value input) {
+  Value result = createGeLU(rewriter, loc, input);
+
+  Type elemType = input.getType().cast<TensorType>().getElementType();
+  RankedTensorType tensorType = RankedTensorType::get({}, elemType);
+  llvm::SmallVector<float, 1> values{2.0};
+  Attribute attr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
+  Value two = rewriter.create<ONNXConstantOp>(loc, Attribute(), attr);
+  return rewriter.create<ONNXMulOp>(loc, result, two);
+}
+
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.inc"
-
-//===----------------------------------------------------------------------===//
-// Fuse Gelu Pattern
-//===----------------------------------------------------------------------===//
-SmallVector<Value> likeGeluPattern(ONNXMulOp lastMulOp) {
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(fistMulOp,
-                                      getOnePossibleOp<ONNXMulOp>(lastMulOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      addOp, fistMulOp.getB().getDefiningOp<ONNXAddOp>());
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(erfOp,
-                                      getOnePossibleOp<ONNXErfOp>(addOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      divOp, erfOp.getInput().getDefiningOp<ONNXDivOp>());
-  Value geluInput = divOp.getA();
-  if (fistMulOp.getA().getDefiningOp() != geluInput.getDefiningOp() &&
-      fistMulOp.getB().getDefiningOp() != geluInput.getDefiningOp()) {
-    return {};
-  }
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      multiplierConstantOp, getOnePossibleOp<ONNXConstantOp>(lastMulOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(oneConstantOp,
-                                      getOnePossibleOp<ONNXConstantOp>(addOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(divisorConstantOp,
-                                      getOnePossibleOp<ONNXConstantOp>(divOp));
-  ElementsAttr multiplierValue = multiplierConstantOp.getValue().value();
-  ElementsAttr oneValue = oneConstantOp.getValue().value();
-  ElementsAttr divisorValue = divisorConstantOp.getValue().value();
-  if (multiplierValue.getNumElements() != 1 || oneValue.getNumElements() != 1 ||
-      divisorValue.getNumElements() != 1) {
-    return {};
-  }
-  float multiplier = *multiplierValue.getValues<float>().begin();
-  float one = *oneValue.getValues<float>().begin();
-  float divisor = *divisorValue.getValues<float>().begin();
-  if (!onnx_frontend::CloseTo(multiplier, 0.5) ||
-      !onnx_frontend::CloseTo(one, 1.) ||
-      !onnx_frontend::CloseTo(divisor, std::sqrt(2.))) {
-    return {};
-  }
-  return {geluInput};
-}
-
-struct RewriteGelu : public OpRewritePattern<ONNXMulOp> {
-  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(ONNXMulOp op,
-                                PatternRewriter &rewriter) const override {
-    ONNXMulOp lastMulOp = cast<ONNXMulOp>(op);
-    auto args = likeGeluPattern(lastMulOp);
-    if (args.size() != 1) {
-      return failure();
-    }
-
-    std::string call_target_name = getGeluNameWithPrefix();
-    mhlo::CustomCallOp customCallOp = rewriter.create<mhlo::CustomCallOp>(
-        op->getLoc(), op->getResultTypes(), args, call_target_name, false,
-        rewriter.getStringAttr(""),
-        mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
-        rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
-        mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
-        rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
-    DictionaryAttrWrapper attrs(op->getContext());
-    attrs.setAttr("approximate", rewriter.getStringAttr("erf"));
-    customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
-
-    ResultRange result = customCallOp->getResults();
-    rewriter.replaceOp(op, result);
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Fuse LayerNorm Pattern
-//===----------------------------------------------------------------------===//
-SmallVector<Value> likeLayerNormPattern(ONNXAddOp lastAddOp, double &eps,
-                                        int64_t &axis) {
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(mulOp,
-                                      getOnePossibleOp<ONNXMulOp>(lastAddOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(divOp,
-                                      getOnePossibleOp<ONNXDivOp>(mulOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(sqrtOp,
-                                      divOp.getB().getDefiningOp<ONNXSqrtOp>());
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(addOp,
-                                      sqrtOp.getX().getDefiningOp<ONNXAddOp>());
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      reduceMeanOp, getOnePossibleOp<ONNXReduceMeanOp>(addOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      powOp, reduceMeanOp.getData().getDefiningOp<ONNXPowOp>());
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(subOp,
-                                      powOp.getX().getDefiningOp<ONNXSubOp>());
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      firstReduceMeanOp, subOp.getB().getDefiningOp<ONNXReduceMeanOp>());
-  if (divOp.getA().getDefiningOp() != subOp) {
-    return {};
-  }
-  if (subOp.getA().getDefiningOp() !=
-      firstReduceMeanOp.getData().getDefiningOp()) {
-    return {};
-  }
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(
-      betaConstantOp, getOnePossibleOp<ONNXConstantOp>(lastAddOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(gammaConstantOp,
-                                      getOnePossibleOp<ONNXConstantOp>(mulOp));
-  RETURN_IF_NULLPTR_WITH_EMPTY_VECTOR(epsConstantOp,
-                                      getOnePossibleOp<ONNXConstantOp>(addOp));
-  Value input = firstReduceMeanOp.getData(),
-        gamma = gammaConstantOp.getOutput(), beta = betaConstantOp.getOutput();
-
-  // get eps
-  ElementsAttr epsValue = epsConstantOp.getValue().value();
-  if (epsValue.getNumElements() != 1) {
-    return {};
-  }
-  eps = (*epsValue.getValues<APFloat>().begin()).convertToDouble();
-  // get axis
-  ArrayAttr axisAttrs = reduceMeanOp.getAxesAttr();
-  ArrayAttr firstAxisAttrs = firstReduceMeanOp.getAxesAttr();
-  if (!axisAttrs || !firstAxisAttrs || reduceMeanOp.getAxesAttr().size() != 1 ||
-      firstReduceMeanOp.getAxesAttr().size() != 1) {
-    return {};
-  }
-  axis = axisAttrs.begin()->cast<IntegerAttr>().getInt();
-  RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
-  if (!inputType) {
-    return {};
-  }
-  int64_t rank = inputType.getRank();
-  assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
-  if (axis < 0)
-    axis += rank;
-  return {input, gamma, beta};
-}
-
-struct RewriteLayerNorm : public OpRewritePattern<ONNXAddOp> {
-  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(ONNXAddOp op,
-                                PatternRewriter &rewriter) const override {
-    ONNXAddOp lastAddOp = cast<ONNXAddOp>(op);
-    double eps;
-    int64_t axis;
-    auto args = likeLayerNormPattern(lastAddOp, eps, axis);
-    if (args.size() != 3) {
-      return failure();
-    }
-    Value input = args[0];
-    Value gamma = args[1];
-    Value beta = args[2];
-
-    RankedTensorType inputType = input.getType().cast<RankedTensorType>();
-    if (inputType.getRank() <= axis) {
-      return failure();
-    }
-    RankedTensorType gammaType = gamma.getType().cast<RankedTensorType>();
-    RankedTensorType betaType = beta.getType().cast<RankedTensorType>();
-    if (gammaType.getRank() > inputType.getRank() - axis ||
-        betaType.getRank() > inputType.getRank() - axis) {
-      return failure();
-    }
-
-    std::string call_target_name = getLayerNormNameWithPrefix();
-    mhlo::CustomCallOp customCallOp = rewriter.create<mhlo::CustomCallOp>(
-        op->getLoc(), op->getResultTypes(), args, call_target_name, false,
-        rewriter.getStringAttr(""),
-        mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
-        rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
-        mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
-        rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
-    DictionaryAttrWrapper attrs(op->getContext());
-    attrs.setAttr("epsilon", rewriter.getF64FloatAttr(eps));
-    attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
-    customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
-
-    ResultRange result = customCallOp->getResults();
-    rewriter.replaceOp(op, result);
-    return success();
-  }
-};
 
 //===----------------------------------------------------------------------===//
 // ArgMax/ArgMin Pattern
@@ -558,19 +551,29 @@ struct OFRewriteToCustomCallPass
                        llvm::SmallVector<std::unique_ptr<RewritePattern>>>
         validOpSet;
     validOpSet[getL2NormName()].emplace_back(
-        std::make_unique<RewriteL2Norm>(context));
+        std::make_unique<RewriteL2NormPat1>(context));
+    validOpSet[getL2NormName()].emplace_back(
+        std::make_unique<RewriteL2NormPat2>(context));
     validOpSet[getQuantizeName()].emplace_back(
         std::make_unique<RewriteQuantize>(context));
     validOpSet[getDequantizeName()].emplace_back(
         std::make_unique<RewriteDequantize>(context));
     validOpSet[getSoftmaxName()].emplace_back(
         std::make_unique<RewriteSoftmax>(context));
-    validOpSet[getInstanceNormName()].emplace_back(
-        std::make_unique<RewriteInstanceNorm>(context));
-    validOpSet[getGeluName()].emplace_back(
-        std::make_unique<RewriteGelu>(context, 7));
+    validOpSet[getSoftmaxName()].emplace_back(
+        std::make_unique<RewriteLogSoftmax>(context));
+    validOpSet[getResizeName()].emplace_back(
+        std::make_unique<RewriteResize>(context));
+    validOpSet[getGeLUName()].emplace_back(
+        std::make_unique<RewriteGeLU>(context));
+    validOpSet[getGeLUName()].emplace_back(
+        std::make_unique<RewriteGeLUWithoutLastMul>(context));
     validOpSet[getLayerNormName()].emplace_back(
-        std::make_unique<RewriteLayerNorm>(context, 11));
+        std::make_unique<RewriteLayerNorm>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteLayerNormWithoutLastAdd>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteInstanceNorm>(context));
     validOpSet[getArgMaxName()].emplace_back(
         std::make_unique<RewriteMathArg<ONNXArgMaxOp, ONNXArgMaxOpAdaptor>>(
             context, 1));

@@ -8,7 +8,7 @@ def build_onnx(node_name, input_shape_dtype, output_shape_dtype, initializer=[],
     # Create inputs (ValueInfoProto)
     input_infos = [
         helper.make_tensor_value_info(name, NP_TYPE_TO_TENSOR_TYPE[np.dtype(dtype)], list(shape))
-        for name, shape, dtype in input_shape_dtype
+        for name, shape, dtype in input_shape_dtype if shape is not None and dtype is not None
     ]
     input_names = [
         name for name, _, _ in input_shape_dtype
@@ -40,7 +40,7 @@ def build_onnx(node_name, input_shape_dtype, output_shape_dtype, initializer=[],
     )
 
     op = onnx.OperatorSetIdProto()
-    op.version = 13
+    op.version = 17
 
     # Create the model (ModelProto)
     model_def = helper.make_model(

@@ -1,0 +1,85 @@
+name: Compiler And Runtime Build
+
+on: 
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "frontends/**"
+      - "scripts/frontends/**"
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "frontends/**"
+      - "scripts/frontends/**"
+  workflow_dispatch:
+
+# Ensure that only a single job or workflow using the same
+# concurrency group will run at a time. This would cancel
+# any in-progress jobs in the same github workflow and github
+# ref (e.g. refs/heads/main or refs/pull/<pr_number>/merge).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clear_workspace:
+    name: Clear workspace
+    runs-on: self-hosted
+    steps:
+      - name: clear workspace
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+  byteir_compiler_build_and_test:
+    name: byteir compiler build and test
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+      - name: Checkout byteir repo
+        uses: actions/checkout@v3
+      - name: Run build and test
+        run: ./scripts/compiler/build_and_lit_test.sh ${{ secrets.LLVM_INSTALL_DIR }}
+        shell: bash
+  brt_check_cpu:
+    name: BRT cpu test
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+    - name: Checkout byteir repo
+      uses: actions/checkout@v3
+    - name: Build and test BRT
+      run: ./scripts/runtime/build_and_test.sh --python ${{ secrets.LLVM_INSTALL_DIR }}
+      shell: bash
+    - name: Build and test BRT external project
+      run: ./scripts/runtime/build_external_project.sh
+      shell: bash
+  brt_check_cuda:
+    name: BRT CUDA test
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+    - name: Checkout byteir repo
+      uses: actions/checkout@v3
+    - name: Build and test BRT with CUDA ON
+      run: ./scripts/runtime/build_and_test.sh --cuda --python ${{ secrets.LLVM_INSTALL_DIR }}
+      shell: bash
+  brt_check_asan:
+    name: BRT test with asan
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+    - name: Checkout byteir repo
+      uses: actions/checkout@v3
+    - name: Build and test BRT with asan
+      run: ./scripts/runtime/build_and_test.sh --cuda --asan ${{ secrets.LLVM_INSTALL_DIR }}
+      shell: bash
+  byteir_compiler_build_and_test_python:
+    name: byteir cat test CI
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+    - name: Checkout byteir repo
+      uses: actions/checkout@v3
+    - name: Build and Test Python APIs
+      run: ./scripts/compiler/build_and_test_cat.sh ${{ secrets.LLVM_INSTALL_DIR }}
+      shell: bash

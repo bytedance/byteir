@@ -19,7 +19,7 @@
 #include "byteir/Dialect/mhlo/Transforms/ShapeReification.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -89,7 +89,7 @@ SymbolicShapeAnalysis::SymbolicShapeAnalysis(ModuleOp moduleOp)
     // add the body of the auxiliary shape infer func
     Block *block = shpFuncOp.addEntryBlock();
     builder.setInsertionPointToStart(block);
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     SmallVector<Value> valResults;
     SmallVector<Value> allResults;
     for (auto it : zip(funcOp.getArguments(), shpFuncOp.getArguments())) {

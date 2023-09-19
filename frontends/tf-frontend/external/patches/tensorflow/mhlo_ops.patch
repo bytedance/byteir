@@ -1,8 +1,8 @@
 diff --git a/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc b/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc
-index 8728bd5714f..56c2c59296c 100644
+index 8a4bef78a19..92f74d3b7a9 100644
 --- a/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc
 +++ b/tensorflow/compiler/xla/mlir_hlo/mhlo/IR/hlo_ops.cc
-@@ -7072,8 +7072,9 @@ static Attribute CompareFolder(CompareOp op, ArrayRef<Attribute> attrs) {
+@@ -5650,8 +5650,9 @@ static Attribute CompareFolder(CompareOp op, ArrayRef<Attribute> attrs) {
  
    SmallVector<bool, 6> values;
    values.reserve(lhs.getNumElements());

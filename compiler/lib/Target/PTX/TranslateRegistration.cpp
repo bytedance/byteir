@@ -33,6 +33,8 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
+#include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
@@ -83,14 +85,16 @@ void registerToPTXTranslation() {
 
   TranslateFromMLIRRegistration reg(
       "gen-ptx", "generate ptx from mlir",
-      [](ModuleOp module, raw_ostream &output) {
-        return mlir::translateToPTX(module, output, outPrefix, codeGenOpt,
-                                    gpuArch, dumpPtx, saveTemps, verbose);
+      [](ModuleOp module, raw_ostream & /*output*/) {
+        return mlir::translateToPTX(module, outPrefix, codeGenOpt, gpuArch,
+                                    dumpPtx, saveTemps, verbose);
       },
       [](DialectRegistry &registry) {
         registerAllDialects(registry);
+        registerAllExtensions(registry);
         registerLLVMDialectTranslation(registry);
         registerNVVMDialectTranslation(registry);
+        registerGPUDialectTranslation(registry);
       });
 }
 

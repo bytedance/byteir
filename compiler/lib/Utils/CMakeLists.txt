@@ -2,11 +2,15 @@ add_mlir_library(ByteIRUtils
   AffineUtils.cpp
   AttrUtils.cpp
   FuncUtils.cpp
+  GraphUtils.cpp
   Hoist.cpp
   IRRewrite.cpp
   LoopUtils.cpp
   MemUtils.cpp
+  ModuleUtils.cpp
+  OpInterfaceUtils.cpp
   PipelineUtils.cpp
+  TileUtils.cpp
   TypeUtils.cpp
   Utils.cpp
 
@@ -17,6 +21,8 @@ add_mlir_library(ByteIRUtils
   MLIRIR
   MLIRAffineDialect
   MLIRArithDialect
+  MLIRCclDialect
   MLIRMemRefDialect
   MLIRSCFDialect
+  MLIRSCFExtUtils
 )

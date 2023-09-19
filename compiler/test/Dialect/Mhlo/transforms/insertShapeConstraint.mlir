@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -insert-shape-constraint -canonicalize -cse | FileCheck %s
+// RUN: byteir-opt %s -insert-shape-constraint -canonicalize-ext -cse | FileCheck %s
 
 // CHECK-LABEL: @DynamicPartition_constraint
 func.func @DynamicPartition_constraint(%arg0: tensor<4x4xf32>, %arg1: tensor<4xi32>) -> tensor<?x4xf32> {
@@ -112,3 +112,28 @@ func.func @reshape_scalar(%arg0 : tensor<1x1xf32>) -> tensor<f32> {
 }
 // CHECK-LABEL: @reshape_scalar(%arg0: tensor<1x1xf32>) -> tensor<f32>
 // CHECK: "shape_ext.meet"
+
+
+func.func @concat(%arg0: tensor<?x4x?xf32>, %arg1: tensor<2x?x?xf32>) -> tensor<?x4x?xf32> {
+  %c0 = arith.constant 0 : index
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %dim = tensor.dim %arg1, %c1 : tensor<2x?x?xf32>
+  %dim_0 = tensor.dim %arg1, %c2 : tensor<2x?x?xf32>
+  "shape_ext.tie"(%arg1, %dim, %dim_0) : (tensor<2x?x?xf32>, index, index) -> ()
+  %dim_1 = tensor.dim %arg0, %c0 : tensor<?x4x?xf32>
+  %dim_2 = tensor.dim %arg0, %c2 : tensor<?x4x?xf32>
+  "shape_ext.tie"(%arg0, %dim_1, %dim_2) : (tensor<?x4x?xf32>, index, index) -> ()
+  %0 = "mhlo.concatenate"(%arg0, %arg1) {dimension = 0 : i64} : (tensor<?x4x?xf32>, tensor<2x?x?xf32>) -> tensor<?x4x?xf32>
+  %dim_3 = tensor.dim %0, %c0 : tensor<?x4x?xf32>
+  %dim_4 = tensor.dim %0, %c2 : tensor<?x4x?xf32>
+  "shape_ext.tie"(%0, %dim_3, %dim_4) : (tensor<?x4x?xf32>, index, index) -> ()
+  return %0 : tensor<?x4x?xf32>
+}
+// CHECK-LABEL: func.func @concat
+// CHECK-DAG:     %[[C4:.+]] = arith.constant 4 : index
+// CHECK-DAG:     %[[DIM:.+]] = tensor.dim %arg1, %c1
+// CHECK-DAG:     %[[DIM1:.+]] = tensor.dim %arg0, %c2
+// CHECK-DAG:     %[[DIM2:.+]] = tensor.dim %arg1, %c2
+// CHECK-DAG:     "shape_ext.meet"(%[[C4]], %[[DIM]])
+// CHECK-DAG:     "shape_ext.meet"(%[[DIM1]], %[[DIM2]])

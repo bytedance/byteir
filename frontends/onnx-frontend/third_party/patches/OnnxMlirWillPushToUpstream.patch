@@ -1,0 +1,43 @@
+diff --git a/src/Dialect/ONNX/ONNXOps/OpHelper.cpp b/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
+index 7f7c28ef..b512bf1b 100644
+--- a/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
++++ b/src/Dialect/ONNX/ONNXOps/OpHelper.cpp
+@@ -316,6 +316,23 @@ ONNXConstantOp getONNXConstantOp(Value value) {
+   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
+ }
+ 
++// Returns true if the Value is defined by a unit constant.
++// The unit constant can  be 1. NoneType, or 2. 1D tensor with 0 length
++// For example, NoneType, tensor<0xf32>
++// Some onnx model uses 0 length tensor for unit constant.
++bool isNoneValue(Value v) {
++  if (v.getType().isa<NoneType>())
++    return true;
++
++  if (auto ty = v.getType().dyn_cast<ShapedType>()) {
++    auto shape = ty.getShape();
++    if (shape.size() == 1 && shape[0] == 0)
++      return true;
++  }
++
++  return false;
++}
++
+ //===----------------------------------------------------------------------===//
+ // Support for transpose patterns.
+ //===----------------------------------------------------------------------===//
+diff --git a/src/Dialect/ONNX/ONNXOps/OpHelper.hpp b/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
+index f1a4ba8a..87404d72 100644
+--- a/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
++++ b/src/Dialect/ONNX/ONNXOps/OpHelper.hpp
+@@ -183,9 +183,7 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
+ // difference whether it's a constant (the result of ONNXNoneOp) or the
+ // optional result of some other op (e.g. ONNXDropoutOp mask result).
+ // Note: It's ok to inline the isa<NoneType> test and not call this function.
+-inline bool isNoneValue(mlir::Value value) {
+-  return llvm::isa<mlir::NoneType>(value.getType());
+-}
++bool isNoneValue(mlir::Value value);
+ 
+ //===----------------------------------------------------------------------===//
+ // Support for transpose patterns.

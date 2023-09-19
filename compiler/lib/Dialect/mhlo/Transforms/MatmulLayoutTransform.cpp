@@ -29,10 +29,12 @@ using namespace mlir;
 
 namespace {
 
+// convert DotOp to DotGeneralOp by target layout
 LogicalResult tryRewrite(mhlo::DotOp op, OpBuilder builder,
                          bool transposeConstantOnly, std::string targetLayout) {
   assert(targetLayout.size() == 3);
-  std::string defaultLayout = "nnn";
+  // dot is a rrr matmul
+  std::string defaultLayout = "rrr";
   if (targetLayout == defaultLayout)
     return failure();
   Value lhs = op.getLhs();
@@ -83,13 +85,13 @@ LogicalResult tryRewrite(mhlo::DotOp op, OpBuilder builder,
     op.erase();
   } else {
     mlir::StringAttr config;
-    if (targetLayout[0] == 'n' && targetLayout[1] == 'n')
+    if (targetLayout[0] == 'r' && targetLayout[1] == 'r')
       config = mlir::StringAttr::get(builder.getContext(), "mk,kn->nm");
-    if (targetLayout[0] == 'n' && targetLayout[1] == 't')
+    if (targetLayout[0] == 'r' && targetLayout[1] == 'c')
       config = mlir::StringAttr::get(builder.getContext(), "mk,nk->nm");
-    if (targetLayout[0] == 't' && targetLayout[1] == 'n')
+    if (targetLayout[0] == 'c' && targetLayout[1] == 'r')
       config = mlir::StringAttr::get(builder.getContext(), "km,kn->nm");
-    if (targetLayout[0] == 't' && targetLayout[1] == 't')
+    if (targetLayout[0] == 'c' && targetLayout[1] == 'c')
       config = mlir::StringAttr::get(builder.getContext(), "km,nk->nm");
     auto outType = op.getType().cast<RankedTensorType>();
     auto outShape = outType.getShape();

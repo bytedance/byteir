@@ -47,11 +47,12 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 ### byteir.layer_norm
 - Operands:
   - input: Tensor
-  - weight: Optional\<Tensor>
-  - bias: Optional\<Tensor>
+  - weight: Tensor
+  - bias: Tensor
 - Attrs
   - epsilon: F64Attr
   - axis: I64ArrayAttr
+  - eps_outside_sqrt: Optional\<BoolAttr>
 - Results(1 or 3):
   - output: Tensor 
   - mean: Optional\<Tensor>
@@ -167,3 +168,55 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - axis: I64Attr (Optional, channel axis index, required only for per-channel dequantization)
 - Results:
   - output: FloatTensor
+
+### byteir.resize
+- Operands:
+  - input: Tensor
+  - target (scale/size): FloatTensor/IntTensor (respectively)
+- Attrs:
+  - target_mode: StringAttr
+    - `scale`
+    - `size`
+  - mode: StringAttr
+    - `nearest`
+    - `linear`
+  - coordinate_transformation_mode: StringAttr
+    - Denote scale = length_resized / length_original, the transformation can be described as following.
+
+| coordinate_transformation_mode | x_original = |
+| ------------------------------ | :----------  |
+| `asymmetric` | x_resized / scale |
+| `pytorch_half_pixel`| length_resized > 1 ? (x_resized + 0.5) / scale - 0.5 : 0 |
+| `half_pixel` | (x_resized + 0.5) / scale - 0.5 |
+| `align_corners`| x_resized * (length_original - 1) / (length_resized - 1) |
+
+- Results:
+  - output: Tensor
+
+### byteir.rng_uniform
+- Operands:
+  - low: 0dTensor
+  - high: 0dTensor
+  - seed: 0dTensor
+  - offset: 0dTensor
+  - shape: Optional<1dTensor>
+- Results:
+  - out: Tensor
+- Example:
+```
+// Static Shape Case: out tensor must have static shape
+%high = mhlo.constant dense<1.000000e+00> : tensor<f32>
+%low = mhlo.constant dense<0.000000e+00> : tensor<f32>
+%seed = byre.compute @GetSeed() : tensor<i64>
+%offset = byre.compute @NextOffset() : tensor<i64>
+%0 = "mhlo.custom_call"(%low, %high, %seed, %offset) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>) -> tensor<8x1024x768xf32>
+```
+```
+// Dynamic Shape Case
+%high = mhlo.constant dense<1.000000e+00> : tensor<f32>
+%low = mhlo.constant dense<0.000000e+00> : tensor<f32>
+%seed = byre.compute @GetSeed() : tensor<i64>
+%offset = byre.compute @NextOffset() : tensor<i64>
+%shape = shape.shape_of %arg0 : tensor<3xindex>
+%0 = "mhlo.custom_call"(%low, %high, %seed, %offset, %shape) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>, tensor<3xindex>) -> tensor<?x?x?xf32>
+```

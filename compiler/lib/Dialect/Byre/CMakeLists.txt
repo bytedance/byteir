@@ -1,5 +1,6 @@
 add_mlir_dialect_library(MLIRByreDialect
   IR/ByreDialect.cpp
+  IR/Common.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/Byre
@@ -18,6 +19,7 @@ add_mlir_dialect_library(MLIRByreDialect
   )
 
 add_mlir_dialect_library(ByteIRByrePasses
+  Transforms/BufferizableOpInterfaceImpl.cpp
   Transforms/Fold.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -30,4 +32,9 @@ add_mlir_dialect_library(ByteIRByrePasses
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRSupport
+
+  MLIRBufferizationDialect
+  MLIRByreDialect
+  MLIRMemRefDialect
+  MLIRTensorDialect
   )

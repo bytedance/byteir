@@ -48,7 +48,8 @@ std::unique_ptr<OperationPass<ModuleOp>>
 createConvertToByrePass(bool appendArgTypes = false);
 
 std::unique_ptr<OperationPass<ModuleOp>>
-createConvertFuncAndCallToByrePass(bool appendArgTypes = false);
+createConvertFuncAndCallToByrePass(bool appendArgTypes = false,
+                                   bool removeDupOutputs = false);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createConvertLmhloToByrePass(bool appendArgTypes = false);

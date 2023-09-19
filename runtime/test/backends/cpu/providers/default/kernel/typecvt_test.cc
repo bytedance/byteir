@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/ir/builder.h"
@@ -82,13 +83,13 @@ void CheckResult(const src_type *src, half_float::half *dst, size_t len) {
 
 template <typename src_type, typename dst_type>
 void CheckTypecvtSingle(const std::vector<int64_t> &shape) {
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CPUAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  ByREBuilder byre_builder;
   auto status_load =
       session.LoadFromMemory(CreateTypecvt(byre_builder, dtype_enum_v<src_type>,
                                            dtype_enum_v<dst_type>, shape),
@@ -96,7 +97,8 @@ void CheckTypecvtSingle(const std::vector<int64_t> &shape) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   int64_t linearized_shape = LinearizedShape(shape);

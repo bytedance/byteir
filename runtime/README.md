@@ -5,7 +5,7 @@ ByteIR Runtime is a common Runtime mainly serving both existing kernels and Byte
 
 ## Dependency 
 
-***LLVM/MLIR*** https://github.com/llvm/llvm-project.git
+***LLVM/MLIR*** https://github.com/llvm/llvm-project, current llvm commit id: 4592543a01609feb4b3c19e81a9d54743e15e329
 
 ***ByteIR ByRE dialect***  https://github.com/bytedance/byteir/compiler
 
@@ -19,9 +19,11 @@ cd /path_to_runtime/build/
 cmake ../cmake/ -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
-                (extra options, such as -Dbrt_USE_CUDA=On)
+                -DCMAKE_INSTALL_PREFIX="$(pwd)/install" \
+                -Dbrt_ENABLE_PYTHON_BINDINGS=ON \
+                -Dbrt_USE_CUDA=On
 
-cmake --build . --config Release
+cmake --build . --target all --target install
 ```
 
 ### Windows
@@ -33,15 +35,25 @@ cd /path_to_runtime/build/
 cmake ..\cmake -G "Visual Studio 16 2019" -A x64 \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
-                (extra options, such as -Dbrt_USE_CUDA=On)
+                -DCMAKE_INSTALL_PREFIX="$(pwd)/install" \
+                -Dbrt_ENABLE_PYTHON_BINDINGS=ON \
+                -Dbrt_USE_CUDA=On
 
-cmake --build . --config Release
+cmake --build . --target all --target install
+```
+
+## Pack python wheel (depend on build and install)
+```bash
+cd /path_to_runtime/python
+
+python3 setup.py bdist_wheel
+# brt-*.whl in /path_to_runtime/python/dist/
 ```
 
 ## Test your build
 ### Linux/Max
 ```bash
-cd build
+cd /path_to_runtime/build
 ./bin/brt_test_all
 ```
 

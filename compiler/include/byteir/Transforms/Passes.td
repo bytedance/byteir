@@ -75,7 +75,10 @@ def CanonicalizeExt : Pass<"canonicalize-ext"> {
            "Seed the worklist in general top-down order">,
     Option<"maxIterations", "max-iterations", "int64_t",
            /*default=*/"10",
-           "Seed the worklist in general top-down order">
+           "Seed the worklist in general top-down order">,
+    Option<"blindFold", "blind-fold", "bool",
+           /*default=*/"false",
+           "Fold constants even if it may finally bloat the compilation result">
   ] # RewritePassUtils.options;
 }
 
@@ -135,6 +138,33 @@ def GenericDeviceConfig : Pass<"generic-device-config", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// GraphCanonicalizeExt
+//===----------------------------------------------------------------------===//
+
+def GraphCanonicalize : Pass<"graph-canonicalize"> {
+  let summary = "Perform a graph-level canonicalize pass.";
+  let description = [{
+    This pass performs canonicalization for graph-level only. 
+    Graph-level includes mhlo, shape and function only.
+  }];
+  let constructor = "mlir::createGraphCanonicalizePass()";
+  let options = [
+    Option<"topDownProcessingEnabled", "top-down", "bool",
+           /*default=*/"true",
+           "Seed the worklist in general top-down order">,
+    Option<"enableRegionSimplification", "region-simplify", "bool",
+           /*default=*/"true",
+           "Seed the worklist in general top-down order">,
+    Option<"maxIterations", "max-iterations", "int64_t",
+           /*default=*/"10",
+           "Seed the worklist in general top-down order">,
+    Option<"blindFold", "blind-fold", "bool",
+           /*default=*/"false",
+           "Fold constants even if it may finally bloat the compilation result">
+  ] # RewritePassUtils.options;
+}
+
+//===----------------------------------------------------------------------===//
 // FuncTag
 //===----------------------------------------------------------------------===//
 
@@ -171,7 +201,14 @@ def GraphClusteringByDevice : Pass<"graph-clustering-by-device", "ModuleOp"> {
     Option<"dupNonSplat", "dup-non-splat", "bool", /*default=*/"false",
            "duplicate a non-splat const if it is used by both host and device side.">,
     Option<"dupOutputs", "dup-outputs", "bool", /*default=*/"false",
-           "duplicate a return value in the internal function if it is returned multiple times in main.">
+           "duplicate a return value in the internal function if it is returned multiple times in main.">,
+    Option<"clusterAlgo", "cluster-algo", "::mlir::GraphClusteringAlgo", /*default=*/"::mlir::GraphClusteringAlgo::kFallback",
+           "The clustering algorithm",
+           [{llvm::cl::values(
+              clEnumValN(mlir::GraphClusteringAlgo::kFallback, "Fallback", "Fallback clustering algorithm"),
+              clEnumValN(mlir::GraphClusteringAlgo::kTopDown, "TopDown", "Create and merge device cluster progressively from top to bottom"),
+              clEnumValN(mlir::GraphClusteringAlgo::kBottomUp, "BottomUp", "Create and merge device cluster progressively from bottom to top")
+            )}]>
   ];
 }
 
@@ -189,8 +226,8 @@ def LoopTag : Pass<"loop-tag", "func::FuncOp"> {
     Option<"attachAttr", "attach-attr", "std::string",
             /*default=*/"",
             "An optional attribute attaching on target functions: <attr_name>:<type>:<value>">,
-    Option<"depth", "depth", "unsigned", /*default=*/"1",
-           "Use this depth factor to specify loop">,
+    Option<"depth", "depth", "int", /*default=*/"1",
+           "Use this depth factor to specify loop, -1 is last">,
     Option<"loopType", "loop-type", "std::string",
             /*default=*/"\"scf.for\"",
             "An optional name to specify loop type.">
@@ -208,7 +245,11 @@ def MemoryPlanning: Pass<"memory-planning", "mlir::func::FuncOp"> {
   ];
   let options = [
     Option<"alignment", "alignment", "size_t", /*default=*/"1",
-           "Memory address alignment, must be power of 2">
+           "Memory address alignment, must be power of 2">,
+    Option<"alloca", "alloca", "bool", /*default=*/"false",
+           "Whether to planning on memref.alloca ops">,
+    Option<"memSpace", "mem-space", "size_t", /*default=*/"0",
+           "Memory space considered in planning. 0 indicates all spaces.">,
   ];
 }
 
@@ -358,6 +399,8 @@ def SetArgSpace: Pass<"set-arg-space", "ModuleOp"> {
             "Specified space for all args">,
     Option<"allowArgWritable", "allow-arg-writable",  "bool", /*default=*/"false",
             "allow arg (not return) be writable">,
+    Option<"autoDeduce", "auto-deduce", "bool", /*default=*/"false",
+            "whether to deduce arg space">,
   ];
   let dependentDialects = [
     "mlir::memref::MemRefDialect",

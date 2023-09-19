@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -test-dtype-convert-modify-func --canonicalize -canonicalize-ext -split-input-file | FileCheck %s
+// RUN: byteir-opt %s -test-dtype-convert-modify-func --canonicalize -split-input-file | FileCheck %s
 
 func.func @convert_foldable_dtypes(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> tensor<?xf32> attributes {__byteir_unit_test__} {
   %0 = "mhlo.add"(%arg0, %arg1) : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>

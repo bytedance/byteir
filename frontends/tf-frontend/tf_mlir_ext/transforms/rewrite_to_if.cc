@@ -24,7 +24,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
-#include "mlir/include/mlir/IR/BlockAndValueMapping.h"
+#include "mlir/include/mlir/IR/IRMapping.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -139,7 +139,7 @@ struct CondBranchContext {
         output.getLoc(), funcName, funcType, ArrayRef<NamedAttribute>{});
     funcOp.setVisibility(SymbolTable::Visibility::Private);
     Block *funcBlock = funcOp.addEntryBlock();
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     unsigned numArg = funcOp.getNumArguments();
     for (unsigned i = 0; i < numArg; ++i) {
       bvm.map(funcInps[i], funcOp.getArgument(i));
@@ -181,7 +181,7 @@ struct CondBranchContext {
   SmallVector<Value> switchOutputs;
 };
 
-Optional<CondBranchContext>
+std::optional<CondBranchContext>
 getSubgraph(Value dest, llvm::DenseMap<Operation *, int> &op2Id) {
   llvm::DenseSet<Operation *> resSet;
   llvm::DenseSet<Operation *> toProcess;
@@ -201,7 +201,7 @@ getSubgraph(Value dest, llvm::DenseMap<Operation *, int> &op2Id) {
 
       if (auto landOp = dyn_cast<tf_executor::IslandOp>(op)) {
         if (!landOp.WrapsSingleOp())
-          return None;
+          return std::nullopt;
         // FIXME: handle control value.
         Operation &bodyOp = landOp.GetBody().front();
         for (Value inp : bodyOp.getOperands()) {
@@ -241,7 +241,7 @@ getSubgraph(Value dest, llvm::DenseMap<Operation *, int> &op2Id) {
 struct CondContext {
   CondContext() = default;
 
-  static Optional<CondContext> get(tf_executor::MergeOp mergeOp) {
+  static std::optional<CondContext> get(tf_executor::MergeOp mergeOp) {
     llvm::DenseMap<Operation *, int> op2Id;
     int opCnt = 0;
     mergeOp->getParentOp()->walk([&](Operation *op) { op2Id[op] = opCnt++; });
@@ -253,19 +253,19 @@ struct CondContext {
     if (!maybeSubGraph0.has_value() || !maybeSubGraph1.has_value()) {
       // llvm::outs()
       //     << "!maybeSubGraph0.hasValue() || !maybeSubGraph1.hasValue()\n";
-      return None;
+      return std::nullopt;
     }
     auto &subGraph0 = maybeSubGraph0.value();
     auto &subGraph1 = maybeSubGraph1.value();
     if (!subGraph0.isValid() || !subGraph1.isValid()) {
       // llvm::outs() << "!subGraph0.isValid() || !subGraph1.isValid()\n";
-      return None;
+      return std::nullopt;
     }
     if (subGraph0.bType == subGraph1.bType) {
       // llvm::outs() << "subGraph0.bType == subGraph1.bType " <<
       // subGraph0.bType
       //              << " " << subGraph1.bType << "\n";
-      return None;
+      return std::nullopt;
     }
     CondBranchContext trueBranch;
     CondBranchContext falseBranch;
@@ -287,7 +287,7 @@ struct CondContext {
     for (auto sop : switchOps) {
       if (cInput && cInput != sop.getPredicate()) {
         // llvm::outs() << "cInput && cInput != sop.getPredicate()\n";
-        return None;
+        return std::nullopt;
       }
       cInput = sop.getPredicate();
       trueBranch.switchOutputs.push_back(sop.getTrueOutput());
@@ -317,7 +317,7 @@ struct CondContext {
 struct RewriteToIfPass : public RewriteToIfBase<RewriteToIfPass> {
   void runOnOperation() override final {
     ModuleOp moduleOp = getOperation();
-    SmallVector<Optional<CondContext>, 4> maybeCondContexts;
+    SmallVector<std::optional<CondContext>, 4> maybeCondContexts;
     moduleOp.walk([&](tf_executor::MergeOp mergeOp) {
       maybeCondContexts.push_back(CondContext::get(mergeOp));
     });

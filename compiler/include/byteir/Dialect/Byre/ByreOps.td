@@ -56,6 +56,10 @@ def Byre_ComputeOp : Byre_Op<"compute",
     OptionalAttr<ArrayAttr>:$memory_effects
   );
 
+  let results = (outs
+    Variadic<AnyType>:$results
+  );
+
   let builders = [
      OpBuilder<(ins "StringRef":$callee,
                     "ValueRange":$inputs,
@@ -77,7 +81,7 @@ def Byre_ComputeOp : Byre_Op<"compute",
   // TODO change assemblyFormat to real parser and printer later
   // for more complicated support
   let assemblyFormat = [{
-    $callee `(` $operands `)` attr-dict `:` type($operands)
+    $callee `(` $operands `)` attr-dict (`:` type($operands)^)? (`->` type($results)^)?
   }];
 
   let hasVerifier = 1;

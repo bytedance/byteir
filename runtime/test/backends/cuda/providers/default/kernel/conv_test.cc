@@ -124,20 +124,20 @@ static void GoldenConv(T *input, T *filter, T *output, const string &layout,
 }
 
 template <typename T>
-static void TestConvOp(float eps, const std::string &layout, int64_t N,
-                       int64_t iC, int64_t iH, int64_t iW, int64_t oC,
-                       int64_t kH, int64_t kW, int64_t strideH, int64_t strideW,
-                       int64_t paddingH, int64_t paddingW, int64_t dilateH = 1,
-                       int64_t dilateW = 1) {
+static void TestConvOp(float abs_eps, float rel_eps, const std::string &layout,
+                       int64_t N, int64_t iC, int64_t iH, int64_t iW,
+                       int64_t oC, int64_t kH, int64_t kW, int64_t strideH,
+                       int64_t strideW, int64_t paddingH, int64_t paddingW,
+                       int64_t dilateH = 1, int64_t dilateW = 1) {
   auto dtype = dtype_enum_v<T>;
 
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateConv(byre_builder, "ConvOp", dtype, "cuda", N, iC, iH, iW, oC, kH,
                  kW, layout, strideH, strideW, paddingH, paddingW, dilateH,
@@ -182,10 +182,10 @@ static void TestConvOp(float eps, const std::string &layout, int64_t N,
 
   // initiate A
   T *d_A = (T *)request->GetArg(0);
-  RandCUDABuffer(d_A, input_total_size, -1.f, 1.f);
+  RandCUDABuffer(d_A, input_total_size, 0.f, 1.f);
   // initiate B
   T *d_B = (T *)request->GetArg(1);
-  RandCUDABuffer(d_B, filter_total_size, -1.f, 1.f);
+  RandCUDABuffer(d_B, filter_total_size, 0.f, 1.f);
 
   // I/O binding
   request->FinishIOBinding();
@@ -210,7 +210,8 @@ static void TestConvOp(float eps, const std::string &layout, int64_t N,
   GoldenConv<T>(h_A, h_B, golden_C, layout, N, iC, iH, iW, oC, kH, kW, oH, oW,
                 strideH, strideW, paddingH, paddingW, dilateH, dilateW);
 
-  bool passed = CheckCPUValues<T>(golden_C, h_C, output_total_size, eps, 1e-3f);
+  bool passed =
+      CheckCPUValues<T>(golden_C, h_C, output_total_size, abs_eps, rel_eps);
   EXPECT_TRUE(passed) << "layout: " << layout << " N: " << N << " iC: " << iC
                       << " iH: " << iH << " iW: " << iW << " oC: " << oC
                       << " kH: " << kH << " kW: " << kW
@@ -225,17 +226,21 @@ static void TestConvOp(float eps, const std::string &layout, int64_t N,
 }
 
 TEST(CUDAOpKernelTest, ConvOp) {
-  float eps = 1e-4f;
-  TestConvOp<float>(eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  float abs_eps = 1e-4f, rel_eps = 1e-4f;
+  TestConvOp<float>(abs_eps, rel_eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64,
+                    /*iH=*/28,
                     /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3, /*strideH=*/2,
                     /*strideW=*/2, /*paddingH=*/1, /*paddingW=*/1);
-  TestConvOp<float>(eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<float>(abs_eps, rel_eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64,
+                    /*iH=*/28,
                     /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3, /*strideH=*/2,
                     /*strideW=*/2, /*paddingH=*/1, /*paddingW=*/1);
-  TestConvOp<float>(eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<float>(abs_eps, rel_eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64,
+                    /*iH=*/28,
                     /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3, /*strideH=*/1,
                     /*strideW=*/1, /*paddingH=*/0, /*paddingW=*/0);
-  TestConvOp<float>(eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<float>(abs_eps, rel_eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64,
+                    /*iH=*/28,
                     /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/5, /*strideH=*/2,
                     /*strideW=*/2, /*paddingH=*/1, /*paddingW=*/0);
   // TestConvOp<float>(/*layout=*/"NHWC", /*N=*/1, /*iC=*/64, /*iH=*/28,
@@ -245,32 +250,38 @@ TEST(CUDAOpKernelTest, ConvOp) {
 }
 
 TEST(CUDAOpKernelTest, ConvOpFp16NHWC) {
-  float eps = 1e-2f;
-  TestConvOp<__half>(eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/3, /*iH=*/224,
+  float abs_eps = 1e-2f, rel_eps = 1e-2f;
+  TestConvOp<__half>(abs_eps, rel_eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/3,
+                     /*iH=*/224,
                      /*iW=*/224, /*oC=*/64, /*kH=*/7, /*kW=*/7,
                      /*strideH=*/2, /*strideW=*/2,
                      /*paddingH=*/3, /*paddingW=*/3);
-  TestConvOp<__half>(eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<__half>(abs_eps, rel_eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64,
+                     /*iH=*/28,
                      /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3,
                      /*strideH=*/2, /*strideW=*/2,
                      /*paddingH=*/1, /*paddingW=*/1);
-  TestConvOp<__half>(eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<__half>(abs_eps, rel_eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64,
+                     /*iH=*/28,
                      /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3,
                      /*strideH=*/1, /*strideW=*/1,
                      /*paddingH=*/0, /*paddingW=*/0);
-  TestConvOp<__half>(eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<__half>(abs_eps, rel_eps, /*layout=*/"NHWC", /*N=*/1, /*iC=*/64,
+                     /*iH=*/28,
                      /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/5,
                      /*strideH=*/2, /*strideW=*/2,
                      /*paddingH=*/3, /*paddingW=*/0);
 }
 
 TEST(CUDAOpKernelTest, ConvOpFp16NCHW) {
-  float eps = 1e-2f;
-  TestConvOp<__half>(eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/3, /*iH=*/224,
+  float abs_eps = 1e-2f, rel_eps = 1e-2f;
+  TestConvOp<__half>(abs_eps, rel_eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/3,
+                     /*iH=*/224,
                      /*iW=*/224, /*oC=*/64, /*kH=*/7, /*kW=*/7,
                      /*strideH=*/2, /*strideW=*/2,
                      /*paddingH=*/3, /*paddingW=*/3);
-  TestConvOp<__half>(eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64, /*iH=*/28,
+  TestConvOp<__half>(abs_eps, rel_eps, /*layout=*/"NCHW", /*N=*/1, /*iC=*/64,
+                     /*iH=*/28,
                      /*iW=*/28, /*oC=*/128, /*kH=*/3, /*kW=*/3,
                      /*strideH=*/2, /*strideW=*/2,
                      /*paddingH=*/1, /*paddingW=*/1);

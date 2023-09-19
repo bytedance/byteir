@@ -1,0 +1,31 @@
+name: e2e Numerical test CI
+
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Ensure that only a single job or workflow using the same
+# concurrency group will run at a time. This would cancel
+# any in-progress jobs in the same github workflow and github
+# ref (e.g. refs/heads/main or refs/pull/<pr_number>/merge).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  numerical_e2e_test:
+    name: e2e CI
+    runs-on: self-hosted
+    steps:
+      - name: clear workspace
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+      - name: Checkout byteir repo
+        uses: actions/checkout@v3
+      - name: Build and test e2e
+        run: ./scripts/e2e/build_and_test_e2e.sh ${{ secrets.LLVM_INSTALL_DIR }} ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
+        shell: bash

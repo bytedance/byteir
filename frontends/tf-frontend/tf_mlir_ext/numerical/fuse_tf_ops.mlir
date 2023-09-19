@@ -19,7 +19,7 @@ func.func @dilated_conv3d(%70: tensor<1x100x27x48x32xf32>, %cst_32: tensor<3x1x1
 // CHECK-NEXT:  %0 = "tf.Conv3D"(%arg0, %arg1) {data_format = "NDHWC", device = "", dilations = [1, 2, 1, 1, 1], padding = "SAME", strides = [1, 1, 1, 1, 1]} : (tensor<1x100x27x48x32xf32>, tensor<3x1x1x32x16xf32>) -> tensor<1x100x27x48x16xf32>
 
 // MHLO-LABEL: @dilated_conv3d
-// MHLO-NEXT:  %0 = mhlo.convolution(%arg0, %arg1) dim_numbers = [b, 0, 1, 2, f]x[0, 1, 2, i, o]->[b, 0, 1, 2, f], window = {stride = [1, 1, 1], pad = {{\[}}[2, 2], [0, 0], [0, 0]{{\]}}, rhs_dilate = [2, 1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x100x27x48x32xf32>, tensor<3x1x1x32x16xf32>) -> tensor<1x100x27x48x16xf32>
+// MHLO-NEXT:  %0 = mhlo.convolution(%arg0, %arg1) dim_numbers = [b, 0, 1, 2, f]x[0, 1, 2, i, o]->[b, 0, 1, 2, f], window = {stride = [1, 1, 1], pad = {{\[}}[2, 2], [0, 0], [0, 0]{{\]}}, rhs_dilate = [2, 1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<1x100x27x48x32xf32>, tensor<3x1x1x32x16xf32>) -> tensor<1x100x27x48x16xf32>
 
 func.func @sigmoid(%1264: tensor<1xf16>) -> tensor<1xf16> {
   %cst_135 = "tf.Const"() {value = dense<1.0000> : tensor<f16>} : () -> tensor<f16>

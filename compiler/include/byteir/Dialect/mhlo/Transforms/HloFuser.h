@@ -30,6 +30,10 @@ namespace func {
 class FuncOp;
 } // namespace func
 
+constexpr StringRef getByteIRCatFusionAttrName() {
+  return "__byteir_cat_fusion__";
+}
+
 constexpr StringRef getByteIRReduceFusionAttrName() {
   return "__byteir_reduce_fusion__";
 }
@@ -53,6 +57,9 @@ constexpr StringRef getByteIRHloAggressiveFusionAttrName() {
 // fuse ReduceWindow with Pad and/or Constant
 void populateFuseReduceWindowPatterns(RewritePatternSet &patterns);
 
+// reshape gather indices to 1D
+void populateReshapeGatherPatterns(RewritePatternSet &patterns);
+
 // fuse ConvForward patterns
 // such as Conv with bias of activation
 void populateFuseConvForwardPatterns(RewritePatternSet &patterns);
@@ -72,11 +79,16 @@ void populateTrivialFusionPattern(RewritePatternSet &patterns,
 
 std::unique_ptr<OperationPass<func::FuncOp>> createReduceFusionPass();
 
+std::unique_ptr<OperationPass<func::FuncOp>> createReshapeGatherPass();
+
 std::unique_ptr<OperationPass<func::FuncOp>> createConvBackwardFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvForwardFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDotTransposeFusionPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+createCatFusionPass(bool aggressiveMode = false);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createElementFusionPass(bool clusterSingleElemwiseOp = false);

@@ -29,10 +29,10 @@ def CanonicalizeExtOp : Op<Transform_Dialect, "canonicalize",
      DeclareOpInterfaceMethods<TransformOpInterface>]> {
   let description = [{canonicalize the entire module or on the specified target ops}];
   let arguments = (ins
-    Optional<TransformTypeInterface>:$target
+    Optional<TransformHandleTypeInterface>:$target
   );
   let results = (outs
-    Optional<TransformTypeInterface>:$results
+    Optional<TransformHandleTypeInterface>:$results
   );
   let assemblyFormat = "(`(` $target^ `:` type($target) `)`)? attr-dict (`->` type($results)^)?";
   let cppNamespace = "mlir::transform_ext";
@@ -44,10 +44,10 @@ def CleanupOp : Op<Transform_Dialect, "cleanup",
      DeclareOpInterfaceMethods<TransformOpInterface>]> {
   let description = [{cleanup the entire module or on the specified target ops}];
   let arguments = (ins
-    Optional<TransformTypeInterface>:$target
+    Optional<TransformHandleTypeInterface>:$target
   );
   let results = (outs
-    Optional<TransformTypeInterface>:$results
+    Optional<TransformHandleTypeInterface>:$results
   );
   let assemblyFormat = "(`(` $target^ `:` type($target) `)`)? attr-dict (`->` type($results)^)?";
   let cppNamespace = "mlir::transform_ext";
@@ -61,7 +61,7 @@ def DumpOp : Op<Transform_Dialect, "dump",
                       the message is put in the beginning }];
   let arguments = (ins
     StrAttr:$message,
-    Optional<TransformTypeInterface>:$target
+    Optional<TransformHandleTypeInterface>:$target
   );
   let assemblyFormat = "(`(` $target^ `:` type($target) `)`)? $message attr-dict";
   let cppNamespace = "mlir::transform_ext";

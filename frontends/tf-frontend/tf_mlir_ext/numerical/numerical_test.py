@@ -25,12 +25,18 @@ def get_config(config: str):
     if config == "process_dynamic_stitch_as_static":
         return {
             "inputs_dict": {
-                "main": [
+                "dynamic_stitch_with_multiple_data": [
+                    np.random.randn(512, 368).astype(np.float16),
+                    np.random.randn(512, 368).astype(np.float16),
+                    np.random.randn(512, 368).astype(np.float16),
+                    np.random.randint(0, 2, size=(512,)).astype(np.int32),
+                ],
+                "dynamic_stitch_with_zero_fill": [
                     np.random.randn(4, 5).astype(np.float32),
                     np.random.randn(4, 5).astype(np.float32),
                     np.random.randint(0, 2, size=(4, 10)).astype(np.bool_),
                     np.random.randint(0, 2, size=(4,)).astype(np.int32),
-                ]
+                ],
             }
         }
     if config == "rewrite_to_custom_call":

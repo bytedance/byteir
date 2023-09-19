@@ -19,6 +19,7 @@
 
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Transforms/CanonicalizeExt.h"
 #include "mhlo/transforms/passes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/Passes.h"
@@ -28,12 +29,18 @@ using namespace mlir::mhlo;
 
 namespace {
 void addGenericHloFusionPatterns(OpPassManager &pm, const std::string &entry,
-                                 bool outlineSingleElemwiseOp) {
+                                 bool outlineSingleElemwiseOp,
+                                 bool outlineCatOp, bool aggressiveCatFusion) {
   // cluster constraint
-  pm.addNestedPass<func::FuncOp>(createClusterConstraintPass());
-  pm.addPass(createFusionOutliningPass());
+  // pm.addNestedPass<func::FuncOp>(createClusterConstraintPass());
+  // pm.addPass(createFusionOutliningPass());
 
   // Fusion passes
+  if (outlineCatOp) {
+    pm.addNestedPass<func::FuncOp>(createCatFusionPass(aggressiveCatFusion));
+    pm.addPass(createFusionOutliningPass());
+  }
+
   pm.addNestedPass<func::FuncOp>(createConvBackwardFusionPass());
   pm.addNestedPass<func::FuncOp>(createIOConvertFusionPass());
   pm.addNestedPass<func::FuncOp>(createDotTransposeFusionPass());
@@ -67,8 +74,8 @@ void addCPUHloFusionPatterns(OpPassManager &pm, const std::string &entry) {
 
 void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
                               const std::string &target,
-                              bool outlineSingleElemwiseOp) {
-
+                              bool outlineSingleElemwiseOp, bool outlineCatOp,
+                              bool aggressiveCatFusion) {
   pm.addPass(createInlinerPass());
   pm.addPass(createCanonicalizerPass());
 
@@ -79,6 +86,8 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
   pm.addNestedPass<func::FuncOp>(createReduceFusionPass());
+  pm.addNestedPass<func::FuncOp>(createReshapeGatherPass());
+  pm.addPass(createConvertOpToCustomCallPass());
 
   // rewrite with constraint
   pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());
@@ -89,13 +98,21 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   if (target == "CPU") {
     addCPUHloFusionPatterns(pm, entryFunc);
   } else {
-    addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp);
+    addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp,
+                                outlineCatOp, aggressiveCatFusion);
   }
+
+  // note don't apply sccp
+  pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizeExtPass());
+  pm.addPass(createSymbolDCEPass());
 }
 } // namespace
 
 void mlir::createHloOptPipeline(OpPassManager &pm,
                                 const HloOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createHloOptPipelineImpl, pm, options.entryFunc,
-                              options.target, options.outlineSingleElemwiseOp);
+                              options.target, options.outlineSingleElemwiseOp,
+                              options.outlineCatOp,
+                              options.aggressiveCatFusion);
 }

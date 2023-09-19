@@ -5,6 +5,7 @@ add_mlir_dialect_library(MLIRLinalgExtTransformOps
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/Linalg/TransformOps
 
   DEPENDS
+  MLIRCclDialect
   MLIRLinalgExtTransformOpsIncGen
   ByteIRLinalgPasses
 
@@ -12,6 +13,7 @@ add_mlir_dialect_library(MLIRLinalgExtTransformOps
   ByteIRLinalgPasses
   MLIRAffineDialect
   MLIRArithDialect
+  MLIRCclDialect
   MLIRIR
   MLIRLinalgDialect
   MLIRLinalgTransforms

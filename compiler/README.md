@@ -3,11 +3,18 @@
 The ByteIR Compiler is an MLIR-based compiler for CPU/GPU/ASIC.
 
 ## Dependency 
-***LLVM/MLIR***: https://github.com/llvm/llvm-project, current llvm commit id: 7ccbb4dff10efe6c26219204e361ddb0264938b8
+***LLVM/MLIR***: https://github.com/llvm/llvm-project, current llvm commit id: 4592543a01609feb4b3c19e81a9d54743e15e329
 
 ***Python*** (for python binding): minimum version is 3.6, requiring numpy and pybind11 installed.
 
 ## Build
+
+### Apply Patches
+Make sure to apply possible patches for submodules
+```bash
+bash /path_to_byteir/scripts/apply_patches.sh
+```
+
 ### Linux/Mac 
 ```bash
 mkdir /path_to_byteir/build
@@ -19,7 +26,7 @@ cmake ../cmake/ -G Ninja \
                 -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
                 -DLLVM_EXTERNAL_LIT=lit_executatble_location # or using $(which lit), this is optional for external lit 
 
-cmake --build . --config Release
+cmake --build . --target all
 ```
 ### Windows 
 ```bash
@@ -32,13 +39,13 @@ cmake ../cmake/ -G "Visual Studio 16 2019" -A x64 \
                 -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
                 -DLLVM_EXTERNAL_LIT=lit_location # this is optional for external lit 
 
-cmake --build . --config Release
+cmake --build . --target all
 ```
 
 ## Testing 
 This command runs all ByteIR unit tests:
-```
-cmake --build . --config Release --target check-byteir
+```bash
+cmake --build . --target check-byteir
 ```
 ByteIR relies on ```llvm-lit``` and ```FileCheck``` for testing.
 For more information, you can refer to [this page](https://www.llvm.org/docs/CommandGuide/FileCheck.html)
@@ -46,8 +53,14 @@ All the tests are placed in the folder ```byteir/test```.
 
 
 ## Install (Optional)
-```
+```bash
 cmake --install . --prefix path_to_install_BYTEIR
+```
+
+## Pack Python Wheel (Optional)
+```bash
+cmake --build . --target byteir-python-pack
+# byteir-*.whl in /path_to_byteir/build/python/dist/
 ```
 
 ## IRs (Dialects)

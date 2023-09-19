@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/session/request_context.h"
@@ -33,9 +34,9 @@ using namespace brt::test;
 using namespace mlir;
 using namespace std;
 
-static std::string test_file_llvmjit = "test/test_files/llvmjit.mlir";
+static std::string test_file_case0 = "test/test_files/LLJIT/Case0/entry.mlir";
 
-TEST(CPUTestE2E, LLVMJIT) {
+TEST(CPUE2ETest, LLVMJITCase0) {
   Session session;
 
   auto status_allocator = CPUAllocatorFactory(&session);
@@ -44,11 +45,12 @@ TEST(CPUTestE2E, LLVMJIT) {
   auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cpu);
 
-  auto status_load = session.Load(test_file_llvmjit, "byre");
+  auto status_load = session.Load(test_file_case0, "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(&request);
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
   BRT_TEST_CHECK_STATUS(status_request);
 
   // model inputs:

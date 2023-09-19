@@ -20,8 +20,10 @@ module {
     "lmhlo.add"(%arg0, %0, %1) : (memref<4xf32>, memref<4xf32>, memref<4xf32>) -> ()
     return %1 : memref<4xf32>
   }
-// CHECK:   func.func @mhlo_add_weight(%[[ARG_0:.*]]: memref<4xf32> {byre.argname = "weight1", byre.argtype = 4 : i32}, %[[ARG_1:.*]]: memref<4xf32> {byre.argname = "A", byre.argtype = 1 : i32}, %[[ARG_2:.*]]: memref<4xf32> {byre.argname = "B", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
-// CHECK:     byre.compute @AddOp(%[[ARG_1]], %[[ARG_0]], %[[ARG_2]])
+// CHECK:   func.func @mhlo_add_weight(%[[ARG_0:.*]]: memref<4xf32> {byre.argname = "A", byre.argtype = 1 : i32}, %[[ARG_1:.*]]: memref<4xf32> {byre.argname = "B", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
+// CHECK:     %[[ALLOC:.*]] = memref.alloc() : memref<4xf32>
+// CHECK:     byre.compute @FillOp(%[[ALLOC]]) {memory_effects = [2 : i32], value = dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>} : memref<4xf32>
+// CHECK:     byre.compute @AddOp(%[[ARG_0]], %[[ALLOC]], %[[ARG_1]])
 //   CHECK-SAME:  memory_effects = [1 : i32, 1 : i32, 2 : i32]
 //   CHECK-SAME:  memref<4xf32>, memref<4xf32>, memref<4xf32>
 // CHECK:     return
@@ -131,6 +133,14 @@ module {
     return %2 : memref<128x128xf32>
   }
   // CHECK-LABEL: mhlo_gather
+  // CHECK-NEXT: byre.compute @IndexSelectOp
+
+  func.func @mhlo_gather_2D_index(%arg0: memref<30522x128xf32> {__placeholder__byre.argname = "A"}, %arg1: memref<2x128xi64> {__placeholder__byre.argname = "B"}) -> (memref<2x128x128xf32> {__placeholder__byre.argname = "C"}) attributes { __placeholder__byre.entry_point} {
+    %0 = memref.alloc() : memref<2x128x128xf32>
+    "lmhlo.gather"(%arg0, %arg1, %0) {dimension_numbers = #mhlo.gather<offset_dims = [2], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 2>, indices_are_sorted = false, slice_sizes = dense<[1, 128]> : tensor<2xi64>} : (memref<30522x128xf32>, memref<2x128xi64>, memref<2x128x128xf32>) -> ()
+    return %0 : memref<2x128x128xf32>
+  }
+  // CHECK-LABEL: mhlo_gather_2D_index
   // CHECK-NEXT: byre.compute @IndexSelectOp
 
   func.func @mhlo_slice_both_arg(%arg0: memref<1x512xi64> {__placeholder__byre.argname = "A"}) -> (memref<1x128xi64> {__placeholder__byre.argname = "B"}) attributes { __placeholder__byre.entry_point} {

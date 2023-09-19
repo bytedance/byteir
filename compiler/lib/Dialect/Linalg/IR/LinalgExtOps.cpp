@@ -31,8 +31,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
+#include "byteir/Dialect/Linalg/Util/Util.h"
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/Utils.h"
+#include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -54,8 +56,10 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Value.h"
+#include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallSet.h"
@@ -63,6 +67,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/SMLoc.h"
+#include <optional>
 
 #define DEBUG_TYPE "linalg-ext-ops"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
@@ -70,6 +75,7 @@
 using namespace mlir;
 using namespace mlir::linalg_ext;
 using namespace mlir::linalg;
+using namespace mlir::arith;
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOpsDialect.cpp.inc"
 
@@ -90,23 +96,9 @@ void mlir::linalg_ext::LinalgExtDialect::initialize() {
 
 namespace {
 
-// move to affine util
-static AffineMap getMultiDimIdentityMapWithSkip(unsigned numDims, unsigned skip,
-                                                MLIRContext *context) {
-  SmallVector<AffineExpr, 4> dimExprs;
-  dimExprs.reserve(numDims);
-  for (unsigned i = 0; i < numDims; ++i) {
-    if (i == skip)
-      continue;
-    dimExprs.push_back(mlir::getAffineDimExpr(i, context));
-  }
-  return AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, dimExprs,
-                        context);
-}
-
 // TODO: delete this after LinalgExtOp interface inherits from LinalgOp
 // interface
-static FailureOr<Value> commonGenerateResultTileValueForLinalgExtOp(
+static FailureOr<TilingResult> commonGenerateResultTileValueForLinalgExtOp(
     Operation *op, OpBuilder &b, unsigned resultNumber,
     ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes,
     int64_t numLoops) {
@@ -121,7 +113,7 @@ static FailureOr<Value> commonGenerateResultTileValueForLinalgExtOp(
 
   auto indexingMaps = llvm::to_vector(
       linalgExtOp.getIndexingMaps().getAsValueRange<AffineMapAttr>());
-  auto indexingMap = indexingMaps[1 + resultNumber]; // 1 from input
+  auto indexingMap = indexingMaps[linalgExtOp.getNumInputs() + resultNumber];
 
   if (!indexingMap.isProjectedPermutation()) {
     return op->emitOpError(
@@ -143,271 +135,174 @@ static FailureOr<Value> commonGenerateResultTileValueForLinalgExtOp(
   }
 
   auto tilingInterfaceOp = cast<TilingInterface>(op);
-  SmallVector<Operation *> tiledOp = tilingInterfaceOp.getTiledImplementation(
-      b, iterationTileOffsets, iterationTileSizes);
-
+  FailureOr<mlir::TilingResult> tileResult =
+      tilingInterfaceOp.getTiledImplementation(b, iterationTileOffsets,
+                                               iterationTileSizes);
+  SmallVector<Operation *> tiledOp = tileResult->tiledOps;
   if (tiledOp.size() != 1)
     return op->emitOpError("failed to generate tiled implementation");
 
-  return tiledOp[0]->getResult(resultNumber);
+  return tileResult;
 }
 
-static AffineMap getMultiDimIdentityMapWithTargets(int64_t numDims,
-                                                   SmallVector<int64_t> targets,
-                                                   MLIRContext *context) {
-  AffineMap result =
-      AffineMap::get(/*dimCount=*/numDims, /*symbolCount=*/0, context);
-  int64_t pos = 0;
-  for (int64_t t : targets) {
-    result = result.insertResult(getAffineDimExpr(t, context), pos);
-    pos += 1;
+SmallVector<Range> commonGetIterationDomainForLinalgExt(Operation *op,
+                                                        OpBuilder &builder,
+                                                        int64_t rank,
+                                                        Value source) {
+  SmallVector<Range> loopBounds(rank);
+  Location loc = op->getLoc();
+  Attribute zero = builder.getI64IntegerAttr(0);
+  Attribute one = builder.getI64IntegerAttr(1);
+  for (auto dim : llvm::seq<int64_t>(0, rank)) {
+    loopBounds[dim].offset = zero;
+    // TODO: use getDim()
+    loopBounds[dim].size = getDimValue(builder, loc, source, dim);
+    loopBounds[dim].stride = one;
   }
-  return result;
+  return loopBounds;
 }
 
-/// Common parsing used for both named structured ops created by ods-gen and by
-/// manually defined C++ ops. Does not handle regions.
-static ParseResult
-parseCommonStructuredOpParts(OpAsmParser &parser, OperationState &result,
-                             SmallVectorImpl<Type> &inputTypes,
-                             SmallVectorImpl<Type> &outputTypes,
-                             bool addOperandSegmentSizes = true) {
-  SMLoc inputsOperandsLoc, outputsOperandsLoc;
-  SmallVector<OpAsmParser::UnresolvedOperand, 4> inputsOperands,
-      outputsOperands;
+FailureOr<Operation *> commonGenerateInitialTensorForPartialReduction(
+    Operation *op, OpBuilder &b, Location loc, ArrayRef<OpFoldResult> sizes,
+    ArrayRef<int> reductionDims) {
+  auto linalgOp = cast<LinalgOp>(op);
+  OpBuilder::InsertionGuard guard(b);
+  assert(reductionDims.size() == 1 &&
+         "only support single reduction right now.");
+  if (linalgOp.hasBufferSemantics())
+    return op->emitOpError("expected operation to have tensor semantics");
+  // Insert the new parallel dimension based on the index of the reduction
+  // loop. This could be controlled by user for more flexibility.
+  int64_t insertSplitDimension = reductionDims[0];
 
-  if (parser.parseOptionalAttrDict(result.attributes))
-    return failure();
+  SmallVector<Operation *, 4> combinerOps;
+  if (!matchReduction(linalgOp.getRegionOutputArgs(), 0, combinerOps) ||
+      combinerOps.size() != 1)
+    return op->emitOpError("Failed to anaysis the reduction operation.");
 
-  if (succeeded(parser.parseOptionalKeyword("ins"))) {
-    if (parser.parseLParen())
-      return failure();
+  Operation *reductionOp = combinerOps[0];
+  std::optional<TypedAttr> identity = getNeutralElement(reductionOp);
+  if (!identity.has_value())
+    return op->emitOpError(
+        "Failed to get an identity value for the reduction operation.");
 
-    inputsOperandsLoc = parser.getCurrentLocation();
-    if (parser.parseOperandList(inputsOperands) ||
-        parser.parseColonTypeList(inputTypes) || parser.parseRParen())
-      return failure();
-  }
-
-  if (succeeded(parser.parseOptionalKeyword("outs"))) {
-    outputsOperandsLoc = parser.getCurrentLocation();
-    if (parser.parseLParen() || parser.parseOperandList(outputsOperands) ||
-        parser.parseColonTypeList(outputTypes) || parser.parseRParen())
-      return failure();
-  }
-
-  if (parser.resolveOperands(inputsOperands, inputTypes, inputsOperandsLoc,
-                             result.operands) ||
-      parser.resolveOperands(outputsOperands, outputTypes, outputsOperandsLoc,
-                             result.operands))
-    return failure();
-
-  if (addOperandSegmentSizes) {
-    result.addAttribute("operand_segment_sizes",
-                        parser.getBuilder().getDenseI32ArrayAttr(
-                            {static_cast<int32_t>(inputsOperands.size()),
-                             static_cast<int32_t>(outputsOperands.size())}));
-  }
-  return success();
-}
-
-static void printCommonStructuredOpPartsWithNewLine(OpAsmPrinter &p,
-                                                    ValueRange inputs,
-                                                    ValueRange outputs) {
-  if (!inputs.empty()) {
-    p << " ins(" << inputs << " : " << inputs.getTypes() << ")";
-  }
-  if (!outputs.empty()) {
-    p << " outs(" << outputs << " : " << outputs.getTypes() << ")";
-  }
-}
-
-static ParseResult parseDstStyleOp(
-    OpAsmParser &parser, OperationState &result,
-    function_ref<ParseResult(OpAsmParser &, NamedAttrList &)> parseAttrsFn =
-        nullptr) {
-  // Parse `ins` and `outs`.
-  SmallVector<Type, 4> inputTypes, outputTypes;
-  if (parseCommonStructuredOpParts(parser, result, inputTypes, outputTypes,
-                                   /*addOperandSegmentSizes=*/false))
-    return failure();
-
-  // Add result types.
-  for (Type outputType : outputTypes) {
-    if (outputType.isa<RankedTensorType>())
-      result.addTypes(outputType);
-  }
-
-  // Parse required attributes.
-  if (parseAttrsFn && failed(parseAttrsFn(parser, result.attributes)))
-    return failure();
-
-  // Parse optional attributes.
-  if (parser.parseOptionalAttrDict(result.attributes))
-    return failure();
-  return success();
-}
-
-static void buildGenericRegion(
-    OpBuilder &builder, Location loc, Region &region, ValueRange inputs,
-    ValueRange outputs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuild) {
-  SmallVector<Type, 4> blockArgTypes;
-  SmallVector<Location, 4> blockArgLocs;
-  for (ValueRange container : {inputs, outputs}) {
-    for (Value v : container) {
-      blockArgTypes.push_back(getElementTypeOrSelf(v));
-      blockArgLocs.push_back(v.getLoc());
+  // Calculate the new shape, we insert the new dimension based on the index
+  // of the reduction dimension.
+  SmallVector<int64_t> newOutputShape;
+  ArrayRef<int64_t> oldShape = linalgOp.getShape(linalgOp.getDpsInitOperand(0));
+  SmallVector<Value> dynamicDims;
+  for (int64_t idx : llvm::seq<int64_t>(0, oldShape.size() + 1)) {
+    if (idx == insertSplitDimension) {
+      dispatchIndexOpFoldResults(sizes[idx], dynamicDims, newOutputShape);
+      continue;
     }
+    int64_t oldIdx = idx < insertSplitDimension ? idx : idx - 1;
+    int64_t dim = oldShape[oldIdx];
+    newOutputShape.push_back(dim);
+    if (ShapedType::isDynamic(dim))
+      dynamicDims.push_back(b.createOrFold<tensor::DimOp>(
+          loc, linalgOp.getDpsInitOperand(0)->get(), oldIdx));
   }
-
-  OpBuilder::InsertionGuard guard(builder);
-  Block *bodyBlock =
-      builder.createBlock(&region, region.end(), blockArgTypes, blockArgLocs);
-  bodyBuild(builder, loc, bodyBlock->getArguments());
+  Value emptyTensor = b.create<tensor::EmptyOp>(
+      loc, newOutputShape, linalgOp.getRegionOutputArgs()[0].getType(),
+      dynamicDims);
+  Value constantOp = b.create<arith::ConstantOp>(loc, *identity);
+  auto identityTensor = b.create<linalg::FillOp>(loc, constantOp, emptyTensor);
+  return identityTensor.getOperation();
 }
 
-static void buildIdentityRegion(OpBuilder &builder, Location loc,
-                                Region &region, ValueRange inputs,
-                                ValueRange outputs) {
-  buildGenericRegion(builder, loc, region, inputs, outputs,
-                     [](OpBuilder &b, Location loc, ValueRange args) {
-                       b.create<linalg_ext::YieldOp>(loc, args[0]);
-                     });
-}
+Operation *commonTileToPartialReduction(Operation *op, OpBuilder &b,
+                                        Location loc, ValueRange init,
+                                        ArrayRef<OpFoldResult> offsets,
+                                        ArrayRef<OpFoldResult> sizes,
+                                        ArrayRef<int> reductionDims) {
+  OpBuilder::InsertionGuard guard(b);
+  auto linalgOp = cast<LinalgOp>(op);
+  assert(reductionDims.size() == 1 &&
+         "only support single reduction right now.");
+  int64_t insertSplitDimension = reductionDims[0];
 
-static void getGenericEffectsImpl(
-    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
-        &effects,
-    ValueRange results, const OpOperandVector &inputOperands,
-    const OpOperandVector &outputOperands) {
-  for (auto *operand : inputOperands) {
-    if (!operand->get().getType().isa<MemRefType>())
-      continue;
-    effects.emplace_back(MemoryEffects::Read::get(), operand->get(),
-                         SideEffects::DefaultResource::get());
+  AffineMap oldOutputMap =
+      linalgOp.getMatchingIndexingMap(linalgOp.getDpsInitOperand(0));
+  SmallVector<AffineExpr> outputExpr;
+  for (const auto &[idx, expr] : llvm::enumerate(oldOutputMap.getResults())) {
+    if (static_cast<int64_t>(idx) == insertSplitDimension) {
+      outputExpr.push_back(b.getAffineDimExpr(reductionDims[0]));
+    }
+    outputExpr.push_back(expr);
   }
-  for (auto *operand : outputOperands) {
-    if (!operand->get().getType().isa<MemRefType>())
-      continue;
-    effects.emplace_back(MemoryEffects::Read::get(), operand->get(),
-                         SideEffects::DefaultResource::get());
-    effects.emplace_back(MemoryEffects::Write::get(), operand->get(),
-                         SideEffects::DefaultResource::get());
-  }
-}
+  if (insertSplitDimension == oldOutputMap.getNumResults())
+    outputExpr.push_back(b.getAffineDimExpr(reductionDims[0]));
 
-// Return the iteration domain range.
-SmallVector<Range> commonGetIterationDomain(Operation *op, OpBuilder &b) {
-  OpBuilder::InsertionGuard g(b);
-  b.setInsertionPoint(op);
-  Location loc = op->getLoc();
-  linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
-  SmallVector<OpFoldResult> allShapesSizes =
-      linalgOp.createFlatListOfOperandDims(b, loc);
-  AffineMap map = linalgOp.getShapesToLoopsMap();
-
-  return llvm::to_vector(
-      llvm::map_range(map.getResults(), [&](AffineExpr loopExpr) {
-        OpFoldResult ofr =
-            makeComposedFoldedAffineApply(b, loc, loopExpr, allShapesSizes);
-        return Range{b.getIndexAttr(0), ofr, b.getIndexAttr(1)};
-      }));
-}
-
-// Instantiate the tiled implementation of the operation.
-SmallVector<Operation *>
-commonGetTiledImplementation(Operation *op, OpBuilder &b,
-                             ArrayRef<OpFoldResult> offsets,
-                             ArrayRef<OpFoldResult> sizes) {
-  // Leave the `sizeBounds` value empty. That is only needed when the `sizes`
-  // specified could lead to out of bounds accesses.
-  Location loc = op->getLoc();
-  linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
-  SmallVector<Value> valuesToTile = linalgOp->getOperands();
+  // Step 1: Extract a slice of the input operands.
+  SmallVector<Value> valuesToTile = linalgOp.getDpsInputOperands();
   SmallVector<Value, 4> tiledOperands =
       makeTiledShapes(b, loc, linalgOp, valuesToTile, offsets, sizes, {}, true);
 
-  SmallVector<Type> resultTensorTypes =
-      getTensorOutputTypes(linalgOp, tiledOperands);
+  // Step 2: Extract the accumulator operands
+  SmallVector<OpFoldResult> strides(offsets.size(), b.getIndexAttr(1));
+  SmallVector<OpFoldResult> outOffsets(offsets.size(), b.getIndexAttr(0));
+  // TODO: use SubsetExtractOpInterface once it is available.
+  Value out = b.create<tensor::ExtractSliceOp>(loc, init[0], outOffsets, sizes,
+                                               strides);
 
-  Operation *tiledOp = clone(b, linalgOp, resultTensorTypes, tiledOperands);
-  offsetIndices(b, cast<linalg::LinalgOp>(tiledOp), offsets);
-
-  return {tiledOp};
+  // Step3. create a generic op where the reduction dimension is replaced by a
+  // parallel dimension of the size of reduction.
+  SmallVector<utils::IteratorType> newIteratorTypes =
+      linalgOp.getIteratorTypesArray();
+  newIteratorTypes[reductionDims[0]] = utils::IteratorType::parallel;
+  SmallVector<AffineMap> newMaps = linalgOp.getIndexingMapsArray();
+  newMaps.back() = AffineMap::get(newMaps.back().getNumDims(), 0, outputExpr,
+                                  linalgOp.getContext());
+  auto genericOp =
+      b.create<GenericOp>(loc, TypeRange({out.getType()}), tiledOperands,
+                          ValueRange({out}), newMaps, newIteratorTypes);
+  IRMapping mapping;
+  op->getRegion(0).cloneInto(&genericOp.getRegion(),
+                             genericOp.getRegion().begin(), mapping);
+  return genericOp.getOperation();
 }
 
-// Return the details of the output tile generated by the tiled
-// implementation.
-LogicalResult
-commonGetResultTilePosition(Operation *op, OpBuilder &b, unsigned resultNumber,
-                            ArrayRef<OpFoldResult> offsets,
-                            ArrayRef<OpFoldResult> sizes,
-                            SmallVector<OpFoldResult> &resultOffsets,
-                            SmallVector<OpFoldResult> &resultSizes) {
-  Location loc = op->getLoc();
-  LinalgOp linalgOp = cast<LinalgOp>(op);
-
-  AffineExpr d0;
-  bindDims(b.getContext(), d0);
-  SmallVector<OpFoldResult> subShapeSizes =
-      llvm::to_vector(llvm::map_range(sizes, [&](OpFoldResult ofr) {
-        return makeComposedFoldedAffineApply(b, loc, d0 - 1, ofr);
-      }));
-
-  OpOperand *outOperand = linalgOp.getDpsInitOperand(resultNumber);
-  SliceParameters sliceParams = computeSliceParameters(
-      b, loc, outOperand->get(), sizes,
-      linalgOp.getMatchingIndexingMap(outOperand), offsets,
-      /*ubs*/ {}, subShapeSizes, true);
-  resultOffsets = sliceParams.offsets;
-  resultSizes = sliceParams.sizes;
-  return success();
-}
-
-FailureOr<Value> commonGenerateResultTileValue(Operation *op, OpBuilder &b,
-                                               unsigned resultNumber,
-                                               ArrayRef<OpFoldResult> offsets,
-                                               ArrayRef<OpFoldResult> sizes) {
+Operation *commonMergeReductions(Operation *op, OpBuilder &b, Location loc,
+                                 ValueRange partialReduce,
+                                 ArrayRef<int> reductionDims) {
   auto linalgOp = cast<LinalgOp>(op);
+  assert(reductionDims.size() == 1 &&
+         "only support single reduction right now.");
+  int64_t dimToMerge = reductionDims[0];
 
-  // Check that the indexing map used for the output is a projected
-  // permutation. This could be relaxed with a more general approach that can
-  // map the offsets and sizes from the result to iteration space tiles
-  // (filling in full extent for dimensions not used to access the result).
-  AffineMap indexingMap =
-      linalgOp.getIndexingMapMatchingResult(op->getResult(resultNumber));
-  if (!indexingMap.isProjectedPermutation()) {
-    return op->emitOpError(
-        "unhandled tiled implementation generation when result is not "
-        "accessed using a permuted projection");
-  }
-
-  auto numLoops = linalgOp.getNumLoops();
-  auto tilingInterfaceOp = cast<TilingInterface>(op);
-  SmallVector<OpFoldResult> iterationTileOffsets(numLoops),
-      iterationTileSizes(numLoops);
-  if (!indexingMap.isPermutation()) {
-    SmallVector<Range> iterationDomain =
-        tilingInterfaceOp.getIterationDomain(b);
-    for (const auto &range : llvm::enumerate(iterationDomain)) {
-      iterationTileOffsets[range.index()] = range.value().offset;
-      iterationTileSizes[range.index()] = range.value().size;
+  // Then create a new reduction that only reduce the newly added dimension
+  // from the previous op.
+  int64_t intermRank = partialReduce[0].getType().cast<ShapedType>().getRank();
+  AffineMap inputMap = b.getMultiDimIdentityMap(intermRank);
+  SmallVector<utils::IteratorType> reductionIteratorTypes;
+  SmallVector<AffineExpr> exprs;
+  for (int64_t i : llvm::seq<int64_t>(0, intermRank)) {
+    if (dimToMerge == i) {
+      reductionIteratorTypes.push_back(utils::IteratorType::reduction);
+    } else {
+      exprs.push_back(b.getAffineDimExpr(i));
+      reductionIteratorTypes.push_back(utils::IteratorType::parallel);
     }
   }
-  for (const auto &resultExpr : llvm::enumerate(indexingMap.getResults())) {
-    unsigned dimPosition =
-        resultExpr.value().cast<AffineDimExpr>().getPosition();
-    iterationTileOffsets[dimPosition] = offsets[resultExpr.index()];
-    iterationTileSizes[dimPosition] = sizes[resultExpr.index()];
-  }
+  AffineMap outputMap = AffineMap::get(intermRank, 0, exprs, op->getContext());
+  SmallVector<AffineMap> reductionMaps = {inputMap, outputMap};
 
-  SmallVector<Operation *> tiledOp = tilingInterfaceOp.getTiledImplementation(
-      b, iterationTileOffsets, iterationTileSizes);
-  if (tiledOp.size() != 1)
-    return op->emitOpError("failed to generate tiled implementation");
+  SmallVector<Operation *, 4> combinerOps;
+  matchReduction(linalgOp.getRegionOutputArgs(), 0, combinerOps);
+  Operation *reductionOp = combinerOps[0];
 
-  return tiledOp[0]->getResult(resultNumber);
+  auto reduction = b.create<GenericOp>(
+      loc, op->getResultTypes(), ValueRange({partialReduce[0]}),
+      SmallVector<Value>{linalgOp.getDpsInitOperands()}, reductionMaps,
+      reductionIteratorTypes,
+      [reductionOp](OpBuilder &b, Location loc, ValueRange inputs) {
+        Operation *clonedReductionOp = b.clone(*reductionOp);
+        clonedReductionOp->setOperand(0, inputs[0]);
+        clonedReductionOp->setOperand(1, inputs[1]);
+        b.create<linalg::YieldOp>(loc, clonedReductionOp->getResult(0));
+      });
+  return reduction.getOperation();
 }
 
 } // namespace
@@ -482,7 +377,7 @@ mlir::LogicalResult mlir::linalg_ext::CustomOp::verify() {
   return success();
 }
 
-FailureOr<Value> mlir::linalg_ext::CustomOp::generateResultTileValue(
+FailureOr<TilingResult> mlir::linalg_ext::CustomOp::generateResultTileValue(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   // FIXME
@@ -510,14 +405,17 @@ mlir::linalg_ext::CustomOp::getIterationDomain(class mlir::OpBuilder &) {
   return {};
 }
 
-SmallVector<Operation *> mlir::linalg_ext::CustomOp::getTiledImplementation(
+FailureOr<mlir::TilingResult>
+mlir::linalg_ext::CustomOp::getTiledImplementation(
     OpBuilder &b, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   // a fake tiling
   // FIXME
   SmallVector<Operation *> res;
   res.push_back(this->getOperation());
-  return res;
+  return TilingResult{{res},
+                      SmallVector<Value>(this->getOperation()->getResults())};
+  ;
 }
 
 LogicalResult mlir::linalg_ext::CustomOp::getResultTilePosition(
@@ -590,7 +488,7 @@ mlir::LogicalResult mlir::linalg_ext::ScanOp::verify() {
   }
   SmallVector<int64_t> expectedAccumulatorShape;
   for (int i = 0; i < inputType.getRank(); i++) {
-    if (i != getDimension())
+    if (static_cast<uint64_t>(i) != getDimension())
       expectedAccumulatorShape.push_back(inputShapes[i]);
   }
   if (llvm::any_of(llvm::zip(expectedAccumulatorShape, accumulatorShape),
@@ -619,7 +517,7 @@ mlir::LogicalResult mlir::linalg_ext::ScanOp::verify() {
   return success();
 }
 
-FailureOr<Value> mlir::linalg_ext::ScanOp::generateResultTileValue(
+FailureOr<TilingResult> mlir::linalg_ext::ScanOp::generateResultTileValue(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   return commonGenerateResultTileValueForLinalgExtOp(
@@ -648,28 +546,18 @@ ArrayAttr mlir::linalg_ext::ScanOp::getIndexingMaps() {
   maps.push_back(AffineMap::getMultiDimIdentityMap(rank, ctx));
   unsigned dim = getDimension();
   // accum
-  maps.push_back(getMultiDimIdentityMapWithSkip(rank, dim, ctx));
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
 
   return Builder(ctx).getAffineMapArrayAttr(maps);
 }
 
 SmallVector<Range>
 mlir::linalg_ext::ScanOp::getIterationDomain(class mlir::OpBuilder &builder) {
-  int64_t operandRank = getOperandRank();
-  SmallVector<Range> loopBounds(operandRank);
-  Location loc = getLoc();
-  Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
-  Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
-  Value source = input();
-  for (auto dim : llvm::seq<int64_t>(0, operandRank)) {
-    loopBounds[dim].offset = zero;
-    loopBounds[dim].size = getDimValue(builder, loc, source, dim);
-    loopBounds[dim].stride = one;
-  }
-  return loopBounds;
+  return commonGetIterationDomainForLinalgExt(getOperation(), builder,
+                                              getOperandRank(), input());
 }
 
-SmallVector<Operation *>
+FailureOr<mlir::TilingResult>
 mlir::linalg_ext::ScanOp::getTiledImplementation(OpBuilder &builder,
                                                  ArrayRef<OpFoldResult> offsets,
                                                  ArrayRef<OpFoldResult> sizes) {
@@ -678,7 +566,6 @@ mlir::linalg_ext::ScanOp::getTiledImplementation(OpBuilder &builder,
          sizes.size() == static_cast<size_t>(rank));
   auto oneAttr = builder.getI64IntegerAttr(1);
   SmallVector<OpFoldResult> strides(rank, oneAttr);
-  Location loc = getLoc();
   SmallVector<Value> tiledOperands;
   tiledOperands.emplace_back(
       getSlice(builder, getLoc(), input(), offsets, sizes, strides));
@@ -706,7 +593,8 @@ mlir::linalg_ext::ScanOp::getTiledImplementation(OpBuilder &builder,
 
   Operation *tiledScanOp =
       mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
-  return {tiledScanOp};
+  return TilingResult{{tiledScanOp},
+                      SmallVector<Value>(tiledScanOp->getResults())};
 }
 
 LogicalResult mlir::linalg_ext::ScanOp::getResultTilePosition(
@@ -722,7 +610,7 @@ LogicalResult mlir::linalg_ext::ScanOp::getResultTilePosition(
     int64_t rank = getOperandRank();
     if (rank > 1) {
       for (auto i : llvm::seq<int64_t>(0, rank)) {
-        if (i == getDimension())
+        if (static_cast<uint64_t>(i) == getDimension())
           continue;
         resultOffsets.push_back(offsets[i]);
         resultSizes.push_back(sizes[i]);
@@ -769,6 +657,302 @@ LogicalResult mlir::linalg_ext::ScanOp::isValidTiledProducerOp(
 }
 
 //===----------------------------------------------------------------------===//
+// ScatterOp
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult mlir::linalg_ext::ScatterOp::verify() {
+  Operation *op = getOperation();
+  if (getNumInputs() != 2) {
+    return op->emitOpError("expected two input operands indices/update");
+  }
+  if (getNumOutputs() != 1) {
+    return op->emitOpError("expected one output operands src");
+  }
+  if (!llvm::all_of(op->getOperandTypes(), [](Type t) {
+        return t.isa<ShapedType>() && t.cast<ShapedType>().hasRank();
+      })) {
+    return op->emitOpError("expected ranked ShapedType for all operands");
+  }
+
+  ShapedType indicesType = getIndicesType(), srcType = getSrcType(),
+             updateType = getUpdateType();
+
+  // check element types
+  if (updateType.getElementType() != srcType.getElementType()) {
+    return op->emitOpError("expected update/src element types to be identical");
+  }
+  if (!indicesType.getElementType().isIntOrIndex()) {
+    return op->emitOpError("expected indices element type to be int or index");
+  }
+
+  int64_t indicesRank = indicesType.getRank(), srcRank = srcType.getRank(),
+          updateRank = updateType.getRank();
+  ArrayRef<int64_t> indicesShape = indicesType.getShape(),
+                    srcShape = srcType.getShape(),
+                    updateShape = updateType.getShape();
+  if (indicesRank < 1) {
+    return op->emitOpError("the rank of indices must at least be one");
+  }
+
+  if (updateRank < indicesRank - 1 ||
+      failed(verifyCompatibleShape(indicesShape.drop_back(),
+                                   updateShape.take_front(indicesRank - 1)))) {
+    return op->emitOpError("expected the first `indicesRank - 1` dimensions of "
+                           "indices/update to be compatible");
+  }
+
+  if (srcRank < updateRank - indicesRank + 1 ||
+      failed(verifyCompatibleShape(
+          updateShape.drop_front(indicesRank - 1),
+          srcShape.take_back(updateRank - indicesRank + 1)))) {
+    return op->emitOpError("expected the last `updateRank - indicesRank +1` "
+                           "dimensions of update/src to be compatible");
+  }
+
+  if (indicesType.isDynamicDim(indicesRank - 1)) {
+    return op->emitOpError("the last dimension of indices must be static");
+  }
+
+  if (indicesShape[indicesRank - 1] + updateRank - indicesRank + 1 != srcRank) {
+    return op->emitOpError("expected rank of src to be equal to"
+                           "`dim(indices, rank(indices) - 1) + rank(update) "
+                           "- rank(indices) + 1`");
+  }
+
+  Block *body = &this->getRegion().front();
+  if (body->getNumArguments() != 2) {
+    return op->emitOpError("expected body to have two arguments");
+  }
+  if (body->getArgument(0).getType() != srcType.getElementType() ||
+      body->getArgument(1).getType() != updateType.getElementType()) {
+    return op->emitOpError(
+        "expected body arguments to be the same element type with src/update");
+  }
+
+  auto terminator = body->getTerminator();
+  if (!isa<linalg_ext::YieldOp>(terminator)) {
+    return op->emitOpError("expected body terminator to be linalg_ext.yield");
+  }
+
+  if (terminator->getNumOperands() != 1) {
+    return op->emitOpError("epxected body terminator has exactly one operand");
+  }
+
+  if (terminator->getOperand(0).getType() != srcType.getElementType()) {
+    return op->emitOpError(
+        "expected body terminator to be the same element type with src");
+  }
+
+  return success();
+}
+
+FailureOr<TilingResult> mlir::linalg_ext::ScatterOp::generateResultTileValue(
+    OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  return commonGenerateResultTileValueForLinalgExtOp(
+      getOperation(), b, resultNumber, offsets, sizes, getUpdateRank());
+}
+
+SmallVector<utils::IteratorType>
+mlir::linalg_ext::ScatterOp::getLoopIteratorTypes() {
+  int64_t batches = getIndicesRank() - 1;
+  // tiling the first rank(indices) - 1 dimensions, `src` could be updated in
+  // parallel iff all indices are unique
+  SmallVector<utils::IteratorType> iteratorTypes(
+      batches, utils::IteratorType::reduction); // TODO: unique indices
+  // tiling the rest dimensions in update, `src` could be updated in parallel
+  iteratorTypes.insert(iteratorTypes.end(), getUpdateRank() - batches,
+                       utils::IteratorType::parallel);
+  return iteratorTypes;
+}
+
+ArrayAttr mlir::linalg_ext::ScatterOp::getIndexingMaps() {
+  int64_t updateRank = getUpdateRank();
+  int64_t batches = getIndicesRank() - 1;
+  int64_t dataRank = updateRank - batches;
+  SmallVector<AffineMap> maps;
+  MLIRContext *ctx = getContext();
+
+  // indices
+  maps.push_back(AffineMap::getMultiDimIdentityMap(batches, ctx));
+
+  // update
+  maps.push_back(AffineMap::getMultiDimIdentityMap(updateRank, ctx));
+
+  // src
+  maps.push_back(AffineMap::getMultiDimIdentityMap(dataRank, ctx));
+
+  return Builder(ctx).getAffineMapArrayAttr(maps);
+}
+
+SmallVector<Range> mlir::linalg_ext::ScatterOp::getIterationDomain(
+    class mlir::OpBuilder &builder) {
+  int64_t operandRank = getUpdateRank();
+  SmallVector<Range> loopBounds(operandRank);
+  Location loc = getLoc();
+  Attribute zeroAttr = builder.getIndexAttr(0);
+  Attribute oneAttr = builder.getIndexAttr(1);
+  Value updateValue = update();
+  for (auto dim : llvm::seq<int64_t>(0, operandRank)) {
+    loopBounds[dim].offset = zeroAttr;
+    loopBounds[dim].size = getDim(builder, loc, updateValue, dim);
+    loopBounds[dim].stride = oneAttr;
+  }
+  return loopBounds;
+}
+
+FailureOr<TilingResult> mlir::linalg_ext::ScatterOp::getTiledImplementation(
+    OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  auto zeroAttr = builder.getI64IntegerAttr(0),
+       oneAttr = builder.getI64IntegerAttr(1);
+  int64_t updateRank = getUpdateRank();
+  int64_t indicesRank = getIndicesRank();
+  int64_t srcRank = getSrcRank();
+  int64_t batches = indicesRank - 1;
+  int64_t dataRank = updateRank - batches;
+  Location loc = getLoc();
+
+  // tiled indices
+  Value oldIndices = indices();
+  SmallVector<OpFoldResult> indicesOffsets, indicesSizes,
+      indicesStrides(indicesRank, oneAttr);
+  indicesOffsets.reserve(indicesRank);
+  indicesSizes.reserve(indicesRank);
+  for (int64_t i = 0; i < batches; ++i) {
+    indicesOffsets.push_back(offsets[i]);
+    indicesSizes.push_back(sizes[i]);
+  }
+  indicesOffsets.push_back(zeroAttr);
+  auto indicesShape = getIndicesType().getShape();
+  // In verify(), it has already checked that the last dimension of indices was
+  // static known
+  assert(!ShapedType::isDynamic(indicesShape[indicesRank - 1]));
+  indicesSizes.push_back(
+      builder.getI64IntegerAttr(indicesShape[indicesRank - 1]));
+  Value newIndices = getSlice(builder, loc, oldIndices, indicesOffsets,
+                              indicesSizes, indicesStrides);
+
+  // tiled update
+  SmallVector<OpFoldResult> updateOffsets, updateSizes,
+      updateStrides(updateRank, oneAttr);
+  updateOffsets.reserve(updateRank);
+  updateSizes.reserve(updateRank);
+  for (int64_t i = 0; i < batches; ++i) {
+    updateOffsets.push_back(offsets[i]);
+    updateSizes.push_back(sizes[i]);
+  }
+  for (int64_t i = 0; i < dataRank; ++i) {
+    updateOffsets.push_back(offsets[batches + i]);
+    updateSizes.push_back(sizes[batches + i]);
+  }
+  Value newUpdate = getSlice(builder, loc, update(), updateOffsets, updateSizes,
+                             updateStrides);
+
+  // tiled src
+  SmallVector<OpFoldResult> srcOffsets, srcSizes, srcStrides(srcRank, oneAttr);
+  if (failed(getResultTilePosition(builder, 0, offsets, sizes, srcOffsets,
+                                   srcSizes))) {
+    return TilingResult{};
+  }
+  Value newSrc =
+      getSlice(builder, loc, src(), srcOffsets, srcSizes, srcStrides);
+
+  // tiled scatter op
+  Operation *newOp = mlir::clone(
+      builder, getOperation(),
+      hasTensorSemantics() ? TypeRange(newSrc.getType()) : TypeRange(),
+      {newIndices, newUpdate, newSrc});
+  return TilingResult{{newOp}, SmallVector<Value>(newOp->getResults())};
+  ;
+}
+
+LogicalResult mlir::linalg_ext::ScatterOp::getResultTilePosition(
+    OpBuilder &builder, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, SmallVector<OpFoldResult> &resultOffsets,
+    SmallVector<OpFoldResult> &resultSizes) {
+  if (resultNumber == 0) {
+    Value srcValue = src();
+    int64_t updateRank = getUpdateRank();
+    int64_t batches = getIndicesRank() - 1;
+    int64_t dataRank = updateRank - batches;
+
+    auto loc = getLoc();
+    Attribute zeroAttr = builder.getIndexAttr(0);
+    for (int64_t i = 0; i < getSrcRank() - dataRank; ++i) {
+      resultOffsets.push_back(zeroAttr);
+      resultSizes.push_back(getDim(builder, loc, srcValue, i));
+    }
+    for (int64_t i = 0; i < dataRank; ++i) {
+      resultOffsets.push_back(offsets[i + batches]);
+      resultSizes.push_back(sizes[i + batches]);
+    }
+    return success();
+  }
+  return failure();
+}
+
+bool mlir::linalg_ext::ScatterOp::isOperandRead(unsigned number) {
+  // both indices, update and src are read
+  return true;
+}
+
+bool mlir::linalg_ext::ScatterOp::isResultLoopInvariant(int64_t number,
+                                                        bool hasOneOrZeroUse,
+                                                        bool allLoopParallel) {
+  assert(number == 0);
+  return allLoopParallel;
+}
+
+LogicalResult mlir::linalg_ext::ScatterOp::isValidTiledProducerOp(
+    Operation * /*fusibleProducer*/, unsigned consumerOperandNumber) {
+  // TODO
+  return failure();
+}
+
+LogicalResult ScatterOp::generateScalarImplementation(OpBuilder &builder,
+                                                      Location loc,
+                                                      ValueRange ivs) {
+  int64_t updateRank = getUpdateRank();
+  int64_t indicesRank = getIndicesRank();
+  int64_t batches = indicesRank - 1;
+  int64_t dataRank = updateRank - batches;
+
+  SmallVector<Value> srcIndex;
+  SmallVector<Value> loadIndices = ivs.take_front(batches);
+  loadIndices.push_back(Value());
+
+  auto indicesShape = getIndicesType().getShape();
+  for (int64_t i = 0; i < indicesShape[indicesRank - 1]; ++i) {
+    loadIndices.back() = builder.create<arith::ConstantIndexOp>(loc, i);
+    Value idx = builder.create<memref::LoadOp>(loc, indices(), loadIndices);
+    srcIndex.push_back(
+        builder.create<arith::IndexCastOp>(loc, builder.getIndexType(), idx));
+  }
+
+  for (int64_t i = 0; i < dataRank; ++i) {
+    srcIndex.push_back(ivs[batches + i]);
+  }
+
+  auto srcValue = src();
+  Value lhs = builder.create<memref::LoadOp>(loc, srcValue, srcIndex);
+
+  IRMapping bvm;
+  Block &block = getRegion().front();
+  Value rhs = builder.create<memref::LoadOp>(loc, update(), ivs);
+  bvm.map(block.getArgument(0), lhs);
+  bvm.map(block.getArgument(1), rhs);
+  for (auto &blockOp : block.without_terminator()) {
+    builder.clone(blockOp, bvm);
+  }
+
+  builder.create<memref::StoreOp>(
+      loc, bvm.lookupOrDefault(block.getTerminator()->getOperand(0)), srcValue,
+      srcIndex);
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // SoftmaxOp
 //===----------------------------------------------------------------------===//
 
@@ -788,7 +972,8 @@ mlir::LogicalResult validSoftmaxConsumer(Operation *op) {
 }
 
 Value getSoftmaxScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
-                                SoftmaxOp softmax, Value consumerOutput) {
+                                mlir::linalg_ext::SoftmaxOp softmax,
+                                Value consumerOutput) {
   auto scale = softmax->getResult(3);
   if (auto scaleTensorTy = scale.getType().dyn_cast<TensorType>()) {
     if (!consumerOutput.getType().isa<TensorType>()) {
@@ -826,8 +1011,9 @@ Value getSoftmaxScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
   return Value();
 }
 
-void rewriteSoftmaxFusedConsumer(OpBuilder &b, SoftmaxOp fused, Value result,
-                                 Operation *consumer) {
+void rewriteSoftmaxFusedConsumer(OpBuilder &b,
+                                 mlir::linalg_ext::SoftmaxOp fused,
+                                 Value result, Operation *consumer) {
   if (consumer == nullptr)
     return;
 
@@ -846,7 +1032,8 @@ void rewriteSoftmaxFusedConsumer(OpBuilder &b, SoftmaxOp fused, Value result,
 }
 
 void rewriteSoftmaxFusedConsumers(OpBuilder &b, Operation *unfused,
-                                  SoftmaxOp fused, Value result) {
+                                  mlir::linalg_ext::SoftmaxOp fused,
+                                  Value result) {
   if (unfused == nullptr)
     return;
 
@@ -956,8 +1143,8 @@ mlir::LogicalResult mlir::linalg_ext::SoftmaxOp::verify() {
   }
 
   SmallVector<int64_t> expectedShape;
-  for (int i = 0; i < inputType.getRank(); i++) {
-    if (i != getDimension())
+  for (int64_t i = 0; i < inputType.getRank(); i++) {
+    if (static_cast<uint64_t>(i) != getDimension())
       expectedShape.push_back(inputShapes[i]);
   }
   if (llvm::any_of(
@@ -1068,7 +1255,7 @@ bool mlir::linalg_ext::SoftmaxOp::isResultLoopInvariant(int64_t number,
   return false;
 }
 
-FailureOr<Value> mlir::linalg_ext::SoftmaxOp::generateResultTileValue(
+FailureOr<TilingResult> mlir::linalg_ext::SoftmaxOp::generateResultTileValue(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   return commonGenerateResultTileValueForLinalgExtOp(
@@ -1097,30 +1284,22 @@ ArrayAttr mlir::linalg_ext::SoftmaxOp::getIndexingMaps() {
   maps.push_back(AffineMap::getMultiDimIdentityMap(rank, ctx));
   unsigned dim = getDimension();
   // max
-  maps.push_back(getMultiDimIdentityMapWithSkip(rank, dim, ctx));
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
   // accum
-  maps.push_back(getMultiDimIdentityMapWithSkip(rank, dim, ctx));
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
   // scale
-  maps.push_back(getMultiDimIdentityMapWithSkip(rank, dim, ctx));
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
 
   return Builder(ctx).getAffineMapArrayAttr(maps);
 }
 
 SmallVector<Range> mlir::linalg_ext::SoftmaxOp::getIterationDomain(
     class mlir::OpBuilder &builder) {
-
-  Location loc = getLoc();
-  Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
-  Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
-  SmallVector<Range> ranges;
-  for (auto dim : llvm::seq<int64_t>(0, getOperandRank())) {
-    Value ub = getDimValue(builder, loc, getOutputs()[0], dim);
-    ranges.emplace_back(Range{zero, ub, one});
-  }
-  return ranges;
+  return commonGetIterationDomainForLinalgExt(
+      getOperation(), builder, getOperandRank(), getOutputs()[0]);
 }
 
-SmallVector<Operation *> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
+FailureOr<TilingResult> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
     OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   int64_t rank = getOperandRank();
@@ -1136,11 +1315,11 @@ SmallVector<Operation *> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
 
   // input // operand 0 // data
   tiledOperands.emplace_back(
-      getSlice(builder, getLoc(), input(), offsets, sizes, strides));
+      getSlice(builder, loc, input(), offsets, sizes, strides));
 
   // output // operand 1 // result
   tiledOperands.emplace_back(
-      getSlice(builder, getLoc(), getOutputs()[0], offsets, sizes, strides));
+      getSlice(builder, loc, getOutputs()[0], offsets, sizes, strides));
   if (rank > 1) {
     ////////////////////
     // handle max carry
@@ -1154,7 +1333,7 @@ SmallVector<Operation *> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
     }
     SmallVector<OpFoldResult> maxStrides(rank - 1, oneAttr);
     // output // operand 1 // max loop carry
-    tiledOperands.emplace_back(getSlice(builder, getLoc(), getOutputs()[1],
+    tiledOperands.emplace_back(getSlice(builder, loc, getOutputs()[1],
                                         maxOffsets, maxSizes, maxStrides));
 
     ////////////////////
@@ -1169,9 +1348,8 @@ SmallVector<Operation *> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
     }
     SmallVector<OpFoldResult> accumStrides(rank - 1, oneAttr);
     // output // operand 3 // accum loop carry
-    tiledOperands.emplace_back(getSlice(builder, getLoc(), getOutputs()[2],
-                                        accumOffsets, accumSizes,
-                                        accumStrides));
+    tiledOperands.emplace_back(getSlice(
+        builder, loc, getOutputs()[2], accumOffsets, accumSizes, accumStrides));
 
     ////////////////////
     // handle scale
@@ -1186,9 +1364,8 @@ SmallVector<Operation *> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
 
     SmallVector<OpFoldResult> scaleStrides(rank - 1, oneAttr);
     // output // operand 2 // scale
-    tiledOperands.emplace_back(getSlice(builder, getLoc(), getOutputs()[3],
-                                        scaleOffsets, scaleSizes,
-                                        scaleStrides));
+    tiledOperands.emplace_back(getSlice(
+        builder, loc, getOutputs()[3], scaleOffsets, scaleSizes, scaleStrides));
   } else {
     tiledOperands.emplace_back(getOutputs()[1]);
     tiledOperands.emplace_back(getOutputs()[2]);
@@ -1205,7 +1382,8 @@ SmallVector<Operation *> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
 
   Operation *tiledSoftmaxOp =
       mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
-  return {tiledSoftmaxOp};
+  return TilingResult{{tiledSoftmaxOp},
+                      SmallVector<Value>(tiledSoftmaxOp->getResults())};
 }
 
 LogicalResult mlir::linalg_ext::SoftmaxOp::getResultTilePosition(
@@ -1220,7 +1398,7 @@ LogicalResult mlir::linalg_ext::SoftmaxOp::getResultTilePosition(
   if (resultNumber == 1 || resultNumber == 2 || resultNumber == 3) {
     int64_t rank = getOperandRank();
     if (rank > 1) {
-      for (auto i : llvm::seq<int64_t>(0, rank)) {
+      for (auto i : llvm::seq<uint64_t>(0, rank)) {
         if (i == getDimension())
           continue;
         resultOffsets.push_back(offsets[i]);
@@ -1241,7 +1419,7 @@ mlir::LogicalResult mlir::linalg_ext::TopkOp::verify() {
   return success();
 }
 
-FailureOr<Value> mlir::linalg_ext::TopkOp::generateResultTileValue(
+FailureOr<TilingResult> mlir::linalg_ext::TopkOp::generateResultTileValue(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   return commonGenerateResultTileValueForLinalgExtOp(
@@ -1280,22 +1458,11 @@ ArrayAttr mlir::linalg_ext::TopkOp::getIndexingMaps() {
 
 SmallVector<Range>
 mlir::linalg_ext::TopkOp::getIterationDomain(class mlir::OpBuilder &builder) {
-  int64_t operandRank = getInputRank();
-  SmallVector<Range> loopBounds(operandRank);
-  Location loc = getLoc();
-  Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
-  Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
-  Value source = values();
-  for (auto dim : llvm::enumerate(getInputType().getShape())) {
-    loopBounds[dim.index()].offset = zero;
-    loopBounds[dim.index()].size =
-        getDimValue(builder, loc, source, dim.index());
-    loopBounds[dim.index()].stride = one;
-  }
-  return loopBounds;
+  return commonGetIterationDomainForLinalgExt(getOperation(), builder,
+                                              getInputRank(), values());
 }
 
-SmallVector<Operation *>
+FailureOr<TilingResult>
 mlir::linalg_ext::TopkOp::getTiledImplementation(OpBuilder &builder,
                                                  ArrayRef<OpFoldResult> offsets,
                                                  ArrayRef<OpFoldResult> sizes) {
@@ -1337,7 +1504,8 @@ mlir::linalg_ext::TopkOp::getTiledImplementation(OpBuilder &builder,
   Operation *tiledTopkOp =
       mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
 
-  return {tiledTopkOp};
+  return TilingResult{{tiledTopkOp},
+                      SmallVector<Value>(tiledTopkOp->getResults())};
 }
 
 LogicalResult mlir::linalg_ext::TopkOp::getResultTilePosition(
@@ -1443,9 +1611,11 @@ void mlir::linalg_ext::BatchMatmulOp::build(
   if (initType.isa<RankedTensorType>())
     result.addTypes(initType);
 
-  // TODO: currently the region content is wrong
-  buildIdentityRegion(builder, result.location, *result.addRegion(), {lhs, rhs},
-                      init);
+  // Create and fill the region of the structured operation.
+  Region &region = *result.addRegion();
+  fillStructuredOpRegion(builder, region, {lhs.getType(), rhs.getType()},
+                         init.getType(), result.attributes.getAttrs(),
+                         linalg::BatchMatmulOp::regionBuilder);
 }
 
 void mlir::linalg_ext::BatchMatmulOp::build(
@@ -1470,10 +1640,14 @@ ParseResult mlir::linalg_ext::BatchMatmulOp::parse(OpAsmParser &parser,
           })))
     return failure();
 
+  SmallVector<Type, 1> inputTypes;
+  inputTypes.push_back(result.operands[0].getType());
+  inputTypes.push_back(result.operands[1].getType());
   OpBuilder builder(parser.getContext());
-  buildIdentityRegion(builder, result.location, *result.addRegion(),
-                      /*inputs=*/result.operands,
-                      /*outputs=*/{});
+  Region &region = *result.addRegion();
+  fillStructuredOpRegion(
+      builder, region, inputTypes, result.operands[2].getType(),
+      result.attributes.getAttrs(), linalg::BatchMatmulOp::regionBuilder);
   return success();
 }
 
@@ -1533,7 +1707,8 @@ ArrayAttr mlir::linalg_ext::BatchMatmulOp::getIndexingMaps() {
   maps.push_back(getMultiDimIdentityMapWithTargets(fullRank, rhsTargets, ctx));
 
   // outputs
-  maps.push_back(getMultiDimIdentityMapWithSkip(fullRank, fullRank - 1, ctx));
+  maps.push_back(
+      getMultiDimIdentityMapWithSkips(fullRank, {fullRank - 1}, ctx));
 
   return Builder(ctx).getAffineMapArrayAttr(maps);
 }
@@ -1548,8 +1723,7 @@ mlir::linalg_ext::BatchMatmulOp::getIterationDomain(OpBuilder &builder) {
   return commonGetIterationDomain(getOperation(), builder);
 }
 
-SmallVector<Operation *>
-mlir::linalg_ext::BatchMatmulOp::getTiledImplementation(
+FailureOr<TilingResult> mlir::linalg_ext::BatchMatmulOp::getTiledImplementation(
     OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   return commonGetTiledImplementation(getOperation(), builder, offsets, sizes);
@@ -1563,7 +1737,8 @@ LogicalResult mlir::linalg_ext::BatchMatmulOp::getResultTilePosition(
                                      sizes, resultOffsets, resultSizes);
 }
 
-FailureOr<Value> mlir::linalg_ext::BatchMatmulOp::generateResultTileValue(
+FailureOr<TilingResult>
+mlir::linalg_ext::BatchMatmulOp::generateResultTileValue(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
   return commonGenerateResultTileValue(getOperation(), b, resultNumber, offsets,
@@ -1575,6 +1750,255 @@ void mlir::linalg_ext::BatchMatmulOp::getEffects(
         &effects) {
   getGenericEffectsImpl(effects, getOperation()->getResults(),
                         getDpsInputOperands(), getDpsInitOperands());
+}
+
+FailureOr<Operation *>
+mlir::linalg_ext::BatchMatmulOp::generateInitialTensorForPartialReduction(
+    OpBuilder &b, Location loc, ArrayRef<OpFoldResult> sizes,
+    ArrayRef<int> reductionDims) {
+  return commonGenerateInitialTensorForPartialReduction(getOperation(), b, loc,
+                                                        sizes, reductionDims);
+}
+
+Operation *mlir::linalg_ext::BatchMatmulOp::tileToPartialReduction(
+    OpBuilder &b, Location loc, ValueRange init, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, ArrayRef<int> reductionDims) {
+  return commonTileToPartialReduction(getOperation(), b, loc, init, offsets,
+                                      sizes, reductionDims);
+}
+
+Operation *
+mlir::linalg_ext::BatchMatmulOp::mergeReductions(OpBuilder &b, Location loc,
+                                                 ValueRange partialReduce,
+                                                 ArrayRef<int> reductionDims) {
+  return commonMergeReductions(getOperation(), b, loc, partialReduce,
+                               reductionDims);
+}
+
+//===----------------------------------------------------------------------===//
+// LayerNormOp
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult mlir::linalg_ext::LayerNormOp::verify() {
+  Operation *op = getOperation();
+  if (getNumInputs() != 1 && getNumInputs() != 3) {
+    return op->emitOpError("expected one or three input operands");
+  }
+  if (getNumOutputs() != 1 && getNumOutputs() != 3) {
+    return op->emitOpError("expected one or three output operands");
+  }
+  if (!input().getType().isa<ShapedType>()) {
+    return op->emitOpError("expected first input element type to be shaped");
+  }
+
+  auto inputType = input().getType().cast<ShapedType>();
+  auto outputType = output().getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  ArrayRef<int64_t> outputShape = outputType.getShape();
+  if (outputType.getElementType() != inputType.getElementType()) {
+    return op->emitOpError(
+        "expected input/output element types to be identical");
+  }
+
+  if (getNumInputs() == 3) {
+    // has weight and bias
+    auto weightType = weight().getType().cast<ShapedType>();
+    auto biasType = bias().getType().cast<ShapedType>();
+    ArrayRef<int64_t> weightShape = weightType.getShape();
+    ArrayRef<int64_t> biasShape = biasType.getShape();
+
+    if (weightType.getElementType() != inputType.getElementType() ||
+        biasType.getElementType() != inputType.getElementType()) {
+      return op->emitOpError("expected input/weight/bias/output "
+                             "element types to be identical");
+    }
+    int64_t weightRank = weightType.getRank();
+    int64_t biasRank = biasType.getRank();
+    int64_t expectedRank = getIntAxis().size();
+    if (weightRank != expectedRank || biasRank != expectedRank) {
+      return op->emitOpError(
+          "expected weight/bias rank to be equal to axis size");
+    }
+
+    SmallVector<int64_t> expectedShape;
+    for (int i = 0; i < inputType.getRank(); i++) {
+      for (auto axis : getIntAxis()) {
+        if (i == axis)
+          expectedShape.push_back(inputShape[i]);
+      }
+    }
+    if (llvm::any_of(llvm::zip(expectedShape, weightShape, biasShape),
+                     [](std::tuple<int64_t, int64_t, int64_t> s) {
+                       return std::get<0>(s) != ShapedType::kDynamic &&
+                              std::get<1>(s) != ShapedType::kDynamic &&
+                              std::get<2>(s) != ShapedType::kDynamic &&
+                              std::get<0>(s) != std::get<1>(s) &&
+                              std::get<0>(s) != std::get<2>(s);
+                     })) {
+      return op->emitOpError("incompatible input/weight/bias shapes");
+    }
+  }
+
+  if (inputShape.size() != outputShape.size()) {
+    return op->emitOpError("expected input/output to have identical ranks");
+  }
+
+  if (llvm::any_of(llvm::zip(inputShape, outputShape),
+                   [](std::tuple<int64_t, int64_t> s) {
+                     return std::get<0>(s) != ShapedType::kDynamic &&
+                            std::get<1>(s) != ShapedType::kDynamic &&
+                            std::get<0>(s) != std::get<1>(s);
+                   })) {
+    return op->emitOpError("incompatible input/output shapes");
+  }
+  return success();
+}
+
+LogicalResult mlir::linalg_ext::LayerNormOp::isValidTiling(Operation *tiled) {
+  if (tiled == nullptr)
+    return failure();
+  if (involveReduction(*tiled, getIndexingMapsArray(),
+                       getLoopIteratorTypes())) {
+    return failure();
+  }
+  return success();
+}
+
+SmallVector<utils::IteratorType>
+mlir::linalg_ext::LayerNormOp::getLoopIteratorTypes() {
+  // All loops except the axises are parallel.
+  SmallVector<utils::IteratorType> iteratorTypes(getOperandRank(0),
+                                                 utils::IteratorType::parallel);
+  for (auto axis : getIntAxis()) {
+    iteratorTypes[axis] = utils::IteratorType::reduction;
+  }
+  return iteratorTypes;
+}
+
+ArrayAttr mlir::linalg_ext::LayerNormOp::getIndexingMaps() {
+  unsigned inputRank = getOperandRank(0);
+  SmallVector<AffineMap> maps;
+  MLIRContext *ctx = getContext();
+
+  // input
+  maps.push_back(AffineMap::getMultiDimIdentityMap(inputRank, ctx));
+
+  if (getNumInputs() == 3) {
+    SmallVector<AffineExpr, 4> dimExprs;
+    dimExprs.reserve(inputRank);
+    for (auto i : getIntAxis()) {
+      dimExprs.push_back(mlir::getAffineDimExpr(i, ctx));
+    }
+    // weight
+    maps.push_back(AffineMap::get(inputRank, 0, dimExprs, ctx));
+    // bias
+    maps.push_back(AffineMap::get(inputRank, 0, dimExprs, ctx));
+  }
+
+  // outputs
+  // result
+  maps.push_back(AffineMap::getMultiDimIdentityMap(inputRank, ctx));
+  if (getNumOutputs() == 3) {
+    // mean
+    maps.push_back(
+        getMultiDimIdentityMapWithSkips(inputRank, getIntAxis(), ctx));
+    // rstd
+    maps.push_back(
+        getMultiDimIdentityMapWithSkips(inputRank, getIntAxis(), ctx));
+  }
+
+  return Builder(ctx).getAffineMapArrayAttr(maps);
+}
+
+SmallVector<Range>
+mlir::linalg_ext::LayerNormOp::getIterationDomain(OpBuilder &builder) {
+  return commonGetIterationDomainForLinalgExt(getOperation(), builder,
+                                              getOperandRank(0), input());
+}
+
+FailureOr<TilingResult> mlir::linalg_ext::LayerNormOp::getTiledImplementation(
+    OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  int64_t rank = getOperandRank(0);
+  assert(offsets.size() == static_cast<size_t>(rank) &&
+         sizes.size() == static_cast<size_t>(rank));
+  SmallVector<OpFoldResult> strides(rank, builder.getI64IntegerAttr(1));
+  Location loc = getLoc();
+
+  SmallVector<OpFoldResult> outputOffsets, outputSizes;
+  if (failed(getResultTilePosition(builder, 0, offsets, sizes, outputOffsets,
+                                   outputSizes))) {
+    return {};
+  }
+
+  SmallVector<Value> tiledOperands;
+  tiledOperands.emplace_back(
+      getSlice(builder, loc, input(), offsets, sizes, strides));
+  if (getNumInputs() > 1) {
+    tiledOperands.emplace_back(weight());
+    tiledOperands.emplace_back(bias());
+  }
+
+  tiledOperands.emplace_back(
+      getSlice(builder, loc, getOutputs()[0], offsets, outputSizes, strides));
+  if (getNumOutputs() > 1) {
+    tiledOperands.emplace_back(
+        getSlice(builder, loc, getOutputs()[1], offsets, outputSizes, strides));
+    tiledOperands.emplace_back(
+        getSlice(builder, loc, getOutputs()[2], offsets, outputSizes, strides));
+  }
+  SmallVector<Type> resultTypes;
+  if (hasTensorSemantics()) {
+    if (getNumOutputs() > 1) {
+      resultTypes.push_back(tiledOperands[tiledOperands.size() - 3].getType());
+      resultTypes.push_back(tiledOperands[tiledOperands.size() - 2].getType());
+      resultTypes.push_back(tiledOperands[tiledOperands.size() - 1].getType());
+    } else {
+      resultTypes.push_back(tiledOperands[tiledOperands.size() - 1].getType());
+    }
+  }
+
+  Operation *tiledLayerNormOp =
+      mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
+
+  return TilingResult{{tiledLayerNormOp},
+                      SmallVector<Value>(tiledLayerNormOp->getResults())};
+}
+
+LogicalResult mlir::linalg_ext::LayerNormOp::getResultTilePosition(
+    OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, SmallVector<OpFoldResult> &resultOffsets,
+    SmallVector<OpFoldResult> &resultSizes) {
+  if (resultNumber == 0) {
+    resultOffsets.assign(offsets.begin(), offsets.end());
+    resultSizes.assign(sizes.begin(), sizes.end());
+    return success();
+  }
+  if (resultNumber == 1 || resultNumber == 2) {
+    // mean or inv_std_dev
+    int64_t rank = getOperandRank(0);
+    if (rank > 1) {
+      for (auto i : llvm::seq<int64_t>(0, rank)) {
+        bool skip = false;
+        for (auto axis : getIntAxis()) {
+          skip |= i == axis;
+        }
+        if (skip)
+          continue;
+        resultOffsets.push_back(offsets[i]);
+        resultSizes.push_back(sizes[i]);
+      }
+    }
+    return success();
+  }
+  return failure();
+}
+
+FailureOr<TilingResult> mlir::linalg_ext::LayerNormOp::generateResultTileValue(
+    OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  return commonGenerateResultTileValueForLinalgExtOp(
+      getOperation(), b, resultNumber, offsets, sizes, getOperandRank(0));
 }
 
 namespace {
@@ -1615,8 +2039,10 @@ static void getEffectsImpl(
 
 DEFINE_OP_GET_EFFECTS(CustomOp)
 DEFINE_OP_GET_EFFECTS(DiagOp)
+DEFINE_OP_GET_EFFECTS(LayerNormOp)
 DEFINE_OP_GET_EFFECTS(ScanOp)
-DEFINE_OP_GET_EFFECTS(SoftmaxOp)
+DEFINE_OP_GET_EFFECTS(ScatterOp)
+DEFINE_OP_GET_EFFECTS(mlir::linalg_ext::SoftmaxOp)
 DEFINE_OP_GET_EFFECTS(TopkOp)
 
 namespace {
@@ -1634,14 +2060,13 @@ static LogicalResult foldMemRefCast(Operation *op) {
 } // namespace
 
 #define DEFINE_OP_FOLD(OP_NAME)                                                \
-  LogicalResult OP_NAME::fold(ArrayRef<Attribute>,                             \
-                              SmallVectorImpl<OpFoldResult> &) {               \
+  LogicalResult OP_NAME::fold(FoldAdaptor, SmallVectorImpl<OpFoldResult> &) {  \
     return foldMemRefCast(*this);                                              \
   }
 
 DEFINE_OP_FOLD(DiagOp)
 DEFINE_OP_FOLD(ScanOp)
-DEFINE_OP_FOLD(SoftmaxOp)
+DEFINE_OP_FOLD(mlir::linalg_ext::SoftmaxOp)
 DEFINE_OP_FOLD(TopkOp)
 
 namespace {

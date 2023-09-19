@@ -20,8 +20,8 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/SymbolTable.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Twine.h"
@@ -35,6 +35,8 @@ using namespace mlir::mhlo;
 using namespace llvm;
 
 namespace {
+
+static unsigned cnt = 0;
 
 static std::string getOutlineFuncitonName(mhlo::FusionOp fusionOp,
                                           unsigned &cnt) {
@@ -66,9 +68,15 @@ static func::FuncOp createOutlinedFuncOp(mhlo::FusionOp fusionOp,
       func::FuncOp::create(fusionOp.getLoc(), funcName, funcType);
   funcOp.setPrivate();
 
+  // directly return if removing function body
+  if (fusionOp->hasAttr(mlir::byre::getRemoveFuncBodyAttrName())) {
+    addAttrs(funcOp.getOperation(), fusionOp->getAttrs());
+    return funcOp;
+  }
+
   // create entry block
   Block *block = funcOp.addEntryBlock();
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   unsigned numArg = funcOp.getNumArguments();
   for (unsigned i = 0; i < numArg; ++i) {
     bvm.map(fusionOp.getOperand(i), funcOp.getArgument(i));
@@ -160,8 +168,6 @@ struct FusionOutliningPass : public FusionOutliningBase<FusionOutliningPass> {
 
 void FusionOutliningPass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
-
-  unsigned cnt = 0;
 
   for (auto funcOp : moduleOp.getOps<func::FuncOp>()) {
     funcOp.walk([&](mhlo::FusionOp fusionOp) {

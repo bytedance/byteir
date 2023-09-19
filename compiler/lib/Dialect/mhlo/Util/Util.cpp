@@ -49,14 +49,23 @@ bool mlir::isMhloConstantLike(Operation *op) {
   return isa<mhlo::ConstantOp>(op) || isa<mhlo::IotaOp>(op);
 }
 
+bool mlir::isDeepMhloFoldable(Operation *op) {
+  auto check = [](Operation *op) {
+    if (!op)
+      return false;
+    return isMhlo(op);
+  };
+  return deepCheck(op, check);
+}
+
 bool mlir::isSplatMhloConstantValue(Value val) {
   return isSplatMhloConstant(val.getDefiningOp());
 }
 
 bool mlir::isSplatMhloConstantValue(Operation *op, int64_t splat_val) {
   if (auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(op)) {
-    // only handle DenseFPElementsAttr for now
-    // TODO extend it
+    // only handle DenseIntElementsAttr for now
+    // TODO: extend it
     if (auto denseIntE = constOp.getValue().dyn_cast<DenseIntElementsAttr>()) {
       return isSplatValue(denseIntE, splat_val);
     }
@@ -67,10 +76,17 @@ bool mlir::isSplatMhloConstantValue(Operation *op, int64_t splat_val) {
 bool mlir::isSplatMhloConstantValue(Operation *op, double splat_val) {
   if (auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(op)) {
     // only handle DenseFPElementsAttr for now
-    // TODO extend it
+    // TODO: extend it
     if (auto denseFPE = constOp.getValue().dyn_cast<DenseFPElementsAttr>()) {
       return isSplatValue(denseFPE, splat_val);
     }
+  }
+  return false;
+}
+
+bool mlir::isDenseMhloConstantValue(Value val) {
+  if (auto constOp = val.getDefiningOp<mhlo::ConstantOp>()) {
+    return llvm::isa<DenseElementsAttr>(constOp.getValue());
   }
   return false;
 }
@@ -82,34 +98,6 @@ bool mlir::isSplatMhloConstantValue(Value val, int64_t splat_val) {
 bool mlir::isSplatMhloConstantValue(Value val, double splat_val) {
   return isSplatMhloConstantValue(val.getDefiningOp(), splat_val);
 }
-
-template <typename Op> bool mlir::isBlockSingleOp(Block *block) {
-  if (block == nullptr)
-    return false;
-
-  auto ret_op = block->getTerminator();
-  if (!isa<mlir::mhlo::ReturnOp>(ret_op))
-    return false;
-
-  auto mhlo_ret = cast<mlir::mhlo::ReturnOp>(ret_op);
-  if (mhlo_ret.getNumOperands() != 1)
-    return false;
-
-  auto compute_op = mhlo_ret.getOperand(0).getDefiningOp();
-  if (auto add_op = dyn_cast_or_null<Op>(compute_op)) {
-    return (compute_op->getOperand(0) == block->getArgument(0) &&
-            compute_op->getOperand(1) == block->getArgument(1)) ||
-           (compute_op->getOperand(0) == block->getArgument(1) &&
-            compute_op->getOperand(1) == block->getArgument(0));
-  }
-
-  return false;
-}
-
-// instantiate
-template bool mlir::isBlockSingleOp<mhlo::AddOp>(Block *);
-template bool mlir::isBlockSingleOp<mhlo::MaxOp>(Block *);
-template bool mlir::isBlockSingleOp<mhlo::MinOp>(Block *);
 
 namespace {
 
@@ -130,7 +118,9 @@ parsePoolLayout(size_t rank, const SmallVector<int64_t> &window_dimensions,
   } else if (window_dimensions[0] == 1 && window_dimensions[1] == 1 &&
              strides[0] == 1 && strides[1] == 1 && padding[0] == 0 &&
              padding[1] == 0 && padding[2] == 0 && padding[3] == 0) {
-    if (rank == 4) {
+    if (rank == 3) {
+      layout = byteir::NamedLayout::NCW;
+    } else if (rank == 4) {
       layout = byteir::NamedLayout::NCHW;
     } else if (rank == 5) {
       layout = byteir::NamedLayout::NCDHW;
@@ -141,16 +131,132 @@ parsePoolLayout(size_t rank, const SmallVector<int64_t> &window_dimensions,
 
 } // namespace
 
-byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
+std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
   auto base_dilations = op.getBaseDilationsAttr();
   if (base_dilations && !isSplatValue(base_dilations, 1)) {
-    assert(false && "expected base_dilations to be dense<1>");
+    return std::nullopt;
   }
   auto window_dilations = op.getWindowDilationsAttr();
   if (window_dilations && !isSplatValue(window_dilations, 1)) {
-    assert(false && "expected window_dilations to be dense<1>");
+    return std::nullopt;
+  }
+  auto strides = op.getWindowStridesAttr();
+  if (strides && !isSplatValue(strides, 1)) {
+    return std::nullopt;
   }
 
+  SmallVector<int64_t> window_dimensions = SmallVector<int64_t>(
+      op.getWindowDimensions().getValues<int64_t>().begin(),
+      op.getWindowDimensions().getValues<int64_t>().end());
+  if (!op.getPadding().has_value()) {
+    return std::nullopt;
+  }
+  SmallVector<int64_t> padding =
+      SmallVector<int64_t>(op.getPaddingAttr().getValues<int64_t>().begin(),
+                           op.getPaddingAttr().getValues<int64_t>().end());
+
+  auto inputShape = op.getInputs()[0].getType().cast<ShapedType>();
+  if (!inputShape.hasRank()) {
+    return std::nullopt;
+  }
+  int64_t index = K_INITIAL;
+  for (size_t i = 0; i < inputShape.getRank(); i++) {
+    if (window_dimensions[i] == 1 && padding[i * 2] == 0 &&
+        padding[i * 2 + 1] == 0) {
+      // not cumsum index
+      continue;
+    } else if (inputShape.getDimSize(i) == ShapedType::kDynamic) {
+      // doesn't handle dynamic dim
+      return std::nullopt;
+    } else if (window_dimensions[i] == inputShape.getDimSize(i) &&
+               padding[i * 2] == inputShape.getDimSize(i) - 1 &&
+               padding[i * 2 + 1] == 0) {
+      if (index == K_INITIAL) {
+        index = i;
+      } else {
+        // more than one dim to be cumsumed
+        return std::nullopt;
+      }
+    } else {
+      return std::nullopt;
+    }
+  }
+  return index;
+}
+
+template <typename OpTy> bool mlir::isValidPoolOrPoolGradLayout(OpTy op) {
+  SmallVector<int64_t> window_dimensions;
+  size_t rank;
+  if (std::is_same_v<OpTy, mhlo::ReduceWindowOp>) {
+    auto reduceWindowOp = dyn_cast<mhlo::ReduceWindowOp>(&op);
+    auto base_dilations = reduceWindowOp->getBaseDilationsAttr();
+    if (base_dilations && !isSplatValue(base_dilations, 1)) {
+      return false;
+    }
+    auto window_dilations = reduceWindowOp->getWindowDilationsAttr();
+    if (window_dilations && !isSplatValue(window_dilations, 1)) {
+      return false;
+    }
+    window_dimensions =
+        SmallVector<int64_t>(reduceWindowOp->getWindowDimensions()
+                                 .template getValues<int64_t>()
+                                 .begin(),
+                             reduceWindowOp->getWindowDimensions()
+                                 .template getValues<int64_t>()
+                                 .end());
+    rank = window_dimensions.size();
+    if (rank != 3 && rank != 4 && rank != 5) {
+      return false;
+    }
+  } else if (std::is_same_v<OpTy, mhlo::SelectAndScatterOp>) {
+    auto selectAndScatterOp = dyn_cast<mhlo::SelectAndScatterOp>(&op);
+    if (auto window_dimensions_ =
+            selectAndScatterOp->getWindowDimensionsAttr()) {
+      window_dimensions = SmallVector<int64_t>(
+          window_dimensions_.template getValues<int64_t>().begin(),
+          window_dimensions_.template getValues<int64_t>().end());
+    } else {
+      return false;
+    }
+    rank = window_dimensions.size();
+    if (rank != 4 && rank != 5) {
+      return false;
+    }
+  } else {
+    assert(false && "The operation type is unexpected\n");
+  }
+  if ((window_dimensions[0] != 1) ||
+      (window_dimensions[1] != 1 && window_dimensions[rank - 1] != 1)) {
+    return false;
+  }
+
+  if (auto window_strides = op.getWindowStridesAttr()) {
+    SmallVector<int64_t> strides(
+        window_strides.template getValues<int64_t>().begin(),
+        window_strides.template getValues<int64_t>().end());
+    if ((strides[0] != 1) || (strides[1] != 1 && strides[rank - 1] != 1)) {
+      return false;
+    }
+  }
+  if (auto padding_ = op.getPaddingAttr()) {
+    SmallVector<int64_t> padding(padding_.template getValues<int64_t>().begin(),
+                                 padding_.template getValues<int64_t>().end());
+    if (padding[0] != 0 || padding[1] != 0 ||
+        ((padding[2] != 0 || padding[3] != 0) &&
+         (padding[2 * rank - 1 != 0] || padding[2 * rank - 2] != 0))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template bool isValidPoolOrPoolGradLayout(mlir::mhlo::ReduceWindowOp);
+template bool isValidPoolOrPoolGradLayout(mlir::mhlo::SelectAndScatterOp);
+
+byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
+  if (!mlir::isValidPoolOrPoolGradLayout(op)) {
+    return byteir::NamedLayout::UNKNOWN;
+  }
   SmallVector<int64_t> window_dimensions = SmallVector<int64_t>(
       op.getWindowDimensions().getValues<int64_t>().begin(),
       op.getWindowDimensions().getValues<int64_t>().end());
@@ -166,13 +272,13 @@ byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
                                    padding_.getValues<int64_t>().end());
   }
 
-  if (rank != 4 && rank != 5) {
-    assert(false && "expected dimension number to be 4 or 5");
-  }
   return parsePoolLayout(rank, window_dimensions, strides, padding);
 }
 
 byteir::NamedLayout mlir::getPoolGradLayout(mlir::mhlo::SelectAndScatterOp op) {
+  if (!mlir::isValidPoolOrPoolGradLayout(op)) {
+    return byteir::NamedLayout::UNKNOWN;
+  }
   SmallVector<int64_t> window_dimensions;
   if (auto window_dimensions_ = op.getWindowDimensionsAttr()) {
     window_dimensions =
@@ -190,8 +296,6 @@ byteir::NamedLayout mlir::getPoolGradLayout(mlir::mhlo::SelectAndScatterOp op) {
     padding = SmallVector<int64_t>(padding_.getValues<int64_t>().begin(),
                                    padding_.getValues<int64_t>().end());
   }
-
-  assert(rank == 4 || rank == 5);
   return parsePoolLayout(rank, window_dimensions, strides, padding);
 }
 
@@ -447,6 +551,83 @@ mlir::createBroadcastedDenseElementsAttr(DenseElementsAttr originAttr,
   } else if (valueType.getElementType().isa<IntegerType>()) {
     return createBroadcastedDenseElementsAttrImpl<APInt>(originAttr, newType,
                                                          newBroadcastDims);
+  }
+  return std::nullopt;
+}
+
+namespace {
+SmallVector<int64_t> computeStrides(ArrayRef<int64_t> shape) {
+  assert(shape.size() > 0);
+  SmallVector<int64_t> strides(shape.size(), 0);
+  strides[shape.size() - 1] = 1;
+  for (int64_t i = shape.size() - 2; i >= 0; i--) {
+    strides[i] = strides[i + 1] * shape[i + 1];
+  }
+  return strides;
+}
+} // namespace
+
+std::optional<SmallVector<int64_t>>
+mlir::computeReshapeInputOutputRankMapIndex(ShapedType inputType,
+                                            ShapedType outputType) {
+  if (!inputType.hasStaticShape() || !outputType.hasStaticShape()) {
+    return std::nullopt;
+  }
+  if (inputType.getRank() == 0 || outputType.getRank() == 0) {
+    return std::nullopt;
+  }
+  if (inputType.getRank() >= outputType.getRank()) {
+    return std::nullopt;
+  }
+
+  auto inputStrides = computeStrides(inputType.getShape());
+  auto outputStrides = computeStrides(outputType.getShape());
+  SmallVector<int64_t> result;
+  int64_t j = 0;
+  for (int64_t i = 0; i < inputType.getRank(); i++) {
+    while (j < outputType.getRank()) {
+      if (inputType.getDimSize(i) == outputType.getDimSize(j) &&
+          inputStrides[i] == outputStrides[j]) {
+        result.push_back(j);
+        j++;
+        break;
+      }
+      j++;
+    }
+  }
+  if (result.size() != inputType.getRank()) {
+    return std::nullopt;
+  }
+  return result;
+}
+
+bool mlir::isLmhloConstantValue(mlir::Value value) {
+  return llvm::any_of(value.getUses(), [&](OpOperand &use) {
+    return llvm::isa<lmhlo::ConstantOp>(use.getOwner());
+  });
+}
+
+// compute the index of the reshape's expand dimension
+std::optional<int64_t>
+mlir::computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp) {
+  auto reshapeOperandType = reshapeOp.getOperand().getType().cast<ShapedType>();
+  if (!reshapeOperandType.hasStaticShape()) {
+    return std::nullopt;
+  }
+  auto reshapeResultType = reshapeOp.getResult().getType().cast<ShapedType>();
+
+  auto maybeIndex = computeReshapeInputOutputRankMapIndex(reshapeOperandType,
+                                                          reshapeResultType);
+  // only support using Reshape to expand one dimension
+  if ((!maybeIndex.has_value()) ||
+      (reshapeOperandType.getRank() != reshapeResultType.getRank() - 1)) {
+    return std::nullopt;
+  }
+  auto index = *maybeIndex;
+  for (int64_t i = 0; i < reshapeResultType.getRank(); i++) {
+    if (index[i] != i) {
+      return i;
+    }
   }
   return std::nullopt;
 }

@@ -27,8 +27,8 @@ namespace brt {
 
 // TODO move some simple one to header
 RequestContext::RequestContext(const Session &session)
-    : session_(session), frame_(nullptr), wq_(nullptr),
-      events_(std::make_unique<EventListenerManager>()) {}
+    : session_(session), events_(std::make_unique<EventListenerManager>()),
+      frame_(nullptr), wq_(nullptr) {}
 
 RequestContext::~RequestContext() {
   if (frame_ && wq_)

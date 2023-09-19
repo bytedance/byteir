@@ -6,31 +6,31 @@
 .target sm_70
 .address_size 64
 
-	// .globl	Unknown98
+	// .globl	Unknown99
 
-.visible .entry Unknown98(
-	.param .u64 Unknown98_param_0,
-	.param .u64 Unknown98_param_1,
-	.param .u64 Unknown98_param_2,
-	.param .u64 Unknown98_param_3,
-	.param .u64 Unknown98_param_4,
-	.param .u64 Unknown98_param_5,
-	.param .u64 Unknown98_param_6,
-	.param .u64 Unknown98_param_7,
-	.param .u64 Unknown98_param_8,
-	.param .u64 Unknown98_param_9,
-	.param .u64 Unknown98_param_10,
-	.param .u64 Unknown98_param_11,
-	.param .u64 Unknown98_param_12,
-	.param .u64 Unknown98_param_13,
-	.param .u64 Unknown98_param_14,
-	.param .u64 Unknown98_param_15,
-	.param .u64 Unknown98_param_16,
-	.param .u64 Unknown98_param_17,
-	.param .u64 Unknown98_param_18,
-	.param .u64 Unknown98_param_19,
-	.param .u64 Unknown98_param_20,
-	.param .u64 Unknown98_param_21
+.visible .entry Unknown99(
+	.param .u64 Unknown99_param_0,
+	.param .u64 Unknown99_param_1,
+	.param .u64 Unknown99_param_2,
+	.param .u64 Unknown99_param_3,
+	.param .u64 Unknown99_param_4,
+	.param .u64 Unknown99_param_5,
+	.param .u64 Unknown99_param_6,
+	.param .u64 Unknown99_param_7,
+	.param .u64 Unknown99_param_8,
+	.param .u64 Unknown99_param_9,
+	.param .u64 Unknown99_param_10,
+	.param .u64 Unknown99_param_11,
+	.param .u64 Unknown99_param_12,
+	.param .u64 Unknown99_param_13,
+	.param .u64 Unknown99_param_14,
+	.param .u64 Unknown99_param_15,
+	.param .u64 Unknown99_param_16,
+	.param .u64 Unknown99_param_17,
+	.param .u64 Unknown99_param_18,
+	.param .u64 Unknown99_param_19,
+	.param .u64 Unknown99_param_20,
+	.param .u64 Unknown99_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -47,9 +47,9 @@
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 2359295;
 	@%p1 bra 	$L__BB0_2;
-	ld.param.u64 	%rd4, [Unknown98_param_12];
+	ld.param.u64 	%rd4, [Unknown99_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown98_param_1];
+	ld.param.u64 	%rd5, [Unknown99_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -110,30 +110,30 @@ $L__BB0_2:
 	ret;
 
 }
-	// .globl	Unknown97
-.visible .entry Unknown97(
-	.param .u64 Unknown97_param_0,
-	.param .u64 Unknown97_param_1,
-	.param .u64 Unknown97_param_2,
-	.param .u64 Unknown97_param_3,
-	.param .u64 Unknown97_param_4,
-	.param .u64 Unknown97_param_5,
-	.param .u64 Unknown97_param_6,
-	.param .u64 Unknown97_param_7,
-	.param .u64 Unknown97_param_8,
-	.param .u64 Unknown97_param_9,
-	.param .u64 Unknown97_param_10,
-	.param .u64 Unknown97_param_11,
-	.param .u64 Unknown97_param_12,
-	.param .u64 Unknown97_param_13,
-	.param .u64 Unknown97_param_14,
-	.param .u64 Unknown97_param_15,
-	.param .u64 Unknown97_param_16,
-	.param .u64 Unknown97_param_17,
-	.param .u64 Unknown97_param_18,
-	.param .u64 Unknown97_param_19,
-	.param .u64 Unknown97_param_20,
-	.param .u64 Unknown97_param_21
+	// .globl	Unknown98
+.visible .entry Unknown98(
+	.param .u64 Unknown98_param_0,
+	.param .u64 Unknown98_param_1,
+	.param .u64 Unknown98_param_2,
+	.param .u64 Unknown98_param_3,
+	.param .u64 Unknown98_param_4,
+	.param .u64 Unknown98_param_5,
+	.param .u64 Unknown98_param_6,
+	.param .u64 Unknown98_param_7,
+	.param .u64 Unknown98_param_8,
+	.param .u64 Unknown98_param_9,
+	.param .u64 Unknown98_param_10,
+	.param .u64 Unknown98_param_11,
+	.param .u64 Unknown98_param_12,
+	.param .u64 Unknown98_param_13,
+	.param .u64 Unknown98_param_14,
+	.param .u64 Unknown98_param_15,
+	.param .u64 Unknown98_param_16,
+	.param .u64 Unknown98_param_17,
+	.param .u64 Unknown98_param_18,
+	.param .u64 Unknown98_param_19,
+	.param .u64 Unknown98_param_20,
+	.param .u64 Unknown98_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -150,9 +150,9 @@ $L__BB0_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 2359295;
 	@%p1 bra 	$L__BB1_2;
-	ld.param.u64 	%rd4, [Unknown97_param_12];
+	ld.param.u64 	%rd4, [Unknown98_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown97_param_1];
+	ld.param.u64 	%rd5, [Unknown98_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -213,30 +213,30 @@ $L__BB1_2:
 	ret;
 
 }
-	// .globl	Unknown96
-.visible .entry Unknown96(
-	.param .u64 Unknown96_param_0,
-	.param .u64 Unknown96_param_1,
-	.param .u64 Unknown96_param_2,
-	.param .u64 Unknown96_param_3,
-	.param .u64 Unknown96_param_4,
-	.param .u64 Unknown96_param_5,
-	.param .u64 Unknown96_param_6,
-	.param .u64 Unknown96_param_7,
-	.param .u64 Unknown96_param_8,
-	.param .u64 Unknown96_param_9,
-	.param .u64 Unknown96_param_10,
-	.param .u64 Unknown96_param_11,
-	.param .u64 Unknown96_param_12,
-	.param .u64 Unknown96_param_13,
-	.param .u64 Unknown96_param_14,
-	.param .u64 Unknown96_param_15,
-	.param .u64 Unknown96_param_16,
-	.param .u64 Unknown96_param_17,
-	.param .u64 Unknown96_param_18,
-	.param .u64 Unknown96_param_19,
-	.param .u64 Unknown96_param_20,
-	.param .u64 Unknown96_param_21
+	// .globl	Unknown97
+.visible .entry Unknown97(
+	.param .u64 Unknown97_param_0,
+	.param .u64 Unknown97_param_1,
+	.param .u64 Unknown97_param_2,
+	.param .u64 Unknown97_param_3,
+	.param .u64 Unknown97_param_4,
+	.param .u64 Unknown97_param_5,
+	.param .u64 Unknown97_param_6,
+	.param .u64 Unknown97_param_7,
+	.param .u64 Unknown97_param_8,
+	.param .u64 Unknown97_param_9,
+	.param .u64 Unknown97_param_10,
+	.param .u64 Unknown97_param_11,
+	.param .u64 Unknown97_param_12,
+	.param .u64 Unknown97_param_13,
+	.param .u64 Unknown97_param_14,
+	.param .u64 Unknown97_param_15,
+	.param .u64 Unknown97_param_16,
+	.param .u64 Unknown97_param_17,
+	.param .u64 Unknown97_param_18,
+	.param .u64 Unknown97_param_19,
+	.param .u64 Unknown97_param_20,
+	.param .u64 Unknown97_param_21
 )
 {
 	.reg .pred 	%p<3>;
@@ -253,9 +253,9 @@ $L__BB1_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 131071;
 	@%p1 bra 	$L__BB2_2;
-	ld.param.u64 	%rd4, [Unknown96_param_12];
+	ld.param.u64 	%rd4, [Unknown97_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown96_param_1];
+	ld.param.u64 	%rd5, [Unknown97_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	shr.s64 	%rd8, %rd3, 63;
 	shr.u64 	%rd9, %rd8, 56;
@@ -284,30 +284,30 @@ $L__BB2_2:
 	ret;
 
 }
-	// .globl	Unknown95
-.visible .entry Unknown95(
-	.param .u64 Unknown95_param_0,
-	.param .u64 Unknown95_param_1,
-	.param .u64 Unknown95_param_2,
-	.param .u64 Unknown95_param_3,
-	.param .u64 Unknown95_param_4,
-	.param .u64 Unknown95_param_5,
-	.param .u64 Unknown95_param_6,
-	.param .u64 Unknown95_param_7,
-	.param .u64 Unknown95_param_8,
-	.param .u64 Unknown95_param_9,
-	.param .u64 Unknown95_param_10,
-	.param .u64 Unknown95_param_11,
-	.param .u64 Unknown95_param_12,
-	.param .u64 Unknown95_param_13,
-	.param .u64 Unknown95_param_14,
-	.param .u64 Unknown95_param_15,
-	.param .u64 Unknown95_param_16,
-	.param .u64 Unknown95_param_17,
-	.param .u64 Unknown95_param_18,
-	.param .u64 Unknown95_param_19,
-	.param .u64 Unknown95_param_20,
-	.param .u64 Unknown95_param_21
+	// .globl	Unknown96
+.visible .entry Unknown96(
+	.param .u64 Unknown96_param_0,
+	.param .u64 Unknown96_param_1,
+	.param .u64 Unknown96_param_2,
+	.param .u64 Unknown96_param_3,
+	.param .u64 Unknown96_param_4,
+	.param .u64 Unknown96_param_5,
+	.param .u64 Unknown96_param_6,
+	.param .u64 Unknown96_param_7,
+	.param .u64 Unknown96_param_8,
+	.param .u64 Unknown96_param_9,
+	.param .u64 Unknown96_param_10,
+	.param .u64 Unknown96_param_11,
+	.param .u64 Unknown96_param_12,
+	.param .u64 Unknown96_param_13,
+	.param .u64 Unknown96_param_14,
+	.param .u64 Unknown96_param_15,
+	.param .u64 Unknown96_param_16,
+	.param .u64 Unknown96_param_17,
+	.param .u64 Unknown96_param_18,
+	.param .u64 Unknown96_param_19,
+	.param .u64 Unknown96_param_20,
+	.param .u64 Unknown96_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -324,9 +324,9 @@ $L__BB2_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 2359295;
 	@%p1 bra 	$L__BB3_2;
-	ld.param.u64 	%rd4, [Unknown95_param_12];
+	ld.param.u64 	%rd4, [Unknown96_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown95_param_1];
+	ld.param.u64 	%rd5, [Unknown96_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -387,30 +387,30 @@ $L__BB3_2:
 	ret;
 
 }
-	// .globl	Unknown94
-.visible .entry Unknown94(
-	.param .u64 Unknown94_param_0,
-	.param .u64 Unknown94_param_1,
-	.param .u64 Unknown94_param_2,
-	.param .u64 Unknown94_param_3,
-	.param .u64 Unknown94_param_4,
-	.param .u64 Unknown94_param_5,
-	.param .u64 Unknown94_param_6,
-	.param .u64 Unknown94_param_7,
-	.param .u64 Unknown94_param_8,
-	.param .u64 Unknown94_param_9,
-	.param .u64 Unknown94_param_10,
-	.param .u64 Unknown94_param_11,
-	.param .u64 Unknown94_param_12,
-	.param .u64 Unknown94_param_13,
-	.param .u64 Unknown94_param_14,
-	.param .u64 Unknown94_param_15,
-	.param .u64 Unknown94_param_16,
-	.param .u64 Unknown94_param_17,
-	.param .u64 Unknown94_param_18,
-	.param .u64 Unknown94_param_19,
-	.param .u64 Unknown94_param_20,
-	.param .u64 Unknown94_param_21
+	// .globl	Unknown95
+.visible .entry Unknown95(
+	.param .u64 Unknown95_param_0,
+	.param .u64 Unknown95_param_1,
+	.param .u64 Unknown95_param_2,
+	.param .u64 Unknown95_param_3,
+	.param .u64 Unknown95_param_4,
+	.param .u64 Unknown95_param_5,
+	.param .u64 Unknown95_param_6,
+	.param .u64 Unknown95_param_7,
+	.param .u64 Unknown95_param_8,
+	.param .u64 Unknown95_param_9,
+	.param .u64 Unknown95_param_10,
+	.param .u64 Unknown95_param_11,
+	.param .u64 Unknown95_param_12,
+	.param .u64 Unknown95_param_13,
+	.param .u64 Unknown95_param_14,
+	.param .u64 Unknown95_param_15,
+	.param .u64 Unknown95_param_16,
+	.param .u64 Unknown95_param_17,
+	.param .u64 Unknown95_param_18,
+	.param .u64 Unknown95_param_19,
+	.param .u64 Unknown95_param_20,
+	.param .u64 Unknown95_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -427,9 +427,9 @@ $L__BB3_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 1179647;
 	@%p1 bra 	$L__BB4_2;
-	ld.param.u64 	%rd4, [Unknown94_param_12];
+	ld.param.u64 	%rd4, [Unknown95_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown94_param_1];
+	ld.param.u64 	%rd5, [Unknown95_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -490,30 +490,30 @@ $L__BB4_2:
 	ret;
 
 }
-	// .globl	Unknown93
-.visible .entry Unknown93(
-	.param .u64 Unknown93_param_0,
-	.param .u64 Unknown93_param_1,
-	.param .u64 Unknown93_param_2,
-	.param .u64 Unknown93_param_3,
-	.param .u64 Unknown93_param_4,
-	.param .u64 Unknown93_param_5,
-	.param .u64 Unknown93_param_6,
-	.param .u64 Unknown93_param_7,
-	.param .u64 Unknown93_param_8,
-	.param .u64 Unknown93_param_9,
-	.param .u64 Unknown93_param_10,
-	.param .u64 Unknown93_param_11,
-	.param .u64 Unknown93_param_12,
-	.param .u64 Unknown93_param_13,
-	.param .u64 Unknown93_param_14,
-	.param .u64 Unknown93_param_15,
-	.param .u64 Unknown93_param_16,
-	.param .u64 Unknown93_param_17,
-	.param .u64 Unknown93_param_18,
-	.param .u64 Unknown93_param_19,
-	.param .u64 Unknown93_param_20,
-	.param .u64 Unknown93_param_21
+	// .globl	Unknown94
+.visible .entry Unknown94(
+	.param .u64 Unknown94_param_0,
+	.param .u64 Unknown94_param_1,
+	.param .u64 Unknown94_param_2,
+	.param .u64 Unknown94_param_3,
+	.param .u64 Unknown94_param_4,
+	.param .u64 Unknown94_param_5,
+	.param .u64 Unknown94_param_6,
+	.param .u64 Unknown94_param_7,
+	.param .u64 Unknown94_param_8,
+	.param .u64 Unknown94_param_9,
+	.param .u64 Unknown94_param_10,
+	.param .u64 Unknown94_param_11,
+	.param .u64 Unknown94_param_12,
+	.param .u64 Unknown94_param_13,
+	.param .u64 Unknown94_param_14,
+	.param .u64 Unknown94_param_15,
+	.param .u64 Unknown94_param_16,
+	.param .u64 Unknown94_param_17,
+	.param .u64 Unknown94_param_18,
+	.param .u64 Unknown94_param_19,
+	.param .u64 Unknown94_param_20,
+	.param .u64 Unknown94_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -530,9 +530,9 @@ $L__BB4_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 589823;
 	@%p1 bra 	$L__BB5_2;
-	ld.param.u64 	%rd4, [Unknown93_param_12];
+	ld.param.u64 	%rd4, [Unknown94_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown93_param_1];
+	ld.param.u64 	%rd5, [Unknown94_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -593,30 +593,30 @@ $L__BB5_2:
 	ret;
 
 }
-	// .globl	Unknown92
-.visible .entry Unknown92(
-	.param .u64 Unknown92_param_0,
-	.param .u64 Unknown92_param_1,
-	.param .u64 Unknown92_param_2,
-	.param .u64 Unknown92_param_3,
-	.param .u64 Unknown92_param_4,
-	.param .u64 Unknown92_param_5,
-	.param .u64 Unknown92_param_6,
-	.param .u64 Unknown92_param_7,
-	.param .u64 Unknown92_param_8,
-	.param .u64 Unknown92_param_9,
-	.param .u64 Unknown92_param_10,
-	.param .u64 Unknown92_param_11,
-	.param .u64 Unknown92_param_12,
-	.param .u64 Unknown92_param_13,
-	.param .u64 Unknown92_param_14,
-	.param .u64 Unknown92_param_15,
-	.param .u64 Unknown92_param_16,
-	.param .u64 Unknown92_param_17,
-	.param .u64 Unknown92_param_18,
-	.param .u64 Unknown92_param_19,
-	.param .u64 Unknown92_param_20,
-	.param .u64 Unknown92_param_21
+	// .globl	Unknown93
+.visible .entry Unknown93(
+	.param .u64 Unknown93_param_0,
+	.param .u64 Unknown93_param_1,
+	.param .u64 Unknown93_param_2,
+	.param .u64 Unknown93_param_3,
+	.param .u64 Unknown93_param_4,
+	.param .u64 Unknown93_param_5,
+	.param .u64 Unknown93_param_6,
+	.param .u64 Unknown93_param_7,
+	.param .u64 Unknown93_param_8,
+	.param .u64 Unknown93_param_9,
+	.param .u64 Unknown93_param_10,
+	.param .u64 Unknown93_param_11,
+	.param .u64 Unknown93_param_12,
+	.param .u64 Unknown93_param_13,
+	.param .u64 Unknown93_param_14,
+	.param .u64 Unknown93_param_15,
+	.param .u64 Unknown93_param_16,
+	.param .u64 Unknown93_param_17,
+	.param .u64 Unknown93_param_18,
+	.param .u64 Unknown93_param_19,
+	.param .u64 Unknown93_param_20,
+	.param .u64 Unknown93_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -633,9 +633,9 @@ $L__BB5_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 589823;
 	@%p1 bra 	$L__BB6_2;
-	ld.param.u64 	%rd4, [Unknown92_param_12];
+	ld.param.u64 	%rd4, [Unknown93_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown92_param_1];
+	ld.param.u64 	%rd5, [Unknown93_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -696,30 +696,30 @@ $L__BB6_2:
 	ret;
 
 }
-	// .globl	Unknown91
-.visible .entry Unknown91(
-	.param .u64 Unknown91_param_0,
-	.param .u64 Unknown91_param_1,
-	.param .u64 Unknown91_param_2,
-	.param .u64 Unknown91_param_3,
-	.param .u64 Unknown91_param_4,
-	.param .u64 Unknown91_param_5,
-	.param .u64 Unknown91_param_6,
-	.param .u64 Unknown91_param_7,
-	.param .u64 Unknown91_param_8,
-	.param .u64 Unknown91_param_9,
-	.param .u64 Unknown91_param_10,
-	.param .u64 Unknown91_param_11,
-	.param .u64 Unknown91_param_12,
-	.param .u64 Unknown91_param_13,
-	.param .u64 Unknown91_param_14,
-	.param .u64 Unknown91_param_15,
-	.param .u64 Unknown91_param_16,
-	.param .u64 Unknown91_param_17,
-	.param .u64 Unknown91_param_18,
-	.param .u64 Unknown91_param_19,
-	.param .u64 Unknown91_param_20,
-	.param .u64 Unknown91_param_21
+	// .globl	Unknown92
+.visible .entry Unknown92(
+	.param .u64 Unknown92_param_0,
+	.param .u64 Unknown92_param_1,
+	.param .u64 Unknown92_param_2,
+	.param .u64 Unknown92_param_3,
+	.param .u64 Unknown92_param_4,
+	.param .u64 Unknown92_param_5,
+	.param .u64 Unknown92_param_6,
+	.param .u64 Unknown92_param_7,
+	.param .u64 Unknown92_param_8,
+	.param .u64 Unknown92_param_9,
+	.param .u64 Unknown92_param_10,
+	.param .u64 Unknown92_param_11,
+	.param .u64 Unknown92_param_12,
+	.param .u64 Unknown92_param_13,
+	.param .u64 Unknown92_param_14,
+	.param .u64 Unknown92_param_15,
+	.param .u64 Unknown92_param_16,
+	.param .u64 Unknown92_param_17,
+	.param .u64 Unknown92_param_18,
+	.param .u64 Unknown92_param_19,
+	.param .u64 Unknown92_param_20,
+	.param .u64 Unknown92_param_21
 )
 {
 	.reg .pred 	%p<3>;
@@ -736,9 +736,9 @@ $L__BB6_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 32767;
 	@%p1 bra 	$L__BB7_2;
-	ld.param.u64 	%rd4, [Unknown91_param_12];
+	ld.param.u64 	%rd4, [Unknown92_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown91_param_1];
+	ld.param.u64 	%rd5, [Unknown92_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	shr.s64 	%rd8, %rd3, 63;
 	shr.u64 	%rd9, %rd8, 57;
@@ -767,30 +767,30 @@ $L__BB7_2:
 	ret;
 
 }
-	// .globl	Unknown90
-.visible .entry Unknown90(
-	.param .u64 Unknown90_param_0,
-	.param .u64 Unknown90_param_1,
-	.param .u64 Unknown90_param_2,
-	.param .u64 Unknown90_param_3,
-	.param .u64 Unknown90_param_4,
-	.param .u64 Unknown90_param_5,
-	.param .u64 Unknown90_param_6,
-	.param .u64 Unknown90_param_7,
-	.param .u64 Unknown90_param_8,
-	.param .u64 Unknown90_param_9,
-	.param .u64 Unknown90_param_10,
-	.param .u64 Unknown90_param_11,
-	.param .u64 Unknown90_param_12,
-	.param .u64 Unknown90_param_13,
-	.param .u64 Unknown90_param_14,
-	.param .u64 Unknown90_param_15,
-	.param .u64 Unknown90_param_16,
-	.param .u64 Unknown90_param_17,
-	.param .u64 Unknown90_param_18,
-	.param .u64 Unknown90_param_19,
-	.param .u64 Unknown90_param_20,
-	.param .u64 Unknown90_param_21
+	// .globl	Unknown91
+.visible .entry Unknown91(
+	.param .u64 Unknown91_param_0,
+	.param .u64 Unknown91_param_1,
+	.param .u64 Unknown91_param_2,
+	.param .u64 Unknown91_param_3,
+	.param .u64 Unknown91_param_4,
+	.param .u64 Unknown91_param_5,
+	.param .u64 Unknown91_param_6,
+	.param .u64 Unknown91_param_7,
+	.param .u64 Unknown91_param_8,
+	.param .u64 Unknown91_param_9,
+	.param .u64 Unknown91_param_10,
+	.param .u64 Unknown91_param_11,
+	.param .u64 Unknown91_param_12,
+	.param .u64 Unknown91_param_13,
+	.param .u64 Unknown91_param_14,
+	.param .u64 Unknown91_param_15,
+	.param .u64 Unknown91_param_16,
+	.param .u64 Unknown91_param_17,
+	.param .u64 Unknown91_param_18,
+	.param .u64 Unknown91_param_19,
+	.param .u64 Unknown91_param_20,
+	.param .u64 Unknown91_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -807,9 +807,9 @@ $L__BB7_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 589823;
 	@%p1 bra 	$L__BB8_2;
-	ld.param.u64 	%rd4, [Unknown90_param_12];
+	ld.param.u64 	%rd4, [Unknown91_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown90_param_1];
+	ld.param.u64 	%rd5, [Unknown91_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -870,30 +870,30 @@ $L__BB8_2:
 	ret;
 
 }
-	// .globl	Unknown89
-.visible .entry Unknown89(
-	.param .u64 Unknown89_param_0,
-	.param .u64 Unknown89_param_1,
-	.param .u64 Unknown89_param_2,
-	.param .u64 Unknown89_param_3,
-	.param .u64 Unknown89_param_4,
-	.param .u64 Unknown89_param_5,
-	.param .u64 Unknown89_param_6,
-	.param .u64 Unknown89_param_7,
-	.param .u64 Unknown89_param_8,
-	.param .u64 Unknown89_param_9,
-	.param .u64 Unknown89_param_10,
-	.param .u64 Unknown89_param_11,
-	.param .u64 Unknown89_param_12,
-	.param .u64 Unknown89_param_13,
-	.param .u64 Unknown89_param_14,
-	.param .u64 Unknown89_param_15,
-	.param .u64 Unknown89_param_16,
-	.param .u64 Unknown89_param_17,
-	.param .u64 Unknown89_param_18,
-	.param .u64 Unknown89_param_19,
-	.param .u64 Unknown89_param_20,
-	.param .u64 Unknown89_param_21
+	// .globl	Unknown90
+.visible .entry Unknown90(
+	.param .u64 Unknown90_param_0,
+	.param .u64 Unknown90_param_1,
+	.param .u64 Unknown90_param_2,
+	.param .u64 Unknown90_param_3,
+	.param .u64 Unknown90_param_4,
+	.param .u64 Unknown90_param_5,
+	.param .u64 Unknown90_param_6,
+	.param .u64 Unknown90_param_7,
+	.param .u64 Unknown90_param_8,
+	.param .u64 Unknown90_param_9,
+	.param .u64 Unknown90_param_10,
+	.param .u64 Unknown90_param_11,
+	.param .u64 Unknown90_param_12,
+	.param .u64 Unknown90_param_13,
+	.param .u64 Unknown90_param_14,
+	.param .u64 Unknown90_param_15,
+	.param .u64 Unknown90_param_16,
+	.param .u64 Unknown90_param_17,
+	.param .u64 Unknown90_param_18,
+	.param .u64 Unknown90_param_19,
+	.param .u64 Unknown90_param_20,
+	.param .u64 Unknown90_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -910,9 +910,9 @@ $L__BB8_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 294911;
 	@%p1 bra 	$L__BB9_2;
-	ld.param.u64 	%rd4, [Unknown89_param_12];
+	ld.param.u64 	%rd4, [Unknown90_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown89_param_1];
+	ld.param.u64 	%rd5, [Unknown90_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -973,30 +973,30 @@ $L__BB9_2:
 	ret;
 
 }
-	// .globl	Unknown88
-.visible .entry Unknown88(
-	.param .u64 Unknown88_param_0,
-	.param .u64 Unknown88_param_1,
-	.param .u64 Unknown88_param_2,
-	.param .u64 Unknown88_param_3,
-	.param .u64 Unknown88_param_4,
-	.param .u64 Unknown88_param_5,
-	.param .u64 Unknown88_param_6,
-	.param .u64 Unknown88_param_7,
-	.param .u64 Unknown88_param_8,
-	.param .u64 Unknown88_param_9,
-	.param .u64 Unknown88_param_10,
-	.param .u64 Unknown88_param_11,
-	.param .u64 Unknown88_param_12,
-	.param .u64 Unknown88_param_13,
-	.param .u64 Unknown88_param_14,
-	.param .u64 Unknown88_param_15,
-	.param .u64 Unknown88_param_16,
-	.param .u64 Unknown88_param_17,
-	.param .u64 Unknown88_param_18,
-	.param .u64 Unknown88_param_19,
-	.param .u64 Unknown88_param_20,
-	.param .u64 Unknown88_param_21
+	// .globl	Unknown89
+.visible .entry Unknown89(
+	.param .u64 Unknown89_param_0,
+	.param .u64 Unknown89_param_1,
+	.param .u64 Unknown89_param_2,
+	.param .u64 Unknown89_param_3,
+	.param .u64 Unknown89_param_4,
+	.param .u64 Unknown89_param_5,
+	.param .u64 Unknown89_param_6,
+	.param .u64 Unknown89_param_7,
+	.param .u64 Unknown89_param_8,
+	.param .u64 Unknown89_param_9,
+	.param .u64 Unknown89_param_10,
+	.param .u64 Unknown89_param_11,
+	.param .u64 Unknown89_param_12,
+	.param .u64 Unknown89_param_13,
+	.param .u64 Unknown89_param_14,
+	.param .u64 Unknown89_param_15,
+	.param .u64 Unknown89_param_16,
+	.param .u64 Unknown89_param_17,
+	.param .u64 Unknown89_param_18,
+	.param .u64 Unknown89_param_19,
+	.param .u64 Unknown89_param_20,
+	.param .u64 Unknown89_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1013,9 +1013,9 @@ $L__BB9_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 147455;
 	@%p1 bra 	$L__BB10_2;
-	ld.param.u64 	%rd4, [Unknown88_param_12];
+	ld.param.u64 	%rd4, [Unknown89_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown88_param_1];
+	ld.param.u64 	%rd5, [Unknown89_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1076,30 +1076,30 @@ $L__BB10_2:
 	ret;
 
 }
-	// .globl	Unknown87
-.visible .entry Unknown87(
-	.param .u64 Unknown87_param_0,
-	.param .u64 Unknown87_param_1,
-	.param .u64 Unknown87_param_2,
-	.param .u64 Unknown87_param_3,
-	.param .u64 Unknown87_param_4,
-	.param .u64 Unknown87_param_5,
-	.param .u64 Unknown87_param_6,
-	.param .u64 Unknown87_param_7,
-	.param .u64 Unknown87_param_8,
-	.param .u64 Unknown87_param_9,
-	.param .u64 Unknown87_param_10,
-	.param .u64 Unknown87_param_11,
-	.param .u64 Unknown87_param_12,
-	.param .u64 Unknown87_param_13,
-	.param .u64 Unknown87_param_14,
-	.param .u64 Unknown87_param_15,
-	.param .u64 Unknown87_param_16,
-	.param .u64 Unknown87_param_17,
-	.param .u64 Unknown87_param_18,
-	.param .u64 Unknown87_param_19,
-	.param .u64 Unknown87_param_20,
-	.param .u64 Unknown87_param_21
+	// .globl	Unknown88
+.visible .entry Unknown88(
+	.param .u64 Unknown88_param_0,
+	.param .u64 Unknown88_param_1,
+	.param .u64 Unknown88_param_2,
+	.param .u64 Unknown88_param_3,
+	.param .u64 Unknown88_param_4,
+	.param .u64 Unknown88_param_5,
+	.param .u64 Unknown88_param_6,
+	.param .u64 Unknown88_param_7,
+	.param .u64 Unknown88_param_8,
+	.param .u64 Unknown88_param_9,
+	.param .u64 Unknown88_param_10,
+	.param .u64 Unknown88_param_11,
+	.param .u64 Unknown88_param_12,
+	.param .u64 Unknown88_param_13,
+	.param .u64 Unknown88_param_14,
+	.param .u64 Unknown88_param_15,
+	.param .u64 Unknown88_param_16,
+	.param .u64 Unknown88_param_17,
+	.param .u64 Unknown88_param_18,
+	.param .u64 Unknown88_param_19,
+	.param .u64 Unknown88_param_20,
+	.param .u64 Unknown88_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1116,9 +1116,9 @@ $L__BB10_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 147455;
 	@%p1 bra 	$L__BB11_2;
-	ld.param.u64 	%rd4, [Unknown87_param_12];
+	ld.param.u64 	%rd4, [Unknown88_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown87_param_1];
+	ld.param.u64 	%rd5, [Unknown88_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1179,30 +1179,30 @@ $L__BB11_2:
 	ret;
 
 }
-	// .globl	Unknown86
-.visible .entry Unknown86(
-	.param .u64 Unknown86_param_0,
-	.param .u64 Unknown86_param_1,
-	.param .u64 Unknown86_param_2,
-	.param .u64 Unknown86_param_3,
-	.param .u64 Unknown86_param_4,
-	.param .u64 Unknown86_param_5,
-	.param .u64 Unknown86_param_6,
-	.param .u64 Unknown86_param_7,
-	.param .u64 Unknown86_param_8,
-	.param .u64 Unknown86_param_9,
-	.param .u64 Unknown86_param_10,
-	.param .u64 Unknown86_param_11,
-	.param .u64 Unknown86_param_12,
-	.param .u64 Unknown86_param_13,
-	.param .u64 Unknown86_param_14,
-	.param .u64 Unknown86_param_15,
-	.param .u64 Unknown86_param_16,
-	.param .u64 Unknown86_param_17,
-	.param .u64 Unknown86_param_18,
-	.param .u64 Unknown86_param_19,
-	.param .u64 Unknown86_param_20,
-	.param .u64 Unknown86_param_21
+	// .globl	Unknown87
+.visible .entry Unknown87(
+	.param .u64 Unknown87_param_0,
+	.param .u64 Unknown87_param_1,
+	.param .u64 Unknown87_param_2,
+	.param .u64 Unknown87_param_3,
+	.param .u64 Unknown87_param_4,
+	.param .u64 Unknown87_param_5,
+	.param .u64 Unknown87_param_6,
+	.param .u64 Unknown87_param_7,
+	.param .u64 Unknown87_param_8,
+	.param .u64 Unknown87_param_9,
+	.param .u64 Unknown87_param_10,
+	.param .u64 Unknown87_param_11,
+	.param .u64 Unknown87_param_12,
+	.param .u64 Unknown87_param_13,
+	.param .u64 Unknown87_param_14,
+	.param .u64 Unknown87_param_15,
+	.param .u64 Unknown87_param_16,
+	.param .u64 Unknown87_param_17,
+	.param .u64 Unknown87_param_18,
+	.param .u64 Unknown87_param_19,
+	.param .u64 Unknown87_param_20,
+	.param .u64 Unknown87_param_21
 )
 {
 	.reg .pred 	%p<3>;
@@ -1219,9 +1219,9 @@ $L__BB11_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 8191;
 	@%p1 bra 	$L__BB12_2;
-	ld.param.u64 	%rd4, [Unknown86_param_12];
+	ld.param.u64 	%rd4, [Unknown87_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown86_param_1];
+	ld.param.u64 	%rd5, [Unknown87_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	shr.s64 	%rd8, %rd3, 63;
 	shr.u64 	%rd9, %rd8, 58;
@@ -1250,30 +1250,30 @@ $L__BB12_2:
 	ret;
 
 }
-	// .globl	Unknown85
-.visible .entry Unknown85(
-	.param .u64 Unknown85_param_0,
-	.param .u64 Unknown85_param_1,
-	.param .u64 Unknown85_param_2,
-	.param .u64 Unknown85_param_3,
-	.param .u64 Unknown85_param_4,
-	.param .u64 Unknown85_param_5,
-	.param .u64 Unknown85_param_6,
-	.param .u64 Unknown85_param_7,
-	.param .u64 Unknown85_param_8,
-	.param .u64 Unknown85_param_9,
-	.param .u64 Unknown85_param_10,
-	.param .u64 Unknown85_param_11,
-	.param .u64 Unknown85_param_12,
-	.param .u64 Unknown85_param_13,
-	.param .u64 Unknown85_param_14,
-	.param .u64 Unknown85_param_15,
-	.param .u64 Unknown85_param_16,
-	.param .u64 Unknown85_param_17,
-	.param .u64 Unknown85_param_18,
-	.param .u64 Unknown85_param_19,
-	.param .u64 Unknown85_param_20,
-	.param .u64 Unknown85_param_21
+	// .globl	Unknown86
+.visible .entry Unknown86(
+	.param .u64 Unknown86_param_0,
+	.param .u64 Unknown86_param_1,
+	.param .u64 Unknown86_param_2,
+	.param .u64 Unknown86_param_3,
+	.param .u64 Unknown86_param_4,
+	.param .u64 Unknown86_param_5,
+	.param .u64 Unknown86_param_6,
+	.param .u64 Unknown86_param_7,
+	.param .u64 Unknown86_param_8,
+	.param .u64 Unknown86_param_9,
+	.param .u64 Unknown86_param_10,
+	.param .u64 Unknown86_param_11,
+	.param .u64 Unknown86_param_12,
+	.param .u64 Unknown86_param_13,
+	.param .u64 Unknown86_param_14,
+	.param .u64 Unknown86_param_15,
+	.param .u64 Unknown86_param_16,
+	.param .u64 Unknown86_param_17,
+	.param .u64 Unknown86_param_18,
+	.param .u64 Unknown86_param_19,
+	.param .u64 Unknown86_param_20,
+	.param .u64 Unknown86_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1290,9 +1290,9 @@ $L__BB12_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 147455;
 	@%p1 bra 	$L__BB13_2;
-	ld.param.u64 	%rd4, [Unknown85_param_12];
+	ld.param.u64 	%rd4, [Unknown86_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown85_param_1];
+	ld.param.u64 	%rd5, [Unknown86_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1353,30 +1353,30 @@ $L__BB13_2:
 	ret;
 
 }
-	// .globl	Unknown84
-.visible .entry Unknown84(
-	.param .u64 Unknown84_param_0,
-	.param .u64 Unknown84_param_1,
-	.param .u64 Unknown84_param_2,
-	.param .u64 Unknown84_param_3,
-	.param .u64 Unknown84_param_4,
-	.param .u64 Unknown84_param_5,
-	.param .u64 Unknown84_param_6,
-	.param .u64 Unknown84_param_7,
-	.param .u64 Unknown84_param_8,
-	.param .u64 Unknown84_param_9,
-	.param .u64 Unknown84_param_10,
-	.param .u64 Unknown84_param_11,
-	.param .u64 Unknown84_param_12,
-	.param .u64 Unknown84_param_13,
-	.param .u64 Unknown84_param_14,
-	.param .u64 Unknown84_param_15,
-	.param .u64 Unknown84_param_16,
-	.param .u64 Unknown84_param_17,
-	.param .u64 Unknown84_param_18,
-	.param .u64 Unknown84_param_19,
-	.param .u64 Unknown84_param_20,
-	.param .u64 Unknown84_param_21
+	// .globl	Unknown85
+.visible .entry Unknown85(
+	.param .u64 Unknown85_param_0,
+	.param .u64 Unknown85_param_1,
+	.param .u64 Unknown85_param_2,
+	.param .u64 Unknown85_param_3,
+	.param .u64 Unknown85_param_4,
+	.param .u64 Unknown85_param_5,
+	.param .u64 Unknown85_param_6,
+	.param .u64 Unknown85_param_7,
+	.param .u64 Unknown85_param_8,
+	.param .u64 Unknown85_param_9,
+	.param .u64 Unknown85_param_10,
+	.param .u64 Unknown85_param_11,
+	.param .u64 Unknown85_param_12,
+	.param .u64 Unknown85_param_13,
+	.param .u64 Unknown85_param_14,
+	.param .u64 Unknown85_param_15,
+	.param .u64 Unknown85_param_16,
+	.param .u64 Unknown85_param_17,
+	.param .u64 Unknown85_param_18,
+	.param .u64 Unknown85_param_19,
+	.param .u64 Unknown85_param_20,
+	.param .u64 Unknown85_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1393,9 +1393,9 @@ $L__BB13_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 73727;
 	@%p1 bra 	$L__BB14_2;
-	ld.param.u64 	%rd4, [Unknown84_param_12];
+	ld.param.u64 	%rd4, [Unknown85_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown84_param_1];
+	ld.param.u64 	%rd5, [Unknown85_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1456,30 +1456,30 @@ $L__BB14_2:
 	ret;
 
 }
-	// .globl	Unknown83
-.visible .entry Unknown83(
-	.param .u64 Unknown83_param_0,
-	.param .u64 Unknown83_param_1,
-	.param .u64 Unknown83_param_2,
-	.param .u64 Unknown83_param_3,
-	.param .u64 Unknown83_param_4,
-	.param .u64 Unknown83_param_5,
-	.param .u64 Unknown83_param_6,
-	.param .u64 Unknown83_param_7,
-	.param .u64 Unknown83_param_8,
-	.param .u64 Unknown83_param_9,
-	.param .u64 Unknown83_param_10,
-	.param .u64 Unknown83_param_11,
-	.param .u64 Unknown83_param_12,
-	.param .u64 Unknown83_param_13,
-	.param .u64 Unknown83_param_14,
-	.param .u64 Unknown83_param_15,
-	.param .u64 Unknown83_param_16,
-	.param .u64 Unknown83_param_17,
-	.param .u64 Unknown83_param_18,
-	.param .u64 Unknown83_param_19,
-	.param .u64 Unknown83_param_20,
-	.param .u64 Unknown83_param_21
+	// .globl	Unknown84
+.visible .entry Unknown84(
+	.param .u64 Unknown84_param_0,
+	.param .u64 Unknown84_param_1,
+	.param .u64 Unknown84_param_2,
+	.param .u64 Unknown84_param_3,
+	.param .u64 Unknown84_param_4,
+	.param .u64 Unknown84_param_5,
+	.param .u64 Unknown84_param_6,
+	.param .u64 Unknown84_param_7,
+	.param .u64 Unknown84_param_8,
+	.param .u64 Unknown84_param_9,
+	.param .u64 Unknown84_param_10,
+	.param .u64 Unknown84_param_11,
+	.param .u64 Unknown84_param_12,
+	.param .u64 Unknown84_param_13,
+	.param .u64 Unknown84_param_14,
+	.param .u64 Unknown84_param_15,
+	.param .u64 Unknown84_param_16,
+	.param .u64 Unknown84_param_17,
+	.param .u64 Unknown84_param_18,
+	.param .u64 Unknown84_param_19,
+	.param .u64 Unknown84_param_20,
+	.param .u64 Unknown84_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1496,9 +1496,9 @@ $L__BB14_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 36863;
 	@%p1 bra 	$L__BB15_2;
-	ld.param.u64 	%rd4, [Unknown83_param_12];
+	ld.param.u64 	%rd4, [Unknown84_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown83_param_1];
+	ld.param.u64 	%rd5, [Unknown84_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1559,30 +1559,30 @@ $L__BB15_2:
 	ret;
 
 }
-	// .globl	Unknown82
-.visible .entry Unknown82(
-	.param .u64 Unknown82_param_0,
-	.param .u64 Unknown82_param_1,
-	.param .u64 Unknown82_param_2,
-	.param .u64 Unknown82_param_3,
-	.param .u64 Unknown82_param_4,
-	.param .u64 Unknown82_param_5,
-	.param .u64 Unknown82_param_6,
-	.param .u64 Unknown82_param_7,
-	.param .u64 Unknown82_param_8,
-	.param .u64 Unknown82_param_9,
-	.param .u64 Unknown82_param_10,
-	.param .u64 Unknown82_param_11,
-	.param .u64 Unknown82_param_12,
-	.param .u64 Unknown82_param_13,
-	.param .u64 Unknown82_param_14,
-	.param .u64 Unknown82_param_15,
-	.param .u64 Unknown82_param_16,
-	.param .u64 Unknown82_param_17,
-	.param .u64 Unknown82_param_18,
-	.param .u64 Unknown82_param_19,
-	.param .u64 Unknown82_param_20,
-	.param .u64 Unknown82_param_21
+	// .globl	Unknown83
+.visible .entry Unknown83(
+	.param .u64 Unknown83_param_0,
+	.param .u64 Unknown83_param_1,
+	.param .u64 Unknown83_param_2,
+	.param .u64 Unknown83_param_3,
+	.param .u64 Unknown83_param_4,
+	.param .u64 Unknown83_param_5,
+	.param .u64 Unknown83_param_6,
+	.param .u64 Unknown83_param_7,
+	.param .u64 Unknown83_param_8,
+	.param .u64 Unknown83_param_9,
+	.param .u64 Unknown83_param_10,
+	.param .u64 Unknown83_param_11,
+	.param .u64 Unknown83_param_12,
+	.param .u64 Unknown83_param_13,
+	.param .u64 Unknown83_param_14,
+	.param .u64 Unknown83_param_15,
+	.param .u64 Unknown83_param_16,
+	.param .u64 Unknown83_param_17,
+	.param .u64 Unknown83_param_18,
+	.param .u64 Unknown83_param_19,
+	.param .u64 Unknown83_param_20,
+	.param .u64 Unknown83_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1599,9 +1599,9 @@ $L__BB15_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 36863;
 	@%p1 bra 	$L__BB16_2;
-	ld.param.u64 	%rd4, [Unknown82_param_12];
+	ld.param.u64 	%rd4, [Unknown83_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown82_param_1];
+	ld.param.u64 	%rd5, [Unknown83_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1662,30 +1662,30 @@ $L__BB16_2:
 	ret;
 
 }
-	// .globl	Unknown81
-.visible .entry Unknown81(
-	.param .u64 Unknown81_param_0,
-	.param .u64 Unknown81_param_1,
-	.param .u64 Unknown81_param_2,
-	.param .u64 Unknown81_param_3,
-	.param .u64 Unknown81_param_4,
-	.param .u64 Unknown81_param_5,
-	.param .u64 Unknown81_param_6,
-	.param .u64 Unknown81_param_7,
-	.param .u64 Unknown81_param_8,
-	.param .u64 Unknown81_param_9,
-	.param .u64 Unknown81_param_10,
-	.param .u64 Unknown81_param_11,
-	.param .u64 Unknown81_param_12,
-	.param .u64 Unknown81_param_13,
-	.param .u64 Unknown81_param_14,
-	.param .u64 Unknown81_param_15,
-	.param .u64 Unknown81_param_16,
-	.param .u64 Unknown81_param_17,
-	.param .u64 Unknown81_param_18,
-	.param .u64 Unknown81_param_19,
-	.param .u64 Unknown81_param_20,
-	.param .u64 Unknown81_param_21
+	// .globl	Unknown82
+.visible .entry Unknown82(
+	.param .u64 Unknown82_param_0,
+	.param .u64 Unknown82_param_1,
+	.param .u64 Unknown82_param_2,
+	.param .u64 Unknown82_param_3,
+	.param .u64 Unknown82_param_4,
+	.param .u64 Unknown82_param_5,
+	.param .u64 Unknown82_param_6,
+	.param .u64 Unknown82_param_7,
+	.param .u64 Unknown82_param_8,
+	.param .u64 Unknown82_param_9,
+	.param .u64 Unknown82_param_10,
+	.param .u64 Unknown82_param_11,
+	.param .u64 Unknown82_param_12,
+	.param .u64 Unknown82_param_13,
+	.param .u64 Unknown82_param_14,
+	.param .u64 Unknown82_param_15,
+	.param .u64 Unknown82_param_16,
+	.param .u64 Unknown82_param_17,
+	.param .u64 Unknown82_param_18,
+	.param .u64 Unknown82_param_19,
+	.param .u64 Unknown82_param_20,
+	.param .u64 Unknown82_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1702,9 +1702,9 @@ $L__BB16_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 36863;
 	@%p1 bra 	$L__BB17_2;
-	ld.param.u64 	%rd4, [Unknown81_param_12];
+	ld.param.u64 	%rd4, [Unknown82_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown81_param_1];
+	ld.param.u64 	%rd5, [Unknown82_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1765,30 +1765,30 @@ $L__BB17_2:
 	ret;
 
 }
-	// .globl	Unknown80
-.visible .entry Unknown80(
-	.param .u64 Unknown80_param_0,
-	.param .u64 Unknown80_param_1,
-	.param .u64 Unknown80_param_2,
-	.param .u64 Unknown80_param_3,
-	.param .u64 Unknown80_param_4,
-	.param .u64 Unknown80_param_5,
-	.param .u64 Unknown80_param_6,
-	.param .u64 Unknown80_param_7,
-	.param .u64 Unknown80_param_8,
-	.param .u64 Unknown80_param_9,
-	.param .u64 Unknown80_param_10,
-	.param .u64 Unknown80_param_11,
-	.param .u64 Unknown80_param_12,
-	.param .u64 Unknown80_param_13,
-	.param .u64 Unknown80_param_14,
-	.param .u64 Unknown80_param_15,
-	.param .u64 Unknown80_param_16,
-	.param .u64 Unknown80_param_17,
-	.param .u64 Unknown80_param_18,
-	.param .u64 Unknown80_param_19,
-	.param .u64 Unknown80_param_20,
-	.param .u64 Unknown80_param_21
+	// .globl	Unknown81
+.visible .entry Unknown81(
+	.param .u64 Unknown81_param_0,
+	.param .u64 Unknown81_param_1,
+	.param .u64 Unknown81_param_2,
+	.param .u64 Unknown81_param_3,
+	.param .u64 Unknown81_param_4,
+	.param .u64 Unknown81_param_5,
+	.param .u64 Unknown81_param_6,
+	.param .u64 Unknown81_param_7,
+	.param .u64 Unknown81_param_8,
+	.param .u64 Unknown81_param_9,
+	.param .u64 Unknown81_param_10,
+	.param .u64 Unknown81_param_11,
+	.param .u64 Unknown81_param_12,
+	.param .u64 Unknown81_param_13,
+	.param .u64 Unknown81_param_14,
+	.param .u64 Unknown81_param_15,
+	.param .u64 Unknown81_param_16,
+	.param .u64 Unknown81_param_17,
+	.param .u64 Unknown81_param_18,
+	.param .u64 Unknown81_param_19,
+	.param .u64 Unknown81_param_20,
+	.param .u64 Unknown81_param_21
 )
 {
 	.reg .pred 	%p<5>;
@@ -1805,9 +1805,9 @@ $L__BB17_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 36863;
 	@%p1 bra 	$L__BB18_2;
-	ld.param.u64 	%rd4, [Unknown80_param_12];
+	ld.param.u64 	%rd4, [Unknown81_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown80_param_1];
+	ld.param.u64 	%rd5, [Unknown81_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	mul.hi.s64 	%rd8, %rd3, 6148914691236517206;
 	shr.u64 	%rd9, %rd8, 63;
@@ -1868,22 +1868,22 @@ $L__BB18_2:
 	ret;
 
 }
-	// .globl	Unknown79
-.visible .entry Unknown79(
-	.param .u64 Unknown79_param_0,
-	.param .u64 Unknown79_param_1,
-	.param .u64 Unknown79_param_2,
-	.param .u64 Unknown79_param_3,
-	.param .u64 Unknown79_param_4,
-	.param .u64 Unknown79_param_5,
-	.param .u64 Unknown79_param_6,
-	.param .u64 Unknown79_param_7,
-	.param .u64 Unknown79_param_8,
-	.param .u64 Unknown79_param_9,
-	.param .u64 Unknown79_param_10,
-	.param .u64 Unknown79_param_11,
-	.param .u64 Unknown79_param_12,
-	.param .u64 Unknown79_param_13
+	// .globl	Unknown80
+.visible .entry Unknown80(
+	.param .u64 Unknown80_param_0,
+	.param .u64 Unknown80_param_1,
+	.param .u64 Unknown80_param_2,
+	.param .u64 Unknown80_param_3,
+	.param .u64 Unknown80_param_4,
+	.param .u64 Unknown80_param_5,
+	.param .u64 Unknown80_param_6,
+	.param .u64 Unknown80_param_7,
+	.param .u64 Unknown80_param_8,
+	.param .u64 Unknown80_param_9,
+	.param .u64 Unknown80_param_10,
+	.param .u64 Unknown80_param_11,
+	.param .u64 Unknown80_param_12,
+	.param .u64 Unknown80_param_13
 )
 {
 	.reg .pred 	%p<3>;
@@ -1900,9 +1900,9 @@ $L__BB18_2:
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 511999;
 	@%p1 bra 	$L__BB19_2;
-	ld.param.u64 	%rd4, [Unknown79_param_8];
+	ld.param.u64 	%rd4, [Unknown80_param_8];
 	cvta.to.global.u64 	%rd1, %rd4;
-	ld.param.u64 	%rd5, [Unknown79_param_1];
+	ld.param.u64 	%rd5, [Unknown80_param_1];
 	cvta.to.global.u64 	%rd2, %rd5;
 	shr.s64 	%rd8, %rd3, 63;
 	shr.u64 	%rd9, %rd8, 55;
@@ -1931,6 +1931,49 @@ $L__BB19_2:
 	ret;
 
 }
+	// .globl	Unknown79
+.visible .entry Unknown79(
+	.param .u64 Unknown79_param_0,
+	.param .u64 Unknown79_param_1,
+	.param .u64 Unknown79_param_2,
+	.param .u64 Unknown79_param_3,
+	.param .u64 Unknown79_param_4,
+	.param .u64 Unknown79_param_5,
+	.param .u64 Unknown79_param_6,
+	.param .u64 Unknown79_param_7,
+	.param .u64 Unknown79_param_8,
+	.param .u64 Unknown79_param_9
+)
+{
+	.reg .pred 	%p<2>;
+	.reg .b16 	%h<2>;
+	.reg .b32 	%r<4>;
+	.reg .f32 	%f<3>;
+	.reg .b64 	%rd<11>;
+
+	mov.u32 	%r1, %ctaid.x;
+	mov.u32 	%r2, %ntid.x;
+	mov.u32 	%r3, %tid.x;
+	cvt.s64.s32 	%rd7, %r3;
+	mul.wide.s32 	%rd8, %r2, %r1;
+	add.s64 	%rd9, %rd8, %rd7;
+	setp.gt.s64 	%p1, %rd9, 999;
+	@%p1 bra 	$L__BB20_2;
+	ld.param.u64 	%rd3, [Unknown79_param_6];
+	cvta.to.global.u64 	%rd4, %rd3;
+	ld.param.u64 	%rd5, [Unknown79_param_1];
+	cvta.to.global.u64 	%rd6, %rd5;
+	shl.b64 	%rd10, %rd9, 2;
+	add.s64 	%rd1, %rd6, %rd10;
+	add.s64 	%rd2, %rd4, %rd10;
+	ld.global.f32 	%f1, [%rd1];
+	cvt.rn.f16.f32 	%h1, %f1;
+	cvt.f32.f16 	%f2, %h1;
+	st.global.f32 	[%rd2], %f2;
+$L__BB20_2:
+	ret;
+
+}
 	// .globl	Unknown78
 .visible .entry Unknown78(
 	.param .u64 Unknown78_param_0,
@@ -1949,11 +1992,11 @@ $L__BB19_2:
 	.param .u64 Unknown78_param_13
 )
 {
-	.reg .pred 	%p<3>;
+	.reg .pred 	%p<2>;
 	.reg .b16 	%h<2>;
 	.reg .b32 	%r<4>;
 	.reg .f32 	%f<2>;
-	.reg .b64 	%rd<14>;
+	.reg .b64 	%rd<12>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -1962,22 +2005,19 @@ $L__BB19_2:
 	mul.wide.s32 	%rd8, %r2, %r1;
 	add.s64 	%rd9, %rd8, %rd7;
 	setp.gt.s64 	%p1, %rd9, 999;
-	@%p1 bra 	$L__BB20_2;
+	@%p1 bra 	$L__BB21_2;
 	ld.param.u64 	%rd3, [Unknown78_param_8];
 	cvta.to.global.u64 	%rd4, %rd3;
 	ld.param.u64 	%rd5, [Unknown78_param_1];
 	cvta.to.global.u64 	%rd6, %rd5;
-	setp.lt.s64 	%p2, %rd9, 0;
-	add.s64 	%rd10, %rd9, 1000;
-	selp.b64 	%rd11, %rd10, %rd9, %p2;
-	shl.b64 	%rd12, %rd11, 1;
-	add.s64 	%rd1, %rd6, %rd12;
-	shl.b64 	%rd13, %rd11, 2;
-	add.s64 	%rd2, %rd4, %rd13;
+	shl.b64 	%rd10, %rd9, 1;
+	add.s64 	%rd1, %rd6, %rd10;
+	shl.b64 	%rd11, %rd9, 2;
+	add.s64 	%rd2, %rd4, %rd11;
 	ld.global.b16 	%h1, [%rd1];
 	cvt.f32.f16 	%f1, %h1;
 	st.global.f32 	[%rd2], %f1;
-$L__BB20_2:
+$L__BB21_2:
 	ret;
 
 }
@@ -2020,7 +2060,7 @@ $L__BB20_2:
 	mul.wide.s32 	%rd7, %r2, %r1;
 	add.s64 	%rd3, %rd7, %rd6;
 	setp.gt.s64 	%p1, %rd3, 9407;
-	@%p1 bra 	$L__BB21_2;
+	@%p1 bra 	$L__BB22_2;
 	ld.param.u64 	%rd4, [Unknown77_param_12];
 	cvta.to.global.u64 	%rd1, %rd4;
 	ld.param.u64 	%rd5, [Unknown77_param_1];
@@ -2084,7 +2124,7 @@ $L__BB20_2:
 	shl.b64 	%rd59, %rd56, 2;
 	add.s64 	%rd60, %rd1, %rd59;
 	st.global.f32 	[%rd60], %f1;
-$L__BB21_2:
+$L__BB22_2:
 	ret;
 
 }
@@ -2125,10 +2165,10 @@ $L__BB21_2:
 	.param .u64 Unknown74_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2137,7 +2177,7 @@ $L__BB21_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 802815;
-	@%p1 bra 	$L__BB22_2;
+	@%p1 bra 	$L__BB23_2;
 	ld.param.u64 	%rd5, [Unknown74_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown74_param_1];
@@ -2176,37 +2216,21 @@ $L__BB21_2:
 	shr.s64 	%rd37, %rd35, 5;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 802816;
-	mul.lo.s64 	%rd54, %rd46, 12544;
-	mul.lo.s64 	%rd55, %rd32, 112;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 12544;
+	mul.lo.s64 	%rd41, %rd32, 112;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB22_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB23_2:
 	ret;
 
 }
@@ -2247,10 +2271,10 @@ $L__BB22_2:
 	.param .u64 Unknown73_param_32
 )
 {
-	.reg .pred 	%p<5>;
+	.reg .pred 	%p<4>;
 	.reg .b16 	%h<4>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2259,7 +2283,7 @@ $L__BB22_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 200703;
-	@%p1 bra 	$L__BB23_2;
+	@%p1 bra 	$L__BB24_2;
 	ld.param.u64 	%rd5, [Unknown73_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown73_param_1];
@@ -2298,35 +2322,19 @@ $L__BB22_2:
 	shr.s64 	%rd37, %rd35, 4;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 200704;
-	mul.lo.s64 	%rd54, %rd46, 3136;
-	mul.lo.s64 	%rd55, %rd32, 56;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 3136;
+	mul.lo.s64 	%rd41, %rd32, 56;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	add.rn.f16 	%h3, %h1, %h2;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h3;
-$L__BB23_2:
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h3;
+$L__BB24_2:
 	ret;
 
 }
@@ -2367,10 +2375,10 @@ $L__BB23_2:
 	.param .u64 Unknown69_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2379,7 +2387,7 @@ $L__BB23_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 200703;
-	@%p1 bra 	$L__BB24_2;
+	@%p1 bra 	$L__BB25_2;
 	ld.param.u64 	%rd5, [Unknown69_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown69_param_1];
@@ -2418,37 +2426,21 @@ $L__BB23_2:
 	shr.s64 	%rd37, %rd35, 4;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 200704;
-	mul.lo.s64 	%rd54, %rd46, 3136;
-	mul.lo.s64 	%rd55, %rd32, 56;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 3136;
+	mul.lo.s64 	%rd41, %rd32, 56;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB24_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB25_2:
 	ret;
 
 }
@@ -2500,10 +2492,10 @@ $L__BB24_2:
 	.param .u64 Unknown65_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2512,7 +2504,7 @@ $L__BB24_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 200703;
-	@%p1 bra 	$L__BB25_2;
+	@%p1 bra 	$L__BB26_2;
 	ld.param.u64 	%rd6, [Unknown65_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown65_param_1];
@@ -2553,40 +2545,24 @@ $L__BB24_2:
 	shr.s64 	%rd39, %rd37, 4;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 58;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -64;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 64;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 58;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 6;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 200704;
-	mul.lo.s64 	%rd56, %rd48, 3136;
-	mul.lo.s64 	%rd57, %rd34, 56;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 3136;
+	mul.lo.s64 	%rd43, %rd34, 56;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB25_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB26_2:
 	ret;
 
 }
@@ -2627,10 +2603,10 @@ $L__BB25_2:
 	.param .u64 Unknown61_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2639,7 +2615,7 @@ $L__BB25_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 200703;
-	@%p1 bra 	$L__BB26_2;
+	@%p1 bra 	$L__BB27_2;
 	ld.param.u64 	%rd5, [Unknown61_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown61_param_1];
@@ -2678,37 +2654,21 @@ $L__BB25_2:
 	shr.s64 	%rd37, %rd35, 4;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 58;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -64;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 64;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 58;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 6;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 200704;
-	mul.lo.s64 	%rd54, %rd46, 3136;
-	mul.lo.s64 	%rd55, %rd32, 56;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 3136;
+	mul.lo.s64 	%rd41, %rd32, 56;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB26_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB27_2:
 	ret;
 
 }
@@ -2760,10 +2720,10 @@ $L__BB26_2:
 	.param .u64 Unknown57_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2772,7 +2732,7 @@ $L__BB26_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 200703;
-	@%p1 bra 	$L__BB27_2;
+	@%p1 bra 	$L__BB28_2;
 	ld.param.u64 	%rd6, [Unknown57_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown57_param_1];
@@ -2813,40 +2773,24 @@ $L__BB26_2:
 	shr.s64 	%rd39, %rd37, 4;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 58;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -64;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 64;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 58;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 6;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 200704;
-	mul.lo.s64 	%rd56, %rd48, 3136;
-	mul.lo.s64 	%rd57, %rd34, 56;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 3136;
+	mul.lo.s64 	%rd43, %rd34, 56;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB27_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB28_2:
 	ret;
 
 }
@@ -2887,10 +2831,10 @@ $L__BB27_2:
 	.param .u64 Unknown50_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -2899,7 +2843,7 @@ $L__BB27_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 100351;
-	@%p1 bra 	$L__BB28_2;
+	@%p1 bra 	$L__BB29_2;
 	ld.param.u64 	%rd5, [Unknown50_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown50_param_1];
@@ -2938,37 +2882,21 @@ $L__BB27_2:
 	shr.s64 	%rd37, %rd35, 3;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 57;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -128;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 128;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 57;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 7;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 100352;
-	mul.lo.s64 	%rd54, %rd46, 784;
-	mul.lo.s64 	%rd55, %rd32, 28;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 784;
+	mul.lo.s64 	%rd41, %rd32, 28;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB28_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB29_2:
 	ret;
 
 }
@@ -3020,10 +2948,10 @@ $L__BB28_2:
 	.param .u64 Unknown46_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3032,7 +2960,7 @@ $L__BB28_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 100351;
-	@%p1 bra 	$L__BB29_2;
+	@%p1 bra 	$L__BB30_2;
 	ld.param.u64 	%rd6, [Unknown46_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown46_param_1];
@@ -3073,40 +3001,24 @@ $L__BB28_2:
 	shr.s64 	%rd39, %rd37, 3;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 57;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -128;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 128;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 57;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 7;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 100352;
-	mul.lo.s64 	%rd56, %rd48, 784;
-	mul.lo.s64 	%rd57, %rd34, 28;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 784;
+	mul.lo.s64 	%rd43, %rd34, 28;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB29_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB30_2:
 	ret;
 
 }
@@ -3147,10 +3059,10 @@ $L__BB29_2:
 	.param .u64 Unknown42_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3159,7 +3071,7 @@ $L__BB29_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 100351;
-	@%p1 bra 	$L__BB30_2;
+	@%p1 bra 	$L__BB31_2;
 	ld.param.u64 	%rd5, [Unknown42_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown42_param_1];
@@ -3198,37 +3110,21 @@ $L__BB29_2:
 	shr.s64 	%rd37, %rd35, 3;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 57;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -128;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 128;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 57;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 7;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 100352;
-	mul.lo.s64 	%rd54, %rd46, 784;
-	mul.lo.s64 	%rd55, %rd32, 28;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 784;
+	mul.lo.s64 	%rd41, %rd32, 28;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB30_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB31_2:
 	ret;
 
 }
@@ -3280,10 +3176,10 @@ $L__BB30_2:
 	.param .u64 Unknown38_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3292,7 +3188,7 @@ $L__BB30_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 100351;
-	@%p1 bra 	$L__BB31_2;
+	@%p1 bra 	$L__BB32_2;
 	ld.param.u64 	%rd6, [Unknown38_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown38_param_1];
@@ -3333,40 +3229,24 @@ $L__BB30_2:
 	shr.s64 	%rd39, %rd37, 3;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 57;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -128;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 128;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 57;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 7;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 100352;
-	mul.lo.s64 	%rd56, %rd48, 784;
-	mul.lo.s64 	%rd57, %rd34, 28;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 784;
+	mul.lo.s64 	%rd43, %rd34, 28;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB31_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB32_2:
 	ret;
 
 }
@@ -3407,10 +3287,10 @@ $L__BB31_2:
 	.param .u64 Unknown31_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3419,7 +3299,7 @@ $L__BB31_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 50175;
-	@%p1 bra 	$L__BB32_2;
+	@%p1 bra 	$L__BB33_2;
 	ld.param.u64 	%rd5, [Unknown31_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown31_param_1];
@@ -3458,37 +3338,21 @@ $L__BB31_2:
 	shr.s64 	%rd37, %rd35, 2;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 56;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -256;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 256;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 56;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 8;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 50176;
-	mul.lo.s64 	%rd54, %rd46, 196;
-	mul.lo.s64 	%rd55, %rd32, 14;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 196;
+	mul.lo.s64 	%rd41, %rd32, 14;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB32_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB33_2:
 	ret;
 
 }
@@ -3540,10 +3404,10 @@ $L__BB32_2:
 	.param .u64 Unknown27_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3552,7 +3416,7 @@ $L__BB32_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 50175;
-	@%p1 bra 	$L__BB33_2;
+	@%p1 bra 	$L__BB34_2;
 	ld.param.u64 	%rd6, [Unknown27_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown27_param_1];
@@ -3593,40 +3457,24 @@ $L__BB32_2:
 	shr.s64 	%rd39, %rd37, 2;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 56;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -256;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 256;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 56;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 8;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 50176;
-	mul.lo.s64 	%rd56, %rd48, 196;
-	mul.lo.s64 	%rd57, %rd34, 14;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 196;
+	mul.lo.s64 	%rd43, %rd34, 14;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB33_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB34_2:
 	ret;
 
 }
@@ -3667,10 +3515,10 @@ $L__BB33_2:
 	.param .u64 Unknown23_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3679,7 +3527,7 @@ $L__BB33_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 50175;
-	@%p1 bra 	$L__BB34_2;
+	@%p1 bra 	$L__BB35_2;
 	ld.param.u64 	%rd5, [Unknown23_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown23_param_1];
@@ -3718,37 +3566,21 @@ $L__BB33_2:
 	shr.s64 	%rd37, %rd35, 2;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 56;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -256;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 256;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 56;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 8;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 50176;
-	mul.lo.s64 	%rd54, %rd46, 196;
-	mul.lo.s64 	%rd55, %rd32, 14;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 196;
+	mul.lo.s64 	%rd41, %rd32, 14;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB34_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB35_2:
 	ret;
 
 }
@@ -3800,10 +3632,10 @@ $L__BB34_2:
 	.param .u64 Unknown19_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3812,7 +3644,7 @@ $L__BB34_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 50175;
-	@%p1 bra 	$L__BB35_2;
+	@%p1 bra 	$L__BB36_2;
 	ld.param.u64 	%rd6, [Unknown19_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown19_param_1];
@@ -3853,40 +3685,24 @@ $L__BB34_2:
 	shr.s64 	%rd39, %rd37, 2;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 56;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -256;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 256;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 56;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 8;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 50176;
-	mul.lo.s64 	%rd56, %rd48, 196;
-	mul.lo.s64 	%rd57, %rd34, 14;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 196;
+	mul.lo.s64 	%rd43, %rd34, 14;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB35_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB36_2:
 	ret;
 
 }
@@ -3927,10 +3743,10 @@ $L__BB35_2:
 	.param .u64 Unknown12_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -3939,7 +3755,7 @@ $L__BB35_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 25087;
-	@%p1 bra 	$L__BB36_2;
+	@%p1 bra 	$L__BB37_2;
 	ld.param.u64 	%rd5, [Unknown12_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown12_param_1];
@@ -3975,40 +3791,24 @@ $L__BB35_2:
 	xor.b64  	%rd34, %rd33, %rd24;
 	mul.hi.s64 	%rd35, %rd34, 5270498306774157605;
 	shr.u64 	%rd36, %rd35, 63;
-	shr.s64 	%rd37, %rd35, 1;
+	shr.u64 	%rd37, %rd35, 1;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 55;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -512;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 512;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 55;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 9;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 25088;
-	mul.lo.s64 	%rd54, %rd46, 49;
-	mul.lo.s64 	%rd55, %rd32, 7;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 49;
+	mul.lo.s64 	%rd41, %rd32, 7;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB36_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB37_2:
 	ret;
 
 }
@@ -4060,10 +3860,10 @@ $L__BB36_2:
 	.param .u64 Unknown8_param_43
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<7>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<51>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4072,7 +3872,7 @@ $L__BB36_2:
 	mul.wide.s32 	%rd11, %r2, %r1;
 	add.s64 	%rd5, %rd11, %rd10;
 	setp.gt.s64 	%p1, %rd5, 25087;
-	@%p1 bra 	$L__BB37_2;
+	@%p1 bra 	$L__BB38_2;
 	ld.param.u64 	%rd6, [Unknown8_param_34];
 	cvta.to.global.u64 	%rd1, %rd6;
 	ld.param.u64 	%rd7, [Unknown8_param_1];
@@ -4110,43 +3910,27 @@ $L__BB36_2:
 	xor.b64  	%rd36, %rd35, %rd26;
 	mul.hi.s64 	%rd37, %rd36, 5270498306774157605;
 	shr.u64 	%rd38, %rd37, 63;
-	shr.s64 	%rd39, %rd37, 1;
+	shr.u64 	%rd39, %rd37, 1;
 	add.s64 	%rd40, %rd39, %rd38;
 	xor.b64  	%rd41, %rd40, %rd35;
-	shr.s64 	%rd42, %rd41, 63;
-	shr.u64 	%rd43, %rd42, 55;
-	add.s64 	%rd44, %rd41, %rd43;
-	and.b64  	%rd45, %rd44, -512;
-	sub.s64 	%rd46, %rd41, %rd45;
-	setp.lt.s64 	%p4, %rd46, 0;
-	add.s64 	%rd47, %rd46, 512;
-	selp.b64 	%rd48, %rd47, %rd46, %p4;
-	xor.b64  	%rd49, %rd42, %rd41;
-	shr.s64 	%rd50, %rd49, 63;
-	shr.u64 	%rd51, %rd50, 55;
-	add.s64 	%rd52, %rd49, %rd51;
-	shr.s64 	%rd53, %rd52, 9;
-	xor.b64  	%rd54, %rd53, %rd42;
-	mul.lo.s64 	%rd55, %rd54, 25088;
-	mul.lo.s64 	%rd56, %rd48, 49;
-	mul.lo.s64 	%rd57, %rd34, 7;
-	add.s64 	%rd58, %rd57, %rd19;
-	add.s64 	%rd59, %rd58, %rd56;
-	add.s64 	%rd60, %rd59, %rd55;
-	shl.b64 	%rd61, %rd60, 1;
-	add.s64 	%rd62, %rd2, %rd61;
-	ld.global.b16 	%h1, [%rd62];
-	add.s64 	%rd63, %rd4, %rd61;
-	ld.global.b16 	%h2, [%rd63];
-	add.s64 	%rd64, %rd3, %rd61;
-	ld.global.b16 	%h3, [%rd64];
+	mul.lo.s64 	%rd42, %rd41, 49;
+	mul.lo.s64 	%rd43, %rd34, 7;
+	add.s64 	%rd44, %rd43, %rd19;
+	add.s64 	%rd45, %rd44, %rd42;
+	shl.b64 	%rd46, %rd45, 1;
+	add.s64 	%rd47, %rd2, %rd46;
+	ld.global.b16 	%h1, [%rd47];
+	add.s64 	%rd48, %rd4, %rd46;
+	ld.global.b16 	%h2, [%rd48];
+	add.s64 	%rd49, %rd3, %rd46;
+	ld.global.b16 	%h3, [%rd49];
 	add.rn.f16 	%h4, %h2, %h3;
 	mov.b16 	%h5, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h5;
-	selp.b16 	%h6, %h4, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd61;
-	st.global.b16 	[%rd65], %h6;
-$L__BB37_2:
+	setp.gt.f16 	%p4, %h1, %h5;
+	selp.b16 	%h6, %h4, 0x0000, %p4;
+	add.s64 	%rd50, %rd1, %rd46;
+	st.global.b16 	[%rd50], %h6;
+$L__BB38_2:
 	ret;
 
 }
@@ -4187,10 +3971,10 @@ $L__BB37_2:
 	.param .u64 Unknown4_param_32
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<5>;
 	.reg .b32 	%r<4>;
-	.reg .b64 	%rd<63>;
+	.reg .b64 	%rd<48>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4199,7 +3983,7 @@ $L__BB37_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 25087;
-	@%p1 bra 	$L__BB38_2;
+	@%p1 bra 	$L__BB39_2;
 	ld.param.u64 	%rd5, [Unknown4_param_23];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown4_param_1];
@@ -4235,40 +4019,24 @@ $L__BB37_2:
 	xor.b64  	%rd34, %rd33, %rd24;
 	mul.hi.s64 	%rd35, %rd34, 5270498306774157605;
 	shr.u64 	%rd36, %rd35, 63;
-	shr.s64 	%rd37, %rd35, 1;
+	shr.u64 	%rd37, %rd35, 1;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 55;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -512;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 512;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 55;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 9;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 25088;
-	mul.lo.s64 	%rd54, %rd46, 49;
-	mul.lo.s64 	%rd55, %rd32, 7;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd3, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	add.s64 	%rd61, %rd2, %rd59;
-	ld.global.b16 	%h2, [%rd61];
+	mul.lo.s64 	%rd40, %rd39, 49;
+	mul.lo.s64 	%rd41, %rd32, 7;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd3, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	add.s64 	%rd46, %rd2, %rd44;
+	ld.global.b16 	%h2, [%rd46];
 	mov.b16 	%h3, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h3;
-	selp.b16 	%h4, %h2, 0x0000, %p5;
-	add.s64 	%rd62, %rd1, %rd59;
-	st.global.b16 	[%rd62], %h4;
-$L__BB38_2:
+	setp.gt.f16 	%p4, %h1, %h3;
+	selp.b16 	%h4, %h2, 0x0000, %p4;
+	add.s64 	%rd47, %rd1, %rd44;
+	st.global.b16 	[%rd47], %h4;
+$L__BB39_2:
 	ret;
 
 }
@@ -4305,11 +4073,11 @@ $L__BB38_2:
 	.param .u64 Unknown0_param_28
 )
 {
-	.reg .pred 	%p<6>;
+	.reg .pred 	%p<5>;
 	.reg .b16 	%h<6>;
 	.reg .b32 	%r<4>;
 	.reg .f32 	%f<3>;
-	.reg .b64 	%rd<66>;
+	.reg .b64 	%rd<49>;
 
 	mov.u32 	%r1, %ctaid.x;
 	mov.u32 	%r2, %ntid.x;
@@ -4318,7 +4086,7 @@ $L__BB38_2:
 	mul.wide.s32 	%rd9, %r2, %r1;
 	add.s64 	%rd4, %rd9, %rd8;
 	setp.gt.s64 	%p1, %rd4, 25087;
-	@%p1 bra 	$L__BB39_2;
+	@%p1 bra 	$L__BB40_2;
 	ld.param.u64 	%rd5, [Unknown0_param_19];
 	cvta.to.global.u64 	%rd1, %rd5;
 	ld.param.u64 	%rd6, [Unknown0_param_1];
@@ -4357,43 +4125,25 @@ $L__BB38_2:
 	shr.s64 	%rd37, %rd35, 1;
 	add.s64 	%rd38, %rd37, %rd36;
 	xor.b64  	%rd39, %rd38, %rd33;
-	shr.s64 	%rd40, %rd39, 63;
-	shr.u64 	%rd41, %rd40, 55;
-	add.s64 	%rd42, %rd39, %rd41;
-	and.b64  	%rd43, %rd42, -512;
-	sub.s64 	%rd44, %rd39, %rd43;
-	setp.lt.s64 	%p4, %rd44, 0;
-	add.s64 	%rd45, %rd44, 512;
-	selp.b64 	%rd46, %rd45, %rd44, %p4;
-	xor.b64  	%rd47, %rd40, %rd39;
-	shr.s64 	%rd48, %rd47, 63;
-	shr.u64 	%rd49, %rd48, 55;
-	add.s64 	%rd50, %rd47, %rd49;
-	shr.s64 	%rd51, %rd50, 9;
-	xor.b64  	%rd52, %rd51, %rd40;
-	mul.lo.s64 	%rd53, %rd52, 25088;
-	mul.lo.s64 	%rd54, %rd46, 49;
-	mul.lo.s64 	%rd55, %rd32, 7;
-	add.s64 	%rd56, %rd55, %rd17;
-	add.s64 	%rd57, %rd56, %rd54;
-	add.s64 	%rd58, %rd57, %rd53;
-	shl.b64 	%rd59, %rd58, 1;
-	add.s64 	%rd60, %rd2, %rd59;
-	ld.global.b16 	%h1, [%rd60];
-	shl.b64 	%rd61, %rd52, 9;
-	add.s64 	%rd62, %rd61, %rd46;
-	shl.b64 	%rd63, %rd62, 1;
-	add.s64 	%rd64, %rd3, %rd63;
-	ld.global.b16 	%h2, [%rd64];
+	mul.lo.s64 	%rd40, %rd39, 49;
+	mul.lo.s64 	%rd41, %rd32, 7;
+	add.s64 	%rd42, %rd41, %rd17;
+	add.s64 	%rd43, %rd42, %rd40;
+	shl.b64 	%rd44, %rd43, 1;
+	add.s64 	%rd45, %rd2, %rd44;
+	ld.global.b16 	%h1, [%rd45];
+	shl.b64 	%rd46, %rd39, 1;
+	add.s64 	%rd47, %rd3, %rd46;
+	ld.global.b16 	%h2, [%rd47];
 	cvt.f32.f16 	%f1, %h2;
 	div.rn.f32 	%f2, %f1, 0f42440000;
 	cvt.rn.f16.f32 	%h3, %f2;
 	mov.b16 	%h4, 0x0000;
-	setp.gt.f16 	%p5, %h1, %h4;
-	selp.b16 	%h5, %h3, 0x0000, %p5;
-	add.s64 	%rd65, %rd1, %rd59;
-	st.global.b16 	[%rd65], %h5;
-$L__BB39_2:
+	setp.gt.f16 	%p4, %h1, %h4;
+	selp.b16 	%h5, %h3, 0x0000, %p4;
+	add.s64 	%rd48, %rd1, %rd44;
+	st.global.b16 	[%rd48], %h5;
+$L__BB40_2:
 	ret;
 
 }

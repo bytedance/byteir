@@ -27,8 +27,8 @@
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include <unordered_set>
 
-// TODO avoid using USE_CUDA
-#if USE_CUDA
+// TODO avoid using BRT_USE_CUDA
+#if BRT_USE_CUDA
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #endif
 
@@ -91,7 +91,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
           graph_info_.tensor_to_id.emplace(arg_ptr, graph_info_.tensors.size());
           graph_info_.tensors.push_back(arg_ptr);
 
-          auto space = GetSpace(memref);
+          auto space = brt::ir::GetSpace(memref);
           IAllocator *cur_allocator = GetAllocator(allocators, space);
 
 // The uncomment following will disable arg group allocator in func arg
@@ -192,7 +192,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
       frame_construct_info_.dynamic_allocation_requests.emplace_back(
           alloc_idx - intermediate_begin, alloc_dims);
 
-      auto space = GetSpace(alloc_result).value();
+      auto space = brt::ir::GetSpace(alloc_result).value();
       IAllocator *cur_allocator = GetAllocator(allocators, space);
       if (cur_allocator != nullptr &&
           visited_allocator_ptrs.count(cur_allocator) == 0) {
@@ -233,7 +233,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             return WalkResult::interrupt();
           }
 
-          auto maybeSpace = GetSpace(op_arg);
+          auto maybeSpace = brt::ir::GetSpace(op_arg);
           if (!maybeSpace.has_value()) {
             status_internal = Status(BRT, FAIL, "non-memref Arg of Op " + key);
             return WalkResult::interrupt();
@@ -278,10 +278,11 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
           break;
 
         // creat an OpKerenl based on the hitting provider
-        OpKernelInfo op_kernel_info(
-            *provider, graph_, op, allocators, last_alloc,
-            graph_info_.tensor_to_id, graph_info_.scalar_to_id,
-            frame_construct_info_.weights, graph_.GetIRPath());
+        OpKernelInfo op_kernel_info(*provider, graph_, op, allocators,
+                                    last_alloc, graph_info_.tensor_to_id,
+                                    graph_info_.scalar_to_id,
+                                    frame_construct_info_.weights,
+                                    intermediate_begin, graph_.GetIRPath());
 
         auto op_ptr = (*registry)(key, op_kernel_info);
 
@@ -426,7 +427,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             // TODO: move alignment support in static memory plan in a util
             if (memref.hasStaticShape()) {
               uint64_t allocate_size = GetStaticBytes(memref);
-              auto space = GetSpace(memref);
+              auto space = brt::ir::GetSpace(memref);
               auto allocator_id =
                   frame_construct_info_.space_to_allocator_id[space];
               // handle alignment here, round up to kAllocAlignment's
@@ -439,7 +440,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
               frame_construct_info_.total_intermediate_sizes[allocator_id] +=
                   allocate_size;
             } else {
-              auto space = GetSpace(memref);
+              auto space = brt::ir::GetSpace(memref);
               auto allocator_id =
                   frame_construct_info_.space_to_allocator_id[space];
               frame_construct_info_
@@ -473,8 +474,8 @@ common::Status StaticBRTExecutionPlan::EpiloguePerSession() {
 void StaticBRTExecutionPlan::CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) {
   // create WQ
   // TODO remove this
-  // TODO avoid using USE_CUDA
-#if USE_CUDA
+  // TODO avoid using BRT_USE_CUDA
+#if BRT_USE_CUDA
   // wq_ = std::unique_ptr<WorkQueue>(new CUDAWorkQueue());
   *wq = std::unique_ptr<WorkQueue>(new CUDASingleStreamWorkQueue(0));
 #endif
@@ -505,6 +506,14 @@ DTypeEnum StaticBRTExecutionPlan::GetDType(size_t idx) {
   mlir::Value value =
       mlir::Value::getFromOpaquePointer(graph_info_.tensors[idx]);
   return brt::ir::GetElementDTypeEnum(value);
+}
+
+std::string StaticBRTExecutionPlan::GetSpace(size_t idx) {
+  BRT_ENFORCE(idx < graph_info_.tensors.size());
+  mlir::Value value =
+      mlir::Value::getFromOpaquePointer(graph_info_.tensors[idx]);
+  std::optional<std::string> maybeSpace = brt::ir::GetSpace(value);
+  return maybeSpace.value();
 }
 
 common::Status StaticBRTExecutionPlan::LoadWeights(const std::string &,

@@ -38,6 +38,7 @@ func.func @fusion_broadcast_notag(%arg0: tensor<6x12x96xf32>, %arg1: tensor<6x12
 // NOTAG-LABEL: bad_case_0
 func.func @bad_case_0(%arg0: tensor<1x1xi64>) -> tensor<1x1xi32> {
   // NOTAG: linalg.generic
+  // NOTAG-NOT: mhlo.add
   %0 = mhlo.constant dense<0> : tensor<i32>
   %1 = mhlo.constant dense<0> : tensor<1x12xi32>
   %2 = mhlo.constant dense<[[1, 10001, 20001, 16001, 80004, 52, 20052, 10061, 80053, 80054, 9, 20010]]> : tensor<1x12xi32>
@@ -84,3 +85,88 @@ func.func @linalg_ext_batch_matmul(%arg0: tensor<128x16x1024x256xf32>, %arg1: te
 }
 // CHECK-LABEL: func.func @linalg_ext_batch_matmul
 // CHECK: linalg_ext.batch_matmul
+
+func.func @linalg_ext_scatter(%arg0: tensor<512x128xf32>, %arg1: tensor<128x1xi64>, %arg2: tensor<128x128xf32>) -> tensor<512x128xf32> {
+  %0 = "mhlo.scatter"(%arg0, %arg1, %arg2) ({
+    ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
+      %1 = "mhlo.add"(%arg3, %arg4) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+      "mhlo.return"(%1) : (tensor<f32>) -> ()
+    }) {indices_are_sorted = false, scatter_dimension_numbers = #mhlo.scatter<update_window_dims = [1], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false} : (tensor<512x128xf32>, tensor<128x1xi64>, tensor<128x128xf32>) -> tensor<512x128xf32>
+  return %0 : tensor<512x128xf32>
+}
+// NOTAG-LABEL: func.func @linalg_ext_scatter
+//   NOTAG-SAME: %[[ARG0:.*]]: tensor<512x128xf32>, %[[ARG1:.*]]: tensor<128x1xi64>, %[[ARG2:.*]]: tensor<128x128xf32>
+//   NOTAG: %[[EMPTY:.*]] = tensor.empty() : tensor<512x128xf32>
+//   NOTAG: %[[COPY:.*]] = linalg.copy ins(%[[ARG0]] : tensor<512x128xf32>) outs(%[[EMPTY]] : tensor<512x128xf32>)
+//   NOTAG: %[[SCATTER:.*]] = linalg_ext.scatter ins(%[[ARG1]], %[[ARG2]] : tensor<128x1xi64>, tensor<128x128xf32>) outs(%[[COPY]] : tensor<512x128xf32>)
+//     NOTAG: arith.addf
+//     NOTAG: linalg_ext.yield
+//   NOTAG: return %[[SCATTER]]
+
+
+func.func @linalg_ext_scatter_with_trailing_one(%arg0: tensor<51200xi32>, %arg1: tensor<100x1296xi32>, %arg2: tensor<100x1296xi32>) -> tensor<51200xi32> {
+  %0 = "mhlo.scatter"(%arg0, %arg1, %arg2) ({
+    ^bb0(%arg3: tensor<i32>, %arg4: tensor<i32>):
+      %1 = mhlo.add %arg3, %arg4 : tensor<i32>
+      mhlo.return %1 : tensor<i32>
+    }) {indices_are_sorted = false, scatter_dimension_numbers = #mhlo.scatter<inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 2>, unique_indices = false} : (tensor<51200xi32>, tensor<100x1296xi32>, tensor<100x1296xi32>) -> tensor<51200xi32>
+  return %0 : tensor<51200xi32>
+}
+// NOTAG-LABEL: func.func @linalg_ext_scatter_with_trailing_one
+//   NOTAG-SAME: %[[ARG0:.*]]: tensor<51200xi32>, %[[ARG1:.*]]: tensor<100x1296xi32>, %[[ARG2:.*]]: tensor<100x1296xi32>
+//   NOTAG: %[[EXPAND:.*]] = tensor.expand_shape %[[ARG1]] {{\[}}[0], [1, 2]{{\]}} : tensor<100x1296xi32> into tensor<100x1296x1xi32>
+//   NOTAG: %[[EMPTY:.*]] = tensor.empty() : tensor<51200xi32>
+//   NOTAG: %[[COPY:.*]] = linalg.copy ins(%[[ARG0]] : tensor<51200xi32>) outs(%[[EMPTY]] : tensor<51200xi32>)
+//   NOTAG: %[[SCATTER:.*]] = linalg_ext.scatter ins(%[[EXPAND]], %[[ARG2]] : tensor<100x1296x1xi32>, tensor<100x1296xi32>) outs(%[[COPY]] : tensor<51200xi32>)
+//     NOTAG: arith.addi
+//     NOTAG: linalg_ext.yield
+//   NOTAG: return %[[SCATTER]]
+
+
+func.func @linalg_ext_layer_norm(%arg0: tensor<8x32x128xf32>, %arg1: tensor<128xf32>, %arg2: tensor<128xf32>) -> (tensor<8x32x128xf32>) {
+  %0 = "mhlo.custom_call"(%arg0, %arg1, %arg2) {api_version = 1 : i32, backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}, call_target_name = "byteir.layer_norm", called_computations = [], has_side_effect = false} : (tensor<8x32x128xf32>, tensor<128xf32>, tensor<128xf32>) -> tensor<8x32x128xf32>
+  return %0 : tensor<8x32x128xf32>
+}
+// CHECK-LABEL: func.func @linalg_ext_layer_norm
+// CHECK: linalg_ext.layer_norm
+
+
+func.func @gelu(%arg0: tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x1024xf32> {
+  %0 = "mhlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {approximate="erf"}, call_target_name = "byteir.gelu", called_computations = [], has_side_effect = false} : (tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x1024xf32>
+  return %0 : tensor<128x16x1024x1024xf32>
+}
+// NOTAG-LABEL: func.func @gelu
+//   NOTAG-DAG: %[[SQRT1_2:.*]] = arith.constant 0.7071067
+//   NOTAG-DAG: %[[CONST_ONE:.*]] = arith.constant 1.000000e+00
+//   NOTAG-DAG: %[[CONST_HALF:.*]] = arith.constant 5.000000e-01
+//   NOTAG: linalg.generic
+//     NOTAG-NEXT: ^bb0(%[[X:.*]]: f32, %[[OUT:.*]]: f32):
+//     NOTAG-NEXT:   %[[ERF_ARG:.*]] = arith.mulf %[[X]], %[[SQRT1_2]]
+//     NOTAG-NEXT:   %[[ERF:.*]] = math.erf %[[ERF_ARG]]
+//     NOTAG-NEXT:   %[[ERF_PLUS_ONE:.*]] = arith.addf %[[ERF]], %[[CONST_ONE]]
+//     NOTAG-NEXT:   %[[X_HALF:.*]] = arith.mulf %[[X]], %[[CONST_HALF]]
+//     NOTAG-NEXT:   %[[RESULT:.*]] = arith.mulf %[[X_HALF]], %[[ERF_PLUS_ONE]]
+//     NOTAG-NEXT:   linalg.yield %[[RESULT]]
+
+
+func.func @fastgelu(%arg0: tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x1024xf32> {
+  %0 = "mhlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {approximate="tanh"}, call_target_name = "byteir.gelu", called_computations = [], has_side_effect = false} : (tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x1024xf32>
+  return %0 : tensor<128x16x1024x1024xf32>
+}
+// NOTAG-LABEL: func.func @fastgelu
+//   NOTAG-DAG: %[[COEFF0:.*]] = arith.constant 4.471500e-02
+//   NOTAG-DAG: %[[COEFF1:.*]] = arith.constant 0.797884583
+//   NOTAG-DAG: %[[CONST_ONE:.*]] = arith.constant 1.000000e+00
+//   NOTAG-DAG: %[[CONST_HALF:.*]] = arith.constant 5.000000e-01
+//   NOTAG: linalg.generic
+//     NOTAG-NEXT: ^bb0(%[[X:.*]]: f32, %[[OUT:.*]]: f32):
+//     NOTAG-NEXT:   %[[X2:.*]] = arith.mulf %[[X]], %[[X]]
+//     NOTAG-NEXT:   %[[X3:.*]] = arith.mulf %[[X2]], %[[X]]
+//     NOTAG-NEXT:   %[[Y:.*]] = arith.mulf %[[X3]], %[[COEFF0]]
+//     NOTAG-NEXT:   %[[Y1:.*]] = arith.addf %[[X]], %[[Y]]
+//     NOTAG-NEXT:   %[[Y2:.*]] = arith.mulf %[[Y1]], %[[COEFF1]]
+//     NOTAG-NEXT:   %[[TANH:.*]] = math.tanh %[[Y2]]
+//     NOTAG-NEXT:   %[[TANH_PLUS_ONE:.*]] = arith.addf %[[TANH]], %[[CONST_ONE]]
+//     NOTAG-NEXT:   %[[X_HALF:.*]] = arith.mulf %[[X]], %[[CONST_HALF]]
+//     NOTAG-NEXT:   %[[RESULT:.*]] = arith.mulf %[[X_HALF]], %[[TANH_PLUS_ONE]]
+//     NOTAG-NEXT:   linalg.yield %[[RESULT]]

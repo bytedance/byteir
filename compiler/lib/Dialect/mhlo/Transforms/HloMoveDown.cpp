@@ -26,7 +26,7 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/DenseSet.h"
@@ -112,7 +112,7 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
 
     // process user
     for (auto user : users) {
-      BlockAndValueMapping bvm;
+      IRMapping bvm;
       llvm::SetVector<Value> constInputs;
       for (auto operand : user->getOperands()) {
         if (operand == value) {
@@ -179,9 +179,8 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       return failure();
     }
 
-    llvm::SetVector<Value> reshapeInsertOperands;
-    const auto isStaticArg = [](Value value) {
-      if (!value || value.getDefiningOp() != nullptr) {
+    const auto isStaticShapeArg = [](Value value) {
+      if (!value || !value.isa<BlockArgument>()) {
         return false;
       }
       const auto inputTy = value.getType().dyn_cast<RankedTensorType>();
@@ -216,20 +215,21 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       // isElementwiseOneResult(user) == true
       bool failed = false;
       for (auto operand : user->getOperands()) {
-        if (operand != value && !isSplatMhloConstantValue(operand)) {
+        if (operand == value) {
+          continue;
+        } else if (isDenseMhloConstantValue(operand)) {
+          continue;
+        } else if (isStaticShapeArg(operand)) {
           // fairly strict condition, so far we only accept static arg
           // to avoid side-effect on other branches as it seems we dont
           // know benefits besides branch here.
           // TODO(@zhangzhiwei.177): shall we remove static restriction?
-          if (isStaticArg(operand)) {
-            reshapeInsertOperands.insert(operand);
-            continue;
-          }
-          if (allMultiUser)
-            return failure();
-          failed = true;
-          break;
+          continue;
         }
+        if (allMultiUser)
+          return failure();
+        failed = true;
+        break;
       }
       if (failed)
         continue;
@@ -242,57 +242,37 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
 
     // process user
     for (auto user : users) {
-      BlockAndValueMapping bvm;
-      llvm::SetVector<Value> constInputs;
-      llvm::SetVector<Value> insertedReshapeInputs;
+      IRMapping bvm;
       for (auto operand : user->getOperands()) {
         if (operand == value) {
-          if (!bvm.contains(value)) {
-            bvm.map(value, op.getOperand());
+          if (!bvm.contains(operand)) {
+            bvm.map(operand, op.getOperand());
           }
+        } else if (isDenseMhloConstantValue(operand)) {
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPointAfterValue(operand);
+
+          DenseElementsAttr oldConstAttr =
+              operand.getDefiningOp<mhlo::ConstantOp>()
+                  .getValue()
+                  .cast<DenseElementsAttr>();
+
+          auto newConstAttr =
+              reshapeDenseElementsAttr(oldConstAttr, operandType);
+
+          auto newConstOp =
+              rewriter.create<mhlo::ConstantOp>(op->getLoc(), newConstAttr);
+          bvm.map(operand, newConstOp.getOutput());
         } else {
-          // isSplatMhloConstantValue(operand) == true
+          // isStaticShapeArg(operand) == true
           // since it has been checked when collecting users
-          if (reshapeInsertOperands.contains(operand) &&
-              !insertedReshapeInputs.contains(operand)) {
-            insertedReshapeInputs.insert(operand);
-          } else if (!constInputs.contains(operand)) {
-            constInputs.insert(operand);
-          }
+          OpBuilder::InsertionGuard guard(rewriter);
+          rewriter.setInsertionPointAfterValue(operand);
+          auto newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
+              rewriter.getUnknownLoc(), operandType, operand);
+          newReshapeOp->setAttr(kMoveDownDisableKey, rewriter.getUnitAttr());
+          bvm.map(operand, newReshapeOp.getResult());
         }
-      }
-
-      // create all const and put into bvm
-      for (auto input : constInputs) {
-        ElementsAttr oldConstAttr =
-            input.getDefiningOp<mhlo::ConstantOp>().getValue();
-        auto newConstAttr = reshapeSplatElementsAttr(oldConstAttr, operandType);
-        auto newConstOp =
-            rewriter.create<mhlo::ConstantOp>(op->getLoc(), *newConstAttr);
-        bvm.map(input, newConstOp.getOutput());
-      }
-
-      for (auto input : insertedReshapeInputs) {
-        const auto afterReshapeType = operandType.cast<RankedTensorType>();
-        bool shouldAddNewReshapeOp = true;
-        for (auto inputUser : input.getUsers()) {
-          auto existingReshapeOp = dyn_cast_or_null<mhlo::ReshapeOp>(inputUser);
-          if (existingReshapeOp &&
-              existingReshapeOp.getResult()
-                      .getType()
-                      .cast<RankedTensorType>() == afterReshapeType) {
-            bvm.map(input, existingReshapeOp.getResult());
-            shouldAddNewReshapeOp = false;
-            break;
-          }
-        }
-        if (!shouldAddNewReshapeOp) {
-          break;
-        }
-        auto newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
-            rewriter.getUnknownLoc(), afterReshapeType, input);
-        newReshapeOp->setAttr(kMoveDownDisableKey, rewriter.getBoolAttr(true));
-        bvm.map(input, newReshapeOp.getResult());
       }
 
       auto maybeResultTypes =
@@ -302,6 +282,7 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
       // maybeResultTypes should always have value
       assert(maybeResultTypes.has_value());
 
+      rewriter.setInsertionPointAfter(user);
       // clone an elementwise op as producer
       auto newProducer =
           cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);
@@ -362,12 +343,20 @@ struct BroadcastMoveDownPattern
       // isElementwiseOneResult(user) == true
       bool failed = false;
       for (auto operand : user->getOperands()) {
-        if (operand != value && !isSplatMhloConstantValue(operand)) {
-          if (allMultiUser)
-            return failure();
-          failed = true;
-          break;
+        // TODO(lyq): support NonSplatConstant
+        if (operand == value || isSplatMhloConstantValue(operand)) {
+          continue;
+        } else if (auto bcastOp =
+                       operand.getDefiningOp<mhlo::BroadcastInDimOp>()) {
+          if (bcastOp.getBroadcastDimensions() == op.getBroadcastDimensions() &&
+              bcastOp.getOperand().getType() == operandType) {
+            continue;
+          }
         }
+        if (allMultiUser)
+          return failure();
+        failed = true;
+        break;
       }
       if (failed)
         continue;
@@ -380,30 +369,30 @@ struct BroadcastMoveDownPattern
 
     // process user
     for (auto user : users) {
-      BlockAndValueMapping bvm;
-      llvm::SetVector<Value> constInputs;
+      IRMapping bvm;
       for (auto operand : user->getOperands()) {
         if (operand == value) {
-          if (!bvm.contains(value)) {
-            bvm.map(value, op.getOperand());
+          if (!bvm.contains(operand)) {
+            bvm.map(operand, op.getOperand());
           }
-        } else {
-          // isSplatMhloConstantValue(operand) == true
-          // since it has been checked when collecting users
-          if (!constInputs.contains(operand)) {
-            constInputs.insert(operand);
+        } else if (isSplatMhloConstantValue(operand)) {
+          if (!bvm.contains(operand)) {
+            mhlo::ConstantOp oldConstOp =
+                operand.getDefiningOp<mhlo::ConstantOp>();
+            OpBuilder::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(oldConstOp);
+            auto newConstAttr =
+                cloneSplatElementsAttr(oldConstOp.getValue(), operandType);
+            auto newConstOp = rewriter.create<mhlo::ConstantOp>(
+                oldConstOp->getLoc(), *newConstAttr);
+            bvm.map(operand, newConstOp.getOutput());
+          }
+        } else if (auto bcastOp =
+                       operand.getDefiningOp<mhlo::BroadcastInDimOp>()) {
+          if (!bvm.contains(operand)) {
+            bvm.map(operand, bcastOp.getOperand());
           }
         }
-      }
-
-      // create all const and put into bvm
-      for (auto input : constInputs) {
-        ElementsAttr oldConstAttr =
-            input.getDefiningOp<mhlo::ConstantOp>().getValue();
-        auto newConstAttr = cloneSplatElementsAttr(oldConstAttr, operandType);
-        auto newConstOp =
-            rewriter.create<mhlo::ConstantOp>(op->getLoc(), *newConstAttr);
-        bvm.map(input, newConstOp.getOutput());
       }
 
       auto maybeResultTypes =
@@ -413,6 +402,7 @@ struct BroadcastMoveDownPattern
       // maybeResultTypes should always have value
       assert(maybeResultTypes.has_value());
 
+      rewriter.setInsertionPointAfter(user);
       // clone an elementwise op as producer
       auto newProducer =
           cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);
@@ -422,77 +412,6 @@ struct BroadcastMoveDownPattern
           user, user->getResultTypes(), newProducer->getResult(0),
           op.getBroadcastDimensions());
     }
-
-    return success();
-  }
-};
-
-struct BroadcastBinaryMoveDownPattern
-    : public HloMoveDownPattern<mhlo::BroadcastInDimOp> {
-  BroadcastBinaryMoveDownPattern(MLIRContext *context,
-                                 const llvm::DenseSet<llvm::StringRef> &blocker,
-                                 bool allMultiUser = false,
-                                 bool multiUser = false)
-      : HloMoveDownPattern<mhlo::BroadcastInDimOp>(context, blocker,
-                                                   allMultiUser, multiUser) {}
-
-  LogicalResult matchAndRewrite(mhlo::BroadcastInDimOp op,
-                                PatternRewriter &rewriter) const override {
-    auto value = op.getResult();
-
-    // terminate if multi-users
-    if (userCount(value) != 1) {
-      return failure();
-    }
-
-    auto consumer = *(value.user_begin());
-
-    // terminate if not binary elementwise operator
-    if (!(isElementwiseOneResult(consumer) &&
-          consumer->getNumOperands() == 2)) {
-      return failure();
-    }
-
-    ::mlir::Value lhsValue = consumer->getOperand(0);
-    ::mlir::Value rhsValue = consumer->getOperand(1);
-
-    // apply only if current op is the first operand
-    if (value != lhsValue) {
-      return failure();
-    }
-
-    // rhs also has to be a broadcast
-    if (!rhsValue.getDefiningOp<BroadcastInDimOp>()) {
-      return failure();
-    }
-
-    auto lhs = lhsValue.getDefiningOp<BroadcastInDimOp>();
-    auto rhs = rhsValue.getDefiningOp<BroadcastInDimOp>();
-
-    // lhs and rhs must have the same attribtue
-    if (lhs.getBroadcastDimensions() != rhs.getBroadcastDimensions()) {
-      return failure();
-    }
-
-    // all conditions are satisfied, rewrite
-    BlockAndValueMapping bvm;
-    bvm.map(lhs, lhs.getOperand());
-    bvm.map(rhs, rhs.getOperand());
-
-    auto maybeResultTypes =
-        mixTypes(/*cloneFromElementTypes*/ consumer->getResultTypes(),
-                 /*cloneFromShapes*/ op->getOperandTypes());
-
-    // maybeResultTypes should always have value
-    assert(maybeResultTypes.has_value());
-
-    rewriter.setInsertionPoint(consumer);
-    auto newProducer =
-        cloneAndReplaceResultTypes(rewriter, consumer, bvm, *maybeResultTypes);
-
-    rewriter.replaceOpWithNewOp<mhlo::BroadcastInDimOp>(
-        consumer, consumer->getResultTypes(), newProducer->getResult(0),
-        op.getBroadcastDimensions());
 
     return success();
   }
@@ -578,7 +497,7 @@ struct BroadcastReshapeMoveDownPattern
         newBCastDim);
 
     // all conditions are satisfied, rewrite
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     bvm.map(value, op.getOperand());
 
     auto newProducer =
@@ -624,7 +543,7 @@ struct ReshapeBroadcastDotMoveDownPattern
     }
 
     // all conditions are satisfied, rewrite
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     bvm.map(op.getOperand(0), input);
 
     // infer output type
@@ -659,12 +578,11 @@ private:
   }
 };
 
-struct SliceMoveDownPattern : public HloMoveDownPattern<mhlo::SliceOp> {
-  SliceMoveDownPattern(MLIRContext *context,
-                       const llvm::DenseSet<llvm::StringRef> &blocker,
-                       bool allMultiUser = false, bool multiUser = false)
-      : HloMoveDownPattern<mhlo::SliceOp>(context, blocker, allMultiUser,
-                                          multiUser) {}
+struct SliceMoveDownAndMergePattern : public HloMoveDownPattern<mhlo::SliceOp> {
+  SliceMoveDownAndMergePattern(MLIRContext *context)
+      : HloMoveDownPattern<mhlo::SliceOp>(context, /*block=*/{},
+                                          /*allMultiUser=*/false,
+                                          /*multiUser=*/false) {}
 
   LogicalResult matchAndRewrite(mhlo::SliceOp op,
                                 PatternRewriter &rewriter) const override {
@@ -785,15 +703,13 @@ private:
             {static_cast<long int>(broadcastDimensions.size())},
             rewriter.getI64Type()),
         broadcastDimensions);
+
+    // insert broadcast exactly after binnaryCommonOperand
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfterValue(binaryCommonOperand);
     auto broadcastOp = rewriter.create<mhlo::BroadcastInDimOp>(
         rewriter.getUnknownLoc(), afterBroadcastType, binaryCommonOperand,
         newBcastAttr);
-    auto *binaryCommonDefiningOp = binaryCommonOperand.getDefiningOp();
-    if (binaryCommonDefiningOp &&
-        binaryCommonDefiningOp->getBlock() == broadcastOp->getBlock() &&
-        broadcastOp->isBeforeInBlock(binaryCommonDefiningOp)) {
-      broadcastOp->moveAfter(binaryCommonDefiningOp);
-    }
     return broadcastOp;
   }
 
@@ -802,7 +718,7 @@ private:
                              mhlo::BroadcastInDimOp &newBroadcastOp,
                              PatternRewriter &rewriter) const {
     auto user = sliceUsers[0];
-    BlockAndValueMapping bvm;
+    IRMapping bvm;
     for (auto operand : user->getOperands()) {
       if (operand == slices[0]->getResult(0)) {
         bvm.map(operand, slices[0]->getOperand(0));
@@ -818,14 +734,19 @@ private:
     // maybeResultTypes should always have value
     assert(maybeResultTypes.has_value());
 
-    auto newProducer =
-        cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);
-    for (auto operand : newProducer->getOperands()) {
-      const auto parentOp = operand.getDefiningOp();
-      if (parentOp && newProducer->isBeforeInBlock(parentOp)) {
-        newProducer->moveAfter(parentOp);
+    // insert sliceUser op after both slice opreand and newBroadcastOp
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfterValue(slices[0]->getOperand(0));
+    if (newBroadcastOp) {
+      if (llvm::isa<BlockArgument>(slices[0]->getOperand(0))) {
+        rewriter.setInsertionPointAfter(newBroadcastOp);
+      } else if (slices[0]->getOperand(0).getDefiningOp()->isBeforeInBlock(
+                     newBroadcastOp)) {
+        rewriter.setInsertionPointAfter(newBroadcastOp);
       }
     }
+    auto newProducer =
+        cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);
     newProducer->setLoc(rewriter.getUnknownLoc());
     return newProducer;
   }
@@ -848,21 +769,14 @@ private:
     // step 3: perform move down
     for (size_t i = 0; i < slices.size(); i++) {
       auto op = slices[i];
-      mhlo::SliceOp slice = dyn_cast<mhlo::SliceOp>(*op);
-      assert(slice);
+      mhlo::SliceOp slice = cast<mhlo::SliceOp>(op);
       auto user = sliceUsers[i];
-      // create slice op
-      auto sliceOp = rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
+      // create slice op at every user's insertion point
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(user);
+      rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
           user, user->getResultTypes(), newProducer->getResult(0),
           slice.getStartIndices(), slice.getLimitIndices(), slice.getStrides());
-      if (sliceOp->isBeforeInBlock(newProducer)) {
-        sliceOp->moveAfter(newProducer);
-      }
-      for (auto user : sliceOp.getResult().getUsers()) {
-        if (user->isBeforeInBlock(sliceOp)) {
-          user->moveAfter(sliceOp);
-        }
-      }
     }
     return success();
   }
@@ -895,6 +809,29 @@ struct HloMoveDownPass : public HloMoveDownBase<HloMoveDownPass> {
     funcOp.walk([](ReshapeOp op) { op->removeAttr(kMoveDownDisableKey); });
   }
 };
+
+struct SliceMoveDownAndMergePass
+    : public SliceMoveDownAndMergeBase<SliceMoveDownAndMergePass> {
+  using SliceMoveDownAndMergeBase<
+      SliceMoveDownAndMergePass>::SliceMoveDownAndMergeBase;
+
+  void runOnOperation() override {
+    func::FuncOp funcOp = getOperation();
+    auto ctx = funcOp.getContext();
+    RewritePatternSet patterns(ctx);
+
+    populateSliceMoveDownAndMergePattern(patterns);
+
+    // also add canoncializationExt pattern
+    mhlo::getCanonicalizationExtPatterns(patterns, ctx);
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
+      funcOp.emitError("SliceMoveDownAndMergePass applyPatternsAndFoldGreedily "
+                       "does not converge");
+      signalPassFailure();
+    }
+  }
+};
 } // namespace
 
 void mlir::populateHloMoveDownPattern(RewritePatternSet &patterns,
@@ -905,14 +842,21 @@ void mlir::populateHloMoveDownPattern(RewritePatternSet &patterns,
                ReshapeMoveDownPattern,
                BroadcastMoveDownPattern,
                BroadcastReshapeMoveDownPattern,
-               ReshapeBroadcastDotMoveDownPattern,
-               BroadcastBinaryMoveDownPattern,
-               SliceMoveDownPattern>(
+               ReshapeBroadcastDotMoveDownPattern>(
            patterns.getContext(), blocker, allMultiUser, multiUser);
   // clang-format on
+}
+
+void mlir::populateSliceMoveDownAndMergePattern(RewritePatternSet &patterns) {
+  patterns.add<SliceMoveDownAndMergePattern>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createHloMoveDownPass(bool allMultiUser, bool multiUser) {
   return std::make_unique<HloMoveDownPass>(allMultiUser, multiUser);
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createSliceMoveDownAndMergePass() {
+  return std::make_unique<SliceMoveDownAndMergePass>();
 }

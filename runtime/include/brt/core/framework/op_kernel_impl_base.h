@@ -19,6 +19,7 @@
 
 #include "brt/core/common/common.h"
 #include "brt/core/context/execution_context.h"
+#include "brt/core/context/work_queue.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/framework/op_kernel.h"
 
@@ -86,6 +87,12 @@ template <typename T, std::size_t N> struct TypedOperand {
   template <typename Impl>
   static inline T Get(Impl *impl, const ExecutionContext &ctx) {
     return static_cast<T>(impl->GetOpAccessor(ctx).GetArgAsyncValueRef(N));
+  }
+};
+
+struct WorkQueue {
+  static inline ::brt::WorkQueue *Get(void *, const ExecutionContext &ctx) {
+    return const_cast<ExecutionContext &>(ctx).work_queue;
   }
 };
 
@@ -217,9 +224,34 @@ struct OpKernelWithWorkspaceIfaceTraitsT
   };
 };
 
+template <template <typename...> class Base, typename... Arguments>
+struct HostOpKernelIfaceTraitsT
+    : public Base<argument_type::WorkQueue, Arguments...> {
+  using BaseTraits = Base<argument_type::WorkQueue, Arguments...>;
+
+  template <typename T>
+  using ImplMixinBase = typename BaseTraits::template ImplMixin<T>;
+
+  template <typename ImplBase>
+  struct ImplMixin : public ImplMixinBase<ImplBase> {
+  public:
+    using ImplMixinBase<ImplBase>::ImplMixinBase;
+
+    template <typename... Args>
+    common::Status Execute(WorkQueue *work_queue, Args &&...args) {
+      DispatchHostTask(work_queue, { ImplBase::Execute(args...); });
+      return common::Status::OK();
+    }
+  };
+};
+
 template <typename... Arguments>
 using OpKernelWithWorkspaceIfaceTraits =
     OpKernelWithWorkspaceIfaceTraitsT<NaiveOpKernelIfaceTraits, Arguments...>;
+
+template <typename... Arguments>
+using HostOpKernelIfaceTraits =
+    HostOpKernelIfaceTraitsT<NaiveOpKernelIfaceTraits, Arguments...>;
 
 template <typename Impl, typename Traits> struct FinalizeOpKernel {
   using op_type_t =
@@ -255,5 +287,14 @@ BRT_DEF_OP_KERNEL_WRPPER(NaiveOpKernel, NaiveOpKernelIfaceTraits)
  */
 BRT_DEF_OP_KERNEL_WRPPER(OpKernelWithWorkspace,
                          OpKernelWithWorkspaceIfaceTraits);
+
+/* Usage:
+ *   struct ConcreateOpImpl {
+ *     ConcreateOpImpl(const OpAccessor&);
+ *     common::Status Execute(args...);
+ *   };
+ *   using ConcreteOp = HostOpKernel<ConcreateOpImpl, Arguments...>;
+ */
+BRT_DEF_OP_KERNEL_WRPPER(HostOpKernel, HostOpKernelIfaceTraits);
 
 } // namespace brt

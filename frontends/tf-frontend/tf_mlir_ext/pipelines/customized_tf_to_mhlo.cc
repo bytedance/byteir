@@ -43,7 +43,7 @@
 #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/transforms/shape_inference.h"
 #include "tensorflow/compiler/mlir/tensorflow/translate/mlir_roundtrip_flags.h"
-#include "tensorflow/compiler/mlir/xla/transforms/passes.h"
+#include "tensorflow/compiler/mlir/tf2xla/transforms/passes.h"
 
 using namespace mlir;
 using namespace llvm;
@@ -52,14 +52,16 @@ namespace {
 
 struct CustomizedTfToMhloPipelinePass
     : public CustomizedTfToMhloPipelineBase<CustomizedTfToMhloPipelinePass> {
-  CustomizedTfToMhloPipelinePass(const std::vector<std::string> &customcall_ops,
-                                 bool remove_control_flow,
-                                 bool staticalize_dynamic_shape,
-                                 bool stop_after_rewrite_custom_call) {
+  CustomizedTfToMhloPipelinePass(
+      const std::vector<std::string> &customcall_ops, bool remove_control_flow,
+      bool staticalize_dynamic_shape, bool stop_after_rewrite_custom_call,
+      const std::unordered_map<std::string, Attribute>
+          &additional_main_func_attrs) {
     this->customCallOps = customcall_ops;
     this->removeControlFlow = remove_control_flow;
     this->staticalizeDynamicShape = staticalize_dynamic_shape;
     this->stopAfterRewriteCustomCall = stop_after_rewrite_custom_call;
+    this->additional_main_func_attrs = additional_main_func_attrs;
   }
 
   void runOnOperation() override {
@@ -121,9 +123,10 @@ struct CustomizedTfToMhloPipelinePass
     // inside PromoteResourcesToArgs.
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::CreateExecutorDialectToFunctionalConversionPass());
-    if (staticalizeDynamicShape)
+    if (staticalizeDynamicShape) {
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::tfext::createProcessDynamicStitchAsStaticPass());
+    }
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createReshapeMovedownStringPass());
 
@@ -132,8 +135,6 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::createCSEPass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
-
-    pm.addPass(mlir::mhlo::createLegalizeTFControlFlowPass());
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
     pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
@@ -154,9 +155,9 @@ struct CustomizedTfToMhloPipelinePass
 
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-        /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/llvm::None, false));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(
+        /*legalize_chlo=*/true,
+        /*tf2xla_fallback_device_type=*/std::nullopt, false));
     pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
 
@@ -172,9 +173,9 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-        /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/llvm::None, false));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(
+        /*legalize_chlo=*/true,
+        /*tf2xla_fallback_device_type=*/std::nullopt, false));
 
     // if (CanInlineFunctionsPostLegalization(device_type))
     //   pm.addPass(mlir::createInlinerPass());
@@ -193,9 +194,9 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
-        /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/llvm::None, false));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(
+        /*legalize_chlo=*/true,
+        /*tf2xla_fallback_device_type=*/std::nullopt, false));
 
     pm.addPass(mlir::createInlinerPass());
 
@@ -206,7 +207,8 @@ struct CustomizedTfToMhloPipelinePass
         mlir::tfext::createTfFallbackToCustomCallPass());
 
     pm.addNestedPass<mlir::func::FuncOp>(
-        mlir::tfext::createRewriteFuncAttrToByteIRPass());
+        mlir::tfext::createRewriteFuncAttrToByteIRPass(
+            additional_main_func_attrs));
 
     pm.addPass(mlir::createCanonicalizerPass());
 
@@ -214,6 +216,9 @@ struct CustomizedTfToMhloPipelinePass
       signalPassFailure();
     }
   }
+
+private:
+  std::unordered_map<std::string, Attribute> additional_main_func_attrs;
 };
 } // namespace
 
@@ -222,8 +227,10 @@ mlir::tfext::createCustomizedTfToMhloPipelinePass(
     const std::vector<std::string> &customcall_ops /*= {}*/,
     bool remove_control_flow /*= false*/,
     bool staticalize_dynamic_shape /*= false*/,
-    bool stop_after_rewrite_custom_call /*= false*/) {
+    bool stop_after_rewrite_custom_call /*= false*/,
+    const std::unordered_map<std::string, Attribute>
+        &additional_main_func_attrs /*= {}*/) {
   return std::make_unique<CustomizedTfToMhloPipelinePass>(
       customcall_ops, remove_control_flow, staticalize_dynamic_shape,
-      stop_after_rewrite_custom_call);
+      stop_after_rewrite_custom_call, additional_main_func_attrs);
 }

@@ -124,13 +124,13 @@ static void TestBatchNormTrainingOp(std::vector<int64_t> shape_input,
   }
   int64_t total_size = N * C * H * W;
 
+  ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
-  ByREBuilder byre_builder;
   auto status_load = session.LoadFromMemory(
       CreateBatchNormTraining(byre_builder, dtype_enum_v<T>, "cuda",
                               shape_input, feature_index, epsilon),

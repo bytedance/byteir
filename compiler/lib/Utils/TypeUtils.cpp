@@ -18,6 +18,7 @@
 #include "byteir/Utils/TypeUtils.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "llvm/ADT/SmallVector.h"
+#include <tuple>
 
 using namespace mlir;
 
@@ -39,4 +40,20 @@ RankedTensorType mlir::appendTensorEncodingAttr(RankedTensorType origin,
   // if origin type has an encoding which is not DictionaryAttr, replace it.
   return RankedTensorType::get(origin.getShape(), origin.getElementType(),
                                dict);
+}
+
+// return whether two ShapedType has a same Shape
+bool mlir::areSameShape(ShapedType lhs, ShapedType rhs) {
+  auto lhsShape = lhs.getShape();
+  auto rhsShape = rhs.getShape();
+  if (lhsShape.size() != rhsShape.size()) {
+    return false;
+  }
+
+  for (const auto z : llvm::zip(lhsShape, rhsShape)) {
+    if (std::get<0>(z) != std::get<1>(z)) {
+      return false;
+    }
+  }
+  return true;
 }

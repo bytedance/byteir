@@ -17,10 +17,14 @@
 
 #include "byteir/Transforms/CanonicalizeExt.h"
 
+#include "byteir/Dialect/Linalg/Transforms/CanonicalizeExt.h"
+#include "byteir/Dialect/Tensor/Transforms/CanonicalizeExt.h"
+#include "byteir/Dialect/Vector/Transforms/CanonicalizeExt.h"
 #include "byteir/Dialect/mhlo/Transforms/CanonicalizeExt.h"
 #include "byteir/Transforms/CondCanonicalize.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/Transforms/Transforms.h"
@@ -41,7 +45,7 @@ LogicalResult removeEmptyFuncCall(func::CallOp op, PatternRewriter &rewriter) {
     // also check func body
     auto funcOp = getFuncOp(op);
     if (funcOp.getBody().front().without_terminator().empty()) {
-      rewriter.replaceOp(op, {});
+      rewriter.eraseOp(op);
       // Note should NOT remove func here.
       return success();
     }
@@ -131,14 +135,70 @@ void mlir::shape::populateCanonicalizeExtPatterns(RewritePatternSet &patterns) {
 
 namespace {
 
+bool isZero(arith::ConstantOp cstOp) {
+  auto op = cstOp.getOperation();
+  if (auto cstFOp = dyn_cast<arith::ConstantFloatOp>(op)) {
+    return cstFOp.value().isZero();
+  } else if (auto cstIOp = dyn_cast<arith::ConstantIntOp>(op)) {
+    return cstIOp.value() == 0;
+  } else if (auto cstIdxOp = dyn_cast<arith::ConstantIndexOp>(op)) {
+    return cstIdxOp.value() == 0;
+  }
+  return false;
+}
+
+template <typename Op>
+LogicalResult foldMultiplyZero(Op op, PatternRewriter &rewriter) {
+  auto lhsOp = op.getLhs().template getDefiningOp<arith::ConstantOp>();
+  auto rhsOp = op.getRhs().template getDefiningOp<arith::ConstantOp>();
+  if (!lhsOp && !rhsOp)
+    return failure();
+
+  auto checkZeroThenReplace = [&](arith::ConstantOp cstOp) {
+    if (!cstOp)
+      return false;
+
+    if (isZero(cstOp)) {
+      rewriter.replaceOp(op, cstOp.getResult());
+      return true;
+    }
+    return false;
+  };
+
+  if (checkZeroThenReplace(lhsOp)) {
+    return success();
+  } else if (checkZeroThenReplace(rhsOp)) {
+    return success();
+  }
+
+  return failure();
+}
+} // namespace
+
+// FIXME: this pattern should move to arith dialect
+void arith::foldMultiplyZeroPatterns(RewritePatternSet &patterns) {
+  patterns.add(foldMultiplyZero<arith::MulFOp>);
+  patterns.add(foldMultiplyZero<arith::MulIOp>);
+  patterns.add(foldMultiplyZero<arith::MulSIExtendedOp>);
+  patterns.add(foldMultiplyZero<arith::MulUIExtendedOp>);
+}
+
+void mlir::populateFoldMultiplyZeroPatterns(RewritePatternSet &patterns) {
+  patterns.add(mlir::mhlo::foldMultiplyZero);
+  arith::foldMultiplyZeroPatterns(patterns);
+}
+
+namespace {
+
 struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
   CanonicalizeExtPass() = default;
-  CanonicalizeExtPass(const GreedyRewriteConfig &config,
+  CanonicalizeExtPass(const GreedyRewriteConfig &config, bool blindFold,
                       ArrayRef<std::string> disabledPatterns,
                       ArrayRef<std::string> enabledPatterns) {
     this->topDownProcessingEnabled = config.useTopDownTraversal;
     this->enableRegionSimplification = config.enableRegionSimplification;
     this->maxIterations = config.maxIterations;
+    this->blindFold = blindFold;
     this->disabledPatterns = disabledPatterns;
     this->enabledPatterns = enabledPatterns;
   }
@@ -151,15 +211,22 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(owningPatterns, context);
 
-    mhlo::getCanonicalizationExtPatterns(owningPatterns, context);
+    mhlo::getCanonicalizationExtPatterns(owningPatterns, context, blindFold);
     // put conditional canonicalizer too
     populateCondCanonicalizePatterns(owningPatterns);
     // put func canonicalizerExt too
     func::populateCanonicalizeExtPatterns(owningPatterns);
+    // put linalg canonicalizeExt too
+    linalg::populateCanonicalizeExtPatterns(owningPatterns);
     // put shape canonicalizerExt too
     shape::populateCanonicalizeExtPatterns(owningPatterns);
     // put tensor fold empty too
     tensor::populateFoldTensorEmptyPatterns(owningPatterns);
+    tensor::populateCanonicalizeExtPatterns(owningPatterns, context, blindFold);
+    vector::populateCanonicalizeExtPatterns(owningPatterns);
+
+    // tentatively put fold multiply zero
+    populateFoldMultiplyZeroPatterns(owningPatterns);
 
     patterns = FrozenRewritePatternSet(std::move(owningPatterns),
                                        disabledPatterns, enabledPatterns);
@@ -203,14 +270,113 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createCanonicalizeExtPass() {
-  return std::make_unique<CanonicalizeExtPass>();
+std::unique_ptr<Pass> mlir::createCanonicalizeExtPass(bool blindFold) {
+  GreedyRewriteConfig config;
+  return std::make_unique<CanonicalizeExtPass>(config, blindFold, std::nullopt,
+                                               std::nullopt);
 }
 
 std::unique_ptr<Pass>
 mlir::createCanonicalizeExtPass(const GreedyRewriteConfig &config,
+                                bool blindFold,
                                 ArrayRef<std::string> disabledPatterns,
                                 ArrayRef<std::string> enabledPatterns) {
-  return std::make_unique<CanonicalizeExtPass>(config, disabledPatterns,
-                                               enabledPatterns);
+  return std::make_unique<CanonicalizeExtPass>(
+      config, blindFold, disabledPatterns, enabledPatterns);
+}
+
+namespace {
+
+struct GraphCanonicalizePass
+    : public GraphCanonicalizeBase<GraphCanonicalizePass> {
+  GraphCanonicalizePass() = default;
+  GraphCanonicalizePass(const GreedyRewriteConfig &config, bool blindFold,
+                        ArrayRef<std::string> disabledPatterns,
+                        ArrayRef<std::string> enabledPatterns) {
+    this->topDownProcessingEnabled = config.useTopDownTraversal;
+    this->enableRegionSimplification = config.enableRegionSimplification;
+    this->maxIterations = config.maxIterations;
+    this->blindFold = blindFold;
+    this->disabledPatterns = disabledPatterns;
+    this->enabledPatterns = enabledPatterns;
+  }
+
+  LogicalResult initialize(MLIRContext *context) override {
+    RewritePatternSet owningPatterns(context);
+
+    // add default canonicalizer
+    for (auto *dialect : context->getLoadedDialects())
+      dialect->getCanonicalizationPatterns(owningPatterns);
+    for (RegisteredOperationName op : context->getRegisteredOperations())
+      op.getCanonicalizationPatterns(owningPatterns, context);
+
+    mhlo::getCanonicalizationExtPatternsForTheDialectOnly(owningPatterns,
+                                                          context, blindFold);
+    // put func canonicalizerExt too
+    func::populateCanonicalizeExtPatterns(owningPatterns);
+    // put shape canonicalizerExt too
+    shape::populateCanonicalizeExtPatterns(owningPatterns);
+    // put tensor fold empty too
+    tensor::populateFoldTensorEmptyPatterns(owningPatterns);
+    tensor::populateCanonicalizeExtPatterns(owningPatterns, context, blindFold);
+    vector::populateCanonicalizeExtPatterns(owningPatterns);
+
+    // tentatively put fold multiply zero
+    populateFoldMultiplyZeroPatterns(owningPatterns);
+
+    patterns = FrozenRewritePatternSet(std::move(owningPatterns),
+                                       disabledPatterns, enabledPatterns);
+    return success();
+  }
+
+  void runOnOperation() override {
+    Operation *operation = getOperation();
+
+    // TODO: The ideal way of adding mhlo.custom_call dce logic is to
+    // integrating it into applyPatternsAndFoldGreedily.
+    // Side effect is only an attribute of CustomCallOp, not an interface. It
+    // should be specially handled.
+    std::vector<Operation *> allNestedOps;
+    // Note using preOrder since we use reverse iterator later.
+    operation->walk<WalkOrder::PreOrder>(
+        [&](Operation *op) { allNestedOps.push_back(op); });
+    for (auto it = allNestedOps.rbegin(); it != allNestedOps.rend(); ++it) {
+      Operation *op = *it;
+      if (!op->use_empty())
+        continue;
+      if (wouldOpBeTriviallyDead(op)) {
+        op->erase();
+      } else {
+        auto customOp = llvm::dyn_cast<mhlo::CustomCallOp>(op);
+        if (customOp && !customOp.getHasSideEffect()) {
+          op->erase();
+        }
+      }
+    }
+
+    GreedyRewriteConfig config;
+    config.useTopDownTraversal = topDownProcessingEnabled;
+    config.enableRegionSimplification = enableRegionSimplification;
+    config.maxIterations = maxIterations;
+    (void)applyPatternsAndFoldGreedily(operation, patterns, config);
+  }
+
+  FrozenRewritePatternSet patterns;
+};
+
+} // namespace
+
+std::unique_ptr<Pass> mlir::createGraphCanonicalizePass(bool blindFold) {
+  GreedyRewriteConfig config;
+  return std::make_unique<GraphCanonicalizePass>(config, blindFold,
+                                                 std::nullopt, std::nullopt);
+}
+
+std::unique_ptr<Pass>
+mlir::createGraphCanonicalizePass(const GreedyRewriteConfig &config,
+                                  bool blindFold,
+                                  ArrayRef<std::string> disabledPatterns,
+                                  ArrayRef<std::string> enabledPatterns) {
+  return std::make_unique<GraphCanonicalizePass>(
+      config, blindFold, disabledPatterns, enabledPatterns);
 }

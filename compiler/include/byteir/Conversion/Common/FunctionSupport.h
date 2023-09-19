@@ -37,10 +37,6 @@ void replicateFuncOpResults(func::FuncOp funcOp);
 void replicateFuncOpResults(func::FuncOp funcOp,
                             std::function<void(func::ReturnOp)> retOpHandling);
 
-void relocateFuncOpConstantLike(
-    func::FuncOp funcOp, std::function<bool(Operation *)> checkOp,
-    std::function<std::tuple<Value, NamedAttrList>(Operation *)> getValue);
-
 } // namespace mlir
 
 #endif // BYTEIR_CONVERSION_FUNCTIONSUPPORT_H

@@ -70,28 +70,18 @@ void RandCPUBuffer(T *mat, size_t size, size_t ub = RAND_MAX) {
 int64_t LinearizedShape(const std::vector<int64_t> &shape);
 
 // check floating point values near with absolute and relative epsilon
+// same with torch/numpy's allclose: ∣input−other∣≤atol+rtol×∣other∣
 template <typename T,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-[[nodiscard]] bool ExpectNear(T first, T second, double absolute_eps,
-                              double relative_eps) {
+[[nodiscard]] bool ExpectNear(T first, T second, double atol, double rtol) {
   double first_val = static_cast<double>(first);
   double second_val = static_cast<double>(second);
-  double abs_diff = std::abs(first_val - second_val);
-  double rel_diff = 0;
-  if (first_val != 0) {
-    rel_diff = std::max(rel_diff, abs_diff / std::abs(first_val));
-  }
-  if (second_val != 0) {
-    rel_diff = std::max(rel_diff, abs_diff / std::abs(second_val));
-  }
+  double diff = std::abs(first_val - second_val);
 
-  if (abs_diff > absolute_eps && rel_diff > relative_eps) {
-    std::cerr << "ExpectNear Error: first value " << first_val
-              << ", second value " << second_val << "\n";
-    std::cerr << "Expected absolute eps: " << absolute_eps
-              << ", real absolute: " << abs_diff
-              << "; expected relative eps: " << relative_eps
-              << ", real relative: " << rel_diff << "\n";
+  if (diff > atol + rtol * std::abs(second_val)) {
+    std::cerr << "ExpectNear Error: first value: " << first_val
+              << ", second value: " << second_val << ", atol: " << atol
+              << ", rtol: " << rtol << "\n";
     return false;
   }
   return true;
@@ -100,8 +90,8 @@ template <typename T,
 // check two values same
 template <typename T> [[nodiscard]] bool ExpectEQ(T first, T second) {
   if (first != second) {
-    std::cerr << "ExpectEQ Error: first value " << first << ", second value "
-              << second << "\n";
+    std::cerr << "ExpectEQ Error: first value " << static_cast<double>(first)
+              << ", second value " << static_cast<double>(second) << "\n";
     return false;
   }
   return true;
@@ -110,12 +100,11 @@ template <typename T> [[nodiscard]] bool ExpectEQ(T first, T second) {
 // check two array floating point values near
 template <typename T,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>
-[[nodiscard]] bool CheckCPUValues(T *first, T *second, size_t size,
-                                  double absolute_eps, double relative_eps,
-                                  size_t print_count = 10) {
+[[nodiscard]] bool CheckCPUValues(T *first, T *second, size_t size, double atol,
+                                  double rtol, size_t print_count = 10) {
   size_t count = 0;
   for (size_t i = 0; i < size && count < print_count; i++) {
-    if (!ExpectNear(first[i], second[i], absolute_eps, relative_eps)) {
+    if (!ExpectNear(first[i], second[i], atol, rtol)) {
       count++;
     }
   }

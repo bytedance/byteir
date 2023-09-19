@@ -1,0 +1,18 @@
+diff --git a/onnx/version_converter/adapters/resize_10_11.h b/onnx/version_converter/adapters/resize_10_11.h
+index c48e5c77..e55e6dd3 100644
+--- a/onnx/version_converter/adapters/resize_10_11.h
++++ b/onnx/version_converter/adapters/resize_10_11.h
+@@ -14,6 +14,13 @@ class Resize_10_11 final : public Adapter {
+   explicit Resize_10_11() : Adapter("Resize", OpSetID(10), OpSetID(11)) {}
+ 
+   void adapt_resize_10_11(std::shared_ptr<Graph> graph, Node* node) const {
++    if (node->hasAttribute(kmode) && node->s(kmode) == "nearest") {
++      Symbol knearest_mode("nearest_mode");
++      node->s_(knearest_mode, "floor");
++      Symbol kcoordinate_transformation_mode("coordinate_transformation_mode");
++      node->s_(kcoordinate_transformation_mode, "asymmetric");
++    }
++
+     int input_rank = node->inputs()[0]->sizes().size();
+ 
+     Value* scales_input = node->inputs()[1];

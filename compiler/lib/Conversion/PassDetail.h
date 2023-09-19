@@ -23,7 +23,10 @@
 
 // forward dialects for conversions
 namespace mlir {
+
+namespace affine {
 class AffineDialect;
+} // namespace affine
 
 namespace ace {
 class AceDialect;
@@ -40,6 +43,10 @@ class BufferizationDialect;
 namespace byre {
 class ByreDialect;
 } // namespace byre
+
+namespace cat {
+class CatDialect;
+} // namespace cat
 
 namespace cf {
 class ControlFlowDialect;
@@ -89,6 +96,10 @@ class SCFDialect;
 namespace shape {
 class ShapeDialect;
 } // namespace shape
+
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
 
 #define GEN_PASS_CLASSES
 #include "byteir/Conversion/Passes.h.inc"

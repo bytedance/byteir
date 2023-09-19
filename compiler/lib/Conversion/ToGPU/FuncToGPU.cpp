@@ -30,8 +30,8 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -46,6 +46,9 @@
 
 #define DEBUG_TYPE "func-to-gpu"
 
+// TODO: configurable coarsen factor
+#define COARSEN_FACTOR 4
+
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::arith;
@@ -58,7 +61,8 @@ static void creaetGuardedSIMT(OpBuilder &b, Value id, Value bound,
   b.setInsertionPoint(looplike);
 
   if (coarsen) {
-    addLoopLowerBound(b, looplike, id);
+    auto newIV = createIndexValue(b, looplike, id);
+    setLoopLowerBound(b, looplike, newIV);
     multiplyLoopStep(b, looplike, bound);
 
     // remove attrs
@@ -68,7 +72,7 @@ static void creaetGuardedSIMT(OpBuilder &b, Value id, Value bound,
     return;
   }
 
-  BlockAndValueMapping bvm;
+  IRMapping bvm;
   // newIV = lb + idx * step
   auto newIV = createIndexValue(b, looplike, id);
   auto oldIV = getInductionVar(looplike);
@@ -126,7 +130,6 @@ static void convertLoopToSIMT(OpBuilder &b, func::FuncOp func,
   GPUIndexType gpuIdxT = GPUIndexType::linear_id;
   gpu::Dimension dim = gpu::Dimension::x;
 
-  // insert righ before loop
   if (strAttr.getValue() == getLinearIdXName()) {
     gpuIdxT = GPUIndexType::linear_id;
     dim = gpu::Dimension::x;
@@ -216,9 +219,10 @@ static bool isHoistUpOp(Operation *op) {
              memref::DimOp, memref::ExpandShapeOp, memref::ReshapeOp>(op);
 }
 
-static void rewriteToGPULaunchFuncImpl(OpBuilder &builder, func::FuncOp func,
-                                       ArrayRef<Value> args,
-                                       gpu::GPUFuncOp gpuFunc) {
+static gpu::LaunchFuncOp rewriteToGPULaunchFuncImpl(OpBuilder &builder,
+                                                    func::FuncOp func,
+                                                    ArrayRef<Value> args,
+                                                    gpu::GPUFuncOp gpuFunc) {
   // Rewrite Orignal function
   Region &funcBody = func.getBody();
   Block &funcEntryBlock = funcBody.front();
@@ -237,14 +241,14 @@ static void rewriteToGPULaunchFuncImpl(OpBuilder &builder, func::FuncOp func,
 
   builder.setInsertionPoint(funcEntryBlock.getTerminator());
   auto blockAndGrid = createBlockAndGrid(builder, func);
-  builder.create<gpu::LaunchFuncOp>(func.getLoc(), gpuFunc, blockAndGrid.second,
-                                    blockAndGrid.first,
-                                    /*dynamicSharedMemorySize=*/nullptr, args);
+  auto launch = builder.create<gpu::LaunchFuncOp>(
+      func.getLoc(), gpuFunc, blockAndGrid.second, blockAndGrid.first,
+      /*dynamicSharedMemorySize=*/nullptr, args);
+  return launch;
 }
 
 int64_t estimateGridSize(LoopLikeOpInterface loopLike, int64_t currGs,
                          int64_t stepMultiplier) {
-
   auto maybeTripCnt = getConstantTripCount(loopLike, stepMultiplier);
 
   if (maybeTripCnt.has_value() &&
@@ -255,7 +259,7 @@ int64_t estimateGridSize(LoopLikeOpInterface loopLike, int64_t currGs,
 }
 
 void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
-                                 ArrayRef<int64_t> gs) {
+                                 ArrayRef<int64_t> gs, int64_t coarsenFactor) {
 
   // handle block and grid sizes
   SmallVector<int64_t> toGPUSizes;
@@ -297,27 +301,26 @@ void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
     if (loopLike->hasAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
       auto coarsen =
           loopLike->hasAttrOfType<UnitAttr>(getCoarsenSIMTAttrName());
-      if (coarsen)
-        return;
+      int64_t factor = coarsen ? coarsenFactor : 1;
 
       auto strAttr =
           loopLike->getAttrOfType<StringAttr>(getLoopToSIMTAttrName());
 
       if (strAttr.getValue() == getLinearIdXName()) {
         maxGridSizes[0] =
-            estimateGridSize(loopLike, maxGridSizes[0], toGPUSizes[0]);
+            estimateGridSize(loopLike, maxGridSizes[0], toGPUSizes[0] * factor);
       } else if (strAttr.getValue() == getLinearIdYName()) {
         maxGridSizes[1] =
-            estimateGridSize(loopLike, maxGridSizes[1], toGPUSizes[1]);
+            estimateGridSize(loopLike, maxGridSizes[1], toGPUSizes[1] * factor);
       } else if (strAttr.getValue() == getLinearIdZName()) {
         maxGridSizes[2] =
-            estimateGridSize(loopLike, maxGridSizes[2], toGPUSizes[2]);
+            estimateGridSize(loopLike, maxGridSizes[2], toGPUSizes[2] * factor);
       } else if (strAttr.getValue() == getBlockIdXName()) {
-        maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0], 1);
+        maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0], factor);
       } else if (strAttr.getValue() == getBlockIdYName()) {
-        maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1], 1);
+        maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1], factor);
       } else if (strAttr.getValue() == getBlockIdZName()) {
-        maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2], 1);
+        maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2], factor);
       }
     }
   });
@@ -338,6 +341,88 @@ void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
   }
 
   func->setAttr(getToGPUAttrName(), ArrayAttr::get(ctx, toGPUAttrs));
+}
+
+static std::optional<Attribute>
+getMaxGPUConfigAttr(Operation *op, KernelDim3 bs, KernelDim3 gs) {
+  std::optional<Attribute> attr = std::nullopt;
+  if (auto threadId = dyn_cast<gpu::ThreadIdOp>(op)) {
+    if (threadId.getDimension() == gpu::Dimension::x) {
+      attr = getAttrFromConstantLike(bs.x);
+    } else if (threadId.getDimension() == gpu::Dimension::y) {
+      attr = getAttrFromConstantLike(bs.y);
+    } else {
+      attr = getAttrFromConstantLike(bs.z);
+    }
+  } else if (auto blockId = dyn_cast<gpu::BlockIdOp>(op)) {
+    if (blockId.getDimension() == gpu::Dimension::x) {
+      attr = getAttrFromConstantLike(gs.x);
+    } else if (blockId.getDimension() == gpu::Dimension::y) {
+      attr = getAttrFromConstantLike(gs.y);
+    } else {
+      attr = getAttrFromConstantLike(gs.z);
+    }
+  }
+  if (!attr)
+    return std::nullopt;
+  auto intAttr = attr->cast<IntegerAttr>();
+  return IntegerAttr::get(intAttr.getType(), intAttr.getInt() - 1);
+}
+
+static IRMapping getMaxGPUConfigAttrs(OpBuilder &b, gpu::GPUFuncOp gFunc,
+                                      KernelDim3 bs, KernelDim3 gs) {
+  IRMapping bvm;
+  for (auto threadId : getOpsNested<gpu::ThreadIdOp>(gFunc)) {
+    auto attr = getMaxGPUConfigAttr(threadId, bs, gs);
+    if (!attr)
+      continue;
+
+    b.setInsertionPoint(threadId);
+    Value newConst = arith::ConstantOp::materialize(
+        b, *attr, threadId.getType(), threadId.getLoc());
+    bvm.map(threadId.getResult(), newConst);
+  }
+
+  for (auto blockId : getOpsNested<gpu::BlockIdOp>(gFunc)) {
+    auto attr = getMaxGPUConfigAttr(blockId, bs, gs);
+    if (!attr)
+      continue;
+    b.setInsertionPoint(blockId);
+    Value newConst = arith::ConstantOp::materialize(b, *attr, blockId.getType(),
+                                                    blockId.getLoc());
+    bvm.map(blockId.getResult(), newConst);
+  }
+  return bvm;
+}
+
+static void simplifyGuards(gpu::GPUFuncOp gFunc, gpu::LaunchFuncOp launch) {
+  OpBuilder builder(gFunc.getContext());
+  KernelDim3 bs = launch.getBlockSizeOperandValues();
+
+  // create bvm from static launch values
+  IRMapping bvm =
+      getMaxGPUConfigAttrs(builder, gFunc, launch.getBlockSizeOperandValues(),
+                           launch.getGridSizeOperandValues());
+
+  // check whether condition can be simplified
+  for (auto ifOp : getOpsNested<scf::IfOp>(gFunc)) {
+    auto cond = ifOp.getCondition();
+    if (auto cmp = cond.getDefiningOp<arith::CmpIOp>()) {
+      SmallVector<OpFoldResult> foldResults;
+      auto isFold = deepFold(cmp, bvm, foldResults);
+      if (succeeded(isFold) && foldResults.size() == 1) {
+        auto attr = foldResults[0].dyn_cast<Attribute>();
+        // check it is true
+        // if so, override the condition into true
+        if (attr.cast<IntegerAttr>().getInt() != 0) {
+          builder.setInsertionPoint(ifOp);
+          Value newConst = arith::ConstantOp::materialize(
+              builder, attr, cmp.getType(), cmp.getLoc());
+          ifOp.setOperand(newConst);
+        }
+      }
+    }
+  }
 }
 
 struct ConvertFuncToGPUPass
@@ -363,7 +448,9 @@ struct ConvertFuncToGPUPass
     // collect all anchored function
     for (auto func : m.getOps<func::FuncOp>()) {
       if (func->hasAttr(getToGPUAttrName())) {
-        setValidStaticGPUConfigAttr(func, blockSizes, gridSizes);
+        // TODO: configurable coarsen factor
+        setValidStaticGPUConfigAttr(func, blockSizes, gridSizes,
+                                    COARSEN_FACTOR);
         funcCollector.push_back(func);
       }
     }
@@ -377,7 +464,7 @@ struct ConvertFuncToGPUPass
     SymbolTable gmTable(gm);
 
     OpBuilder builder(gm.getContext());
-    SmallVector<gpu::GPUFuncOp> gFuncs;
+    SmallVector<std::pair<gpu::GPUFuncOp, gpu::LaunchFuncOp>> gFuncAndLaunchs;
     // create GPUFuncOp and gpu::LaunchFunc
     for (auto func : funcCollector) {
       // perform hoist first
@@ -389,11 +476,12 @@ struct ConvertFuncToGPUPass
       SmallVector<Value> args;
       auto gpuFunc = cloneFuncToGPUFunc(builder, func, gm, args);
 
-      gFuncs.push_back(gpuFunc);
+      // gFuncs.push_back(gpuFunc);
       gmTable.insert(gpuFunc);
 
       // create GPULaunchFunc
-      rewriteToGPULaunchFuncImpl(builder, func, args, gpuFunc);
+      auto launch = rewriteToGPULaunchFuncImpl(builder, func, args, gpuFunc);
+      gFuncAndLaunchs.emplace_back(gpuFunc, launch);
 
       // remove attr
       func->removeAttr(getToGPUAttrName());
@@ -414,13 +502,29 @@ struct ConvertFuncToGPUPass
       }
     }
 
-    // perform CMAE
+    // perform simplifyGuards
     {
-      for (auto gFunc : gFuncs) {
-        runCMAEInFuncLike(gFunc);
+      for (auto &p : gFuncAndLaunchs) {
+        simplifyGuards(p.first, p.second);
       }
     }
-    //
+
+    // perform clean ups again
+    {
+      OpPassManager pm(m.getOperationName());
+      addCleanUpPassPipeline(pm);
+      addMultiCSEPipeline(pm, 2);
+      if (mlir::failed(runPipeline(pm, m))) {
+        signalPassFailure();
+      }
+    }
+
+    // perform CMAE
+    {
+      for (auto &p : gFuncAndLaunchs) {
+        runCMAEInFuncLike(p.first);
+      }
+    }
   }
 };
 

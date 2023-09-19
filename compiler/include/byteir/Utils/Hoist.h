@@ -122,13 +122,15 @@ Operation *leastProperlyPostDominantOp(ArrayRef<Operation *> ops,
 Operation *findHoistUpInBlock(Operation *op, DominanceInfo &domInfo);
 
 // return Operation Hoist Down within a Block of op
-Operation *findHoistDownInBlock(Operation *op, PostDominanceInfo &postDomInfo);
+Operation *findHoistDownInBlock(Operation *op, PostDominanceInfo &postDomInfo,
+                                bool checkOperand = false);
 
 // hoist up an op in its Block
 void hoistUpOpInBlock(Operation *op, DominanceInfo &domInfo);
 
 // hoist down an op in its Block
-void hoistDownOpInBlock(Operation *op, PostDominanceInfo &postDomInfo);
+void hoistDownOpInBlock(Operation *op, PostDominanceInfo &postDomInfo,
+                        bool checkOperand = false);
 
 // hoist up ops in a given Block
 void hoistUpOpsInBlock(Block *block, DominanceInfo &domInfo,
@@ -192,10 +194,12 @@ void hoistDownOpAndUsers(Operation *op, Operation *target,
                          PostDominanceInfo &postDomInfo);
 
 // try to hoist down descendant users of a val
-void hoistDownDescendantUsers(Value val, PostDominanceInfo &postDomInfo);
+void hoistDownDescendantUsers(Value val, PostDominanceInfo &postDomInfo,
+                              bool checkOperand = false);
 
 // try to hoist down a user and its descendants
-void hoistDownDescendantUsers(Operation *op, PostDominanceInfo &postDomInfo);
+void hoistDownDescendantUsers(Operation *op, PostDominanceInfo &postDomInfo,
+                              bool checkOperand = false);
 
 } // namespace mlir
 

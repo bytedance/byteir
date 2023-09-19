@@ -27,28 +27,28 @@ namespace cuda {
 
 void RegisterNormalizationOps(KernelRegistry *registry) {
   registry->Register(
-      "BatchNormTrainingOpf16f32f32f16f32f32",
+      "BatchNormTrainingOp_f16f32f32_f16f32f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(
             new cuda::BatchNormTraining<__half>(info));
         return kernel;
       });
   registry->Register(
-      "BatchNormTrainingOpf32f32f32f32f32f32",
+      "BatchNormTrainingOp_f32f32f32_f32f32f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::BatchNormTraining<float>(info));
         return kernel;
       });
   registry->Register(
-      "BatchNormTrainingOpf16f32f32f16",
+      "BatchNormTrainingOp_f16f32f32_f16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(
             new cuda::BatchNormTrainingNoMeanVar<__half>(info));
         return kernel;
       });
   registry->Register(
-      "BatchNormTrainingOpf32f32f32f32",
+      "BatchNormTrainingOp_f32f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(
             new cuda::BatchNormTrainingNoMeanVar<float>(info));
@@ -56,14 +56,14 @@ void RegisterNormalizationOps(KernelRegistry *registry) {
       });
 
   registry->Register(
-      "BatchNormGradOpf16f32f16f16f32f32",
+      "BatchNormGradOp_f16f32f16_f16f32f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::BatchNormGrad<__half>(info));
         return kernel;
       });
   registry->Register(
-      "BatchNormGradOpf32f32f32f32f32f32",
+      "BatchNormGradOp_f32f32f32_f32f32f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =
             std::shared_ptr<OpKernel>(new cuda::BatchNormGrad<float>(info));
