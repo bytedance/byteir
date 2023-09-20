@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  pull_request:
+  pull_request_target:
     branches:
       - main
   workflow_dispatch:
@@ -24,8 +24,25 @@ jobs:
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+      - name: Get User Permission
+        id: checkAccess
+        uses: actions-cool/check-user-permission@v2
+        with:
+          require: write
+          username: ${{ github.triggering_actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check User Permission
+        if: steps.checkAccess.outputs.require-result == 'false'
+        run: |
+          echo "${{ github.triggering_actor }} does not have permissions on this repo."
+          echo "Current permission level is ${{ steps.checkAccess.outputs.user-permission }}"
+          echo "Job originally triggered by ${{ github.actor }}"
+          exit 1
       - name: Checkout byteir repo
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Build and test e2e
         run: ./scripts/e2e/build_and_test_e2e.sh ${{ secrets.LLVM_INSTALL_DIR }} ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
         shell: bash
