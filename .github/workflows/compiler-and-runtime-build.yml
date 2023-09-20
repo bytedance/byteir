@@ -1,19 +1,20 @@
 name: Compiler And Runtime Build
 
-on: [push, pull_request_target, workflow_dispatch]
-# push:
-#   branches:
-#     - main
-#   paths-ignore:
-#     - "frontends/**"
-#     - "scripts/frontends/**"
-# pull_request_target:
-#   branches:
-#     - main
-#   paths-ignore:
-#     - "frontends/**"
-#     - "scripts/frontends/**"
-# workflow_dispatch:
+on: 
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "frontends/**"
+      - "scripts/frontends/**"
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    paths-ignore:
+      - "frontends/**"
+      - "scripts/frontends/**"
+  workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same
 # concurrency group will run at a time. This would cancel
