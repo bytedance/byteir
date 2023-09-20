@@ -7,7 +7,7 @@ on:
     paths-ignore:
       - "frontends/**"
       - "scripts/frontends/**"
-  pull_request:
+  pull_request_target:
     branches:
       - main
     paths-ignore:
