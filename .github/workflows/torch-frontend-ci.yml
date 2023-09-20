@@ -33,5 +33,5 @@ jobs:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Build and test TorchFrontend
-        run: ./scripts/frontends/torch-frontend/build_and_test.sh ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
+        run: ./scripts/frontends/torch-frontend/build_and_test.sh $TORCH_FRONTEND_LLVM_INSTALL_DIR
         shell: bash
