@@ -7,7 +7,7 @@ on:
     paths:
       - "frontends/torch-frontend/**"
       - "scripts/frontends/torch-frontend/**"
-  pull_request:
+  pull_request_target:
     branches:
       - main
     paths:
@@ -24,14 +24,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check_permission:
+    runs-on: self-hosted
+    steps:
+      - name: Approve
+        run: echo For security reasons, all pull requests need to be approved first before running any automated CI.
   torch_frontend_build_and_test:
     name: torch-frontend CI
     runs-on: self-hosted
+    needs: check_permission
+    environment: github-ci
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout byteir repo
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Build and test TorchFrontend
         run: ./scripts/frontends/torch-frontend/build_and_test.sh ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
         shell: bash
