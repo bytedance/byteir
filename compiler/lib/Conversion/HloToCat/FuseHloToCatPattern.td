@@ -30,6 +30,7 @@ def OneRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 1">
 def TwoRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 2">, "two rank">;
 def ThreeRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 3">, "three rank">;
 def FourRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 4">, "four rank">;
+def Permute10Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 1 && $0.getValues<int64_t>()[1] == 0">, "transpose <[1, 0]>">;
 def Permute021Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1">, "bmm 3d permute check (for transpose before bmm)">;
 def Permute0213Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1 && $0.getValues<int64_t>()[3] == 3">, "bmm 4d permute check (for transpose after bmm)">;
 def TransposeCheck : Constraint<CPred<"$0.getValues<int64_t>()[0] == 1 && $0.getValues<int64_t>()[1] == 0">, "matrix transpose check">;
@@ -116,6 +117,26 @@ def MhloCatGemmRCRTransToCatGemmRCRPermutePattern
           (Cat_GemmRCRPermuteOp $lhs, $rhs, (getDim1Attr $reshape_out), (getDim2Attr $reshape_out)),
           [(TwoRank $lhs), (TwoRank $rhs), (FourRank $reshape_out), (GemmPermuteShapeCheck $reshape_out, $gemm_out), (Permute0213Check $permute)]>;
 
+def MhloCatGemmRRRTransToCatGemmRRRPermutePattern
+    : Pat<(MHLO_TransposeOp
+            (MHLO_ReshapeOp : $reshape_out
+              (Cat_GemmRRROp : $gemm_out
+                $lhs, $rhs)
+            ),
+            $permute),
+          (Cat_GemmRRRPermuteOp $lhs, $rhs, (getDim1Attr $reshape_out), (getDim2Attr $reshape_out)),
+          [(TwoRank $lhs), (TwoRank $rhs), (FourRank $reshape_out), (GemmPermuteShapeCheck $reshape_out, $gemm_out), (Permute0213Check $permute)]>;
+
+def CatGemmRRRPermuteTransToCatGemmRCRPermutePattern
+    : Pat<(Cat_GemmRRRPermuteOp
+            $lhs,
+            (MHLO_TransposeOp $rhs, $permute),
+            $t1,
+            $t2
+          ),
+          (Cat_GemmRCRPermuteOp $lhs, $rhs, $t1, $t2),
+          [(TwoSize $permute), (Permute10Check $permute)]>;
+
 def LayoutFrom3DDotGeneralDimNums : NativeCodeCall<"GetLayoutFrom3DDotGeneralDimNums($0, &$_builder)">;
 
 def CheckRRRLayoutFrom3DDotGeneralDimNums
@@ -140,6 +161,12 @@ def CheckCCRLayoutFrom3DDotGeneralDimNums
           CPred<"$0.getLhsContractingDimensions().size() == 1 && $0.getRhsContractingDimensions().size() == 1 && $0.getLhsContractingDimensions()[0] == 1 && $0.getRhsContractingDimensions()[0] == 2">,
           "is bmm ccr dimension">;
 
+def CheckBMMPermuteShapeSplitOnBatch
+    : Constraint<
+          CPred<"$0.getType().cast<ShapedType>().getShape()[0] * $0.getType().cast<ShapedType>().getShape()[1] == $1.getType().cast<ShapedType>().getShape()[0] && $0.getType().cast<ShapedType>().getShape()[2] == $1.getType().cast<ShapedType>().getShape()[1]">,
+          "bmm rrr Shape Split On Batch">;
+
+
 def MhloDotGeneralReshapeTransposeToBMMRRRPermutePattern
     : Pat<(MHLO_TransposeOp
             (MHLO_ReshapeOp : $reshape_out
@@ -153,7 +180,8 @@ def MhloDotGeneralReshapeTransposeToBMMRRRPermutePattern
             (ThreeRank $rhs), 
             (FourSize $permute), 
             (Permute0213Check $permute),
-            (CheckRRRLayoutFrom3DDotGeneralDimNums $dimension_numbers)
+            (CheckRRRLayoutFrom3DDotGeneralDimNums $dimension_numbers),
+            (CheckBMMPermuteShapeSplitOnBatch $reshape_out, $lhs)
           ]>;
 
 def MhloDotGeneralReshapeTransposeToBMMRCRPermutePattern

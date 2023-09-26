@@ -51,6 +51,7 @@ TEST(SM80CUDATestFlashAttnFwd, Basic) {
   size_t head_dims = 32;
   size_t input_len = b * seq_len * num_heads * head_dims;
   size_t softmax_len = b * seq_len * num_heads;
+  // size_t rng_state_len = 2;
 
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -71,11 +72,21 @@ TEST(SM80CUDATestFlashAttnFwd, Basic) {
   __half *d_v;
   float *d_softmax_lse;
 
+  // rng_state
+  // uint64_t *d_rng_state;
+  // uint64_t h_rng_state[2];
+  // h_rng_state[0] = 0UL;
+  // h_rng_state[1] = 3000UL;
+
   cudaMalloc(&d_o, input_len * sizeof(__half));
   cudaMalloc(&d_q, input_len * sizeof(__half));
   cudaMalloc(&d_k, input_len * sizeof(__half));
   cudaMalloc(&d_v, input_len * sizeof(__half));
   cudaMalloc(&d_softmax_lse, softmax_len * sizeof(float));
+
+  // cudaMalloc(&d_rng_state, rng_state_len * sizeof(uint64_t));
+  // cudaMemcpy(d_rng_state, h_rng_state, rng_state_len * sizeof(uint64_t),
+  // cudaMemcpyHostToDevice);
 
   ReadCUDAFloatValues(d_q, input_len, input_q_file);
   ReadCUDAFloatValues(d_k, input_len, input_k_file);
@@ -96,6 +107,7 @@ TEST(SM80CUDATestFlashAttnFwd, Basic) {
   request->BindArg(2, d_v);
   request->BindArg(3, d_o);
   request->BindArg(4, d_softmax_lse);
+  // request->BindArg(6, d_rng_state);
 
   request->FinishIOBinding();
 
@@ -104,7 +116,7 @@ TEST(SM80CUDATestFlashAttnFwd, Basic) {
   auto status_sync = request->Sync();
   BRT_TEST_CHECK_STATUS(status_sync);
 
-  // PrintCUDAValues(d_o, input_len, input_len);
+  PrintCUDAValues(d_o, input_len, input_len);
 
   CheckCUDABuffer<__half>(
       (__half *)d_o, /* size */ input_len, [&](__half *h_ptr) {

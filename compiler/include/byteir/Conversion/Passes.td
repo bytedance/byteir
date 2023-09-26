@@ -253,6 +253,9 @@ def CollectGPUKernel : Pass<"collect-gpu-kernel", "ModuleOp"> {
     Option<"moduleName", "module-name", "std::string",
             /*default=*/"\"unified\"",
             "Optional name for GPUModule to put all gpu kernels">,
+    Option<"removeHost", "remove-host", "bool",
+            /*default=*/"true",
+            "Whether to remove host part">,
   ];
 }
 
@@ -350,6 +353,26 @@ def ConvertFuncToByreTensor : Pass<"func-to-byre-tensor", "ModuleOp"> {
 
 
 //===----------------------------------------------------------------------===//
+// FuncToByreTensor
+//===----------------------------------------------------------------------===//
+
+def ConvertGPULaunchFuncToByre : Pass<"gpu-launch-func-to-byre"> {
+  let summary = "Convert gpu.launch_func op to byre compute op.";
+  let constructor = "mlir::createConvertGPULaunchFuncToByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::gpu::GPUDialect"
+  ];
+
+  let options = [
+    Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
+          /*default=*/"false",
+          "Replace memref arguments in GPU functions with bare pointers."
+          "All memrefs must have static shape">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // MemrefToByre
 //===----------------------------------------------------------------------===//
 
@@ -398,6 +421,9 @@ def MemrefCopyToLinalgPass :
     Option<"attachAttr", "attach-attr", "std::string",
             /*default=*/"",
             "An optional unit attribute attaching on target functions: <attr_name>">,
+    Option<"outlining", "outlining", "bool",
+            /*default=*/"true",
+            "Whether to outline the copy op to a new function">,
   ];
 }
 

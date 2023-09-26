@@ -72,6 +72,18 @@ def CollapseDimsOp : Op<Transform_Dialect, "structured.collapse_dims",
   }];
 }
 
+def DetensorizeOp : Op<Transform_Dialect, "structured.detensorize",
+    [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+     DeclareOpInterfaceMethods<TransformOpInterface>]> {
+  let description = [{
+    Detensorize linalg ops.
+  }];
+
+  let arguments = (ins PDL_Operation:$target);
+
+  let assemblyFormat = "$target attr-dict";
+}
+
 def FoldUnitExtentDimsOp : Op<Transform_Dialect, "structured.fold_unit_extent_dims",
        [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
         DeclareOpInterfaceMethods<TransformOpInterface>]> {
@@ -244,5 +256,32 @@ def FuseOperandsOp : Op<Transform_Dialect, "structured.fuse_operands",
   let hasCustomAssemblyFormat = 1;
   let hasVerifier = 1;
 }
+
+
+def InsertSliceToCopyExtOp :
+  Op<Transform_Dialect, "structured.insert_slice_to_copy_ext",
+    [FunctionalStyleTransformOpTrait, MemoryEffectsOpInterface,
+     TransformEachOpTrait, TransformOpInterface]> {
+  let description = [{
+    insert_slice_to_copy_ext extension.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target);
+  let results = (outs TransformHandleTypeInterface:$transformed);
+
+  let assemblyFormat = "$target attr-dict `:` functional-type(operands, results) ";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target)>,
+  ];
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 
 #endif // BYTEIR_DIALECT_LINALG_TRANSFORMOPS_LINALG_EXT_TRANSFORMOPS

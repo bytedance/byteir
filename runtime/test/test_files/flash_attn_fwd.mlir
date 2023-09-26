@@ -6,7 +6,7 @@ module attributes {byre.container_module} {
                  %arg4 : memref<1x3x128xf32, "cuda"> {byre.argname = "SoftmaxLse", byre.argtype = 2: i32},
                  %arg5 : memref<1x3x128x128xf32, "cuda"> {byre.argname = "SoftmaxPtr", byre.argtype = 2: i32},
                  %arg6 : memref<2xi64, "cuda"> {byre.argname = "RngState", byre.argtype = 2: i32}) attributes {byre.entry_point} {
-    byre.compute @byteir.flash_attn_fwd(%arg0, %arg1, %arg2, %arg3, %arg4, %arg5, %arg6) {causal = true, dropout_p = 0.000000e+00 : f32, return_softmax = false, softmax_scale = 0.500000e+00 : f32} : memref<1x128x3x32xf16, "cuda">, memref<1x128x3x32xf16, "cuda">, memref<1x128x3x32xf16, "cuda">, memref<1x128x3x32xf16, "cuda">, memref<1x3x128xf32, "cuda">, memref<1x3x128x128xf32, "cuda">, memref<2xi64, "cuda">
+    byre.compute @byteir.flash_attn_fwd(%arg0, %arg1, %arg2, %arg6, %arg3, %arg4, %arg5) {causal = true, dropout_p = 0.000000e+00 : f32, return_softmax = false, softmax_scale = 0.500000e+00 : f32} : memref<1x128x3x32xf16, "cuda">, memref<1x128x3x32xf16, "cuda">, memref<1x128x3x32xf16, "cuda">, memref<2xi64, "cuda">, memref<1x128x3x32xf16, "cuda">, memref<1x3x128xf32, "cuda">, memref<1x3x128x128xf32, "cuda">
     return
   }
 }

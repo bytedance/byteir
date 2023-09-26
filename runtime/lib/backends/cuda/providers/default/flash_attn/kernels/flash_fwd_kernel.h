@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cute/algorithm/copy.hpp>
 #include <cute/algorithm/gemm.hpp>
+#include <iostream>
 
 #include <cutlass/array.h>
 #include <cutlass/cutlass.h>
@@ -376,8 +377,18 @@ inline __device__ void compute_attn_1rowblock(const Params &params,
   // unsigned long long offset = std::get<1>(seeds) + (bidb * params.h + bidh) *
   // 32 + tidx % 32;
 
-  unsigned long long seed = 0;
-  unsigned long long offset = 0;
+  // deprecated: no rng support.
+  // unsigned long long seed = 0;
+  // unsigned long long offset = 0;
+
+  unsigned long long seed = params.rng_state[0];
+  unsigned long long offset =
+      params.rng_state[1] + (bidb * params.h + bidh) * 32 + tidx % 32;
+
+  // if (block_id == 0 && tidx == 0) {
+  //   printf("seed:%lu\n",seed);
+  //   printf("offset:%lu\n",offset);
+  // }
 
   // Save seed and offset for backward.
   // if (block_id == 0 && tidx == 0) {

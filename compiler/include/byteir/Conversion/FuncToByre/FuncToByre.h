@@ -27,8 +27,14 @@ class ModuleOp;
 void populateFuncToByreTensorPattern(RewritePatternSet &patterns,
                                      bool appendArgTypes);
 
+void populateGPULaunchFuncToByrePattern(RewritePatternSet &patterns,
+                                        bool useBarePtrCallConv);
+
 std::unique_ptr<OperationPass<ModuleOp>>
 createConvertFuncToByreTensorPass(bool appendArgTypes = false);
+
+std::unique_ptr<Pass>
+createConvertGPULaunchFuncToByrePass(bool useBarePtrCallConv = false);
 
 } // namespace mlir
 

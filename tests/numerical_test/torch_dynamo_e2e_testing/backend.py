@@ -18,7 +18,7 @@ import brt
 import byteir
 
 from torch_frontend import compile
-from torch_frontend import list_decomposed_ops, preprocess_fx_graph, fx_replace_attn_pattern, replace_flash_attn 
+from torch_frontend import list_decomposed_ops, preprocess_fx_graph, fx_replace_attn_pattern, replace_flash_attn, get_none_indices
 
 from functorch.compile import aot_module
 from torch._decomp import get_decompositions
@@ -66,22 +66,6 @@ class ByteIRFunction:
                 results.append(rets[ret_ptr])
                 ret_ptr += 1
         return results
-
-def get_none_indices(fx_g: torch.fx.GraphModule) -> List[int]:
-    none_indices = []
-    for node in fx_g.graph.nodes:
-        if node.op == "output":
-            assert len(node.args) == 1, "Output node must have a single argument"
-            node_arg = node.args[0]
-            if isinstance(node_arg, (list, tuple)):
-                node_arg = list(node_arg)
-                node_args_len = len(node_arg)
-                for i in range(node_args_len):
-                    if node_arg[i] is None:
-                        none_indices.append(i)
-                break
-
-    return none_indices
 
 def byteir_compile_fx_inner(graph: torch.fx.GraphModule, inputs, is_backward, ban_lst=[]):
     category = 'backward' if is_backward else 'forward'

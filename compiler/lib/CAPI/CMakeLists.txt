@@ -33,6 +33,7 @@ add_mlir_public_c_api_library(ByteIRCAPI
   # dialect specific passes
   ByteIRAffinePasses
   ByteIRByrePasses
+  ByteIRGPUPasses
   ByteIRLinalgPasses
   ByteIRMemRefPasses
   ByteIRMhloPasses

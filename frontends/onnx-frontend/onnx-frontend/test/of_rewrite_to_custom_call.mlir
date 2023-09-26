@@ -175,7 +175,7 @@ func.func @test_l2_norm_pat2(%1146: tensor<12x128xf32>) -> tensor<12x128xf32> {
   return %1148 : tensor<12x128xf32>
 // CHECK-LABEL:  @test_l2_norm_pat2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x128xf32>) -> tensor<12x128xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.l2_norm(%arg0) {backend_config = "", byteir_attrs = {axis = [1]}} : (tensor<12x128xf32>) -> tensor<12x128xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.l2_norm(%arg0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 0.000000e+00 : f64}} : (tensor<12x128xf32>) -> tensor<12x128xf32>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<12x128xf32>
 }
 

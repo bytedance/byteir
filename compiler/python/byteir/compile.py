@@ -88,6 +88,11 @@ def compile_cuda(
         _print_verbose(module, "// IR Dump After GPU Opt:")
     with context:
         PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
+        PassManager.parse("builtin.module(inline)").run(module.operation)
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(module.operation)
+        else:
+            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(module.operation)
         PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(module.operation)
         PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(module.operation)
     if verbose:
@@ -127,7 +132,7 @@ def compile_cuda_with_ait(
     name: str = "model",
     aggressive_mode: bool = False,
     parallelism: int = 1,
-    disable_ait_cache: bool = False,
+    disable_byteir_cache: bool = False,
     **kwargs,
 ):
     target = "cuda"
@@ -143,7 +148,7 @@ def compile_cuda_with_ait(
     processor = IRProcessor(name, 
                             "./workspace", 
                             compile_parallelism=parallelism,
-                            disable_ait_cache=disable_ait_cache,
+                            disable_byteir_cache=disable_byteir_cache,
                             verbose=verbose)
     with context:
         processor.load_from_file(input)
@@ -202,6 +207,11 @@ def compile_cuda_with_ait(
         _print_verbose(processor.module, "// IR Dump After GPU Opt:")
     with context:
         PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(processor.module.operation)
+        PassManager.parse("builtin.module(inline)").run(processor.module.operation)
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(processor.module.operation)
+        else:
+            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(processor.module.operation)
         PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(processor.module.operation)
         PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(processor.module.operation)
     if verbose:
@@ -241,7 +251,7 @@ def compile(
     target: str = "cuda",
     verbose: bool = False,
     parallelism: int = 1,
-    disable_ait_cache: bool = False,
+    disable_byteir_cache: bool = False,
     **kwargs,
 ):
     if target == "cuda":
@@ -252,7 +262,7 @@ def compile(
                               entry_func, 
                               verbose, 
                               parallelism=parallelism, 
-                              disable_ait_cache=disable_ait_cache)
+                              disable_byteir_cache=disable_byteir_cache)
     elif target == "cuda_with_ait_aggressive":
         compile_cuda_with_ait(input, 
                               output, 
@@ -260,6 +270,6 @@ def compile(
                               verbose, 
                               aggressive_mode=True, 
                               parallelism=parallelism,
-                              disable_ait_cache=disable_ait_cache)
+                              disable_byteir_cache=disable_byteir_cache)
     else:
         raise NotImplemented("not implemented target: {}".format(target))

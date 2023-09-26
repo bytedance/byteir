@@ -64,11 +64,12 @@ namespace {
 /// dimensions. It only applies these to "parallel" loops without mixing them
 /// with "reduction" types.
 static SmallVector<ReassociationIndices>
-getCollapsibleLoops(linalg::GenericOp genericOp) {
+getCollapsibleLoops(linalg::GenericOp genericOp,
+                    utils::IteratorType iteratorType) {
   SmallVector<ReassociationIndices> contiguousLoops;
 
   SmallVector<unsigned> pDims;
-  genericOp.getParallelDims(pDims);
+  findPositionsOfType(genericOp.getIteratorTypesArray(), iteratorType, pDims);
   if (pDims.size() < 2)
     return contiguousLoops;
 
@@ -76,15 +77,18 @@ getCollapsibleLoops(linalg::GenericOp genericOp) {
 
   auto hasAllMapsSameSequence = [&](AffineExpr preExpr, AffineExpr nextExpr) {
     for (AffineMap map : genericOp.getIndexingMapsArray()) {
-      bool foundSeq = false;
-      for (auto [index, resultExpr] : llvm::enumerate(map.getResults())) {
-        if (resultExpr == nextExpr) {
-          foundSeq = (index > 0 && preExpr == map.getResult(index - 1));
-          break;
-        }
+      auto prePos = map.getResultPosition(preExpr);
+      auto nextPos = map.getResultPosition(nextExpr);
+      if (!prePos.has_value()) {
+        if (nextPos.has_value())
+          return false;
+      } else {
+        if (!nextPos.has_value())
+          return false;
+
+        if (prePos.value() + 1 != nextPos.value())
+          return false;
       }
-      if (!foundSeq)
-        return false;
     }
     return true;
   };
@@ -519,13 +523,17 @@ FailureOr<SmallVector<Value>> collapseGenericOpIterationDimsEx(
 class CollapseLoopsOnGenericOp : public OpRewritePattern<linalg::GenericOp> {
 public:
   using OpRewritePattern::OpRewritePattern;
+  CollapseLoopsOnGenericOp(MLIRContext *context,
+                           utils::IteratorType iteratorType)
+      : OpRewritePattern(context), iteratorType(iteratorType) {}
+
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
     // Collect collapsible loops
     // TODO: All rules come from iree project, add our own
     if (!isEligibleForCollapse(op))
       return failure();
-    auto loops = getCollapsibleLoops(op);
+    auto loops = getCollapsibleLoops(op, iteratorType);
     if (loops.empty())
       return failure();
 
@@ -542,22 +550,31 @@ public:
     rewriter.replaceOp(op, *replacements);
     return success();
   }
+
+private:
+  utils::IteratorType iteratorType;
 };
 
 struct LinalgCollapseLoopsPass
     : public impl::LinalgCollapseLoopsBase<LinalgCollapseLoopsPass> {
+  LinalgCollapseLoopsPass(utils::IteratorType iteratorType)
+      : LinalgCollapseLoopsBase() {
+    this->iteratorType = iteratorType;
+  }
+
   void runOnOperation() override {
     auto op = getOperation();
     auto context = op->getContext();
 
     RewritePatternSet patterns(context);
-    patterns.add<CollapseLoopsOnGenericOp>(context);
+    patterns.add<CollapseLoopsOnGenericOp>(context, iteratorType);
     if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns))))
       signalPassFailure();
   }
 };
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createLinalgCollapseLoops() {
-  return std::make_unique<LinalgCollapseLoopsPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createLinalgCollapseLoops(utils::IteratorType iteratorType) {
+  return std::make_unique<LinalgCollapseLoopsPass>(iteratorType);
 }

@@ -281,6 +281,17 @@ def Cat_GemmRCRPermuteOp : Cat_Op<"gemm_rcr_permute", [Cat_CatOpInterface, Pure]
   let hasVerifier = 1;
 }
 
+def Cat_GemmRRRPermuteOp : Cat_Op<"gemm_rrr_permute", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rrr + permute0213 operator, output layout is [m / t1, t1, t2, n / t2]";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       I64Attr : $t1,
+                       I64Attr : $t2);
+  let results = (outs AnyTensor : $output);
+
+  let hasVerifier = 1;
+}
+
 def Cat_LayerNormOp : Cat_Op<"layernorm", [Cat_CatOpInterface, Pure]> {
   let summary = "layernorm operator";
   let arguments = (ins AnyTensor : $input,

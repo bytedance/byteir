@@ -2,7 +2,9 @@ add_mlir_library(ByteIRGPUPipelines
   ElementwiseCodegen.cpp
   GPUOpt.cpp
   LinalgMemrefGPU.cpp
+  MappingForall.cpp
   NVVMCodegen.cpp
+  ReductionCodegen.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Pipelines/GPU
@@ -15,6 +17,7 @@ add_mlir_library(ByteIRGPUPipelines
   MLIRBufferTransforms
 
   LINK_LIBS PUBLIC
+  ByteIRGPUPasses
   ByteIRLinalgPasses
   ByteIRPipelineCommon
   ByteIRUtils
@@ -22,4 +25,5 @@ add_mlir_library(ByteIRGPUPipelines
   ByteIRToPTX
   MLIRIR
   MLIRTransforms
+  MLIRLinalgExtTransformOps
 )

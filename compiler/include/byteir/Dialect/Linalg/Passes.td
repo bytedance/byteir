@@ -166,6 +166,16 @@ def LinalgCollapseLoops : Pass<"linalg-collapse-loops", "func::FuncOp"> {
     "tensor::TensorDialect",
     "memref::MemRefDialect"
   ];
+
+  let options = [
+    Option<"iteratorType", "iterator-type", "mlir::utils::IteratorType",
+           /*default=*/"mlir::utils::IteratorType::parallel", "iterator type",
+           [{llvm::cl::values(
+             clEnumValN(mlir::utils::IteratorType::parallel, "parallel",
+                        "parallel iterator type"),
+             clEnumValN(mlir::utils::IteratorType::reduction, "reduction",
+                        "reduction iterator type"))}]>,
+  ];
 }
 
 //===----------------------------------------------------------------------===//

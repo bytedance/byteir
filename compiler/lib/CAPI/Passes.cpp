@@ -21,10 +21,12 @@
 #include "byteir/Dialect/Ace/Passes.h"
 #include "byteir/Dialect/Affine/Passes.h"
 #include "byteir/Dialect/Byre/Passes.h"
+#include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/MemRef/Passes.h"
 #include "byteir/Dialect/SCF/Passes.h"
 #include "byteir/Dialect/Shape/Passes.h"
+#include "byteir/Dialect/Tensor/Passes.h"
 #include "byteir/Dialect/Transform/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
@@ -45,11 +47,13 @@ void byteirRegisterAllPasses() {
   registerByteIRAcePasses();
   registerByteIRAffinePasses();
   registerByteIRByrePasses();
+  registerByteIRGPUPasses();
   registerByteIRLinalgPasses();
   registerByteIRMemRefPasses();
   registerByteIRMhloPassesExt();
   registerByteIRSCFPasses();
   registerByteIRShapePasses();
+  registerByteIRTensorPasses();
   registerByteIRTransformPasses();
 
   // pipelines

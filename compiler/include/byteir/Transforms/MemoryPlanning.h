@@ -23,18 +23,19 @@
 #include <memory>
 
 namespace mlir {
+class FunctionOpInterface;
 class Value;
 namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createMemoryPlanningPass();
+std::unique_ptr<InterfacePass<FunctionOpInterface>> createMemoryPlanningPass();
 
 /// couldReuseBuffer is a user provided callback which receives a Value as
 /// parameter and returns whether the allocation corresponding to the Value can
 /// be reused
-std::unique_ptr<OperationPass<func::FuncOp>>
-createMemoryPlanningPass(size_t alignment,
+std::unique_ptr<InterfacePass<FunctionOpInterface>>
+createMemoryPlanningPass(size_t alignment, bool alloca, size_t memSpace,
                          std::function<bool(Value)> couldReuseAllocation);
 
 } // namespace mlir

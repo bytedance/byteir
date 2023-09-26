@@ -142,7 +142,7 @@ void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
              uint32_t seqlen_q, uint32_t seqlen_k, uint32_t seqlen_q_rounded,
              uint32_t seqlen_k_rounded,
 
-             int is_causal, cudaStream_t stream) {
+             float p_dropout, int is_causal, cudaStream_t stream) {
   Flash_fwd_params params;
   // Reset the parameters
   memset(&params, 0, sizeof(params));
@@ -187,7 +187,7 @@ void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
   params.scale_softmax = softmax_scale;
   params.scale_softmax_log2 = softmax_scale * M_LOG2E;
 
-  params.p_dropout = 1.; // probability to keep
+  params.p_dropout = 1.f - p_dropout; // probability to keep
   params.p_dropout_in_uint8_t = uint8_t(std::floor(params.p_dropout * 255.0));
   params.rp_dropout = 1.f / params.p_dropout;
   params.scale_softmax_rp_dropout = params.rp_dropout * params.scale_softmax;
@@ -195,6 +195,8 @@ void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
   params.cu_seqlens_q = cu_seqlens_q_ptr;
   params.cu_seqlens_k = cu_seqlens_k_ptr;
   params.p_ptr = softmax_ptr; // used for `return_softmax`.
+  params.rng_state = static_cast<uint64_t *>(rng_state_ptr);
+
   // print_Flash_fwd_params(params);
 
   FP16_SWITCH(!params.is_bf16, [&] {
@@ -225,7 +227,7 @@ void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
                  uint32_t seqlen_q, uint32_t seqlen_k,
                  uint32_t seqlen_q_rounded, uint32_t seqlen_k_rounded,
 
-                 int is_causal, cudaStream_t stream) {
+                 float p_dropout, int is_causal, cudaStream_t stream) {
   Flash_bwd_params params;
   // Reset the parameters
   memset(&params, 0, sizeof(params));
@@ -293,7 +295,7 @@ void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
   params.scale_softmax = softmax_scale;
   params.scale_softmax_log2 = softmax_scale * M_LOG2E;
 
-  params.p_dropout = 1.; // probability to keep
+  params.p_dropout = 1.f - p_dropout; // probability to keep
   params.p_dropout_in_uint8_t = uint8_t(std::floor(params.p_dropout * 255.0));
   params.rp_dropout = 1.f / params.p_dropout;
   params.scale_softmax_rp_dropout = params.rp_dropout * params.scale_softmax;
@@ -302,6 +304,7 @@ void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
   params.cu_seqlens_k = cu_seqlens_k_ptr;
   params.p_ptr = nullptr; // used for `return_softmax`, no use in bwd
   params.dsoftmax_sum = dsoftmax_sum_ptr;
+  params.rng_state = static_cast<uint64_t *>(rng_state_ptr);
 
   // print_Flash_bwd_params(params);
 

@@ -19,7 +19,9 @@
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Utils/Utils.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -86,6 +88,53 @@ private:
   bool appendArgTypes;
 };
 
+class ConvertGPULaunchFuncToByrePattern
+    : public OpRewritePattern<gpu::LaunchFuncOp> {
+
+public:
+  ConvertGPULaunchFuncToByrePattern(MLIRContext *ctx, bool useBarePtrCallConv)
+      : OpRewritePattern<gpu::LaunchFuncOp>(ctx),
+        useBarePtrCallConv(useBarePtrCallConv) {}
+
+  LogicalResult matchAndRewrite(gpu::LaunchFuncOp launchOp,
+                                PatternRewriter &rewriter) const override {
+    auto computeOp = rewriter.create<byre::ComputeOp>(
+        launchOp->getLoc(), TypeRange(), "PTXOp", launchOp.getKernelOperands(),
+        /*memEffects*/ ArrayAttr());
+
+    computeOp->setAttr(
+        rewriter.getStringAttr("kernel_name"),
+        rewriter.getStringAttr(launchOp.getKernelName().getValue()));
+
+    auto grid = launchOp.getGridSizeOperandValues();
+    int64_t gx = cast<arith::ConstantIndexOp>(grid.x.getDefiningOp()).value();
+    int64_t gy = cast<arith::ConstantIndexOp>(grid.y.getDefiningOp()).value();
+    int64_t gz = cast<arith::ConstantIndexOp>(grid.z.getDefiningOp()).value();
+    computeOp->setAttr("GridSize.x", rewriter.getI32IntegerAttr(gx));
+    computeOp->setAttr("GridSize.y", rewriter.getI32IntegerAttr(gy));
+    computeOp->setAttr("GridSize.z", rewriter.getI32IntegerAttr(gz));
+
+    auto block = launchOp.getBlockSizeOperandValues();
+    int64_t bx = cast<arith::ConstantIndexOp>(block.x.getDefiningOp()).value();
+    int64_t by = cast<arith::ConstantIndexOp>(block.y.getDefiningOp()).value();
+    int64_t bz = cast<arith::ConstantIndexOp>(block.z.getDefiningOp()).value();
+    computeOp->setAttr("BlockSize.x", rewriter.getI32IntegerAttr(bx));
+    computeOp->setAttr("BlockSize.y", rewriter.getI32IntegerAttr(by));
+    computeOp->setAttr("BlockSize.z", rewriter.getI32IntegerAttr(bz));
+
+    if (useBarePtrCallConv) {
+      computeOp->setAttr(byre::getKernelCallConventionAttrName(),
+                         rewriter.getStringAttr("bare_ptr"));
+    }
+    rewriter.eraseOp(launchOp);
+
+    return success();
+  }
+
+private:
+  bool useBarePtrCallConv;
+};
+
 struct ConvertFuncToByreTensorPass
     : public ConvertFuncToByreTensorBase<ConvertFuncToByreTensorPass> {
 public:
@@ -104,6 +153,24 @@ public:
     }
   }
 };
+
+struct ConvertGPULaunchFuncToByrePass
+    : public ConvertGPULaunchFuncToByreBase<ConvertGPULaunchFuncToByrePass> {
+public:
+  ConvertGPULaunchFuncToByrePass(bool useBarePtrCallConv)
+      : ConvertGPULaunchFuncToByreBase() {
+    this->useBarePtrCallConv = useBarePtrCallConv;
+  }
+  void runOnOperation() override {
+    MLIRContext &ctx = getContext();
+    RewritePatternSet patterns(&ctx);
+    populateGPULaunchFuncToByrePattern(patterns, useBarePtrCallConv);
+    if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                            std::move(patterns)))) {
+      signalPassFailure();
+    }
+  }
+};
 }; // namespace
 
 void mlir::populateFuncToByreTensorPattern(RewritePatternSet &patterns,
@@ -112,7 +179,18 @@ void mlir::populateFuncToByreTensorPattern(RewritePatternSet &patterns,
                                                  appendArgTypes);
 }
 
+void mlir::populateGPULaunchFuncToByrePattern(RewritePatternSet &patterns,
+                                              bool useBarePtrCallConv) {
+  patterns.add<ConvertGPULaunchFuncToByrePattern>(patterns.getContext(),
+                                                  useBarePtrCallConv);
+}
+
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createConvertFuncToByreTensorPass(bool appendArgTypes) {
   return std::make_unique<ConvertFuncToByreTensorPass>(appendArgTypes);
+}
+
+std::unique_ptr<Pass>
+mlir::createConvertGPULaunchFuncToByrePass(bool useBarePtrCallConv) {
+  return std::make_unique<ConvertGPULaunchFuncToByrePass>(useBarePtrCallConv);
 }

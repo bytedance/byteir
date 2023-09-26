@@ -32,8 +32,6 @@ using namespace brt::cuda;
 using namespace brt::test;
 
 TEST(CUDATestFillOp, Basic) {
-  constexpr size_t length = 512 * 128;
-
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
@@ -54,8 +52,16 @@ TEST(CUDATestFillOp, Basic) {
   auto status_sync = request->Sync();
   BRT_TEST_CHECK_STATUS(status_sync);
 
+  size_t length = 512 * 128;
   CheckCUDAValues<float>(static_cast<float *>(request->GetArg(0)), length, 0.f);
   CheckCUDAValues<float>(static_cast<float *>(request->GetArg(1)), length, 1.f);
   CheckCUDAValues<__half>(static_cast<__half *>(request->GetArg(2)), length,
                           static_cast<__half>(1.f));
+  length = 3;
+  std::vector<half_float::half> results = {static_cast<half_float::half>(1.f),
+                                           static_cast<half_float::half>(2.f),
+                                           static_cast<half_float::half>(3.f)};
+  EXPECT_TRUE(CheckCUDAValuesWithCPUValues(
+      static_cast<__half *>(request->GetArg(3)),
+      reinterpret_cast<__half *>(results.data()), length));
 }

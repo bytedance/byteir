@@ -33,7 +33,8 @@ createGenPTXConfigPass(bool useBarePtrCallConv = false);
 
 // TODO move to general GPU
 std::unique_ptr<OperationPass<ModuleOp>>
-createCollectGPUKernelPass(const std::string &name = "unified");
+createCollectGPUKernelPass(const std::string &name = "unified",
+                           bool removeHost = true);
 
 } // namespace mlir
 

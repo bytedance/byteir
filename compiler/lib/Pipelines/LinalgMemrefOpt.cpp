@@ -33,7 +33,9 @@ void addGenericLinalgMemrefOptPasses(OpPassManager &pm) {
   pm.addPass(createMemrefCopyToLinalgPass(
       getAttrPlaceholderName(
           byre::ByreDialect::getEntryPointFunctionAttrName()),
-      getByteIRElementwiseFusionAttrName().str()));
+      getByteIRElementwiseFusionAttrName().str(), true));
+  pm.addPass(createMemrefCopyToLinalgPass(
+      getByteIRReductionFusionAttrName().str(), "", false));
 }
 
 void createLinalgMemrefOptPipelineImpl(OpPassManager &pm,

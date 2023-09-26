@@ -48,7 +48,10 @@ void createByreOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   OpPassManager anchoredPM(func::FuncOp::getOperationName());
   if (!disableMemoryPlanning) {
     // underlying memory of constant op cannot be reused
-    anchoredPM.addPass(createMemoryPlanningPass(128, nullptr));
+    anchoredPM.addPass(createMemoryPlanningPass(/* alignment */ 128,
+                                                /* alloca */ false,
+                                                /* memory space */ 0,
+                                                /* callback */ nullptr));
     anchoredPM.addPass(createCanonicalizerPass());
   }
   anchoredPM.addPass(createConvertMemrefToByrePass());

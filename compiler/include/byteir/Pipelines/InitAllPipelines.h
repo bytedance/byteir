@@ -35,7 +35,9 @@
 #include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
 #include "byteir/Pipelines/GPU/GPUOpt.h"
 #include "byteir/Pipelines/GPU/LinalgMemrefGPU.h"
+#include "byteir/Pipelines/GPU/MappingForall.h"
 #include "byteir/Pipelines/GPU/NVVMCodegen.h"
+#include "byteir/Pipelines/GPU/ReductionCodegen.h"
 
 #include "byteir/Pipelines/Host/Codegen.h"
 #include "byteir/Pipelines/Host/HostOpt.h"
@@ -65,6 +67,8 @@ inline void registerAllByteIRGPUPipelines() {
   registerLinalgMemrefGPUPipeline();
   registerMatmulEpilogueGPUPipeline();
   registerGPUElementwiseCodegenPipelines();
+  registerGPUReductionCodegenPipelines();
+  registerGPUMappingForallPipelines();
 }
 
 inline void registerAllByteIRHostPipelines() {

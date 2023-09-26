@@ -183,3 +183,21 @@ def test_flash_attn_opt_pattern():
 
     torch.testing.assert_close(golden_loss, flash_loss, atol=1e-4, rtol=1e-6)
     torch.testing.assert_close(golden_logits, flash_logits, atol=3e-3, rtol=1e-6)
+
+
+def test_flash_attn_llama_inference_pattern():
+    config = transformers.LlamaConfig(num_hidden_layers=4)
+    model = transformers.LlamaForCausalLM(config=config).to("cuda")
+    model.eval()
+
+    input, label = make_data(model, "cuda")
+    trace_data = [input]
+
+    from torch.fx.experimental.proxy_tensor import make_fx
+    from torch_frontend import preprocess_fx_graph
+    # module = torch.jit.trace(model, trace_data, check_trace=False)
+    with torch.no_grad(), torch.cuda.amp.autocast(enabled=True, dtype=torch.float16):
+        fx_g = make_fx(model)(*trace_data)
+        fx_g = preprocess_fx_graph(fx_g)
+        all_formatted = "\n".join([n.format_node() for n in fx_g.graph.nodes])
+        FileCheck().check("call_function").check("torch.ops.byteir.flash_attn_fwd").run(all_formatted)

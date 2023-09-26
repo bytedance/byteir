@@ -67,6 +67,8 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) { return true; }
 
 bool isValidSingleOp(Operation *op) { return true; }
 
+bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
+
 bool isFusibleCandidateAggressive(Operation *op) {
   if (isa<cat::CatOpInterface>(op))
     return true;
@@ -99,14 +101,16 @@ bool isValidSingleOpAggressive(Operation *op) {
 }
 
 static GenericFuserConfig config{
-    getByteIRCatFusionAttrName(), cat_fusion::isFusibleCandidate,
-    cat_fusion::isFusibleStart,   cat_fusion::isFusibleTrigger,
-    cat_fusion::isFusibleWith,    cat_fusion::isValidSingleOp};
+    getByteIRCatFusionAttrName(),    cat_fusion::isFusibleCandidate,
+    cat_fusion::isFusibleStart,      cat_fusion::isFusibleTrigger,
+    cat_fusion::isFusibleWith,       cat_fusion::isValidSingleOp,
+    cat_fusion::isValidFusionPattern};
 
 static GenericFuserConfig aggressiveConfig{
-    getByteIRCatFusionAttrName(), cat_fusion::isFusibleCandidateAggressive,
-    cat_fusion::isFusibleStart,   cat_fusion::isFusibleTrigger,
-    cat_fusion::isFusibleWith,    cat_fusion::isValidSingleOpAggressive};
+    getByteIRCatFusionAttrName(),    cat_fusion::isFusibleCandidateAggressive,
+    cat_fusion::isFusibleStart,      cat_fusion::isFusibleTrigger,
+    cat_fusion::isFusibleWith,       cat_fusion::isValidSingleOpAggressive,
+    cat_fusion::isValidFusionPattern};
 
 } // namespace cat_fusion
 

@@ -34,6 +34,18 @@ func.func @transpose_move_down_binary_splat_const(%arg0 : tensor<31x20x32xf32>) 
 // CHECK-NEXT: mhlo.transpose
 // CHECK-NEXT: return
 
+func.func @transpose_move_down_binary_dense_const(%arg0 : tensor<3x2xf32>) -> tensor<2x3xf32> {
+    %0 = mhlo.constant dense<[[1.0,2.0,3.0],[4.0,5.0,6.0]]> : tensor<2x3xf32>
+    %1 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<3x2xf32>) -> tensor<2x3xf32>
+    %2 = mhlo.add %1, %0 : tensor<2x3xf32>
+    return %2 : tensor<2x3xf32>
+}
+// CHECK-LABEL: func.func @transpose_move_down_binary_dense_const
+// CHECK-NEXT: mhlo.constant {{.*}} tensor<3x2xf32>
+// CHECK-NEXT: mhlo.add
+// CHECK-NEXT: mhlo.transpose
+// CHECK-NEXT: return
+
 func.func @transpose_move_down_unary_and_cancel(%arg0 : tensor<31x20x32xf32>) -> tensor<31x20x32xf32> {
     %0 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0, 2]> : tensor<3xi64>} : (tensor<31x20x32xf32>) -> tensor<20x31x32xf32>
     %1 = "mhlo.abs"(%0) : (tensor<20x31x32xf32>) -> tensor<20x31x32xf32>
@@ -76,19 +88,17 @@ func.func @transpose_move_down_two_unary(%arg0 : tensor<31x20x32xf32>) -> tensor
 // CHECK-NEXT: return
 
 // MULTIUSER-LABEL: func.func @transpose_move_down_two_unary
-// MULTIUSER-DAG{ABS}: mhlo.abs
-// MULTIUSER-NEXT{ABS}: mhlo.transpose
-// MULTIUSER-DAG{SINE}: mhlo.sine
-// MULTIUSER-NEXT{SINE}: mhlo.transpose
+// MULTIUSER-DAG: mhlo.abs
+// MULTIUSER-DAG: mhlo.sine
 // MULTIUSER: mhlo.add
+// MULTIUSER-NEXT: mhlo.transpose
 // MULTIUSER-NEXT: return
 
 // AllMULTIUSER-LABEL: func.func @transpose_move_down_two_unary
-// AllMULTIUSER-DAG{ABS}: mhlo.abs
-// AllMULTIUSER-NEXT{ABS}: mhlo.transpose
-// AllMULTIUSER-DAG{SINE}: mhlo.sine
-// AllMULTIUSER-NEXT{SINE}: mhlo.transpose
+// AllMULTIUSER-DAG: mhlo.abs
+// AllMULTIUSER-DAG: mhlo.sine
 // AllMULTIUSER: mhlo.add
+// AllMULTIUSER-NEXT: mhlo.transpose
 // AllMULTIUSER-NEXT: return
 
 func.func @transpose_move_down_1_unary_1_invalid(%arg0 : tensor<31x20x32xf32>, %arg1 : tensor<20x31x32xf32>)-> tensor<20x31x32xf32> {

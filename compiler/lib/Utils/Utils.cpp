@@ -452,12 +452,13 @@ Value mlir::getSlice(OpBuilder &b, Location loc, Value source,
 
 OpFoldResult mlir::canonicalizeOpFoldResult(OpFoldResult ofr, bool enableFold) {
   if (auto val = ofr.dyn_cast<Value>()) {
-    SmallVector<Value> foldResults;
     if (enableFold) {
-      OpBuilder builder(val.getContext());
-      Operation *op = val.getDefiningOp();
-      if (op && !failed(builder.tryFold(val.getDefiningOp(), foldResults))) {
-        val = foldResults[0];
+      if (auto opResult = llvm::dyn_cast<OpResult>(val)) {
+        OpBuilder builder(opResult.getOwner());
+        SmallVector<Value> foldResults;
+        if (!failed(builder.tryFold(opResult.getOwner(), foldResults))) {
+          val = foldResults[opResult.getResultNumber()];
+        }
       }
     }
     return getAsOpFoldResult(val);

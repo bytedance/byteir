@@ -957,8 +957,18 @@ compute_dq_dk_dv_1colblock(const Params &params, const int bidb, const int bidh,
   // auto offset = params.rng_state[1] + (bidb * params.h + bidh) * 32 + tidx %
   // 32;
 
-  unsigned long long seed = 0;
-  unsigned long long offset = 0;
+  // deprecated: no rng support.
+  // unsigned long long seed = 0;
+  // unsigned long long offset = 0;
+
+  unsigned long long seed = params.rng_state[0];
+  unsigned long long offset =
+      params.rng_state[1] + (bidb * params.h + bidh) * 32 + tidx % 32;
+
+  // if (block_id == 0 && tidx == 0) {
+  //   printf("seed:%lu\n",seed);
+  //   printf("offset:%lu\n",offset);
+  // }
 
   clear(acc_dv);
   clear(acc_dk);
@@ -1693,8 +1703,18 @@ compute_dq_dk_dv_1rowblock(const Params &params, const int bidb, const int bidh,
   // auto offset = params.rng_state[1] + (bidb * params.h + bidh) * 32 + tidx %
   // 32;
 
-  unsigned long long seed = 0;
-  unsigned long long offset = 0;
+  // deprecated: no rng support.
+  // unsigned long long seed = 0;
+  // unsigned long long offset = 0;
+
+  unsigned long long seed = params.rng_state[0];
+  unsigned long long offset =
+      params.rng_state[1] + (bidb * params.h + bidh) * 32 + tidx % 32;
+
+  // if (block_id == 0 && tidx == 0) {
+  //   printf("seed:%lu\n",seed);
+  //   printf("offset:%lu\n",offset);
+  // }
 
   clear(acc_dq);
 

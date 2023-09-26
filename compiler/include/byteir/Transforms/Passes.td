@@ -237,7 +237,7 @@ def LoopTag : Pass<"loop-tag", "func::FuncOp"> {
 //===----------------------------------------------------------------------===//
 // Memory planning
 //===----------------------------------------------------------------------===//
-def MemoryPlanning: Pass<"memory-planning", "mlir::func::FuncOp"> {
+def MemoryPlanning: InterfacePass<"memory-planning", "mlir::FunctionOpInterface"> {
   let summary = "Pass to perform static memory planning";
   let constructor = "mlir::createMemoryPlanningPass()";
   let dependentDialects = [

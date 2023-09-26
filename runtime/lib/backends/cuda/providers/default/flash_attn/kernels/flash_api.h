@@ -29,7 +29,7 @@ void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
              uint32_t seqlen_q, uint32_t seqlen_k, uint32_t seqlen_q_rounded,
              uint32_t seqlen_k_rounded,
 
-             int is_causal, cudaStream_t stream);
+             float p_dropout, int is_causal, cudaStream_t stream);
 
 void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
                  void *dout_ptr, void *dq_ptr, void *dk_ptr, void *dv_ptr,
@@ -53,7 +53,7 @@ void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
                  uint32_t seqlen_q, uint32_t seqlen_k,
                  uint32_t seqlen_q_rounded, uint32_t seqlen_k_rounded,
 
-                 int is_causal, cudaStream_t stream);
+                 float p_dropout, int is_causal, cudaStream_t stream);
 
 } // namespace kernel
 } // namespace cuda

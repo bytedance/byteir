@@ -188,6 +188,7 @@ Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
       mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
       rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
   DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("epsilon", rewriter.getF64FloatAttr(0.0));
   attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
 

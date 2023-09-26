@@ -18,6 +18,7 @@
 #ifndef BYTEIR_DIALECT_LINALG_TRANSFORMS_LINALGCOLLAPSELOOPS_H
 #define BYTEIR_DIALECT_LINALG_TRANSFORMS_LINALGCOLLAPSELOOPS_H
 
+#include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/Pass/Pass.h"
 #include <memory>
 
@@ -26,7 +27,11 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createLinalgCollapseLoops();
+#define GEN_PASS_DECL_LINALGCOLLAPSELOOPS
+#include "byteir/Dialect/Linalg/Passes.h.inc"
+
+std::unique_ptr<OperationPass<func::FuncOp>> createLinalgCollapseLoops(
+    utils::IteratorType iteratorType = utils::IteratorType::parallel);
 
 } // namespace mlir
 

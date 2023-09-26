@@ -158,3 +158,9 @@ LogicalResult GemmRCRPermuteOp::verify() {
                                      this->getOutput(), this->getT1(),
                                      this->getT2(), "rcr");
 }
+
+LogicalResult GemmRRRPermuteOp::verify() {
+  return VerifyGemmPermute0213Layout(this->getLhs(), this->getRhs(),
+                                     this->getOutput(), this->getT1(),
+                                     this->getT2(), "rrr");
+}

@@ -283,6 +283,48 @@ struct ConvertBmmReshapeTransposeToBmmReshape
   }
 };
 
+// bmm_rrr(x, broadcast_in_dim(y)) => reshape(gemm_rrr(reshape(x), y))
+struct ConvertBmmRRRBroadcastToReshapeGemmRRRReshape
+    : public OpRewritePattern<cat::BMMRRROp> {
+  using OpRewritePattern<cat::BMMRRROp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(cat::BMMRRROp op,
+                                PatternRewriter &rewriter) const override {
+    auto bCastOp = op.getRhs().getDefiningOp<mhlo::BroadcastInDimOp>();
+    if (!bCastOp) {
+      return failure();
+    }
+    auto lhsType = op.getLhs().getType().cast<ShapedType>();
+    auto rhsType = op.getRhs().getType().cast<ShapedType>();
+    if (!lhsType.hasStaticShape() || !rhsType.hasStaticShape()) {
+      return failure();
+    }
+    SmallVector<int64_t> broadcastDimensions;
+    getValuesFromDenseIntElementsAttr(bCastOp.getBroadcastDimensions(),
+                                      broadcastDimensions);
+    if (broadcastDimensions.size() != 2) {
+      return failure();
+    }
+    if (broadcastDimensions[0] != 1 || broadcastDimensions[1] != 2) {
+      return failure();
+    }
+
+    RankedTensorType firstReshapeType = RankedTensorType::get(
+        {lhsType.getDimSize(0) * lhsType.getDimSize(1), lhsType.getDimSize(2)},
+        lhsType.getElementType());
+    RankedTensorType gemmType = RankedTensorType::get(
+        {firstReshapeType.getDimSize(0), rhsType.getDimSize(2)},
+        lhsType.getElementType());
+    auto firstReshape = rewriter.create<mhlo::ReshapeOp>(
+        op.getLoc(), firstReshapeType, op.getLhs());
+    auto gemm = rewriter.create<cat::GemmRRROp>(
+        op.getLoc(), gemmType, firstReshape, bCastOp.getOperand());
+    auto secondReshape =
+        rewriter.create<mhlo::ReshapeOp>(op.getLoc(), op.getType(), gemm);
+    rewriter.replaceOp(op, secondReshape);
+    return success();
+  }
+};
+
 struct FuseMhloToCatPass : public FuseMhloToCatBase<FuseMhloToCatPass> {
 public:
   FuseMhloToCatPass() = default;
@@ -317,7 +359,8 @@ void populateFuseMhloToCatPattern(RewritePatternSet &patterns) {
                ConvertBmmReshapeTransposeToBmmReshape<cat::BMMRRCOp, cat::BMMRRROp>,
                ConvertBmmReshapeTransposeToBmmReshape<cat::BMMRCCOp, cat::BMMRCROp>,
                ConvertBmmReshapeTransposeToBmmReshape<cat::BMMCRCOp, cat::BMMCRROp>,
-               ConvertBmmReshapeTransposeToBmmReshape<cat::BMMCCCOp, cat::BMMCCROp>
+               ConvertBmmReshapeTransposeToBmmReshape<cat::BMMCCCOp, cat::BMMCCROp>,
+               ConvertBmmRRRBroadcastToReshapeGemmRRRReshape
                >(patterns.getContext());
   // clang-format on
 }

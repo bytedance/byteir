@@ -25,6 +25,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/TransformOps/DialectExtension.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformOps.h"
 #include "mlir/IR/Builders.h"
@@ -88,6 +89,61 @@ void insertTransformIR(ModuleOp m, const TransformInsertionConfig &config) {
     insertTransformIR(funcOp, builder, config);
   }
 }
+
+struct DetensorizeTransformInsertionPass
+    : public DetensorizeTransformInsertionBase<
+          DetensorizeTransformInsertionPass> {
+  explicit DetensorizeTransformInsertionPass(const std::string &funcAnchor,
+                                             const std::string &matchPrefix)
+      : DetensorizeTransformInsertionBase() {
+    this->funcAnchorAttr = funcAnchor;
+    this->matchPrefix = matchPrefix;
+  }
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<transform::TransformDialect>();
+    linalg::registerTransformDialectExtension(registry);
+  }
+
+  static bool isScalarTensorOp(linalg::LinalgOp linalgOp) {
+    if (!linalgOp.hasTensorSemantics())
+      return false;
+
+    if (linalgOp.getNumLoops() != 0)
+      return false;
+
+    auto isScalarOrScalarTensorOperand = [&](OpOperand &operand) {
+      if (linalgOp.isScalar(&operand))
+        return true;
+
+      auto tensorType =
+          llvm::dyn_cast<RankedTensorType>(operand.get().getType());
+      if (!tensorType)
+        return false;
+
+      return tensorType.getRank() == 0;
+    };
+    return llvm::all_of(linalgOp->getOpOperands(),
+                        isScalarOrScalarTensorOperand);
+  }
+
+  void runOnOperation() override {
+    auto opFilter = [](Operation *op) {
+      if (auto linalgOp = llvm::dyn_cast_or_null<linalg::LinalgOp>(op)) {
+        return isScalarTensorOp(linalgOp);
+      }
+      return false;
+    };
+
+    auto transformBuilder = [](ImplicitLocOpBuilder &b, Operation *,
+                               Value pdlValue) {
+      b.create<transform::DetensorizeOp>(pdlValue);
+    };
+
+    insertTransformIR(getOperation(), {funcAnchorAttr, matchPrefix, opFilter,
+                                       transformBuilder});
+  }
+};
 
 struct FuseExtTransformInsertionPass
     : public FuseExtTransformInsertionBase<FuseExtTransformInsertionPass> {
@@ -166,7 +222,45 @@ struct GenericTransformInsertionPass
 protected:
   TransformInsertionConfig config;
 };
+
+struct RewriteInDPSTransformInsertionPass
+    : public RewriteInDPSTransformInsertionBase<
+          RewriteInDPSTransformInsertionPass> {
+  explicit RewriteInDPSTransformInsertionPass(const std::string &funcAnchor,
+                                              const std::string &matchPrefix)
+      : RewriteInDPSTransformInsertionBase() {
+    this->funcAnchorAttr = funcAnchor;
+    this->matchPrefix = matchPrefix;
+  }
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<transform::TransformDialect>();
+    linalg::registerTransformDialectExtension(registry);
+  }
+
+  void runOnOperation() override {
+    auto opFilter = [](Operation *op) {
+      return llvm::isa<tensor::FromElementsOp>(op);
+    };
+
+    auto transformBuilder = [](ImplicitLocOpBuilder &b, Operation *,
+                               Value pdlValue) {
+      b.create<transform::RewriteInDestinationPassingStyleOp>(
+          pdlValue.getType(), pdlValue);
+    };
+
+    insertTransformIR(getOperation(), {funcAnchorAttr, matchPrefix, opFilter,
+                                       transformBuilder});
+  }
+};
 } // namespace
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createDetensorizeTransformInsertionPass(const std::string &funcAnchor,
+                                              const std::string &matchPrefix) {
+  return std::make_unique<DetensorizeTransformInsertionPass>(funcAnchor,
+                                                             matchPrefix);
+}
 
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createFuseExtTransformInsertionPass(
@@ -182,4 +276,11 @@ std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createGenericTransformInsertionPass(
     const TransformInsertionConfig &config) {
   return std::make_unique<GenericTransformInsertionPass>(config);
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createRewriteInDPSTransformInsertionPass(const std::string &funcAnchor,
+                                               const std::string &matchPrefix) {
+  return std::make_unique<RewriteInDPSTransformInsertionPass>(funcAnchor,
+                                                              matchPrefix);
 }

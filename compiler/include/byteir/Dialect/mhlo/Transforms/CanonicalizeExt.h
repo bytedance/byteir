@@ -45,6 +45,7 @@ class ReshapeOp;
 class MulOp;
 class SliceOp;
 class ReverseOp;
+class GatherOp;
 
 // Most of these will push back to upstream
 // So this file only includes patterns, not a pass.
@@ -142,6 +143,8 @@ LogicalResult simplifyTransposeReshapeTranspose(mhlo::TransposeOp op,
 
 LogicalResult foldReverseWithConstant(mhlo::ReverseOp op,
                                       PatternRewriter &rewriter);
+
+LogicalResult foldGatherWithInput(mhlo::GatherOp op, PatternRewriter &rewriter);
 
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,

@@ -35,6 +35,24 @@ def TransformDialectInterpreter : Pass<"transform-dialect-interpreter", "ModuleO
 }
 
 //===----------------------------------------------------------------------===//
+// DetensorizeTransformationInsertion
+//===----------------------------------------------------------------------===//
+
+def DetensorizeTransformInsertion : Pass<"insert-detensorize-transform", "ModuleOp"> {
+  let summary = "Insert detensorize transform IR to functions.";
+  let constructor = "mlir::createDetensorizeTransformInsertionPass()";
+  let options = [
+    Option<"funcAnchorAttr", "func-anchor", "std::string",
+            /*default=*/"",
+            "An optional Unit attribute anchoring on target functions.">,
+    Option<"matchPrefix", "match-prefix", "std::string",
+            /*default=*/"\"__byteir_detensorize\"",
+            "An optional match prefix attribute on target ops.">,
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
 // FuseExtTransformInsertion
 //===----------------------------------------------------------------------===//
 
@@ -59,5 +77,23 @@ def FuseExtTransformInsertion : Pass<"insert-fuse-ext-transform", "ModuleOp"> {
             "keep intermediates attribute name.">
   ];
 }
+
+//===----------------------------------------------------------------------===//
+// RewriteInDPSTransformInsertion
+//===----------------------------------------------------------------------===//
+
+def RewriteInDPSTransformInsertion : Pass<"insert-rewrite-in-dps-transform", "ModuleOp"> {
+  let summary = "Insert rewrite in destination-passing-style transform IR to functions.";
+  let constructor = "mlir::createRewriteInDPSTransformInsertionPass()";
+  let options = [
+    Option<"funcAnchorAttr", "func-anchor", "std::string",
+            /*default=*/"",
+            "An optional Unit attribute anchoring on target functions.">,
+    Option<"matchPrefix", "match-prefix", "std::string",
+            /*default=*/"\"__byteir_detensorize\"",
+            "An optional match prefix attribute on target ops.">,
+  ];
+}
+
 
 #endif // BYTEIR_DIALECT_TRANSFORM_PASSES

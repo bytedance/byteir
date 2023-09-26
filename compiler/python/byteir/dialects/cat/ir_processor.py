@@ -19,7 +19,6 @@ MAX_COMPILATION_PARALLELISM = available_cuda_device_num
 def func_hash_str(func, gpu_type):
     hash_str = gpu_type + "_"
     ops = func.entry_block.operations
-    # assert len(ops) == 2
     for op in ops:
         hash_str += f"{op.get_asm(large_elements_limit=None)};"
     return hash_str
@@ -29,7 +28,7 @@ class IRProcessor:
                  job_name, 
                  workdir, 
                  compile_parallelism = MAX_COMPILATION_PARALLELISM,
-                 disable_ait_cache = False,
+                 disable_byteir_cache = False,
                  verbose = False):
         self.job_name = job_name
         self.workdir = workdir
@@ -37,14 +36,11 @@ class IRProcessor:
         self.ait_reuse_recorder = {} # key: hash str, value: Tuple(dll_name, ait_module_path)
         self.compile_parallelism = min(compile_parallelism, MAX_COMPILATION_PARALLELISM)
         self.pool = multiprocessing.Pool(compile_parallelism)
-        self.ait_cache = AITCache()
+        self.byteir_cache = AITCache()
         self.verbose = verbose
-        # ait_cache is enabled when ait_reuse is enabled
-        # in other words, once `ait_reuse` is set to False, 
-        # we will orcely compile all ait ops with bo reuse or cache.
-        self.disable_ait_cache = disable_ait_cache
-        if not disable_ait_cache:
-            self.ait_cache.load_or_create_cache()
+        self.disable_byteir_cache = disable_byteir_cache
+        if not disable_byteir_cache:
+            self.byteir_cache.load_or_create_cache()
 
     def _get_builder(self, module, subgraph_name, backend="ait"):
         assert module != None
@@ -139,11 +135,11 @@ class IRProcessor:
                 self.ait_reuse_recorder[hash_str] = (builder.dll_name, builder.ait_module_path)
                 libs_to_add_to_cache[hash_str] = builder.ait_module_path
                 dedup_work_items.append((hash_str, func_ir_str))
-        
-        # search in ait cache
+
+        # search in byteir cache
         work_items_not_in_cache = []
         for hash_str, func_ir_str in dedup_work_items:
-            cached_lib = self.ait_cache.find(gpu_type, hash_str)
+            cached_lib = self.byteir_cache.find(gpu_type, hash_str)
             if cached_lib != None:
                 # hit, copy cached lib
                 context = ir.Context()
@@ -171,12 +167,12 @@ class IRProcessor:
         t_ed = time.time()
         print("compilation finished in {}s".format(t_ed-t_st))
 
-        # update ait cache
-        if not self.disable_ait_cache:
+        # update byteir cache
+        if not self.disable_byteir_cache:
             for key, lib_path in libs_to_add_to_cache.items():
-                self.ait_cache.add(gpu_type, key, lib_path, override=False)
-            self.ait_cache._save()
-            self.ait_cache.close_cache()
+                self.byteir_cache.add(gpu_type, key, lib_path, override=False)
+            self.byteir_cache._save()
+            self.byteir_cache.close_cache()
         
         with self.module.context:
             pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(funcNameArg, aitLibPathArg))
