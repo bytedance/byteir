@@ -1074,10 +1074,11 @@ static bool isRewritablePrivateFunc(func::FuncOp func) {
 }
 
 // identify EntryPoint funciton
-static void identifyEntryPointFuncAndCalls(
-    ModuleOp m, llvm::SmallVector<func::FuncOp, 4> &entries,
-    llvm::SmallVector<func::CallOp, 16> &calls,
-    llvm::SmallVector<func::FuncOp, 16> &removeFuncs) {
+static void
+identifyEntryPointFuncAndCalls(ModuleOp m,
+                               llvm::SmallVector<func::FuncOp, 4> &entries,
+                               llvm::SmallVector<func::CallOp, 16> &calls,
+                               llvm::SetVector<func::FuncOp> &removeFuncs) {
   // get first entry func
 
   llvm::SmallPtrSet<Operation *, 16> callSet;
@@ -1094,7 +1095,7 @@ static void identifyEntryPointFuncAndCalls(
       if (isRewritablePrivateFunc(calleeFuncOp) && !callSet.contains(callOp)) {
         calls.push_back(callOp);
         callSet.insert(callOp);
-        removeFuncs.push_back(calleeFuncOp);
+        removeFuncs.insert(calleeFuncOp);
       }
     }
   }
@@ -1273,7 +1274,7 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
   MLIRContext &ctx = getContext();
   llvm::SmallVector<func::FuncOp, 4> entryCollector;
   llvm::SmallVector<func::CallOp, 16> callCollector;
-  llvm::SmallVector<func::FuncOp, 16> removeFuncCollector;
+  llvm::SetVector<func::FuncOp> removeFuncCollector;
 
   identifyEntryPointFuncAndCalls(m, entryCollector, callCollector,
                                  removeFuncCollector);
@@ -1330,7 +1331,7 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
     return signalPassFailure();
   }
 
-  for (auto func : removeFuncCollector) {
+  for (auto func : removeFuncCollector.takeVector()) {
     func->erase();
   }
 }

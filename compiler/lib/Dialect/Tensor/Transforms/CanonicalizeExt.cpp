@@ -27,6 +27,7 @@
 #include "byteir/Utils/AttrUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -121,6 +122,46 @@ struct RankReducedExtractSliceCollapseShape
     return success();
   }
 };
+
+/// Fold zero rank from_elements + insert_slice into insert
+///
+/// Example:
+///
+/// %0 = tensor.from_elements %scalar : tensor<f32>
+/// %1 = tensor.insert_slice %0 into %1[%c256] : tensor<f32> into
+/// tensor<1024xf32>
+///
+/// will be folded into
+///
+/// %0 = tensor.insert %scalar into %1[%c256] : tensor<1024xf32>
+struct FoldZeroRankFromElementsInsertSlice
+    : public OpRewritePattern<tensor::InsertSliceOp> {
+  using OpRewritePattern<tensor::InsertSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::InsertSliceOp insertSliceOp,
+                                PatternRewriter &rewriter) const override {
+    auto fromElementsOp =
+        insertSliceOp.getSource().getDefiningOp<tensor::FromElementsOp>();
+    if (!fromElementsOp)
+      return failure();
+
+    RankedTensorType tensorType = insertSliceOp.getSourceType();
+    if (tensorType.getRank() != 0)
+      return failure();
+
+    auto elements = fromElementsOp.getElements();
+    if (elements.size() != 1)
+      return failure();
+
+    SmallVector<Value> indices = getValueOrCreateConstantIndexOp(
+        rewriter, insertSliceOp->getLoc(),
+        getMixedValues(insertSliceOp.getStaticOffsets(),
+                       insertSliceOp.getOffsets(), rewriter));
+    rewriter.replaceOpWithNewOp<tensor::InsertOp>(
+        insertSliceOp, elements[0], insertSliceOp.getDest(), indices);
+    return success();
+  }
+};
 } // namespace
 
 void mlir::tensor::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
@@ -132,6 +173,7 @@ void mlir::tensor::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   }
 
   patterns.add<RankReducedExtractSliceCollapseShape>(ctx);
+  patterns.add<FoldZeroRankFromElementsInsertSlice>(ctx);
 }
 
 void mlir::tensor::getCanonicalizationExtPatterns(RewritePatternSet &patterns,

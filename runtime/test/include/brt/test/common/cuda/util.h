@@ -146,6 +146,19 @@ template <typename T>
   return passed;
 }
 
+template <typename T>
+[[nodiscard]] bool CheckCUDAValuesWithCPUValues(T *first, T *second,
+                                                size_t size,
+                                                size_t print_count = 10) {
+  cudaDeviceSynchronize();
+  T *h_first = (T *)malloc(size * sizeof(T));
+  cudaMemcpy(h_first, first, size * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
+  bool passed = CheckCPUValues<T>(h_first, second, size, print_count);
+  free(h_first);
+  return passed;
+}
+
 // print floating point values
 template <typename T,
           std::enable_if_t<std::is_floating_point<T>::value, int> = 0>

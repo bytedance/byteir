@@ -20,10 +20,14 @@
 #include "byteir/Conversion/ToGPU/ToGPU.h"
 #include "byteir/Conversion/ToPTX/ToPTX.h"
 #include "byteir/Dialect/Affine/Passes.h"
+#include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/SCF/Passes.h"
+#include "byteir/Dialect/Transform/Transforms/TransformDialectInterpreter.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Pipelines/GPU/MappingForall.h"
 #include "byteir/Transforms/Passes.h"
+#include "byteir/Transforms/RemoveFuncBody.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
@@ -35,8 +39,9 @@ using namespace mlir;
 using namespace mlir::bufferization;
 
 namespace {
-void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
-                              const std::string &target) {
+void createElementwiseGPUOptPipelineImpl(OpPassManager &pm,
+                                         const bool &useBarePtrCallConv,
+                                         const std::string &target) {
   // apply PromotoBufferStack to func's with
   // getByteIRElementwiseFusionAttrName
   {
@@ -71,6 +76,36 @@ void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
 
   addCleanUpExtPassPipeline(pm);
   pm.addNestedPass<func::FuncOp>(createGenPTXConfigPass(useBarePtrCallConv));
+}
+
+void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
+  GPUMappingForallOptions options;
+  options.funcAnchor = getByteIRReductionFusionAttrName().str();
+  createGPUMappingForallTransform(pm, options);
+  pm.addPass(createTransformDialectInterpreter(true));
+  pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(createGpuLauchSinkIndexComputationsPass());
+
+  {
+    OpPassManager anchoredPM(func::FuncOp::getOperationName());
+
+    anchoredPM.addPass(createPromoteBuffersToStackPass(
+        /*isSmallAlloc =*/[](Value value) {
+          return value.getParentRegion()->getParentOfType<gpu::LaunchOp>();
+        }));
+
+    pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
+        getByteIRReductionFusionAttrName(), anchoredPM));
+  }
+  pm.addPass(createGpuKernelOutliningPass());
+}
+
+void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
+                              const std::string &target) {
+  createElementwiseGPUOptPipelineImpl(pm, useBarePtrCallConv, target);
+  createReductionGPUOptPipelineImpl(pm);
+  pm.addPass(createCollectGPUKernelPass("unified", false));
 }
 
 } // namespace

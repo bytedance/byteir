@@ -69,6 +69,27 @@ public:
   }
 };
 
+class ConvertSubViewOpToByrePattern
+    : public OpConversionPattern<memref::SubViewOp> {
+public:
+  ConvertSubViewOpToByrePattern(MLIRContext *ctx)
+      : OpConversionPattern<memref::SubViewOp>(ctx) {}
+
+  LogicalResult
+  matchAndRewrite(memref::SubViewOp op, memref::SubViewOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!op.getType().getLayout().isIdentity())
+      return failure();
+
+    if (!op.getSource().getType().getLayout().isIdentity())
+      return failure();
+
+    rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getResult().getType(),
+                                               adaptor.getSource(), 0);
+    return success();
+  }
+};
+
 class ConvertMemrefCopyOpToByrePattern
     : public OpConversionPattern<memref::CopyOp> {
 public:
@@ -174,8 +195,8 @@ void mlir::populateMemrefToByrePattern(RewritePatternSet &patterns) {
   patterns.add<ConvertViewOpToByrePattern, ConvertMemrefCopyOpToByrePattern,
                ConvertGetGlobalOpToByrePattern,
                ConvertReshapeLikeOpToByrePattern<memref::CollapseShapeOp>,
-               ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>>(
-      patterns.getContext());
+               ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>,
+               ConvertSubViewOpToByrePattern>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

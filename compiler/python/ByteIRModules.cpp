@@ -15,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "bindings/c/Passes.h"
 #include "byteir-c/Dialects.h"
 #include "byteir-c/Passes.h"
 #include "byteir-c/Translation.h"
@@ -30,6 +31,7 @@ static MlirStringRef toMlirStringRef(const std::string &s) {
 
 PYBIND11_MODULE(_byteir, m) {
   byteirRegisterAllPasses();
+  mlirRegisterAllMhloPasses();
 
   m.doc() = "byteir python extension";
 

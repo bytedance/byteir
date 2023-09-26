@@ -220,10 +220,11 @@ public:
       : windowSize(windowSize), alignment(alignment), compare(compare) {}
 
   /// Optimize the buffer allocations.
-  void optimze(const mlir::bufferization::BufferPlacementAllocs &allocs,
-               const UserangeAnalysis &userangeAnalysis,
-               std::vector<PackedBuffer> &packedBuffers,
-               std::function<bool(Value)> isValidAllocation) {
+  void optimze(
+      const mlir::bufferization::BufferPlacementAllocs::AllocEntryList &allocs,
+      const UserangeAnalysis &userangeAnalysis,
+      std::vector<PackedBuffer> &packedBuffers,
+      std::function<bool(Value)> isValidAllocation) {
     AllocInfoList allocInfos;
     allocInfos.reserve(std::distance(allocs.begin(), allocs.end()));
 
@@ -344,7 +345,7 @@ private:
   /// maximal userange.
   size_t computeAllocationInfos(
       AllocInfoList &allocInfos, const UserangeAnalysis &userangeAnalysis,
-      const mlir::bufferization::BufferPlacementAllocs &allocs,
+      const mlir::bufferization::BufferPlacementAllocs::AllocEntryList &allocs,
       std::function<bool(Value)> isValidAllocation) {
     // Create allocInformations and store them in allocInfos.
     size_t maxUserangeId = 0;
@@ -405,13 +406,15 @@ private:
 /// argument.
 template <typename AllocOpT>
 class BufferPacking : bufferization::BufferPlacementTransformationBase {
+  static constexpr bool is_alloca = std::is_same_v<AllocOpT, memref::AllocaOp>;
+
 public:
   template <typename StrategyT>
   BufferPacking(Operation *op, StrategyT strategy,
                 std::function<bool(Value)> couldReuseAllocation)
       : BufferPlacementTransformationBase(op), liveness(op),
-        userangeAnalysis(op, &liveness, initAllocs(op), aliases),
-        dominators(op) {
+        allocs(initAllocs(op)),
+        userangeAnalysis(op, &liveness, allocs, aliases), dominators(op) {
     std::vector<PackedBuffer> packedBuffers;
     strategy.optimze(allocs, userangeAnalysis, packedBuffers,
                      couldReuseAllocation);
@@ -434,6 +437,7 @@ public:
 
 private:
   byteir::Liveness liveness;
+  bufferization::BufferPlacementAllocs::AllocEntryList allocs;
   UserangeAnalysis userangeAnalysis;
   /// The current dominance info.
   DominanceInfo dominators;
@@ -451,13 +455,18 @@ private:
                                dominators);
   }
 
-  const bufferization::BufferPlacementAllocs &initAllocs(Operation *op) {
+  bufferization::BufferPlacementAllocs::AllocEntryList
+  initAllocs(Operation *op) {
     if constexpr (std::is_same_v<AllocOpT, memref::AllocaOp>) {
+      bufferization::BufferPlacementAllocs::AllocEntryList ret;
       op->walk([&](memref::AllocaOp alloca) {
-        allocs.registerAlloc({alloca.getResult(), nullptr});
+        ret.emplace_back(alloca.getResult(), nullptr);
       });
+      return ret;
+    } else {
+      auto &&baseAllocs = BufferPlacementTransformationBase::allocs;
+      return {baseAllocs.begin(), baseAllocs.end()};
     }
-    return allocs;
   }
 
   void createBufferAndViews(const PackedBuffer &packedBuffer) {
@@ -505,7 +514,7 @@ private:
 };
 
 template <typename AllocOp>
-inline void doBufferPacking(mlir::func::FuncOp func, size_t alignment,
+inline void doBufferPacking(FunctionOpInterface func, size_t alignment,
                             std::function<bool(Value)> couldReuseAllocation) {
   SortedPackingStrategy<AllocInfoMemSizeCompare> strategy(
       0,         // windowSize
@@ -517,10 +526,12 @@ inline void doBufferPacking(mlir::func::FuncOp func, size_t alignment,
 
 struct MemoryPlanningPass : public MemoryPlanningBase<MemoryPlanningPass> {
   MemoryPlanningPass() = default;
-  MemoryPlanningPass(size_t alignment,
+  MemoryPlanningPass(size_t alignment, bool alloca, size_t memSpace,
                      std::function<bool(Value)> couldReuseAllocation)
       : MemoryPlanningBase() {
     this->alignment = alignment;
+    this->alloca = alloca;
+    this->memSpace = memSpace;
     this->couldReuseAllocation = couldReuseAllocation;
   }
 
@@ -559,11 +570,15 @@ struct MemoryPlanningPass : public MemoryPlanningBase<MemoryPlanningPass> {
 };
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMemoryPlanningPass() {
+std::unique_ptr<InterfacePass<FunctionOpInterface>>
+mlir::createMemoryPlanningPass() {
   return std::make_unique<MemoryPlanningPass>();
 }
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createMemoryPlanningPass(
-    size_t alignment, std::function<bool(Value)> couldReuseAllocation) {
-  return std::make_unique<MemoryPlanningPass>(alignment, couldReuseAllocation);
+std::unique_ptr<InterfacePass<FunctionOpInterface>>
+mlir::createMemoryPlanningPass(
+    size_t alignment, bool alloca, size_t memSpace,
+    std::function<bool(Value)> couldReuseAllocation) {
+  return std::make_unique<MemoryPlanningPass>(alignment, alloca, memSpace,
+                                              couldReuseAllocation);
 }

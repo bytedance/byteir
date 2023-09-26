@@ -18,6 +18,8 @@ func.func @tensor_collapse(%arg0 : tensor<12x1024x1024xf32>, %arg1 : tensor<1x10
 
 transform.sequence failures(propagate) {
 ^bb0(%arg0: !pdl.operation):
-  %0 = transform.structured.match ops{["linalg.generic"]} in %arg0 : (!pdl.operation) -> !pdl.operation
-  %1 = transform.structured.fold_unit_extent_dims %0
+  %0 = transform.structured.match ops{["func.func"]} in %arg0 : (!pdl.operation) -> !pdl.operation
+  transform.apply_patterns to %0 {
+    transform.apply_patterns.linalg.fold_unit_extent_dims_via_reshapes
+  } : !pdl.operation
 }

@@ -85,6 +85,14 @@ constexpr llvm::StringRef getRngUniformName() {
   return CUSTOM_CALL_NAME_PREFIX "rng_uniform";
 }
 
+constexpr llvm::StringRef getFlashAttnFwdName() {
+  return CUSTOM_CALL_NAME_PREFIX "flash_attn_fwd";
+}
+
+constexpr llvm::StringRef getFlashAttnBwdName() {
+  return CUSTOM_CALL_NAME_PREFIX "flash_attn_bwd";
+}
+
 constexpr llvm::StringRef getDynamicPartitionName() {
   return TF_NAME_PREFIX "DynamicPartition";
 }

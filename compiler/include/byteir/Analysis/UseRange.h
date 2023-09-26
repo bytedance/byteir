@@ -104,9 +104,24 @@ public:
   using UsePosition = std::pair<size_t, mlir::Operation *>;
   using UsePositionList = std::vector<UsePosition>;
 
+  using AllocsIterator = mlir::bufferization::BufferPlacementAllocs::
+      AllocEntryList::const_iterator;
+  using AllocsIteratorRange = llvm::iterator_range<AllocsIterator>;
+
   UserangeAnalysis(Liveness *liveness) : liveness(liveness) {}
   UserangeAnalysis(mlir::Operation *op, Liveness *liveness,
                    const mlir::bufferization::BufferPlacementAllocs &allocs,
+                   const mlir::BufferViewFlowAnalysis &aliases)
+      : UserangeAnalysis(op, liveness, make_range(allocs.begin(), allocs.end()),
+                         aliases) {}
+  UserangeAnalysis(
+      mlir::Operation *op, Liveness *liveness,
+      const mlir::bufferization::BufferPlacementAllocs::AllocEntryList &allocs,
+      const mlir::BufferViewFlowAnalysis &aliases)
+      : UserangeAnalysis(op, liveness, make_range(allocs.begin(), allocs.end()),
+                         aliases) {}
+  UserangeAnalysis(mlir::Operation *op, Liveness *liveness,
+                   AllocsIteratorRange &&allocs,
                    const mlir::BufferViewFlowAnalysis &aliases);
   virtual ~UserangeAnalysis() {}
 

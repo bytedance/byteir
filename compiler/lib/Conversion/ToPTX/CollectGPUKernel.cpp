@@ -37,8 +37,10 @@ namespace {
 struct CollectGPUKernelPass
     : public CollectGPUKernelBase<CollectGPUKernelPass> {
 
-  CollectGPUKernelPass(const std::string &name) : CollectGPUKernelBase() {
+  CollectGPUKernelPass(const std::string &name, bool removeHost)
+      : CollectGPUKernelBase() {
     this->moduleName = name;
+    this->removeHost = removeHost;
   }
 
   void runOnOperation() override {
@@ -49,20 +51,20 @@ struct CollectGPUKernelPass
     bool found = false;
     GPUModuleOp dst;
 
-    for (auto &op : m.getBody()->without_terminator()) {
-      if (auto gm = dyn_cast<gpu::GPUModuleOp>(op)) {
-        if (gm.getName() == moduleName) {
-          found = true;
-          dst = gm;
-        } else {
-          gmCollector.push_back(gm);
-        }
+    for (auto gm : m.getOps<gpu::GPUModuleOp>()) {
+      if (gm.getName() == moduleName) {
+        found = true;
+        dst = gm;
+      } else {
+        gmCollector.push_back(gm);
       }
     }
 
     // Note FuncOps not in m.getBody()->without_terminator()
-    for (auto func : m.getOps<func::FuncOp>()) {
-      removeOps.push_back(func);
+    if (removeHost) {
+      for (auto func : m.getOps<func::FuncOp>()) {
+        removeOps.push_back(func);
+      }
     }
 
     if (gmCollector.size() == 0) {
@@ -78,12 +80,13 @@ struct CollectGPUKernelPass
     }
 
     SymbolTable dstTable(dst);
-
     for (auto gm : gmCollector) {
       for (auto &op : gm.getBody()->without_terminator()) {
         auto newOp = op.clone();
-        dstTable.insert(newOp);
+        auto newName = dstTable.insert(newOp);
+        (void)SymbolTable::replaceAllSymbolUses(&op, newName, m);
       }
+      (void)SymbolTable::replaceAllSymbolUses(gm, dst.getNameAttr(), m);
       gm.erase();
     }
 
@@ -96,6 +99,6 @@ struct CollectGPUKernelPass
 } // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createCollectGPUKernelPass(const std::string &name) {
-  return std::make_unique<CollectGPUKernelPass>(name);
+mlir::createCollectGPUKernelPass(const std::string &name, bool removeHost) {
+  return std::make_unique<CollectGPUKernelPass>(name, removeHost);
 }

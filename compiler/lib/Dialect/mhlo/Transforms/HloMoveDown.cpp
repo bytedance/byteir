@@ -59,12 +59,21 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
   LogicalResult matchAndRewrite(mhlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
     auto value = op.getResult();
-    auto operandType = op.getOperand().getType(); // T1 as Transpose: T1 -> T2
-
     // early termination if not allMultiUser nor multiUser but has multi users
     if (!allMultiUser && !multiUser && userCount(value) != 1) {
       return failure();
     }
+    auto permutationAttr = op.getPermutation();
+
+    auto isTransposeWithSamePermutation =
+        [&permutationAttr](Value val) -> bool {
+      auto op = val.getDefiningOp<mhlo::TransposeOp>();
+      if (!op) {
+        return false;
+      } else {
+        return op.getPermutation() == permutationAttr;
+      }
+    };
 
     llvm::SetVector<Operation *> users;
     for (auto user : value.getUsers()) {
@@ -94,13 +103,19 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
       // isElementwiseOneResult(user) == true
       bool failed = false;
       for (auto operand : user->getOperands()) {
-        if (operand != value && !isSplatMhloConstantValue(operand)) {
-          if (allMultiUser)
-            return failure();
-          failed = true;
-          break;
+        if (operand == value) {
+          continue;
+        } else if (isDenseMhloConstantValue(operand)) {
+          continue;
+        } else if (isTransposeWithSamePermutation(operand)) {
+          continue;
         }
+        if (allMultiUser)
+          return failure();
+        failed = true;
+        break;
       }
+
       if (failed)
         continue;
       users.insert(user);
@@ -119,8 +134,10 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
           if (!bvm.contains(value)) {
             bvm.map(value, op.getOperand());
           }
+        } else if (isTransposeWithSamePermutation(operand)) {
+          bvm.map(operand, operand.getDefiningOp<TransposeOp>().getOperand());
         } else {
-          // isSplatMhloConstantValue(operand) == true
+          // isDenseMhloConstantValue(operand) == true
           // since it has been checked when collecting users
           if (!constInputs.contains(operand)) {
             constInputs.insert(operand);
@@ -130,14 +147,19 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
 
       // create all const and put into bvm
       for (auto input : constInputs) {
-        ElementsAttr oldConstAttr =
-            input.getDefiningOp<mhlo::ConstantOp>().getValue();
-        auto newConstAttr = reshapeSplatElementsAttr(oldConstAttr, operandType);
-        auto newConstOp =
-            rewriter.create<mhlo::ConstantOp>(op->getLoc(), *newConstAttr);
-        bvm.map(input, newConstOp.getOutput());
+        SmallVector<uint64_t> newPermutation(permutationAttr.size());
+        std::for_each(permutationAttr.value_begin<APInt>(),
+                      permutationAttr.value_end<APInt>(),
+                      [i = 0, &newPermutation](auto e) mutable {
+                        newPermutation[e.getSExtValue()] = (uint64_t)i++;
+                      });
+        auto newPermutationAttr = DenseIntElementsAttr::get(
+            permutationAttr.getType(), newPermutation);
+        auto ConstOp = input.getDefiningOp<ConstantOp>();
+        auto newTransposeOp = rewriter.create<mhlo::TransposeOp>(
+            ConstOp.getLoc(), ConstOp.getOutput(), newPermutationAttr);
+        bvm.map(input, newTransposeOp.getResult());
       }
-
       auto maybeResultTypes =
           mixTypes(/*cloneFromElementTypes*/ user->getResultTypes(),
                    /*cloneFromShapes*/ op->getOperandTypes());
@@ -145,6 +167,8 @@ struct TransposeMoveDownPattern : public HloMoveDownPattern<mhlo::TransposeOp> {
       // maybeResultTypes should always have value
       assert(maybeResultTypes.has_value());
 
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(user);
       // clone an elementwise op as producer
       auto newProducer =
           cloneAndReplaceResultTypes(rewriter, user, bvm, *maybeResultTypes);

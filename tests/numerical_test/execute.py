@@ -91,6 +91,7 @@ def compile_and_run_mlir(mhlo_file, target):
         interp = Interpreter.load_from_file(mhlo_file)
         np_inputs = generate_np_inputs(interp)
         func_name = get_entry_func_name(interp)
+        unique_name = os.path.basename(mhlo_file).split('.')[0]
 
         # run golden
         golden_outputs = interp.call_function(func_name, np_inputs)
@@ -98,8 +99,8 @@ def compile_and_run_mlir(mhlo_file, target):
         # byteir compile
         TEMP_FOLDER = "./local_test"
         os.makedirs(TEMP_FOLDER, exist_ok=True)
-        os.makedirs(TEMP_FOLDER + f"/{func_name}", exist_ok=True)
-        output_mlir_file_name = f'{TEMP_FOLDER}/{func_name}/{func_name}.rt.mlir'
+        os.makedirs(TEMP_FOLDER + f"/{unique_name}", exist_ok=True)
+        output_mlir_file_name = f'{TEMP_FOLDER}/{unique_name}/{unique_name}.rt.mlir'
         byteir.compile(mhlo_file, output_mlir_file_name,
                        entry_func=func_name, target=target)
     except Exception as e:

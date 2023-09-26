@@ -171,6 +171,31 @@ T OpAccessor::GetAttrAsSplatValue(const std::string &name) const {
   BRT_THROW("Attribute " + name + " is not set");
 }
 
+// GetDenseAttrAsVector will iterate every elements in dense attibutes.
+// If you want to avoid iterating, consider use getRawData() but special handle
+// for i1 ???
+template <typename T>
+std::vector<T> OpAccessor::GetAttrAsVector(const std::string &name) const {
+  std::vector<T> results;
+  if (auto attr =
+          info_.GetOperation()->getAttrOfType<DenseIntElementsAttr>(name)) {
+    results.reserve(attr.size());
+    for (APInt &&i : attr) {
+      results.push_back(static_cast<T>(i.getSExtValue()));
+    }
+    return results;
+  } else if (auto attr =
+                 info_.GetOperation()->getAttrOfType<DenseFPElementsAttr>(
+                     name)) {
+    results.reserve(attr.size());
+    for (APFloat &&i : attr) {
+      results.push_back(static_cast<T>(i.convertToDouble()));
+    }
+    return results;
+  }
+  BRT_THROW("Attribute " + name + " is not supported to get as vector");
+}
+
 std::string OpAccessor::GetUID() const {
   auto byre_op = llvm::cast<byre::ByreOp>(info_.GetOperation());
   return ByREHandle::GetOpUID(byre_op);
@@ -210,6 +235,18 @@ INST_ATTR_METH(uint32_t)
 INST_ATTR_METH(double)
 INST_ATTR_METH(StringView)
 #undef INST_ATTR_METH
+
+#define INST_DENSE_ATTR_METH(T)                                                \
+  template std::vector<T> OpAccessor::GetAttrAsVector<T>(const std::string &)  \
+      const;
+INST_DENSE_ATTR_METH(float)
+INST_DENSE_ATTR_METH(int32_t)
+INST_DENSE_ATTR_METH(int64_t)
+INST_DENSE_ATTR_METH(uint8_t)
+INST_DENSE_ATTR_METH(uint32_t)
+INST_DENSE_ATTR_METH(double)
+INST_DENSE_ATTR_METH(half_float::half)
+#undef INST_DENSE_ATTR_METH
 
 #define INST_SCALAR_METH(T)                                                    \
   template T OpAccessor::GetArgScalar<T>(size_t);                              \

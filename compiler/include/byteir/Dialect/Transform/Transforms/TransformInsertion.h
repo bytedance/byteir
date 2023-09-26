@@ -37,12 +37,22 @@ struct TransformInsertionConfig {
 std::unique_ptr<OperationPass<ModuleOp>>
 createGenericTransformInsertionPass(const TransformInsertionConfig &config);
 
+std::unique_ptr<OperationPass<ModuleOp>>
+createDetensorizeTransformInsertionPass(
+    const std::string &funcAnchor = "",
+    const std::string &matchPrefix = "__byteir_detensorize");
+
 std::unique_ptr<OperationPass<ModuleOp>> createFuseExtTransformInsertionPass(
     const std::string &funcAnchor = "",
     const std::string &matchPrefix = "unknown",
     const std::string &tileSizeAttrName = "",
     const std::string &tileInterchangeAttrName = "",
     const bool keepIntermediates = false);
+
+std::unique_ptr<OperationPass<ModuleOp>>
+createRewriteInDPSTransformInsertionPass(
+    const std::string &funcAnchor = "",
+    const std::string &matchPrefix = "__byteir_rewrite_in_dps");
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_TRANSFORM_TRANSFORMS_TRANSFORMINSERTION_H

@@ -50,10 +50,16 @@ common::Status FlashAttnFwdOpKernel::RunImpl(const ExecutionContext &ctx) {
   void *q_ptr = accessor.GetArgAsyncValueRef(0);
   void *k_ptr = accessor.GetArgAsyncValueRef(1);
   void *v_ptr = accessor.GetArgAsyncValueRef(2);
-  void *o_ptr = accessor.GetArgAsyncValueRef(3);
-  void *softmax_lse_ptr = accessor.GetArgAsyncValueRef(4);
-  void *softmax_ptr = accessor.GetArgAsyncValueRef(5);
-  void *rng_state_ptr = accessor.GetArgAsyncValueRef(6); // TODO : handle rng
+  void *rng_state_ptr = accessor.GetArgAsyncValueRef(3);
+  void *o_ptr = accessor.GetArgAsyncValueRef(4);
+  void *softmax_lse_ptr = accessor.GetArgAsyncValueRef(5);
+  void *softmax_ptr = accessor.GetArgAsyncValueRef(6);
+
+  // check rng_state
+  // uint64_t *h_rng_state = new uint64_t[2];
+  // cudaMemcpy(h_rng_state, rng_state_ptr, 2 * sizeof(uint64_t),
+  // cudaMemcpyDeviceToHost); std::cout << h_rng_state[0] << "," <<
+  // h_rng_state[1] << std::endl; cudaDeviceSynchronize();
 
   // attr
   const bool is_causal = accessor.GetAttrAsBool("causal");
@@ -66,7 +72,7 @@ common::Status FlashAttnFwdOpKernel::RunImpl(const ExecutionContext &ctx) {
   const auto q_shape = accessor.GetArgShape(0);
   const auto k_shape = accessor.GetArgShape(1);
   const auto v_shape = accessor.GetArgShape(2);
-  const auto o_shape = accessor.GetArgShape(3);
+  const auto o_shape = accessor.GetArgShape(4);
   int64_t o_rank = o_shape.size();
   int64_t q_rank = q_shape.size();
   int64_t k_rank = k_shape.size();
@@ -115,7 +121,7 @@ common::Status FlashAttnFwdOpKernel::RunImpl(const ExecutionContext &ctx) {
   DTypeEnum q_dtype = accessor.GetArgDTypeEnum(0);
   DTypeEnum k_dtype = accessor.GetArgDTypeEnum(1);
   DTypeEnum v_dtype = accessor.GetArgDTypeEnum(2);
-  DTypeEnum o_dtype = accessor.GetArgDTypeEnum(3);
+  DTypeEnum o_dtype = accessor.GetArgDTypeEnum(4);
   if (o_dtype != q_dtype || q_dtype != k_dtype || k_dtype != v_dtype) {
     return InvalidArgs(
         "query, key, value, and output must have the same dtype");
@@ -194,6 +200,7 @@ common::Status FlashAttnFwdOpKernel::RunImpl(const ExecutionContext &ctx) {
                   /* seqlen_k */ seqlen_k,
                   /* seqlen_q_rounded */ seqlen_q_rounded,
                   /* seqlen_k_rounded */ seqlen_k_rounded,
+                  /* p_dropout */ p_dropout,
                   /* is_causal */ is_causal,
                   /* stream */ stream);
 

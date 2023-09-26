@@ -37,8 +37,12 @@ using namespace mlir;
 
 #define FILE_NAME_ATTR "device_file_name"
 #define KERNEL_NAME_ATTR "kernel_name"
-#define GRID_SIZE_ATTR "GridSize.x"
-#define BLOCK_SIZE_ATTR "BlockSize.x"
+#define GRID_SIZE_X_ATTR "GridSize.x"
+#define GRID_SIZE_Y_ATTR "GridSize.y"
+#define GRID_SIZE_Z_ATTR "GridSize.z"
+#define BLOCK_SIZE_X_ATTR "BlockSize.x"
+#define BLOCK_SIZE_Y_ATTR "BlockSize.y"
+#define BLOCK_SIZE_Z_ATTR "BlockSize.z"
 #define ARG_RANKS_ATTR "arg_ranks"
 #define CALL_CONVENTION_ATTR "call_convention"
 
@@ -119,29 +123,57 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
     impl_->call_convention = "all";
   // static assignment for config
   // TODO extend to support dynamic
-  if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_ATTR)) {
+  if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)) {
     BRT_THROW_EX(std::runtime_error, "no GridSize.x attr");
   }
 
-  if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_ATTR)) {
+  if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_X_ATTR)) {
     BRT_THROW_EX(std::runtime_error, "no BlockSize.x attr");
   }
 
-  if (!info.GetOperation()->hasAttrOfType<ArrayAttr>(ARG_RANKS_ATTR)) {
-    BRT_THROW_EX(std::runtime_error, "no arg_ranks attr");
+  int gx = static_cast<int>(info.GetOperation()
+                                ->getAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)
+                                .getInt()),
+      gy = 1, gz = 1;
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_Y_ATTR)) {
+    gy = static_cast<int>(info.GetOperation()
+                              ->getAttrOfType<IntegerAttr>(GRID_SIZE_Y_ATTR)
+                              .getInt());
+  }
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_Z_ATTR)) {
+    gz = static_cast<int>(info.GetOperation()
+                              ->getAttrOfType<IntegerAttr>(GRID_SIZE_Z_ATTR)
+                              .getInt());
   }
 
-  int gx = static_cast<int>(
-      info.GetOperation()->getAttrOfType<IntegerAttr>(GRID_SIZE_ATTR).getInt());
   int bx = static_cast<int>(info.GetOperation()
-                                ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_ATTR)
-                                .getInt());
-  std::vector<int> ranks = GetIntArrayAttr(
-      info.GetOperation()->getAttrOfType<ArrayAttr>(ARG_RANKS_ATTR));
+                                ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_X_ATTR)
+                                .getInt()),
+      by = 1, bz = 1;
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_Y_ATTR)) {
+    by = static_cast<int>(info.GetOperation()
+                              ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Y_ATTR)
+                              .getInt());
+  }
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)) {
+    bz = static_cast<int>(info.GetOperation()
+                              ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)
+                              .getInt());
+  }
+
+  std::vector<int> ranks;
+  if (info.GetOperation()->hasAttrOfType<ArrayAttr>(ARG_RANKS_ATTR)) {
+    ranks = GetIntArrayAttr(
+        info.GetOperation()->getAttrOfType<ArrayAttr>(ARG_RANKS_ATTR));
+  } else {
+    for (unsigned int i = 0; i < GetOpArgNum(info_); ++i) {
+      ranks.push_back(GetRankFromOpArgIndex(info_, i));
+    }
+  }
 
   auto num_arg = GetOpArgNum(info_);
-  impl_->grid = dim3(gx, 1, 1);
-  impl_->block = dim3(bx, 1, 1);
+  impl_->grid = dim3(gx, gy, gz);
+  impl_->block = dim3(bx, by, bz);
   impl_->shared_size = 0;
   impl_->arg_reserve_size = 3; // initial 3 for grid/block/shared_size
 

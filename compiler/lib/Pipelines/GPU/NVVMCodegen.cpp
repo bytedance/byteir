@@ -19,6 +19,7 @@
 
 #include "byteir/Conversion/GPUToNVVM/GPUToNVVM.h"
 #include "byteir/Conversion/ToPTX/ToPTX.h"
+#include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/MemRef/Transforms/ExtractAddressComputation.h"
 #include "byteir/Dialect/MemRef/Transforms/SimplifyLinearizedIndex.h"
 #include "byteir/Dialect/mhlo/Passes.h"
@@ -39,6 +40,9 @@ void createNVVMCodegenPipelineImpl(OpPassManager &pm,
   // TODO add target for supporting different SMs
   // TODO use target to decide passes
   pm.addPass(createCollectGPUKernelPass());
+  pm.addNestedPass<gpu::GPUModuleOp>(createShmAllocaToWorkgroupArg());
+  pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizerPass());
   pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createExtractAddressComputationPass());
   pm.addPass(memref::createExpandStridedMetadataPass());

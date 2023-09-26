@@ -1,0 +1,17 @@
+diff --git a/static/csrc/model_container.cpp b/static/csrc/model_container.cpp
+index 5548a97..920ed60 100644
+--- a/static/csrc/model_container.cpp
++++ b/static/csrc/model_container.cpp
+@@ -80,9 +80,9 @@ ModelContainer::ModelContainer(
+       useDebugLogging = true;
+     }
+   }
+-  LOG(INFO)
+-      << (useDebugLogging ? PrintDebugDeviceProperties(prop)
+-                          : PrintInfoDeviceProperties(prop));
++  //LOG(INFO)
++  //    << (useDebugLogging ? PrintDebugDeviceProperties(prop)
++  //                        : PrintInfoDeviceProperties(prop));
+ 
+   LOG(INFO) << "Init AITemplate Runtime with " << num_models << " concurrency";
+   models_.reserve(num_models);

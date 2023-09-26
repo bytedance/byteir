@@ -55,7 +55,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> createLinalgExtToLinalgPass();
 
 std::unique_ptr<OperationPass<ModuleOp>>
 createMemrefCopyToLinalgPass(std::string anchorTag = "",
-                             std::string attachAttr = "");
+                             std::string attachAttr = "",
+                             bool outlining = true);
 
 } // namespace mlir
 

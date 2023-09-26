@@ -11,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--target", type=str, default="cuda", help="target device name")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--ait_parallelism", type=int, default=1, help="number of processes to compile ait op")
-    parser.add_argument("--disable_ait_cache", action="store_true")
+    parser.add_argument("--disable_byteir_cache", action="store_true")
 
     args = parser.parse_args()
     byteir.compile(args.input_mlir_path, 
@@ -20,6 +20,6 @@ if __name__ == "__main__":
                    args.target, 
                    args.verbose, 
                    args.ait_parallelism,
-                   args.disable_ait_cache)
+                   args.disable_byteir_cache)
 
 

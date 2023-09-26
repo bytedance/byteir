@@ -21,6 +21,7 @@
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Ccl/Passes.h"
 #include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
+#include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Passes.h"
@@ -30,6 +31,7 @@
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/Shape/Passes.h"
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
+#include "byteir/Dialect/Tensor/Passes.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Passes.h"
 #include "byteir/Dialect/Vector/Transforms/Passes.h"
@@ -123,11 +125,13 @@ int main(int argc, char **argv) {
   registerByteIRAffinePasses();
   registerByteIRByrePasses();
   registerByteIRCclPasses();
+  registerByteIRGPUPasses();
   registerByteIRLinalgPasses();
   registerByteIRMemRefPasses();
   registerByteIRMhloPassesExt();
   registerByteIRSCFPasses();
   registerByteIRShapePasses();
+  registerByteIRTensorPasses();
   registerByteIRTransformPasses();
   registerByteIRVectorPasses();
 

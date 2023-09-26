@@ -39,8 +39,9 @@ namespace {
 struct MemrefCopyOpToLinalg : public OpRewritePattern<memref::CopyOp> {
   using OpRewritePattern<memref::CopyOp>::OpRewritePattern;
   MemrefCopyOpToLinalg(MLIRContext *ctx, std::string anchorTag,
-                       std::string attachAttr)
-      : OpRewritePattern(ctx), anchorTag(anchorTag), attachAttr(attachAttr) {}
+                       std::string attachAttr, bool outlining)
+      : OpRewritePattern(ctx), anchorTag(anchorTag), attachAttr(attachAttr),
+        outlining(outlining) {}
 
   LogicalResult matchAndRewrite(memref::CopyOp copyOp,
                                 PatternRewriter &rewriter) const override {
@@ -56,84 +57,101 @@ struct MemrefCopyOpToLinalg : public OpRewritePattern<memref::CopyOp> {
     auto dstType = llvm::dyn_cast<MemRefType>(dst.getType());
     if (!srcType || !dstType)
       return failure();
-    if (srcType.getLayout().isIdentity() && dstType.getLayout().isIdentity())
-      return failure();
 
-    SmallVector<Operation *> ops;
-    auto getViewSource = [&](Value value) {
-      while (auto viewOp = value.getDefiningOp<ViewLikeOpInterface>()) {
-        ops.push_back(viewOp);
-        value = viewOp.getViewSource();
+    if (outlining) {
+      if (srcType.getLayout().isIdentity() && dstType.getLayout().isIdentity())
+        return failure();
+
+      SmallVector<Operation *> ops;
+      auto getViewSource = [&](Value value) {
+        while (auto viewOp = value.getDefiningOp<ViewLikeOpInterface>()) {
+          ops.push_back(viewOp);
+          value = viewOp.getViewSource();
+        }
+        return value;
+      };
+      Value callSrc = getViewSource(src);
+      Value callDst = getViewSource(dst);
+
+      auto symbolTableOp = SymbolTable::getNearestSymbolTable(copyOp);
+      SymbolTable symbolTable(symbolTableOp);
+      auto funcType =
+          rewriter.getFunctionType({callSrc.getType(), callDst.getType()}, {});
+
+      OpBuilder::InsertionGuard guard(rewriter);
+      // Insert before module terminator.
+      rewriter.setInsertionPoint(parentOp);
+      func::FuncOp funcOp = rewriter.create<func::FuncOp>(
+          copyOp->getLoc(), "memref_copy_kernel", funcType);
+      symbolTable.insert(funcOp);
+      funcOp.setPrivate();
+
+      Block *entryBlock = funcOp.addEntryBlock();
+      rewriter.setInsertionPointToStart(entryBlock);
+      IRMapping mapping;
+      mapping.map(ValueRange{callSrc, callDst}, entryBlock->getArguments());
+      for (auto &&op : llvm::reverse(ops)) {
+        auto newOp = rewriter.clone(*op, mapping);
+        mapping.map(op, newOp);
       }
-      return value;
-    };
-    Value callSrc = getViewSource(src);
-    Value callDst = getViewSource(dst);
+      AffineMap id = AffineMap::getMultiDimIdentityMap(dstType.getRank(),
+                                                       rewriter.getContext());
+      SmallVector<utils::IteratorType> iteratorTypes(
+          dstType.getRank(), utils::IteratorType::parallel);
+      rewriter.create<linalg::GenericOp>(
+          copyOp->getLoc(), mapping.lookup(copyOp.getSource()),
+          mapping.lookup(copyOp.getTarget()), llvm::ArrayRef({id, id}),
+          iteratorTypes,
+          [](OpBuilder &b, Location loc, ValueRange args) {
+            b.create<linalg::YieldOp>(loc, args.front());
+          },
+          copyOp->getAttrs());
+      rewriter.create<func::ReturnOp>(copyOp->getLoc());
+      if (!attachAttr.empty()) {
+        funcOp->setAttr(attachAttr, rewriter.getUnitAttr());
+      }
 
-    auto symbolTableOp = SymbolTable::getNearestSymbolTable(copyOp);
-    SymbolTable symbolTable(symbolTableOp);
-    auto funcType =
-        rewriter.getFunctionType({callSrc.getType(), callDst.getType()}, {});
-
-    OpBuilder::InsertionGuard guard(rewriter);
-    // Insert before module terminator.
-    rewriter.setInsertionPoint(parentOp);
-    func::FuncOp funcOp = rewriter.create<func::FuncOp>(
-        copyOp->getLoc(), "memref_copy_kernel", funcType);
-    symbolTable.insert(funcOp);
-    funcOp.setPrivate();
-
-    Block *entryBlock = funcOp.addEntryBlock();
-    rewriter.setInsertionPointToStart(entryBlock);
-    IRMapping mapping;
-    mapping.map(ValueRange{callSrc, callDst}, entryBlock->getArguments());
-    for (auto &&op : llvm::reverse(ops)) {
-      auto newOp = rewriter.clone(*op, mapping);
-      mapping.map(op, newOp);
+      rewriter.setInsertionPoint(copyOp);
+      auto callOp = rewriter.replaceOpWithNewOp<func::CallOp>(
+          copyOp, funcOp, ValueRange{callSrc, callDst});
+      callOp->setAttr(byre::getByreCallOpReadonlyOperandNumAttrName(),
+                      rewriter.getIndexAttr(1));
+    } else {
+      AffineMap id = AffineMap::getMultiDimIdentityMap(dstType.getRank(),
+                                                       rewriter.getContext());
+      SmallVector<utils::IteratorType> iteratorTypes(
+          dstType.getRank(), utils::IteratorType::parallel);
+      rewriter.replaceOpWithNewOp<linalg::GenericOp>(
+          copyOp, src, dst, llvm::ArrayRef({id, id}), iteratorTypes,
+          [](OpBuilder &b, Location loc, ValueRange args) {
+            b.create<linalg::YieldOp>(loc, args.front());
+          },
+          copyOp->getAttrs());
     }
-    AffineMap id = AffineMap::getMultiDimIdentityMap(dstType.getRank(),
-                                                     rewriter.getContext());
-    SmallVector<utils::IteratorType> iteratorTypes(
-        dstType.getRank(), utils::IteratorType::parallel);
-    rewriter.create<linalg::GenericOp>(
-        copyOp->getLoc(), mapping.lookup(copyOp.getSource()),
-        mapping.lookup(copyOp.getTarget()), llvm::ArrayRef({id, id}),
-        iteratorTypes,
-        [](OpBuilder &b, Location loc, ValueRange args) {
-          b.create<linalg::YieldOp>(loc, args.front());
-        },
-        copyOp->getAttrs());
-    rewriter.create<func::ReturnOp>(copyOp->getLoc());
-    if (!attachAttr.empty()) {
-      funcOp->setAttr(attachAttr, rewriter.getUnitAttr());
-    }
-
-    rewriter.setInsertionPoint(copyOp);
-    auto callOp = rewriter.replaceOpWithNewOp<func::CallOp>(
-        copyOp, funcOp, ValueRange{callSrc, callDst});
-    callOp->setAttr(byre::getByreCallOpReadonlyOperandNumAttrName(),
-                    rewriter.getIndexAttr(1));
     return success();
   }
 
 private:
   std::string anchorTag;
   std::string attachAttr;
+  bool outlining;
 };
 
 struct MemrefCopyToLinalgPass
     : public MemrefCopyToLinalgPassBase<MemrefCopyToLinalgPass> {
-  MemrefCopyToLinalgPass(std::string anchorTag, std::string attachAttr)
+  MemrefCopyToLinalgPass(std::string anchorTag, std::string attachAttr,
+                         bool outlining)
       : MemrefCopyToLinalgPassBase() {
     this->anchorTag = anchorTag;
     this->attachAttr = attachAttr;
+    this->outlining = outlining;
   }
 
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     RewritePatternSet patterns(&getContext());
     patterns.insert<MemrefCopyOpToLinalg>(context, this->anchorTag,
-                                          this->attachAttr);
+                                          this->attachAttr, this->outlining);
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
       return signalPassFailure();
@@ -144,8 +162,10 @@ struct MemrefCopyToLinalgPass
 } // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
-createMemrefCopyToLinalgPass(std::string anchorTag, std::string attachAttr) {
-  return std::make_unique<MemrefCopyToLinalgPass>(anchorTag, attachAttr);
+createMemrefCopyToLinalgPass(std::string anchorTag, std::string attachAttr,
+                             bool outlining) {
+  return std::make_unique<MemrefCopyToLinalgPass>(anchorTag, attachAttr,
+                                                  outlining);
 }
 
 } // namespace mlir

@@ -970,6 +970,10 @@ public:
     Type softmaxLseTy = op.getResult(5).getType();
     Type softmaxTy = op.getResult(6).getType();
     Type rngTy = op.getResult(7).getType();
+    // Do not need softmax return if there's no use
+    if (op.getResult(6).use_empty())
+      returnSoftmax = false;
+
     SmallVector<Type> resultTypes;
     if (failed(getTypeConverter()->convertTypes(
             {outputPadTy, softmaxLseTy, softmaxTy, rngTy}, resultTypes))) {

@@ -34,3 +34,14 @@ func.func @extract_slice_and_collapse_shape_no_fold(%arg0: tensor<19x1024x1xi32>
 //   CHECK: tensor.extract_slice
 //   CHECK: tensor.collapse_shape
 
+// ----
+
+func.func @fold_zero_rank_from_elements_insert_slice(%arg0: tensor<1024xf32>, %scalar : f32) -> tensor<1024xf32> {
+  %0 = tensor.from_elements %scalar : tensor<f32>
+  %1 = tensor.insert_slice %0 into %arg0[256] [1] [1] : tensor<f32> into tensor<1024xf32>
+  return %1 : tensor<1024xf32>
+}
+// CHECK-LABEL: fold_zero_rank_from_elements_insert_slice
+//   CHECK: tensor.insert
+//   CHECK-NOT: tensor.from_elements
+//   CHECK-NOT: tensor.insert_slice

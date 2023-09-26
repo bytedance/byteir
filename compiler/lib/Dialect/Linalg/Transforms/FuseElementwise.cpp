@@ -544,9 +544,7 @@ static bool isFusableWithReshapeByDimExpansion(GenericOp genericOp,
                         else
                           return isProjectedPermutationAndAllowConst(map);
                       }) &&
-         genericOp.getMatchingIndexingMap(fusableOpOperand).getNumResults() >
-             0 &&
-         llvm::all_of(genericOp.getIteratorTypesArray(), isParallelIterator);
+         genericOp.getMatchingIndexingMap(fusableOpOperand).getNumResults() > 0;
 }
 
 class ExpansionInfo {
@@ -568,6 +566,9 @@ public:
   ArrayRef<int64_t> getExpandedShapeOfDim(unsigned i) const {
     return expandedShapeMap[i];
   }
+  ArrayRef<utils::IteratorType> getIteratorTypes() const {
+    return iteratorTypes;
+  }
   ArrayRef<int64_t> getOriginalShape() const { return originalLoopExtent; }
 
 private:
@@ -579,6 +580,8 @@ private:
   SmallVector<SmallVector<int64_t>> expandedShapeMap;
   /// Extent of the loop in the original operation.
   SmallVector<int64_t> originalLoopExtent;
+  /// Parallel types of the expanded loops
+  SmallVector<utils::IteratorType> iteratorTypes;
   unsigned expandedOpNumDims;
 };
 
@@ -591,6 +594,7 @@ LogicalResult ExpansionInfo::compute(LinalgOp linalgOp,
   if (reassociationMaps.empty())
     return failure();
   AffineMap fusedIndexMap = linalgOp.getMatchingIndexingMap(fusableOpOperand);
+  auto origIteratorTypes = linalgOp.getIteratorTypesArray();
 
   SmallVector<int64_t, 4> originalLoopRange = linalgOp.getStaticLoopRanges();
   originalLoopExtent.assign(originalLoopRange.begin(), originalLoopRange.end());
@@ -621,8 +625,11 @@ LogicalResult ExpansionInfo::compute(LinalgOp linalgOp,
     auto seq = llvm::seq<int64_t>(sum, sum + numFoldedDim.value());
     reassociation.emplace_back(seq.begin(), seq.end());
     sum += numFoldedDim.value();
+    iteratorTypes.append(numFoldedDim.value(),
+                         origIteratorTypes[numFoldedDim.index()]);
   }
   expandedOpNumDims = sum;
+
   return success();
 }
 
@@ -871,15 +878,11 @@ fuseWithReshapeByExpansion(GenericOp genericOp, Operation *reshapeOp,
     }
   }
 
-  // The iterator types of the expanded op are all parallel.
-  SmallVector<utils::IteratorType> iteratorTypes(
-      expansionInfo.getExpandedOpNumDims(), utils::IteratorType::parallel);
-
   TypeRange resultTypes = ValueRange(outputs).getTypes();
-  auto fusedOp =
-      rewriter.create<GenericOp>(genericOp.getLoc(), resultTypes,
-                                 /*inputs=*/expandedOpOperands, outputs,
-                                 expandedOpIndexingMaps, iteratorTypes);
+  auto fusedOp = rewriter.create<GenericOp>(genericOp.getLoc(), resultTypes,
+                                            /*inputs=*/expandedOpOperands,
+                                            outputs, expandedOpIndexingMaps,
+                                            expansionInfo.getIteratorTypes());
   Region &fusedRegion = fusedOp->getRegion(0);
   Region &originalRegion = genericOp->getRegion(0);
   rewriter.cloneRegionBefore(originalRegion, fusedRegion, fusedRegion.begin());

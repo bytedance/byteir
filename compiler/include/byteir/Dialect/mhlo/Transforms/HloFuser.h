@@ -46,6 +46,10 @@ constexpr StringRef getByteIRMatmulEpilogueFusionAttrName() {
   return "__byteir_matmul_epilogue_fusion__";
 }
 
+constexpr StringRef getByteIRReductionFusionAttrName() {
+  return "__byteir_reduction_fusion__";
+}
+
 constexpr StringRef getByteIRTrivialFusionAttrName() {
   return "__byteir_trivial_fusion__";
 }
@@ -101,6 +105,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> createIOConvertFusionPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createTrivialFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createHloAggressiveFusionPass();
+
+std::unique_ptr<OperationPass<func::FuncOp>> createReductionFusionPass();
 
 } // namespace mlir
 

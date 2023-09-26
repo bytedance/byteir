@@ -41,6 +41,7 @@ struct GenericFuserConfig {
   std::function<bool(Operation *)> fuse_trigger;
   std::function<bool(Operation *, Operation *)> fuse_with;
   std::function<bool(Operation *)> valid_single_op;
+  std::function<bool(MhloFusionPattern)> valid_fusion_pattern;
 };
 
 //===----------------------------------------------------------------------===//
@@ -115,6 +116,9 @@ public:
 
     for (auto it = plan.rbegin(); it != plan.rend(); ++it) {
       auto &pattern = *it;
+      if (!fuse_config.valid_fusion_pattern(pattern))
+        continue;
+
       if (pattern.size() > 1) {
         applyMhloFusionPattern(pattern, fuse_config.fuse_attr);
       } else if (this->clusterSingleOp.getValue()) {

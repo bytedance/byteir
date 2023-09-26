@@ -47,12 +47,15 @@ bool isFusibleWith(Operation *, Operation *) { return true; }
 
 bool isValidSingleOp(Operation *) { return true; }
 
+bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
+
 static GenericFuserConfig config{getByteIRHloAggressiveFusionAttrName(),
                                  aggressive_fusion::isFusibleCandidate,
                                  aggressive_fusion::isFusibleStart,
                                  aggressive_fusion::isFusibleTrigger,
                                  aggressive_fusion::isFusibleWith,
-                                 aggressive_fusion::isValidSingleOp};
+                                 aggressive_fusion::isValidSingleOp,
+                                 aggressive_fusion::isValidFusionPattern};
 
 } // namespace aggressive_fusion
 

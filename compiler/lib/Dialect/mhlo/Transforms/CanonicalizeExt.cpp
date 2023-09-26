@@ -1698,6 +1698,60 @@ LogicalResult mlir::mhlo::foldReverseWithConstant(mhlo::ReverseOp op,
   return success();
 }
 
+// this pattern match a GatherOp with iota start_indices,
+// the output of GatherOp maybe equal to the input.
+LogicalResult mlir::mhlo::foldGatherWithInput(mhlo::GatherOp gatherOp,
+                                              PatternRewriter &rewriter) {
+  auto operand = gatherOp.getOperand();
+  auto operandTy = operand.getType().cast<ShapedType>();
+  if (!operandTy.hasRank()) {
+    return failure();
+  }
+
+  auto resultTy = gatherOp.getType().cast<ShapedType>();
+  if (resultTy != operandTy) {
+    return failure();
+  }
+
+  auto startIndices = gatherOp.getStartIndices();
+  auto startIndicesTy = startIndices.getType().cast<ShapedType>();
+  auto iotaOp = startIndices.getDefiningOp<mhlo::IotaOp>();
+  if (!iotaOp || !startIndicesTy.hasRank()) {
+    return failure();
+  }
+
+  int64_t indexVectorDim = startIndicesTy.getRank();
+
+  auto dimensionNumbers = gatherOp.getDimensionNumbers();
+  if (dimensionNumbers.getIndexVectorDim() != indexVectorDim ||
+      indexVectorDim != 1) {
+    return failure();
+  }
+
+  if (dimensionNumbers.getStartIndexMap().size() != 1) {
+    return failure();
+  }
+
+  int64_t startIndexMap = dimensionNumbers.getStartIndexMap()[0];
+  auto collapsedSilceDims = dimensionNumbers.getCollapsedSliceDims();
+  bool mapTocollapsedDim = false;
+
+  for (auto dims : collapsedSilceDims) {
+    if (dims == startIndexMap) {
+      mapTocollapsedDim = true;
+      break;
+    }
+  }
+  // if the start index and offset index are disjoint,
+  // and the start index is generate by IotaOp,
+  // the output of gatherOp is equal to input.
+  if (mapTocollapsedDim) {
+    rewriter.replaceOp(gatherOp, operand);
+    return success();
+  }
+  return failure();
+}
+
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
                                                  bool blindFold) {
@@ -1725,6 +1779,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::simplifyCumsumToIota);
   patterns.add(mlir::mhlo::simplifyTransposeReshapeTranspose);
   patterns.add(mlir::mhlo::foldReverseWithConstant);
+  patterns.add(mlir::mhlo::foldGatherWithInput);
   if (blindFold) {
     patterns.add(mlir::mhlo::foldLargeConcatenate);
   }

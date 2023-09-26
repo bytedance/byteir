@@ -85,10 +85,10 @@ common::Status FlashAttnBwdOpKernel::RunImpl(const ExecutionContext &ctx) {
   }
 
   // dropout check
-  bool is_dropout = p_dropout > 0.0;
-  if (is_dropout) {
-    return InvalidArgs("currently, we only support p_dropout == 0");
-  }
+  // bool is_dropout = p_dropout > 0.0;
+  // if (is_dropout) {
+  //   return InvalidArgs("currently, we only support p_dropout == 0");
+  // }
 
   // type check
   const auto dout_type = accessor.GetArgDTypeEnum(0);
@@ -288,6 +288,7 @@ common::Status FlashAttnBwdOpKernel::RunImpl(const ExecutionContext &ctx) {
       /* seqlen_k */ seqlen_k,
       /* seqlen_q_rounded */ seqlen_q_rounded,
       /* seqlen_k_rounded */ seqlen_k_rounded,
+      /* p_dropout */ p_dropout,
       /* is_causal */ is_causal,
       /* stream */ stream);
 

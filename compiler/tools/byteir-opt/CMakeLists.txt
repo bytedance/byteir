@@ -8,6 +8,7 @@ set(BYTEIR_LIBS
   MLIRCclTransformOps
   ByteIRAffinePasses
   ByteIRByrePasses
+  ByteIRGPUPasses
   ByteIRGPUPipelines
   ByteIRHostPipelines
   ByteIRLinalgPasses
