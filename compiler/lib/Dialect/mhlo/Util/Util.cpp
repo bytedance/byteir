@@ -250,8 +250,10 @@ template <typename OpTy> bool mlir::isValidPoolOrPoolGradLayout(OpTy op) {
   return true;
 }
 
-template bool isValidPoolOrPoolGradLayout(mlir::mhlo::ReduceWindowOp);
-template bool isValidPoolOrPoolGradLayout(mlir::mhlo::SelectAndScatterOp);
+namespace mlir {
+template bool isValidPoolOrPoolGradLayout(mhlo::ReduceWindowOp);
+template bool isValidPoolOrPoolGradLayout(mhlo::SelectAndScatterOp);
+} // namespace mlir
 
 byteir::NamedLayout mlir::getPoolLayout(mlir::mhlo::ReduceWindowOp op) {
   if (!mlir::isValidPoolOrPoolGradLayout(op)) {
