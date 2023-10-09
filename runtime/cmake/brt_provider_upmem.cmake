@@ -4,7 +4,7 @@ file(GLOB_RECURSE brt_upmem_provider_srcs CONFIGURE_DEPENDS
   "${LIB_ROOT}/backends/pim/upmem/providers/*.cc"
 )
 list(FILTER brt_upmem_provider_srcs EXCLUDE REGEX
-  ".*backends/pim/upmem/providers/gemv/dpu/gemv_dpu.cc"
+  ".*backends/pim/upmem/providers/default/gemv/dpu/gemv_dpu.cc"
 )
 set(brt_all_includes brt_common brt_framework)
 

@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "brt/backends/pim/upmem/providers/gemv/op_registration.h"
+#include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
 
 #include "./gemv.h"
 #include "brt/core/framework/kernel_registry.h"

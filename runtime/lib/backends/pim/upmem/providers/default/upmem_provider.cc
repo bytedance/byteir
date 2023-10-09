@@ -1,8 +1,8 @@
-#include "brt/backends/pim/upmem/providers/upmem_provider.h"
+#include "brt/backends/pim/upmem/providers/default/upmem_provider.h"
 #include "brt/backends/common.h"
 #include "brt/backends/pim/upmem/device/dpu_allocator.h"
-#include "brt/backends/pim/upmem/providers/copy/op_registration.h"
-#include "brt/backends/pim/upmem/providers/gemv/op_registration.h"
+#include "brt/backends/pim/upmem/providers/default/copy/op_registration.h"
+#include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
 #include "brt/core/framework/kernel_registry.h"
 #include "brt/core/session/session.h"
 #include <memory>
