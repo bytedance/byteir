@@ -1,4 +1,4 @@
-//===- common.h -----------------------------------------------*--- C++ -*-===//
+//===- op_registration.cc -------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#include "brt/backends/pim/upmem/providers/gemv/op_registration.h"
+
+#include "./gemv.h"
+#include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
+    namespace pim{
+namespace upmem {
 
-struct DeviceKind {
-  constexpr static char CPU[] = "CPU";
-  constexpr static char CUDA[] = "CUDA";
-  constexpr static char UPMEM[] = "UPMEM";
-};
-
-struct ProviderType {
-  // type for brt builtin provider
-  constexpr static char BRT[] = "BRT";
-};
-
+template <typename T>
+void RegisterGeMVOps(KernelRegistry *registry) {
+  registry->Register(
+      "byteir.gemv",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<GeMVOPKernel>(info,0);
+      });
+  
+}
+}
+} // namespace cuda
 } // namespace brt

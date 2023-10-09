@@ -216,7 +216,6 @@ public:
     }
   }
 };
-
 // AtenLayerNormOp
 class ConvertAtenLayerNormOp : public OpConversionPattern<AtenLayerNormOp> {
 public:

@@ -243,7 +243,7 @@ FILE(TO_NATIVE_PATH ${PROJECT_SOURCE_DIR}  BRT_SOURCE_DIR)
 #For example CUDA EP exports "OrtSessionOptionsAppendExecutionProvider_CUDA", whƒich is a global function.
 #However, all these things are legacy and deprecated and should be replaced with functions in brt_c_api.h.
 set(BRT_PROVIDER_NAMES cpu)
-
+list(APPEND BRT_PROVIDER_NAMES upmem)
 set(BRT_PROVIDER_FLAGS)
 set(BRT_PROVIDER_CMAKE_FLAGS)
 
@@ -463,7 +463,9 @@ set(BRT_TARGETS
     brt_ir
     brt_framework
     brt_device_cpu
-    brt_provider_cpu)
+    brt_provider_cpu
+    brt_device_upmem
+    brt_provider_upmem)
 
 if(brt_USE_CUDA)
   list(APPEND BRT_TARGETS brt_device_cuda)
@@ -522,6 +524,8 @@ target_sources(brt.objs INTERFACE
   $<TARGET_OBJECTS:brt_ir>
   $<TARGET_OBJECTS:brt_device_cpu>
   $<TARGET_OBJECTS:brt_provider_cpu>
+  $<TARGET_OBJECTS:brt_device_upmem>
+  $<TARGET_OBJECTS:brt_provider_upmem>
 )
 target_link_libraries(brt.objs INTERFACE
   brt_common
@@ -529,6 +533,8 @@ target_link_libraries(brt.objs INTERFACE
   brt_ir
   brt_device_cpu
   brt_provider_cpu
+  brt_provider_upmem
+  brt_device_upmem
 )
 if(brt_USE_CUDA)
   target_sources(brt.objs INTERFACE

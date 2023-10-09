@@ -1,4 +1,4 @@
-//===- common.h -----------------------------------------------*--- C++ -*-===//
+//===- cuda_env.h ---------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,36 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dpu_types.h"
+
 #pragma once
 
+
+
 namespace brt {
+namespace pim {
+namespace upmem {
+class UpmemEnv {
+public:
+  UpmemEnv(dpu_set_t dpu_set);
+  UpmemEnv(uint32_t num_dpus);
+  UpmemEnv(const char *dpu_binary_path);
 
-struct DeviceKind {
-  constexpr static char CPU[] = "CPU";
-  constexpr static char CUDA[] = "CUDA";
-  constexpr static char UPMEM[] = "UPMEM";
+  void Activate();
+
+const char* GetDpuBinaryPath() { return dpu_binary_path; }
+dpu_set_t GetDpuSet() { return dpu_set; }
+
+  int GetNumDpus() { return num_dpus; }
+
+private:
+  void Initialize(dpu_set_t *dpu_set);
+
+
+uint32_t num_dpus;
+const char *dpu_binary_path;
+ dpu_set_t dpu_set;
 };
-
-struct ProviderType {
-  // type for brt builtin provider
-  constexpr static char BRT[] = "BRT";
-};
-
+} // namespace upmem
+} // namespace pim
 } // namespace brt

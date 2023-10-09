@@ -1,4 +1,4 @@
-//===- common.h -----------------------------------------------*--- C++ -*-===//
+//===- op_registration.h --------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,16 +18,10 @@
 #pragma once
 
 namespace brt {
-
-struct DeviceKind {
-  constexpr static char CPU[] = "CPU";
-  constexpr static char CUDA[] = "CUDA";
-  constexpr static char UPMEM[] = "UPMEM";
-};
-
-struct ProviderType {
-  // type for brt builtin provider
-  constexpr static char BRT[] = "BRT";
-};
-
+class KernelRegistry;
+namespace pim {
+namespace upmem {
+void RegisterGeMVOps(KernelRegistry *registry);
+} // namespace upmem
+} // namespace pim
 } // namespace brt
