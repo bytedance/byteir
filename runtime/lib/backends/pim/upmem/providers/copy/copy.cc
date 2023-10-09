@@ -17,6 +17,7 @@
 
 #include "./copy.h"
 
+#include "brt/backends/pim/upmem/device/dpu.h"
 #include "brt/backends/pim/upmem/device/upmem_worker_queue.h"
 #include "brt/core/context/work_queue.h"
 #include "brt/core/framework/op_accessor.h"
@@ -24,7 +25,6 @@
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "mlir/IR/BuiltinOps.h" // ModuleOp
-#include "brt/backends/pim/upmem/device/dpu.h"
 
 #include <vector>
 
@@ -39,45 +39,37 @@ namespace brt {
 namespace pim {
 namespace upmem {
 
-
 PrepareXfrOpKernel::PrepareXfrOpKernel(const OpKernelInfo &info, int task_type)
     : OpKernel(info), task_type(task_type) {}
-
-
 
 PrepareXfrOpKernel::~PrepareXfrOpKernel() {}
 
 common::Status PrepareXfrOpKernel::RunImpl(const ExecutionContext &ctx) {
   std::vector<void *> args(1);
   args[0] = &buffer;
- 
+
   auto work_queue = static_cast<UPMEMWorkQueue *>(ctx.work_queue);
   return work_queue->AddTask(task_type, nullptr, args.data());
 }
 
-
 PushXfrOpKernel::PushXfrOpKernel(const OpKernelInfo &info, int task_type)
-    : OpKernel(info), task_type(task_type) {
+    : OpKernel(info), task_type(task_type) {}
 
-    }
+PushXfrOpKernel::~PushXfrOpKernel() {}
 
-    PushXfrOpKernel::~PushXfrOpKernel() {}
+common::Status PushXfrOpKernel::RunImpl(const ExecutionContext &ctx) {
+  OpAccessor accessor(info_, ctx.exec_frame);
+  std::vector<void *> args(5);
 
-    common::Status PushXfrOpKernel::RunImpl(const ExecutionContext &ctx) {
-         OpAccessor accessor(info_, ctx.exec_frame);
-      std::vector<void *> args(5);
-
-      args[0] = accessor.GetArgAsyncValueRef(0);
-      args[1] = accessor.GetArgAsyncValueRef(1);
-      args[2] = accessor.GetArgAsyncValueRef(2);
-      args[3] = accessor.GetArgAsyncValueRef(3);
-      args[4] = accessor.GetArgAsyncValueRef(4);
-      auto work_queue = static_cast<UPMEMWorkQueue *>(ctx.work_queue);
-      return work_queue->AddTask(task_type, nullptr, args.data());
-    }
-
-
-
+  args[0] = accessor.GetArgAsyncValueRef(0);
+  args[1] = accessor.GetArgAsyncValueRef(1);
+  args[2] = accessor.GetArgAsyncValueRef(2);
+  args[3] = accessor.GetArgAsyncValueRef(3);
+  args[4] = accessor.GetArgAsyncValueRef(4);
+  auto work_queue = static_cast<UPMEMWorkQueue *>(ctx.work_queue);
+  return work_queue->AddTask(task_type, nullptr, args.data());
 }
-} // namespace cuda
+
+} // namespace upmem
+} // namespace pim
 } // namespace brt

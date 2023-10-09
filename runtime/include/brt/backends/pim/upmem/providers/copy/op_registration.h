@@ -21,7 +21,7 @@ namespace brt {
 class KernelRegistry;
 namespace pim {
 namespace upmem {
-    
+
 void RegisterCopyOps(KernelRegistry *registry);
 
 } // namespace upmem

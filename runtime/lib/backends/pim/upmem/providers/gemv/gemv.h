@@ -18,10 +18,10 @@
 #pragma once
 
 // #include "brt/backends/cuda/device/utils/op_kernel_impl_helpers.h"
-#include "brt/core/framework/op_kernel.h"
 #include "brt/core/common/utils/math_helper.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
+#include "brt/core/framework/op_kernel.h"
 #include "brt/core/ir/ir.h"
 // #include "brt/core/ir/util.h"
 namespace brt {
@@ -31,19 +31,19 @@ namespace upmem {
 class GeMVOPKernel final : public OpKernel {
 public:
   explicit GeMVOPKernel(const OpKernelInfo &info);
-~GeMVOPKernel();
+  ~GeMVOPKernel();
   common::Status RunImpl(const ExecutionContext &) override;
 
 private:
   AsyncValueRef A, B, C;
   int task_type = 0;
-
 };
 
 // template <typename T>
 // using Matmul = CublasOpKernel<GeMV<T>, TypedOperand<const T *, 0>,
-//                               TypedOperand<const T *, 1>, TypedOperand<T *, 2>>;
+//                               TypedOperand<const T *, 1>, TypedOperand<T *,
+//                               2>>;
 
-} // namespace cuda
+} // namespace upmem
+} // namespace pim
 } // namespace brt
-}

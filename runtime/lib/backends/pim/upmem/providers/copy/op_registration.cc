@@ -11,17 +11,15 @@ void RegisterCopyOps(KernelRegistry *registry) {
   registry->Register(
       "preparexfr",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<PrepareXfrOpKernel>(info, 1 );
+        return std::make_shared<PrepareXfrOpKernel>(info, 1);
       });
 
   registry->Register(
       "pushxfr",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<PushXfrOpKernel>(info, 2 );
+        return std::make_shared<PushXfrOpKernel>(info, 2);
       });
-
-
 }
-}
-} // namespace cuda
+} // namespace upmem
+} // namespace pim
 } // namespace brt

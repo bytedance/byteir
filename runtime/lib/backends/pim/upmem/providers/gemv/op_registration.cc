@@ -21,18 +21,16 @@
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
-    namespace pim{
+namespace pim {
 namespace upmem {
 
-template <typename T>
-void RegisterGeMVOps(KernelRegistry *registry) {
+template <typename T> void RegisterGeMVOps(KernelRegistry *registry) {
   registry->Register(
       "byteir.gemv",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<GeMVOPKernel>(info,0);
+        return std::make_shared<GeMVOPKernel>(info, 0);
       });
-  
 }
-}
-} // namespace cuda
+} // namespace upmem
+} // namespace pim
 } // namespace brt

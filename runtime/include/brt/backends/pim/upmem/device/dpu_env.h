@@ -19,8 +19,6 @@
 
 #pragma once
 
-
-
 namespace brt {
 namespace pim {
 namespace upmem {
@@ -32,18 +30,17 @@ public:
 
   void Activate();
 
-const char* GetDpuBinaryPath() { return dpu_binary_path; }
-dpu_set_t GetDpuSet() { return dpu_set; }
+  const char *GetDpuBinaryPath() { return dpu_binary_path; }
+  dpu_set_t GetDpuSet() { return dpu_set; }
 
   int GetNumDpus() { return num_dpus; }
 
 private:
   void Initialize(dpu_set_t *dpu_set);
 
-
-uint32_t num_dpus;
-const char *dpu_binary_path;
- dpu_set_t dpu_set;
+  uint32_t num_dpus;
+  const char *dpu_binary_path;
+  dpu_set_t dpu_set;
 };
 } // namespace upmem
 } // namespace pim

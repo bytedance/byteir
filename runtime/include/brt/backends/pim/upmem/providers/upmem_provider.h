@@ -14,6 +14,6 @@ public:
 
 // TODO add more option later
 common::Status DefaultUPMEMExecutionProviderFactory(Session *session,
-                                                   int num_dpus = 1);
+                                                    int num_dpus = 1);
 
 } // namespace brt

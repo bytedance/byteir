@@ -17,44 +17,41 @@
 
 #pragma once
 
+#include "brt/backends/pim/upmem/device/dpu.h"
 #include "brt/core/framework/op_kernel.h"
 #include "brt/core/framework/op_kernel_info.h"
-#include "brt/backends/pim/upmem/device/dpu.h"
 namespace brt {
 namespace pim {
-namespace upmem
-{
-
+namespace upmem {
 
 class PrepareXfrOpKernel final : public OpKernel {
 public:
-
   PrepareXfrOpKernel(const OpKernelInfo &, int task_type);
   ~PrepareXfrOpKernel();
   common::Status RunImpl(const ExecutionContext &) override;
-  private:
-    int task_type = 0;
-    void *buffer;
-    size_t buffer_id;
-     dpu_set_t dpu_set;
+
+private:
+  int task_type = 0;
+  void *buffer;
+  size_t buffer_id;
+  dpu_set_t dpu_set;
 };
 
 class PushXfrOpKernel final : public OpKernel {
 public:
-
   PushXfrOpKernel(const OpKernelInfo &, int task_type);
   ~PushXfrOpKernel();
   common::Status RunImpl(const ExecutionContext &) override;
 
 private:
   int task_type = 0;
- dpu_set_t dpu_set;
-    dpu_xfer_t xfer;
-    const char *symbol_name;
-    uint32_t symbol_offset;
-    size_t length;
-    dpu_xfer_flags_t flags;
+  dpu_set_t dpu_set;
+  dpu_xfer_t xfer;
+  const char *symbol_name;
+  uint32_t symbol_offset;
+  size_t length;
+  dpu_xfer_flags_t flags;
 };
-}
-} // namespace cuda
+} // namespace upmem
+} // namespace pim
 } // namespace brt

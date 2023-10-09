@@ -1,4 +1,5 @@
-//===- upmem_worker_queue.h --------------------------------------*--- C++ -*-===//
+//===- upmem_worker_queue.h --------------------------------------*--- C++
+//-*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,11 +24,9 @@
 #include <functional>
 #include <vector>
 
-
-
 namespace brt {
-  namespace pim {
-    
+namespace pim {
+
 enum UpmemTaskType : int {
   kLaunch = 0,
   kPreparexfr = 1,
@@ -38,13 +37,9 @@ enum UpmemTaskType : int {
 };
 class UPMEMWorkQueue : public WorkQueue {
 public:
-
-
   explicit UPMEMWorkQueue(upmem::UpmemEnv env,
-                        const  std::string &name = "upmem")
+                          const std::string &name = "upmem")
       : WorkQueue(name), env_(env) {}
-
-
 
   virtual ~UPMEMWorkQueue() {}
 
@@ -69,5 +64,5 @@ private:
   pim::upmem::UpmemEnv env_;
   dpu_set_t dpu_set;
 };
+} // namespace pim
 } // namespace brt
-}

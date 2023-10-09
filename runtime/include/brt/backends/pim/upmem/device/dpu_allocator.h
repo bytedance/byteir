@@ -17,21 +17,12 @@
 
 #pragma once
 
-
-
 #pragma once
 
 #include "brt/core/framework/allocator.h"
 
-
-
-
 namespace brt {
 class Session;
-
-
-
-
 
 class UPMEMAllocator : public IAllocator {
 public:
@@ -54,7 +45,7 @@ class UPMEMExternalAllocator : public UPMEMAllocator {
 
 public:
   UPMEMExternalAllocator(int device_id, const char *name, void *alloc,
-                        void *free)
+                         void *free)
       : UPMEMAllocator(device_id, name) {
     alloc_ = reinterpret_cast<ExternalAlloc>(alloc);
     free_ = reinterpret_cast<ExternalFree>(free);
@@ -68,11 +59,9 @@ private:
   ExternalFree free_;
 };
 
-
-
 // TODO add more option later
 common::Status UPMEMAllocatorFactory(Session *session, int device_id = 0,
-                                    bool use_arena = false,
-                                    size_t size = 1 << 30);
+                                     bool use_arena = false,
+                                     size_t size = 1 << 30);
 
 } // namespace brt

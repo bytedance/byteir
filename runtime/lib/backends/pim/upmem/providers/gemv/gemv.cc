@@ -16,16 +16,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "./gemv.h"
-#include "brt/backends/pim/upmem/device/upmem_worker_queue.h"
 #include "brt/backends/pim/upmem/device/dpu.h"
 #include "brt/backends/pim/upmem/device/dpu_call.h"
+#include "brt/backends/pim/upmem/device/upmem_worker_queue.h"
 
 #include "brt/core/common/utils/math_helper.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
-
 
 using namespace brt;
 using namespace brt::common;
@@ -36,15 +35,15 @@ namespace brt {
 namespace pim {
 namespace upmem {
 
- GeMVOPKernel::GeMVOPKernel(const OpKernelInfo &info): OpKernel(info){
+GeMVOPKernel::GeMVOPKernel(const OpKernelInfo &info) : OpKernel(info) {
   OpAccessor accessor(info);
   auto shape_a = accessor.GetArgShape(0);
   auto shape_b = accessor.GetArgShape(1);
-    auto shape_c = accessor.GetArgShape(2);
-    std::vector<int64_t> dimensions = accessor.GetAttrAsIntArray("dimensions");
-     A = accessor.GetArgAsyncValueRef(0);
-     B = accessor.GetArgAsyncValueRef(1);
-     C = accessor.GetArgAsyncValueRef(2);  
+  auto shape_c = accessor.GetArgShape(2);
+  std::vector<int64_t> dimensions = accessor.GetAttrAsIntArray("dimensions");
+  A = accessor.GetArgAsyncValueRef(0);
+  B = accessor.GetArgAsyncValueRef(1);
+  C = accessor.GetArgAsyncValueRef(2);
 }
 
 GeMVOPKernel::~GeMVOPKernel() {}
@@ -58,9 +57,7 @@ common::Status GeMVOPKernel::RunImpl(const ExecutionContext &ctx) {
   return work_queue->AddTask(task_type, nullptr, args.data());
 }
 
-
-
 // using GeMVOPKernel = BRT_UPMEM_CALL(GeMVOPKernel(DPU_OK));
-} // namespace cuda
+} // namespace upmem
+} // namespace pim
 } // namespace brt
-}
