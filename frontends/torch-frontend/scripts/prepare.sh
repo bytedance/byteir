@@ -15,7 +15,7 @@ pushd $TORCH_FRONTEND_DIR
 python3 -m pip install -r requirements.txt
 
 # init submodule
-git submodule update --init --recursive -f $TORCH_MLIR_DIR
+# git submodule update --init --recursive -f $TORCH_MLIR_DIR
 
 # apply patches
 pushd $TORCH_MLIR_DIR

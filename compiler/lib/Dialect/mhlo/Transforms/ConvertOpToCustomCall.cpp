@@ -88,6 +88,151 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
   return attrs;
 }
 
+// dotGeneral to gemv
+
+struct ConvertDotGeneralToGEMVCustomOp
+    : public OpRewritePattern<mhlo::DotGeneralOp> {
+public:
+  using OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
+                                PatternRewriter &rewriter) const {
+    // check if dotGeneral can be converted to gemv
+    if (op->getNumOperands() != 2) {
+      return failure();
+    }
+    auto lhsType = op->getOperand(0).getType().dyn_cast<RankedTensorType>();
+    auto rhsType = op->getOperand(1).getType().dyn_cast<RankedTensorType>();
+    if (!lhsType || !rhsType) {
+      return failure();
+    }
+    if (lhsType.getRank() != 2 || rhsType.getRank() != 2) {
+      return failure();
+    }
+    if (lhsType.getShape()[1] != rhsType.getShape()[0]) {
+      return failure();
+    }
+    if (lhsType.getElementType() != rhsType.getElementType()) {
+      return failure();
+    }
+    if (op->getResult(0).getType().dyn_cast<RankedTensorType>().getRank() !=
+        1) {
+      return failure();
+    }
+    // convert to CostumOP
+
+    Value lhs = op.getOperand(0);
+    Value rhs = op.getOperand(1);
+    Type resultType = op.getResult().getType();
+
+    TensorType seedOrOffsetType =
+        RankedTensorType::get({}, rewriter.getI64Type());
+
+    ModuleOp module = op->getParentRegion()->getParentOfType<ModuleOp>();
+    auto functionType = FunctionType::get(module.getContext(), {},
+                                          ArrayRef<Type>{seedOrOffsetType});
+    func::FuncOp getSeedFunc = getOrCreatePrivateFunctionDeclare(
+        module, "GetSeedFunc", "GetSeed", functionType);
+    func::FuncOp nextOffsetFunc = getOrCreatePrivateFunctionDeclare(
+        module, "NextOffsetFunc", "NextOffset", functionType);
+
+    // avoid to call @getSeed every time
+    auto getSeedOp = getOrCreateCallGetSeedOp(
+        op->getParentRegion()->getParentOfType<func::FuncOp>(), getSeedFunc,
+        rewriter);
+    auto getOffsetOp = rewriter.create<func::CallOp>(
+        op->getLoc(), nextOffsetFunc, ArrayRef<Value>{});
+    SmallVector<Value> bufferArgs{lhs, rhs, getSeedOp.getResults()[0],
+                                  getOffsetOp.getResults()[0]};
+    // if (!op.getType().hasStaticShape()) {
+    //   bufferArgs.emplace_back(shape);
+    // }
+    auto dictAttr =
+        op->template getAttrOfType<DictionaryAttr>(getCustomCallAttrName());
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getGemvUpmemName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       dictAttr);
+    auto newOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, newOp->getResults());
+    return success();
+  }
+};
+
+// dot to gemv
+
+struct ConvertDotToGEMVCustomOp : public OpRewritePattern<mhlo::DotOp> {
+public:
+  using OpRewritePattern<mhlo::DotOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::DotOp op,
+                                PatternRewriter &rewriter) const {
+    // check if dot can be converted to gemv
+    if (op->getNumOperands() != 2) {
+      return failure();
+    }
+    auto lhsType = op->getOperand(0).getType().dyn_cast<RankedTensorType>();
+    auto rhsType = op->getOperand(1).getType().dyn_cast<RankedTensorType>();
+    if (!lhsType || !rhsType) {
+      return failure();
+    }
+    if (lhsType.getRank() != 2 || rhsType.getRank() != 2) {
+      return failure();
+    }
+    if (lhsType.getShape()[1] != rhsType.getShape()[0]) {
+      return failure();
+    }
+    if (lhsType.getElementType() != rhsType.getElementType()) {
+      return failure();
+    }
+    if (op->getResult(0).getType().dyn_cast<RankedTensorType>().getRank() !=
+        0) {
+      return failure();
+    }
+
+    Value lhs = op.getOperand(0);
+    Value rhs = op.getOperand(1);
+    // Value lhsPromoted = promoteType(op->getLoc(), lhs, resultType, rewriter);
+    // Value rhsPromoted = promoteType(op->getLoc(), rhs, resultType, rewriter);
+    // auto shape = op.getShape();
+    Type resultType = op.getResult().getType();
+    TensorType seedOrOffsetType =
+        RankedTensorType::get({}, rewriter.getI64Type());
+
+    ModuleOp module = op->getParentRegion()->getParentOfType<ModuleOp>();
+    auto functionType = FunctionType::get(module.getContext(), {},
+                                          ArrayRef<Type>{seedOrOffsetType});
+    func::FuncOp getSeedFunc = getOrCreatePrivateFunctionDeclare(
+        module, "GetSeedFunc", "GetSeed", functionType);
+    func::FuncOp nextOffsetFunc = getOrCreatePrivateFunctionDeclare(
+        module, "NextOffsetFunc", "NextOffset", functionType);
+
+    // avoid to call @getSeed every time
+    auto getSeedOp = getOrCreateCallGetSeedOp(
+        op->getParentRegion()->getParentOfType<func::FuncOp>(), getSeedFunc,
+        rewriter);
+    auto getOffsetOp = rewriter.create<func::CallOp>(
+        op->getLoc(), nextOffsetFunc, ArrayRef<Value>{});
+    SmallVector<Value> bufferArgs{lhs, rhs, getSeedOp.getResults()[0],
+                                  getOffsetOp.getResults()[0]};
+    // if (!op.getType().hasStaticShape()) {
+    //   bufferArgs.emplace_back(shape);
+    // }
+    auto dictAttr =
+        op->template getAttrOfType<DictionaryAttr>(getCustomCallAttrName());
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getGemvUpmemName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       dictAttr);
+    auto newOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, newOp->getResults());
+  }
+};
+
 struct ConvertRngUniformToCustomCall : public OpRewritePattern<mhlo::RngOp> {
   using OpRewritePattern<mhlo::RngOp>::OpRewritePattern;
 
@@ -225,6 +370,7 @@ struct ConvertOpToCustomCallPass
       RewritePatternSet patterns(context);
       populateRngPatternToCustomCall(patterns);
       populateFlashFwdRewritePattern(patterns);
+      populateGemvRewritePattern(patterns);
 
       FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
@@ -238,6 +384,11 @@ struct ConvertOpToCustomCallPass
 
 void mlir::populateRngPatternToCustomCall(RewritePatternSet &patterns) {
   patterns.add<ConvertRngUniformToCustomCall>(patterns.getContext());
+}
+
+void mlir::populateGemvRewritePattern(RewritePatternSet &patterns) {
+  patterns.add<ConvertDotToGEMVCustomOp>(patterns.getContext());
+  patterns.add<ConvertDotGeneralToGEMVCustomOp>(patterns.getContext());
 }
 
 void mlir::populateFlashFwdRewritePattern(RewritePatternSet &patterns) {

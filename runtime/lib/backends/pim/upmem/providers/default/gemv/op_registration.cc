@@ -26,7 +26,7 @@ namespace upmem {
 
 template <typename T> void RegisterGeMVOps(KernelRegistry *registry) {
   registry->Register(
-      "byteir.gemv",
+      "pytorch.gemv_upmem",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         return std::make_shared<GeMVOPKernel>(info, 0);
       });

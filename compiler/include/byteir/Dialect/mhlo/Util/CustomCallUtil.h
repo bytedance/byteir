@@ -22,8 +22,15 @@
 
 #define CUSTOM_CALL_NAME_PREFIX "byteir."
 #define TF_NAME_PREFIX "tf."
+#define PYTORCH_NAME_PREFIX "pytorch."
 
 namespace mlir {
+
+
+
+constexpr llvm::StringRef getGemvUpmemName() {
+  return PYTORCH_NAME_PREFIX "gemv_upmem";
+}
 
 constexpr llvm::StringRef getCustomCallAttrName() { return "byteir_attrs"; }
 
@@ -111,5 +118,6 @@ constexpr llvm::StringRef getWhereName() { return TF_NAME_PREFIX "Where"; }
 
 #undef TF_NAME_PREFIX
 #undef CUSTOM_CALL_NAME_PREFIX
+#undef PYTORCH_NAME_PREFIX
 
 #endif // BYTEIR_DIALECT_MHLO_UTIL_CUSTOMCALLUTIL_H

@@ -13,6 +13,19 @@ def custom_test_helper(module, inputs, custom_op_name):
 
 # ==============================================================================
 
+# class GemvModule(torch.nn.Module):
+#     def __init__(self):
+#         super().__init__()
+
+#     def forward(self, x, y, z):
+#         return torch.dot(x, y) 
+    
+
+# def test_gemv():
+#     inputs = [tu.rand(3), tu.rand(3), tu.rand(3)]
+#     custom_test_helper(GemvModule(), inputs, "pytorch.gemv_upmem")
+
+
 class SoftmaxModule(torch.nn.Module):
     def __init__(self):
         super().__init__()

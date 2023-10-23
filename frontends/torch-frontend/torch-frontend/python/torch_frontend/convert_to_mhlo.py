@@ -21,7 +21,10 @@ _CUSTOM_OPS_IN_TORCH = [
     "aten.topk",
     "byteir.flash_attn_fwd",
     "byteir.flash_attn_bwd",
+    "pytorch.gemv_upmem",
 ]
+
+# def pytorch〇gemv_upmem
 
 def byteir〇flash_attn_fwd〡shape(q: List[int], k: List[int], v: List[int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[int]]:
     batch_size = q[0]

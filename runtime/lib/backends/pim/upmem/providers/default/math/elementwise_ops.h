@@ -1,4 +1,4 @@
-//===- matmul.h -----------------------------------------------*--- C++ -*-===//
+//===- elementwise_ops.h --------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,41 +17,23 @@
 
 #pragma once
 
-// #include "brt/backends/cuda/device/utils/op_kernel_impl_helpers.h"
-#include "brt/core/common/utils/math_helper.h"
-#include "brt/core/context/execution_context.h"
-#include "brt/core/context/execution_frame.h"
 #include "brt/core/framework/op_kernel.h"
-#include "brt/core/ir/ir.h"
-// #include "brt/core/ir/util.h"
+
 namespace brt {
 namespace pim {
-namespace upmem {
-
-
-#pragma once
-
-#include "brt/core/framework/op_kernel.h"
-
-
+    namespace upmem {
 
 /**
  * Add Ops
  * This is just an example for OpKernel.
  * All elementwise ops should be generated through macro or generator.
  */
-template <typename T> class GEMV final : public OpKernel {
+template <typename T> class Add final : public OpKernel {
 public:
-  explicit GEMV(const OpKernelInfo &info) : OpKernel(info) {}
+  explicit Add(const OpKernelInfo &info) : OpKernel(info) {}
 
   common::Status RunImpl(const ExecutionContext &) override;
 };
-
-// template <typename T>
-// using Matmul = CublasOpKernel<GeMV<T>, TypedOperand<const T *, 0>,
-//                               TypedOperand<const T *, 1>, TypedOperand<T *,
-//                               2>>;
-
-} // namespace upmem
+    } // namespace upmem
 } // namespace pim
 } // namespace brt

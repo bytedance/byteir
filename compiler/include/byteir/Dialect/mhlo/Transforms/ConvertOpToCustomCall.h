@@ -28,6 +28,7 @@ class ModuleOp;
 void populateRngPatternToCustomCall(RewritePatternSet &patterns);
 
 void populateFlashFwdRewritePattern(RewritePatternSet &patterns);
+void populateGemvRewritePattern(RewritePatternSet &patterns);
 
 std::unique_ptr<OperationPass<ModuleOp>>
 createConvertOpToCustomCallPass(llvm::StringRef anchor = "");

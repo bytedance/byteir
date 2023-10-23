@@ -122,6 +122,7 @@ def byteir_compile_fx_inner(graph: torch.fx.GraphModule, inputs, is_backward, ba
         "aten.max.dim",
         "aten.one_hot",
         "aten.topk",
+        "pytorch.gemv_upmem",
         "byteir.flash_attn_fwd",
         "byteir.flash_attn_bwd",
     ]
