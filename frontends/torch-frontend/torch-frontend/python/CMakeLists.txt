@@ -50,8 +50,6 @@ set(_source_components
   TorchMLIRPythonSources
   TorchMLIRPythonExtensions
   TorchFrontendMLIRPythonExtensions
-  MLIRHLOPythonSources
-  MLIRHLOPythonExtensions
 )
 
 add_mlir_python_common_capi_library(TorchFrontendMLIRAggregateCAPI

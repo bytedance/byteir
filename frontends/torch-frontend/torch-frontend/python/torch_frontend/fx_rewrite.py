@@ -57,8 +57,6 @@ def AttnReplacement1(q, k, v, causal_mask, mask_value, scale, dropout_p):
     )
 
 # LLaMA Attention pattern
-# Note, LLaMA attention uses a different mask than flash attention.
-# Replacement is not mathematically equivalent
 def AttnPattern2(query, key, value, attn_mask, min_val, inv_scale):
     attn_weights = torch.matmul(query, key.transpose(2, 3))
     attn_weights = attn_weights / inv_scale
@@ -157,6 +155,30 @@ def AttnReplacement4(query, key, value, attn_mask, min_val, scale, dropout_p, ba
     return context_layer
 
 
+# LLaMA-2 Attention pattern
+def AttnPattern5(query, key, value, attn_mask, inv_scale):
+    attn_weights = torch.matmul(query, key.transpose(2, 3))
+    attn_weights = attn_weights / inv_scale
+    attn_weights = attn_weights + attn_mask
+    attn_weights = attn_weights.float()
+    attn_weights = torch.nn.functional.softmax(attn_weights, dim=-1)
+    attn_weights = attn_weights.type_as(query)
+    attn_output = torch.matmul(attn_weights, value)
+    return attn_output
+
+
+def AttnReplacement5(q, k, v, attn_mask, inv_scale):
+    return torch.ops.aten.scaled_dot_product_attention(
+        q,
+        k,
+        v,
+        attn_mask=None,
+        dropout_p=0.0,
+        is_causal=True,
+        scale=1.0 / inv_scale
+    )
+
+
 def canonicalize_graph_before_replacement(gm):
     for n in gm.graph.nodes:
         if n.op == "call_module":
@@ -220,4 +242,5 @@ def fx_replace_attn_pattern(gm: torch.fx.GraphModule):
     torch.fx.replace_pattern(gm, AttnPattern2, AttnReplacement2)
     torch.fx.replace_pattern(gm, AttnPattern3, AttnReplacement3)
     torch.fx.replace_pattern(gm, AttnPattern4, AttnReplacement4)
+    torch.fx.replace_pattern(gm, AttnPattern5, AttnReplacement5)
     return gm

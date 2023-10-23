@@ -1237,6 +1237,91 @@ static inline void markFuncOpInOutTypeForLmhlo(func::FuncOp func,
   }
 }
 
+static void replaceGetGlobalConstantWithFuncArgument(func::FuncOp funcOp) {
+  SmallVector<std::pair<Type, DenseElementsAttr>> typeAndValue;
+  SmallVector<Operation *> globalConstants;
+  funcOp.walk([&](memref::GetGlobalOp getGlobalOp) {
+    auto globalOp = SymbolTable::lookupNearestSymbolFrom<memref::GlobalOp>(
+        getGlobalOp, getGlobalOp.getNameAttr());
+    if (!globalOp)
+      return;
+
+    auto valueOrNot = globalOp.getInitialValue();
+    if (!valueOrNot || !globalOp.getConstant()) {
+      return;
+    }
+
+    DenseElementsAttr value =
+        llvm::dyn_cast_or_null<DenseElementsAttr>(*valueOrNot);
+    if (!value || value.isSplat()) {
+      return;
+    }
+
+    typeAndValue.emplace_back(getGlobalOp.getResult().getType(), value);
+    globalConstants.emplace_back(getGlobalOp);
+  });
+
+  auto argTypeAttrName = byre::ByreDialect::getEntryPointFuncArgTypeAttrName();
+  auto argNameAttrName = byre::ByreDialect::getEntryPointFuncArgNameAttrName();
+  auto argWeightValueAttrName =
+      byre::ByreDialect::getEntryPointFuncArgWeightValueAttrName();
+  auto context = funcOp->getContext();
+  unsigned int weightCount = 0;
+  auto oldFuncType = funcOp.getFunctionType();
+
+  mlir::OpBuilder opBuilder(funcOp);
+  llvm::SmallVector<DictionaryAttr, 4> newArgAttrs;
+  llvm::SmallVector<Type, 16> newInputTypes;
+  llvm::SmallVector<Type, 16> newOutputTypes(oldFuncType.getResults().begin(),
+                                             oldFuncType.getResults().end());
+
+  for (auto &item : typeAndValue) {
+    newInputTypes.emplace_back(item.first);
+    NamedAttrList argAttr;
+    argAttr.append(
+        argNameAttrName,
+        StringAttr::get(context, Twine("Weight") + Twine(weightCount++)));
+    argAttr.append(argTypeAttrName,
+                   byre::EntryFuncArgTypeAttr::get(
+                       context, byre::EntryFuncArgType::Weight));
+    argAttr.append(argWeightValueAttrName, item.second);
+    newArgAttrs.emplace_back(argAttr.getDictionary(funcOp->getContext()));
+  }
+
+  if (newInputTypes.size() == 0) {
+    return;
+  }
+
+  if (funcOp.getArgAttrsAttr()) {
+    auto oldArgAttrs = funcOp.getArgAttrsAttr().getAsRange<DictionaryAttr>();
+    for (auto argAttr : oldArgAttrs) {
+      newArgAttrs.emplace_back(argAttr);
+    }
+  }
+
+  newInputTypes.insert(newInputTypes.end(), oldFuncType.getInputs().begin(),
+                       oldFuncType.getInputs().end());
+  mlir::FunctionType newFuncType =
+      opBuilder.getFunctionType(newInputTypes, newOutputTypes);
+
+  auto funcInterface = cast<FunctionOpInterface>(funcOp.getOperation());
+  Block &entry = funcInterface->getRegion(0).front();
+  funcInterface.setFunctionTypeAttr(TypeAttr::get(newFuncType));
+
+  for (int i = 0; i < static_cast<int>(typeAndValue.size()); ++i) {
+    entry.insertArgument(i, newInputTypes[i], funcOp->getLoc());
+  }
+
+  mlir::function_interface_impl::setAllArgAttrDicts(funcOp, newArgAttrs);
+  int idx = 0;
+  for (auto op : globalConstants) {
+    auto value = op->getResult(0);
+    value.replaceAllUsesWith(entry.getArgument(idx));
+    idx += 1;
+    op->erase();
+  }
+}
+
 static inline void rewriteByreResultAttrsToFuncResultAttr(func::FuncOp func) {
   auto resultAttrsName = byre::ByreDialect::getEntryPointFuncResultAttrsName();
   removeAttrPlaceholders(func, {resultAttrsName});
@@ -1301,6 +1386,8 @@ void ConvertFuncAndCallToByrePass::runOnOperation() {
     // func was with attribute placholders `argName` and `argType`, it will
     // overwrite those two attributes later.
     markFuncOpInOutTypeForLmhlo(func, inputCnt, outputCnt);
+
+    replaceGetGlobalConstantWithFuncArgument(func);
 
     rewriteByreResultAttrsToFuncResultAttr(func);
 

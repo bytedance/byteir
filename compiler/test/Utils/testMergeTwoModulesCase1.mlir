@@ -7,5 +7,5 @@ func.func @main(%arg0: tensor<f32>, %arg1: tensor<f32>) -> (tensor<f32>, tensor<
 // CHECK-SAME: byteir.entry_point = {inputs = ["module0_input0", "module0_input1"], outputs = ["module1_output"]}
 // CHECK-NEXT: %0:2 = call @__byteir__merge_model_0
 // CHECK-NEXT: call @__byteir__merge_model_1(%0#1, %0#0)
-// CHECK-DAG: func.func @__byteir__merge_model_1
-// CHECK-DAG: func.func @__byteir__merge_model_0
+// CHECK-DAG: func.func private @__byteir__merge_model_1
+// CHECK-DAG: func.func private @__byteir__merge_model_0

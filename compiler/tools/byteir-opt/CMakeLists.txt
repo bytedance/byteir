@@ -60,6 +60,9 @@ set(MHLO_LIBS
   MLIRHLOAnalysis
   MLIRHLOTestAnalysis
   MhloTestAnalysis
+  StablehloRegister
+  StablehloOps
+  ChloOps
 )
 
 set(LIBS
@@ -69,7 +72,6 @@ set(LIBS
   ${BYTEIR_LIBS}
   ${MHLO_LIBS}
   ${test_libs}
-  #MLIRLoopAnalysis
   MLIRAnalysis
   MLIRDialect
   MLIROptLib

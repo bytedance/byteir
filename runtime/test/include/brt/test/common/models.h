@@ -105,6 +105,10 @@ const void *CreateReduction(brt::ir::ByREBuilder &byre_builder,
                             std::vector<int64_t> dimensions,
                             std::string reduce_op);
 
+const void *CreateTopK(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
+                       DTypeEnum indexType, std::vector<int64_t> src_shape,
+                       int64_t k, std::vector<int64_t> axis_vec, bool sorted);
+
 const void *CreateTranspose(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum dataType, const std::string &space,
                             std::vector<int64_t> &shape_input,

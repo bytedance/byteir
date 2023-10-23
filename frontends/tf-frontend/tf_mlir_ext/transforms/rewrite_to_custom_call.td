@@ -334,6 +334,43 @@ def RewriteLayerNormV4 : Pat<
    (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
    (OneRank $gama_attr), (OneRank $beta_attr)]>;
 
+def RewriteLayerNormV4SwapSquarediff : Pat<
+  (TF_AddV2Op
+    (TF_MulOp
+      (TF_MulOp
+        (TF_RsqrtOp
+          (TF_AddV2Op
+            (TF_MeanOp
+              (TF_SquaredDifferenceOp
+                $mean_input_1,
+                $input
+              ),
+              $axis_1,
+              $keep_dims_1
+            ),
+            (TF_ConstOp $epsilon_attr)
+          )
+        ),
+        (TF_SubOp
+          $input,
+          (TF_MeanOp:$mean_input
+            $input,
+            (TF_ConstOp:$axis $axis_attr),
+            $keep_dims_0
+          )
+        )
+      ),
+      (TF_ConstOp:$gama $gama_attr)
+    ),
+    (TF_ConstOp:$beta $beta_attr)
+  ),
+  (NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $gama, $beta, $epsilon_attr, $axis_attr),
+  [(OneSize $epsilon_attr), (OneSize $axis_attr),
+   (TrueBoolAttr $keep_dims_0), (TrueBoolAttr $keep_dims_1),
+   (SameTwoValuesOrAttrs $axis, $axis_1),
+   (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
+   (OneRank $gama_attr), (OneRank $beta_attr)]>;
+
 def RewriteLayerNormWithCast : Pat<
   (TF_AddV2Op
     (TF_MulOp

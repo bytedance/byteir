@@ -52,6 +52,8 @@ declare_mlir_python_extension(ByteIRPythonExtensions.Main
     ByteIRModules.cpp
   EMBED_CAPI_LINK_LIBS
     ByteIRCAPI
+    StablehloCAPI
+    ChloCAPI
   PRIVATE_LINK_LIBS
     LLVMSupport
 )

@@ -79,7 +79,7 @@ def byteir_compile_fx_inner(graph: torch.fx.GraphModule, inputs, is_backward, ba
     # print(fx_graph.code)
     # compiled_graph = convert_to_mhlo_via_torch_mlir(fx_graph, inputs, use_tracing=False)
 
-    compile_type = 'mhlo'
+    compile_type = 'stablehlo'
     backend_legal_ops = [
         "aten._softmax",
         "aten.softmax.int",

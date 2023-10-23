@@ -5,7 +5,6 @@ import sys
 from torch_frontend import torch_mlir
 from torch_mlir import ir
 from torch_mlir.passmanager import PassManager
-from torch_mlir.dialects.mhlo import register_mhlo_dialect
 
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
@@ -72,8 +71,8 @@ def compile(
     verbose: bool = False,
     debug: bool = False,
 ):
-    if output_type not in ["raw", "torch", "mhlo"]:
-        raise NotImplemented("unsupported output type {}".format(output_type))
+    if output_type not in ["raw", "torch", "stablehlo"]:
+        raise NotImplementedError("unsupported output type {}".format(output_type))
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 

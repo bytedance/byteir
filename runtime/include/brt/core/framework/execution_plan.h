@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "brt/backends/device_api.h"
 #include "brt/core/common/status.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
@@ -51,7 +52,8 @@ public:
   virtual common::Status ProloguePerSession(
       const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
           &allocators,
-      const std::vector<std::unique_ptr<ExecutionProvider>> &providers) = 0;
+      const std::vector<std::unique_ptr<ExecutionProvider>> &providers,
+      const Device dev, const DeviceAPI *device_api) = 0;
 
   virtual common::Status EpiloguePerSession() = 0;
 
@@ -109,8 +111,8 @@ public:
   common::Status ProloguePerSession(
       const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
           &allocators,
-      const std::vector<std::unique_ptr<ExecutionProvider>> &providers)
-      override;
+      const std::vector<std::unique_ptr<ExecutionProvider>> &providers,
+      const Device dev, const DeviceAPI *device_api) override;
 
   common::Status EpiloguePerSession() override;
 

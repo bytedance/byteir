@@ -10,6 +10,13 @@ source_group(TREE ${REPO_ROOT} FILES ${brt_cpu_provider_srcs})
 
 brt_add_object_library(brt_provider_cpu ${brt_cpu_provider_srcs})
 target_link_libraries(brt_provider_cpu brt_framework brt_common brt_ir brt_device_cpu)
+# add openmp support
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  message(STATUS "OpenMP_CXX_FOUND")
+  target_link_libraries(brt_provider_cpu OpenMP::OpenMP_CXX)
+endif()
+
 brt_add_include_to_target(brt_provider_cpu ${brt_all_includes})
 set_target_properties(brt_provider_cpu PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(brt_provider_cpu PROPERTIES FOLDER "Brt")

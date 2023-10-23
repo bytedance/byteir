@@ -32,7 +32,7 @@
 #include "brt/core/session/session.h"
 #include <memory>
 
-#if BRT_ENABLE_FLASH_ATTENSION
+#if BRT_ENABLE_FLASH_ATTENTION
 #include "brt/backends/cuda/providers/default/flash_attn/op_registration.h"
 #endif
 
@@ -51,7 +51,7 @@ BRT_STATIC_KERNEL_REGISTRATION(
       cuda::RegisterAITOps(registry);
       cuda::RegisterCodegenOps(registry);
       cuda::RegisterCopyOps(registry);
-#if BRT_ENABLE_FLASH_ATTENSION
+#if BRT_ENABLE_FLASH_ATTENTION
       cuda::RegisterFlashAttentionOps(registry);
 #endif
       cuda::RegisterIndexingOps(registry);

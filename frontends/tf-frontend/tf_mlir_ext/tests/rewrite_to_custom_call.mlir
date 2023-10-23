@@ -318,6 +318,26 @@ func.func @layer_norm_V4(%1735: tensor<128x20x8xf16>) -> tensor<128x20x8xf16> {
 // CHECK: mhlo.custom_call
 // CHECK-SAME: @byteir.layer_norm
 
+func.func @layer_norm_V4_swap_squarediff(%1735: tensor<128x20x8xf16>) -> tensor<128x20x8xf16> {
+  %cst_340 = "tf.Const"() {value = dense<-1> : tensor<1xi32>} : () -> tensor<1xi32>
+  %cst_341 = "tf.Const"() {value = dense<[9.985350e-01, 9.995110e-01, 9.990230e-01, 9.980460e-01, 9.965820e-01, 9.990230e-01, 9.980460e-01, 1.000000e+00]> : tensor<8xf16>} : () -> tensor<8xf16>
+  %cst_342 = "tf.Const"() {value = dense<[-6.313320e-04, -2.541540e-04, 2.572540e-04, -9.641640e-04, 6.055830e-04, 5.350110e-04, 1.099590e-03, -4.178290e-05]> : tensor<8xf16>} : () -> tensor<8xf16>
+  %cst_343 = "tf.Const"() {value = dense<1.013280e-06> : tensor<f16>} : () -> tensor<f16>
+  %1736 = "tf.Mean"(%1735, %cst_340) {device = "", keep_dims = true} : (tensor<128x20x8xf16>, tensor<1xi32>) -> tensor<128x20x1xf16>
+  %1737 = "tf.SquaredDifference"(%1736, %1735) {device = ""} : (tensor<128x20x1xf16>, tensor<128x20x8xf16>) -> tensor<128x20x8xf16>
+  %1738 = "tf.Mean"(%1737, %cst_340) {device = "", keep_dims = true} : (tensor<128x20x8xf16>, tensor<1xi32>) -> tensor<128x20x1xf16>
+  %1739 = "tf.AddV2"(%1738, %cst_343) {device = ""} : (tensor<128x20x1xf16>, tensor<f16>) -> tensor<128x20x1xf16>
+  %1740 = "tf.Rsqrt"(%1739) {device = ""} : (tensor<128x20x1xf16>) -> tensor<128x20x1xf16>
+  %1741 = "tf.Sub"(%1735, %1736) {device = ""} : (tensor<128x20x8xf16>, tensor<128x20x1xf16>) -> tensor<128x20x8xf16>
+  %1742 = "tf.Mul"(%1740, %1741) {device = ""} : (tensor<128x20x1xf16>, tensor<128x20x8xf16>) -> tensor<128x20x8xf16>
+  %1743 = "tf.Mul"(%1742, %cst_341) {device = ""} : (tensor<128x20x8xf16>, tensor<8xf16>) -> tensor<128x20x8xf16>
+  %1744 = "tf.AddV2"(%1743, %cst_342) {device = ""} : (tensor<128x20x8xf16>, tensor<8xf16>) -> tensor<128x20x8xf16>
+  return %1744 : tensor<128x20x8xf16>
+}
+// CHECK-LABEL: func.func @layer_norm_V4_swap_squarediff
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.layer_norm
+
 func.func @layer_norm_with_cast(%79: tensor<150x3xf16>) -> tensor<150x3xf16> {
   %cst_61 = "tf.Const"() {value = dense<[0.0401659757, -0.11370486, 0.432680517]> : tensor<3xf16>} : () -> tensor<3xf16>
   %cst_62 = "tf.Const"() {value = dense<[0.445568085, 0.45303449, 3.227140e-01]> : tensor<3xf16>} : () -> tensor<3xf16>

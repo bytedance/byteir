@@ -35,24 +35,24 @@ index efdb89fa..c87de79e 100644
      AllowsTypeRefinement,
      HasValueSemantics,
 diff --git a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
-index 558e31c6..fefc337e 100644
+index 0bdfca26..b76b3c3c 100644
 --- a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
 +++ b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
-@@ -5022,6 +5022,460 @@ public:
+@@ -5145,6 +5145,458 @@ public:
  };
  } // namespace
  
 +namespace {
 +// Decompose AtenEinsumOp to AtenMatmulOp, and supports possible reduce
 +// operation and permute operation. Currently, this pass doesn't support
-+// Hadamard product. The basic idea is that: 
-+//  Step 1: split the string equation to input/result tokens and find 
-+//    batchingDims, contractingDims, otherDims and reduceDims. 
-+//  Step 2: permute and reshape input tensors suitable 
-+//    for matmul operations. 
-+//  Step 3: use AtenMatmulOp to get the result. 
-+//  Step 4: iteratively execute step 2 & 3 until we get the final result. 
-+//  Step 5: perform remaining permute and reduce operations. 
++// Hadamard product. The basic idea is that:
++//  Step 1: split the string equation to input/result tokens and find
++//    batchingDims, contractingDims, otherDims and reduceDims.
++//  Step 2: permute and reshape input tensors suitable
++//    for matmul operations.
++//  Step 3: use AtenMatmulOp to get the result.
++//  Step 4: iteratively execute step 2 & 3 until we get the final result.
++//  Step 5: perform remaining permute and reduce operations.
 +// notice: support static shape only
 +
 +static bool parseEquation(const std::string &equation,
@@ -262,13 +262,13 @@ index 558e31c6..fefc337e 100644
 +        loc, rewriter.getI64IntegerAttr((int)promotedDTypeInt));
 +    auto promotedDTypeInfo =
 +        getTypeForScalarType(rewriter.getContext(), promotedDTypeInt,
-+                            mlir::IntegerType::SignednessSemantics::Signed);
++                             mlir::IntegerType::SignednessSemantics::Signed);
 +    if (failed(promotedDTypeInfo))
 +      rewriter.notifyMatchFailure(loc, "Failed to get type for promoted dtype");
 +    promotedDType = *promotedDTypeInfo;
 +
-+    auto falseValue =
-+        rewriter.create<Torch::ConstantBoolOp>(loc, rewriter.getBoolAttr(false));
++    auto falseValue = rewriter.create<Torch::ConstantBoolOp>(
++        loc, rewriter.getBoolAttr(false));
 +    auto noneValue = rewriter.create<Torch::ConstantNoneOp>(loc);
 +    lhs = rewriter.create<Torch::AtenToDtypeOp>(
 +        loc,
@@ -279,9 +279,10 @@ index 558e31c6..fefc337e 100644
 +        rhsType.getWithSizesAndDtype(rhsType.getOptionalSizes(), promotedDType),
 +        rhs, promotedDTypeIntValue, falseValue, falseValue, noneValue);
 +  } else {
-+    promotedDType = lhsType.hasDtype() ? lhsType.getOptionalDtype() : rhsType.getOptionalDtype();
++    promotedDType = lhsType.hasDtype() ? lhsType.getOptionalDtype()
++                                       : rhsType.getOptionalDtype();
 +  }
-+  
++
 +  llvm::SmallDenseMap<char, Value> lhsDimShapeMap;
 +  for (size_t idx = 0; idx < lhsTokens.size(); ++idx) {
 +    char d = lhsTokens[idx];
@@ -357,8 +358,7 @@ index 558e31c6..fefc337e 100644
 +                             rhsReduceDims.size(), false);
 +
 +  // perform matmul
-+  auto outType =
-+    lhsType.getWithSizesAndDtype(std::nullopt, promotedDType);
++  auto outType = lhsType.getWithSizesAndDtype(std::nullopt, promotedDType);
 +  result = rewriter.create<Torch::AtenMatmulOp>(loc, outType, lhs, rhs);
 +
 +  // generate ideal result dims.
@@ -378,14 +378,14 @@ index 558e31c6..fefc337e 100644
 +      loc, Torch::ListType::get(Torch::IntType::get(lhs.getContext())),
 +      outShapeTensors);
 +  result = rewriter.create<Torch::AtenReshapeOp>(
-+      loc,
-+      lhsType.getWithSizesAndDtype(std::nullopt, promotedDType),
-+      result, outResultShape);
++      loc, lhsType.getWithSizesAndDtype(std::nullopt, promotedDType), result,
++      outResultShape);
 +  return success();
 +}
 +
 +static Value performLastReduceAndPermute(PatternRewriter &rewriter,
-+                                         Location loc, Type outType, Value input,
++                                         Location loc, Type outType,
++                                         Value input,
 +                                         SmallVector<char> &inputTokens,
 +                                         SmallVector<char> &outTokens) {
 +  auto inputType = input.getType().cast<BaseTensorType>();
@@ -434,7 +434,6 @@ index 558e31c6..fefc337e 100644
 +                                                   permuteDimsListValue);
 +  return out;
 +}
-+
 +
 +class DecomposeAtenEinsumOp : public OpRewritePattern<AtenEinsumOp> {
 +public:
@@ -487,26 +486,25 @@ index 558e31c6..fefc337e 100644
 +      lhsTokens = outTokens;
 +    }
 +
-+    result = performLastReduceAndPermute(rewriter, loc, op.getType(), lhs, lhsTokens,
-+                                         resultTokens);
++    result = performLastReduceAndPermute(rewriter, loc, op.getType(), lhs,
++                                         lhsTokens, resultTokens);
 +    rewriter.replaceOp(op, result);
 +    return success();
 +  }
 +};
 +} // namespace
 +
-+
  namespace {
- // Unconditionally decompose `aten.tile` into `aten.repeat`.
- class DecomposeAtenTileOp : public OpRewritePattern<AtenTileOp> {
-@@ -5221,6 +5675,7 @@ public:
-     addPatternIfTargetOpIsIllegal<DecomposeAtenVarMeanOp>(patterns);
-     addPatternIfTargetOpIsIllegal<DecomposeAtenEluOp>(patterns);
-     addPatternIfTargetOpIsIllegal<DecomposeAtenLeakyReluOp>(patterns);
+ class DecomposeComplexOpsPass
+     : public DecomposeComplexOpsBase<DecomposeComplexOpsPass> {
+@@ -5194,6 +5646,7 @@ public:
+     addPatternIfTargetOpIsIllegal<DecomposeAtenRollOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenRepeatOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenExpandOp>(patterns);
 +    addPatternIfTargetOpIsIllegal<DecomposeAtenEinsumOp>(patterns);
-     addPatternIfTargetOpIsIllegal<DecomposeAtenLeakyReluBackwardOp>(patterns);
-     addPatternIfTargetOpIsIllegal<DecomposeAtenNewEmptyStridedOp>(patterns);
-     addPatternIfTargetOpIsIllegal<DecomposeAtenBucketizeTensorOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenFlattenUsingIntsOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenWhereScalarOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenWhereScalarOtherOp>(patterns);
 diff --git a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
 index 76119828..179440c6 100644
 --- a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp

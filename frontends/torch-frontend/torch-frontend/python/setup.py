@@ -12,7 +12,7 @@ root_path = os.path.abspath(setup_path + "/../../")
 
 version_txt = os.path.join(setup_path, "version.txt")
 version_file = os.path.join(setup_path, "torch_frontend", "version.py")
-version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=True)
+version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=False)
 
 maintainer = ""
 maintainer_email = ""

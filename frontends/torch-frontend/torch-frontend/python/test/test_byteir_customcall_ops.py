@@ -7,7 +7,7 @@ from torch_frontend import convert_to_mhlo_via_torch_mlir
 def custom_test_helper(module, inputs, custom_op_name):
     mlir_module = convert_to_mhlo_via_torch_mlir(module, inputs)
     mlir_str = mlir_module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
-    compare_str = "mhlo.custom_call @{}".format(custom_op_name)
+    compare_str = "stablehlo.custom_call @{}".format(custom_op_name)
     # print(mlir_str)
     assert compare_str in mlir_str
 

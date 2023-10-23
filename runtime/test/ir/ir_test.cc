@@ -102,8 +102,8 @@ TEST(IRTest, IterateEntryFuncArg) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   Status status_iterate_internal;
-  auto status_iterate =
-      hdl.IterateEntryFuncArg([&](mlir::BlockArgument block_arg) {
+  auto status_iterate = hdl.IterateEntryFuncArg(
+      [&](mlir::BlockArgument block_arg, mlir::DictionaryAttr arg_attrs) {
         if (block_arg.getAsOpaquePointer() == nullptr) {
           return Status(BRT, FAIL, "IterateNode get a null arg");
         }

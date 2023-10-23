@@ -30,6 +30,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
+#include <utility>
 
 using namespace mlir;
 using namespace llvm;
@@ -205,6 +206,17 @@ struct PadConvToConvPattern : public OpRewritePattern<mhlo::ConvolutionOp> {
 // ConvOrDotWithBiasFollowedByBroadcast Pattern
 //===----------------------------------------------------------------------===//
 
+// Represent 3 type of constant operand.
+// 1. constant operand is expand by broadcastInDim explicitly.
+// 2. The shape of the constant operands is 1 in all dimensions other than
+// featureDim, such as (1x1x3x1), where featureDim=2.
+// 3. the constant operand is a splat tensor
+enum constOperandType {
+  vectorWithBroadcast,
+  vectorWithoutBroadcast,
+  splatTensor
+};
+
 // Return the expanded constOp if applicable, return std::nullopt if not.
 // Applicable if all following constraint satisfied:
 // 1. the broadcastDimensions's size should be 1 and equal to featureDim
@@ -226,6 +238,71 @@ std::optional<ConstantOp> getBroadcastedConstOp(BroadcastInDimOp op,
   return constOp;
 }
 
+// Return the constOp and "constOperandType" if applicable, return std::nullopt
+// if not.
+// For "vectorWithBroadcast" type, applicable mean 1&2&3:
+// For "vectorWithoutBroadcast" type, applicable mean 2&3&4:
+// For "vectorWithBroadcast" type, applicable mean 2&5:
+// 1. the broadcastDimensions's size should be 1 and equal to featureDim
+// 2. the input's DefiningOp is of type mhlo::ConstantOp
+// 3. the const op's attr is of type DenseElementsAttr
+// 4. the const op's shape is 1 in all dimensions other than featureDim
+// 5. the const op is splat
+std::optional<std::pair<ConstantOp, constOperandType>>
+getConstOpWithType(Value op, int64_t featureDim) {
+  auto broadcastInDimOp = op.getDefiningOp<mhlo::BroadcastInDimOp>();
+  mhlo::ConstantOp constOp;
+  if (broadcastInDimOp) {
+    if (broadcastInDimOp.getBroadcastDimensions().size() != 1 ||
+        (*broadcastInDimOp.getBroadcastDimensions().begin()).getSExtValue() !=
+            featureDim) {
+      return std::nullopt;
+    }
+    constOp = broadcastInDimOp.getOperand().getDefiningOp<mhlo::ConstantOp>();
+  } else {
+    constOp = op.getDefiningOp<mhlo::ConstantOp>();
+  }
+  if (!constOp || !constOp.getValue().isa<DenseElementsAttr>()) {
+    return std::nullopt;
+  }
+
+  constOperandType constType;
+  if (broadcastInDimOp) {
+    constType = vectorWithBroadcast;
+  } else if (constOp.getValue().isSplat()) {
+    constType = splatTensor;
+  } else {
+    auto constOpShapeType = constOp.getValue().getShapedType();
+    if (constOpShapeType.getNumElements() !=
+        constOpShapeType.getDimSize(featureDim)) {
+      return std::nullopt;
+    }
+    constType = vectorWithoutBroadcast;
+  }
+
+  return std::make_pair(constOp, constType);
+}
+
+// handle vectorWithoutBroadcast and splatTensor to vector-constant
+mhlo::ConstantOp createVectorConstFromConst(int64_t featureDim,
+                                            mhlo::ConstantOp constOp,
+                                            PatternRewriter &rewriter) {
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPointToStart(constOp.getResult().getParentBlock());
+  ShapedType attrType = constOp.getValue().getShapedType();
+  ShapedType newAttrType =
+      attrType.clone(llvm::ArrayRef({attrType.getShape()[featureDim]}));
+  if (constOp.getValue().isSplat()) {
+    return rewriter.create<mhlo::ConstantOp>(
+        constOp.getLoc(),
+        constOp.getValue().cast<DenseElementsAttr>().resizeSplat(newAttrType));
+  } else {
+    return rewriter.create<mhlo::ConstantOp>(
+        constOp.getLoc(),
+        constOp.getValue().cast<DenseElementsAttr>().reshape(newAttrType));
+  }
+}
+
 template <typename OpTy, typename = void>
 struct ConvOrDotWithBiasFollowedByBroadcastPattern;
 
@@ -238,13 +315,12 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
 
   LogicalResult matchAndRewrite(OpTy convOrDotOp,
                                 PatternRewriter &rewriter) const override {
-
     Value convOrDotOrBiasOut = convOrDotOp->getResult(0);
     if (!convOrDotOrBiasOut.hasOneUse())
       return failure();
 
     Operation *convOrDotOrBiasUser = *convOrDotOrBiasOut.user_begin();
-    uint64_t weightFeatureDim = 1;
+    int64_t weightFeatureDim = 1;
     int64_t featureDim = 1;
     static_assert(
         llvm::is_one_of<OpTy, mhlo::ConvolutionOp, mhlo::DotOp>::value &&
@@ -275,8 +351,8 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
 
     // handle the conv/dot + bias scenario
     auto biasAddOp = dyn_cast_or_null<mhlo::AddOp>(convOrDotOrBiasUser);
-    ConstantOp biasConst = nullptr;
-    BroadcastInDimOp biasBroadcastInDimOp = nullptr;
+    Value biasOperand;
+    int64_t biasConstOperandNumber = -1;
 
     if (biasAddOp) {
       // Here we update `convOrDotOrBiasOut` and `convOrDotOrBiasUser`
@@ -285,30 +361,33 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
         return failure();
       convOrDotOrBiasUser = *convOrDotOrBiasOut.user_begin();
 
-      unsigned convOrDotOperandNumber =
-          convOrDotOp->getResult(0).use_begin()->getOperandNumber();
+      int64_t convOrDotOperandNumber = static_cast<int64_t>(
+          convOrDotOp->getResult(0).use_begin()->getOperandNumber());
       assert(convOrDotOperandNumber < 2);
+      biasConstOperandNumber = 1 - convOrDotOperandNumber;
 
-      auto broadInDimOp = biasAddOp->getOperand(1 - convOrDotOperandNumber)
-                              .getDefiningOp<mhlo::BroadcastInDimOp>();
-      auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
-      if (!maybeConstOp.has_value())
+      biasOperand = biasAddOp->getOperand(biasConstOperandNumber);
+      auto maybeConstOpWithType = getConstOpWithType(biasOperand, featureDim);
+      if (!maybeConstOpWithType.has_value()) {
         return failure();
-
-      biasConst = *maybeConstOp;
-      biasBroadcastInDimOp = broadInDimOp;
+      }
     }
 
     unsigned convOrDotOrBiasOperandNumber =
         convOrDotOrBiasOut.use_begin()->getOperandNumber();
 
     if (auto scaleOp = dyn_cast_or_null<MulOp>(convOrDotOrBiasUser)) {
-      auto broadInDimOp = scaleOp->getOperand(1 - convOrDotOrBiasOperandNumber)
-                              .getDefiningOp<mhlo::BroadcastInDimOp>();
-      auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
-      if (!maybeConstOp.has_value())
+      auto scaleOperand = scaleOp->getOperand(1 - convOrDotOrBiasOperandNumber);
+      auto maybeConstOpWithType = getConstOpWithType(scaleOperand, featureDim);
+      if (!maybeConstOpWithType.has_value()) {
         return failure();
-      ConstantOp constOp = *maybeConstOp;
+      }
+
+      auto constOpWithType = *maybeConstOpWithType;
+      mhlo::ConstantOp constOp = constOpWithType.first;
+      if (constOpWithType.second != vectorWithBroadcast) {
+        constOp = createVectorConstFromConst(featureDim, constOp, rewriter);
+      }
 
       // Start to construct a new subgraph which could be const folded.
       if (!constOp->isBeforeInBlock(convOrDotOp))
@@ -317,10 +396,9 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
       // construct new weight
       OpBuilder builder(convOrDotOp);
       auto weightType = weight.getType().template cast<ShapedType>();
-
       BroadcastInDimOp newBroadInDimOp = builder.create<mhlo::BroadcastInDimOp>(
           constOp->getLoc(), weightType, constOp.getOutput(),
-          rewriter.getI64TensorAttr({static_cast<int64_t>(weightFeatureDim)}));
+          rewriter.getI64TensorAttr(weightFeatureDim));
       MulOp newMulOp = builder.create<MulOp>(constOp->getLoc(), weight,
                                              newBroadInDimOp->getResult(0));
       convOrDotOp->setOperand(1, newMulOp->getResult(0));
@@ -328,39 +406,59 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
       // construct new bias
       if (biasAddOp) {
         OpBuilder builder(biasAddOp);
-        ReshapeOp newReshapeOp = builder.create<mhlo::ReshapeOp>(
-            constOp->getLoc(), biasConst.getOutput().getType(),
-            constOp.getOutput());
-        MulOp newMulOp =
-            builder.create<MulOp>(constOp->getLoc(), biasConst.getOutput(),
-                                  newReshapeOp->getResult(0));
-        biasBroadcastInDimOp->setOperand(0, newMulOp->getResult(0));
+        auto constOpWithType =
+            getConstOpWithType(biasOperand, featureDim).value();
+        auto biasConstOp = constOpWithType.first;
+        if (constOpWithType.second != vectorWithBroadcast) {
+          biasConstOp =
+              createVectorConstFromConst(featureDim, biasConstOp, rewriter);
+        }
+        MulOp newMulOp = builder.create<MulOp>(
+            constOp->getLoc(), biasConstOp.getOutput(), constOp.getOutput());
+        Value bcast = builder.create<mhlo::BroadcastInDimOp>(
+            constOp->getLoc(), biasAddOp.getType(), newMulOp.getResult(),
+            builder.getI64TensorAttr({featureDim}));
+        biasAddOp->setOperand(biasConstOperandNumber, bcast);
       }
 
       // update uses
       scaleOp->getResult(0).replaceAllUsesWith(convOrDotOrBiasOut);
 
     } else if (auto offsetOp = dyn_cast_or_null<AddOp>(convOrDotOrBiasUser)) {
-      auto broadInDimOp = offsetOp->getOperand(1 - convOrDotOrBiasOperandNumber)
-                              .getDefiningOp<mhlo::BroadcastInDimOp>();
-      auto maybeConstOp = getBroadcastedConstOp(broadInDimOp, featureDim);
-      if (!maybeConstOp.has_value())
+      if (!biasAddOp) {
         return failure();
-      ConstantOp constOp = *maybeConstOp;
+      }
+      auto offsetOpernd =
+          offsetOp->getOperand(1 - convOrDotOrBiasOperandNumber);
+      auto maybeConstOpWithType = getConstOpWithType(offsetOpernd, featureDim);
+      if (!maybeConstOpWithType.has_value()) {
+        return failure();
+      }
+
+      auto constOpWithType = *maybeConstOpWithType;
+      mhlo::ConstantOp constOp = constOpWithType.first;
+      if (constOpWithType.second != vectorWithBroadcast) {
+        constOp = createVectorConstFromConst(featureDim, constOp, rewriter);
+      }
 
       // Start to construct a new subgraph which could be const folded.
       if (!constOp->isBeforeInBlock(convOrDotOp))
         constOp->moveBefore(convOrDotOp);
 
       // construct new bias
-      assert(biasAddOp);
       OpBuilder builder(biasAddOp);
-      ReshapeOp newReshapeOp = builder.create<mhlo::ReshapeOp>(
-          constOp->getLoc(), biasConst.getOutput().getType(),
-          constOp.getOutput());
-      AddOp newAddOp = builder.create<AddOp>(
-          constOp->getLoc(), biasConst.getOutput(), newReshapeOp->getResult(0));
-      biasBroadcastInDimOp->setOperand(0, newAddOp->getResult(0));
+      constOpWithType = *getConstOpWithType(biasOperand, featureDim);
+      auto biasConstOp = constOpWithType.first;
+      if (constOpWithType.second != vectorWithBroadcast) {
+        biasConstOp =
+            createVectorConstFromConst(featureDim, biasConstOp, rewriter);
+      }
+      mhlo::AddOp newAddOp = builder.create<AddOp>(
+          constOp->getLoc(), biasConstOp.getOutput(), constOp.getOutput());
+      Value bcast = builder.create<mhlo::BroadcastInDimOp>(
+          constOp->getLoc(), biasAddOp.getType(), newAddOp.getResult(),
+          builder.getI64TensorAttr({featureDim}));
+      biasAddOp->setOperand(biasConstOperandNumber, bcast);
 
       // update conv's uses
       offsetOp->getResult(0).replaceAllUsesWith(convOrDotOrBiasOut);

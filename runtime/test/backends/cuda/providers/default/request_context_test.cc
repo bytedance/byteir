@@ -198,7 +198,7 @@ TEST(CUDARequestContextTest, WeightSetting) {
   AssignCUDABuffer(d_arg_0, len, 2.f);
 
   // I/O binding
-  request->BindArg(0, d_arg_0);
+  request->BindArg(1, d_arg_0);
   request->FinishIOBinding();
 
   auto status_run = session.Run(*request);

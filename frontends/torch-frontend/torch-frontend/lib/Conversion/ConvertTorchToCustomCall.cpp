@@ -16,7 +16,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
-#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -31,7 +30,6 @@
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
-#include "utils/convert_op_folder.h"
 
 #include "./PassDetail.h"
 
@@ -46,70 +44,72 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
                      rewriter.getBoolAttr(false));
   attrs.emplace_back(rewriter.getStringAttr("backend_config"),
                      rewriter.getStringAttr(""));
-  attrs.emplace_back(rewriter.getStringAttr("api_version"),
-                     rewriter.getI32IntegerAttr(static_cast<int>(
-                         mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL)));
+  attrs.emplace_back(
+      rewriter.getStringAttr("api_version"),
+      rewriter.getI32IntegerAttr(static_cast<int>(
+          stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL)));
   attrs.emplace_back(rewriter.getStringAttr("called_computations"),
                      rewriter.getArrayAttr({}));
   return attrs;
 }
 
 template <typename OP>
-mhlo::ConstantOp createInitialValueForReduceOp(PatternRewriter &rewriter,
-                                               Location loc, Type elementTy);
+stablehlo::ConstantOp createInitialValueForReduceOp(PatternRewriter &rewriter,
+                                                    Location loc,
+                                                    Type elementTy);
 
 template <>
-mhlo::ConstantOp
-createInitialValueForReduceOp<mhlo::MaxOp>(PatternRewriter &rewriter,
-                                           Location loc, Type elementTy) {
+stablehlo::ConstantOp
+createInitialValueForReduceOp<stablehlo::MaxOp>(PatternRewriter &rewriter,
+                                                Location loc, Type elementTy) {
   auto constType = RankedTensorType::get({}, elementTy);
   if (elementTy.isa<mlir::FloatType>()) {
     auto constAttr = DenseElementsAttr::get(
         constType,
         {APFloat::getInf(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
                          /*negative=*/true)});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
   } else if (elementTy.isa<mlir::IntegerType>() &&
              elementTy.getIntOrFloatBitWidth() != 8) {
     auto constAttr = DenseElementsAttr::get(
         constType,
         {APInt::getSignedMinValue(elementTy.getIntOrFloatBitWidth())});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
   }
   assert(false && "unimplemented lowering in createInitialValueForReduceOp");
   return nullptr;
 }
 
 template <>
-mhlo::ConstantOp
-createInitialValueForReduceOp<mhlo::AddOp>(PatternRewriter &rewriter,
-                                           Location loc, Type elementTy) {
+stablehlo::ConstantOp
+createInitialValueForReduceOp<stablehlo::AddOp>(PatternRewriter &rewriter,
+                                                Location loc, Type elementTy) {
   auto constType = RankedTensorType::get({}, elementTy);
   if (elementTy.isa<mlir::FloatType>()) {
     auto constAttr = DenseElementsAttr::get(
         constType,
         {APFloat::getZero(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
                           /*negative=*/false)});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
   } else if (elementTy.isa<mlir::IntegerType>() &&
              elementTy.getIntOrFloatBitWidth() != 8) {
     auto constAttr = DenseElementsAttr::get(
         constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
   }
   assert(false && "unimplemented lowering in createInitialValueForReduceOp");
   return nullptr;
 }
 
 template <typename OP>
-mhlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter, Location loc,
-                                    Value input,
-                                    llvm::SmallVector<int64_t> dims) {
+stablehlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter,
+                                         Location loc, Value input,
+                                         llvm::SmallVector<int64_t> dims) {
   llvm::sort(dims.begin(), dims.end());
   auto inputType = input.getType().cast<RankedTensorType>();
-  mhlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
+  stablehlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
       rewriter, loc, inputType.getElementType());
-  mhlo::ReduceOp reduceOp = rewriter.create<mhlo::ReduceOp>(
+  stablehlo::ReduceOp reduceOp = rewriter.create<stablehlo::ReduceOp>(
       loc, input, initValue.getOutput(), rewriter.getI64TensorAttr(dims));
 
   Block &block = reduceOp.getBody().emplaceBlock();
@@ -123,7 +123,7 @@ mhlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter, Location loc,
     rewriter.setInsertionPointToStart(&block);
     Value result = rewriter.create<OP>(loc, blockArgumentTy, firstArgument,
                                        secondArgument);
-    rewriter.create<mhlo::ReturnOp>(loc, result);
+    rewriter.create<stablehlo::ReturnOp>(loc, result);
   }
 
   return reduceOp;
@@ -138,7 +138,7 @@ Value promoteType(Location loc, Value input, TensorType desiredType,
 
   TensorType promotedType =
       inType.cloneWith(inType.getShape(), desiredType.getElementType());
-  return rewriter.create<mhlo::ConvertOp>(loc, promotedType, input);
+  return rewriter.create<stablehlo::ConvertOp>(loc, promotedType, input);
 }
 } // namespace
 
@@ -201,14 +201,14 @@ public:
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     if (op.getResults()[1].use_empty() && op.getResults()[2].use_empty()) {
-      auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+      auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
           op->getLoc(), ArrayRef<Type>{resultTypes[0]}, bufferArgs,
           ArrayRef<NamedAttribute>{attrs});
       rewriter.replaceOp(
           op, ArrayRef<Value>{customCallOp.getResults()[0], Value(), Value()});
       return success();
     } else {
-      auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+      auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
           op->getLoc(), resultTypes, bufferArgs,
           ArrayRef<NamedAttribute>{attrs});
       rewriter.replaceOp(op, customCallOp->getResults());
@@ -295,7 +295,7 @@ public:
                        rewriter.getStringAttr(getLayerNormName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), outType, bufferArgs, ArrayRef<NamedAttribute>{attrs});
     rewriter.replaceOp(op, customCallOp->getResults());
 
@@ -338,7 +338,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto newOp = rewriter.create<mhlo::CustomCallOp>(
+    auto newOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, newOp->getResults());
     return success();
@@ -380,7 +380,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto newOp = rewriter.create<mhlo::CustomCallOp>(
+    auto newOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, newOp->getResults());
     return success();
@@ -417,7 +417,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto newOp = rewriter.create<mhlo::CustomCallOp>(
+    auto newOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, newOp->getResults());
     return success();
@@ -468,7 +468,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -508,9 +508,9 @@ public:
                                              "keepdim is not constant bool");
     }
 
-    if (op.getResults()[1].use_empty()) { // simplify to mhlo.reduce
-      auto reduceOp = createSingleOpReduce<mhlo::MaxOp>(rewriter, op->getLoc(),
-                                                        input, {dimInt});
+    if (op.getResults()[1].use_empty()) { // simplify to stablehlo.reduce
+      auto reduceOp = createSingleOpReduce<stablehlo::MaxOp>(
+          rewriter, op->getLoc(), input, {dimInt});
       if (keepDim) {
         auto inputShapeInfo = hlo::getDimSizesOfTensor(rewriter, op, input,
                                                        /*dimSizeIndexBits=*/64);
@@ -524,7 +524,7 @@ public:
             rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
         auto outputShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
             op->getLoc(), outputShapeVec);
-        Value reshapeResult = rewriter.create<mhlo::DynamicReshapeOp>(
+        Value reshapeResult = rewriter.create<stablehlo::DynamicReshapeOp>(
             op->getLoc(), resultTypes[0], reduceOp.getResults()[0],
             outputShapeTensor);
         rewriter.replaceOp(op, ArrayRef<Value>{reshapeResult, Value()});
@@ -551,14 +551,14 @@ public:
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     if (op.getResults()[0].use_empty()) {
-      auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+      auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
           op->getLoc(), ArrayRef<Type>{resultTypes[1]}, bufferArgs,
           ArrayRef<NamedAttribute>{attrs});
       rewriter.replaceOp(
           op, ArrayRef<Value>{Value(), customCallOp.getResults()[0]});
       return success();
     } else {
-      auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+      auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
           op->getLoc(), resultTypes, bufferArgs,
           ArrayRef<NamedAttribute>{attrs});
       rewriter.replaceOp(op, customCallOp->getResults());
@@ -608,7 +608,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -672,7 +672,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -726,7 +726,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -763,7 +763,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -800,7 +800,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -854,7 +854,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -906,7 +906,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>{attrs});
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -996,7 +996,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
     // TODO: slice out_pad, use padded q, k, v
     Value outPad = customCallOp.getResult(0);
@@ -1078,7 +1078,7 @@ public:
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
-    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
     rewriter.replaceOp(op, customCallOp);
     return success();
@@ -1092,7 +1092,6 @@ class ConvertTorchToCustomCall
 public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
-    registry.insert<mhlo::MhloDialect>();
     registry.insert<arith::ArithDialect>();
     registry.insert<tensor::TensorDialect>();
     registry.insert<stablehlo::StablehloDialect>();
@@ -1102,9 +1101,9 @@ public:
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     ConversionTarget target(*context);
-    target.addLegalDialect<Torch::TorchDialect, mhlo::MhloDialect,
-                           arith::ArithDialect, tensor::TensorDialect,
-                           stablehlo::StablehloDialect>();
+    target
+        .addLegalDialect<Torch::TorchDialect, arith::ArithDialect,
+                         tensor::TensorDialect, stablehlo::StablehloDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });

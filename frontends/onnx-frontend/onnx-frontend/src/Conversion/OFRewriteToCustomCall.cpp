@@ -440,6 +440,43 @@ bool isSplatFPCloseTo(Attribute attr, double value, double eps = 1e-5) {
   return fabs(diff) < eps;
 }
 
+template <typename FPAttr>
+bool isFPAttrTimesCloseTo(FPAttr attr1, FPAttr attr2, double times,
+                          double eps = 1e-5) {
+  return false;
+}
+
+template <>
+bool isFPAttrTimesCloseTo<SplatElementsAttr>(SplatElementsAttr elementsAttr1,
+                                             SplatElementsAttr elementsAttr2,
+                                             double times, double eps) {
+  if (!elementsAttr1 || !elementsAttr2)
+    return false;
+  double value1 = elementsAttr1.getSplatValue<FloatAttr>().getValueAsDouble();
+  double value2 = elementsAttr2.getSplatValue<FloatAttr>().getValueAsDouble();
+  double diff = value1 - times * value2;
+  return fabs(diff) < eps;
+}
+
+template <>
+bool isFPAttrTimesCloseTo<DenseElementsAttr>(DenseElementsAttr elementsAttr1,
+                                             DenseElementsAttr elementsAttr2,
+                                             double times, double eps) {
+  if (!elementsAttr1 || !elementsAttr2)
+    return false;
+  if (elementsAttr1.getNumElements() != elementsAttr2.getNumElements())
+    return false;
+  auto value1 = elementsAttr1.getValues<FloatAttr>();
+  auto value2 = elementsAttr2.getValues<FloatAttr>();
+  for (int i = 0; i < elementsAttr1.getNumElements(); i++) {
+    double diff =
+        value1[i].getValueAsDouble() - times * value2[i].getValueAsDouble();
+    if (fabs(diff) >= eps)
+      return false;
+  }
+  return true;
+}
+
 Value createGeLU(PatternRewriter &rewriter, Location loc, Value input) {
   std::string call_target_name = getGeLUNameWithPrefix();
   mhlo::CustomCallOp customCallOp = rewriter.create<mhlo::CustomCallOp>(
@@ -465,6 +502,14 @@ Value createGeLUWithoutLastMul(PatternRewriter &rewriter, Location loc,
   Attribute attr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
   Value two = rewriter.create<ONNXConstantOp>(loc, Attribute(), attr);
   return rewriter.create<ONNXMulOp>(loc, result, two);
+}
+
+Value createLayerNormGeLU(PatternRewriter &rewriter, Location loc, Value input,
+                          Value scale, ArrayAttr axis_attr,
+                          Attribute epsilon_attr) {
+  Value result = createLayerNormWithoutLastAdd(rewriter, loc, input, scale,
+                                               axis_attr, epsilon_attr);
+  return createGeLU(rewriter, loc, result);
 }
 
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.inc"
@@ -569,6 +614,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteGeLU>(context));
     validOpSet[getGeLUName()].emplace_back(
         std::make_unique<RewriteGeLUWithoutLastMul>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteLayerNormGeLUWithMulConstPropagation>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNorm>(context));
     validOpSet[getLayerNormName()].emplace_back(

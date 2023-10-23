@@ -59,6 +59,10 @@ def Byre_Dialect : Dialect {
       return "byre.argname";
     }
 
+    static StringRef getEntryPointFuncArgWeightValueAttrName() {
+      return "byre.weight_value";
+    }
+
     static StringRef getEntryPointFuncArgAliasIndexAttrName() {
       return "byre.arg_alias_index";
     }

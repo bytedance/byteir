@@ -2,40 +2,20 @@ import byteir
 from byteir import ir
 from byteir.passmanager import PassManager
 from byteir.dialects.cat import IRProcessor
+from byteir.dialects.builtin import ModuleOp
+from byteir.utils import detect_cuda_with_nvidia_smi
 from pathlib import Path
 import os
 from subprocess import PIPE, Popen
 from shutil import copymode
 
-def _print_verbose(module, pipeline_msg: str):
+def _print_verbose(module: ModuleOp, pipeline_msg: str):
     print(pipeline_msg)
     print(module.operation.get_asm(large_elements_limit=10))
     print()
 
-def _detect_cuda_with_nvidia_smi():
-    try:
-        proc = Popen(
-            ["nvidia-smi", "--query-gpu=gpu_name", "--format=csv"],
-            stdout=PIPE,
-            stderr=PIPE,
-        )
-        stdout, stderr = proc.communicate()
-        stdout = stdout.decode("utf-8")
-        sm_names = {
-            "sm_70": ["V100"],
-            "sm_75": ["T4", "Quadro T2000"],
-            "sm_80": ["PG509", "A100", "A10", "RTX 30", "A30", "RTX 40", "A16"],
-            "sm_90": ["H100"],
-        }
-        for sm, names in sm_names.items():
-            if any(name in stdout for name in names):
-                return sm
-        return None
-    except Exception:
-        return None
-
 def compile_cuda(
-    input: str,
+    module: ModuleOp,
     output: str,
     entry_func: str = "main",
     verbose: bool = False,
@@ -46,12 +26,7 @@ def compile_cuda(
     output_file_name = os.path.basename(output)
     useBarePtrCallConv = False # all tensor must have static shapes if True
 
-    context = ir.Context()
-
-    with open(input, "r") as f:
-        module = ir.Module.parse(f.read(), context)
-        if verbose:
-            _print_verbose(module, "// IR Dump Input MLIR:")
+    context = module.context
 
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
@@ -125,7 +100,7 @@ def compile_cuda(
 
 
 def compile_cuda_with_ait(
-    input: str,
+    module: ModuleOp,
     output: str,
     entry_func: str = "main",
     verbose: bool = False,
@@ -140,7 +115,7 @@ def compile_cuda_with_ait(
     output_file_name = os.path.basename(output)
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
-    context = ir.Context()
+    context = module.context
 
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
@@ -150,10 +125,8 @@ def compile_cuda_with_ait(
                             compile_parallelism=parallelism,
                             disable_byteir_cache=disable_byteir_cache,
                             verbose=verbose)
-    with context:
-        processor.load_from_file(input)
-    if verbose:
-        _print_verbose(processor.module, "// IR Dump Input MLIR:")
+    processor.module = module
+
     processor.preprocess_pass()
     if verbose:
         _print_verbose(processor.module, "// IR Dump After Cat Preprocess:")
@@ -232,8 +205,8 @@ def compile_cuda_with_ait(
         if verbose:
             _print_verbose(device_module, "// IR Dump After NVVM Codegen:")
         # write to output device ptx
-        assert _detect_cuda_with_nvidia_smi() != None
-        byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name, _detect_cuda_with_nvidia_smi())
+        assert detect_cuda_with_nvidia_smi() != None
+        byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name, detect_cuda_with_nvidia_smi())
 
     with context:
         PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
@@ -254,17 +227,27 @@ def compile(
     disable_byteir_cache: bool = False,
     **kwargs,
 ):
+    context = ir.Context()
+    with open(input, "r") as f:
+        module = ir.Module.parse(f.read(), context)
+        if verbose:
+            _print_verbose(module, "// IR Dump Input MLIR:")
+    with context:
+        PassManager.parse("builtin.module(func.func(chlo-legalize-to-hlo),stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
+        if verbose:
+            _print_verbose(module, "// IR Dump After Legalize to HLO:")
+
     if target == "cuda":
-        compile_cuda(input, output, entry_func, verbose)
+        compile_cuda(module, output, entry_func, verbose)
     elif target == "cuda_with_ait":
-        compile_cuda_with_ait(input, 
+        compile_cuda_with_ait(module, 
                               output, 
                               entry_func, 
                               verbose, 
                               parallelism=parallelism, 
                               disable_byteir_cache=disable_byteir_cache)
     elif target == "cuda_with_ait_aggressive":
-        compile_cuda_with_ait(input, 
+        compile_cuda_with_ait(module, 
                               output, 
                               entry_func, 
                               verbose, 

@@ -188,7 +188,8 @@ common::Status ByREHandle::IterateNode(
 }
 
 common::Status ByREHandle::IterateEntryFuncArg(
-    std::function<common::Status(mlir::BlockArgument)> func) {
+    std::function<common::Status(mlir::BlockArgument, mlir::DictionaryAttr)>
+        func) {
   // iterate all entry function ops in this module.
   for (auto entry : impl_->module_ref->getOps<func::FuncOp>()) {
 
@@ -198,8 +199,10 @@ common::Status ByREHandle::IterateEntryFuncArg(
     }
 
     // TODO how to handle multiple entry function vs multiple model
+    int idx = 0;
     for (auto block_arg : entry.getArguments()) {
-      auto status_result = func(block_arg);
+      mlir::DictionaryAttr arg_attrs = entry.getArgAttrDict(idx++);
+      auto status_result = func(block_arg, arg_attrs);
       if (!status_result.IsOK()) {
         return status_result;
       }

@@ -6,5 +6,5 @@ func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
 // CHECK: func.func @main
 // CHECK-NEXT: call @__byteir__merge_model_0
 // CHECK-NEXT: call @__byteir__merge_model_1
-// CHECK-DAG: func.func @__byteir__merge_model_1
-// CHECK-DAG: func.func @__byteir__merge_model_0
+// CHECK-DAG: func.func private @__byteir__merge_model_1
+// CHECK-DAG: func.func private @__byteir__merge_model_0

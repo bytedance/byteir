@@ -165,6 +165,15 @@ def RewriteLayerNormWithoutLastAdd : Pat<
 def ValueSqrtTwo : Constraint<CPred<"isSplatFPCloseTo($0, std::sqrt(2))">, "value attr is not splat value of sqrt 2">;
 def ValueOne : Constraint<CPred<"isSplatFP($0, 1.0)">, "value attr is not splat value of 1.0">;
 def ValueHalf : Constraint<CPred<"isSplatFPCloseTo($0, 0.5)">, "value attr is not splat value of 0.5">;
+def IsTwoTimes : Constraint<Or<[
+  And<[ 
+    CPred< "$0.isa<SplatElementsAttr>()" >, 
+    CPred< "$1.isa<SplatElementsAttr>()" >,
+    CPred< "isFPAttrTimesCloseTo($0.cast<SplatElementsAttr>(), $1.cast<SplatElementsAttr>(), 2.0)">]>,
+  And<[
+    CPred< "$0.isa<DenseElementsAttr>()" >, 
+    CPred< "$1.isa<DenseElementsAttr>()" >,
+    CPred< "isFPAttrTimesCloseTo($0.cast<DenseElementsAttr>(), $1.cast<DenseElementsAttr>(), 2.0)">]>]>, "value attr $0 is not 2 times of $1">;
 
 def RewriteGeLU : Pat<
   (ONNXMulOp
@@ -203,6 +212,52 @@ def RewriteGeLUWithoutLastMul : Pat<
   (NativeCodeCall<"createGeLUWithoutLastMul($_builder, $_loc, $0)"> $input),
   [(IsOneSizeElements $sqrt_two), (IsOneSizeElements $one),
    (ValueSqrtTwo $sqrt_two), (ValueOne $one)
+   ]>;
+
+def RewriteLayerNormGeLUWithMulConstPropagation : Pat<
+  (ONNXMulOp
+    (ONNXMulOp
+      $constproped_input_0,
+      (ONNXAddOp
+        (ONNXErfOp
+          (ONNXDivOp
+            (ONNXMulOp
+              (ONNXDivOp:$constproped_input_1
+                (ONNXSubOp:$input_zero_mean_0
+                  $input,
+                  (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
+                ),
+                (ONNXSqrtOp
+                  (ONNXAddOp
+                    (ONNXReduceMeanV13Op
+                      (ONNXMulOp
+                        $input_zero_mean_1,
+                        $input_zero_mean_1
+                      ), $axis_attr_1, $_
+                    ),
+                    (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
+                  )
+                )
+              ),
+              (ONNXConstantOp:$scale $_, $const_1, $_, $_, $_, $_, $_, $_)
+            ),
+            (ONNXConstantOp $_, $sqrt_two, $_, $_, $_, $_, $_, $_)
+          )
+        ),
+        (ONNXConstantOp $_, $one, $_, $_, $_, $_, $_, $_)
+      )
+    ),
+    (ONNXConstantOp $_, $const_2, $_, $_, $_, $_, $_, $_)
+  ),
+  (NativeCodeCall<"createLayerNormGeLU($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $axis_attr_1, $epsilon_attr),
+  [(IsOneSizeElements $epsilon_attr),
+   (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
+   (SameTwoValuesOrAttrs $constproped_input_0, $constproped_input_1),
+   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+   (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+   (IsOneSizeElements $sqrt_two), (IsOneSizeElements $one),
+   (ValueSqrtTwo $sqrt_two), (ValueOne $one),
+   (IsTwoTimes $const_1, $const_2)
    ]>;
 
 #endif // ONNX_FRONTEND_SRC_CONVERSION_OF_CUSTOM_CALL_TD

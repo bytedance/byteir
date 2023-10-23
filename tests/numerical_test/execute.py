@@ -176,7 +176,7 @@ def compile_and_run_torch(test, target):
         torch_inputs = [input.clone().cuda() for input in trace_item.inputs]
         torch_outputs = [torch.empty_like(trace_item.output).cuda()]
         compiled_graph = torch_frontend.compile(
-            test.program_factory(), torch_inputs, 'mhlo')
+            test.program_factory(), torch_inputs, 'stablehlo')
 
         TEMP_FOLDER = "./local_test"
         os.makedirs(TEMP_FOLDER, exist_ok=True)

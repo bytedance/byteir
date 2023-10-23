@@ -19,6 +19,7 @@
 
 #include "./custom_call/tf_equal.h"
 #include "./custom_call/tf_where.h"
+#include "./custom_call/topk.h"
 #include "./llvm/jit.h"
 #include "./shape/shape_compute.h"
 #include "./tensor_generate/fill.h"
@@ -92,6 +93,11 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "tf.Equal",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::TFEqual>(info);
+          });
+      registry->Register(
+          "byteir.top_k",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::TopK>(info);
           });
       RegisterCommonBuiltinOps(registry);
     });

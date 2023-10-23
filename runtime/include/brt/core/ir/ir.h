@@ -28,6 +28,7 @@ namespace mlir {
 class BlockArgument;
 class Operation;
 class WalkResult;
+class DictionaryAttr;
 
 namespace byre {
 class ByreOp;
@@ -124,8 +125,9 @@ public:
    * IterateEntryFuncArg iterates args of EntryFunc, aka BlockArgument of
    * EntryFunc
    */
-  common::Status
-  IterateEntryFuncArg(std::function<common::Status(mlir::BlockArgument)> func);
+  common::Status IterateEntryFuncArg(
+      std::function<common::Status(mlir::BlockArgument, mlir::DictionaryAttr)>
+          func);
 
   // Init GraphInfo
   void InitGraphInfoNameAndArgOffset(GraphInfo &info) override;

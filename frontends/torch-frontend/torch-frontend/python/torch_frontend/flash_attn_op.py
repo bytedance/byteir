@@ -1,4 +1,5 @@
 import torch
+import math
 from torch.library import Library
 
 OPERATORS = []
@@ -76,6 +77,7 @@ class CustomFlashAttnFunc(torch.autograd.Function):
             q, k, v, dropout_p, softmax_scale,
             causal, (return_softmax and dropout_p > 0)
         )
+        # output also needs to be transposed
         out = out.transpose(1, 2)
         ctx.save_for_backward(q_pad, k_pad, v_pad, out_pad, softmax_lse, rng_state)
         ctx.dropout_p = dropout_p
@@ -123,13 +125,51 @@ def flash_attn_func(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, sca
             The output of softmax (possibly with different scaling). It also encodes the dropout
             pattern (negative means that location was dropped, nonnegative means it was kept).
     """
-    return CustomFlashAttnFunc.apply(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p, scale, is_causal, False)
+    # q, k, v needs to be transposed for flash attn v2 
+    if attn_mask == None and is_causal:
+        return CustomFlashAttnFunc.apply(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p, scale, is_causal, False)
+    else:
+        return torch.ops.aten.scaled_dot_product_attention
 
+
+def flash_attn_functional_func(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None):
+    """dropout_p should be set to 0.0 during evaluation
+    Supports multi-query and grouped-query attention (MQA/GQA) by passing in KV with fewer heads
+    than Q. Note that the number of heads in KV must be divisible by the number of heads in Q.
+    For example, if Q has 6 heads and K, V have 2 heads, head 0, 1, 2 of Q will attention to head
+    0 of K, V, and head 3, 4, 5 of Q will attention to head 1 of K, V.
+
+    Arguments:
+        q: (batch_size, seqlen, nheads, headdim)
+        k: (batch_size, seqlen, nheads_k, headdim)
+        v: (batch_size, seqlen, nheads_k, headdim)
+        dropout_p: float. Dropout probability.
+        causal: bool. Whether to apply causal attention mask (e.g., for auto-regressive modeling).
+        scale: float. The scaling of QK^T before applying softmax.
+            Default to 1 / sqrt(headdim).
+
+    Return:
+        out: (batch_size, seqlen, nheads, headdim).
+        softmax_lse [optional, if return_attn_probs=True]: (batch_size, nheads, seqlen). The
+            logsumexp of each row of the matrix QK^T * scaling (e.g., log of the softmax
+            normalization factor).
+        S_dmask [optional, if return_attn_probs=True]: (batch_size, nheads, seqlen, seqlen).
+            The output of softmax (possibly with different scaling). It also encodes the dropout
+            pattern (negative means that location was dropped, nonnegative means it was kept).
+    """
+    if attn_mask == None and is_causal:
+        # q, k, v needs to be transposed for flash attn v2 
+        scale_factor = 1 / math.sqrt(q.size(-1)) if scale is None else scale
+        return CustomFlashAttnFunc.apply(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2), dropout_p, scale_factor, is_causal, False)
+    else:
+        return torch._C._nn.scaled_dot_product_attention
 
 def replace_flash_attn(gm: torch.fx.GraphModule) -> torch.nn.Module:
     for node in gm.graph.nodes:
-        if node.op == 'call_function' and node.target == torch.ops.aten.scaled_dot_product_attention:
+        if node.op == 'call_function' and node.target == torch.ops.aten.scaled_dot_product_attention :
             node.target = flash_attn_func
+        if node.op == 'call_function' and node.target == torch._C._nn.scaled_dot_product_attention :
+            node.target = flash_attn_functional_func
 
     gm.graph.lint()
     gm.recompile()
