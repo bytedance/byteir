@@ -15,22 +15,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
+#include "brt/backends/pim/upmem/providers/default/softmax/op_registration.h"
 
-#include "./gemv.h"
+#include "./softmax.h"
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
 namespace pim {
 namespace upmem {
 
-template <typename T> void RegisterGeMVOps(KernelRegistry *registry) {
-  registry->Register(
-      "pytorch.gemv_upmem",
-      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<GeMVOPKernel<T>>(info);
-      });
-}
+// template <typename T> void RegisterSoftmaxOps(KernelRegistry *registry) {
+//   registry->Register(
+//       "pytorch.softmax_upmem",
+//       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+//         return std::make_shared<SoftmaxOPKernel>(info);
+//       });
+// }
 } // namespace upmem
 } // namespace pim
 } // namespace brt

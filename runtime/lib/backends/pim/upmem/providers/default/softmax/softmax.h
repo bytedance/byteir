@@ -1,4 +1,4 @@
-//===- op_registration.cc -------------------------------------*--- C++ -*-===//
+//===- gemv.h -----------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,39 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
+#pragma once
 
-#include "./gemv.h"
-#include "brt/core/framework/kernel_registry.h"
-
+#include "brt/core/common/utils/math_helper.h"
+#include "brt/core/context/execution_context.h"
+#include "brt/core/context/execution_frame.h"
+#include "brt/core/framework/op_kernel.h"
+#include "brt/core/ir/ir.h"
+// #include "brt/core/ir/util.h"
 namespace brt {
 namespace pim {
 namespace upmem {
 
-template <typename T> void RegisterGeMVOps(KernelRegistry *registry) {
-  registry->Register(
-      "pytorch.gemv_upmem",
-      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<GeMVOPKernel<T>>(info);
-      });
-}
+
+#pragma once
+
+#include "brt/core/framework/op_kernel.h"
+
+
+
+/**
+ * Add Ops
+ * This is just an example for OpKernel.
+ * All elementwise ops should be generated through macro or generator.
+ */
+template <typename T> class SoftmaxOPKernel final : public OpKernel {
+public:
+  explicit SoftmaxOPKernel(const OpKernelInfo &info) : OpKernel(info) {}
+
+  common::Status RunImpl(const ExecutionContext &) override;
+};
+
+
+
 } // namespace upmem
 } // namespace pim
 } // namespace brt

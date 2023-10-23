@@ -35,6 +35,7 @@ void registerReduceInferReturnTypeComponents();
 void registerSoftmaxInferReturnTypeComponents();
 void registerTorchIndexSelectInferReturnTypeComponents();
 void registerGeLUInferReturnTypeComponents();
+void registerGeMVInferReturnTypeComponents();
 
 inline void registerAllMhloInferReturnTypeComponents() {
   registerConvolutionInferReturnTypeComponents();
@@ -72,6 +73,7 @@ void registerDynamicBroadcastInDimReifyReturnTypeShapes();
 void registerSoftmaxReifyReturnTypeShapes();
 void registerTorchIndexSelectReifyReturnTypeShapes();
 void registerGeLUReifyReturnTypeShapes();
+void registerGeMVReifyReturnTypeShapes();
 
 inline void registerAllMhloReifyReturnTypeShapes() {
   registerDotReifyReturnTypeShapes();

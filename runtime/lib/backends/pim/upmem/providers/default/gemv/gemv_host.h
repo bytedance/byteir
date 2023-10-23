@@ -25,7 +25,7 @@
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "brt/core/framework/op_accessor.h"
-
+#include "brt/backends/pim/upmem/device/common.h"
 #ifndef GEMV_DPU_BINARY
 #define GEMV_DPU_BINARY "./bin/gemv_dpu"
 #endif
@@ -33,6 +33,12 @@
 namespace brt {
 namespace pim {
 namespace upmem {
+  namespace kernel{
+    template <typename T>
+    common::Status rungemv(dpu_set_t *dpu_set, dpu_set_t dpu, uint32_t nr_of_dpus, T *A, T *B,
+                T *C, int m, int n);
+
+  }
 
 
 
@@ -44,12 +50,6 @@ namespace upmem {
  * This is just an example for OpKernel.
  * All elementwise ops should be generated through macro or generator.
  */
-template <typename T> class GeMVOPKernel final: public OpKernel {
-public:
-  explicit GeMVOPKernel(const OpKernelInfo &info) : OpKernel(info){}
-
-  common::Status RunImpl(const ExecutionContext &) override;
-};
 
 
 

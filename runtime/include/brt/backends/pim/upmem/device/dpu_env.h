@@ -24,16 +24,17 @@ namespace pim {
 namespace upmem {
 class UpmemEnv {
 public:
-  UpmemEnv(dpu_set_t dpu_set);
+  UpmemEnv(dpu_set_t dpu_set, dpu_set_t dpu);
   UpmemEnv(uint32_t num_dpus);
   UpmemEnv(const char *dpu_binary_path);
 
   void Activate();
 
   const char *GetDpuBinaryPath() { return dpu_binary_path; }
-  dpu_set_t GetDpuSet() { return dpu_set; }
+  dpu_set_t *GetDpuSet() { return &dpu_set; }
 
   int GetNumDpus() { return num_dpus; }
+  dpu_set_t GetDpu() { return dpu; }
 
 private:
   void Initialize(dpu_set_t *dpu_set);
@@ -41,6 +42,7 @@ private:
   uint32_t num_dpus;
   const char *dpu_binary_path;
   dpu_set_t dpu_set;
+  dpu_set_t dpu;
 };
 } // namespace upmem
 } // namespace pim

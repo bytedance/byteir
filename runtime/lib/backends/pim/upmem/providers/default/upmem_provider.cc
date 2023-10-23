@@ -3,6 +3,8 @@
 #include "brt/backends/pim/upmem/device/dpu_allocator.h"
 #include "brt/backends/pim/upmem/providers/default/copy/op_registration.h"
 #include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
+#include "brt/backends/pim/upmem/providers/default/math/op_registration.h"
+#include "brt/backends/pim/upmem/providers/default/softmax/op_registration.h"
 #include "brt/core/framework/kernel_registry.h"
 #include "brt/core/session/session.h"
 #include <memory>
@@ -11,7 +13,7 @@ using namespace brt::pim;
 using namespace brt::common;
 
 namespace brt {
-
+// namespace pim {
 namespace {
 
 // statcially register all UPMEM OpKernels
@@ -21,6 +23,7 @@ namespace {
 BRT_STATIC_KERNEL_REGISTRATION(DeviceKind::UPMEM, ProviderType::BRT, [](KernelRegistry *registry) {
       upmem::RegisterGeMVOps(registry);
       upmem::RegisterCopyOps(registry);
+      upmem::RegisterMathOps(registry);
       RegisterCommonBuiltinOps(registry);
     });
 // clang-format on

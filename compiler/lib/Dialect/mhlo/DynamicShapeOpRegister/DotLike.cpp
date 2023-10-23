@@ -23,6 +23,7 @@
 #include "mlir/IR/OperationSupport.h"
 #include "stablehlo/dialect/TypeInference.h"
 #include "llvm/Support/Debug.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 
 #define DEBUG_TYPE "dynamic-shape-op-register"
 
@@ -173,3 +174,35 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
         return success();
       });
 }
+
+
+//GEMV
+
+void mlir::registerGeMVReifyReturnTypeShapes() {
+  static ReifyReturnTypeShapesRegistration shapeRegister(
+      getGeMVUpmemName(), [](Operation *op, OpBuilder &builder, ValueRange operands,
+                         SmallVectorImpl<::mlir::Value> &reifiedReturnShapes) {
+        Value dataShape =
+            builder.create<shape::ShapeOfOp>(op->getLoc(), operands[0]);
+        reifiedReturnShapes.push_back(dataShape);
+        return success();
+      });
+}
+
+void mlir::registerGeMVInferReturnTypeComponents() {
+  static InferReturnTypeComponentsRegistration shapeRegister(
+      getGeMVUpmemName(),
+      [](MLIRContext *context, std::optional<Location> loc,
+         ValueShapeRange operands, DictionaryAttr attr, RegionRange,
+         SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
+        ShapedType dataType = operands[0].getType().dyn_cast<ShapedType>();
+        if (!dataType) {
+          LLVM_DEBUG(llvm::dbgs() << loc << ": get dataType failed\n");
+          return failure();
+        }
+        inferredReturnTypes.emplace_back(dataType.getShape(),
+                                         dataType.getElementType());
+        return success();
+      });
+}
+

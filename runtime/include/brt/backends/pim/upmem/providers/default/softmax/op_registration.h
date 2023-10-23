@@ -1,4 +1,4 @@
-//===- op_registration.cc -------------------------------------*--- C++ -*-===//
+//===- op_registration.h --------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
-
-#include "./gemv.h"
-#include "brt/core/framework/kernel_registry.h"
+#pragma once
 
 namespace brt {
+class KernelRegistry;
 namespace pim {
 namespace upmem {
-
-template <typename T> void RegisterGeMVOps(KernelRegistry *registry) {
-  registry->Register(
-      "pytorch.gemv_upmem",
-      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<GeMVOPKernel<T>>(info);
-      });
-}
+void RegisterSoftmaxOps(KernelRegistry *registry);
 } // namespace upmem
 } // namespace pim
 } // namespace brt

@@ -26,7 +26,30 @@
 
 namespace mlir {
 
-
+constexpr llvm::StringRef getAddUpmemName() {
+  return PYTORCH_NAME_PREFIX "add_upmem";
+}
+constexpr llvm::StringRef getSubUpmemName() {
+  return PYTORCH_NAME_PREFIX "sub_upmem";
+}
+constexpr llvm::StringRef getMulUpmemName() {
+  return PYTORCH_NAME_PREFIX "mul_upmem";
+}
+constexpr llvm::StringRef getDivUpmemName() {
+  return PYTORCH_NAME_PREFIX "div_upmem";
+}
+constexpr llvm::StringRef getRsqrtUpmemName() {
+  return PYTORCH_NAME_PREFIX "rsqrt_upmem";
+}
+constexpr llvm::StringRef getTanhUpmemName() {
+  return PYTORCH_NAME_PREFIX "tanh_upmem";
+}
+constexpr llvm::StringRef getReluUpmemName() {
+  return PYTORCH_NAME_PREFIX "relu_upmem";
+}
+constexpr llvm::StringRef getSoftmaxUpmemName() {
+  return PYTORCH_NAME_PREFIX "softmax_upmem";
+}
 
 constexpr llvm::StringRef getGemvUpmemName() {
   return PYTORCH_NAME_PREFIX "gemv_upmem";

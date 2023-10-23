@@ -16,12 +16,28 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
-
+#include "brt/core/common/utils/math_helper.h"
+#include "brt/core/context/execution_context.h"
+#include "brt/core/context/execution_frame.h"
+#include "brt/core/ir/ir.h"
+#include "brt/core/ir/util.h"
+#include "byteir/Dialect/Byre/ByreDialect.h"
 #include "brt/core/framework/op_kernel.h"
-
+#ifndef ADD_DPU_BINARY
+#define ADD_DPU_BINARY "./bin/add_dpu"
+#endif
+#ifndef SUB_DPU_BINARY
+#define SUB_DPU_BINARY "./bin/sub_dpu"
+#endif
+#ifndef MUL_DPU_BINARY
+#define MUL_DPU_BINARY "./bin/mul_dpu"
+#endif
+#ifndef DIV_DPU_BINARY
+#define DIV_DPU_BINARY "./bin/div_dpu"
+#endif
 namespace brt {
 namespace pim {
-    namespace upmem {
+namespace upmem {
 
 /**
  * Add Ops
@@ -34,6 +50,26 @@ public:
 
   common::Status RunImpl(const ExecutionContext &) override;
 };
-    } // namespace upmem
+
+template <typename T> class Subtract final : public OpKernel {
+public:
+  explicit Subtract(const OpKernelInfo &info) : OpKernel(info) {}
+
+  common::Status RunImpl(const ExecutionContext &) override;
+};
+template <typename T> class Mul final : public OpKernel {
+public:
+  explicit Mul(const OpKernelInfo &info) : OpKernel(info) {}
+
+  common::Status RunImpl(const ExecutionContext &) override;
+};
+template <typename T> class Div final : public OpKernel {
+public:
+  explicit Div(const OpKernelInfo &info) : OpKernel(info) {}
+
+  common::Status RunImpl(const ExecutionContext &) override;
+};
+
+} // namespace upmem
 } // namespace pim
 } // namespace brt
