@@ -19,13 +19,8 @@ add_mlir_library(TorchFrontendConversion
   MLIRPass
   MLIRDialect
   MLIRTransforms
-  MLIRMhloUtils
   ChloOps
-  ChloPasses
   StablehloOps
-  MhloDialect
-  MhloToLinalg
-  MhloTypeConversion
   TorchMLIRConversionUtils
   TorchMLIRTorchDialect
   TorchMLIRTorchPasses

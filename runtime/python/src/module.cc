@@ -30,6 +30,7 @@
 
 #ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
+#include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
 #include <cuda.h>
@@ -242,6 +243,10 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                  auto provider = std::make_unique<CUDAExecutionProvider>();
                  auto allocator =
                      std::make_unique<PyCustomAllocator>(alloc_f, free_f);
+                 int device_id;
+                 BRT_CUDA_CHECK(cudaGetDevice(&device_id));
+                 session->SetExecDevice(DeviceType::CUDA, device_id);
+                 session->AddDeviceAPI(DeviceType::CUDA, GetCudaDeviceAPI());
                  session->AddAllocator(std::move(allocator));
                  session->AddExecutionProvider(std::move(provider));
                }

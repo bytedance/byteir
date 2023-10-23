@@ -47,7 +47,8 @@ inline common::Status CreateAndInitExecutePlan(
     std::unique_ptr<ExecutionPlan> &execution_plan,
     const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
         &allocators,
-    const std::vector<std::unique_ptr<ExecutionProvider>> &exec_providers) {
+    const std::vector<std::unique_ptr<ExecutionProvider>> &exec_providers,
+    const Device dev, const DeviceAPI *api) {
 
   ByREHandle &byre_handle = static_cast<ByREHandle &>(*ir_handle);
   execution_plan =
@@ -55,7 +56,7 @@ inline common::Status CreateAndInitExecutePlan(
 
   // TODO decouple this from load??
   auto status_init =
-      execution_plan->ProloguePerSession(allocators, exec_providers);
+      execution_plan->ProloguePerSession(allocators, exec_providers, dev, api);
   return status_init;
 }
 
@@ -70,8 +71,10 @@ common::Status Session::Load(const std::string &url, const std::string &fmt) {
     return status_load;
   }
 
+  DeviceAPI *device_api = GetDeviceAPI(exec_device_.device_type_);
+
   return CreateAndInitExecutePlan(ir_handle_, execution_plan_, allocators_,
-                                  exec_providers_);
+                                  exec_providers_, exec_device_, device_api);
 }
 
 common::Status Session::LoadFromMemory(const void *ptr,
@@ -82,8 +85,10 @@ common::Status Session::LoadFromMemory(const void *ptr,
     return status_load;
   }
 
+  DeviceAPI *device_api = GetDeviceAPI(exec_device_.device_type_);
+
   return CreateAndInitExecutePlan(ir_handle_, execution_plan_, allocators_,
-                                  exec_providers_);
+                                  exec_providers_, exec_device_, device_api);
 }
 
 void *Session::GetWeightAsyncValue(size_t idx) {
@@ -244,6 +249,23 @@ IAllocator *Session::GetAllocator(const std::string &key) {
     return allocators_[key].get();
   }
   return nullptr;
+}
+
+DeviceAPI *Session::GetDeviceAPI(const DeviceType &device_type) {
+  if (devices_api_.count(device_type)) {
+    return devices_api_[device_type];
+  }
+  return nullptr;
+}
+
+common::Status Session::AddDeviceAPI(DeviceType device_type,
+                                     DeviceAPI *device_api) {
+  devices_api_[device_type] = device_api;
+  return common::Status::OK();
+}
+
+void Session::SetExecDevice(DeviceType device_type, int device_id) {
+  exec_device_ = {device_type, device_id};
 }
 
 } // namespace brt

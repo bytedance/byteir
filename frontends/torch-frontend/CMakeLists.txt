@@ -25,14 +25,9 @@ add_subdirectory(third_party/torch-mlir ${TORCH_FRONTEND_BIN_ROOT}/torch-mlir EX
 # add torch-mlir header files
 include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/include)
 include_directories(${TORCH_FRONTEND_BIN_ROOT}/torch-mlir/include)
-# add mlir-hlo header files
-include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/externals/mlir-hlo/include)
-include_directories(${TORCH_FRONTEND_BIN_ROOT}/torch-mlir/mlir-hlo/include)
-include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/externals/mlir-hlo)
-include_directories(${TORCH_FRONTEND_BIN_ROOT}/torch-mlir/mlir-hlo)
 # add stablehlo header files
-include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/externals/mlir-hlo/stablehlo)
-include_directories(${TORCH_FRONTEND_BIN_ROOT}/torch-mlir/mlir-hlo/stablehlo)
+include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/externals/stablehlo)
+include_directories(${TORCH_FRONTEND_BIN_ROOT}/torch-mlir/stablehlo)
 
 #-------------------------------------------------------------------------------
 # Compile Torch Frontend

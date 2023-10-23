@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "brt/backends/device_api.h"
 #include "brt/core/common/status.h"
 #include "brt/core/framework/dtype.h"
 #include <memory>
@@ -133,11 +134,22 @@ public:
   // Return an Allocator
   IAllocator *GetAllocator(const std::string &key);
 
+  DeviceAPI *GetDeviceAPI(const DeviceType &device_type);
+
+  common::Status AddDeviceAPI(DeviceType device_type, DeviceAPI *device_api);
+
+  // Set device
+  void SetExecDevice(DeviceType device_type, int device_id = 0);
+
 protected:
   // hold a set of execution providers
   std::vector<std::unique_ptr<ExecutionProvider>> exec_providers_;
 
   std::unordered_map<std::string, std::unique_ptr<IAllocator>> allocators_;
+
+  std::unordered_map<DeviceType, DeviceAPI *> devices_api_;
+
+  Device exec_device_;
 
   // hold an execution plan
   // TODO: confirm this for TrainingSession

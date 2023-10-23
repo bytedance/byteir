@@ -5,6 +5,7 @@ from setuptools.command.build_ext import build_ext
 import os, errno
 import shutil
 import subprocess
+import glob
 
 setup_path = os.path.abspath(os.path.dirname(__file__))
 root_path = os.path.abspath(setup_path + "/../")
@@ -69,13 +70,18 @@ class CustomBuild(build_ext):
     return super().build_extension(ext)
 
   def build_brt(self, ext):
-    brt_path = os.path.join(root_path, "build", "install", "lib", "libbrt.so")
+    install_lib_dir = os.path.join(root_path, "build", "install", "lib")
+    so_files = glob.glob(os.path.join(install_lib_dir, "*.so"))
+    for so_file in so_files:
+        filename = os.path.basename(so_file)
+        dst_dir = os.path.join(self.build_lib, "brt", "lib")
+        dst_path = os.path.join(dst_dir, filename)
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        shutil.copy(so_file, dst_path)
+
     _brt_path = os.path.join(root_path, "build", "install", "_brt.so")
-    brt_dst_path = os.path.join(self.build_lib, "brt", "lib", "libbrt.so")
     _brt_dst_path = self.get_ext_fullpath(ext.name)
-    os.makedirs(os.path.dirname(brt_dst_path), exist_ok=True)
     os.makedirs(os.path.dirname(_brt_dst_path), exist_ok=True)
-    shutil.copy(brt_path, brt_dst_path)
     shutil.copy(_brt_path, _brt_dst_path)
 
 setup(

@@ -170,18 +170,19 @@ void BRTInferenceExecutionFrame::AllocIntermediate() {
 
 // bind args
 void BRTInferenceExecutionFrame::BindArg(size_t idx, const void *ptr) {
-  BRT_ENFORCE(idx < info_.graph_info.io_count);
+  BRT_ENFORCE(idx >= info_.graph_info.weight_count);
+  BRT_ENFORCE(idx < info_.graph_info.io_count + info_.graph_info.weight_count);
 
-  int i = info_.weights.size() + idx;
+  int i = idx - info_.weights.size();
 
   // if allocated, free it
-  if (ctx_.is_io_allocated[idx]) {
-    ctx_.is_io_allocated[idx] = false;
+  if (ctx_.is_io_allocated[i]) {
+    ctx_.is_io_allocated[i] = false;
     auto allocator = info_.weight_and_ios_allocators[idx];
-    allocator->Free(ctx_.weights_and_ios[i]);
+    allocator->Free(ctx_.weights_and_ios[idx]);
   }
 
-  ctx_.weights_and_ios[i] = const_cast<void *>(ptr);
+  ctx_.weights_and_ios[idx] = const_cast<void *>(ptr);
 }
 
 void *BRTInferenceExecutionFrame::GetArg(size_t idx) {

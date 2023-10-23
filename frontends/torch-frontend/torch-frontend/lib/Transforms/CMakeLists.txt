@@ -16,16 +16,5 @@ add_mlir_library(TorchFrontendTransforms
   MLIRPass
   MLIRDialect
   TorchMLIRTorchDialect
-  # MLIRTransforms
-  # MLIRMhloUtils
-  # ChloOps
-  # ChloPasses
-  # MhloDialect
-  # MhloToLinalg
-  # MhloTypeConversion
-  # TorchMLIRConversionUtils
-  # TorchMLIRTorchPasses
-  # TorchMLIRTorchToMhlo
-  # TorchMLIRTorchConversionPasses
-  # TorchMLIRTorchUtils
+  TorchFrontendUtils
 )

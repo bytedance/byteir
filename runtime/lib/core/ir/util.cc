@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 #include "brt/core/ir/util.h"
 
@@ -96,14 +98,34 @@ DTypeEnum GetElementDTypeEnum(mlir::Value val) {
 }
 
 std::optional<int64_t> LinearizedStaticShape(llvm::ArrayRef<int64_t> shape) {
+  return SizeHelper(shape, 0, shape.size());
+}
+
+std::optional<int64_t> SizeHelper(llvm::ArrayRef<int64_t> shape,
+                                  size_t start_index, size_t end_index) {
   int64_t res = 1;
-  for (auto d : shape) {
-    if (d <= 0) {
+  for (size_t i = start_index; i < end_index; ++i) {
+    if (shape[i] <= 0) {
       return std::nullopt;
     }
-    res *= d;
+    res *= shape[i];
   }
   return res;
+}
+
+std::optional<int64_t> SizeFromDimension(llvm::ArrayRef<int64_t> shape,
+                                         size_t dim) {
+  size_t num_dims = shape.size();
+  BRT_ENFORCE(dim <= num_dims, "Invalid dimension of ", dim,
+              " for SizeFromDimension. Tensor has ", num_dims, " dimensions.");
+  return SizeHelper(shape, dim, num_dims);
+}
+std::optional<int64_t> SizeToDimension(llvm::ArrayRef<int64_t> shape,
+                                       size_t dim) {
+  size_t num_dims = shape.size();
+  BRT_ENFORCE(dim <= num_dims, "Invalid dimension of ", dim,
+              " for SizeToDimension. Tensor has ", num_dims, " dimensions.");
+  return SizeHelper(shape, 0, dim);
 }
 
 int64_t GetIntegerAttrValue(mlir::Attribute attr) {

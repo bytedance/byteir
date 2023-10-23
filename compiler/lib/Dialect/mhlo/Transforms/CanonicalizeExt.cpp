@@ -119,38 +119,43 @@ mlir::mhlo::foldBroadcastInDimConstWithBinary(mhlo::BroadcastInDimOp op,
 
 // broadcast_in_dim(reshape(x)) => broadcast_in_dim(x)
 // note: the broadcast_dimensions's size should be reduced.
-LogicalResult mlir::mhlo::foldBroadcastInDimReshape(mhlo::BroadcastInDimOp op,
-                                                    PatternRewriter &rewriter) {
-  if (!op.getOperand().getDefiningOp<mhlo::ReshapeOp>()) {
-    return failure();
-  }
-  auto reshapeOp = op.getOperand().getDefiningOp<mhlo::ReshapeOp>();
-  auto reshapeOperandType = reshapeOp.getOperand().getType().cast<ShapedType>();
-  if (!reshapeOperandType.hasStaticShape()) {
-    return failure();
-  }
-  auto reshapeResultType = reshapeOp.getResult().getType().cast<ShapedType>();
-  // the broadcast_dimensions's size should be reduced.
-  if (reshapeOperandType.getRank() >= reshapeResultType.getRank()) {
-    return failure();
-  }
-  auto maybeIndex = computeReshapeInputOutputRankMapIndex(reshapeOperandType,
-                                                          reshapeResultType);
-  if (!maybeIndex.has_value()) {
-    return failure();
-  }
+struct foldBroadcastInDimReshape
+    : public OpRewritePattern<mhlo::BroadcastInDimOp> {
+  using OpRewritePattern<mhlo::BroadcastInDimOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::BroadcastInDimOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!op.getOperand().getDefiningOp<mhlo::ReshapeOp>()) {
+      return failure();
+    }
+    auto reshapeOp = op.getOperand().getDefiningOp<mhlo::ReshapeOp>();
+    auto reshapeOperandType =
+        reshapeOp.getOperand().getType().cast<ShapedType>();
+    if (!reshapeOperandType.hasStaticShape()) {
+      return failure();
+    }
+    auto reshapeResultType = reshapeOp.getResult().getType().cast<ShapedType>();
+    // the broadcast_dimensions's size should be reduced.
+    if (reshapeOperandType.getRank() >= reshapeResultType.getRank()) {
+      return failure();
+    }
+    auto maybeIndex = computeReshapeInputOutputRankMapIndex(reshapeOperandType,
+                                                            reshapeResultType);
+    if (!maybeIndex.has_value()) {
+      return failure();
+    }
 
-  auto index = *maybeIndex;
-  SmallVector<int64_t> newBroadcastDimensions;
-  for (auto i : index) {
-    newBroadcastDimensions.push_back(
-        (*(op.getBroadcastDimensions().begin() + i)).getSExtValue());
+    auto index = *maybeIndex;
+    SmallVector<int64_t> newBroadcastDimensions;
+    for (auto i : index) {
+      newBroadcastDimensions.push_back(
+          (*(op.getBroadcastDimensions().begin() + i)).getSExtValue());
+    }
+    op->setOperand(0, reshapeOp.getOperand());
+    op.setBroadcastDimensionsAttr(
+        rewriter.getI64TensorAttr(newBroadcastDimensions));
+    return success();
   }
-  op->setOperand(0, reshapeOp.getOperand());
-  op.setBroadcastDimensionsAttr(
-      rewriter.getI64TensorAttr(newBroadcastDimensions));
-  return success();
-}
+};
 
 namespace {
 
@@ -1756,7 +1761,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
                                                  bool blindFold) {
   patterns.add(mlir::mhlo::foldBroadcastInDimConstWithBinary);
-  patterns.add(mlir::mhlo::foldBroadcastInDimReshape);
+  patterns.add<foldBroadcastInDimReshape>(ctx);
   patterns.add(mlir::mhlo::foldConcatWithContinuousSlices);
   patterns.add(mlir::mhlo::simplifyDynamicConvToConv);
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::AddOp, std::plus>);

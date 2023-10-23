@@ -63,11 +63,6 @@ class GatherOp;
 LogicalResult foldBroadcastInDimConstWithBinary(mhlo::BroadcastInDimOp op,
                                                 PatternRewriter &rewriter);
 
-// broadcast_in_dim(reshape(x)) => broadcast_in_dim(x)
-// note: the broadcast_dimensions's size should be reduced.
-LogicalResult foldBroadcastInDimReshape(mhlo::BroadcastInDimOp op,
-                                        PatternRewriter &rewriter);
-
 ///
 ///  Fold concatenate of continuous slices
 ///

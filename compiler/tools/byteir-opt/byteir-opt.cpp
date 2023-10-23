@@ -149,6 +149,7 @@ int main(int argc, char **argv) {
   registeOpInterfaceExtensions(registry);
 
   // register ByteIR's dialects here
+  mlir::stablehlo::registerAllDialects(registry);
   registry.insert<mlir::ace::AceDialect>();
   registry.insert<mlir::byre::ByreDialect>();
   registry.insert<mlir::ccl::CclDialect>();

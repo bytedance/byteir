@@ -261,3 +261,85 @@ func.func @test_resize_linear_by_size(%214: tensor<1x1x15x20xf32>) -> tensor<1x1
 // CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<[1, 1, 30, 40]> : tensor<4xi64>
 // CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.custom_call @byteir.resize(%arg0, %0) {backend_config = "", byteir_attrs = {coordinate_transformation_mode = "pytorch_half_pixel", mode = "linear", target_mode = "size"}} : (tensor<1x1x15x20xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
 }
+
+func.func @test_l2_norm_gelu_splat(%1092: tensor<1x768xf32>) -> tensor<1x768xf32> {
+  %143 = onnx.Constant dense<5.000000e-01> : tensor<768xf32>
+  %680 = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+  %700 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %701 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %704 = onnx.Constant dense<9.99999974E-6> : tensor<f32>
+  %1093 = "onnx.ReduceMeanV13"(%1092) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_515"} : (tensor<1x768xf32>) -> tensor<1x1xf32>
+  %1094 = "onnx.Sub"(%1092, %1093) {onnx_node_name = "Sub_516"} : (tensor<1x768xf32>, tensor<1x1xf32>) -> tensor<1x768xf32>
+  %1095 = "onnx.Mul"(%1094, %1094) : (tensor<1x768xf32>, tensor<1x768xf32>) -> tensor<1x768xf32>
+  %1096 = "onnx.ReduceMeanV13"(%1095) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_519"} : (tensor<1x768xf32>) -> tensor<1x1xf32>
+  %1097 = "onnx.Add"(%1096, %704) {onnx_node_name = "Add_521"} : (tensor<1x1xf32>, tensor<f32>) -> tensor<1x1xf32>
+  %1098 = "onnx.Sqrt"(%1097) {onnx_node_name = "Sqrt_522"} : (tensor<1x1xf32>) -> tensor<1x1xf32>
+  %1099 = "onnx.Div"(%1094, %1098) {onnx_node_name = "Div_523"} : (tensor<1x768xf32>, tensor<1x1xf32>) -> tensor<1x768xf32>
+  %1100 = "onnx.Mul"(%1099, %680) {onnx_node_name = "Mul_524"} : (tensor<1x768xf32>, tensor<768xf32>) -> tensor<1x768xf32>
+  %1101 = "onnx.Div"(%1100, %700) {onnx_node_name = "Div_527"} : (tensor<1x768xf32>, tensor<f32>) -> tensor<1x768xf32>
+  %1102 = "onnx.Erf"(%1101) {onnx_node_name = "Erf_528"} : (tensor<1x768xf32>) -> tensor<1x768xf32>
+  %1103 = "onnx.Add"(%1102, %701) {onnx_node_name = "Add_530"} : (tensor<1x768xf32>, tensor<f32>) -> tensor<1x768xf32>
+  %1104 = "onnx.Mul"(%1099, %1103) : (tensor<1x768xf32>, tensor<1x768xf32>) -> tensor<1x768xf32>
+  %1105 = "onnx.Mul"(%1104, %143) : (tensor<1x768xf32>, tensor<768xf32>) -> tensor<1x768xf32>
+  return %1105 : tensor<1x768xf32>
+// CHECK-LABEL:  func.func @test_l2_norm_gelu_splat
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x768xf32>) -> tensor<1x768xf32> {
+// CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<768xf32>
+// CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x768xf32>, tensor<768xf32>, tensor<768xf32>) -> tensor<1x768xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.custom_call @byteir.gelu([[VAR_2_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x768xf32>) -> tensor<1x768xf32>
+// CHECK-NEXT:   return [[VAR_3_]] : tensor<1x768xf32>
+}
+
+func.func @test_l2_norm_gelu_dense(%1092: tensor<1x4xf32>) -> tensor<1x4xf32> {
+  %143 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+  %680 = onnx.Constant dense<[2.000000e+00, 2.000000e+00, 4.000000e+00, 4.000000e+00]> : tensor<4xf32>
+  %700 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %701 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %704 = onnx.Constant dense<9.99999974E-6> : tensor<f32>
+  %1093 = "onnx.ReduceMeanV13"(%1092) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_515"} : (tensor<1x4xf32>) -> tensor<1x1xf32>
+  %1094 = "onnx.Sub"(%1092, %1093) {onnx_node_name = "Sub_516"} : (tensor<1x4xf32>, tensor<1x1xf32>) -> tensor<1x4xf32>
+  %1095 = "onnx.Mul"(%1094, %1094) : (tensor<1x4xf32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1096 = "onnx.ReduceMeanV13"(%1095) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_519"} : (tensor<1x4xf32>) -> tensor<1x1xf32>
+  %1097 = "onnx.Add"(%1096, %704) {onnx_node_name = "Add_521"} : (tensor<1x1xf32>, tensor<f32>) -> tensor<1x1xf32>
+  %1098 = "onnx.Sqrt"(%1097) {onnx_node_name = "Sqrt_522"} : (tensor<1x1xf32>) -> tensor<1x1xf32>
+  %1099 = "onnx.Div"(%1094, %1098) {onnx_node_name = "Div_523"} : (tensor<1x4xf32>, tensor<1x1xf32>) -> tensor<1x4xf32>
+  %1100 = "onnx.Mul"(%1099, %680) {onnx_node_name = "Mul_524"} : (tensor<1x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+  %1101 = "onnx.Div"(%1100, %700) {onnx_node_name = "Div_527"} : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  %1102 = "onnx.Erf"(%1101) {onnx_node_name = "Erf_528"} : (tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1103 = "onnx.Add"(%1102, %701) {onnx_node_name = "Add_530"} : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  %1104 = "onnx.Mul"(%1099, %1103) : (tensor<1x4xf32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1105 = "onnx.Mul"(%1104, %143) : (tensor<1x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+  return %1105 : tensor<1x4xf32>
+// CHECK-LABEL:  func.func @test_l2_norm_gelu_dense
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xf32>) -> tensor<1x4xf32> {
+// CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<4xf32>
+// CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 2.000000e+00, 4.000000e+00, 4.000000e+00]> : tensor<4xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.custom_call @byteir.gelu([[VAR_2_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x4xf32>) -> tensor<1x4xf32>
+// CHECK-NEXT:   return [[VAR_3_]] : tensor<1x4xf32>
+}
+
+func.func @test_not_l2_norm_gelu_dense(%1092: tensor<1x4xf32>) -> tensor<1x4xf32> {
+  %143 = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+  %680 = onnx.Constant dense<[2.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>
+  %700 = onnx.Constant dense<1.41421354> : tensor<f32>
+  %701 = onnx.Constant dense<1.000000e+00> : tensor<f32>
+  %704 = onnx.Constant dense<9.99999974E-6> : tensor<f32>
+  %1093 = "onnx.ReduceMeanV13"(%1092) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_515"} : (tensor<1x4xf32>) -> tensor<1x1xf32>
+  %1094 = "onnx.Sub"(%1092, %1093) {onnx_node_name = "Sub_516"} : (tensor<1x4xf32>, tensor<1x1xf32>) -> tensor<1x4xf32>
+  %1095 = "onnx.Mul"(%1094, %1094) : (tensor<1x4xf32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1096 = "onnx.ReduceMeanV13"(%1095) {axes = [-1], keepdims = 1 : si64, onnx_node_name = "ReduceMean_519"} : (tensor<1x4xf32>) -> tensor<1x1xf32>
+  %1097 = "onnx.Add"(%1096, %704) {onnx_node_name = "Add_521"} : (tensor<1x1xf32>, tensor<f32>) -> tensor<1x1xf32>
+  %1098 = "onnx.Sqrt"(%1097) {onnx_node_name = "Sqrt_522"} : (tensor<1x1xf32>) -> tensor<1x1xf32>
+  %1099 = "onnx.Div"(%1094, %1098) {onnx_node_name = "Div_523"} : (tensor<1x4xf32>, tensor<1x1xf32>) -> tensor<1x4xf32>
+  %1100 = "onnx.Mul"(%1099, %680) {onnx_node_name = "Mul_524"} : (tensor<1x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+  %1101 = "onnx.Div"(%1100, %700) {onnx_node_name = "Div_527"} : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  %1102 = "onnx.Erf"(%1101) {onnx_node_name = "Erf_528"} : (tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1103 = "onnx.Add"(%1102, %701) {onnx_node_name = "Add_530"} : (tensor<1x4xf32>, tensor<f32>) -> tensor<1x4xf32>
+  %1104 = "onnx.Mul"(%1099, %1103) : (tensor<1x4xf32>, tensor<1x4xf32>) -> tensor<1x4xf32>
+  %1105 = "onnx.Mul"(%1104, %143) : (tensor<1x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+  return %1105 : tensor<1x4xf32>
+// CHECK-LABEL:  func.func @test_not_l2_norm_gelu_dense
+// CHECK-NOT: mhlo.custom_call @byteir.gelu
+}

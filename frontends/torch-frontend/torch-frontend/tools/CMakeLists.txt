@@ -4,9 +4,9 @@ set(TORCH_FORNTEND_LIBS
   TorchFrontendPipelines
 )
 
-set(MHLO_LIBS
-  MhloDialect
-  AllMhloPasses
+set(STABLEHLO_LIBS
+  StablehloOps
+  ChloOps
 )
 
 get_property(mlir_dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
@@ -15,7 +15,7 @@ get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 set(LIBS
   ${TORCH_FORNTEND_LIBS}
-  ${MHLO_LIBS}
+  ${STABLEHLO_LIBS}
   ${mlir_dialect_libs}
   ${mlir_conversion_libs}
   ${extension_libs}
@@ -26,9 +26,6 @@ set(LIBS
   MLIRTransforms
   MLIROptLib
 )
-
-# FIXME: remove this when upstream fix
-target_link_libraries(MhloDialect PUBLIC StablehloTypeInference StablehloAssemblyFormat)
 
 add_executable(torch-frontend-opt torch-frontend-opt.cpp)
 add_dependencies(torch-frontend-opt ${LIBS})

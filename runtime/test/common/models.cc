@@ -898,6 +898,45 @@ const void *CreateReduction(brt::ir::ByREBuilder &byre_builder,
   return module_op.getAsOpaquePointer();
 }
 
+const void *CreateTopK(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
+                       DTypeEnum indexType, std::vector<int64_t> src_shape,
+                       int64_t k, std::vector<int64_t> axis_vec, bool sorted) {
+  mlir::ModuleOp module_op = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+
+  auto input_mlir_type = ConvertDTypeToMLIRType(dataType, ctx);
+  auto index_mlir_type = ConvertDTypeToMLIRType(indexType, ctx);
+  std::vector<int64_t> shape_output = src_shape;
+  BRT_ENFORCE(axis_vec.size() == 1);
+  int64_t axis = axis_vec[0];
+  shape_output[axis] = k;
+
+  auto input_type = MemRefType::get(src_shape, input_mlir_type);
+  auto value_type = MemRefType::get(shape_output, input_mlir_type);
+  auto indices_type = MemRefType::get(shape_output, index_mlir_type);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{input_type, AT::Input, "A"},
+               {value_type, AT::Output, "B"},
+               {indices_type, AT::Output, "C"}});
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+  auto compute_op = op_builder.create<byre::ComputeOp>(
+      UnknownLoc::get(ctx), "byteir.top_k",
+      ValueRange{entry_block->getArgument(0)},
+      ValueRange{entry_block->getArgument(1), entry_block->getArgument(2)});
+  compute_op->setAttr("k", op_builder.getI64IntegerAttr(k));
+  compute_op->setAttr("axis", op_builder.getI64VectorAttr(axis_vec));
+  compute_op->setAttr("sorted", op_builder.getBoolAttr(sorted));
+  // insert ReturnOp
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+  return module_op.getAsOpaquePointer();
+}
+
 const void *CreateTranspose(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum dataType, const std::string &space,
                             std::vector<int64_t> &shape_input,
@@ -1101,7 +1140,7 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
 
   // create an entry func
   func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
-      "test", {{input_type, AT::Input, "A"}, {output_type, AT::Input, "B"}});
+      "test", {{input_type, AT::Input, "A"}, {output_type, AT::Output, "B"}});
 
   // add entry function body
   mlir::Block *entry_block = func_op.addEntryBlock();

@@ -26,7 +26,6 @@
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include <unordered_set>
-
 // TODO avoid using BRT_USE_CUDA
 #if BRT_USE_CUDA
 #include "brt/backends/cuda/device/cuda_work_queue.h"
@@ -63,7 +62,8 @@ GetAllocator(const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
 common::Status StaticBRTExecutionPlan::ProloguePerSession(
     const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
         &allocators,
-    const std::vector<std::unique_ptr<ExecutionProvider>> &providers) {
+    const std::vector<std::unique_ptr<ExecutionProvider>> &providers,
+    const Device dev, const DeviceAPI *device_api) {
   std::unordered_set<void *> visited_ptrs;
   std::unordered_set<void *> visited_allocator_ptrs;
 
@@ -74,8 +74,8 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
 
   // handle func args weight/input/output but allocate weight only
   size_t arg_count = 0;
-  auto status_iterate_entry_args =
-      graph_.IterateEntryFuncArg([&](mlir::BlockArgument block_arg) {
+  auto status_iterate_entry_args = graph_.IterateEntryFuncArg(
+      [&](mlir::BlockArgument block_arg, mlir::DictionaryAttr arg_attrs) {
         void *arg_ptr = block_arg.getAsOpaquePointer();
 
         // early terminate when nullptr
@@ -111,6 +111,40 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             // allocate weights
             // TODO handle alignment
             auto ptr = cur_allocator->Alloc(allocate_size);
+            // load weight from weight_value attr
+            if (arg_attrs.get(mlir::byre::ByreDialect::
+                                  getEntryPointFuncArgWeightValueAttrName())) {
+              auto dtype = ConvertMLIRTypeToDType(memref.getElementType());
+              auto weight_attr =
+                  arg_attrs
+                      .get(mlir::byre::ByreDialect::
+                               getEntryPointFuncArgWeightValueAttrName())
+                      .dyn_cast_or_null<DenseElementsAttr>();
+              // If mlir's data storage changed, fix here like i1 dtype
+              if (weight_attr == nullptr) {
+                return Status(BRT, FAIL,
+                              "weight value is not of type DenseElementsAttr");
+              }
+
+              if (device_api == nullptr) {
+                return Status(BRT, FAIL, "nullptr device_api");
+              }
+
+              if (dtype == DTypeEnum::Bool) {
+                auto dense_int_attr = weight_attr.cast<DenseIntElementsAttr>();
+                std::vector<char> host_data;
+                host_data.reserve(allocate_size);
+                for (APInt &&i : dense_int_attr) {
+                  host_data.push_back(static_cast<char>(i.getSExtValue()));
+                }
+                device_api->MemcpyH2D(dev, ptr, host_data.data(),
+                                      allocate_size);
+              } else {
+                void *host_data_ptr = reinterpret_cast<void *>(
+                    const_cast<char *>(weight_attr.getRawData().data()));
+                device_api->MemcpyH2D(dev, ptr, host_data_ptr, allocate_size);
+              }
+            }
             frame_construct_info_.weights.push_back(ptr);
           }
         } else {
@@ -119,6 +153,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
 
         return Status::OK();
       });
+
   if (!status_iterate_entry_args.IsOK()) {
     return status_iterate_entry_args;
   }

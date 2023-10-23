@@ -426,9 +426,13 @@ public:
 };
 
 void TopDownDeviceClustering::mergeDeviceClustersProgressively() {
-  for (auto &&op : funcOp.front().without_terminator()) {
-    auto curCluster = getCluster(&op);
-    for (auto &&operand : op.getOperands()) {
+  SmallVector<Operation *> ops;
+  for (auto &op : funcOp.front().without_terminator())
+    ops.push_back(&op);
+
+  for (auto op : ops) {
+    auto curCluster = getCluster(op);
+    for (auto &&operand : op->getOperands()) {
       auto preCluster = getCluster(operand);
       if (auto merged = ActiveDeviceCluster::tryMerge(curCluster, preCluster)) {
         curCluster = merged;
@@ -445,9 +449,13 @@ public:
 };
 
 void BottomUpDeviceClustering::mergeDeviceClustersProgressively() {
-  for (auto &&op : llvm::reverse(funcOp.front().without_terminator())) {
-    auto curCluster = getCluster(&op);
-    for (auto &&use : op.getUses()) {
+  SmallVector<Operation *> ops;
+  for (auto &op : llvm::reverse(funcOp.front().without_terminator()))
+    ops.push_back(&op);
+
+  for (auto op : ops) {
+    auto curCluster = getCluster(op);
+    for (auto &&use : op->getUses()) {
       auto preCluster = getCluster(use.getOwner());
       if (auto merged = ActiveDeviceCluster::tryMerge(preCluster, curCluster)) {
         curCluster = merged;

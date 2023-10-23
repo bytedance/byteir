@@ -1,8 +1,8 @@
 # torch and torchvision
--f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
---pre
-torch==2.1.0.dev20230820
-torchvision==0.16.0.dev20230820
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# --pre
+# torch==2.1.0+cpu
+# torchvision==0.16.0+cpu
 
 # cuda torch and torchvision
 # --extra-index-url https://download.pytorch.org/whl/nightly/cu118

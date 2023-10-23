@@ -621,6 +621,8 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormV4>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormV4SwapSquarediff>(context));
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithCast>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithCastDisableMinimizeBroadcast>(

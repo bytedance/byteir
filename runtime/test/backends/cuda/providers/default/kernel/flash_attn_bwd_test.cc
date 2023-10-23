@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if BRT_ENABLE_FLASH_ATTENSION
+#if BRT_ENABLE_FLASH_ATTENTION
 
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_allocator.h"
@@ -289,4 +289,4 @@ TEST(SM80CUDATestFlashAttnBwd, Basic) {
       });
 }
 
-#endif // BRT_ENABLE_FLASH_ATTENSION
+#endif // BRT_ENABLE_FLASH_ATTENTION

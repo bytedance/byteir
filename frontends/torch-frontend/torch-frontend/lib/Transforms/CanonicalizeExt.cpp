@@ -16,23 +16,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "torch-frontend/Transforms/CanonicalizeExt.h"
-#include "mhlo/IR/hlo_ops.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "utils/convert_op_folder.h"
+#include "stablehlo/dialect/StablehloOps.h"
+#include "torch-frontend/Utils/ConvertOpFolder.h"
 
 #include "./PassDetail.h"
 
 using namespace mlir;
 
-LogicalResult foldConstantConvertOp(mhlo::ConvertOp op,
+LogicalResult foldConstantConvertOp(stablehlo::ConvertOp op,
                                     PatternRewriter &rewriter) {
-  if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
+  if (!llvm::isa_and_nonnull<stablehlo::ConstantOp>(
           op.getOperand().getDefiningOp())) {
     return failure();
   }
   DenseElementsAttr valueAttr = op.getOperand()
-                                    .getDefiningOp<mhlo::ConstantOp>()
+                                    .getDefiningOp<stablehlo::ConstantOp>()
                                     .getValue()
                                     .cast<DenseElementsAttr>();
   Type inputElementType = valueAttr.getType().getElementType();
@@ -55,8 +55,8 @@ LogicalResult foldConstantConvertOp(mhlo::ConvertOp op,
   if (!newValueAttr) {
     return failure();
   }
-  mhlo::ConstantOp newConstantOp =
-      rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
+  stablehlo::ConstantOp newConstantOp =
+      rewriter.create<stablehlo::ConstantOp>(op->getLoc(), newValueAttr);
   rewriter.replaceOp(op, newConstantOp.getOutput());
   return success();
 }
@@ -94,7 +94,7 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
   void runOnOperation() override {
     Operation *operation = getOperation();
 
-    // TODO: The ideal way of adding mhlo.custom_call dce logic is to
+    // TODO: The ideal way of adding stablehlo.custom_call dce logic is to
     // integrating it into applyPatternsAndFoldGreedily.
     // Side effect is only an attribute of CustomCallOp, not an interface. It
     // should be specially handled.
@@ -109,7 +109,7 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
       if (wouldOpBeTriviallyDead(op)) {
         op->erase();
       } else {
-        auto customOp = llvm::dyn_cast<mhlo::CustomCallOp>(op);
+        auto customOp = llvm::dyn_cast<stablehlo::CustomCallOp>(op);
         if (customOp && !customOp.getHasSideEffect()) {
           op->erase();
         }

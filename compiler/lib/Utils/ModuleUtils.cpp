@@ -35,6 +35,7 @@ func::FuncOp renameAndCloneFuncToNewModule(ModuleOp m, func::FuncOp func,
   OpBuilder builder = OpBuilder::atBlockBegin(m.getBody());
   auto newFunc = builder.create<func::FuncOp>(func->getLoc(), newFuncName,
                                               func.getFunctionType());
+  newFunc.setPrivate();
   IRMapping emptyBvm;
   func.cloneInto(newFunc, emptyBvm);
   return newFunc;

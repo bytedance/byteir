@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 
 #pragma once
 
@@ -149,7 +151,14 @@ template <typename T> inline bool IsElementType(mlir::Value val) {
   return false;
 }
 
+// Get the size of a shape
 std::optional<int64_t> LinearizedStaticShape(llvm::ArrayRef<int64_t> shape);
+std::optional<int64_t> SizeHelper(llvm::ArrayRef<int64_t> shape,
+                                  size_t start_index, size_t end_index);
+std::optional<int64_t> SizeFromDimension(llvm::ArrayRef<int64_t> shape,
+                                         size_t dim);
+std::optional<int64_t> SizeToDimension(llvm::ArrayRef<int64_t> shape,
+                                       size_t dim);
 
 // Get IntegerAttr's value
 int64_t GetIntegerAttrValue(mlir::Attribute attr);

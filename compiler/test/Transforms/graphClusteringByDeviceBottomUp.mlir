@@ -67,3 +67,30 @@ func.func @cannot_merge(%arg0 : tensor<4xf32>) -> tensor<4xf32> {
 //   CHECK-NEXT: "foo.bar"
 //   CHECK-NEXT: "foo.bar"
 //   CHECK-NEXT: return
+
+// -----
+
+func.func @fix_move_up(%arg0 : tensor<4xf32>) -> tensor<4xf32> {
+  %0 = "foo.bar"() : () -> tensor<4xf32>
+  %1 = "foo.bar"() : () -> tensor<4xf32>
+  %2 = "foo.bar"(%arg0) : (tensor<4xf32>) -> tensor<4xf32>
+  %4 = "foo.bar"(%2, %0) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %3 = "foo.bar"(%2, %1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %5 = "foo.bar"(%2) {device = "host"} : (tensor<4xf32>) -> tensor<4xf32>
+  %6 = "foo.bar"(%2, %3, %4, %5) : (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %7 = "foo.bar"(%6) : (tensor<4xf32>) -> tensor<4xf32>
+  return %7 : tensor<4xf32>
+}
+// CHECK-LABEL: func.func @fix_move_up
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: call @fix_move_up_test
+//   CHECK-NEXT: return
+// CHECK-LABEL: func.func @fix_move_up_test
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: return

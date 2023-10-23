@@ -151,6 +151,10 @@ def LLaMAAttnPattern(query, key, value, attn_mask, min_val, inv_scale, batch, nu
 
 
 def LLaMAAttnReplacement(query, key, value, attn_mask, min_val, inv_scale, batch, num_head, fused_batch, seq_len, head_dim):
+    # q, k, v needs to be transposed for flash attn v2 
+    query = query.transpose(1, 2)
+    key = key.transpose(1, 2)
+    value = value.transpose(1, 2)
     out, q_pad, k_pad, v_pad, out_pad, softmax_lse, S_dmask, rng_state = torch.ops.byteir.flash_attn_fwd(
         query,
         key,
@@ -158,9 +162,11 @@ def LLaMAAttnReplacement(query, key, value, attn_mask, min_val, inv_scale, batch
         0.0,
         1.0/inv_scale,
         True,
-        True
+        False
     )
-    return S_dmask, out
+    # output also needs to be transposed
+    out = out.transpose(1, 2)
+    return out, out
 
 
 def get_none_indices(fx_g: torch.fx.GraphModule) -> List[int]:
@@ -181,14 +187,16 @@ def get_none_indices(fx_g: torch.fx.GraphModule) -> List[int]:
 
 def list_decomposed_ops():
     return [
+        torch.ops.aten.embedding_dense_backward,
         torch.ops.aten._native_batch_norm_legit_functional,
         torch.ops.aten.native_batch_norm_backward,
+        torch.ops.aten.native_dropout_backward,
         torch.ops.aten.native_layer_norm_backward,
-        torch.ops.aten.embedding_dense_backward,
         torch.ops.aten.select_backward,
         torch.ops.aten.slice_backward,
-        torch.ops.aten.native_dropout_backward,
-        torch.ops.aten.tril
+        torch.ops.aten.split_with_sizes,
+        torch.ops.aten.tril,
+        torch.ops.aten.triu
     ]
 
 

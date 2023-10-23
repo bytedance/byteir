@@ -11,9 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .test_suite.test_flash_attn import test_flash_attn_unit
+from .test_suite.test_flash_attn import test_flash_attn_unit, test_flash_attn_functional_unit
 
-SM80_PLUS_DYNAMO_TESTS = [test_flash_attn_unit]
+SM80_PLUS_DYNAMO_TESTS = [test_flash_attn_unit, test_flash_attn_functional_unit]
 def run_torch_dynamo_tests(arch):
     if arch >= 80:
         for test in SM80_PLUS_DYNAMO_TESTS:

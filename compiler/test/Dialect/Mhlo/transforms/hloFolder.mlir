@@ -316,3 +316,22 @@ func.func @dot_bn(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32> {
 // UNFUSEBN-DAG{LITERAL}: mhlo.constant dense<[[2.000000e+00, 6.000000e+00], [3.000000e+00, 9.000000e+00]]> : tensor<2x2xf32>
 // UNFUSEBN: "mhlo.dot"
 // UNFUSEBN-NOT:  mhlo.batch_norm_inference
+
+func.func @dot_bn_case1(%arg0: tensor<1x2xf32>) -> tensor<1x2xf32> {
+  %5 = mhlo.constant dense<[2.0,4.0]> : tensor<2xf32>
+  %6 = mhlo.constant dense<[3.0,3.0]> : tensor<2xf32>
+  %7 = mhlo.constant dense<[1.0,1.0]> : tensor<2xf32>
+  %8 = mhlo.constant dense<[1.0,1.0]> : tensor<2xf32>
+  %9 = mhlo.constant dense<[[1.0,2.0]]> : tensor<1x2xf32>
+  %0 = mhlo.constant dense<[[1.000000e+00,2.000000e+00],[3.000000e+00,4.000000e+00]]> : tensor<2x2xf32>
+  %10 = "mhlo.dot"(%arg0, %0) : (tensor<1x2xf32>, tensor<2x2xf32>) -> tensor<1x2xf32>
+  %11 = mhlo.add %10, %9 : tensor<1x2xf32>
+  %12 = "mhlo.batch_norm_inference"(%11, %5, %6, %7, %8) {epsilon = 0.0 : f32, feature_index = 1 : i64} : (tensor<1x2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<1x2xf32>
+  func.return %12 : tensor<1x2xf32>
+}
+// UNFUSEBN-LABEL: dot_bn_case1
+// UNFUSEBN-DAG{LITERAL}: mhlo.constant dense<[[3.000000e+00, 7.000000e+00]]> : tensor<1x2xf32>
+// UNFUSEBN-DAG{LITERAL}: mhlo.constant dense<[[2.000000e+00, 8.000000e+00], [6.000000e+00, 1.600000e+01]]> : tensor<2x2xf32>
+// UNFUSEBN: "mhlo.dot"
+// UNFUSEBN-NEXT: mhlo.add
+// UNFUSEBN-NEXT:  return

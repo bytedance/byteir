@@ -11,7 +11,7 @@ func.func @torch.aten.native_layer_norm(%arg0: !torch.vtensor<[3,7,4,5],f32>) ->
   return %result0 : !torch.vtensor<[3,7,4,5],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.native_layer_norm
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.layer_norm
 // CHECK: byteir_attrs = {axis = [2, 3], epsilon = 1.000000e-05 : f64}
 // CHECK-NOT: torch.aten.native_layer_norm
@@ -28,7 +28,7 @@ func.func @torch.aten.layer_norm(%arg0: !torch.vtensor<[3,7,4,5],f32>) -> !torch
   return %result : !torch.vtensor<[3,7,4,5],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.layer_norm
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.layer_norm
 // CHECK: byteir_attrs = {axis = [2, 3], epsilon = 1.000000e-05 : f64}
 // CHECK-NOT: torch.aten.layer_norm
@@ -45,7 +45,7 @@ func.func @torch.aten.layer_norm_v2(%arg0: !torch.vtensor<[3,7,4,5],f32>) -> !to
   return %result : !torch.vtensor<[3,7,4,5],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.layer_norm
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.layer_norm
 // CHECK: byteir_attrs = {axis = [2, 3], eps_outside_sqrt = true, epsilon = 1.000000e-05 : f64}
 // CHECK-NOT: torch.aten.layer_norm
@@ -57,7 +57,7 @@ func.func @torch.aten.softmax.int(%t: !torch.vtensor<[2,3],f32>) -> !torch.vtens
   return %ret : !torch.vtensor<[2,3],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.softmax.int
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.softmax
 // CHECK: byteir_attrs = {axis = 1 : i64}
 // CHECK-NOT: torch.aten.softmax.int
@@ -69,7 +69,7 @@ func.func @torch.aten._softmax(%t: !torch.vtensor<[2,3],f32>) -> !torch.vtensor<
   return %ret : !torch.vtensor<[2,3],f32>
 }
 // CHECK-LABEL: func.func @torch.aten._softmax
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.softmax
 // CHECK: byteir_attrs = {axis = 1 : i64}
 // CHECK-NOT: torch.aten._softmax
@@ -81,7 +81,7 @@ func.func @torch.aten._log_softmax(%arg0: !torch.vtensor<[?,?,?],f32>) -> !torch
   return %0 : !torch.vtensor<[?,?,?],f32>
 }
 // CHECK-LABEL: func.func @torch.aten._log_softmax
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.log_softmax
 // CHECK: byteir_attrs = {axis = 0 : i64}
 // CHECK-NOT: torch.aten._log_softmaxcd
@@ -93,7 +93,7 @@ func.func @torch.aten.argmax(%arg0: !torch.vtensor<[?,?,?],f32>) -> !torch.vtens
   return %0 : !torch.vtensor<[?,?],si64>
 }
 // CHECK-LABEL: func.func @torch.aten.argmax
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.arg_max
 // CHECK: byteir_attrs = {axis = 0 : i64, keep_dims = false, select_last_index = false}
 // CHECK-NOT: torch.aten.argmax
@@ -105,8 +105,8 @@ func.func @torch.aten.max.dim(%arg0: !torch.vtensor<[32,64,21128],f32>) -> !torc
   return %values : !torch.vtensor<[32,64],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.max.dim
-// CHECK: mhlo.reduce
-// CHECK: mhlo.max
+// CHECK: stablehlo.reduce
+// CHECK: stablehlo.max
 // CHECK-NOT: torch.aten.max.dim
 
 func.func @torch.aten.max.dim.1(%arg0: !torch.vtensor<[32,64,21128],f32>) -> (!torch.vtensor<[32,64],f32>, !torch.vtensor<[32,64],si64>) {
@@ -116,7 +116,7 @@ func.func @torch.aten.max.dim.1(%arg0: !torch.vtensor<[32,64,21128],f32>) -> (!t
   return %values, %indices : !torch.vtensor<[32,64],f32>, !torch.vtensor<[32,64],si64>
 }
 // CHECK-LABEL: func.func @torch.aten.max.dim.1
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.arg_max
 // CHECK: byteir_attrs = {axis = 2 : i64, keep_dims = false, select_last_index = false}
 // CHECK-NOT: torch.aten.max.dim
@@ -127,7 +127,7 @@ func.func @torch.aten.one_hot(%arg0: !torch.vtensor<[2,3],si64>) -> !torch.vtens
   return %0 : !torch.vtensor<[2,3,4],si64>
 }
 // CHECK-LABEL: func.func @torch.aten.one_hot
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.one_hot
 // CHECK: byteir_attrs = {axis = 2 : i64, depth = 4 : i64, off_value = 0 : i64, on_value = 1 : i64}
 // CHECK-NOT: torch.aten.one_hot
@@ -140,7 +140,7 @@ func.func @torch.aten.topk(%arg0: !torch.vtensor<[3,10],f32>) -> (!torch.vtensor
   return %values, %indices : !torch.vtensor<[3,3],f32>, !torch.vtensor<[3,3],si64>
 }
 // CHECK-LABEL: func.func @torch.aten.topk
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.top_k
 // CHECK: byteir_attrs = {axis = [1], k = 3 : i64, sorted = true}
 // CHECH-NOT: torch.aten.topk
@@ -150,7 +150,7 @@ func.func @torch.custom.dynamic_partition(%arg0: !torch.vtensor<[10,5],f32>, %ar
   return %value0, %value1 : !torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>
 }
 // CHECK-LABEL: func.func @torch.custom.dynamic_partition
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @tf.DynamicPartition
 // CHECK: byteir_attrs = {num_partitions = 2 : i64}
 // CHECH-NOT: torch.custom_op
@@ -160,7 +160,7 @@ func.func @torch.custom.dynamic_stitch(%arg0: !torch.vtensor<[?],si64>, %arg1: !
   return %0 : !torch.vtensor<[?,?],f32>
 }
 // CHECK-LABEL: func.func @torch.custom.dynamic_stitch
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @tf.DynamicStitch
 // CHECK: byteir_attrs = {}
 // CHECH-NOT: torch.custom_op
@@ -170,7 +170,7 @@ func.func @torch.custom.dynamic_mask_stitch(%arg0: !torch.vtensor<[?,?],f32>, %a
   return %0 : !torch.vtensor<[?,?],f32>
 }
 // CHECK-LABEL: func.func @torch.custom.dynamic_mask_stitch
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @tf.DynamicMaskStitch
 // CHECK: byteir_attrs = {}
 // CHECH-NOT: torch.custom_op
@@ -183,7 +183,7 @@ func.func @torch.aten.nll_loss_forward(%arg0: !torch.vtensor<[8192,50257],f32>, 
   return %output, %total_weight : !torch.vtensor<[],f32>, !torch.vtensor<[],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.nll_loss_forward
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.nll_loss_forward
 // CHECK: byteir_attrs = {ignore_index = -1 : i64, reduction = 1 : i64}
 // CHECH-NOT: torch.aten.nll_loss_forward
@@ -196,7 +196,7 @@ func.func @torch.aten.nll_loss_backward(%arg0: !torch.vtensor<[],f32>, %arg1: !t
   return %0 : !torch.vtensor<[8192,50257],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.nll_loss_backward
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.nll_loss_backward
 // CHECK: byteir_attrs = {ignore_index = -1 : i64, reduction = 1 : i64}
 // CHECH-NOT: torch.aten.nll_loss_backward
@@ -209,7 +209,7 @@ func.func @torch.byteir.flash_attn_fwd(%arg0: !torch.vtensor<[2,12,256,128],f32>
   return %0#0, %0#1, %0#2, %0#3, %0#4, %0#5, %0#7 : !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,256,12],f32>, !torch.vtensor<[2],si64>
 }
 // CHECK-LABEL: func.func @torch.byteir.flash_attn_fwd
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.flash_attn_fwd
 // CHECK: byteir_attrs = {causal = false, dropout_p = 1.000000e-01 : f64, return_softmax = false, softmax_scale = 1.000000e+00 : f64}
 // CHECH-NOT: torch.operator
@@ -222,7 +222,7 @@ func.func @torch.byteir.flash_attn_bwd(%arg0: !torch.vtensor<[2,256,12,128],f16>
   return %0#0, %0#1, %0#2, %0#3, %0#4: !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,256,12,128],f16>, !torch.vtensor<[2,12,256],f32>, !torch.vtensor<[2,12,256,128],f32>
 }
 // CHECK-LABEL: func.func @torch.byteir.flash_attn_bwd
-// CHECK: mhlo.custom_call
+// CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.flash_attn_bwd
 // CHECK: byteir_attrs = {causal = true, dropout_p = 1.000000e-01 : f64, softmax_scale = 1.000000e+00 : f64}
 // CHECH-NOT: torch.operator

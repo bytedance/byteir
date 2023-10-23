@@ -6,6 +6,7 @@ target_link_libraries(brt
   PRIVATE -Wl,--no-undefined -Wl,--version-script=${VERSION_SCRIPT}
 )
 set_target_properties(brt PROPERTIES LINK_DEPENDS ${VERSION_SCRIPT})
+set_target_properties(brt PROPERTIES INSTALL_RPATH "$ORIGIN")
 
 install(
   TARGETS brt
