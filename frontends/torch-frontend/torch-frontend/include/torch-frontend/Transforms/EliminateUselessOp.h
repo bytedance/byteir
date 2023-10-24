@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- EleminateUselessOp.h -----------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_TRANSFORMS_PASSES
-#define TORCH_FRONTEND_TRANSFORMS_PASSES
+#ifndef TORCH_FRONTEND_TRANSFORMS_ELIMINATEUSELESSOP_H
+#define TORCH_FRONTEND_TRANSFORMS_ELIMINATEUSELESSOP_H
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "torch-frontend/Transforms/CanonicalizeExt.h"
-#include "torch-frontend/Transforms/RewriteCustomOp.h"
-#include "torch-frontend/Transforms/RewriteToByteIREntryPoint.h"
-#include "torch-frontend/Transforms/UnpackPublicFunctionReturn.h"
-#include "torch-frontend/Transforms/EliminateUselessOp.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "torch-frontend/Transforms/Passes.h.inc"
+std::unique_ptr<OperationPass<func::FuncOp>> createEliminateUselessOpPass();
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_TRANSFORMS_PASSES
+#endif // TORCH_FRONTEND_TRANSFORMS_ELIMINATEUSELESSOP_H

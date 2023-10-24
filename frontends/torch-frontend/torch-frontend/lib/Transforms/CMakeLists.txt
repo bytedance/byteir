@@ -3,6 +3,7 @@ add_mlir_library(TorchFrontendTransforms
   RewriteCustomOp.cpp
   CanonicalizeExt.cpp
   UnpackPublicFunctionReturn.cpp
+  EliminateUselessOp.cpp
 
   DEPENDS
   TorchFrontendTransformsPassIncGen
