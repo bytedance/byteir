@@ -77,7 +77,7 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
   // remove useless ops
   pm.addNestedPass<func::FuncOp>(createEliminateUselessOpPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  
+
   // Unpack return values
   pm.addNestedPass<func::FuncOp>(createUnpackPublicFunctionReturnPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
