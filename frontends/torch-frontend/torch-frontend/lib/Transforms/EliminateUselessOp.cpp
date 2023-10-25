@@ -31,19 +31,20 @@ using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 namespace {
-// torch.profiler is useless for compilation
-struct EleminateTorchProfilerOp : public OpRewritePattern<OperatorOp> {
-  using OpRewritePattern::OpRewritePattern;
+struct EliminateTorchOperatorOpByPrefix : public OpRewritePattern<OperatorOp> {
+  EliminateTorchOperatorOpByPrefix(MLIRContext *context, StringRef _prefix)
+      : OpRewritePattern<OperatorOp>(context), prefix(_prefix) {}
   LogicalResult matchAndRewrite(OperatorOp op,
                                 PatternRewriter &rewriter) const override {
     llvm::StringRef name = op.getNameAttr().getValue();
-    if (name.starts_with("profiler") && op.use_empty()) {
+    if (name.starts_with(prefix) && op.use_empty()) {
       rewriter.eraseOp(op);
       return success();
     }
     return rewriter.notifyMatchFailure(
-        op, "Expected op with name starts with 'profiler'.");
+        op, "Expected op with name starts with." + prefix);
   }
+  StringRef prefix;
 };
 } // namespace
 
@@ -54,14 +55,11 @@ struct EliminateUselessOpPass
     MLIRContext *context = &getContext();
 
     RewritePatternSet patterns(context);
-    patterns.add<EleminateTorchProfilerOp>(context);
+    // Eliminate torch.profiler.xxx ops
+    patterns.add<EliminateTorchOperatorOpByPrefix>(context, "profiler.");
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
-    GreedyRewriteConfig config;
-    config.useTopDownTraversal = true;
-    config.maxIterations = GreedyRewriteConfig::kNoLimit;
-
-    if (failed(applyPatternsAndFoldGreedily(getOperation(), std::move(patterns),
-                                            config))) {
+    if (failed(applyPatternsAndFoldGreedily(getOperation(), frozenPatterns))) {
       return signalPassFailure();
     }
   }
