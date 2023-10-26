@@ -20,6 +20,7 @@
 #include "brt/core/common/utils/math_helper.h"
 #include "brt/core/ir/builder.h"
 #include "brt/core/ir/util.h"
+#include "byteir/Dialect/Ace/AceDialect.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -1148,6 +1149,93 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
   op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "tf.Where",
                                      ValueRange{entry_block->getArgument(0)},
                                      ValueRange{entry_block->getArgument(1)});
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+  return m.getAsOpaquePointer();
+}
+
+const void *CreateTFSelectOp(brt::ir::ByREBuilder &byre_builder,
+                             DTypeEnum dtype,
+                             const std::vector<int64_t> &cond_shape,
+                             const std::vector<int64_t> &input_shape) {
+  mlir::ModuleOp m = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+  ctx->loadDialect<ace::AceDialect>();
+
+  auto cond_mlir_type = ConvertDTypeToMLIRType(DTypeEnum::Bool, ctx);
+  auto input_mlir_type = ConvertDTypeToMLIRType(dtype, ctx);
+  auto cond_type = MemRefType::get(cond_shape, cond_mlir_type);
+  auto input_type = MemRefType::get(input_shape, input_mlir_type);
+  auto output_type = MemRefType::get(input_shape, input_mlir_type);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{cond_type, AT::Input, "Cond"},
+               {input_type, AT::Input, "A"},
+               {input_type, AT::Input, "B"},
+               {output_type, AT::Output, "C"}});
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+  op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "tf.Select",
+                                     ValueRange{entry_block->getArgument(0),
+                                                entry_block->getArgument(1),
+                                                entry_block->getArgument(2)},
+                                     ValueRange{entry_block->getArgument(3)});
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+  return m.getAsOpaquePointer();
+}
+
+const void *CreateTFStringToNumberOp(brt::ir::ByREBuilder &byre_builder,
+                                     DTypeEnum InType, DTypeEnum OutType,
+                                     const std::vector<int64_t> &input_shape) {
+  mlir::ModuleOp m = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+  ctx->loadDialect<ace::AceDialect>();
+
+  auto input_mlir_type = ConvertDTypeToMLIRType(InType, ctx);
+  auto output_mlir_type = ConvertDTypeToMLIRType(OutType, ctx);
+  auto input_type = MemRefType::get(input_shape, input_mlir_type);
+  auto output_type = MemRefType::get(input_shape, output_mlir_type);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{input_type, AT::Input, "A"}, {output_type, AT::Output, "B"}});
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+  auto stringToNumberOp = op_builder.create<byre::ComputeOp>(
+      UnknownLoc::get(ctx), "tf.StringToNumber",
+      ValueRange{entry_block->getArgument(0)},
+      ValueRange{entry_block->getArgument(1)});
+  std::string converted_type_str;
+  switch (OutType) {
+  case DTypeEnum::Int32: {
+    converted_type_str = "i32";
+    break;
+  }
+  case DTypeEnum::Int64: {
+    converted_type_str = "i64";
+    break;
+  }
+  case DTypeEnum::Float32: {
+    converted_type_str = "f32";
+    break;
+  }
+  case DTypeEnum::Float64: {
+    converted_type_str = "f64";
+    break;
+  }
+  default: {
+    BRT_THROW("tf.StringToNumber Op get an unsupport type.");
+    break;
+  }
+  }
+  stringToNumberOp->setAttr("out_type",
+                            op_builder.getStringAttr(converted_type_str));
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
   return m.getAsOpaquePointer();
 }
