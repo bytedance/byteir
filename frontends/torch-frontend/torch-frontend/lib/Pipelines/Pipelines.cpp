@@ -74,6 +74,10 @@ void mlir::torch_frontend::createTorchscriptToTorchPipeline(
 
 void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
     OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  // remove useless ops
+  pm.addNestedPass<func::FuncOp>(createEliminateUselessOpPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   // Unpack return values
   pm.addNestedPass<func::FuncOp>(createUnpackPublicFunctionReturnPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
