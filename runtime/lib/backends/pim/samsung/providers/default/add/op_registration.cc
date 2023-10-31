@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- op_registration.cc -------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,26 +15,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_PASSES
-#define TORCH_FRONTEND_CONVERSION_PASSES
+#include "brt/backends/pim/samsung/providers/default/add/op_registration.h"
 
-#include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToHBMCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToStablehloExt.h"
-#include "torch-frontend/Conversion/FuseOpOnTorch.h"
 
-namespace mlir {
+#include "brt/core/framework/kernel_registry.h"
 
-class Module;
+namespace brt {
+namespace pim {
+namespace upmem {
 
-namespace func {
-class FuncOp;
-} // namespace func
-
-// Generate the code for registering conversion passes.
-#define GEN_PASS_REGISTRATION
-#include "torch-frontend/Conversion/Passes.h.inc"
-
-} // namespace mlir
-
-#endif // TORCH_FRONTEND_CONVERSION_PASSES
+template <typename T> void RegisterAddOps(KernelRegistry *registry) {
+  registry->Register(
+      "pytorch.add_hbm",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::make_shared<GeMVOPKernel<T>>(info);
+      });
+}
+} // namespace upmem
+} // namespace pim
+} // namespace brt

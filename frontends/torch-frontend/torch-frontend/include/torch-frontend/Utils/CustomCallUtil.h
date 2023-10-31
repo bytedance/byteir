@@ -22,9 +22,53 @@
 
 #define CUSTOM_CALL_NAME_PREFIX "byteir."
 #define TF_NAME_PREFIX "tf."
+#define PYTORCH_NAME_PREFIX "pytorch."
 
 namespace mlir {
 
+
+constexpr llvm::StringRef getAddHBMName() { return     PYTORCH_NAME_PREFIX  "add_hbm"; }
+constexpr llvm::StringRef getAddScalarHBMName() { return PYTORCH_NAME_PREFIX  "add_scalar_hbm"; }
+constexpr llvm::StringRef getSubHBMName() { return   PYTORCH_NAME_PREFIX      "sub_hbm"; }
+constexpr llvm::StringRef getMulHBMName() { return   PYTORCH_NAME_PREFIX   "mul_hbm"; }
+constexpr llvm::StringRef getDivHBMName() { return   PYTORCH_NAME_PREFIX "div_hbm"; }
+constexpr llvm::StringRef getRsqrtHBMName() { return PYTORCH_NAME_PREFIX   "rsqrt_hbm"; }
+constexpr llvm::StringRef getTanhHBMName() { return  PYTORCH_NAME_PREFIX  "tanh_hbm"; }
+constexpr llvm::StringRef getReluHBMName() { return  PYTORCH_NAME_PREFIX   "relu_hbm"; }
+
+
+
+constexpr llvm::StringRef getAddUpmemName() {
+  return PYTORCH_NAME_PREFIX "add_upmem";
+}
+constexpr llvm::StringRef getAddScalarUpmemName(){
+  return PYTORCH_NAME_PREFIX "add_scalar_upmem";
+}
+constexpr llvm::StringRef getSubUpmemName() {
+  return PYTORCH_NAME_PREFIX "sub_upmem";
+}
+constexpr llvm::StringRef getMulUpmemName() {
+  return PYTORCH_NAME_PREFIX "mul_upmem";
+}
+constexpr llvm::StringRef getDivUpmemName() {
+  return PYTORCH_NAME_PREFIX "div_upmem";
+}
+constexpr llvm::StringRef getRsqrtUpmemName() {
+  return PYTORCH_NAME_PREFIX "rsqrt_upmem";
+}
+constexpr llvm::StringRef getTanhUpmemName() {
+  return PYTORCH_NAME_PREFIX "tanh_upmem";
+}
+constexpr llvm::StringRef getReluUpmemName() {
+  return PYTORCH_NAME_PREFIX "relu_upmem";
+}
+constexpr llvm::StringRef getSoftmaxUpmemName() {
+  return PYTORCH_NAME_PREFIX "softmax_upmem";
+}
+
+constexpr llvm::StringRef getGemvUpmemName() {
+  return PYTORCH_NAME_PREFIX "gemv_upmem";
+} 
 constexpr llvm::StringRef getCustomCallAttrName() { return "byteir_attrs"; }
 
 constexpr llvm::StringRef getNonZeroName() {

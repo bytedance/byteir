@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- op_registration.h --------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,26 +15,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_PASSES
-#define TORCH_FRONTEND_CONVERSION_PASSES
+#pragma once
 
-#include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToHBMCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToStablehloExt.h"
-#include "torch-frontend/Conversion/FuseOpOnTorch.h"
-
-namespace mlir {
-
-class Module;
-
-namespace func {
-class FuncOp;
-} // namespace func
-
-// Generate the code for registering conversion passes.
-#define GEN_PASS_REGISTRATION
-#include "torch-frontend/Conversion/Passes.h.inc"
-
-} // namespace mlir
-
-#endif // TORCH_FRONTEND_CONVERSION_PASSES
+namespace brt {
+class KernelRegistry;
+namespace pim {
+namespace hbm {
+void RegisterADDOps(KernelRegistry *registry);
+} // namespace upmem
+} // namespace pim
+} // namespace brt

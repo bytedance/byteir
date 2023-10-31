@@ -12,6 +12,16 @@ def ConvertTorchToCustomCall : Pass<"convert-torch-to-custom-call", "func::FuncO
   let constructor = "mlir::createConvertTorchToCustomCall()";
 }
 
+
+//===----------------------------------------------------------------------===//
+// ConvertTorchToHBMCustomCall
+//===----------------------------------------------------------------------===//
+
+def ConvertTorchToHBMCustomCall : Pass<"convert-torch-to-hbm-custom-call", "func::FuncOp"> {
+  let summary = "convert torch ops to byteir custom call.";
+  let constructor = "mlir::createConvertTorchToHBMCustomCall()";
+}
+
 //===----------------------------------------------------------------------===//
 // ConvertTorchToStablehloExt
 //===----------------------------------------------------------------------===//

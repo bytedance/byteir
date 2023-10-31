@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- cuda_work_queue.cc -------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,26 +15,29 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_PASSES
-#define TORCH_FRONTEND_CONVERSION_PASSES
+#include "brt/backends/pim/samsung/device/HBM_worker_queue.h"
 
-#include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToHBMCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToStablehloExt.h"
-#include "torch-frontend/Conversion/FuseOpOnTorch.h"
+#include <dpu.h>
 
-namespace mlir {
+#include "brt/core/common/common.h"
 
-class Module;
+using namespace brt;
+using namespace brt::common;
+using namespace brt::pim::upmem;
 
-namespace func {
-class FuncOp;
-} // namespace func
+namespace brt {
+namespace pim {
 
-// Generate the code for registering conversion passes.
-#define GEN_PASS_REGISTRATION
-#include "torch-frontend/Conversion/Passes.h.inc"
+// common utilities
+namespace {
 
-} // namespace mlir
+common::Status HBMWorkQueue::AddTask(int task_type, const void *func,
+                                     void **args) {
 
-#endif // TORCH_FRONTEND_CONVERSION_PASSES
+  return Status(BRT, FAIL,
+                "unsupported task type " + std::to_string(task_type));
+}
+} // namespace
+
+} // namespace pim
+} // namespace brt

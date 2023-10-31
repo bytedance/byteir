@@ -4,6 +4,7 @@ add_public_tablegen_target(FuseOpOnTorchPatternIncGen)
 
 add_mlir_library(TorchFrontendConversion
   ConvertTorchToCustomCall.cpp
+  ConvertTorchToHBMCustomCall.cpp
   ConvertTorchToStablehloExt.cpp
   FuseOpOnTorch.cpp
 

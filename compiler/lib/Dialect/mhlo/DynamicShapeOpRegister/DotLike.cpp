@@ -180,7 +180,7 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
 
 void mlir::registerGeMVReifyReturnTypeShapes() {
   static ReifyReturnTypeShapesRegistration shapeRegister(
-      getGeMVUpmemName(), [](Operation *op, OpBuilder &builder, ValueRange operands,
+      getGemvUpmemName(), [](Operation *op, OpBuilder &builder, ValueRange operands,
                          SmallVectorImpl<::mlir::Value> &reifiedReturnShapes) {
         Value dataShape =
             builder.create<shape::ShapeOfOp>(op->getLoc(), operands[0]);
@@ -191,7 +191,7 @@ void mlir::registerGeMVReifyReturnTypeShapes() {
 
 void mlir::registerGeMVInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
-      getGeMVUpmemName(),
+      getGemvUpmemName(),
       [](MLIRContext *context, std::optional<Location> loc,
          ValueShapeRange operands, DictionaryAttr attr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
