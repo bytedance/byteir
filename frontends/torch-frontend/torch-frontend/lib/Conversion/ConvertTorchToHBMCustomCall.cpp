@@ -55,80 +55,80 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
   return attrs;
 }
 
-template <typename OP>
-mhlo::ConstantOp createInitialValueForReduceOp(PatternRewriter &rewriter,
-                                               Location loc, Type elementTy);
+// template <typename OP>
+// mhlo::ConstantOp createInitialValueForReduceOp(PatternRewriter &rewriter,
+//                                                Location loc, Type elementTy);
 
-template <>
-mhlo::ConstantOp
-createInitialValueForReduceOp<mhlo::MaxOp>(PatternRewriter &rewriter,
-                                           Location loc, Type elementTy) {
-  auto constType = RankedTensorType::get({}, elementTy);
-  if (elementTy.isa<mlir::FloatType>()) {
-    auto constAttr = DenseElementsAttr::get(
-        constType,
-        {APFloat::getInf(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
-                         /*negative=*/true)});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
-  } else if (elementTy.isa<mlir::IntegerType>() &&
-             elementTy.getIntOrFloatBitWidth() != 8) {
-    auto constAttr = DenseElementsAttr::get(
-        constType,
-        {APInt::getSignedMinValue(elementTy.getIntOrFloatBitWidth())});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
-  }
-  assert(false && "unimplemented lowering in createInitialValueForReduceOp");
-  return nullptr;
-}
+// template <>
+// mhlo::ConstantOp
+// createInitialValueForReduceOp<mhlo::MaxOp>(PatternRewriter &rewriter,
+//                                            Location loc, Type elementTy) {
+//   auto constType = RankedTensorType::get({}, elementTy);
+//   if (elementTy.isa<mlir::FloatType>()) {
+//     auto constAttr = DenseElementsAttr::get(
+//         constType,
+//         {APFloat::getInf(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+//                          /*negative=*/true)});
+//     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+//   } else if (elementTy.isa<mlir::IntegerType>() &&
+//              elementTy.getIntOrFloatBitWidth() != 8) {
+//     auto constAttr = DenseElementsAttr::get(
+//         constType,
+//         {APInt::getSignedMinValue(elementTy.getIntOrFloatBitWidth())});
+//     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+//   }
+//   assert(false && "unimplemented lowering in createInitialValueForReduceOp");
+//   return nullptr;
+// }
 
-template <>
-mhlo::ConstantOp
-createInitialValueForReduceOp<mhlo::AddOp>(PatternRewriter &rewriter,
-                                           Location loc, Type elementTy) {
-  auto constType = RankedTensorType::get({}, elementTy);
-  if (elementTy.isa<mlir::FloatType>()) {
-    auto constAttr = DenseElementsAttr::get(
-        constType,
-        {APFloat::getZero(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
-                          /*negative=*/false)});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
-  } else if (elementTy.isa<mlir::IntegerType>() &&
-             elementTy.getIntOrFloatBitWidth() != 8) {
-    auto constAttr = DenseElementsAttr::get(
-        constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
-    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
-  }
-  assert(false && "unimplemented lowering in createInitialValueForReduceOp");
-  return nullptr;
-}
+// template <>
+// mhlo::ConstantOp
+// createInitialValueForReduceOp<mhlo::AddOp>(PatternRewriter &rewriter,
+//                                            Location loc, Type elementTy) {
+//   auto constType = RankedTensorType::get({}, elementTy);
+//   if (elementTy.isa<mlir::FloatType>()) {
+//     auto constAttr = DenseElementsAttr::get(
+//         constType,
+//         {APFloat::getZero(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+//                           /*negative=*/false)});
+//     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+//   } else if (elementTy.isa<mlir::IntegerType>() &&
+//              elementTy.getIntOrFloatBitWidth() != 8) {
+//     auto constAttr = DenseElementsAttr::get(
+//         constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
+//     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+//   }
+//   assert(false && "unimplemented lowering in createInitialValueForReduceOp");
+//   return nullptr;
+// }
 
-template <typename OP>
-mhlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter, Location loc,
-                                    Value input,
-                                    llvm::SmallVector<int64_t> dims) {
-  llvm::sort(dims.begin(), dims.end());
-  auto inputType = input.getType().cast<RankedTensorType>();
-  mhlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
-      rewriter, loc, inputType.getElementType());
-  mhlo::ReduceOp reduceOp = rewriter.create<mhlo::ReduceOp>(
-      loc, input, initValue.getOutput(), rewriter.getI64TensorAttr(dims));
+// template <typename OP>
+// mhlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter, Location loc,
+//                                     Value input,
+//                                     llvm::SmallVector<int64_t> dims) {
+//   llvm::sort(dims.begin(), dims.end());
+//   auto inputType = input.getType().cast<RankedTensorType>();
+//   mhlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
+//       rewriter, loc, inputType.getElementType());
+//   mhlo::ReduceOp reduceOp = rewriter.create<mhlo::ReduceOp>(
+//       loc, input, initValue.getOutput(), rewriter.getI64TensorAttr(dims));
 
-  Block &block = reduceOp.getBody().emplaceBlock();
-  auto blockArgumentTy = RankedTensorType::get({}, inputType.getElementType());
-  block.addArgument(blockArgumentTy, loc);
-  block.addArgument(blockArgumentTy, loc);
-  auto firstArgument = *block.args_begin();
-  auto secondArgument = *block.args_rbegin();
-  {
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointToStart(&block);
-    Value result = rewriter.create<OP>(loc, blockArgumentTy, firstArgument,
-                                       secondArgument);
-    rewriter.create<mhlo::ReturnOp>(loc, result);
-  }
+//   Block &block = reduceOp.getBody().emplaceBlock();
+//   auto blockArgumentTy = RankedTensorType::get({}, inputType.getElementType());
+//   block.addArgument(blockArgumentTy, loc);
+//   block.addArgument(blockArgumentTy, loc);
+//   auto firstArgument = *block.args_begin();
+//   auto secondArgument = *block.args_rbegin();
+//   {
+//     OpBuilder::InsertionGuard guard(rewriter);
+//     rewriter.setInsertionPointToStart(&block);
+//     Value result = rewriter.create<OP>(loc, blockArgumentTy, firstArgument,
+//                                        secondArgument);
+//     rewriter.create<mhlo::ReturnOp>(loc, result);
+//   }
 
-  return reduceOp;
-}
+//   return reduceOp;
+// }
 
 Value promoteType(Location loc, Value input, TensorType desiredType,
                   PatternRewriter &rewriter) {
@@ -165,8 +165,8 @@ public:
       return op.emitError("could not convert output types");
     }
     std::vector<NamedAttribute> byteir_attrs;
-    byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
-                              rewriter.getI64ArrayAttr({}));
+    // byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
+    //                           rewriter.getI64ArrayAttr({}));
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
                        rewriter.getStringAttr(getAddHBMName()));
@@ -183,79 +183,81 @@ public:
 } // namespace
 
 // // torch.aten.add.Int
-// namespace {
-// class ConvertAtenAddIntOp : public OpConversionPattern<AtenAddIntOp> {
-// public:
-//   using OpConversionPattern::OpConversionPattern;
-//   LogicalResult
-//   matchAndRewrite(AtenAddIntOp op, OpAdaptor adaptor,
-//                   ConversionPatternRewriter &rewriter) const override {
+namespace {
+class ConvertAtenAddIntOp : public OpConversionPattern<AtenAddIntOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenAddIntOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
 
-//     auto operands = adaptor.getOperands();
-//     Value a = operands[0];
-//     Value b = operands[1];
-//     auto aType = a.getType().template cast<RankedTensorType>();
-//     auto bType = b.getType().template cast<RankedTensorType>();
-//     SmallVector<Value> bufferArgs({a, b});
-//     SmallVector<Type> resultTypes;
-//     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
-//                                                 resultTypes))) {
-//       return op.emitError("could not convert output types");
-//     }
-//     std::vector<NamedAttribute> byteir_attrs;
-//     byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
-//                               rewriter.getI64ArrayAttr({}));
-//     auto attrs = getDefaultAttrs(rewriter);
-//     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-//                        rewriter.getStringAttr(getAddScalarHBMName()));
-//     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-//                        rewriter.getDictionaryAttr(byteir_attrs));
-//     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
-//         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-//     rewriter.replaceOp(op, customCallOp->getResults());
-//     return success();
-//   }
-// };
+    auto operands = adaptor.getOperands();
+    Value a = operands[0];
+    Value b = operands[1];
+    auto aType = a.getType().template cast<RankedTensorType>();
+    // auto bType = b.getType().template cast<RankedTensorType>();
+    SmallVector<Value> bufferArgs({a, b});
+    SmallVector<Type> resultTypes;
+    if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
+                                                resultTypes))) {
+      return op.emitError("could not convert output types");
+    }
+    std::vector<NamedAttribute> byteir_attrs;
 
-// } // namespace
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getAddScalarHBMName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+    
+    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+            customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+
+} // namespace
 
 // //torch.aten.add.float
-// namespace {
-// class ConvertAtenAddScalarOp : public OpConversionPattern<AtenAddScalarOp> {
-// public:
-//   using OpConversionPattern::OpConversionPattern;
-//   LogicalResult
-//   matchAndRewrite(AtenAddScalarOp op, OpAdaptor adaptor,
-//                   ConversionPatternRewriter &rewriter) const override {
+namespace {
+class ConvertAtenAddScalarOp : public OpConversionPattern<AtenAddScalarOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenAddScalarOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
 
-//     auto operands = adaptor.getOperands();
-//     Value a = operands[0];
-//     Value b = operands[1];
-//     auto aType = a.getType().template cast<RankedTensorType>();
-//     auto bType = b.getType().template cast<RankedTensorType>();
-//     SmallVector<Value> bufferArgs({a, b});
-//     SmallVector<Type> resultTypes;
-//     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
-//                                                 resultTypes))) {
-//       return op.emitError("could not convert output types");
-//     }
-//     std::vector<NamedAttribute> byteir_attrs;
-//     byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
-//                               rewriter.getI64ArrayAttr({}));
-//     auto attrs =
-//         getDefaultAttrs(rewriter); // TODO: add float add scalar custom op  
-//     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-//                        rewriter.getStringAttr(getAddScalarHBMName()));
-//     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-//                         rewriter.getDictionaryAttr(byteir_attrs));  
-//     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
-//         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-//     rewriter.replaceOp(op, customCallOp->getResults());
-//     return success();
-//   }
-// };
+    auto operands = adaptor.getOperands();
+    Value a = operands[0];
+    Value b = operands[1];
+    auto aType = a.getType().template cast<RankedTensorType>();
+    // auto bType = b.getType().template cast<RankedTensorType>();
+    SmallVector<Value> bufferArgs({a, b});
+    SmallVector<Type> resultTypes;
+    if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
+                                                resultTypes))) {
+      return op.emitError("could not convert output types");
+    }
+    std::vector<NamedAttribute> byteir_attrs;
+    // byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
+    //                           rewriter.getI64ArrayAttr({}));
+    auto attrs =
+        getDefaultAttrs(rewriter); // TODO: add float add scalar custom op  
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getAddScalarHBMName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                        rewriter.getDictionaryAttr(byteir_attrs));  
+    auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+            customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
   
-//   } // namespace
+  } // namespace
 
 
 
@@ -272,8 +274,8 @@ public:
     auto operands = adaptor.getOperands();
     Value a = operands[0];
     Value b = operands[1];
-    auto aType = a.getType().template cast<RankedTensorType>();
-    auto bType = b.getType().template cast<RankedTensorType>();
+    // auto aType = a.getType().template cast<RankedTensorType>();
+    // auto bType = b.getType().template cast<RankedTensorType>();
     SmallVector<Value> bufferArgs({a, b});
     SmallVector<Type> resultTypes;
     if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
@@ -405,8 +407,8 @@ public:
 
     target.addIllegalOp<AtenAddTensorOp>();
     patterns.add<ConvertAtenAddTensorOp>(typeConverter, context);
-    // target.addIllegalOp<AtenAddIntOp>();  
-    // patterns.add<ConvertAtenAddIntOp>(typeConverter, context);
+    target.addIllegalOp<AtenAddIntOp>();  
+    patterns.add<ConvertAtenAddIntOp>(typeConverter, context);
     // target.addIllegalOp<AtenAddScalarOp>();
     // patterns.add<ConvertAtenAddScalarOp>(typeConverter, context);
 

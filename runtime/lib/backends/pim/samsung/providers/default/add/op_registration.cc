@@ -16,21 +16,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/backends/pim/samsung/providers/default/add/op_registration.h"
-
-
+#include"./elementwise_ops.h"
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
 namespace pim {
-namespace upmem {
+namespace hbm {
 
 template <typename T> void RegisterAddOps(KernelRegistry *registry) {
   registry->Register(
       "pytorch.add_hbm",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<GeMVOPKernel<T>>(info);
+        return std::make_shared<Add<T>>(info);
       });
 }
-} // namespace upmem
+} // namespace hbm
 } // namespace pim
 } // namespace brt

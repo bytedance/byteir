@@ -22,6 +22,6 @@ class KernelRegistry;
 namespace pim {
 namespace hbm {
 void RegisterADDOps(KernelRegistry *registry);
-} // namespace upmem
+} // namespace hbm
 } // namespace pim
 } // namespace brt
