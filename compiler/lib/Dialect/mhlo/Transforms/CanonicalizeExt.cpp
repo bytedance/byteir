@@ -32,6 +32,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <numeric>
@@ -1009,6 +1010,34 @@ template <typename T> struct Xor {
   T operator()(const T &a, const T &b) const { return a ^ b; }
 };
 
+template <typename T, typename = void> struct Pow;
+
+// note: the power op in XLA will return 0 in case of power(-1,-n), where n>0.
+template <typename T>
+struct Pow<T, std::enable_if_t<std::is_same_v<T, APSInt>>> {
+  T operator()(const T &a, const T &b) const {
+    int64_t aPromoted = a.getSExtValue();
+    int64_t bPromoted = b.getSExtValue();
+    auto bitWidth = a.getBitWidth();
+    APInt res_(bitWidth, std::pow(aPromoted, bPromoted), true);
+    T res(res_);
+    return res;
+  }
+};
+
+template <typename T>
+struct Pow<T, std::enable_if_t<std::is_same_v<T, APFloat>>> {
+  T operator()(const T &a, const T &b) const {
+    double aPromoted = a.convertToDouble();
+    double bPromoted = b.convertToDouble();
+    auto &semantics = a.getSemantics();
+    bool loses_info;
+    T res(std::pow(aPromoted, bPromoted));
+    res.convert(semantics, APFloat::rmNearestTiesToEven, &loses_info);
+    return res;
+  }
+};
+
 } // namespace
 
 template <typename Op, template <typename> typename Func>
@@ -1771,6 +1800,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::RemOp, Remainder>);
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MaxOp, Max>);
   patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MinOp, Min>);
+  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::PowOp, Pow>);
   patterns.add(mlir::mhlo::foldLargeCompareOp);
   patterns.add(mlir::mhlo::foldLargeSliceOp);
   patterns.add(mlir::mhlo::foldTransposeNonSplat);

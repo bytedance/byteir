@@ -45,4 +45,9 @@ def UnpackPublicFunctionReturn : Pass<"unpack-public-function-return", "func::Fu
   let constructor = "mlir::createUnpackPublicFunctionReturnPass()";
 }
 
+def EliminateUselessOp : Pass<"eliminate-useless-op", "func::FuncOp"> {
+  let summary = "eliminate useless op before entering converion pass, i.e., torch.profiler.";
+  let constructor = "mlir::createEliminateUselessOpPass()";
+}
+
 #endif // TORCH_FRONTEND_TRANSFORMS_PASSES_TD
