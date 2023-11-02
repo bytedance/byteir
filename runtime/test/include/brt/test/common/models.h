@@ -132,6 +132,15 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum input_dtype,
                             const std::vector<int64_t> &shape);
 
+const void *CreateTFSelectOp(brt::ir::ByREBuilder &byre_builder,
+                             DTypeEnum dtype,
+                             const std::vector<int64_t> &cond_shape,
+                             const std::vector<int64_t> &input_shape);
+
+const void *CreateTFStringToNumberOp(brt::ir::ByREBuilder &byre_builder,
+                                     DTypeEnum InType, DTypeEnum OutType,
+                                     const std::vector<int64_t> &input_shape);
+
 const void *
 CreateWithEntryAttrs(brt::ir::ByREBuilder &byre_builder, DTypeEnum input_dtype,
                      const std::vector<int64_t> &shape,

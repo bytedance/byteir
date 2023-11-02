@@ -18,6 +18,8 @@
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 
 #include "./custom_call/tf_equal.h"
+#include "./custom_call/tf_select.h"
+#include "./custom_call/tf_stringToNumber.h"
 #include "./custom_call/tf_where.h"
 #include "./custom_call/topk.h"
 #include "./llvm/jit.h"
@@ -98,6 +100,16 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "byteir.top_k",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::TopK>(info);
+          });
+      registry->Register(
+          "tf.Select",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::TFSelect>(info);
+          });
+      registry->Register(
+          "tf.StringToNumber",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::TFStringToNumber>(info);
           });
       RegisterCommonBuiltinOps(registry);
     });
