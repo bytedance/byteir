@@ -16,9 +16,12 @@ namespace hbm {
  */
 template <typename T> class Add final : public OpKernel {
 public:
-  explicit Add(const OpKernelInfo &info) : OpKernel(info) {}
+  explicit Add(const OpKernelInfo &info) ;
 
   common::Status RunImpl(const ExecutionContext &) override;
+    common::Status ProloguePerSession() override;
+
+  common::Status ProloguePerFrame(const ExecutionContext &) override;
 };
 
 } // namespace hbm

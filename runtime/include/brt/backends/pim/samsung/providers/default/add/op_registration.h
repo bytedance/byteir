@@ -21,7 +21,8 @@ namespace brt {
 class KernelRegistry;
 namespace pim {
 namespace hbm {
-void RegisterADDOps(KernelRegistry *registry);
+
+void RegisterMathOps(KernelRegistry *registry);
 } // namespace hbm
 } // namespace pim
 } // namespace brt

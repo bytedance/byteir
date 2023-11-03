@@ -28,6 +28,11 @@
 
 #include "brt/core/context/work_queue.h"
 
+#include "brt/backends/pim/samsung/providers/default/hbm_provider.h"
+#include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
+// #include "brt/backends/cuda/providers/default/cuda_provider.h"
+
+
 #ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
@@ -233,6 +238,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
              if (device != "CUDA") {
                throw std::runtime_error("unsupported device type " + device);
              }
+
 #ifdef BRT_USE_CUDA
              else {
                if (!alloc_f || !free_f) {
@@ -247,6 +253,9 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                }
              }
 #endif
+
+              auto provider = std::make_unique<HBMExecutionProvider>();
+                session->AddExecutionProvider(std::move(provider));
              return session;
            }),
            py::arg("device") = "CUDA", py::arg("alloc_func") = py::none(),
@@ -272,6 +281,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
               work_queue.reset(new CUDAWorkQueue(device_id));
             }
 #endif
+            
             return std::make_unique<ReqeustContextWithSession>(
                 session, work_queue.release());
           },

@@ -26,6 +26,7 @@ enum class GraphClusteringAlgo : uint32_t {
   kFallback = 0,
   kTopDown = 1,
   kBottomUp = 2,
+  kCustom = 3,
 };
 
 } // namespace mlir

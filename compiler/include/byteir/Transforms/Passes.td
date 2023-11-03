@@ -207,7 +207,8 @@ def GraphClusteringByDevice : Pass<"graph-clustering-by-device", "ModuleOp"> {
            [{llvm::cl::values(
               clEnumValN(mlir::GraphClusteringAlgo::kFallback, "Fallback", "Fallback clustering algorithm"),
               clEnumValN(mlir::GraphClusteringAlgo::kTopDown, "TopDown", "Create and merge device cluster progressively from top to bottom"),
-              clEnumValN(mlir::GraphClusteringAlgo::kBottomUp, "BottomUp", "Create and merge device cluster progressively from bottom to top")
+              clEnumValN(mlir::GraphClusteringAlgo::kBottomUp, "BottomUp", "Create and merge device cluster progressively from bottom to top"),
+              clEnumValN(mlir::GraphClusteringAlgo::kCustom, "Custom", "Custom clustering algorithm")
             )}]>
   ];
 }

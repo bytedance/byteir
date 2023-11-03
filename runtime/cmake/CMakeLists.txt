@@ -494,7 +494,7 @@ if(WIN32)
   list(APPEND brt_EXTERNAL_LIBRARIES ${SYS_PATH_LIB} Shlwapi)
   list(APPEND brt_EXTERNAL_LIBRARIES debug Dbghelp)
 else()
-  list(APPEND brt_EXTERNAL_LIBRARIES nsync_cpp)
+  list(APPEND brt_EXTERNAL_LIBRARIES nsync_cpp dramsim2)
   list(APPEND brt_EXTERNAL_LIBRARIES ${CMAKE_DL_LIBS} Threads::Threads)
 endif()
 

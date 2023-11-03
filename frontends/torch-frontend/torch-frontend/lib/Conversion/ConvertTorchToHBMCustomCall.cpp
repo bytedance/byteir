@@ -1,4 +1,5 @@
-//===- ConvertTorchToHBMCustomCall.cpp ---------------------------*--- C++ -*-===//
+//===- ConvertTorchToHBMCustomCall.cpp ---------------------------*--- C++
+//-*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -51,7 +52,7 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
                          mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL)));
   attrs.emplace_back(rewriter.getStringAttr("called_computations"),
                      rewriter.getArrayAttr({}));
-                    
+
   return attrs;
 }
 
@@ -114,8 +115,8 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
 //       loc, input, initValue.getOutput(), rewriter.getI64TensorAttr(dims));
 
 //   Block &block = reduceOp.getBody().emplaceBlock();
-//   auto blockArgumentTy = RankedTensorType::get({}, inputType.getElementType());
-//   block.addArgument(blockArgumentTy, loc);
+//   auto blockArgumentTy = RankedTensorType::get({},
+//   inputType.getElementType()); block.addArgument(blockArgumentTy, loc);
 //   block.addArgument(blockArgumentTy, loc);
 //   auto firstArgument = *block.args_begin();
 //   auto secondArgument = *block.args_rbegin();
@@ -209,10 +210,10 @@ public:
                        rewriter.getStringAttr(getAddScalarHBMName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
-    
+
     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-            customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+    customCallOp->setAttr("device", rewriter.getStringAttr("host"));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
@@ -233,6 +234,7 @@ public:
     Value a = operands[0];
     Value b = operands[1];
     auto aType = a.getType().template cast<RankedTensorType>();
+
     // auto bType = b.getType().template cast<RankedTensorType>();
     SmallVector<Value> bufferArgs({a, b});
     SmallVector<Type> resultTypes;
@@ -244,23 +246,41 @@ public:
     // byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
     //                           rewriter.getI64ArrayAttr({}));
     auto attrs =
-        getDefaultAttrs(rewriter); // TODO: add float add scalar custom op  
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getAddScalarHBMName()));
+        getDefaultAttrs(rewriter); // TODO: add float add scalar custom op
+    if ((a.getType()
+             .cast<ShapedType>()
+             .getElementType()
+             .isa<Float16Type>())) {
+      attrs.emplace_back(
+          rewriter.getStringAttr("call_target_name"),
+          rewriter.getStringAttr(getAddScalarHBMName() + ".fp16"));
+    } else if ((a.getType()
+                    .cast<ShapedType>()
+                    .getElementType()
+                    .isa<Float32Type>())) {
+
+      attrs.emplace_back(
+          rewriter.getStringAttr("call_target_name"),
+          rewriter.getStringAttr(getAddScalarHBMName() + ".fp32"));
+    } else {
+      attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                         rewriter.getStringAttr(getAddScalarHBMName()));
+    }
+
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                        rewriter.getDictionaryAttr(byteir_attrs));  
+                       rewriter.getDictionaryAttr(byteir_attrs));
     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-            customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+
+    // if type is  float
+
+    customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
 };
-  
-  } // namespace
 
-
-
+} // namespace
 
 // torch.aten.add.Tensor
 namespace {
@@ -274,7 +294,7 @@ public:
     auto operands = adaptor.getOperands();
     Value a = operands[0];
     Value b = operands[1];
-    // auto aType = a.getType().template cast<RankedTensorType>();
+    auto aType = a.getType().template cast<RankedTensorType>();
     // auto bType = b.getType().template cast<RankedTensorType>();
     SmallVector<Value> bufferArgs({a, b});
     SmallVector<Type> resultTypes;
@@ -283,17 +303,47 @@ public:
       return op.emitError("could not convert output types");
     }
     std::vector<NamedAttribute> byteir_attrs;
-    byteir_attrs.emplace_back(rewriter.getStringAttr("broadcast_dims"),
-                              rewriter.getI64ArrayAttr({}));
+
+    byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
+                              rewriter.getStringAttr("cpu"));
     auto attrs = getDefaultAttrs(rewriter);
 
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getAddHBMName()));
+    // check if a is float
+ if ((a.getType()
+             .cast<ShapedType>()
+             .getElementType()
+             .isa<Float16Type>())) {
+      attrs.emplace_back(
+          rewriter.getStringAttr("call_target_name"),
+          rewriter.getStringAttr(getAddHBMName() + ".fp16"));
+    } else if ((a.getType()
+                    .cast<ShapedType>()
+                    .getElementType()
+                    .isa<Float32Type>())) {
+
+      attrs.emplace_back(
+          rewriter.getStringAttr("call_target_name"),
+          rewriter.getStringAttr(getAddHBMName() + ".fp32"));
+    } else {
+      attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                         rewriter.getStringAttr(getAddHBMName()));
+    }
+
+    //         if (a.getType()
+    //              .cast<ShapedType>()
+    //              .getElementType()
+    //              .isa<FloatType>()) {
+    //    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+    //                      rewriter.getStringAttr(getAddScalarHBMName()+".float"));
+    //   } else {
+    //  attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+    //                      rewriter.getStringAttr(getAddScalarHBMName()));
+    //   }
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-            customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+    customCallOp->setAttr("device", rewriter.getStringAttr("cpu"));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
@@ -398,7 +448,6 @@ public:
 
     RewritePatternSet patterns(context);
 
-    
     // target.addIllegalOp<AtenMatmulOp>();
     // patterns.add<ConvertAtenMatmulOp>(typeConverter, context);
 
@@ -407,11 +456,10 @@ public:
 
     target.addIllegalOp<AtenAddTensorOp>();
     patterns.add<ConvertAtenAddTensorOp>(typeConverter, context);
-    target.addIllegalOp<AtenAddIntOp>();  
+    target.addIllegalOp<AtenAddIntOp>();
     patterns.add<ConvertAtenAddIntOp>(typeConverter, context);
     // target.addIllegalOp<AtenAddScalarOp>();
     // patterns.add<ConvertAtenAddScalarOp>(typeConverter, context);
-
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {

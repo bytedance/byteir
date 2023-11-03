@@ -18,18 +18,33 @@
 #include "brt/backends/pim/samsung/providers/default/add/op_registration.h"
 #include"./elementwise_ops.h"
 #include "brt/core/framework/kernel_registry.h"
-
+// #include "half.h"
 namespace brt {
 namespace pim {
 namespace hbm {
-
-template <typename T> void RegisterAddOps(KernelRegistry *registry) {
+ void RegisterMathOps(KernelRegistry *registry) {
   registry->Register(
+      "pytorch.add_hbm.fp32",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+             auto kernel = std::shared_ptr<OpKernel>(new Add<float>(info));
+        return kernel;
+      });
+        registry->Register(
+      "pytorch.add_hbm.fp16",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+             auto kernel = std::shared_ptr<OpKernel>(new Add<float>(info));
+        return kernel;
+      });
+      registry->Register(
       "pytorch.add_hbm",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<Add<T>>(info);
+             auto kernel = std::shared_ptr<OpKernel>(new Add<int>(info));
+        return kernel;
       });
-}
+};
+
+
+
 } // namespace hbm
 } // namespace pim
 } // namespace brt
