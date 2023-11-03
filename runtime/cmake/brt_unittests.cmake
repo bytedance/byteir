@@ -53,6 +53,16 @@ file(GLOB brt_test_session_src CONFIGURE_DEPENDS
   ${brt_test_session_src_patterns}
 )
 
+## test distributed
+set(brt_test_distributed_src_patterns
+  "${TEST_SRC_DIR}/distributed/*.cc"
+  "${TEST_SRC_DIR}/distributed/*.h"
+)
+
+file(GLOB brt_test_distributed_src CONFIGURE_DEPENDS
+  ${brt_test_distributed_src_patterns}
+)
+
 ## test providers
 set(brt_test_providers_src "")
 
@@ -125,6 +135,7 @@ set(all_test
   ${brt_test_framework_src}
   ${brt_test_ir_src}
   ${brt_test_session_src}
+  ${brt_test_distributed_src}
   ${brt_test_providers_src}
   ${brt_unittest_main_src}
 )
