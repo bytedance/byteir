@@ -5,6 +5,7 @@
 
 #include "brt/backends/cuda/device/distributed/utils.h"
 #include "brt/backends/cuda/device/distributed/d_context_nccl.h"
+#include "brt/core/common/enums.h"
 
 namespace brt {
 

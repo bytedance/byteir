@@ -173,6 +173,8 @@ message("LIB_ROOT = ${LIB_ROOT}")
 set(CUTLASS_ROOT ${REPO_ROOT}/../external/cutlass)
 message("CUTLASS_ROOT = ${CUTLASS_ROOT}")
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/Modules)
+
 file (STRINGS "${REPO_ROOT}/VERSION_NUMBER" BRT_VERSION)
 
 # TODO: check if x86

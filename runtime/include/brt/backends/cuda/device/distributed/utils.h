@@ -6,6 +6,7 @@
 #pragma once
 
 #include "brt/core/common/common.h"
+#include "brt/core/common/enums.h"
 
 #include <iostream>
 

@@ -15,7 +15,7 @@
 
 namespace brt {
 
-class CudaContext : public Context {
+class CudaContext : public DContext {
 public:
   CudaContext(cudaStream_t stream) : m_stream{stream} {}
   static std::shared_ptr<CudaContext> make(cudaStream_t stream) {

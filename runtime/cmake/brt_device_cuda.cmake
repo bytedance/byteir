@@ -1,4 +1,6 @@
+find_package(nccl REQUIRED)
 include_directories("${CUTLASS_ROOT}/include")
+include_directories("${NCCL_INCLUDE_DIRS}")
 file(GLOB_RECURSE brt_device_cuda_srcs CONFIGURE_DEPENDS
   "${BRT_INCLUDE_DIR}/brt/backends/cuda/device/*.h"
   "${LIB_ROOT}/backends/cuda/device/*.cc"
@@ -7,7 +9,7 @@ file(GLOB_RECURSE brt_device_cuda_srcs CONFIGURE_DEPENDS
 source_group(TREE ${REPO_ROOT} FILES ${brt_device_cuda_srcs})
 
 brt_add_object_library(brt_device_cuda ${brt_device_cuda_srcs})
-target_link_libraries(brt_device_cuda CUDA::cuda_driver CUDA::cudart CUDA::nvrtc)
+target_link_libraries(brt_device_cuda CUDA::cuda_driver CUDA::cudart CUDA::nvrtc ${NCCL_LIBRARIES})
 brt_add_include_to_target(brt_device_cuda brt_framework brt_common)
 set_target_properties(brt_device_cuda PROPERTIES FOLDER "Brt")
 
