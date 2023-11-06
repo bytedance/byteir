@@ -86,7 +86,7 @@ SmallVector<bool> binaryElementwiseHandleFlag(Operation *op,
   if (left.size() != right.size()) {
     return SmallVector<bool>();
   }
-  SmallVector<bool> res(false, left.size());
+  SmallVector<bool> res(left.size(), false);
   for (size_t i = 0; i < left.size(); ++i) {
     res[i] = left[i] && right[i];
   }
