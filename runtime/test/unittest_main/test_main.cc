@@ -20,6 +20,7 @@
 #include "brt/test/common/env.h"
 #include "gtest/gtest.h"
 #include <memory>
+#include <stdlib.h>
 
 #define TEST_MAIN main
 
@@ -29,6 +30,8 @@ using namespace brt::test;
 int TEST_MAIN(int argc, char **argv) {
   Env *env = Env::GetInstance(); // will creat a singleton
   BRT_UNUSED_PARAMETER(env);
+
+  setenv("NCCL_SHM_DISABLE", "1", 0);
 
   auto err = brt::ExecutionProvider::StaticRegisterKernelsFromDynlib(
       "lib/libexternal_kernels.so");
