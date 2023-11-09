@@ -18,10 +18,18 @@
 #ifndef BYTEIR_DIALECT_BYRE_TRANSFORMS_PASSDETAIL_H
 #define BYTEIR_DIALECT_BYRE_TRANSFORMS_PASSDETAIL_H
 
+#include "byteir/Dialect/Ace/AceDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Pass/Pass.h"
 
 // forward dialects for conversions
 namespace mlir {
+namespace byre {
+class ByreDialect;
+namespace serialization {
+class ByreSerialDialect;
+} // namespace serialization
+} // namespace byre
 
 #define GEN_PASS_CLASSES
 #include "byteir/Dialect/Byre/Passes.h.inc"

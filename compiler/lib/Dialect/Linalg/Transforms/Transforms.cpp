@@ -938,10 +938,39 @@ mergeSliceOps(SmallVector<tensor::ExtractSliceOp> &sliceOps) {
         lowerBounds[idx] = newOffset;
         Value upperBound =
             builder.createOrFold<arith::AddIOp>(loc, offset, size);
-        Value newUpperBound = upperBounds[idx]
-                                  ? builder.createOrFold<arith::MaxSIOp>(
-                                        loc, upperBounds[idx], upperBound)
-                                  : upperBound;
+        Value newUpperBound;
+        // Reuse old upper bound if it's the same as the new upper bound.
+        // NOTE: This is just a folding rule for arith::MaxSI.
+        // This is useful for case like:
+        //   upperBound = arith::MaxSI(old, new)
+        //   extractSlice = tensor::expand_slice(%input)[..., upperBound,
+        //   ...][...] -> ?xf32
+        // which result shape is dynamic.
+        // if old == new, tensor::expand_slice would be static, if old can be
+        // fold to a constant
+        if (upperBounds[idx]) {
+          if (auto oldUpperBound =
+                  dyn_cast<arith::AddIOp>(upperBounds[idx].getDefiningOp())) {
+            bool sameOffset = oldUpperBound.getLhs() == offset;
+            auto sizeVal =
+                dyn_cast_or_null<arith::ConstantIndexOp>(size.getDefiningOp());
+            auto oldSizeVal = dyn_cast_or_null<arith::ConstantIndexOp>(
+                oldUpperBound.getRhs().getDefiningOp());
+            if (sizeVal && oldSizeVal && sameOffset &&
+                sizeVal.value() == oldSizeVal.value()) {
+              // newUpperBound == upperBound
+              newUpperBound = upperBound;
+            } else {
+              newUpperBound = builder.createOrFold<arith::MaxSIOp>(
+                  loc, upperBounds[idx], upperBound);
+            }
+          } else {
+            newUpperBound = builder.createOrFold<arith::MaxSIOp>(
+                loc, upperBounds[idx], upperBound);
+          }
+        } else {
+          newUpperBound = upperBound;
+        }
         upperBounds[idx] = newUpperBound;
       }
     }

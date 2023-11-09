@@ -17,19 +17,55 @@
 
 #pragma once
 
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
-#include <cmath>
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
+using namespace mlir;
 
 namespace onnx_frontend {
 
-bool EndsWith(const std::string& x, const std::string& y);
+class DictionaryAttrWrapper {
+public:
+  DictionaryAttrWrapper(MLIRContext *context)
+      : context(context), attrs(DictionaryAttr::get(context)) {}
 
-}  // namespace onnx_frontend
+  /// If the an attribute exists with the specified name, change it to the new
+  /// value. Otherwise, add a new attribute with the specified name/value.
+  void setAttr(StringAttr name, Attribute value) {
+    NamedAttrList attributes(attrs);
+    if (attributes.set(name, value) != value)
+      attrs = attributes.getDictionary(getContext());
+  }
+  void setAttr(StringRef name, Attribute value) {
+    setAttr(StringAttr::get(getContext(), name), value);
+  }
+
+  /// Return the context this operation is associated with.
+  MLIRContext *getContext() const { return context; }
+
+  /// Return all of the attributes on this operation as a DictionaryAttr.
+  DictionaryAttr getAttrDictionary() const { return attrs; }
+
+private:
+  MLIRContext *context;
+
+  /// This holds general named attributes for the operation.
+  DictionaryAttr attrs;
+};
+
+DictionaryAttr getCleanAttr(const DictionaryAttrWrapper &attrs);
+
+bool EndsWith(const std::string &x, const std::string &y);
+
+} // namespace onnx_frontend

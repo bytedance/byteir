@@ -1,0 +1,73 @@
+diff --git a/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp b/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp
+index 26c392b8..3eb8c45d 100644
+--- a/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp
++++ b/src/Conversion/ONNXToMhlo/Math/Elementwise.cpp
+@@ -293,6 +293,39 @@ struct ONNXElementwiseBinaryOpLoweringToMhlo : public ConversionPattern {
+   }
+ };
+ 
++// ONNXPReluOp(x) = alpha * x if x < 0 else x.
++template <>
++struct ONNXElementwiseBinaryOpLoweringToMhlo<ONNXPReluOp>
++    : public ConversionPattern {
++  ONNXElementwiseBinaryOpLoweringToMhlo(MLIRContext *ctx)
++      : ConversionPattern(ONNXPReluOp::getOperationName(), 1, ctx) {}
++  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
++      ConversionPatternRewriter &rewriter) const final {
++    Location loc = op->getLoc();
++    // Prior code here used the "analysis" version that did not generate code.
++    // Since code is actually not needed here at this time, one could use
++    // IndexExprBuilderForAnalysis createIE(loc) instead.
++    IndexExprBuilderForMhlo createShapeIE(rewriter, loc);
++    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
++    shapeHelper.computeShapeAndAssertOnFailure();
++
++    int64_t outputRank = shapeHelper.outputRank;
++    llvm::SmallVector<Value, 4> broadcastedOperands =
++        getBroadcastedOperands(op, rewriter, loc, outputRank);
++    Value inp = broadcastedOperands[0];
++    Value broadcastedSlope = broadcastedOperands[1];
++    Type resultType = *op->result_type_begin();
++    Value PReluActivationVal = rewriter.create<mhlo::MulOp>(loc, inp, broadcastedSlope);
++    Value broadcastedZero = getShapedZero(loc, rewriter, inp);
++    Value compareGtZero = rewriter.create<mhlo::CompareOp>(
++        loc, inp, broadcastedZero, mhlo::ComparisonDirection::GT);
++    Value resultOp = rewriter.create<mhlo::SelectOp>(
++        loc, resultType, compareGtZero, inp, PReluActivationVal);
++    rewriter.replaceOp(op, resultOp);
++    return success();
++  }
++};
++
+ // Element-wise variadic ops lowering to Mhlo dialect.
+ //===----------------------------------------------------------------------===//
+ template <typename ElementwiseVariadicOp>
+@@ -343,6 +376,7 @@ void populateLoweringONNXElementwiseOpToMhloPattern(
+       ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXLessOp>,
+       ONNXElementwiseCompareBinaryOpLoweringToMhlo<ONNXLessOrEqualOp>,
+       ONNXElementwiseBinaryOpLoweringToMhlo<ONNXPowOp>,
++      ONNXElementwiseBinaryOpLoweringToMhlo<ONNXPReluOp>,
+       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAddOp>,
+       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXAndOp>,
+       ONNXElementwiseVariadicOpLoweringToMhlo<ONNXDivOp>,
+diff --git a/test/mlir/conversion/onnx_to_mhlo/Math/Elementwise.mlir b/test/mlir/conversion/onnx_to_mhlo/Math/Elementwise.mlir
+index 834471e3..261aa444 100644
+--- a/test/mlir/conversion/onnx_to_mhlo/Math/Elementwise.mlir
++++ b/test/mlir/conversion/onnx_to_mhlo/Math/Elementwise.mlir
+@@ -275,6 +275,16 @@ func.func @test_leakyrelu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32>
+ 
+ // -----
+ 
++func.func @test_prelu_dynamic(%arg0 : tensor<?x10x12x12xf32>, %arg1: tensor<10x1x1xf32>) -> tensor<?x10x12x12xf32> {
++  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<?x10x12x12xf32>, tensor<10x1x1xf32>) -> tensor<?x10x12x12xf32>
++  "func.return"(%0) : (tensor<?x10x12x12xf32>) -> ()
++// CHECK-LABEL:  func.func @test_prelu_dynamic
++// CHECK-SAME:   (%arg0: tensor<?x10x12x12xf32>, %arg1: tensor<10x1x1xf32>) -> tensor<?x10x12x12xf32> {
++// CHECK:        [[VAR_0_:%.+]] = mhlo.multiply [[INP:%.+]], [[SLOPE:%.+]] : tensor<?x10x12x12xf32>
++// CHECK:        [[VAR_1_:%.+]] = mhlo.compare  GT, [[INP]], [[ZEROS:%.+]],  NOTYPE : (tensor<?x10x12x12xf32>, tensor<?x10x12x12xf32>) -> tensor<?x10x12x12xi1>
++// CHECK:        [[VAR_2_:%.+]] = mhlo.select [[VAR_1_]], [[INP]], [[VAR_0_]] : tensor<?x10x12x12xi1>, tensor<?x10x12x12xf32>
++}
++
+ func.func @test_neg(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+   %0 = "onnx.Neg"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+   "func.return"(%0) : (tensor<10x10xf32>) -> ()

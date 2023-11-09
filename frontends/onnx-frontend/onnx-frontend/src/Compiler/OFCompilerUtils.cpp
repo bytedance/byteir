@@ -74,10 +74,6 @@ void SetBatchSize(onnx::ModelProto &model) {
     const std::string &initializerName = initializer.name();
     initializerNames.insert(initializerName);
   }
-  std::map<std::string, int> valueInfoNameToIdx;
-  for (int i = 0; i < graph->value_info_size(); i++) {
-    valueInfoNameToIdx[graph->value_info(i).name()] = i;
-  }
   for (auto &input : *(graph->mutable_input())) {
     if (initializerNames.count(input.name()))
       continue;
@@ -100,24 +96,19 @@ void SetBatchSize(onnx::ModelProto &model) {
       dim->clear_dim_param();
       LLVM_DEBUG(llvm::dbgs() << "bs of " << input.name() << " set to "
                               << batchSize << "\n");
-      if (valueInfoNameToIdx.count(input.name())) {
-        int index = valueInfoNameToIdx[input.name()];
-        graph->mutable_value_info(index)->CopyFrom(input);
-      }
     } else {
       LLVM_DEBUG(llvm::dbgs() << "bs of " << input.name() << " remains "
                               << dim->dim_value() << "\n");
     }
   }
-  if (forceSetBatchSize) {
-    for (auto &output : *(graph->mutable_output())) {
-      auto *type = output.mutable_type();
-      if (type->value_case() != onnx::TypeProto::kTensorType) {
-        continue;
-      }
-      auto *tensorType = type->mutable_tensor_type();
-      tensorType->clear_shape();
+  graph->clear_value_info();
+  for (auto &output : *(graph->mutable_output())) {
+    auto *type = output.mutable_type();
+    if (type->value_case() != onnx::TypeProto::kTensorType) {
+      continue;
     }
+    auto *tensorType = type->mutable_tensor_type();
+    tensorType->clear_shape();
   }
 }
 

@@ -62,6 +62,40 @@ class HostPipelineCollections:
     ByreOutPipeline = functools.partial(OptPipeline, ByreOut, [], [])
     TotalPipeline = composePipelines([InputPipeline, HostOptPipeline, ToLLVMPipeline, ToLLVMIRPipeline], E2E, [])
 
+# for host pipelines
+class HostPipelineBytecodeCollections:
+    # stages
+    Input       = Stage("input",     "00_Input.mlir")
+    HostOpt     = Stage("host_opt",  "01_HostOpt.mlir")
+    ByreHost    = Stage("byre_host", "02a_ByreHost.mlir")
+    ByreSerial  = Stage("byre_out",  "03a_ByreSerial.mlir")
+    ToLLVM      = Stage("to_llvm",   "02b_ToLLVM.mlir")
+    ToLLVMIR    = Stage("to_llvmbc", "03b_ToLLVMBC.mlir")
+    MLIROut     = Stage("mlir_out",  "Output.mlirbc")
+    LLVMOut     = Stage("llvm_out",  "Output.bc")
+
+    # pipelines
+    InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
+        "--hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
+    ])
+    HostOptPipeline = functools.partial(OptPipeline, HostOpt, [ByreHost, ToLLVM], [
+        "--host-opt=\"file-name=host_kernels.bc\"", "--byre-opt",
+    ])
+    ToLLVMPipeline = functools.partial(OptPipeline, ToLLVM, [ToLLVMIR], [
+        "--to-llvm",
+    ])
+    ToLLVMBCPipeline = functools.partial(TranslatePipeline, ToLLVMIR, [LLVMOut], [
+        "--mlir-to-llvmbc",
+    ])
+    ByreHostPipeline = functools.partial(OptPipeline, ByreHost, [ByreSerial], [
+        "--collect-func=\"anchor-attr=byre.entry_point\"",
+        "-set-op-space=\"entry-func=main space=cpu\"",
+        "-set-arg-space=\"entry-func=main all-space=cpu\"",
+    ])
+    ByreSerialPipeline = functools.partial(OptPipeline, ByreSerial, [], [
+        "--dump-byre=\"file-name={}\"".format(MLIROut.filename),
+    ])
+
 # for e2e
 class E2ECollections:
     Input           = Stage("input",               "input.mlir")
@@ -120,12 +154,19 @@ class E2ECollections:
     ])
 
 def render(content, pipeline):
-    return "// RUN: {0} %s {1} | FileCheck %s\n\n{2}\n\n{3}".format(
-        pipeline.executable,
-        " ".join(pipeline.pipelines),
-        pipeline.filecheck.strip(),
-        content.strip()
-    ).strip()
+    if pipeline.filecheck is None:
+        return "// RUN: {0} %s {1}\n\n{2}".format(
+            pipeline.executable,
+            " ".join(pipeline.pipelines),
+            content.strip()
+        ).strip()
+    else:
+        return "// RUN: {0} %s {1} | FileCheck %s\n\n{2}\n\n{3}".format(
+            pipeline.executable,
+            " ".join(pipeline.pipelines),
+            pipeline.filecheck.strip(),
+            content.strip()
+        ).strip()
 
 def emitSingleTestcase(workdir, testcase):
     print("===- start processing {} -===".format(workdir))
@@ -139,9 +180,9 @@ def emitSingleTestcase(workdir, testcase):
         assert isinstance(pipeline, Pipeline), "item in testcase.pipelines must be a Pipeline"
         output = subprocess.check_output(' '.join([
             pipeline.executable, pipeline.cur_stage.filename, *pipeline.pipelines
-        ]), text=True, shell=True, env=dict(os.environ, PATH=BIN_DIR), cwd=workdir)
+        ]), text=False, shell=True, env=dict(os.environ, PATH=BIN_DIR), cwd=workdir)
         for next_stage in pipeline.next_stages:
-            with workdir.joinpath(next_stage.filename).open("w") as f:
+            with workdir.joinpath(next_stage.filename).open("wb") as f:
                 f.write(output)
 
         print("  emit {}".format(pipeline.cur_stage))
@@ -171,12 +212,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ByteIR testcases generator for consecutive pipelines")
     parser.add_argument("--top-dir", required=True, type=str, help="Top-level dir to search testcases")
     parser.add_argument("--template-file", type=str, default="template.py", help="Filename of the testcase template")
-    parser.add_argument("--category", type=str, choices=["E2E", "HostPipeline"], help="Category of testcases")
+    parser.add_argument("--category", type=str, choices=["E2E", "HostPipeline", "HostPipelineBytecode"], help="Category of testcases")
 
     args = parser.parse_args()
 
     if args.category == "HostPipeline":
         collections = HostPipelineCollections
+    elif args.category == "HostPipelineBytecode":
+        collections = HostPipelineBytecodeCollections
     elif args.category == "E2E":
         collections = E2ECollections
     else:

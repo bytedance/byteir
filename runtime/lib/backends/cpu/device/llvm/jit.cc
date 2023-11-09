@@ -137,6 +137,18 @@ createRTDyldObjectLinkingLayerWithGDBListner(llvm::orc::ExecutionSession &ES,
   return std::unique_ptr<llvm::orc::ObjectLayer>(std::move(Layer));
 }
 
+llvm::Expected<std::unique_ptr<llvm::orc::ObjectLayer>>
+createRTDyldObjectLinkingLayer(llvm::orc::ExecutionSession &ES,
+                               const llvm::Triple &TT) {
+  auto GetMemMgr = []() {
+    return std::make_unique<llvm::SectionMemoryManager>();
+  };
+  auto Layer = std::make_unique<llvm::orc::RTDyldObjectLinkingLayer>(
+      ES, std::move(GetMemMgr));
+
+  return std::unique_ptr<llvm::orc::ObjectLayer>(std::move(Layer));
+}
+
 inline std::string makePackedFunctionName(llvm::StringRef name) {
   return "_packed_" + name.str();
 }
@@ -329,8 +341,11 @@ LLVMJITImpl::LLVMJITImpl(Options opt) : options(opt) {
                             .create(),
                         "failed to create lljit builder");
   } else {
-    jit = checkAndThrow(llvm::orc::LLJITBuilder().create(),
-                        "failed to create lljit builder");
+    jit = checkAndThrow(
+        llvm::orc::LLJITBuilder()
+            .setObjectLinkingLayerCreator(createRTDyldObjectLinkingLayer)
+            .create(),
+        "failed to create lljit builder");
   }
 
   // Make sure that our process symbols are visible to JIT'd code.

@@ -35,6 +35,8 @@ using namespace mlir;
 using namespace std;
 
 static std::string test_file_case0 = "test/test_files/LLJIT/Case0/entry.mlir";
+static std::string test_file_case0_v1_0_0 =
+    "test/test_files/LLJIT/Case0_v1_0_0/entry.mlirbc";
 
 TEST(CPUE2ETest, LLVMJITCase0) {
   Session session;
@@ -46,6 +48,69 @@ TEST(CPUE2ETest, LLVMJITCase0) {
   BRT_TEST_CHECK_STATUS(status_cpu);
 
   auto status_load = session.Load(test_file_case0, "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  std::unique_ptr<RequestContext> request;
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
+  BRT_TEST_CHECK_STATUS(status_request);
+
+  // model inputs:
+  //   %arg0: tensor<1xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>, %arg3:
+  //   tensor<1x128xi32>
+  // model outputs:
+  //   %result0: tensor<1x128xi32>, %result1: tensor<1x128xi32>
+  // which follow numpy tensor implicit broadcast and type promotion
+  // sementic:
+  //   %result0 = numpy.range(0, 128, 1) < (%arg0 + %arg1 + %arg2)
+  //   %result1 = %result0 * %arg3
+  auto input_offsets = session.GetInputArgOffsets();
+  int64_t *arg0 =
+              reinterpret_cast<int64_t *>(request->GetArg(input_offsets[0])),
+          *arg1 =
+              reinterpret_cast<int64_t *>(request->GetArg(input_offsets[1])),
+          *arg2 =
+              reinterpret_cast<int64_t *>(request->GetArg(input_offsets[2]));
+  int32_t *arg3 =
+      reinterpret_cast<int32_t *>(request->GetArg(input_offsets[3]));
+
+  request->FinishIOBinding();
+
+  auto output_offsets = session.GetOutputArgOffsets();
+  int32_t *res0 =
+              reinterpret_cast<int32_t *>(request->GetArg(output_offsets[0])),
+          *res1 =
+              reinterpret_cast<int32_t *>(request->GetArg(output_offsets[1]));
+
+  for (size_t i = 0; i < 2; ++i) {
+    RandCPUBuffer(arg0, 1, 32);
+    RandCPUBuffer(arg1, 1, 32);
+    RandCPUBuffer(arg2, 1, 32);
+    RandCPUBuffer(arg3, 128, 100);
+
+    auto status_run = session.Run(*request);
+    BRT_TEST_CHECK_STATUS(status_run);
+    auto status_sync = request->Sync();
+    BRT_TEST_CHECK_STATUS(status_sync);
+
+    // check results
+    for (int64_t i = 0; i < 128; ++i) {
+      ASSERT_EQ(i < (*arg0 + *arg1 + *arg2), res0[i]);
+      ASSERT_EQ(res0[i] * arg3[i], res1[i]);
+    }
+  }
+}
+
+TEST(CPUE2ETest, LLVMJITCase0_V1_0_0) {
+  Session session;
+
+  auto status_allocator = CPUAllocatorFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_allocator);
+
+  auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cpu);
+
+  auto status_load = session.Load(test_file_case0_v1_0_0, "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;

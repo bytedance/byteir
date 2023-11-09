@@ -70,6 +70,7 @@ set(BYRE_ALL_EXTERNAL_LIBS
   ${MLIR_REQUIRE_LIBS}
   MLIRAceDialect # TODO: remove it when we have byre.string
   MLIRByreDialect
+  MLIRByreSerialization
   -Wl,--end-group
 )
 

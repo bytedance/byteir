@@ -63,16 +63,24 @@ extra_library = [
     byteir〇flash_attn_fwd〡shape, byteir〇flash_attn_fwd〡dtype, byteir〇flash_attn_fwd〡has_value_semantics,
     byteir〇flash_attn_bwd〡shape, byteir〇flash_attn_bwd〡dtype, byteir〇flash_attn_bwd〡has_value_semantics]
 
+"""
+    debug: int type, one of
+            `0: no debug message`,
+            `1: print after failure`,
+            `2: print after pass only on change`
+"""
 def compile(
     model: torch.nn.Module,
     example_inputs: Union[torch.Tensor, Sequence[torch.Tensor]],
     output_type: str,
     backend_legal_ops: Optional[Sequence[str]] = None,
     verbose: bool = False,
-    debug: bool = False,
+    debug: int = 0,
 ):
     if output_type not in ["raw", "torch", "stablehlo"]:
         raise NotImplementedError("unsupported output type {}".format(output_type))
+    if debug not in [0, 1, 2]:
+        raise NotImplementedError("unsupported debug option {}".format(debug))
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
@@ -86,7 +94,7 @@ def compile(
     if output_type == "raw":
         return module
 
-    if debug:
+    if debug == 2:
         print("// IR Dump After RAW")
         print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
         print()
@@ -102,8 +110,18 @@ def compile(
     with module.context:
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name + "}"
         pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")
-        if debug:
-            pm.enable_ir_printing()
+        if debug == 1:
+            pm.enable_ir_printing(print_before_pass=False,
+                                  print_after_pass=True,
+                                  print_after_only_on_change=False,
+                                  print_after_only_on_failure=True,
+                                  large_elements_limit=10)
+        if debug == 2:
+            pm.enable_ir_printing(print_before_pass=False,
+                                  print_after_pass=True,
+                                  print_after_only_on_change=True,
+                                  print_after_only_on_failure=False,
+                                  large_elements_limit=10)
         pm.run(module.operation)
     if output_type == "torch":
         return module
@@ -112,8 +130,18 @@ def compile(
         print('[RUN] ./build/bin/torch-frontend-opt --torch-to-mhlo-pipeline')
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
-        if debug:
-           pm.enable_ir_printing() 
+        if debug == 1:
+            pm.enable_ir_printing(print_before_pass=False,
+                                  print_after_pass=True,
+                                  print_after_only_on_change=False,
+                                  print_after_only_on_failure=True,
+                                  large_elements_limit=10)
+        if debug == 2:
+            pm.enable_ir_printing(print_before_pass=False,
+                                  print_after_pass=True,
+                                  print_after_only_on_change=True,
+                                  print_after_only_on_failure=False,
+                                  large_elements_limit=10)
         pm.run(module.operation)
     return module
 

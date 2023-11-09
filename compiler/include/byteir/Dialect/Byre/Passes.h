@@ -19,6 +19,7 @@
 #define BYTEIR_DIALECT_BYRE_PASSES_H
 
 #include "byteir/Dialect/Byre/Transforms/Fold.h"
+#include "byteir/Dialect/Byre/Transforms/Serial.h"
 
 namespace mlir {
 

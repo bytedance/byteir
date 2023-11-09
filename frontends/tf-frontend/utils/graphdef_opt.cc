@@ -201,6 +201,8 @@ std::vector<InputInfo> tensorflow::GetInputsByNameWithSpecifiedBatchSize(
     AttrValue dtype_attr;
     if (attr.count("dtype")) {
       dtype_attr = node_def.attr().at("dtype");
+    } else if (attr.count("output_type")) {
+      dtype_attr = node_def.attr().at("output_type");
     } else if (attr.count("T")) {
       dtype_attr = node_def.attr().at("T");
     } else {

@@ -153,17 +153,17 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 - Operands:
   - input: FloatTensor
   - scale: FloatTensor (rank=0 for per-tensor quantization, or rank=1 for per-channel quantization)
-  - zero_point: Int8Tensor (shape same as scale)
+  - zero_point: Int8/Int16/Uint8/Uint16 Tensor (shape same as scale)
 - Attrs
   - axis: I64Attr (Optional, required only for per-channel quantization)
 - Results:
-  - output: Int8Tensor
+  - output: Int8/Int16/Uint8/Uint16 Tensor (type same as zero_point)
 
 ### byteir.dequantize
 - Operands:
-  - input: Int8Tensor
+  - input: Int8/Int16/Uint8/Uint16 Tensor
   - scale: FloatTensor (rank=0 for per-tensor dequantization, or rank=1 for per-channel dequantization)
-  - zero_point: Int8Tensor (shape same as scale)
+  - zero_point: Int8/Int16/Uint8/Uint16 Tensor (shape same as scale, type same as input)
 - Attrs
   - axis: I64Attr (Optional, channel axis index, required only for per-channel dequantization)
 - Results:

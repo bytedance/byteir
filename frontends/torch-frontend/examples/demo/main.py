@@ -191,7 +191,7 @@ def infer_model(args):
                     print("torch outputs:")
                     print(module(*trace_data))
                 import torch_frontend
-                mhlo_model = torch_frontend.compile(module, trace_data, "mhlo")
+                mhlo_model = torch_frontend.compile(module, trace_data, "stablehlo")
                 with open(mhlo_file_name, "w") as f:
                     print(mhlo_model.operation.get_asm(), file=f)
                 print("save mhlo to {}".format(mhlo_file_name))
