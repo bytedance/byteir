@@ -16,11 +16,26 @@
 //===----------------------------------------------------------------------===//
 
 #include "onnx-frontend/src/Support/OFUtils.hpp"
+#include "onnx-frontend/src/Support/OFConstants.hpp"
 
 namespace onnx_frontend {
 
 bool EndsWith(const std::string &x, const std::string &y) {
   return x.size() > y.size() && x.substr(x.size() - y.size(), y.size()) == y;
+}
+
+// remove unnecessary attributes from the original attribute dictionary
+DictionaryAttr getCleanAttr(const DictionaryAttrWrapper &attrs) {
+  llvm::SmallVector<mlir::NamedAttribute> filtered_attrs;
+  for (auto &kv : llvm::make_early_inc_range(attrs.getAttrDictionary())) {
+    llvm::StringRef name = kv.getName();
+    if (name == onnx_frontend::ONNX_NODE_NAME_ATTR) {
+      continue;
+    } else {
+      filtered_attrs.emplace_back(kv);
+    }
+  }
+  return DictionaryAttr::get(attrs.getContext(), std::move(filtered_attrs));
 }
 
 } // namespace onnx_frontend

@@ -13,6 +13,7 @@
 
 #include "byteir/Target/CUDA/ToCUDA.h"
 #include "byteir/Target/Cpp/ToCpp.h"
+#include "byteir/Target/LLVM/ToLLVMBC.h"
 #include "byteir/Target/PTX/ToPTX.h"
 #include "mlir/InitAllTranslations.h"
 #include "mlir/Support/LogicalResult.h"
@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
   registerToPTXTranslation();
   byteir::registerToCppTranslation();
   byteir::registerToCUDATranslation();
+  byteir::registerToLLVMBCTranslation();
 
   return failed(
       mlirTranslateMain(argc, argv, "ByteIR Translation Testing Tool"));

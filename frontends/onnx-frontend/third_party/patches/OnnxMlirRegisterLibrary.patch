@@ -1,10 +1,10 @@
 diff --git a/src/Tools/onnx-mlir-opt/CMakeLists.txt b/src/Tools/onnx-mlir-opt/CMakeLists.txt
-index 6ac7fd90..194ca7d2 100644
+index a90a670a..0a80c88b 100644
 --- a/src/Tools/onnx-mlir-opt/CMakeLists.txt
 +++ b/src/Tools/onnx-mlir-opt/CMakeLists.txt
-@@ -18,3 +18,16 @@ add_onnx_mlir_executable(onnx-mlir-opt
-   MLIRMemRefTransforms
+@@ -20,3 +20,17 @@ add_onnx_mlir_executable(onnx-mlir-opt
    MLIROptLib
+   MLIRSCFToOpenMP
    )
 +
 +add_onnx_mlir_library(OMRegisterPasses
@@ -19,3 +19,4 @@ index 6ac7fd90..194ca7d2 100644
 +  MLIRLinalgTransforms
 +  MLIRMemRefTransforms
 +)
++

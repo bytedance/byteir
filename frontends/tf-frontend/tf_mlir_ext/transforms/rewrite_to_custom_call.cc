@@ -175,6 +175,16 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+Value createLayerNormWithoutBeta(PatternRewriter &rewriter, Location loc,
+                                 Value input, Value gama, ElementsAttr epsilon,
+                                 ElementsAttr axis) {
+  auto gamaShapedType = gama.getType().cast<ShapedType>();
+  auto betaAttr = DenseElementsAttr::get(gamaShapedType, 0.0f);
+  auto betaOp = rewriter.create<TF::ConstOp>(loc, betaAttr);
+  Value beta = betaOp.getOutput();
+  return createLayerNorm(rewriter, loc, input, gama, beta, epsilon, axis);
+}
+
 std::string getBodyName(std::string baseName, SmallVector<Value, 4> inputs,
                         SmallVector<Value, 4> outputs) {
   std::string name;
@@ -322,11 +332,17 @@ struct RewriteMathArg : public OpRewritePattern<TFMathArgOp> {
           "ArgMin/ArgMax's dimension must be one rank.");
     }
     int64_t axis = (*value.getValues<APInt>().begin()).getSExtValue();
+    Value input = mathArgOp.getInput();
+    RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+    auto inputRank = inputType.getRank();
+    if (axis < 0) {
+      axis += inputRank;
+      assert(axis >= 0);
+    }
 
     mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
-        mathArgOp->getLoc(), mathArgOp->getResults().getTypes(),
-        mathArgOp.getInput(), WrapName<TFMathArgOp>::name, false,
-        rewriter.getStringAttr(""),
+        mathArgOp->getLoc(), mathArgOp->getResults().getTypes(), input,
+        WrapName<TFMathArgOp>::name, false, rewriter.getStringAttr(""),
         mhlo::CustomCallApiVersion{
             mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL},
         rewriter.getArrayAttr(ArrayRef<Attribute>{}),
@@ -608,6 +624,8 @@ struct RewriteToCustomCallOpsPass
         validCustomCallOpSet[getLayerNormName()].emplace_back(
             std::make_unique<RewriteLayerNorm>(context));
       }
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormWithoutBeta>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapAdd>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(

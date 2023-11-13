@@ -56,6 +56,7 @@ def get_config(config: str):
                 "gelu_tanh_case2": 6,
                 "layer_norm": 6,
                 "layer_norm_negative_axis": 6,
+                "layer_norm_without_beta": 6,
                 "layer_norm_swap_add": 6,
                 "layer_norm_swap_mul": 6,
                 "layer_norm_swap_squarediff": 6,

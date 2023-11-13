@@ -9,6 +9,7 @@ add_onnx_frontend_executable(onnx-frontend
 
   LINK_LIBS PRIVATE
   OFCompiler
+  OMCompilerOptions
   )
 
 add_onnx_frontend_executable(onnx-frontend-opt
@@ -17,6 +18,7 @@ add_onnx_frontend_executable(onnx-frontend-opt
   INSTALL
 
   LINK_LIBS PRIVATE
+  OMCompilerOptions
   OMRegisterPasses
   OFCompiler
   MLIROptLib

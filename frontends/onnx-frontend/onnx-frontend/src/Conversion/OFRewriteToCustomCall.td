@@ -58,7 +58,7 @@ def RewriteL2NormPat2 : Pat<
 // Quantize/Dequantize Pattern
 //===----------------------------------------------------------------------===//
 def RewriteQuantize : Pat<
-  (ONNXQuantizeLinearOp:$output $input, $scale, $zero_point, $axis_attr),
+  (ONNXQuantizeLinearOp:$output $input, $scale, $zero_point, $axis_attr, $saturate),
   (NativeCodeCall<"createQuantizeDequantize<ONNXQuantizeLinearOp>($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $scale, $zero_point, $axis_attr, $output),
   []>;
 

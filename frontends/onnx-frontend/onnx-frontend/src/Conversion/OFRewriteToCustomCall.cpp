@@ -22,6 +22,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
+using namespace onnx_frontend;
 
 namespace {
 
@@ -84,52 +85,6 @@ template <typename X, typename OP> X getOnePossibleOp(OP op) {
   return op.getA().template getDefiningOp<X>() != nullptr
              ? op.getA().template getDefiningOp<X>()
              : op.getB().template getDefiningOp<X>();
-}
-
-/// attribute names
-const std::string BYTEIR_ATTRS = "byteir_attrs";
-
-class DictionaryAttrWrapper {
-public:
-  DictionaryAttrWrapper(MLIRContext *context)
-      : context(context), attrs(DictionaryAttr::get(context)) {}
-
-  /// If the an attribute exists with the specified name, change it to the new
-  /// value. Otherwise, add a new attribute with the specified name/value.
-  void setAttr(StringAttr name, Attribute value) {
-    NamedAttrList attributes(attrs);
-    if (attributes.set(name, value) != value)
-      attrs = attributes.getDictionary(getContext());
-  }
-  void setAttr(StringRef name, Attribute value) {
-    setAttr(StringAttr::get(getContext(), name), value);
-  }
-
-  /// Return the context this operation is associated with.
-  MLIRContext *getContext() const { return context; }
-
-  /// Return all of the attributes on this operation as a DictionaryAttr.
-  DictionaryAttr getAttrDictionary() const { return attrs; }
-
-private:
-  MLIRContext *context;
-
-  /// This holds general named attributes for the operation.
-  DictionaryAttr attrs;
-};
-
-// remove unnecessary attributes from the original attribute dictionary
-DictionaryAttr getCleanAttr(const DictionaryAttrWrapper &attrs) {
-  llvm::SmallVector<mlir::NamedAttribute> filtered_attrs;
-  for (auto &kv : llvm::make_early_inc_range(attrs.getAttrDictionary())) {
-    llvm::StringRef name = kv.getName();
-    if (name == onnx_frontend::ONNX_NODE_NAME_ATTR) {
-      continue;
-    } else {
-      filtered_attrs.emplace_back(kv);
-    }
-  }
-  return DictionaryAttr::get(attrs.getContext(), std::move(filtered_attrs));
 }
 
 //===----------------------------------------------------------------------===//

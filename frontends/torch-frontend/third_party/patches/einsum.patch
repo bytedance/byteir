@@ -1,44 +1,8 @@
-diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-index efdb89fa..c87de79e 100644
---- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-+++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -4834,6 +4834,31 @@ def Torch_AtenAddmmOp : Torch_Op<"aten.addmm", [
-   }];
- }
- 
-+def Torch_AtenEinsumOp : Torch_Op<"aten.einsum", [
-+    AllowsTypeRefinement,
-+    HasValueSemantics,
-+    ReadOnly
-+  ]> {
-+  let summary = "Generated op for `aten::einsum : (str, Tensor[], int[]?) -> (Tensor)`";
-+  let arguments = (ins
-+    Torch_StringType:$equation,
-+    AnyTorchListOfTensorType:$tensors,
-+    AnyTorchOptionalListOfTorchIntType:$path
-+  );
-+  let results = (outs
-+    AnyTorchTensorType:$result
-+  );
-+  let hasCustomAssemblyFormat = 1;
-+  let extraClassDefinition = [{
-+    ParseResult AtenEinsumOp::parse(OpAsmParser &parser, OperationState &result) {
-+      return parseDefaultTorchOp(parser, result, 3, 1);
-+    }
-+    void AtenEinsumOp::print(OpAsmPrinter &printer) {
-+      printDefaultTorchOp(printer, *this, 3, 1);
-+    }
-+  }];
-+}
-+
- def Torch_AtenMatmulOp : Torch_Op<"aten.matmul", [
-     AllowsTypeRefinement,
-     HasValueSemantics,
 diff --git a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
-index 0bdfca26..b76b3c3c 100644
+index 1a61cf23..e0efd293 100644
 --- a/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
 +++ b/lib/Dialect/Torch/Transforms/DecomposeComplexOps.cpp
-@@ -5145,6 +5145,458 @@ public:
+@@ -5355,6 +5355,458 @@ public:
  };
  } // namespace
  
@@ -497,23 +461,23 @@ index 0bdfca26..b76b3c3c 100644
  namespace {
  class DecomposeComplexOpsPass
      : public DecomposeComplexOpsBase<DecomposeComplexOpsPass> {
-@@ -5194,6 +5646,7 @@ public:
+@@ -5404,6 +5856,7 @@ public:
      addPatternIfTargetOpIsIllegal<DecomposeAtenRollOp>(patterns);
      addPatternIfTargetOpIsIllegal<DecomposeAtenRepeatOp>(patterns);
      addPatternIfTargetOpIsIllegal<DecomposeAtenExpandOp>(patterns);
 +    addPatternIfTargetOpIsIllegal<DecomposeAtenEinsumOp>(patterns);
      addPatternIfTargetOpIsIllegal<DecomposeAtenFlattenUsingIntsOp>(patterns);
+     addPatternIfTargetOpIsIllegal<DecomposeAtenUnflattenIntOp>(patterns);
      addPatternIfTargetOpIsIllegal<DecomposeAtenWhereScalarOp>(patterns);
-     addPatternIfTargetOpIsIllegal<DecomposeAtenWhereScalarOtherOp>(patterns);
 diff --git a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
-index 76119828..179440c6 100644
+index 4b823e51..3e70a02f 100644
 --- a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
 +++ b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
-@@ -384,6 +384,7 @@ static void markDecomposedOpsAsIllegal(MLIRContext *context,
-   target.addIllegalOp<AtenReshapeOp>();
+@@ -386,6 +386,7 @@ static void markDecomposedOpsAsIllegal(MLIRContext *context,
    target.addIllegalOp<Aten_SoftmaxBackwardDataOp>();
    target.addIllegalOp<AtenTanhBackwardOp>();
-+  target.addIllegalOp<AtenEinsumOp>();
    target.addIllegalOp<AtenAddmmOp>();
++  target.addIllegalOp<AtenEinsumOp>();
    target.addIllegalOp<AtenMeanOp>();
    target.addIllegalOp<AtenMeanDimOp>();
+   target.addIllegalOp<AtenNormScalarOptDimOp>();

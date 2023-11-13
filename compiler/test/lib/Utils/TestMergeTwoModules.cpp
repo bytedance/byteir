@@ -65,13 +65,14 @@ struct TestMergeTwoModulesPass
     sourceMgr.AddNewSourceBuffer(std::move(secondModuleInput), llvm::SMLoc());
     auto module1Op = mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, context);
 
-    auto m = mergeTwoModulesByNameOrOrder(module0Op, module1Op.get(), context);
-    if (!m.has_value()) {
+    mlir::OwningOpRef<mlir::ModuleOp> m =
+        mergeTwoModulesByNameOrOrder(module0Op, module1Op.get());
+    if (!m) {
       llvm::errs() << "can't merge these two modules\n";
       return signalPassFailure();
     }
     IRMapping emptyMap;
-    module0Op.getBodyRegion().takeBody(m.value().getBodyRegion());
+    module0Op.getBodyRegion().takeBody(m.get().getBodyRegion());
   }
 
 protected:

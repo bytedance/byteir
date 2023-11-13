@@ -64,6 +64,24 @@ class TestOpsTensor(TestBase):
             "Y": np.array([[0, 1], [1, 2]], dtype=np.int64),
         }
         self.run(model_filename="gather_elments.onnx", model_onnx_pb=proto, input_data=input_data)
+        
+    def test_scatternd(self):
+        input_shape_dtype = [
+            ["data", (4, 4, 4), "float32"],
+            ["indices", (2, 1), "int64"],
+            ["updates", (2, 4, 4), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (4, 4, 4), "float32"],
+        ]
+        indices_tensor = onnx.helper.make_tensor(
+            "indices", onnx.TensorProto.INT64, [2, 1], np.array([[0], [2]]))
+        proto = build_onnx(
+            "ScatterND", input_shape_dtype, output_shape_dtype,
+            initializer=[indices_tensor]
+        )
+        input_shape_dtype = [input_shape_dtype[0], input_shape_dtype[2]]
+        self.run(model_filename="scatternd.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
 
     def test_split(self):
         input_shape_dtype = [

@@ -41,16 +41,15 @@ func::FuncOp renameAndCloneFuncToNewModule(ModuleOp m, func::FuncOp func,
   return newFunc;
 }
 
-std::optional<ModuleOp> mergeTwoModulesByName(ModuleOp module0,
-                                              ModuleOp module1,
-                                              MLIRContext *context) {
+ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
+                               MLIRContext *context) {
   func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
   func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
   if (func0.getNumResults() != func1.getNumArguments()) {
-    return std::nullopt;
+    return nullptr;
   }
   if (func0.getNumResults() == 0) {
-    return std::nullopt;
+    return nullptr;
   }
 
   // get inputs and outputs name from byteir.entry_point
@@ -86,7 +85,7 @@ std::optional<ModuleOp> mergeTwoModulesByName(ModuleOp module0,
       return false;
     };
     if (!findNames(name)) {
-      return std::nullopt;
+      return nullptr;
     }
   }
 
@@ -94,7 +93,7 @@ std::optional<ModuleOp> mergeTwoModulesByName(ModuleOp module0,
   for (size_t i = 0; i < func1.getNumArguments(); i++) {
     if (func1.getArgumentTypes()[i] !=
         func0.getResultTypes()[func1NameToFunc0Index[func1InputNames[i]]]) {
-      return std::nullopt;
+      return nullptr;
     }
   }
 
@@ -138,22 +137,21 @@ std::optional<ModuleOp> mergeTwoModulesByName(ModuleOp module0,
   return m;
 }
 
-std::optional<ModuleOp> mergeTwoModulesByOrder(ModuleOp module0,
-                                               ModuleOp module1,
-                                               MLIRContext *context) {
+ModuleOp mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
+                                MLIRContext *context) {
   func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
   func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
   if (func0.getNumResults() != func1.getNumArguments()) {
-    return std::nullopt;
+    return nullptr;
   }
   if (func0.getNumResults() == 0) {
-    return std::nullopt;
+    return nullptr;
   }
   // check types
   for (size_t i = 0; i < func1.getNumArguments(); i++) {
     // func0 and func1 should have the same context
     if (func0.getResultTypes()[i] != func1.getArgumentTypes()[i]) {
-      return std::nullopt;
+      return nullptr;
     }
   }
 
@@ -181,19 +179,20 @@ std::optional<ModuleOp> mergeTwoModulesByOrder(ModuleOp module0,
 
 } // namespace
 
-std::optional<ModuleOp>
-mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0, ModuleOp module1,
-                                   MLIRContext *context) {
-  assert(module0.getContext() == module1.getContext());
+ModuleOp mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
+                                            ModuleOp module1) {
+  assert(module0.getContext() == module1.getContext() &&
+         "module0 and module1 should have same context");
+  MLIRContext *context = module0.getContext();
 
   // only support module with one function
   if (llvm::count_if(module0.getOps<func::FuncOp>(),
                      [](func::FuncOp func) { return true; }) != 1) {
-    return std::nullopt;
+    return nullptr;
   }
   if (llvm::count_if(module1.getOps<func::FuncOp>(),
                      [](func::FuncOp func) { return true; }) != 1) {
-    return std::nullopt;
+    return nullptr;
   }
 
   unsigned module0FuncCountWithEntryPoint =
@@ -211,5 +210,5 @@ mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0, ModuleOp module1,
              module1FuncCountWithEntryPoint == 0) {
     return mergeTwoModulesByOrder(module0, module1, context);
   }
-  return std::nullopt;
+  return nullptr;
 }

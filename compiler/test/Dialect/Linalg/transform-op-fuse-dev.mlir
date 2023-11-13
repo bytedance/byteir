@@ -165,3 +165,32 @@ module {
     %transformed, %loops:2 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [4, 8]}
   }
 }
+
+// -----
+#map = affine_map<(d0, d1, d2, d3, d4) -> (d0, d1, d2, d3, d4)>
+func.func @fuse_expand_shape(%arg0: tensor<15x4x32x32x1xf16>, %arg1: tensor<15x4x32x32x1xf16>, %arg2: tensor<15x4x32x32xf16>, %arg3: tensor<15x4x32x32xf16>) -> (tensor<15x4x32x32x1xf16>) {
+  // CHECK: scf.for
+  // CHECK:   scf.for
+  // CHECK:     scf.for
+  // CHECK:       scf.for
+  // CHECK:         tensor.extract_slice
+  // CHECK:         tensor.extract_slice
+  // CHECK:         tensor.extract_slice
+  // CHECK:         tensor.expand_shape
+  // CHECK:         linalg.generic
+  %expanded = tensor.expand_shape %arg2 [[0], [1], [2], [3, 4]] : tensor<15x4x32x32xf16> into tensor<15x4x32x32x1xf16>
+  %0 = tensor.empty() : tensor<15x4x32x32x1xf16>
+  %1 = linalg.generic {indexing_maps = [#map, #map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1, %expanded, %expanded : tensor<15x4x32x32x1xf16>, tensor<15x4x32x32x1xf16>, tensor<15x4x32x32x1xf16>, tensor<15x4x32x32x1xf16>) outs(%0 : tensor<15x4x32x32x1xf16>) attrs =  {__root__} {
+  ^bb0(%in: f16, %in_1: f16, %in_2: f16, %in_3: f16, %out: f16):
+    %2 = arith.mulf %in_1, %in_2 : f16
+    %3 = arith.mulf %in, %in_3 : f16
+    %4 = arith.subf %3, %2 : f16
+    linalg.yield %4 : f16
+  } -> (tensor<15x4x32x32x1xf16>)
+  return %1 : tensor<15x4x32x32x1xf16>
+}
+transform.sequence  failures(propagate) {
+^bb0(%arg0: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg0 : (!pdl.operation) -> !pdl.operation
+  %transformed, %loops:5 = transform.structured.fuse_ext %0 {tile_interchange = [], tile_sizes = [1, 1, 1, 1, 1]}
+}

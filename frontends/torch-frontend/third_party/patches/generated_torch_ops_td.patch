@@ -1,8 +1,8 @@
 diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-index 3d7bee6d..89bf77b1 100644
+index 072fdd7d..04abfca9 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -12066,3 +12089,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
+@@ -14161,3 +14161,115 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
    }];
  }
  
@@ -93,3 +93,29 @@ index 3d7bee6d..89bf77b1 100644
 +  );
 +  let assemblyFormat = "`(` $operands `)` attr-dict `:` qualified(type($operands)) `->` qualified(type($results))";
 +}
++
++def Torch_AtenEinsumOp : Torch_Op<"aten.einsum", [
++    AllowsTypeRefinement,
++    HasValueSemantics,
++    ReadOnly
++  ]> {
++  let summary = "Generated op for `aten::einsum : (str, Tensor[], int[]?) -> (Tensor)`";
++  let arguments = (ins
++    Torch_StringType:$equation,
++    AnyTorchListOfTensorType:$tensors,
++    AnyTorchOptionalListOfTorchIntType:$path
++  );
++  let results = (outs
++    AnyTorchTensorType:$result
++  );
++  let hasCustomAssemblyFormat = 1;
++  let extraClassDefinition = [{
++    ParseResult AtenEinsumOp::parse(OpAsmParser &parser, OperationState &result) {
++      return parseDefaultTorchOp(parser, result, 3, 1);
++    }
++    void AtenEinsumOp::print(OpAsmPrinter &printer) {
++      printDefaultTorchOp(printer, *this, 3, 1);
++    }
++  }];
++}
+\ No newline at end of file

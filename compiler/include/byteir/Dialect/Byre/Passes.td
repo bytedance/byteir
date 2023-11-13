@@ -30,4 +30,71 @@ def ByreFold : Pass<"byre-fold", "func::FuncOp"> {
   let constructor = "mlir::createByreFoldPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// DumpByre
+//===----------------------------------------------------------------------===//
+
+def DumpByre : Pass<"dump-byre", "ModuleOp"> {
+  let summary = "Dump byre module to bytecode";
+  let constructor = "mlir::createDumpByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::byre::serialization::ByreSerialDialect",
+  ];
+  let options = [
+    Option<"fileName", "file-name", "std::string",
+            /*default=*/"",
+            "The filename to dump the byre bytecode">,
+    Option<"version", "version", "std::string",
+            /*default=*/"\"current\"",
+            "Target version of serializable byre module">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LoadByre
+//===----------------------------------------------------------------------===//
+
+def LoadByre : Pass<"load-byre", "ModuleOp"> {
+  let summary = "Load byre module";
+  let constructor = "mlir::createLoadByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::byre::serialization::ByreSerialDialect",
+    "mlir::func::FuncDialect",
+    "mlir::memref::MemRefDialect",
+    "mlir::ace::AceDialect",
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// ByreToByreSerial
+//===----------------------------------------------------------------------===//
+
+def ByreToByreSerial : Pass<"byre-to-byre-serial", "ModuleOp"> {
+  let summary = "Convert byre to serializable byre dialect";
+  let constructor = "mlir::createByreToByreSerialPass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::byre::serialization::ByreSerialDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ByreSerialToByre
+//===----------------------------------------------------------------------===//
+
+def ByreSerialToByre : Pass<"byre-serial-to-byre", "ModuleOp"> {
+  let summary = "Convert serializable byre to byre dialect";
+  let constructor = "mlir::createByreSerialToByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::byre::serialization::ByreSerialDialect",
+    "mlir::func::FuncDialect",
+    "mlir::memref::MemRefDialect",
+    "mlir::ace::AceDialect",
+  ];
+}
+
 #endif // BYTEIR_DIALECT_BYRE_PASSES

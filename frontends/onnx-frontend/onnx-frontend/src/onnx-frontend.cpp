@@ -39,38 +39,32 @@ int main(int argc, char *argv[]) {
   context.getOrLoadDialect<mlir::ONNXDialect>();
   context.getOrLoadDialect<mlir::mhlo::MhloDialect>();
 
-  llvm::cl::opt<std::string> inputFilename(
-      llvm::cl::Positional, llvm::cl::desc("<input file>"), llvm::cl::init("-"),
-      llvm::cl::cat(onnx_frontend::OnnxFrontendOptions));
-
-  llvm::cl::opt<std::string> outputFilename(
-      "o", llvm::cl::desc("Output filename"), llvm::cl::value_desc("filename"),
-      llvm::cl::init("-"), llvm::cl::cat(onnx_frontend::OnnxFrontendOptions));
-
   // Register MLIR command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
   mlir::registerDefaultTimingManagerCLOptions();
-  llvm::cl::HideUnrelatedOptions({&onnx_frontend::OnnxFrontendOptions,
-                                  &onnx_mlir::OnnxMlirOptions,
-                                  &(llvm::cl::getGeneralCategory())});
+  llvm::cl::HideUnrelatedOptions(
+      {&onnx_frontend::OnnxFrontendOptions, &onnx_mlir::OnnxMlirOptions,
+       &onnx_mlir::OnnxMlirCommonOptions, &(llvm::cl::getGeneralCategory())});
 
   // Parse options from argc/argv
   llvm::cl::ParseCommandLineOptions(argc, argv, "ONNX-Frontend\n");
 
   onnx_frontend::EmissionTargetType emissionTarget;
   bool emitElide = false;
-  if (outputFilename == "-") {
+  if (onnx_mlir::outputBaseName == "-") {
     emissionTarget = onnx_frontend::EmitMhloIR;
-  } else if (onnx_frontend::EndsWith(outputFilename, ".onnx.mlir")) {
+  } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName, ".onnx.mlir")) {
     emissionTarget = onnx_frontend::EmitONNXIR;
-  } else if (onnx_frontend::EndsWith(outputFilename, ".onnx.elide.mlir")) {
+  } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
+                                     ".onnx.elide.mlir")) {
     emissionTarget = onnx_frontend::EmitONNXIR;
     emitElide = true;
-  } else if (onnx_frontend::EndsWith(outputFilename, ".mhlo.mlir")) {
+  } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName, ".mhlo.mlir")) {
     emissionTarget = onnx_frontend::EmitMhloIR;
-  } else if (onnx_frontend::EndsWith(outputFilename, ".mhlo.elide.mlir")) {
+  } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
+                                     ".mhlo.elide.mlir")) {
     emissionTarget = onnx_frontend::EmitMhloIR;
     emitElide = true;
   } else {
@@ -80,8 +74,8 @@ int main(int argc, char *argv[]) {
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
-  int rc = onnx_frontend::processInputFile(inputFilename, context, module,
-                                           &errorMessage);
+  int rc = onnx_frontend::processInputFile(onnx_mlir::inputFilename, context,
+                                           module, &errorMessage);
   if (rc != 0) {
     if (!errorMessage.empty())
       std::cerr << errorMessage << std::endl;
@@ -94,6 +88,8 @@ int main(int argc, char *argv[]) {
     onnx_frontend::addCustomizedONNXToMhloPasses(pm,
                                                  onnx_frontend::customCallOps);
   }
-  return onnx_frontend::compileModule(module, pm, outputFilename,
-                                      emissionTarget, emitElide);
+  auto status = onnx_frontend::compileModule(
+      module, pm, onnx_mlir::outputBaseName, emissionTarget, emitElide);
+  onnx_frontend::addVerifyONNXToMhloPasses(pm);
+  return status;
 }

@@ -17,6 +17,7 @@
 #include "byteir/Dialect/Affine/Passes.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Passes.h"
+#include "byteir/Dialect/Byre/Serialization/ByreSerialOps.h"
 #include "byteir/Dialect/Cat/IR/CatDialect.h"
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Ccl/Passes.h"
@@ -74,6 +75,7 @@ using namespace mlir;
 namespace byteir {
 namespace test {
 void registerTestMhloCanonicalizeExtPass();
+void registerTestByreSerialRoundtripPass();
 void registerTestConvertFuncToCustomCallPass();
 void registerTestConvertInsertionPass();
 void registerTestCustomConvertPass();
@@ -93,6 +95,7 @@ void registerTestMergeTwoModulesPass();
 #ifdef BYTEIR_INCLUDE_TESTS
 void registerTestPasses() {
   byteir::test::registerTestMhloCanonicalizeExtPass();
+  byteir::test::registerTestByreSerialRoundtripPass();
   byteir::test::registerTestConvertFuncToCustomCallPass();
   byteir::test::registerTestConvertInsertionPass();
   byteir::test::registerTestCustomConvertPass();
@@ -152,6 +155,7 @@ int main(int argc, char **argv) {
   mlir::stablehlo::registerAllDialects(registry);
   registry.insert<mlir::ace::AceDialect>();
   registry.insert<mlir::byre::ByreDialect>();
+  registry.insert<mlir::byre::serialization::ByreSerialDialect>();
   registry.insert<mlir::ccl::CclDialect>();
   registry.insert<mlir::cat::CatDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
