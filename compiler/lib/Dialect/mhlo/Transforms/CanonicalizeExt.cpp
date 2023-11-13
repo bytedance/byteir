@@ -14,6 +14,22 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+//
+// Some code comes from tensorflow project, the original license:
+// Copyright 2019 The TensorFlow Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/mhlo/Transforms/CanonicalizeExt.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
@@ -63,64 +79,78 @@ bool isSplatZero(SplatElementsAttr attr) {
 }
 } // namespace
 
-LogicalResult
-mlir::mhlo::foldBroadcastInDimConstWithBinary(mhlo::BroadcastInDimOp op,
-                                              PatternRewriter &rewriter) {
-  if (!op->getResult(0).hasOneUse())
-    return failure();
-
-  Operation *broadUser = *op->getResult(0).user_begin();
-  // These op types have const folding implementation,
-  // in file: mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
-  if (!isa<mhlo::AddOp, mhlo::DivOp, mhlo::MaxOp, mhlo::MinOp, mhlo::MulOp,
-           mhlo::SubtractOp, mhlo::RemOp>(broadUser))
-    return failure();
-
-  unsigned broadOperandNumber =
-      op->getResult(0).use_begin()->getOperandNumber();
-
-  for (unsigned i = 0; i < broadUser->getNumOperands(); ++i) {
-    if (i == broadOperandNumber)
-      continue;
-    Operation *constOp1 = broadUser->getOperand(i).getDefiningOp();
-    /// const_0
-    ///   \
-    ///   broadcast_in_dim  const_1
-    ///       \            /     \
-    ///            mul          other ops
-    ///
-    /// Don't fold broadcast_in_dim if const_1 has other users
-    if (!constOp1 || !isa<mhlo::ConstantOp>(constOp1) ||
-        !constOp1->getResult(0).hasOneUse())
+///
+///  foldBroadcastInDimConstWithBinary
+///
+/// BroadcastInDim could be folded in some special cases. Ex.
+///
+/// const
+///   \
+///   broadcast_in_dim  const
+///       \              /
+///             mul
+struct FoldBroadcastInDimConstWithBinary
+    : public OpRewritePattern<mhlo::BroadcastInDimOp> {
+  using OpRewritePattern<mhlo::BroadcastInDimOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::BroadcastInDimOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!op->getResult(0).hasOneUse())
       return failure();
+
+    Operation *broadUser = *op->getResult(0).user_begin();
+    // These op types have const folding implementation,
+    // in file: mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
+    if (!isa<mhlo::AddOp, mhlo::DivOp, mhlo::MaxOp, mhlo::MinOp, mhlo::MulOp,
+             mhlo::SubtractOp, mhlo::RemOp>(broadUser))
+      return failure();
+
+    unsigned broadOperandNumber =
+        op->getResult(0).use_begin()->getOperandNumber();
+
+    for (unsigned i = 0; i < broadUser->getNumOperands(); ++i) {
+      if (i == broadOperandNumber)
+        continue;
+      Operation *constOp1 = broadUser->getOperand(i).getDefiningOp();
+      /// const_0
+      ///   \
+    ///   broadcast_in_dim  const_1
+      ///       \            /     \
+    ///            mul          other ops
+      ///
+      /// Don't fold broadcast_in_dim if const_1 has other users
+      if (!constOp1 || !isa<mhlo::ConstantOp>(constOp1) ||
+          !constOp1->getResult(0).hasOneUse())
+        return failure();
+    }
+
+    auto broadConstOp = llvm::dyn_cast_or_null<mhlo::ConstantOp>(
+        op.getOperand().getDefiningOp());
+    if (!broadConstOp)
+      return failure();
+    auto originAttr = broadConstOp.getValue().dyn_cast<DenseElementsAttr>();
+    if (!originAttr)
+      return failure();
+    ShapedType inpType = broadConstOp.getOutput().getType().cast<ShapedType>();
+    ShapedType outputType = op->getResult(0).getType().cast<ShapedType>();
+    if (!inpType.hasStaticShape() || !outputType.hasStaticShape())
+      return failure();
+
+    auto broadcastDims =
+        llvm::to_vector(op.getBroadcastDimensions().getValues<int64_t>());
+    auto newAttr = createBroadcastedDenseElementsAttr(originAttr, outputType,
+                                                      broadcastDims);
+    if (!newAttr.has_value())
+      return failure();
+
+    rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, *newAttr);
+    return success();
   }
+};
 
-  auto broadConstOp =
-      llvm::dyn_cast_or_null<mhlo::ConstantOp>(op.getOperand().getDefiningOp());
-  if (!broadConstOp)
-    return failure();
-  auto originAttr = broadConstOp.getValue().dyn_cast<DenseElementsAttr>();
-  if (!originAttr)
-    return failure();
-  ShapedType inpType = broadConstOp.getOutput().getType().cast<ShapedType>();
-  ShapedType outputType = op->getResult(0).getType().cast<ShapedType>();
-  if (!inpType.hasStaticShape() || !outputType.hasStaticShape())
-    return failure();
-
-  auto broadcastDims =
-      llvm::to_vector(op.getBroadcastDimensions().getValues<int64_t>());
-  auto newAttr =
-      createBroadcastedDenseElementsAttr(originAttr, outputType, broadcastDims);
-  if (!newAttr.has_value())
-    return failure();
-
-  rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, *newAttr);
-  return success();
-}
-
-// broadcast_in_dim(reshape(x)) => broadcast_in_dim(x)
-// note: the broadcast_dimensions's size should be reduced.
-struct foldBroadcastInDimReshape
+///
+/// broadcast_in_dim(reshape(x)) => broadcast_in_dim(x)
+/// note: the broadcast_dimensions's size should be reduced.
+struct FoldBroadcastInDimReshape
     : public OpRewritePattern<mhlo::BroadcastInDimOp> {
   using OpRewritePattern<mhlo::BroadcastInDimOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::BroadcastInDimOp op,
@@ -376,103 +406,124 @@ buildInsertedSliceChain(mlir::tensor::InsertSliceOp op) {
 
 } // namespace
 
-LogicalResult
-mlir::mhlo::simplifyAddInsertSlicesToInsertSlices(mhlo::AddOp op,
-                                                  PatternRewriter &rewriter) {
-  auto lhsInsertSlice =
-      op.getLhs().getDefiningOp<mlir::tensor::InsertSliceOp>();
-  auto rhsInsertSlice =
-      op.getRhs().getDefiningOp<mlir::tensor::InsertSliceOp>();
+// simplify an addOp of two chain of insert_slice's
+// into a chain of insert_slice's
+// when those insert_slice's are
+// 1) not overlaped
+// 2) along a single axis
+// 3) sharing a zero Dest
+struct SimplifyAddInsertSlicesToInsertSlices
+    : public OpRewritePattern<mhlo::AddOp> {
+  using OpRewritePattern<mhlo::AddOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::AddOp op,
+                                PatternRewriter &rewriter) const override {
+    auto lhsInsertSlice =
+        op.getLhs().getDefiningOp<mlir::tensor::InsertSliceOp>();
+    auto rhsInsertSlice =
+        op.getRhs().getDefiningOp<mlir::tensor::InsertSliceOp>();
 
-  if (!lhsInsertSlice || !rhsInsertSlice) {
-    return failure();
+    if (!lhsInsertSlice || !rhsInsertSlice) {
+      return failure();
+    }
+
+    auto lhsChain = buildInsertedSliceChain(lhsInsertSlice);
+    auto rhsChain = buildInsertedSliceChain(rhsInsertSlice);
+
+    if (!lhsChain || !rhsChain) {
+      return failure();
+    }
+
+    // for AddOp, we only allow init as zero
+    auto checkZero = [&](Value init) {
+      auto cstOp = init.getDefiningOp<mhlo::ConstantOp>();
+      if (!cstOp)
+        return false;
+
+      DenseElementsAttr valAttr =
+          cstOp.getValue().dyn_cast<DenseElementsAttr>();
+      if (!valAttr)
+        return false;
+
+      SplatElementsAttr splatAttr =
+          valAttr.dyn_cast_or_null<SplatElementsAttr>();
+      if (!splatAttr)
+        return false;
+
+      return isSplatZero(splatAttr);
+    };
+
+    if (!checkZero(lhsChain->init) || !checkZero(rhsChain->init)) {
+      return failure();
+    }
+
+    // check two sides are mergable
+    if (!mergeInsertedSliceChain(*lhsChain, *rhsChain, /*initCheck*/ false)) {
+      return failure();
+    }
+
+    // clone rhs' ops and replace the very first cloned Dest by lhs' output
+    Value newResult = lhsInsertSlice.getResult();
+    for (auto chainOp : rhsChain->ops) {
+      IRMapping irm;
+      irm.map(chainOp.getDest(), newResult);
+      auto clonedOp = rewriter.clone(*chainOp.getOperation(), irm);
+      newResult = clonedOp->getResult(0);
+    }
+
+    // replace the add op by the merged insert_slice's result
+    rewriter.replaceOp(op, newResult);
+    return success();
   }
+};
 
-  auto lhsChain = buildInsertedSliceChain(lhsInsertSlice);
-  auto rhsChain = buildInsertedSliceChain(rhsInsertSlice);
+// simplify a chain of insert_slice's into a concat
+// when those insert_slice's are
+// 1) not overlaped
+// 2) along a single axis
+// 3) covering the entire Dest
+struct SimplifyFullInsertSlicesToConcat
+    : public OpRewritePattern<mlir::tensor::InsertSliceOp> {
+  using OpRewritePattern<mlir::tensor::InsertSliceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mlir::tensor::InsertSliceOp op,
+                                PatternRewriter &rewriter) const override {
+    auto chain = buildInsertedSliceChain(op);
+    if (!chain)
+      return failure();
 
-  if (!lhsChain || !rhsChain) {
-    return failure();
+    if (chain->slices.size() != 1) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Fail simplify bcc not merging into a single slice\n");
+      return failure();
+    }
+
+    // Note the insert_slice is static, since InsertedSlice exists.
+    auto shape = op.getType().getShape();
+    assert(chain->axis >= 0 &&
+           chain->axis < static_cast<int64_t>(shape.size()));
+
+    if (chain->slices[0].first != 0 ||
+        chain->slices[0].second != shape[chain->axis]) {
+      LLVM_DEBUG(llvm::dbgs() << "Fail simplify bcc not full insert_slices\n");
+      return failure();
+    }
+
+    // sort chain's ops since it was not sorted
+    // sort them based on the offsets along the axis
+    llvm::sort(chain->ops,
+               [&](tensor::InsertSliceOp lhs, tensor::InsertSliceOp rhs) {
+                 return lhs.getStaticOffset(chain->axis) <
+                        rhs.getStaticOffset(chain->axis);
+               });
+
+    SmallVector<Value> vals;
+    for (auto chainOp : chain->ops) {
+      vals.push_back(chainOp.getSource());
+    }
+    rewriter.replaceOpWithNewOp<mhlo::ConcatenateOp>(op, op.getType(), vals,
+                                                     chain->axis);
+    return success();
   }
-
-  // for AddOp, we only allow init as zero
-  auto checkZero = [&](Value init) {
-    auto cstOp = init.getDefiningOp<mhlo::ConstantOp>();
-    if (!cstOp)
-      return false;
-
-    DenseElementsAttr valAttr = cstOp.getValue().dyn_cast<DenseElementsAttr>();
-    if (!valAttr)
-      return false;
-
-    SplatElementsAttr splatAttr = valAttr.dyn_cast_or_null<SplatElementsAttr>();
-    if (!splatAttr)
-      return false;
-
-    return isSplatZero(splatAttr);
-  };
-
-  if (!checkZero(lhsChain->init) || !checkZero(rhsChain->init)) {
-    return failure();
-  }
-
-  // check two sides are mergable
-  if (!mergeInsertedSliceChain(*lhsChain, *rhsChain, /*initCheck*/ false)) {
-    return failure();
-  }
-
-  // clone rhs' ops and replace the very first cloned Dest by lhs' output
-  Value newResult = lhsInsertSlice.getResult();
-  for (auto chainOp : rhsChain->ops) {
-    IRMapping irm;
-    irm.map(chainOp.getDest(), newResult);
-    auto clonedOp = rewriter.clone(*chainOp.getOperation(), irm);
-    newResult = clonedOp->getResult(0);
-  }
-
-  // replace the add op by the merged insert_slice's result
-  rewriter.replaceOp(op, newResult);
-  return success();
-}
-
-LogicalResult
-mlir::mhlo::simplifyFullInsertSlicesToConcat(mlir::tensor::InsertSliceOp op,
-                                             PatternRewriter &rewriter) {
-  auto chain = buildInsertedSliceChain(op);
-  if (!chain)
-    return failure();
-
-  if (chain->slices.size() != 1) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "Fail simplify bcc not merging into a single slice\n");
-    return failure();
-  }
-
-  // Note the insert_slice is static, since InsertedSlice exists.
-  auto shape = op.getType().getShape();
-  assert(chain->axis >= 0 && chain->axis < static_cast<int64_t>(shape.size()));
-
-  if (chain->slices[0].first != 0 ||
-      chain->slices[0].second != shape[chain->axis]) {
-    LLVM_DEBUG(llvm::dbgs() << "Fail simplify bcc not full insert_slices\n");
-    return failure();
-  }
-
-  // sort chain's ops since it was not sorted
-  // sort them based on the offsets along the axis
-  llvm::sort(chain->ops, [&](tensor::InsertSliceOp lhs,
-                             tensor::InsertSliceOp rhs) {
-    return lhs.getStaticOffset(chain->axis) < rhs.getStaticOffset(chain->axis);
-  });
-
-  SmallVector<Value> vals;
-  for (auto chainOp : chain->ops) {
-    vals.push_back(chainOp.getSource());
-  }
-  rewriter.replaceOpWithNewOp<mhlo::ConcatenateOp>(op, op.getType(), vals,
-                                                   chain->axis);
-  return success();
-}
+};
 
 namespace {
 
@@ -569,32 +620,36 @@ static void computeBeginAndEnd(const ConcatChunk &chunk, size_t dim,
     }
   };
 }
-
 } // namespace
+
 // fold convert( convert(i1)->anyType1 )->anyType2 to convert(i1)->anyType2
-LogicalResult
-mlir::mhlo::eliminateRedundantConvertFromI1(mhlo::ConvertOp op,
-                                            PatternRewriter &rewriter) {
-  auto convertOp = op.getOperand().getDefiningOp<ConvertOp>();
-  if (!convertOp) {
+struct EliminateRedundantConvertFromI1
+    : public OpRewritePattern<mhlo::ConvertOp> {
+  using OpRewritePattern<mhlo::ConvertOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ConvertOp op,
+                                PatternRewriter &rewriter) const override {
+    auto convertOp = op.getOperand().getDefiningOp<mhlo::ConvertOp>();
+    if (!convertOp) {
+      return failure();
+    }
+    auto firstType =
+        convertOp.getOperand().getType().cast<TensorType>().getElementType();
+    auto secondType =
+        op.getOperand().getType().cast<TensorType>().getElementType();
+    auto thirdType =
+        op.getResult().getType().cast<TensorType>().getElementType();
+    auto loc = rewriter.getFusedLoc({convertOp->getLoc(), op->getLoc()});
+
+    if (firstType.isa<IntegerType>() &&
+        firstType.cast<IntegerType>().getWidth() == 1) {
+      mhlo::ConvertOp result = rewriter.create<mhlo::ConvertOp>(
+          loc, op.getResult().getType(), convertOp.getOperand());
+      rewriter.replaceOp(op, result.getResult());
+      return success();
+    }
     return failure();
   }
-  auto firstType =
-      convertOp.getOperand().getType().cast<TensorType>().getElementType();
-  auto secondType =
-      op.getOperand().getType().cast<TensorType>().getElementType();
-  auto thirdType = op.getResult().getType().cast<TensorType>().getElementType();
-  auto loc = rewriter.getFusedLoc({convertOp->getLoc(), op->getLoc()});
-
-  if (firstType.isa<IntegerType>() &&
-      firstType.cast<IntegerType>().getWidth() == 1) {
-    mhlo::ConvertOp result = rewriter.create<ConvertOp>(
-        loc, op.getResult().getType(), convertOp.getOperand());
-    rewriter.replaceOp(op, result.getResult());
-    return success();
-  }
-  return failure();
-}
+};
 
 ///                tensor
 ///         /         |        \      \
@@ -604,267 +659,280 @@ mlir::mhlo::eliminateRedundantConvertFromI1(mhlo::ConvertOp op,
 ///    \     \        |        /       /        /li
 ///               concatenate
 ///
-LogicalResult
-mlir::mhlo::foldConcatWithSlicesAndRehape(mhlo::ConcatenateOp op,
-                                          PatternRewriter &rewriter) {
-  // only support static shape
-  if (!op.getType().hasStaticShape()) {
-    LLVM_DEBUG(llvm::dbgs() << "concat has no static shape\n");
-    return failure();
-  }
-
-  SmallDenseSet<Value> operandsSet(op->getOperands().begin(),
-                                   op->getOperands().end());
-  if (operandsSet.size() != op->getNumOperands()) {
-    LLVM_DEBUG(llvm::dbgs() << "concat has some same operands\n");
-    return failure();
-  }
-  uint64_t concatDim = op.getDimension();
-
-  // find continuous reshape op
-  std::unordered_map<Value, SmallVector<OpOperand *>, byteir::MlirValueHash>
-      clusterMap;
-  for (unsigned i = 0; i < op.getNumOperands(); ++i) {
-    if (auto reshape = op.getOperand(i).getDefiningOp<mhlo::ReshapeOp>()) {
-      if (auto slice = reshape.getOperand().getDefiningOp<mhlo::SliceOp>()) {
-        clusterMap[slice.getOperand()].push_back(&(op->getOpOperand(i)));
-      }
+struct FoldConcatWithSlicesAndRehape
+    : public OpRewritePattern<mhlo::ConcatenateOp> {
+  using OpRewritePattern<mhlo::ConcatenateOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ConcatenateOp op,
+                                PatternRewriter &rewriter) const override {
+    // only support static shape
+    if (!op.getType().hasStaticShape()) {
+      LLVM_DEBUG(llvm::dbgs() << "concat has no static shape\n");
+      return failure();
     }
-  }
 
-  for (auto iter = clusterMap.begin(); iter != clusterMap.end(); iter++) {
-    if (iter->second.size() <= 1)
-      continue;
+    SmallDenseSet<Value> operandsSet(op->getOperands().begin(),
+                                     op->getOperands().end());
+    if (operandsSet.size() != op->getNumOperands()) {
+      LLVM_DEBUG(llvm::dbgs() << "concat has some same operands\n");
+      return failure();
+    }
+    uint64_t concatDim = op.getDimension();
 
-    const auto &opOperandList = iter->second;
-    auto checkReshapeContinuos = [&opOperandList] {
-      for (unsigned i = 1; i < opOperandList.size(); i++) {
-        if (opOperandList[i]->getOperandNumber() !=
-            opOperandList[i - 1]->getOperandNumber() + 1) {
-          return false;
+    // find continuous reshape op
+    std::unordered_map<Value, SmallVector<OpOperand *>, byteir::MlirValueHash>
+        clusterMap;
+    for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+      if (auto reshape = op.getOperand(i).getDefiningOp<mhlo::ReshapeOp>()) {
+        if (auto slice = reshape.getOperand().getDefiningOp<mhlo::SliceOp>()) {
+          clusterMap[slice.getOperand()].push_back(&(op->getOpOperand(i)));
         }
       }
-      return true;
-    };
-    if (!checkReshapeContinuos()) {
-      continue;
     }
 
-    auto sliceOperandShape =
-        iter->first.getType().cast<ShapedType>().getShape();
+    for (auto iter = clusterMap.begin(); iter != clusterMap.end(); iter++) {
+      if (iter->second.size() <= 1)
+        continue;
 
-    // TODO: only support that extract slices on the last dimension, relax it
-    // later
-    if ((sliceOperandShape.back() % opOperandList.size()) != 0) {
-      continue;
-    }
-    auto sliceSize = sliceOperandShape.back() / opOperandList.size();
+      const auto &opOperandList = iter->second;
+      auto checkReshapeContinuos = [&opOperandList] {
+        for (unsigned i = 1; i < opOperandList.size(); i++) {
+          if (opOperandList[i]->getOperandNumber() !=
+              opOperandList[i - 1]->getOperandNumber() + 1) {
+            return false;
+          }
+        }
+        return true;
+      };
+      if (!checkReshapeContinuos()) {
+        continue;
+      }
 
-    bool isAllSliceOpLegal = true;
-    for (unsigned i = 0; i < opOperandList.size(); i++) {
-      auto reshapeOp = opOperandList[i]->get().getDefiningOp<mhlo::ReshapeOp>();
-      auto slice = reshapeOp.getOperand().getDefiningOp<mhlo::SliceOp>();
-      auto startAttr = slice.getStartIndices();
-      auto limitAttr = slice.getLimitIndices();
-      auto stridesAttr = slice.getStrides();
-      for (unsigned j = 0; j < sliceOperandShape.size(); j++) {
-        if (j < sliceOperandShape.size() - 1) {
-          if ((startAttr.getValues<IntegerAttr>()[j].getInt() != 0) ||
-              (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
-               sliceOperandShape[j]) ||
-              (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
+      auto sliceOperandShape =
+          iter->first.getType().cast<ShapedType>().getShape();
+
+      // TODO: only support that extract slices on the last dimension, relax it
+      // later
+      if ((sliceOperandShape.back() % opOperandList.size()) != 0) {
+        continue;
+      }
+      auto sliceSize = sliceOperandShape.back() / opOperandList.size();
+
+      bool isAllSliceOpLegal = true;
+      for (unsigned i = 0; i < opOperandList.size(); i++) {
+        auto reshapeOp =
+            opOperandList[i]->get().getDefiningOp<mhlo::ReshapeOp>();
+        auto slice = reshapeOp.getOperand().getDefiningOp<mhlo::SliceOp>();
+        auto startAttr = slice.getStartIndices();
+        auto limitAttr = slice.getLimitIndices();
+        auto stridesAttr = slice.getStrides();
+        for (unsigned j = 0; j < sliceOperandShape.size(); j++) {
+          if (j < sliceOperandShape.size() - 1) {
+            if ((startAttr.getValues<IntegerAttr>()[j].getInt() != 0) ||
+                (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
+                 sliceOperandShape[j]) ||
+                (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
+              isAllSliceOpLegal = false;
+              break;
+            }
+          } else if ((startAttr.getValues<IntegerAttr>()[j].getInt() !=
+                      i * sliceSize) ||
+                     (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
+                      (i + 1) * sliceSize) ||
+                     (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
             isAllSliceOpLegal = false;
             break;
           }
-        } else if ((startAttr.getValues<IntegerAttr>()[j].getInt() !=
-                    i * sliceSize) ||
-                   (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
-                    (i + 1) * sliceSize) ||
-                   (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
-          isAllSliceOpLegal = false;
+        }
+        if (!isAllSliceOpLegal) {
           break;
         }
       }
       if (!isAllSliceOpLegal) {
-        break;
+        continue;
       }
+
+      auto expandDim = computeReshapeExpandDim(
+          opOperandList[0]->get().getDefiningOp<mhlo::ReshapeOp>());
+
+      // only support that reshape expand's dim is  equal to concat dim
+      if ((!expandDim.has_value()) || (*expandDim != concatDim) ||
+          (*expandDim != sliceOperandShape.size() - 1)) {
+        continue;
+      }
+      SmallVector<int64_t> newReshapeShape(sliceOperandShape.begin(),
+                                           sliceOperandShape.end());
+      newReshapeShape[newReshapeShape.size() - 1] = sliceSize;
+      newReshapeShape.insert(newReshapeShape.begin() + (*expandDim),
+                             opOperandList.size());
+
+      auto reshapeOp =
+          opOperandList.back()->get().getDefiningOp<mhlo::ReshapeOp>();
+      mhlo::ReshapeOp newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
+          reshapeOp.getLoc(),
+          RankedTensorType::get(
+              newReshapeShape,
+              reshapeOp.getOperand().getType().getElementType()),
+          iter->first);
+
+      SmallVector<Value> newConcatInput;
+      unsigned index = opOperandList[0]->getOperandNumber();
+      for (unsigned i = 0; i < index; i++) {
+        newConcatInput.push_back(op.getOperand(i));
+      }
+      newConcatInput.push_back(newReshapeOp.getResult());
+      for (unsigned i = index + opOperandList.size(); i < op.getNumOperands();
+           i++) {
+        newConcatInput.push_back(op.getOperand(i));
+      }
+
+      mhlo::ConcatenateOp newConcatOp = rewriter.create<mhlo::ConcatenateOp>(
+          op.getLoc(), op.getType(), newConcatInput, op.getDimension());
+      rewriter.replaceOp(op, newConcatOp.getResult());
+
+      return success();
     }
-    if (!isAllSliceOpLegal) {
-      continue;
-    }
-
-    auto expandDim = computeReshapeExpandDim(
-        opOperandList[0]->get().getDefiningOp<mhlo::ReshapeOp>());
-
-    // only support that reshape expand's dim is  equal to concat dim
-    if ((!expandDim.has_value()) || (*expandDim != concatDim) ||
-        (*expandDim != sliceOperandShape.size() - 1)) {
-      continue;
-    }
-    SmallVector<int64_t> newReshapeShape(sliceOperandShape.begin(),
-                                         sliceOperandShape.end());
-    newReshapeShape[newReshapeShape.size() - 1] = sliceSize;
-    newReshapeShape.insert(newReshapeShape.begin() + (*expandDim),
-                           opOperandList.size());
-
-    auto reshapeOp =
-        opOperandList.back()->get().getDefiningOp<mhlo::ReshapeOp>();
-    mhlo::ReshapeOp newReshapeOp = rewriter.create<mhlo::ReshapeOp>(
-        reshapeOp.getLoc(),
-        RankedTensorType::get(
-            newReshapeShape, reshapeOp.getOperand().getType().getElementType()),
-        iter->first);
-
-    SmallVector<Value> newConcatInput;
-    unsigned index = opOperandList[0]->getOperandNumber();
-    for (unsigned i = 0; i < index; i++) {
-      newConcatInput.push_back(op.getOperand(i));
-    }
-    newConcatInput.push_back(newReshapeOp.getResult());
-    for (unsigned i = index + opOperandList.size(); i < op.getNumOperands();
-         i++) {
-      newConcatInput.push_back(op.getOperand(i));
-    }
-
-    mhlo::ConcatenateOp newConcatOp = rewriter.create<mhlo::ConcatenateOp>(
-        op.getLoc(), op.getType(), newConcatInput, op.getDimension());
-    rewriter.replaceOp(op, newConcatOp.getResult());
-
-    return success();
+    return failure();
   }
-  return failure();
-}
+};
 
 ///  Fold concatenate of continuous slices
 ///  FIXME: support static only for now, relax it later
-LogicalResult
-mlir::mhlo::foldConcatWithContinuousSlices(mhlo::ConcatenateOp op,
-                                           PatternRewriter &rewriter) {
+struct FoldConcatWithContinuousSlices
+    : public OpRewritePattern<mhlo::ConcatenateOp> {
+  using OpRewritePattern<mhlo::ConcatenateOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ConcatenateOp op,
+                                PatternRewriter &rewriter) const override {
 
-  // support static now
-  if (!op.getType().hasStaticShape()) {
-    LLVM_DEBUG(llvm::dbgs() << "concat has no static shape\n");
-    return failure();
-  }
+    // support static now
+    if (!op.getType().hasStaticShape()) {
+      LLVM_DEBUG(llvm::dbgs() << "concat has no static shape\n");
+      return failure();
+    }
 
-  SmallDenseSet<Value> operandsSet(op->getOperands().begin(),
-                                   op->getOperands().end());
-  if (operandsSet.size() != op->getNumOperands()) {
-    LLVM_DEBUG(llvm::dbgs() << "concat has some same operands\n");
-    return failure();
-  }
+    SmallDenseSet<Value> operandsSet(op->getOperands().begin(),
+                                     op->getOperands().end());
+    if (operandsSet.size() != op->getNumOperands()) {
+      LLVM_DEBUG(llvm::dbgs() << "concat has some same operands\n");
+      return failure();
+    }
 
-  uint64_t dim = op.getDimension();
-  SmallVector<ConcatChunk> chunks;
-  bool hasMerged = false;
-  for (unsigned i = 0; i < op.getNumOperands(); ++i) {
-    if (auto slice = op.getOperand(i).getDefiningOp<mhlo::SliceOp>()) {
-      // handle 1D slice only along dim axis
-      auto chunk = getChunkOfSlice(i, op, slice);
+    uint64_t dim = op.getDimension();
+    SmallVector<ConcatChunk> chunks;
+    bool hasMerged = false;
+    for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+      if (auto slice = op.getOperand(i).getDefiningOp<mhlo::SliceOp>()) {
+        // handle 1D slice only along dim axis
+        auto chunk = getChunkOfSlice(i, op, slice);
 
-      if (!chunks.empty() && (chunks.back().val == chunk.val) &&
-          (chunks.back().axis == chunk.axis) && (chunk.axis != K_INITIAL) &&
-          (chunks.back().end == chunk.begin)) {
-        chunks.back().end = chunk.end;
-        chunks.back().ids.push_back(i);
-        hasMerged = true;
+        if (!chunks.empty() && (chunks.back().val == chunk.val) &&
+            (chunks.back().axis == chunk.axis) && (chunke.axis != K_INITIAL) &&
+            (chunks.back().end == chunk.begin)) {
+          chunks.back().end = chunk.end;
+          chunks.back().ids.push_back(i);
+          hasMerged = true;
+        } else {
+          chunks.push_back(chunk);
+        }
       } else {
-        chunks.push_back(chunk);
+        chunks.push_back(ConcatChunk(op.getOperand(i), i));
       }
-    } else {
-      chunks.push_back(ConcatChunk(op.getOperand(i), i));
     }
-  }
 
-  if (!hasMerged) {
-    LLVM_DEBUG(llvm::dbgs() << "concat has no mergable slices\n");
+    if (!hasMerged) {
+      LLVM_DEBUG(llvm::dbgs() << "concat has no mergable slices\n");
+      return failure();
+    }
+
+    // Only handle one chunk for now
+    // TODO: add support to multiple chunk
+    if (chunks.size() > 1) {
+      for (size_t i = 0; i < chunks.size(); ++i) {
+        auto &c = chunks[i];
+        LLVM_DEBUG(llvm::dbgs() << "chunk " << i << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "slice axis " << c.axis << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "slice begin " << c.begin << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "slice end " << c.end << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "operand id from " << c.ids.front() << " to "
+                                << c.ids.back() << "\n");
+      }
+      return failure();
+    }
+
+    // only one chunk case
+    // chunks.size() == 1
+    auto concatTy = op.getType();
+    const auto &chunk = chunks.back();
+    // either identity or 1 slice
+    auto extent = concatTy.getShape()[dim];
+    if (auto inputTy = chunk.val.getType().dyn_cast<TensorType>()) {
+      if (inputTy == concatTy && chunk.begin == 0 && chunk.end == extent) {
+        // identity
+        rewriter.replaceOp(op, chunk.val);
+      } else {
+        // 1 slice
+        int64_t rank = op.getType().getRank();
+        auto indicesTy = RankedTensorType::get(rank, rewriter.getI64Type());
+
+        SmallVector<int64_t> begins(rank, 0);
+        SmallVector<int64_t> ends(rank, 0);
+
+        // FIXME: support unit-stride now
+        SmallVector<int64_t> strides(rank, 1);
+
+        computeBeginAndEnd(chunk, dim, begins, ends);
+
+        rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
+            op, chunk.val, DenseIntElementsAttr::get(indicesTy, begins),
+            DenseIntElementsAttr::get(indicesTy, ends),
+            DenseIntElementsAttr::get(indicesTy, strides));
+      }
+      return success();
+    }
     return failure();
   }
+};
 
-  // Only handle one chunk for now
-  // TODO: add support to multiple chunk
-  if (chunks.size() > 1) {
-    for (size_t i = 0; i < chunks.size(); ++i) {
-      auto &c = chunks[i];
-      LLVM_DEBUG(llvm::dbgs() << "chunk " << i << "\n");
-      LLVM_DEBUG(llvm::dbgs() << "slice axis " << c.axis << "\n");
-      LLVM_DEBUG(llvm::dbgs() << "slice begin " << c.begin << "\n");
-      LLVM_DEBUG(llvm::dbgs() << "slice end " << c.end << "\n");
-      LLVM_DEBUG(llvm::dbgs() << "operand id from " << c.ids.front() << " to "
-                              << c.ids.back() << "\n");
+struct FoldMultiplyZero : public OpRewritePattern<mhlo::MulOp> {
+  using OpRewritePattern<mhlo::MulOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::MulOp op,
+                                PatternRewriter &rewriter) const override {
+    auto lhsOp = op.getLhs().getDefiningOp<mhlo::ConstantOp>();
+    auto rhsOp = op.getRhs().getDefiningOp<mhlo::ConstantOp>();
+    if (!lhsOp && !rhsOp) {
+      return failure();
     }
+
+    auto checkZeroThenReplace = [&](mhlo::ConstantOp cstOp) {
+      if (!cstOp)
+        return false;
+
+      DenseElementsAttr valAttr =
+          cstOp.getValue().dyn_cast<DenseElementsAttr>();
+      if (!valAttr)
+        return false;
+
+      SplatElementsAttr splatAttr =
+          valAttr.dyn_cast_or_null<SplatElementsAttr>();
+      if (!splatAttr)
+        return false;
+
+      if (isSplatZero(splatAttr)) {
+        rewriter.replaceOp(op, cstOp.getResult());
+        return true;
+      }
+
+      return false;
+    };
+
+    if (checkZeroThenReplace(lhsOp)) {
+      return success();
+    } else if (checkZeroThenReplace(rhsOp)) {
+      return success();
+    }
+
     return failure();
   }
-
-  // only one chunk case
-  // chunks.size() == 1
-  auto concatTy = op.getType();
-  const auto &chunk = chunks.back();
-  // either identity or 1 slice
-  auto extent = concatTy.getShape()[dim];
-  if (auto inputTy = chunk.val.getType().dyn_cast<TensorType>()) {
-    if (inputTy == concatTy && chunk.begin == 0 && chunk.end == extent) {
-      // identity
-      rewriter.replaceOp(op, chunk.val);
-    } else {
-      // 1 slice
-      int64_t rank = op.getType().getRank();
-      auto indicesTy = RankedTensorType::get(rank, rewriter.getI64Type());
-
-      SmallVector<int64_t> begins(rank, 0);
-      SmallVector<int64_t> ends(rank, 0);
-
-      // FIXME: support unit-stride now
-      SmallVector<int64_t> strides(rank, 1);
-
-      computeBeginAndEnd(chunk, dim, begins, ends);
-
-      rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
-          op, chunk.val, DenseIntElementsAttr::get(indicesTy, begins),
-          DenseIntElementsAttr::get(indicesTy, ends),
-          DenseIntElementsAttr::get(indicesTy, strides));
-    }
-    return success();
-  }
-  return failure();
-}
-
-LogicalResult mlir::mhlo::foldMultiplyZero(mhlo::MulOp op,
-                                           PatternRewriter &rewriter) {
-  auto lhsOp = op.getLhs().getDefiningOp<mhlo::ConstantOp>();
-  auto rhsOp = op.getRhs().getDefiningOp<mhlo::ConstantOp>();
-  if (!lhsOp && !rhsOp) {
-    return failure();
-  }
-
-  auto checkZeroThenReplace = [&](mhlo::ConstantOp cstOp) {
-    if (!cstOp)
-      return false;
-
-    DenseElementsAttr valAttr = cstOp.getValue().dyn_cast<DenseElementsAttr>();
-    if (!valAttr)
-      return false;
-
-    SplatElementsAttr splatAttr = valAttr.dyn_cast_or_null<SplatElementsAttr>();
-    if (!splatAttr)
-      return false;
-
-    if (isSplatZero(splatAttr)) {
-      rewriter.replaceOp(op, cstOp.getResult());
-      return true;
-    }
-
-    return false;
-  };
-
-  if (checkZeroThenReplace(lhsOp)) {
-    return success();
-  } else if (checkZeroThenReplace(rhsOp)) {
-    return success();
-  }
-
-  return failure();
-}
+};
 
 namespace {
 // functions in this namespace copied from
@@ -1041,52 +1109,58 @@ struct Pow<T, std::enable_if_t<std::is_same_v<T, APFloat>>> {
 } // namespace
 
 template <typename Op, template <typename> typename Func>
-LogicalResult mlir::mhlo::foldLargeBinaryOp(Op op, PatternRewriter &rewriter) {
-  auto lhsOp = op.getLhs().template getDefiningOp<mhlo::ConstantOp>();
-  auto rhsOp = op.getRhs().template getDefiningOp<mhlo::ConstantOp>();
-  if (!lhsOp || !rhsOp) {
-    return failure();
-  }
-  RankedTensorType type = op.getType().template dyn_cast<RankedTensorType>();
-  if (!type || !type.hasStaticShape()) {
-    return failure();
-  }
+struct FoldLargeBinaryOp : OpRewritePattern<Op> {
+  using OpRewritePattern<Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(Op op,
+                                PatternRewriter &rewriter) const override {
+    auto lhsOp = op.getLhs().template getDefiningOp<mhlo::ConstantOp>();
+    auto rhsOp = op.getRhs().template getDefiningOp<mhlo::ConstantOp>();
+    if (!lhsOp || !rhsOp) {
+      return failure();
+    }
+    RankedTensorType type = op.getType().template dyn_cast<RankedTensorType>();
+    if (!type || !type.hasStaticShape()) {
+      return failure();
+    }
 
-  Attribute result;
-  if (type.getElementType().isa<FloatType>()) {
-    result = BinaryFolder<Op, FloatType, APFloat, Func<APFloat>>(
-        &op, ArrayRef<Attribute>{lhsOp.getValue(), rhsOp.getValue()});
-  } else if (type.getElementType().isa<IntegerType>()) {
-    result = BinaryFolder<Op, IntegerType, APInt, Func<APSInt>>(
-        &op, ArrayRef<Attribute>{lhsOp.getValue(), rhsOp.getValue()});
+    Attribute result;
+    if (type.getElementType().isa<FloatType>()) {
+      result = BinaryFolder<Op, FloatType, APFloat, Func<APFloat>>(
+          &op, ArrayRef<Attribute>{lhsOp.getValue(), rhsOp.getValue()});
+    } else if (type.getElementType().isa<IntegerType>()) {
+      result = BinaryFolder<Op, IntegerType, APInt, Func<APSInt>>(
+          &op, ArrayRef<Attribute>{lhsOp.getValue(), rhsOp.getValue()});
+    }
+    if (!result) {
+      return failure();
+    }
+    mhlo::ConstantOp newConstant =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), result);
+    rewriter.replaceOp(op, newConstant.getOutput());
+    return success();
   }
-  if (!result) {
-    return failure();
-  }
-  mhlo::ConstantOp newConstant =
-      rewriter.create<mhlo::ConstantOp>(op->getLoc(), result);
-  rewriter.replaceOp(op, newConstant.getOutput());
-  return success();
-}
+};
 
-LogicalResult mlir::mhlo::foldLargeCompareOp(mhlo::CompareOp op,
-                                             PatternRewriter &rewriter) {
-  auto lhsOp = op.getLhs().getDefiningOp<mhlo::ConstantOp>();
-  auto rhsOp = op.getRhs().getDefiningOp<mhlo::ConstantOp>();
-  if (!lhsOp || !rhsOp) {
-    return failure();
-  }
-  auto elementType =
-      lhsOp.getValue().getType().cast<ShapedType>().getElementType();
-  if (elementType.isa<ComplexType>()) {
-    return failure();
-  }
-  // upstream handled splat value
-  if (lhsOp.getValue().isSplat() || rhsOp.getValue().isSplat()) {
-    return failure();
-  }
+struct FoldLargeCompareOp : public OpRewritePattern<mhlo::CompareOp> {
+  using OpRewritePattern<mhlo::CompareOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::CompareOp op,
+                                PatternRewriter &rewriter) const override {
+    auto lhsOp = op.getLhs().getDefiningOp<mhlo::ConstantOp>();
+    auto rhsOp = op.getRhs().getDefiningOp<mhlo::ConstantOp>();
+    if (!lhsOp || !rhsOp) {
+      return failure();
+    }
+    auto elementType =
+        lhsOp.getValue().getType().cast<ShapedType>().getElementType();
+    if (elementType.isa<ComplexType>()) {
+      return failure();
+    }
+    // upstream handled splat value
+    if (lhsOp.getValue().isSplat() || rhsOp.getValue().isSplat()) {
+      return failure();
+    }
 
-  Attribute folded = nullptr;
+    Attribute folded = nullptr;
 #define COMPARE_FOLDER(comparison, Func)                                       \
   if (op.getComparisonDirection() == comparison) {                             \
     if ((folded = CompareFolder<FloatType, APFloat, Func<APFloat>>(            \
@@ -1105,50 +1179,55 @@ LogicalResult mlir::mhlo::foldLargeCompareOp(mhlo::CompareOp op,
     }                                                                          \
   }
 
-  COMPARE_FOLDER(ComparisonDirection::EQ, std::equal_to);
-  COMPARE_FOLDER(ComparisonDirection::NE, std::not_equal_to);
-  COMPARE_FOLDER(ComparisonDirection::LT, std::less);
-  COMPARE_FOLDER(ComparisonDirection::LE, std::less_equal);
-  COMPARE_FOLDER(ComparisonDirection::GT, std::greater);
-  COMPARE_FOLDER(ComparisonDirection::GE, std::greater_equal);
+    COMPARE_FOLDER(mhlo::ComparisonDirection::EQ, std::equal_to);
+    COMPARE_FOLDER(mhlo::ComparisonDirection::NE, std::not_equal_to);
+    COMPARE_FOLDER(mhlo::ComparisonDirection::LT, std::less);
+    COMPARE_FOLDER(mhlo::ComparisonDirection::LE, std::less_equal);
+    COMPARE_FOLDER(mhlo::ComparisonDirection::GT, std::greater);
+    COMPARE_FOLDER(mhlo::ComparisonDirection::GE, std::greater_equal);
 #undef COMPARE_FOLDER
-  return failure();
-}
+    return failure();
+  }
+};
 
 // TODO(lyq): push this pattern back to upstream
 // mhlo.dynamic_conv => mhlo.convolution canonicalization
-LogicalResult mlir::mhlo::simplifyDynamicConvToConv(mhlo::DynamicConvOp op,
-                                                    PatternRewriter &rewriter) {
-  DenseIntElementsAttr dPaddingAttr;
-  if (!matchPattern(op.getDPadding(), m_Constant(&dPaddingAttr))) {
-    return failure();
-  }
-  size_t spatialDim =
-      op.getDimensionNumbers().getInputSpatialDimensions().size();
-  assert(dPaddingAttr.size() == static_cast<int64_t>(spatialDim * 2));
-
-  llvm::SmallVector<int64_t> newPadding = llvm::to_vector(
-      llvm::map_range(dPaddingAttr.getValues<APInt>(),
-                      [&](APInt i) { return i.getSExtValue(); }));
-  if (op.getPadding().has_value()) {
-    DenseIntElementsAttr paddingAttr = op.getPadding().value();
-    assert(paddingAttr.size() == static_cast<int64_t>(spatialDim * 2));
-
-    for (const auto &it : llvm::enumerate(paddingAttr.getValues<int64_t>())) {
-      newPadding[it.index()] += it.value();
+struct SimplifyDynamicConvToConv
+    : public OpRewritePattern<mhlo::DynamicConvOp> {
+  using OpRewritePattern<mhlo::DynamicConvOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::DynamicConvOp op,
+                                PatternRewriter &rewriter) const override {
+    DenseIntElementsAttr dPaddingAttr;
+    if (!matchPattern(op.getDPadding(), m_Constant(&dPaddingAttr))) {
+      return failure();
     }
-  }
+    size_t spatialDim =
+        op.getDimensionNumbers().getInputSpatialDimensions().size();
+    assert(dPaddingAttr.size() == static_cast<int64_t>(spatialDim * 2));
 
-  mhlo::ConvolutionOp convOp = rewriter.create<mhlo::ConvolutionOp>(
-      op->getLoc(), op.getType(),
-      llvm::ArrayRef<Value>{op.getLhs(), op.getRhs()}, op->getAttrs());
-  convOp.setPaddingAttr(DenseIntElementsAttr::get(
-      RankedTensorType::get({static_cast<int64_t>(spatialDim), 2},
-                            rewriter.getI64Type()),
-      newPadding));
-  rewriter.replaceOp(op, convOp.getResult());
-  return success();
-}
+    llvm::SmallVector<int64_t> newPadding = llvm::to_vector(
+        llvm::map_range(dPaddingAttr.getValues<APInt>(),
+                        [&](APInt i) { return i.getSExtValue(); }));
+    if (op.getPadding().has_value()) {
+      DenseIntElementsAttr paddingAttr = op.getPadding().value();
+      assert(paddingAttr.size() == static_cast<int64_t>(spatialDim * 2));
+
+      for (const auto &it : llvm::enumerate(paddingAttr.getValues<int64_t>())) {
+        newPadding[it.index()] += it.value();
+      }
+    }
+
+    mhlo::ConvolutionOp convOp = rewriter.create<mhlo::ConvolutionOp>(
+        op->getLoc(), op.getType(),
+        llvm::ArrayRef<Value>{op.getLhs(), op.getRhs()}, op->getAttrs());
+    convOp.setPaddingAttr(DenseIntElementsAttr::get(
+        RankedTensorType::get({static_cast<int64_t>(spatialDim), 2},
+                              rewriter.getI64Type()),
+        newPadding));
+    rewriter.replaceOp(op, convOp.getResult());
+    return success();
+  }
+};
 
 namespace {
 // modified from mlir-hlo/lib/Dialect/mhlo/IR/hlo_ops.cc
@@ -1177,65 +1256,70 @@ static DenseElementsAttr foldConcatenateHelper(int64_t axis, Type elementType,
 
 } // namespace
 
-LogicalResult mlir::mhlo::foldLargeConcatenate(mhlo::ConcatenateOp op,
-                                               PatternRewriter &rewriter) {
-  LLVM_DEBUG(llvm::dbgs() << "foldLargeConcatenate\n");
-  auto numOperands = op->getNumOperands();
-  int64_t index = K_INITIAL;
-  for (int64_t i = 0; i < numOperands - 1; i++) {
-    if (isa_and_nonnull<mhlo::ConstantOp>(op.getVal()[i].getDefiningOp()) &&
-        isa_and_nonnull<mhlo::ConstantOp>(op.getVal()[i + 1].getDefiningOp())) {
-      index = i;
-      break;
+// constant folding for mhlo.concatenate with large result
+struct FoldLargeConcatenate : public OpRewritePattern<mhlo::ConcatenateOp> {
+  using OpRewritePattern<mhlo::ConcatenateOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ConcatenateOp op,
+                                PatternRewriter &rewriter) const override {
+    LLVM_DEBUG(llvm::dbgs() << "foldLargeConcatenate\n");
+    auto numOperands = op->getNumOperands();
+    int64_t index = K_INITIAL;
+    for (int64_t i = 0; i < numOperands - 1; i++) {
+      if (isa_and_nonnull<mhlo::ConstantOp>(op.getVal()[i].getDefiningOp()) &&
+          isa_and_nonnull<mhlo::ConstantOp>(
+              op.getVal()[i + 1].getDefiningOp())) {
+        index = i;
+        break;
+      }
     }
-  }
-  if (index == K_INITIAL) {
-    LLVM_DEBUG(llvm::dbgs() << "no constant index\n");
-    return failure();
-  }
+    if (index == K_INITIAL) {
+      LLVM_DEBUG(llvm::dbgs() << "no constant index\n");
+      return failure();
+    }
 
-  DenseElementsAttr firstConst = op.getVal()[index]
-                                     .getDefiningOp<mhlo::ConstantOp>()
-                                     .getValue()
-                                     .cast<DenseElementsAttr>();
-  DenseElementsAttr secondConst = op.getVal()[index + 1]
-                                      .getDefiningOp<mhlo::ConstantOp>()
-                                      .getValue()
-                                      .cast<DenseElementsAttr>();
-  llvm::SmallVector<int64_t> newConstShape =
-      llvm::to_vector(firstConst.getType().getShape());
-  newConstShape[op.getDimension()] +=
-      secondConst.getType().getShape()[op.getDimension()];
-  DenseElementsAttr newConstAttr = nullptr;
-  if (firstConst.getElementType().isa<FloatType>()) {
-    newConstAttr = foldConcatenateHelper<APFloat>(
-        op.getDimension(), firstConst.getElementType(), newConstShape,
-        {firstConst, secondConst});
-  } else if (firstConst.getElementType().isa<IntegerType>()) {
-    newConstAttr = foldConcatenateHelper<APInt>(
-        op.getDimension(), firstConst.getElementType(), newConstShape,
-        {firstConst, secondConst});
-  }
+    DenseElementsAttr firstConst = op.getVal()[index]
+                                       .getDefiningOp<mhlo::ConstantOp>()
+                                       .getValue()
+                                       .cast<DenseElementsAttr>();
+    DenseElementsAttr secondConst = op.getVal()[index + 1]
+                                        .getDefiningOp<mhlo::ConstantOp>()
+                                        .getValue()
+                                        .cast<DenseElementsAttr>();
+    llvm::SmallVector<int64_t> newConstShape =
+        llvm::to_vector(firstConst.getType().getShape());
+    newConstShape[op.getDimension()] +=
+        secondConst.getType().getShape()[op.getDimension()];
+    DenseElementsAttr newConstAttr = nullptr;
+    if (firstConst.getElementType().isa<FloatType>()) {
+      newConstAttr = foldConcatenateHelper<APFloat>(
+          op.getDimension(), firstConst.getElementType(), newConstShape,
+          {firstConst, secondConst});
+    } else if (firstConst.getElementType().isa<IntegerType>()) {
+      newConstAttr = foldConcatenateHelper<APInt>(
+          op.getDimension(), firstConst.getElementType(), newConstShape,
+          {firstConst, secondConst});
+    }
 
-  if (!newConstAttr) {
-    LLVM_DEBUG(llvm::dbgs() << "has no new constant attribute\n");
-    return failure();
+    if (!newConstAttr) {
+      LLVM_DEBUG(llvm::dbgs() << "has no new constant attribute\n");
+      return failure();
+    }
+    mhlo::ConstantOp newConstOp =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), newConstAttr);
+    llvm::SmallVector<Value> newOperands;
+    for (int64_t i = 0; i < index; i++) {
+      newOperands.push_back(op.getVal()[i]);
+    }
+    newOperands.push_back(newConstOp.getOutput());
+    for (int64_t i = index + 2; i < numOperands; i++) {
+      newOperands.push_back(op.getVal()[i]);
+    }
+    mhlo::ConcatenateOp newConcatOp = rewriter.create<mhlo::ConcatenateOp>(
+        op->getLoc(), op.getType(), newOperands, op.getDimension());
+    rewriter.replaceOp(op, newConcatOp.getResult());
+    return success();
   }
-  mhlo::ConstantOp newConstOp =
-      rewriter.create<mhlo::ConstantOp>(op->getLoc(), newConstAttr);
-  llvm::SmallVector<Value> newOperands;
-  for (int64_t i = 0; i < index; i++) {
-    newOperands.push_back(op.getVal()[i]);
-  }
-  newOperands.push_back(newConstOp.getOutput());
-  for (int64_t i = index + 2; i < numOperands; i++) {
-    newOperands.push_back(op.getVal()[i]);
-  }
-  mhlo::ConcatenateOp newConcatOp = rewriter.create<mhlo::ConcatenateOp>(
-      op->getLoc(), op.getType(), newOperands, op.getDimension());
-  rewriter.replaceOp(op, newConcatOp.getResult());
-  return success();
-}
+};
 
 namespace {
 template <typename T>
@@ -1278,76 +1362,81 @@ DenseElementsAttr foldTransposeHelper(mhlo::TransposeOp op,
 }
 } // namespace
 
-LogicalResult mlir::mhlo::foldTransposeNonSplat(mhlo::TransposeOp op,
-                                                PatternRewriter &rewriter) {
-  if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
-          op.getOperand().getDefiningOp())) {
-    return failure();
-  }
-  DenseElementsAttr valueAttr = op.getOperand()
-                                    .getDefiningOp<mhlo::ConstantOp>()
-                                    .getValue()
-                                    .cast<DenseElementsAttr>();
-  if (valueAttr.isSplat()) {
-    return failure();
-  }
-
-  DenseElementsAttr newValueAttr = nullptr;
-  if (valueAttr.getElementType().isa<FloatType>()) {
-    newValueAttr = foldTransposeHelper<APFloat>(op, valueAttr);
-  } else if (valueAttr.getElementType().isa<IntegerType>()) {
-    newValueAttr = foldTransposeHelper<APInt>(op, valueAttr);
-  }
-
-  if (!newValueAttr) {
-    return failure();
-  }
-  mhlo::ConstantOp newConstOp =
-      rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
-  rewriter.replaceOp(op, newConstOp.getOutput());
-  return success();
-}
-
-LogicalResult
-mlir::mhlo::foldBeneficialConstantConvertOp(mhlo::ConvertOp op,
-                                            PatternRewriter &rewriter) {
-  if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
-          op.getOperand().getDefiningOp())) {
-    return failure();
-  }
-  DenseElementsAttr valueAttr = op.getOperand()
-                                    .getDefiningOp<mhlo::ConstantOp>()
-                                    .getValue()
-                                    .cast<DenseElementsAttr>();
-  Type inputElementType = valueAttr.getType().getElementType();
-  Type outputElementType =
-      op.getResult().getType().cast<ShapedType>().getElementType();
-  auto getWidth = [](Type type) -> int64_t {
-    if (type.isa<FloatType>()) {
-      return type.cast<FloatType>().getWidth();
-    } else if (type.isa<IntegerType>()) {
-      return type.cast<IntegerType>().getWidth();
-    } else {
-      return K_INITIAL;
+struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
+  using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::TransposeOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
+            op.getOperand().getDefiningOp())) {
+      return failure();
     }
-  };
-  int64_t inputTypeWidth = getWidth(inputElementType);
-  int64_t outputTypeWidth = getWidth(outputElementType);
-  // only fold down convert
-  if (outputTypeWidth > inputTypeWidth) {
-    return failure();
-  }
+    DenseElementsAttr valueAttr = op.getOperand()
+                                      .getDefiningOp<mhlo::ConstantOp>()
+                                      .getValue()
+                                      .cast<DenseElementsAttr>();
+    if (valueAttr.isSplat()) {
+      return failure();
+    }
 
-  ElementsAttr newValueAttr =
-      hlo::convertElementsAttr(valueAttr, outputElementType);
-  if (!newValueAttr) {
-    return failure();
+    DenseElementsAttr newValueAttr = nullptr;
+    if (valueAttr.getElementType().isa<FloatType>()) {
+      newValueAttr = foldTransposeHelper<APFloat>(op, valueAttr);
+    } else if (valueAttr.getElementType().isa<IntegerType>()) {
+      newValueAttr = foldTransposeHelper<APInt>(op, valueAttr);
+    }
+
+    if (!newValueAttr) {
+      return failure();
+    }
+    mhlo::ConstantOp newConstOp =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
+    rewriter.replaceOp(op, newConstOp.getOutput());
+    return success();
   }
-  mhlo::ConstantOp newConstantOp =
-      rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
-  rewriter.replaceOp(op, newConstantOp.getOutput());
-  return success();
-}
+};
+
+struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
+  using OpRewritePattern<mhlo::ConvertOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ConvertOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
+            op.getOperand().getDefiningOp())) {
+      return failure();
+    }
+    DenseElementsAttr valueAttr = op.getOperand()
+                                      .getDefiningOp<mhlo::ConstantOp>()
+                                      .getValue()
+                                      .cast<DenseElementsAttr>();
+    Type inputElementType = valueAttr.getType().getElementType();
+    Type outputElementType =
+        op.getResult().getType().cast<ShapedType>().getElementType();
+    auto getWidth = [](Type type) -> int64_t {
+      if (type.isa<FloatType>()) {
+        return type.cast<FloatType>().getWidth();
+      } else if (type.isa<IntegerType>()) {
+        return type.cast<IntegerType>().getWidth();
+      } else {
+        return K_INITIAL;
+      }
+    };
+    int64_t inputTypeWidth = getWidth(inputElementType);
+    int64_t outputTypeWidth = getWidth(outputElementType);
+    // only fold down convert
+    if (outputTypeWidth > inputTypeWidth) {
+      return failure();
+    }
+
+    ElementsAttr newValueAttr =
+        hlo::convertElementsAttr(valueAttr, outputElementType);
+    if (!newValueAttr) {
+      return failure();
+    }
+    mhlo::ConstantOp newConstantOp =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
+    rewriter.replaceOp(op, newConstantOp.getOutput());
+    return success();
+  }
+};
 
 namespace {
 
@@ -1417,222 +1506,248 @@ static Attribute foldSlice(mhlo::SliceOp *op, I values) {
 
 } // namespace
 
-LogicalResult mlir::mhlo::foldLargeSliceOp(mhlo::SliceOp op,
-                                           PatternRewriter &rewriter) {
-  if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
-          op.getOperand().getDefiningOp())) {
+struct FoldLargeSliceOp : public OpRewritePattern<mhlo::SliceOp> {
+  using OpRewritePattern<mhlo::SliceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::SliceOp op,
+                                PatternRewriter &rewriter) const override {
+    if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
+            op.getOperand().getDefiningOp())) {
+      return failure();
+    }
+    DenseElementsAttr elements = op.getOperand()
+                                     .getDefiningOp<mhlo::ConstantOp>()
+                                     .getValue()
+                                     .dyn_cast<DenseElementsAttr>();
+
+    if (!elements)
+      return failure();
+
+    auto etype = elements.getType().getElementType();
+    if (etype.isa<IntegerType>()) {
+      Attribute folded =
+          foldSlice<DenseElementsAttr::IntElementIterator, APInt>(
+              &op, elements.value_begin<APInt>());
+      if (!folded)
+        return failure();
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
+      return success();
+    }
+    if (etype.isa<FloatType>()) {
+      Attribute folded =
+          foldSlice<DenseElementsAttr::FloatElementIterator, APFloat>(
+              &op, elements.value_begin<APFloat>());
+      if (!folded)
+        return failure();
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
+      return success();
+    }
+
     return failure();
   }
-  DenseElementsAttr elements = op.getOperand()
-                                   .getDefiningOp<mhlo::ConstantOp>()
-                                   .getValue()
-                                   .dyn_cast<DenseElementsAttr>();
-
-  if (!elements)
-    return failure();
-
-  auto etype = elements.getType().getElementType();
-  if (etype.isa<IntegerType>()) {
-    Attribute folded = foldSlice<DenseElementsAttr::IntElementIterator, APInt>(
-        &op, elements.value_begin<APInt>());
-    if (!folded)
-      return failure();
-    rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
-    return success();
-  }
-  if (etype.isa<FloatType>()) {
-    Attribute folded =
-        foldSlice<DenseElementsAttr::FloatElementIterator, APFloat>(
-            &op, elements.value_begin<APFloat>());
-    if (!folded)
-      return failure();
-    rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
-    return success();
-  }
-
-  return failure();
-}
+};
 
 // const + broadcast_in_dim => const + broadcast_in_dim
-LogicalResult
-mlir::mhlo::canonicalizeBroadcastInDimConst(mhlo::BroadcastInDimOp op,
-                                            PatternRewriter &rewriter) {
-  auto constOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
-  if (!constOp) {
-    return failure();
-  }
-  DenseElementsAttr valueAttr = constOp.getValue().cast<DenseElementsAttr>();
-  ShapedType valueType = valueAttr.getType();
-  if (llvm::none_of(valueType.getShape(),
-                    [](int64_t dim) { return dim == 1; })) {
-    return failure();
-  }
-  llvm::SmallVector<int64_t> newValueShape, newBroadcastDims;
-  for (unsigned i = 0, e = valueType.getRank(); i < e; ++i) {
-    if (valueType.getDimSize(i) != 1) {
-      newValueShape.push_back(valueType.getDimSize(i));
-      newBroadcastDims.push_back(
-          op.getBroadcastDimensions().getValues<int64_t>()[i]);
+struct CanonicalizeBroadcastInDimConst
+    : public OpRewritePattern<mhlo::BroadcastInDimOp> {
+  using OpRewritePattern<mhlo::BroadcastInDimOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::BroadcastInDimOp op,
+                                PatternRewriter &rewriter) const override {
+    auto constOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    if (!constOp) {
+      return failure();
     }
-  }
-  auto newValueType =
-      RankedTensorType::get(newValueShape, valueType.getElementType());
-  valueAttr = reshapeDenseElementsAttr(valueAttr, newValueType);
-  mhlo::ConstantOp newConstOp =
-      rewriter.create<mhlo::ConstantOp>(constOp->getLoc(), valueAttr);
-  op.setOperand(newConstOp.getOutput());
-  op.setBroadcastDimensionsAttr(rewriter.getI64TensorAttr(newBroadcastDims));
-  return success();
-}
-
-LogicalResult mlir::mhlo::simplifyByteIRAddNToAdd(mhlo::CustomCallOp op,
-                                                  PatternRewriter &rewriter) {
-  if (op.getCallTargetName() != getAddNName()) {
-    return failure();
-  }
-  if (op.getNumOperands() == 2) {
-    mhlo::AddOp addOp = rewriter.create<mhlo::AddOp>(
-        op->getLoc(), op.getResultTypes(), op.getOperands());
-    rewriter.replaceOp(op, addOp.getResult());
+    DenseElementsAttr valueAttr = constOp.getValue().cast<DenseElementsAttr>();
+    ShapedType valueType = valueAttr.getType();
+    if (llvm::none_of(valueType.getShape(),
+                      [](int64_t dim) { return dim == 1; })) {
+      return failure();
+    }
+    llvm::SmallVector<int64_t> newValueShape, newBroadcastDims;
+    for (unsigned i = 0, e = valueType.getRank(); i < e; ++i) {
+      if (valueType.getDimSize(i) != 1) {
+        newValueShape.push_back(valueType.getDimSize(i));
+        newBroadcastDims.push_back(
+            op.getBroadcastDimensions().getValues<int64_t>()[i]);
+      }
+    }
+    auto newValueType =
+        RankedTensorType::get(newValueShape, valueType.getElementType());
+    valueAttr = reshapeDenseElementsAttr(valueAttr, newValueType);
+    mhlo::ConstantOp newConstOp =
+        rewriter.create<mhlo::ConstantOp>(constOp->getLoc(), valueAttr);
+    op.setOperand(newConstOp.getOutput());
+    op.setBroadcastDimensionsAttr(rewriter.getI64TensorAttr(newBroadcastDims));
     return success();
   }
-  return failure();
-}
+};
 
-LogicalResult
-mlir::mhlo::canonicalizeConcatWithBroadcast(mhlo::ConcatenateOp op,
-                                            PatternRewriter &rewriter) {
-  auto firstBcast = op->getOperand(0).getDefiningOp<mhlo::BroadcastInDimOp>();
-  if (!firstBcast) {
+// simplify byteir.addn => mhlo.add
+struct SimplifyByteIRAddNToAdd : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getAddNName()) {
+      return failure();
+    }
+    if (op.getNumOperands() == 2) {
+      mhlo::AddOp addOp = rewriter.create<mhlo::AddOp>(
+          op->getLoc(), op.getResultTypes(), op.getOperands());
+      rewriter.replaceOp(op, addOp.getResult());
+      return success();
+    }
     return failure();
   }
-  // check all broadcast_in_dim ops have same operand and broadcast_dimensions
-  for (auto operand : op->getOperands()) {
-    if (auto bcast = operand.getDefiningOp<mhlo::BroadcastInDimOp>()) {
-      if (bcast.getOperand() != firstBcast.getOperand() ||
-          bcast.getBroadcastDimensions() !=
-              firstBcast.getBroadcastDimensions()) {
+};
+
+// concat(broadcast_in_dim(x), broadcast_in_dim(x)) => broadcast_in_dim
+struct CanonicalizeConcatWithBroadcast
+    : public OpRewritePattern<mhlo::ConcatenateOp> {
+  using OpRewritePattern<mhlo::ConcatenateOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ConcatenateOp op,
+                                PatternRewriter &rewriter) const override {
+    auto firstBcast = op->getOperand(0).getDefiningOp<mhlo::BroadcastInDimOp>();
+    if (!firstBcast) {
+      return failure();
+    }
+    // check all broadcast_in_dim ops have same operand and broadcast_dimensions
+    for (auto operand : op->getOperands()) {
+      if (auto bcast = operand.getDefiningOp<mhlo::BroadcastInDimOp>()) {
+        if (bcast.getOperand() != firstBcast.getOperand() ||
+            bcast.getBroadcastDimensions() !=
+                firstBcast.getBroadcastDimensions()) {
+          return failure();
+        }
+      } else {
         return failure();
       }
+    }
+    // check concat_dim is complementary to broadcast_dimensions
+    std::unordered_set<int64_t> dimensions(
+        firstBcast.getBroadcastDimensions().getValues<int64_t>().begin(),
+        firstBcast.getBroadcastDimensions().getValues<int64_t>().end());
+    if (dimensions.size() !=
+        (firstBcast.getType().cast<ShapedType>().getRank() - 1)) {
+      return failure();
+    }
+    if (dimensions.find(op.getDimension()) != dimensions.end()) {
+      return failure();
+    }
+    // create new broadcast_in_dim op
+    mhlo::BroadcastInDimOp newBcastOp = rewriter.create<mhlo::BroadcastInDimOp>(
+        op->getLoc(), op.getResult().getType(), firstBcast.getOperand(),
+        firstBcast.getBroadcastDimensions());
+    rewriter.replaceOp(op, newBcastOp.getResult());
+    return success();
+  }
+};
+
+// convert cumsum with constant input to mhlo.iota
+struct SimplifyCumsumToIota : public OpRewritePattern<mhlo::ReduceWindowOp> {
+  using OpRewritePattern<mhlo::ReduceWindowOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ReduceWindowOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getInputs().size() != 1 || op->getNumResults() != 1 ||
+        op.getInitValues().size() != 1) {
+      return failure();
+    }
+    if (!isSplatMhloConstantValue(op.getInputs()[0])) {
+      return failure();
+    }
+    Attribute constAttr;
+    if (!matchPattern(op.getInitValues()[0], m_Constant(&constAttr))) {
+      return failure();
+    }
+    Region &region = op.getBody();
+    if (region.getBlocks().size() != 1) {
+      return rewriter.notifyMatchFailure(op,
+                                         "unsupported region in reduce_window");
+    }
+    if (!isBlockSingleOp<mhlo::AddOp>(&region.front()) ||
+        !isZeroAttribute(constAttr)) {
+      return failure();
+    }
+
+    auto maybeIndex = getCumsumIndex(op);
+    if (!maybeIndex.has_value()) {
+      return failure();
+    }
+    TensorType inputType = op.getInputs()[0].getType().cast<TensorType>();
+    Attribute one;
+    if (inputType.getElementType().isa<FloatType>()) {
+      one = rewriter.getFloatAttr(inputType.getElementType(), 1.0);
+    } else if (inputType.getElementType().isa<IntegerType>()) {
+      one = rewriter.getIntegerAttr(inputType.getElementType(), 1);
     } else {
       return failure();
     }
+    Value constOne = rewriter.create<mhlo::ConstantOp>(
+        op.getLoc(), DenseElementsAttr::get(inputType, one));
+    Value iota = rewriter.create<mhlo::IotaOp>(op.getLoc(), inputType,
+                                               maybeIndex.value());
+    Value addOne =
+        rewriter.create<mhlo::AddOp>(op.getLoc(), inputType, iota, constOne);
+    Value result =
+        rewriter.create<mhlo::MulOp>(op.getLoc(), addOne, op.getInputs()[0]);
+    rewriter.replaceOp(op, result);
+    return success();
   }
-  // check concat_dim is complementary to broadcast_dimensions
-  std::unordered_set<int64_t> dimensions(
-      firstBcast.getBroadcastDimensions().getValues<int64_t>().begin(),
-      firstBcast.getBroadcastDimensions().getValues<int64_t>().end());
-  if (dimensions.size() !=
-      (firstBcast.getType().cast<ShapedType>().getRank() - 1)) {
-    return failure();
-  }
-  if (dimensions.find(op.getDimension()) != dimensions.end()) {
-    return failure();
-  }
-  // create new broadcast_in_dim op
-  mhlo::BroadcastInDimOp newBcastOp = rewriter.create<mhlo::BroadcastInDimOp>(
-      op->getLoc(), op.getResult().getType(), firstBcast.getOperand(),
-      firstBcast.getBroadcastDimensions());
-  rewriter.replaceOp(op, newBcastOp.getResult());
-  return success();
-}
-
-LogicalResult mlir::mhlo::simplifyCumsumToIota(mhlo::ReduceWindowOp op,
-                                               PatternRewriter &rewriter) {
-  if (op.getInputs().size() != 1 || op->getNumResults() != 1 ||
-      op.getInitValues().size() != 1) {
-    return failure();
-  }
-  if (!isSplatMhloConstantValue(op.getInputs()[0])) {
-    return failure();
-  }
-  Attribute constAttr;
-  if (!matchPattern(op.getInitValues()[0], m_Constant(&constAttr))) {
-    return failure();
-  }
-  Region &region = op.getBody();
-  if (region.getBlocks().size() != 1) {
-    return rewriter.notifyMatchFailure(op,
-                                       "unsupported region in reduce_window");
-  }
-  if (!isBlockSingleOp<mhlo::AddOp>(&region.front()) ||
-      !isZeroAttribute(constAttr)) {
-    return failure();
-  }
-
-  auto maybeIndex = getCumsumIndex(op);
-  if (!maybeIndex.has_value()) {
-    return failure();
-  }
-  TensorType inputType = op.getInputs()[0].getType().cast<TensorType>();
-  Attribute one;
-  if (inputType.getElementType().isa<FloatType>()) {
-    one = rewriter.getFloatAttr(inputType.getElementType(), 1.0);
-  } else if (inputType.getElementType().isa<IntegerType>()) {
-    one = rewriter.getIntegerAttr(inputType.getElementType(), 1);
-  } else {
-    return failure();
-  }
-  Value constOne = rewriter.create<mhlo::ConstantOp>(
-      op.getLoc(), DenseElementsAttr::get(inputType, one));
-  Value iota =
-      rewriter.create<mhlo::IotaOp>(op.getLoc(), inputType, maybeIndex.value());
-  Value addOne =
-      rewriter.create<mhlo::AddOp>(op.getLoc(), inputType, iota, constOne);
-  Value result =
-      rewriter.create<mhlo::MulOp>(op.getLoc(), addOne, op.getInputs()[0]);
-  rewriter.replaceOp(op, result);
-  return success();
-}
+};
 
 // TODO(lyq): make this pattern more robust
 // transpose(reshape(transpose(x))) => reshape(x)
-LogicalResult
-mlir::mhlo::simplifyTransposeReshapeTranspose(mhlo::TransposeOp op,
-                                              PatternRewriter &rewriter) {
-  auto reshapeOp = op.getOperand().getDefiningOp<mhlo::ReshapeOp>();
-  if (!reshapeOp) {
-    return failure();
-  }
-  auto transposeOp = reshapeOp.getOperand().getDefiningOp<mhlo::TransposeOp>();
-  if (!transposeOp) {
-    return failure();
-  }
-  SmallVector<int64_t> opPermutation(
-      op.getPermutation().getValues<int64_t>().begin(),
-      op.getPermutation().getValues<int64_t>().end());
-  if (opPermutation.size() != 3) {
-    return failure();
-  }
-  if (opPermutation[0] != 0 || opPermutation[1] != 2 || opPermutation[2] != 1) {
-    return failure();
-  }
-  SmallVector<int64_t> transposeOpPermutation(
-      transposeOp.getPermutation().getValues<int64_t>().begin(),
-      transposeOp.getPermutation().getValues<int64_t>().end());
-  if (transposeOpPermutation.size() != 4) {
-    return failure();
-  }
-  if (transposeOpPermutation[0] != 0 || transposeOpPermutation[1] != 1 ||
-      transposeOpPermutation[2] != 3 || transposeOpPermutation[3] != 2) {
-    return failure();
-  }
-  auto reshapeOperandType = reshapeOp.getOperand().getType().cast<ShapedType>();
-  auto reshapeResultType = reshapeOp.getType().cast<ShapedType>();
-  if (!reshapeOperandType.hasStaticShape()) {
-    return failure();
-  }
-  if (reshapeOperandType.getDimSize(0) * reshapeOperandType.getDimSize(1) !=
-          reshapeResultType.getDimSize(0) ||
-      reshapeOperandType.getDimSize(2) != reshapeResultType.getDimSize(1) ||
-      reshapeOperandType.getDimSize(3) != reshapeResultType.getDimSize(2)) {
-    return failure();
-  }
+struct SimplifyTransposeReshapeTranspose
+    : public OpRewritePattern<mhlo::TransposeOp> {
+  using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::TransposeOp op,
+                                PatternRewriter &rewriter) const override {
+    auto reshapeOp = op.getOperand().getDefiningOp<mhlo::ReshapeOp>();
+    if (!reshapeOp) {
+      return failure();
+    }
+    auto transposeOp =
+        reshapeOp.getOperand().getDefiningOp<mhlo::TransposeOp>();
+    if (!transposeOp) {
+      return failure();
+    }
+    SmallVector<int64_t> opPermutation(
+        op.getPermutation().getValues<int64_t>().begin(),
+        op.getPermutation().getValues<int64_t>().end());
+    if (opPermutation.size() != 3) {
+      return failure();
+    }
+    if (opPermutation[0] != 0 || opPermutation[1] != 2 ||
+        opPermutation[2] != 1) {
+      return failure();
+    }
+    SmallVector<int64_t> transposeOpPermutation(
+        transposeOp.getPermutation().getValues<int64_t>().begin(),
+        transposeOp.getPermutation().getValues<int64_t>().end());
+    if (transposeOpPermutation.size() != 4) {
+      return failure();
+    }
+    if (transposeOpPermutation[0] != 0 || transposeOpPermutation[1] != 1 ||
+        transposeOpPermutation[2] != 3 || transposeOpPermutation[3] != 2) {
+      return failure();
+    }
+    auto reshapeOperandType =
+        reshapeOp.getOperand().getType().cast<ShapedType>();
+    auto reshapeResultType = reshapeOp.getType().cast<ShapedType>();
+    if (!reshapeOperandType.hasStaticShape()) {
+      return failure();
+    }
+    if (reshapeOperandType.getDimSize(0) * reshapeOperandType.getDimSize(1) !=
+            reshapeResultType.getDimSize(0) ||
+        reshapeOperandType.getDimSize(2) != reshapeResultType.getDimSize(1) ||
+        reshapeOperandType.getDimSize(3) != reshapeResultType.getDimSize(2)) {
+      return failure();
+    }
 
-  rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
-                                               transposeOp.getOperand());
-  return success();
-}
+    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
+                                                 transposeOp.getOperand());
+    return success();
+  }
+};
+
 namespace {
 template <typename T>
 Attribute foldReverseHelper(DenseElementsAttr &attr, ShapedType &type,
@@ -1697,126 +1812,136 @@ Attribute foldReverseHelper(DenseElementsAttr &attr, ShapedType &type,
 
 // this pattern almost copy from mlir-hlo/mhlo/IR/hlo_ops.cc,
 // but drop the upper limit of tensor's size to fold the large constant tensor
-LogicalResult mlir::mhlo::foldReverseWithConstant(mhlo::ReverseOp op,
-                                                  PatternRewriter &rewriter) {
-  auto constantOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
-  if (!constantOp) {
-    return failure();
-  }
-  mlir::DenseElementsAttr constVal =
-      constantOp.getValue().dyn_cast<mlir::DenseElementsAttr>();
-  auto shapedType = constVal.getType();
-  DenseIntElementsAttr dims = op.getDimensions();
+struct FoldReverseWithConstant : public OpRewritePattern<mhlo::ReverseOp> {
+  using OpRewritePattern<mhlo::ReverseOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ReverseOp op,
+                                PatternRewriter &rewriter) const override {
+    auto constantOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    if (!constantOp) {
+      return failure();
+    }
+    mlir::DenseElementsAttr constVal =
+        constantOp.getValue().dyn_cast<mlir::DenseElementsAttr>();
+    auto shapedType = constVal.getType();
+    DenseIntElementsAttr dims = op.getDimensions();
 
-  if (constVal.isSplat()) {
-    rewriter.replaceOp(op, constantOp);
-  } else if (dims.getNumElements() == 0) {
-    rewriter.replaceOp(op, constantOp);
-  } else if (llvm::all_of(dims.getValues<int64_t>(), [&](int64_t dim) {
-               return shapedType.getDimSize(dim) == 1;
-             })) {
-    // If size of all dimensions to reverse equals 1, then the reverse is a
-    // no-op. Eg. Reverse dimensions {0,1} of a 1x1x2 tensor
-    rewriter.replaceOp(op, constantOp);
-  } else {
-    Attribute newConstAttr;
-    auto etype = constVal.getElementType();
-    if (etype.isa<IntegerType>())
-      newConstAttr = foldReverseHelper<APInt>(constVal, shapedType, dims);
-    if (etype.isa<FloatType>())
-      newConstAttr = foldReverseHelper<APFloat>(constVal, shapedType, dims);
-    auto newConstOp =
-        rewriter.create<mhlo::ConstantOp>(op.getLoc(), newConstAttr);
-    rewriter.replaceOp(op, newConstOp);
+    if (constVal.isSplat()) {
+      rewriter.replaceOp(op, constantOp);
+    } else if (dims.getNumElements() == 0) {
+      rewriter.replaceOp(op, constantOp);
+    } else if (llvm::all_of(dims.getValues<int64_t>(), [&](int64_t dim) {
+                 return shapedType.getDimSize(dim) == 1;
+               })) {
+      // If size of all dimensions to reverse equals 1, then the reverse is a
+      // no-op. Eg. Reverse dimensions {0,1} of a 1x1x2 tensor
+      rewriter.replaceOp(op, constantOp);
+    } else {
+      Attribute newConstAttr;
+      auto etype = constVal.getElementType();
+      if (etype.isa<IntegerType>())
+        newConstAttr = foldReverseHelper<APInt>(constVal, shapedType, dims);
+      if (etype.isa<FloatType>())
+        newConstAttr = foldReverseHelper<APFloat>(constVal, shapedType, dims);
+      auto newConstOp =
+          rewriter.create<mhlo::ConstantOp>(op.getLoc(), newConstAttr);
+      rewriter.replaceOp(op, newConstOp);
+    }
+    return success();
   }
-  return success();
-}
+};
 
 // this pattern match a GatherOp with iota start_indices,
 // the output of GatherOp maybe equal to the input.
-LogicalResult mlir::mhlo::foldGatherWithInput(mhlo::GatherOp gatherOp,
-                                              PatternRewriter &rewriter) {
-  auto operand = gatherOp.getOperand();
-  auto operandTy = operand.getType().cast<ShapedType>();
-  if (!operandTy.hasRank()) {
-    return failure();
-  }
-
-  auto resultTy = gatherOp.getType().cast<ShapedType>();
-  if (resultTy != operandTy) {
-    return failure();
-  }
-
-  auto startIndices = gatherOp.getStartIndices();
-  auto startIndicesTy = startIndices.getType().cast<ShapedType>();
-  auto iotaOp = startIndices.getDefiningOp<mhlo::IotaOp>();
-  if (!iotaOp || !startIndicesTy.hasRank()) {
-    return failure();
-  }
-
-  int64_t indexVectorDim = startIndicesTy.getRank();
-
-  auto dimensionNumbers = gatherOp.getDimensionNumbers();
-  if (dimensionNumbers.getIndexVectorDim() != indexVectorDim ||
-      indexVectorDim != 1) {
-    return failure();
-  }
-
-  if (dimensionNumbers.getStartIndexMap().size() != 1) {
-    return failure();
-  }
-
-  int64_t startIndexMap = dimensionNumbers.getStartIndexMap()[0];
-  auto collapsedSilceDims = dimensionNumbers.getCollapsedSliceDims();
-  bool mapTocollapsedDim = false;
-
-  for (auto dims : collapsedSilceDims) {
-    if (dims == startIndexMap) {
-      mapTocollapsedDim = true;
-      break;
+struct FoldGatherWithInput : public OpRewritePattern<mhlo::GatherOp> {
+  using OpRewritePattern<mhlo::GatherOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::GatherOp gatherOp,
+                                PatternRewriter &rewriter) const override {
+    auto operand = gatherOp.getOperand();
+    auto operandTy = operand.getType().cast<ShapedType>();
+    if (!operandTy.hasRank()) {
+      return failure();
     }
+
+    auto resultTy = gatherOp.getType().cast<ShapedType>();
+    if (resultTy != operandTy) {
+      return failure();
+    }
+
+    auto startIndices = gatherOp.getStartIndices();
+    auto startIndicesTy = startIndices.getType().cast<ShapedType>();
+    auto iotaOp = startIndices.getDefiningOp<mhlo::IotaOp>();
+    if (!iotaOp || !startIndicesTy.hasRank()) {
+      return failure();
+    }
+
+    int64_t indexVectorDim = startIndicesTy.getRank();
+
+    auto dimensionNumbers = gatherOp.getDimensionNumbers();
+    if (dimensionNumbers.getIndexVectorDim() != indexVectorDim ||
+        indexVectorDim != 1) {
+      return failure();
+    }
+
+    if (dimensionNumbers.getStartIndexMap().size() != 1) {
+      return failure();
+    }
+
+    int64_t startIndexMap = dimensionNumbers.getStartIndexMap()[0];
+    auto collapsedSilceDims = dimensionNumbers.getCollapsedSliceDims();
+    bool mapTocollapsedDim = false;
+
+    for (auto dims : collapsedSilceDims) {
+      if (dims == startIndexMap) {
+        mapTocollapsedDim = true;
+        break;
+      }
+    }
+    // if the start index and offset index are disjoint,
+    // and the start index is generate by IotaOp,
+    // the output of gatherOp is equal to input.
+    if (mapTocollapsedDim) {
+      rewriter.replaceOp(gatherOp, operand);
+      return success();
+    }
+    return failure();
   }
-  // if the start index and offset index are disjoint,
-  // and the start index is generate by IotaOp,
-  // the output of gatherOp is equal to input.
-  if (mapTocollapsedDim) {
-    rewriter.replaceOp(gatherOp, operand);
-    return success();
-  }
-  return failure();
+};
+
+void mlir::mhlo::populateFoldMultiplyZeroPattern(RewritePatternSet &patterns) {
+  patterns.add<FoldMultiplyZero>(patterns.getContext());
 }
 
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
                                                  bool blindFold) {
-  patterns.add(mlir::mhlo::foldBroadcastInDimConstWithBinary);
-  patterns.add<foldBroadcastInDimReshape>(ctx);
-  patterns.add(mlir::mhlo::foldConcatWithContinuousSlices);
-  patterns.add(mlir::mhlo::simplifyDynamicConvToConv);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::AddOp, std::plus>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MulOp, std::multiplies>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::SubtractOp, std::minus>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::DivOp, Divide>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::RemOp, Remainder>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MaxOp, Max>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::MinOp, Min>);
-  patterns.add(mlir::mhlo::foldLargeBinaryOp<mhlo::PowOp, Pow>);
-  patterns.add(mlir::mhlo::foldLargeCompareOp);
-  patterns.add(mlir::mhlo::foldLargeSliceOp);
-  patterns.add(mlir::mhlo::foldTransposeNonSplat);
-  patterns.add(mlir::mhlo::foldBeneficialConstantConvertOp);
-  patterns.add(mlir::mhlo::canonicalizeBroadcastInDimConst);
-  patterns.add(mlir::mhlo::simplifyByteIRAddNToAdd);
-  patterns.add(mlir::mhlo::canonicalizeConcatWithBroadcast);
-  patterns.add(mlir::mhlo::simplifyAddInsertSlicesToInsertSlices);
-  patterns.add(mlir::mhlo::eliminateRedundantConvertFromI1);
-  patterns.add(mlir::mhlo::foldConcatWithSlicesAndRehape);
-  patterns.add(mlir::mhlo::simplifyCumsumToIota);
-  patterns.add(mlir::mhlo::simplifyTransposeReshapeTranspose);
-  patterns.add(mlir::mhlo::foldReverseWithConstant);
-  patterns.add(mlir::mhlo::foldGatherWithInput);
+  patterns.add<FoldBroadcastInDimConstWithBinary>(ctx);
+  patterns.add<FoldBroadcastInDimReshape>(ctx);
+  patterns.add<FoldConcatWithContinuousSlices>(ctx);
+  patterns.add<SimplifyDynamicConvToConv>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::AddOp, std::plus>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::MulOp, std::multiplies>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::SubtractOp, std::minus>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::DivOp, Divide>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::RemOp, Remainder>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::MaxOp, Max>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::MinOp, Min>>(ctx);
+  patterns.add<FoldLargeBinaryOp<mhlo::PowOp, Pow>>(ctx);
+  patterns.add<FoldLargeCompareOp>(ctx);
+  patterns.add<FoldLargeSliceOp>(ctx);
+  patterns.add<FoldTransposeNonSplat>(ctx);
+  patterns.add<FoldBeneficialConstantConvertOp>(ctx);
+  patterns.add<CanonicalizeBroadcastInDimConst>(ctx);
+  patterns.add<SimplifyByteIRAddNToAdd>(ctx);
+  patterns.add<CanonicalizeConcatWithBroadcast>(ctx);
+  patterns.add<SimplifyAddInsertSlicesToInsertSlices>(ctx);
+  patterns.add<EliminateRedundantConvertFromI1>(ctx);
+  patterns.add<FoldConcatWithSlicesAndRehape>(ctx);
+  patterns.add<SimplifyCumsumToIota>(ctx);
+  patterns.add<SimplifyTransposeReshapeTranspose>(ctx);
+  patterns.add<FoldReverseWithConstant>(ctx);
+  patterns.add<FoldGatherWithInput>(ctx);
   if (blindFold) {
-    patterns.add(mlir::mhlo::foldLargeConcatenate);
+    patterns.add<FoldLargeConcatenate>(ctx);
   }
 }
 
@@ -1826,7 +1951,7 @@ void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
   // Only add simplifyFullInsertSlicesToConcat here since it is for
   // mhlo-level only
   // We don't want generally apply after lowering mhlo to tensor dialect
-  patterns.add(mlir::mhlo::simplifyFullInsertSlicesToConcat);
+  patterns.add<SimplifyFullInsertSlicesToConcat>(context);
 }
 
 void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
