@@ -57,7 +57,7 @@ public:
 
   virtual common::Status EpiloguePerSession() = 0;
 
-  virtual void CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) = 0;
+  virtual void CreateWorkQueue(std::unique_ptr<WorkQueue> *wq, int rank = 0) = 0;
 
   virtual void CreateExecutinFrame(std::unique_ptr<ExecutionFrame> *frame) = 0;
 
@@ -116,7 +116,7 @@ public:
 
   common::Status EpiloguePerSession() override;
 
-  void CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) override;
+  void CreateWorkQueue(std::unique_ptr<WorkQueue> *wq, int rank = 0) override;
 
   void CreateExecutinFrame(std::unique_ptr<ExecutionFrame> *frame) override;
 

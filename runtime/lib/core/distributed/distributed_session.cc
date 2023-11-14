@@ -37,6 +37,48 @@ DistributedSession::DistributedSession(int rank) : rank_(rank), Session() {}
 
 DistributedSession::~DistributedSession() {}
 
+common::Status DistributedSession::Run(RequestContext &request) {
+  // Create ExecutionContext
+  ExecutionContext ctx(request.frame_.get(), request.wq_.get(),
+                       execution_plan_->GetFrameStateInfo(),
+                       request.events_.get(), distributed_backend_);
+
+  using State = ExecutionFrame::InternalState;
+  Status status =
+      request.frame_->GetIStateTransition()
+          .Edge(State::BeforePrologue, State::MainLoop,
+                [&] { return execution_plan_->ProloguePerFrame(ctx); })
+          .Invariant(State::MainLoop)
+          .Apply();
+
+  if (!status.IsOK()) {
+    return status;
+  }
+
+  return request.frame_->GetIStateTransition()
+      .Edge(State::MainLoop, State::MainLoop,
+            [&] { return execution_plan_->Run(ctx); })
+      .Apply();
+}
+
+common::Status
+DistributedSession::NewRequestContext(std::unique_ptr<RequestContext> *request,
+                           WorkQueue *work_queue) {
+  *request = std::unique_ptr<RequestContext>(new RequestContext(*this));
+  // alocate Frame but not allocate Intermediate
+  BRT_ENFORCE(execution_plan_ != nullptr);
+
+  execution_plan_->CreateExecutinFrame(&((*request)->frame_));
+
+  if (work_queue) {
+    (*request)->SetWorkQueue(work_queue);
+  } else {
+    execution_plan_->CreateWorkQueue(&((*request)->wq_), rank_);
+  }
+
+  return Status::OK();
+}
+
 common::Status
 DistributedSession::LoadConfig(const std::vector<std::string> &config,
                                std::string &ir_url) {

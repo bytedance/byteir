@@ -18,6 +18,7 @@
 #pragma once
 
 #include "brt/core/context/execution_frame.h"
+#include "brt/core/distributed/distributed_backend.h"
 
 namespace brt {
 
@@ -38,12 +39,14 @@ struct ExecutionContext {
   WorkQueue *work_queue;
   ExecutionFrame::StateInfo &frame_state_info;
   EventListenerManager *event_listener_manager;
+  DistributedBackend *distributed_backend;
 
   ExecutionContext(ExecutionFrame *frame, WorkQueue *wq,
                    ExecutionFrame::StateInfo &fs_info,
-                   EventListenerManager *event_mgr)
+                   EventListenerManager *event_mgr,
+                   DistributedBackend *backend = nullptr)
       : exec_frame(frame), work_queue(wq), frame_state_info(fs_info),
-        event_listener_manager(event_mgr) {}
+        event_listener_manager(event_mgr), distributed_backend(backend) {}
 };
 
 } // namespace brt

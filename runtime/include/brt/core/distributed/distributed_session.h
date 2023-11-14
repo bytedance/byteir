@@ -19,8 +19,10 @@
 
 #include "brt/backends/device_api.h"
 #include "brt/core/common/status.h"
+#include "brt/core/distributed/distributed_backend.h"
 #include "brt/core/framework/dtype.h"
 #include "brt/core/session/session.h"
+#include <cassert>
 #include <map>
 #include <memory>
 #include <string>
@@ -50,7 +52,17 @@ public:
   common::Status LoadConfig(const std::vector<std::string> &config,
                             std::string &ir_url);
 
+  void SetDistributedBackend(DistributedBackend *backend) {
+    distributed_backend_ = backend;
+  }
+
+  common::Status Run(RequestContext &request);
+
+  common::Status NewRequestContext(std::unique_ptr<RequestContext> *request,
+                                   WorkQueue *work_queue = nullptr);
+
 protected:
+  DistributedBackend *distributed_backend_;
   int rank_;
 };
 

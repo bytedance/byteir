@@ -29,12 +29,15 @@ namespace brt {
 
 class NCCLExecutionProvider : public ExecutionProvider {
 public:
-  explicit NCCLExecutionProvider(const std::string &name,
-                                 int nranks, int rank, const std::string &ip,
-                                 int port);
+  explicit NCCLExecutionProvider(const std::string &name, int nranks, int rank,
+                                 const std::string &ip, int port);
+
+  DistributedBackendNCCL *GetDistributedBackend() {
+    return nccl_backend_.get();
+  }
 
 protected:
-  std::unique_ptr<DistributedBackendNCCL> nccl_backend;
+  std::unique_ptr<DistributedBackendNCCL> nccl_backend_;
 };
 
 common::Status DefaultNCCLExecutionProviderFactory(

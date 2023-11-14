@@ -19,6 +19,8 @@
 
 #include "brt/backends/common.h"
 #include "brt/backends/cuda/device/cuda_allocator.h"
+#include "brt/backends/cuda/providers/default/nccl/op_registration.h"
+#include "brt/core/framework/kernel_registry.h"
 #include <memory>
 
 using namespace brt;
@@ -26,12 +28,23 @@ using namespace brt::common;
 
 namespace brt {
 
+namespace {
+
+// clang-format off
+BRT_STATIC_KERNEL_REGISTRATION(
+    DeviceKind::CUDA, ProviderType::BRT, [](KernelRegistry *registry) {
+      cuda::RegisterNCCLOps(registry);
+    });
+// clang-format on
+
+} // namespace
+
 NCCLExecutionProvider::NCCLExecutionProvider(const std::string &name,
                                              int nranks, int rank,
                                              const std::string &ip, int port)
     : ExecutionProvider(DeviceKind::CUDA, name) {
-  nccl_backend = std::make_unique<DistributedBackendNCCL>(nranks, rank);
-  nccl_backend->init(ip.c_str(), port);
+  nccl_backend_ = std::make_unique<DistributedBackendNCCL>(nranks, rank);
+  nccl_backend_->init(ip.c_str(), port);
 }
 
 common::Status DefaultNCCLExecutionProviderFactory(DistributedSession *session,
@@ -41,7 +54,7 @@ common::Status DefaultNCCLExecutionProviderFactory(DistributedSession *session,
   // create a NCCL provider
   auto provider = std::make_unique<NCCLExecutionProvider>(
       ProviderType::BRT, nranks, rank, ip, port);
-
+  session->SetDistributedBackend(provider->GetDistributedBackend());
   // give ownership to the session
   return session->AddExecutionProvider(std::move(provider));
 }
