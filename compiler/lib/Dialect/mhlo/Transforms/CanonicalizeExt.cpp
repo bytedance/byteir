@@ -825,7 +825,7 @@ struct FoldConcatWithContinuousSlices
         auto chunk = getChunkOfSlice(i, op, slice);
 
         if (!chunks.empty() && (chunks.back().val == chunk.val) &&
-            (chunks.back().axis == chunk.axis) && (chunke.axis != K_INITIAL) &&
+            (chunks.back().axis == chunk.axis) && (chunk.axis != K_INITIAL) &&
             (chunks.back().end == chunk.begin)) {
           chunks.back().end = chunk.end;
           chunks.back().ids.push_back(i);
