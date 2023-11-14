@@ -19,17 +19,32 @@
 #include <thread>
 #include <vector>
 
+#include "brt/backends/cuda/providers/default/nccl_provider.h"
 #include "brt/core/common/status.h"
 #include "brt/core/distributed/distributed_session.h"
-#include "brt/core/distributed/rendezvous_socket.h"
+#include "brt/test/common/util.h"
+#include "test_base.h"
+#include "test_utils.h"
 
 using namespace brt;
 using namespace brt::common;
 using namespace brt::ir;
 
-TEST(TestDistributedSession, Constructor) {
+TEST(TestDistributedSession, NCCLProvider) {
   const int nranks = 2;
-  auto run = [](int rank) { DistributedSession d_session(rank); };
+  const std::string host = "localhost";
+  int port = brt::GetFreePort();
+  auto ret = brt::CreateServer(nranks, port);
+  ASSERT_EQ(Status::OK(), ret);
+
+  auto run = [nranks, host, port](int rank) {
+    get_context_trait(get_preferred_context(BackendType::BRT_NCCL))
+        .set_device(rank);
+    DistributedSession d_session(rank);
+    auto status_cuda = DefaultNCCLExecutionProviderFactory(&d_session, nranks,
+                                                           rank, host, port);
+    BRT_TEST_CHECK_STATUS(status_cuda);
+  };
 
   std::vector<std::thread> threads;
   for (size_t i = 0; i < nranks; i++) {
