@@ -184,7 +184,7 @@ void arith::foldMultiplyZeroPatterns(RewritePatternSet &patterns) {
 }
 
 void mlir::populateFoldMultiplyZeroPatterns(RewritePatternSet &patterns) {
-  patterns.add(mlir::mhlo::foldMultiplyZero);
+  mhlo::populateFoldMultiplyZeroPattern(patterns);
   arith::foldMultiplyZeroPatterns(patterns);
 }
 
