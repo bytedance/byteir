@@ -81,6 +81,17 @@ def ConvertOpToCustomCall : Pass<"convert-op-to-customcall", "ModuleOp"> {
   ];
 }
 
+// def ConvertOpToPimCustomCall : Pass<"convert-op-to-pimcustomcall", "ModuleOp"> {
+//   let summary = "Convert op to mhlo.custom_call";
+//   let constructor = "mlir::createConvertOpToPimCustomCallPass()";
+//   let options = [
+//     Option<"anchorTag", "anchor-tag", "std::string",
+//             /*default=*/"",
+//             "Optional unitAttr anchored tag to apply this pass">
+//   ];
+// }
+
+
 //===----------------------------------------------------------------------===//
 // ConvertFuncToCustomCall // No command-line
 //===----------------------------------------------------------------------===//

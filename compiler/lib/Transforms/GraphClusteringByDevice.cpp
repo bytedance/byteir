@@ -81,7 +81,9 @@ std::optional<SmallVector<FunctionMetadata, 4>>
 getFunctionMetadatasCustom(func::FuncOp funcOp, StringRef attrName,
                              StringRef deviceAttr, StringRef deviceAnchorName,
                              bool dupOutputs) {
-SmallVector<FunctionMetadata, 4> metadatas;
+  SmallVector<FunctionMetadata, 4> metadatas;
+  
+
 
   return metadatas;
 }
@@ -351,7 +353,7 @@ DeviceClusteringAlgoBaseHelper::DeviceClusteringAlgoBaseHelper(
   for (auto &&op : funcOp.front().without_terminator()) {
     if (op.hasAttr(attrName)) {
       StringAttr attr = op.getAttrOfType<StringAttr>(attrName);
-      if (attr.getValue().str() == DEVICE_ATTR_HOST) {
+      if (attr.getValue().str() == "hbm") {
         continue;
       }
     }

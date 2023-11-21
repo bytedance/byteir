@@ -35,7 +35,7 @@ public:
   void Free(void *p) override;
 
 private:
-  void CheckDevice(bool throw_when_fail) const;
+  //void CheckDevice(bool throw_when_fail) const;
 };
 class HBMPIMoutputAllocator : public IAllocator {
 public:
@@ -48,7 +48,7 @@ public:
   void Free(void *p) override;
 
 private:
-  void CheckDevice(bool throw_when_fail) const;
+  // void CheckDevice(bool throw_when_fail) const;
 };
 
 class HBMPIMExternalAllocator : public HBMPIMAllocator {

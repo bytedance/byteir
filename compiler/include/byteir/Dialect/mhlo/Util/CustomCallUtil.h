@@ -57,6 +57,12 @@ constexpr llvm::StringRef getSoftmaxUpmemName() {
 constexpr llvm::StringRef getGemvUpmemName() {
   return PYTORCH_NAME_PREFIX "gemv_upmem";
 }
+constexpr llvm::StringRef getGemvhbmpimName() {
+  return PYTORCH_NAME_PREFIX "gemv_hbmpim";
+}
+
+
+
 
 constexpr llvm::StringRef getCustomCallAttrName() { return "byteir_attrs"; }
 

@@ -20,9 +20,9 @@ from mhlo_tools.mlir import ir
 import torch
 from torch.cuda.memory import caching_allocator_alloc, caching_allocator_delete
 import numpy as np
-from mhlo_tools.ir_executor.helper import (
-    mlir_type_to_dtype
-)
+# from mhlo_tools.ir_executor.helper import (
+#     mlir_type_to_dtype
+# )
 import os
 import torch_frontend
 import traceback
