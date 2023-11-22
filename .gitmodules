@@ -28,3 +28,9 @@
 [submodule "external/AITemplate"]
 	path = external/AITemplate
 	url = https://github.com/facebookincubator/AITemplate.git
+[submodule "runtime/PIMSimulator"]
+	path = runtime/PIMSimulator
+	url = https://github.com/SAITPublic/PIMSimulator.git
+[submodule "runtime/external/pimlib"]
+	path = runtime/external/pimlib
+	url = https://github.com/SAITPublic/PIMSimulator.git
