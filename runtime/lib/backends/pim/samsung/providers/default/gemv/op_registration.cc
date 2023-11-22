@@ -16,35 +16,34 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/backends/pim/samsung/providers/default/gemv/op_registration.h"
-#include"./op_impl.h"
+#include "./op_impl.h"
 #include "brt/core/framework/kernel_registry.h"
 
 #include "FP16.h"
 namespace brt {
 namespace pim {
 namespace hbmpim {
- void RegisterGEMVOp(KernelRegistry *registry) {
+void RegisterGEMVOp(KernelRegistry *registry) {
   registry->Register(
       "pytorch.gemv_hbm.fp32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new GEMV<float>(info));
+        auto kernel = std::shared_ptr<OpKernel>(new GEMV<float>(info));
         return kernel;
       });
-        registry->Register(
+  registry->Register(
       "pytorch.gemv_hbm.fp16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new GEMV<half_float::half>(info));
+        auto kernel =
+            std::shared_ptr<OpKernel>(new GEMV<half_float::half>(info));
         return kernel;
       });
-      registry->Register(
+  registry->Register(
       "pytorch.gemv_hbm.int",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new GEMV<int>(info));
+        auto kernel = std::shared_ptr<OpKernel>(new GEMV<int>(info));
         return kernel;
       });
 };
-
-
 
 } // namespace hbmpim
 } // namespace pim

@@ -17,13 +17,13 @@
 
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OperationSupport.h"
 #include "stablehlo/dialect/TypeInference.h"
 #include "llvm/Support/Debug.h"
-#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 
 #define DEBUG_TYPE "dynamic-shape-op-register"
 
@@ -175,13 +175,13 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
       });
 }
 
-
-//GEMV
+// GEMV
 
 void mlir::registerGeMVReifyReturnTypeShapes() {
   static ReifyReturnTypeShapesRegistration shapeRegister(
-      getGemvUpmemName(), [](Operation *op, OpBuilder &builder, ValueRange operands,
-                         SmallVectorImpl<::mlir::Value> &reifiedReturnShapes) {
+      getGemvUpmemName(),
+      [](Operation *op, OpBuilder &builder, ValueRange operands,
+         SmallVectorImpl<::mlir::Value> &reifiedReturnShapes) {
         Value dataShape =
             builder.create<shape::ShapeOfOp>(op->getLoc(), operands[0]);
         reifiedReturnShapes.push_back(dataShape);
@@ -205,4 +205,3 @@ void mlir::registerGeMVInferReturnTypeComponents() {
         return success();
       });
 }
-

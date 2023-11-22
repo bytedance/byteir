@@ -1,4 +1,5 @@
-//===- ConvertOpToPimCustomCall.cpp ------------------------------*--- C++ -*-===//
+//===- ConvertOpToPimCustomCall.cpp ------------------------------*--- C++
+//-*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,21 +17,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/mhlo/Transforms/ConvertOpToPimCustomCall.h"
-#include "mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "stablehlo/dialect/StablehloOps.h"
 #include "./PassDetail.h"
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "stablehlo/dialect/StablehloOps.h"
 
 using namespace mlir;
 
@@ -102,8 +102,6 @@ public:
                                 PatternRewriter &rewriter) const override {
     // check if dotGeneral can be converted to gemv
 
-
-
     if (op->getNumOperands() != 2) {
       return failure();
     }
@@ -125,46 +123,44 @@ public:
     //     1) {
     //   return failure();
     // }
-// get op as dotGeneral
-    //cast op to mhlo::dotGeneralOp
-    mhlo::DotGeneralOp dotGeneralOp = static_cast<mhlo::DotGeneralOp>(op.getOperation());
-    if(!dotGeneralOp){
+    // get op as dotGeneral
+    // cast op to mhlo::dotGeneralOp
+    mhlo::DotGeneralOp dotGeneralOp =
+        static_cast<mhlo::DotGeneralOp>(op.getOperation());
+    if (!dotGeneralOp) {
       return failure();
     }
 
     auto dotDimensionNumbers = dotGeneralOp.getDotDimensionNumbers();
     // assert(dotDimensionNumbers.getLhsContractingDimensions().size() == 1);
     // assert(dotDimensionNumbers.getRhsContractingDimensions().size() == 1);
-      int64_t lhsContractingDimension =
-          dotDimensionNumbers.getLhsContractingDimensions()[0];
-      int64_t rhsContractingDimension =
-          dotDimensionNumbers.getRhsContractingDimensions()[0];
-          auto lhsContractingDimensions=
-            dotDimensionNumbers.getLhsContractingDimensions();
-        auto rhsContractingDimensions=
-            dotDimensionNumbers.getRhsContractingDimensions();
-      auto lhsBatchingDimensions =
-          dotDimensionNumbers.getLhsBatchingDimensions();
-      auto rhsBatchingDimensions =
-          dotDimensionNumbers.getRhsBatchingDimensions();
+    int64_t lhsContractingDimension =
+        dotDimensionNumbers.getLhsContractingDimensions()[0];
+    int64_t rhsContractingDimension =
+        dotDimensionNumbers.getRhsContractingDimensions()[0];
+    auto lhsContractingDimensions =
+        dotDimensionNumbers.getLhsContractingDimensions();
+    auto rhsContractingDimensions =
+        dotDimensionNumbers.getRhsContractingDimensions();
+    auto lhsBatchingDimensions = dotDimensionNumbers.getLhsBatchingDimensions();
+    auto rhsBatchingDimensions = dotDimensionNumbers.getRhsBatchingDimensions();
 
-//   if(lhsType.getRank() == 1  && rhsType.getRank() != 2){
-//             return failure();
-//         }
+    //   if(lhsType.getRank() == 1  && rhsType.getRank() != 2){
+    //             return failure();
+    //         }
 
-    //check if lhs contracting or rhs contracting is not 1
-    if(lhsContractingDimension != 1 && rhsContractingDimension != 1){
-        //if rank is not 2
-        // if(lhsType.getRank() == 1  && rhsType.getRank() != 2){
-        //     return failure();
-        // }
-        //  if(lhsType.getRank() == 2  && rhsType.getRank() != 1){
-        //     return failure();
-        // }
+    // check if lhs contracting or rhs contracting is not 1
+    if (lhsContractingDimension != 1 && rhsContractingDimension != 1) {
+      // if rank is not 2
+      //  if(lhsType.getRank() == 1  && rhsType.getRank() != 2){
+      //      return failure();
+      //  }
+      //   if(lhsType.getRank() == 2  && rhsType.getRank() != 1){
+      //      return failure();
+      //  }
 
       return failure();
     }
-
 
     Value lhs = op.getOperand(0);
     Value rhs = op.getOperand(1);
@@ -191,9 +187,9 @@ public:
     // if (!op.getType().hasStaticShape()) {
     //   bufferArgs.emplace_back(shape);
     // }
-std::vector<NamedAttribute> byteir_attrs;
-byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
-                      rewriter.getStringAttr("cpu"));
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
+                              rewriter.getStringAttr("cpu"));
     // auto byteir_attrs =
     //     op->template getAttrOfType<DictionaryAttr>(getCustomCallAttrName());
     auto attrs = getDefaultAttrs(rewriter);
@@ -209,9 +205,7 @@ byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
                        rewriter.getStringAttr(getGemvhbmpimName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                      rewriter.getDictionaryAttr(byteir_attrs));
-
-
+                       rewriter.getDictionaryAttr(byteir_attrs));
 
     auto computeOp = rewriter.create<mhlo::CustomCallOp>(
         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
@@ -225,15 +219,15 @@ byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
     //                      rewriter.getI64ArrayAttr(lhsBatchingDimensions));
     //   computeOp->setAttr("rhs_batching_dimensions",
     //                      rewriter.getI64ArrayAttr(rhsBatchingDimensions));
-    computeOp->setAttr("device",
-                       rewriter.getStringAttr("cpu"));
- auto dimensionNumbers = mhlo::DotDimensionNumbersAttr::get(
-        rewriter.getContext(), /*lhsBatchingDimensions=*/{lhsBatchingDimensions},
-        /*rhsBatchingDimensions=*/{rhsBatchingDimensions}, {lhsContractingDimension},
-        {rhsContractingDimension});
+    computeOp->setAttr("device", rewriter.getStringAttr("cpu"));
+    auto dimensionNumbers = mhlo::DotDimensionNumbersAttr::get(
+        rewriter.getContext(),
+        /*lhsBatchingDimensions=*/{lhsBatchingDimensions},
+        /*rhsBatchingDimensions=*/{rhsBatchingDimensions},
+        {lhsContractingDimension}, {rhsContractingDimension});
 
     computeOp->setAttr("dimension_numbers", dimensionNumbers);
-  
+
     rewriter.replaceOp(op, computeOp->getResults());
     return success();
   }
@@ -271,8 +265,10 @@ byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
 
 //     Value lhs = op.getOperand(0);
 //     Value rhs = op.getOperand(1);
-//     // Value lhsPromoted = promoteType(op->getLoc(), lhs, resultType, rewriter);
-//     // Value rhsPromoted = promoteType(op->getLoc(), rhs, resultType, rewriter);
+//     // Value lhsPromoted = promoteType(op->getLoc(), lhs, resultType,
+//     rewriter);
+//     // Value rhsPromoted = promoteType(op->getLoc(), rhs, resultType,
+//     rewriter);
 //     // auto shape = op.getShape();
 //     Type resultType = op.getResult().getType();
 //     TensorType seedOrOffsetType =
@@ -306,7 +302,8 @@ byteir_attrs.emplace_back(rewriter.getStringAttr("device"),
 //     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
 //                        dictAttr);
 //     auto newOp = rewriter.create<mhlo::CustomCallOp>(
-//         op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
+//         op->getLoc(), resultType, bufferArgs,
+//         ArrayRef<NamedAttribute>(attrs));
 //     rewriter.replaceOp(op, newOp->getResults());
 //   }
 // };
@@ -315,22 +312,30 @@ class ConvertOpToPimCustomCallBase : public ::mlir::OperationPass<ModuleOp> {
 public:
   using Base = ConvertOpToPimCustomCallBase;
 
-  ConvertOpToPimCustomCallBase() : ::mlir::OperationPass<ModuleOp>(::mlir::TypeID::get<DerivedT>()) {}
-  ConvertOpToPimCustomCallBase(const ConvertOpToPimCustomCallBase &other) : ::mlir::OperationPass<ModuleOp>(other) {}
+  ConvertOpToPimCustomCallBase()
+      : ::mlir::OperationPass<ModuleOp>(::mlir::TypeID::get<DerivedT>()) {}
+  ConvertOpToPimCustomCallBase(const ConvertOpToPimCustomCallBase &other)
+      : ::mlir::OperationPass<ModuleOp>(other) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
     return ::llvm::StringLiteral("convert-op-to-pimcustomcall");
   }
-  ::llvm::StringRef getArgument() const override { return "convert-op-to-pimcustomcall"; }
+  ::llvm::StringRef getArgument() const override {
+    return "convert-op-to-pimcustomcall";
+  }
 
-  ::llvm::StringRef getDescription() const override { return "Convert op to mhlo.custom_call"; }
+  ::llvm::StringRef getDescription() const override {
+    return "Convert op to mhlo.custom_call";
+  }
 
   /// Returns the derived pass name.
   static constexpr ::llvm::StringLiteral getPassName() {
     return ::llvm::StringLiteral("ConvertOpToPimCustomCall");
   }
-  ::llvm::StringRef getName() const override { return "ConvertOpToPimCustomCall"; }
+  ::llvm::StringRef getName() const override {
+    return "ConvertOpToPimCustomCall";
+  }
 
   /// Support isa/dyn_cast functionality for the derived pass class.
   static bool classof(const ::mlir::Pass *pass) {
@@ -343,22 +348,19 @@ public:
   }
 
   /// Return the dialect that must be loaded in the context before this pass.
-  void getDependentDialects(::mlir::DialectRegistry &registry) const override {
-    
-  }
+  void getDependentDialects(::mlir::DialectRegistry &registry) const override {}
 
-  /// Explicitly declare the TypeID for this class. We declare an explicit private
-  /// instantiation because Pass classes should only be visible by the current
-  /// library.
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertOpToPimCustomCallBase<DerivedT>)
+  /// Explicitly declare the TypeID for this class. We declare an explicit
+  /// private instantiation because Pass classes should only be visible by the
+  /// current library.
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      ConvertOpToPimCustomCallBase<DerivedT>)
 
 protected:
-  ::mlir::Pass::Option<std::string> anchorTag{*this, "anchor-tag", ::llvm::cl::desc("Optional unitAttr anchored tag to apply this pass")};
+  ::mlir::Pass::Option<std::string> anchorTag{
+      *this, "anchor-tag",
+      ::llvm::cl::desc("Optional unitAttr anchored tag to apply this pass")};
 };
-
-
-
-
 
 struct ConvertOpToPimCustomCallPass
     : public ConvertOpToPimCustomCallBase<ConvertOpToPimCustomCallPass> {
@@ -379,7 +381,7 @@ struct ConvertOpToPimCustomCallPass
       MLIRContext *context = &getContext();
 
       RewritePatternSet patterns(context);
-    
+
       populateGemvRewritePattern(patterns);
 
       FrozenRewritePatternSet frozenPatterns(std::move(patterns));
@@ -392,13 +394,10 @@ struct ConvertOpToPimCustomCallPass
 
 } // namespace
 
-
 void mlir::populateGemvRewritePattern(RewritePatternSet &patterns) {
-//   patterns.add<ConvertDotToGEMVCustomOp>(patterns.getContext());
+  //   patterns.add<ConvertDotToGEMVCustomOp>(patterns.getContext());
   patterns.add<ConvertDotGeneralToGEMVCustomOp>(patterns.getContext());
 }
-
-
 
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createConvertOpToPimCustomCallPass(llvm::StringRef anchor) {

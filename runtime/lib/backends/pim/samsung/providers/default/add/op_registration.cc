@@ -22,7 +22,7 @@
 namespace brt {
 namespace pim {
 namespace hbmpim {
- void RegisterAddOp(KernelRegistry *registry) {
+void RegisterAddOp(KernelRegistry *registry) {
   registry->Register(
       "pytorch.add_hbm.fp32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
@@ -32,18 +32,17 @@ namespace hbmpim {
   registry->Register(
       "pytorch.add_hbm.fp16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new Add<half_float::half>(info));
+        auto kernel =
+            std::shared_ptr<OpKernel>(new Add<half_float::half>(info));
         return kernel;
       });
-      registry->Register(
+  registry->Register(
       "pytorch.add_hbm.int",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel = std::shared_ptr<OpKernel>(new Add<float>(info));
         return kernel;
       });
 };
-
-
 
 } // namespace hbmpim
 } // namespace pim

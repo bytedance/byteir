@@ -1,6 +1,7 @@
 
 #include "./op_impl.h"
 #include "./gemv.h"
+#include "FP16.h"
 #include "brt/backends/pim/samsung/device/BurstTensor.h"
 #include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
 #include "brt/core/context/execution_context.h"
@@ -9,7 +10,6 @@
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
-#include "FP16.h"
 
 #include <utility>
 
@@ -81,22 +81,22 @@ common::Status GEMV<T>::RunImpl(const ExecutionContext &ctx) {
   auto kernel = *static_cast<HBMPIMWorkQueue *>(ctx.work_queue)->Getkernel();
   // BurstTensor<T> C(output_dim);
 
-TensorBurstType *input_npbst_ = new TensorBurstType();
-TensorBurstType *input1_npbst_ = new TensorBurstType();
-  
-   kernel.preloadGemv(input_npbst_, 0, 0);
-   kernel.preloadGemv(input1_npbst_, 0, 0);
+  TensorBurstType *input_npbst_ = new TensorBurstType();
+  TensorBurstType *input1_npbst_ = new TensorBurstType();
 
- 
+  kernel.preloadGemv(input_npbst_, 0, 0);
+  kernel.preloadGemv(input1_npbst_, 0, 0);
 
   DRAMSim::BurstType *r = new DRAMSim::BurstType[output_dim];
 
-  // return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
+  // return common::Status(common::StatusCategory::BRT,
+  // common::StatusCode::FAIL,
   //                       "Cannot c allocator");
-  kernel::gemv_kernel<T>(kernel, input_npbst_,input1_npbst_ ,false);
+  kernel::gemv_kernel<T>(kernel, input_npbst_, input1_npbst_, false);
   work_queue->AddTask(0, NULL, NULL);
 
-  // return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
+  // return common::Status(common::StatusCategory::BRT,
+  // common::StatusCode::FAIL,
   //                       "Cannot cc allocator");
   return common::Status::OK();
 };

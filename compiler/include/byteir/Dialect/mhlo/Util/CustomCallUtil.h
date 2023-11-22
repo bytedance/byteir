@@ -61,9 +61,6 @@ constexpr llvm::StringRef getGemvhbmpimName() {
   return PYTORCH_NAME_PREFIX "gemv_hbmpim";
 }
 
-
-
-
 constexpr llvm::StringRef getCustomCallAttrName() { return "byteir_attrs"; }
 
 constexpr llvm::StringRef getNonZeroName() {

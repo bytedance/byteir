@@ -26,7 +26,8 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToHBMPIMCustomCall();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createConvertTorchToHBMPIMCustomCall();
 
 } // namespace mlir
 

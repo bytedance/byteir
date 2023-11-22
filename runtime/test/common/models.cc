@@ -80,7 +80,7 @@ const void *CreateAddOp2(brt::ir::ByREBuilder &byre_builder,
   return m.getAsOpaquePointer();
 }
 const void *CreateAddOp2pim(brt::ir::ByREBuilder &byre_builder,
-                         const std::string &space) {
+                            const std::string &space) {
 
   mlir::ModuleOp m = byre_builder.GetModuleOp();
   auto ctx = byre_builder.GetMLIRContext();
@@ -103,17 +103,17 @@ const void *CreateAddOp2pim(brt::ir::ByREBuilder &byre_builder,
   op_builder.setInsertionPointToStart(entry_block);
 
   // insert AddOp
- auto addop= op_builder.create<byre::ComputeOp>(
+  auto addop = op_builder.create<byre::ComputeOp>(
       UnknownLoc::get(ctx), "pytorch.add_hbm.fp32",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
-addop->setAttr("device", StringAttr::get(ctx, "hbmpim"));
+  addop->setAttr("device", StringAttr::get(ctx, "hbmpim"));
   // insert AddOp
-  auto add2=op_builder.create<byre::ComputeOp>(
+  auto add2 = op_builder.create<byre::ComputeOp>(
       UnknownLoc::get(ctx), "pytorch.add_hbm.fp32",
       ValueRange{entry_block->getArgument(1), entry_block->getArgument(2)},
       ValueRange{entry_block->getArgument(3)});
-add2->setAttr("device", StringAttr::get(ctx, "hbmpim"));
+  add2->setAttr("device", StringAttr::get(ctx, "hbmpim"));
   //  insert ReturnOp
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
   add2->dump();

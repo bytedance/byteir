@@ -1,11 +1,11 @@
 
-#include "gtest/gtest.h"
 #include "brt/backends/pim/samsung/device/dpu_call.h"
 #include "brt/backends/pim/samsung/device/hbm_allocator.h"
-#include <stdlib.h>
-#include <string>
 #include "brt/core/framework/allocator.h"
 #include "brt/test/common/util.h"
+#include "gtest/gtest.h"
+#include <stdlib.h>
+#include <string>
 using namespace brt;
 using namespace brt::pim::hbmpim;
 
@@ -20,11 +20,8 @@ using namespace brt::pim::hbmpim;
 //   free(h_ptr);
 // }
 
-
-
 static void CheckResult(void *d_ptr, size_t size, char val) {
-brt::test::CheckValues<char>((char *)d_ptr, size, val);
-  
+  brt::test::CheckValues<char>((char *)d_ptr, size, val);
 }
 
 static inline void test_func(IAllocator *hbmpimallocator) {
@@ -54,7 +51,6 @@ static inline void test_func(IAllocator *hbmpimallocator) {
 
 TEST(HBMAllocatorTest, HBMPIMBase) {
 
-HBMPIMAllocator hbmpim_base_alloc(0, "hbmpim"); // default HBM
+  HBMPIMAllocator hbmpim_base_alloc(0, "hbmpim"); // default HBM
   test_func(&hbmpim_base_alloc);
 }
-

@@ -88,7 +88,6 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
   return attrs;
 }
 
-
 struct ConvertRngUniformToCustomCall : public OpRewritePattern<mhlo::RngOp> {
   using OpRewritePattern<mhlo::RngOp>::OpRewritePattern;
 
@@ -227,7 +226,6 @@ struct ConvertOpToCustomCallPass
       populateRngPatternToCustomCall(patterns);
       populateFlashFwdRewritePattern(patterns);
 
-
       FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
         signalPassFailure();
@@ -241,8 +239,6 @@ struct ConvertOpToCustomCallPass
 void mlir::populateRngPatternToCustomCall(RewritePatternSet &patterns) {
   patterns.add<ConvertRngUniformToCustomCall>(patterns.getContext());
 }
-
-
 
 void mlir::populateFlashFwdRewritePattern(RewritePatternSet &patterns) {
   patterns.add<ConvertFlashFwdToCustomCall>(patterns.getContext());

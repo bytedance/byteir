@@ -15,7 +15,7 @@ void mul_kernel(HBMPIMKernel kernel, TDataDim *dim_data,
                 DRAMSim::BurstType *result) {
 
   kernel.executeEltwise(dim_data->dimTobShape(dim_data->output_dim_),
-                         pimBankType::ALL_BANK, KernelType::MUL, 0, 0, 0);
+                        pimBankType::ALL_BANK, KernelType::MUL, 0, 0, 0);
 
   kernel.readData(result, dim_data->dimTobShape(dim_data->output_dim_), 0, 0);
 };

@@ -71,7 +71,7 @@ inline void registerByteIRMhloPassesExt() {
   ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
     return mlir::createHloAggressiveFusionPass();
   });
-  
+
   ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
     return mlir::createConvertOpToPimCustomCallPass();
   });

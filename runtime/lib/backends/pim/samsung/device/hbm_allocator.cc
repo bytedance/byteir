@@ -71,20 +71,20 @@ common::Status HBMPIMAllocatorFactory(Session *session, int device_id,
 
   // if (arena_option) {
   //   auto hbmpim = std::make_unique<BFCArena>(
-  //       std::unique_ptr<IAllocator>(new HBMPIMAllocator(device_id, "hbmpim")),
-  //       size);
+  //       std::unique_ptr<IAllocator>(new HBMPIMAllocator(device_id,
+  //       "hbmpim")), size);
   //   auto status = session->AddAllocator(std::move(hbmpim));
   //   if (!status.IsOK())
   //     return status;
   // } else {
-    auto hbmpim = std::make_unique<HBMPIMAllocator>(device_id, "HBMPIM");
-    auto status = session->AddAllocator(std::move(hbmpim));
-    if (!status.IsOK())
-      return status;
+  auto hbmpim = std::make_unique<HBMPIMAllocator>(device_id, "HBMPIM");
+  auto status = session->AddAllocator(std::move(hbmpim));
+  if (!status.IsOK())
+    return status;
   // }
 
-//   auto hbm_output =
-//       std::make_unique<HBMPIMAllocator>(device_id, "hbm_output");
-// return session->AddAllocator(std::move(hbm_output));
+  //   auto hbm_output =
+  //       std::make_unique<HBMPIMAllocator>(device_id, "hbm_output");
+  // return session->AddAllocator(std::move(hbm_output));
 }
 } // namespace brt

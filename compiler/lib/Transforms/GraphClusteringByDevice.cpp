@@ -70,25 +70,14 @@ void insertOpsRecursively(Operation *op, SmallDenseSet<Operation *> &opSet) {
   }
 }
 
-
-
-
-
-
-
-
 std::optional<SmallVector<FunctionMetadata, 4>>
 getFunctionMetadatasCustom(func::FuncOp funcOp, StringRef attrName,
-                             StringRef deviceAttr, StringRef deviceAnchorName,
-                             bool dupOutputs) {
+                           StringRef deviceAttr, StringRef deviceAnchorName,
+                           bool dupOutputs) {
   SmallVector<FunctionMetadata, 4> metadatas;
-  
-
 
   return metadatas;
 }
-
-
 
 std::optional<SmallVector<FunctionMetadata, 4>>
 getFunctionMetadatasFallback(func::FuncOp funcOp, StringRef attrName,
@@ -636,10 +625,10 @@ void GraphClusteringByDevicePass::runOnOperation() {
   for (auto funcOp : originalFuncs) {
     std::optional<SmallVector<FunctionMetadata, 4>> metadatas;
     switch (this->clusterAlgo) {
-      case GraphClusteringAlgo::kCustom:
-        metadatas = getFunctionMetadatasCustom(
-            funcOp, attrName, device, deviceAnchorName, dupOutputs);
-        break;
+    case GraphClusteringAlgo::kCustom:
+      metadatas = getFunctionMetadatasCustom(funcOp, attrName, device,
+                                             deviceAnchorName, dupOutputs);
+      break;
     case GraphClusteringAlgo::kTopDown:
       metadatas = TopDownDeviceClustering(funcOp, attrName)
                       .getFunctionMetadatas(attrName, device, deviceAnchorName,

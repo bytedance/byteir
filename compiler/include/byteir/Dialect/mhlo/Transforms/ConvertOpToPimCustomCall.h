@@ -25,7 +25,6 @@ namespace mlir {
 
 class ModuleOp;
 
-
 void populateGemvRewritePattern(RewritePatternSet &patterns);
 
 std::unique_ptr<OperationPass<ModuleOp>>

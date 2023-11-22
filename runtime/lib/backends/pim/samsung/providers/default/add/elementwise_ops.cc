@@ -130,7 +130,7 @@ common::Status Add<T>::RunImpl(const ExecutionContext &ctx) {
   // common::StatusCode::FAIL,
   // //                       "Cannot c allocator");
   kernel::add_kernel<T>(kernel, dim_data, r);
-  
+
   // work_queue->AddTask(0, NULL, NULL);
 
   // return common::Status(common::StatusCategory::BRT,

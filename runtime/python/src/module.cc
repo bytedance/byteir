@@ -28,9 +28,7 @@
 
 #include "brt/core/context/work_queue.h"
 
-
 // #include "brt/backends/cuda/providers/default/cuda_provider.h"
-
 
 #ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
@@ -41,13 +39,11 @@
 
 using namespace brt::cuda;
 #elseif BRT_USE_HBMPIM
-#include "brt/backends/pim/samsung/providers/default/hbm_provider.h"
 #include "brt/backends/pim/samsung/device/hbm_allocator.h"
 #include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
+#include "brt/backends/pim/samsung/providers/default/hbm_provider.h"
 using namespace brt::pim::hbmpim;
 #endif
-
-
 
 #include <memory>
 #include <optional>
@@ -265,18 +261,18 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                      DefaultHBMPIMExecutionProviderFactory(session.get()));
                } else {
                  auto provider = std::make_unique<HBMPIMExecutionProvider>();
-              auto allocator =
-                  std::make_unique<HBMPIMAllocator>(0,"hbmpim");
+                 auto allocator =
+                     std::make_unique<HBMPIMAllocator>(0, "hbmpim");
                  session->AddAllocator(std::move(allocator));
                  session->AddExecutionProvider(std::move(provider));
                }
              }
 #endif
 
-              // auto provider2 = std::make_unique<HBMPIMExecutionProvider>();
+             // auto provider2 = std::make_unique<HBMPIMExecutionProvider>();
 
-              // session->AddAllocator(std::move(allocator2));
-              //   session->AddExecutionProvider(std::move(provider2));
+             // session->AddAllocator(std::move(allocator2));
+             //   session->AddExecutionProvider(std::move(provider2));
              return session;
            }),
            py::arg("device") = "CUDA", py::arg("alloc_func") = py::none(),
@@ -303,10 +299,10 @@ PYBIND11_MODULE(MODULE_NAME, m) {
             }
 
 #elseif BRT_USE_HBMPIM
-  
-              work_queue.reset(new HBMPIMWorkQueue()); 
+
+            work_queue.reset(new HBMPIMWorkQueue());
 #endif
-            
+
             return std::make_unique<ReqeustContextWithSession>(
                 session, work_queue.release());
           },

@@ -15,7 +15,7 @@ void add_kernel(HBMPIMKernel kernel, TDataDim *dim_data,
                 DRAMSim::BurstType *result) {
 
   kernel.executeEltwise(dim_data->dimTobShape(dim_data->output_dim_),
-                         pimBankType::ALL_BANK, KernelType::ADD, 0, 0, 0);
+                        pimBankType::ALL_BANK, KernelType::ADD, 0, 0, 0);
 
   kernel.readData(result, dim_data->dimTobShape(dim_data->output_dim_), 0, 0);
 };
@@ -29,10 +29,10 @@ void add_kernel(HBMPIMKernel kernel, TDataDim *dim_data,
 template void add_kernel<float>(HBMPIMKernel kernel, TDataDim *dim_data,
                                 DRAMSim::BurstType *result);
 template void add_kernel<int>(HBMPIMKernel kernel, TDataDim *dim_data,
-                                DRAMSim::BurstType *result);
-template void add_kernel<half_float::half>(HBMPIMKernel kernel, TDataDim *dim_data,
-                                DRAMSim::BurstType *result);
-
+                              DRAMSim::BurstType *result);
+template void add_kernel<half_float::half>(HBMPIMKernel kernel,
+                                           TDataDim *dim_data,
+                                           DRAMSim::BurstType *result);
 
 } // namespace kernel
 

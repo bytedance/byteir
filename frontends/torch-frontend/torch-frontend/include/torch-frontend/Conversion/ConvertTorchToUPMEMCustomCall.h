@@ -26,7 +26,8 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToUPMEMCustomCall();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createConvertTorchToUPMEMCustomCall();
 
 } // namespace mlir
 

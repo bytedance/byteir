@@ -16,11 +16,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "torch-frontend/Conversion/ConvertTorchToUPMEMCustomCall.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "stablehlo/dialect/StablehloOps.h"
-#include "torch-frontend/Conversion/ConvertTorchToUPMEMCustomCall.h"
 #include "torch-frontend/Utils/CustomCallUtil.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
@@ -55,7 +55,6 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
 
   return attrs;
 }
-
 
 Value promoteType(Location loc, Value input, TensorType desiredType,
                   PatternRewriter &rewriter) {
@@ -269,7 +268,7 @@ public:
 
 } // namespace
 
-//convert mul to custom call
+// convert mul to custom call
 namespace {
 class ConvertAtenMulTensorOp : public OpConversionPattern<AtenMulTensorOp> {
 public:
@@ -306,7 +305,6 @@ public:
 };
 
 } // namespace
-
 
 // matmul to custom call if gemv
 // namespace {
@@ -381,8 +379,7 @@ public:
 
 namespace {
 class ConvertTorchToUPMEMCustomCall
-    : public ConvertTorchToUPMEMCustomCallBase<
-          ConvertTorchToUPMEMCustomCall> {
+    : public ConvertTorchToUPMEMCustomCallBase<ConvertTorchToUPMEMCustomCall> {
 public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();

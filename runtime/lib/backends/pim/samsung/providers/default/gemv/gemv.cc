@@ -33,12 +33,14 @@ template void gemv_kernel<float>(HBMPIMKernel kernel, TensorBurstType *w_data,
                                  TensorBurstType *i_data, bool is_tree
 
 );
-template void gemv_kernel<half_float::half>(HBMPIMKernel kernel, TensorBurstType *w_data,
-                                 TensorBurstType *i_data, bool is_tree
+template void gemv_kernel<half_float::half>(HBMPIMKernel kernel,
+                                            TensorBurstType *w_data,
+                                            TensorBurstType *i_data,
+                                            bool is_tree
 
 );
 template void gemv_kernel<int>(HBMPIMKernel kernel, TensorBurstType *w_data,
-                                 TensorBurstType *i_data, bool is_tree
+                               TensorBurstType *i_data, bool is_tree
 
 );
 
@@ -52,6 +54,6 @@ template void gemv_kernel<int>(HBMPIMKernel kernel, TensorBurstType *w_data,
 } // namespace kernel
 
 // namespace kernel
-} // namespace pim
+} // namespace hbmpim
 } // namespace pim
 } // namespace brt

@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-
+#include "./gemv.h"
 #include "./gemv_host.h"
 #include "brt/backends/pim/upmem/device/common.h"
 #include "brt/backends/pim/upmem/device/dpu.h"
@@ -26,7 +26,6 @@
 #include "brt/core/context/execution_frame.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
-#include "./gemv.h"
 using namespace brt;
 using namespace brt::common;
 using namespace brt::pim::upmem;
@@ -35,8 +34,6 @@ using namespace brt::ir;
 namespace brt {
 namespace pim {
 namespace upmem {
-
-
 
 template <typename T>
 common::Status GeMVOPKernel<T>::RunImpl(const ExecutionContext &ctx) {

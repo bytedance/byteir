@@ -484,7 +484,6 @@ void StaticBRTExecutionPlan::CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) {
 #elseif BRT_USE_HBMPIM
   *wq = std::unique_ptr<WorkQueue>(new HBMPIMWorkQueue());
 #endif
-
 }
 
 void StaticBRTExecutionPlan::CreateExecutinFrame(
