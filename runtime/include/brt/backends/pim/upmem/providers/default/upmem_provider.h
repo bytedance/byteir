@@ -5,9 +5,8 @@
 #include "brt/core/framework/execution_provider.h"
 #include <dpu.h>
 namespace brt {
-  class Session;
-  // namespace pim{
-
+class Session;
+// namespace pim{
 
 class UPMEMExecutionProvider : public ExecutionProvider {
 public:
@@ -19,4 +18,4 @@ common::Status DefaultUPMEMExecutionProviderFactory(Session *session,
                                                     int num_dpus = 1);
 
 // } // namespace brt
-}
+} // namespace brt

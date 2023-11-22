@@ -27,7 +27,7 @@ BRT_STATIC_KERNEL_REGISTRATION(DeviceKind::HBMPIM, ProviderType::BRT, [](KernelR
     });
 // clang-format on
 
-}// namespace
+} // namespace
 
 HBMPIMExecutionProvider::HBMPIMExecutionProvider(const std::string &name)
     : ExecutionProvider(DeviceKind::HBMPIM, name) {}

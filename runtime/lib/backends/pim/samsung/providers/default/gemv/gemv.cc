@@ -1,5 +1,5 @@
 #include "gemv.h"
-
+#include "FP16.h"
 #include "brt/backends/pim/samsung/device/BurstTensor.h"
 // #pragma once
 
@@ -11,10 +11,10 @@ namespace kernel {
 
 // declaration
 template <typename T>
-void gemv_kernel(HBMPIMKernel *kernel, TensorBurstType *w_data,
+void gemv_kernel(HBMPIMKernel kernel, TensorBurstType *w_data,
                  TensorBurstType *i_data, bool is_tree) {
 
-  kernel->executeGemv(w_data, i_data, is_tree);
+  kernel.executeGemv(w_data, i_data, is_tree);
   //   kernel->executeGEMV(dim_data->dimTobShape(dim_data->output_dim_),
   //                          pimBankType::ALL_BANK, KernelType::ADD, 0, 0,
   //                          0);
@@ -29,10 +29,19 @@ void gemv_kernel(HBMPIMKernel *kernel, TensorBurstType *w_data,
 // template float add_kernel<float>(HBMPIMKernel**kernel, float *A,
 // float *B,uint32_t output_dim);
 // initi template float
-template void gemv_kernel<float>(HBMPIMKernel *kernel, TensorBurstType *w_data,
+template void gemv_kernel<float>(HBMPIMKernel kernel, TensorBurstType *w_data,
                                  TensorBurstType *i_data, bool is_tree
 
 );
+template void gemv_kernel<half_float::half>(HBMPIMKernel kernel, TensorBurstType *w_data,
+                                 TensorBurstType *i_data, bool is_tree
+
+);
+template void gemv_kernel<int>(HBMPIMKernel kernel, TensorBurstType *w_data,
+                                 TensorBurstType *i_data, bool is_tree
+
+);
+
 // template void add_kernel<__half>(HBMPIMKernel *kernel, TDataDim
 // dim_Data,DRAMSim::BurstType *C
 //                                 );

@@ -14,6 +14,9 @@
 #ifndef __BURSTTENSOR__HPP__
 #define __BURSTTENSOR__HPP__
 
+#include "Burst.h"
+#include "FP16.h"
+#include "tests/KernelAddrGen.h"
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
@@ -21,9 +24,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "Burst.h"
-#include "tests/KernelAddrGen.h"
-#include "FP16.h"
 
 using namespace std;
 
@@ -78,8 +78,7 @@ struct TensorBurstType {
     }
   }
 
-template <typename T>
-  void loadFp16FromFp32(std::vector<float> &x) {
+  template <typename T> void loadFp16FromFp32(std::vector<float> &x) {
     // npy::LoadArrayFromNumpy(filename, shape, data);
     data = std::vector<float>(x.size());
     loadTobShape((double)16);
@@ -145,7 +144,7 @@ private:
       input_dim_ = bShape1ToDim(input_npbst_.getTotalDim());
       input1_dim_ = bShape1ToDim(input1_npbst_.getTotalDim());
       return;
-  
+
     case KernelType::ADD: {
       input_npbst_.loadFp16(input_row0);
       input1_npbst_.loadFp16(input_row1);
@@ -169,8 +168,9 @@ private:
       return;
     }
     // case KernelType::RELU: {
-    //   input_npbst_.loadFp16("data/relu/relu_input_" + input_dim_str + ".npy");
-    //   output_npbst_.loadFp16("data/relu/relu_output_" + input_dim_str + ".npy");
+    //   input_npbst_.loadFp16("data/relu/relu_input_" + input_dim_str +
+    //   ".npy"); output_npbst_.loadFp16("data/relu/relu_output_" +
+    //   input_dim_str + ".npy");
 
     //   output_dim_ = bShape1ToDim(output_npbst_.getTotalDim());
     //   input_dim_ = bShape1ToDim(input_npbst_.getTotalDim());
@@ -249,8 +249,8 @@ public:
   bool used_data_;
 
   TDataDim(KernelType kn_type, uint32_t batch_size, uint32_t output_dim,
-          uint32_t input_dim, bool used_data,vector<float> &input_row0,
-                vector<float> &input_row1, vector<float> &result_row) {
+           uint32_t input_dim, bool used_data, vector<float> &input_row0,
+           vector<float> &input_row1, vector<float> &result_row) {
     batch_size_ = batch_size;
     output_dim_ = output_dim;
     input_dim_ = input_dim;
@@ -322,7 +322,6 @@ public:
     return bSahpe1 * getNumElementsPerBlocks();
   }
 };
-
 
 } // namespace DRAMSim
 #endif

@@ -32,13 +32,13 @@ namespace hbmpim {
         registry->Register(
       "pytorch.add_hbm.fp16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new Add<float>(info));
+             auto kernel = std::shared_ptr<OpKernel>(new Add<half_float::half>(info));
         return kernel;
       });
       registry->Register(
-      "pytorch.add_hbm",
+      "pytorch.add_hbm.int",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new Add<float>(info));
+             auto kernel = std::shared_ptr<OpKernel>(new Add<int>(info));
         return kernel;
       });
 };

@@ -2,9 +2,6 @@
 
 #include "brt/core/framework/op_kernel.h"
 
-
-
-
 namespace brt {
 namespace pim {
 namespace hbmpim {
@@ -16,10 +13,10 @@ namespace hbmpim {
  */
 template <typename T> class Add final : public OpKernel {
 public:
-  explicit Add(const OpKernelInfo &info) ;
+  explicit Add(const OpKernelInfo &info);
 
   common::Status RunImpl(const ExecutionContext &) override;
-    common::Status ProloguePerSession() override;
+  common::Status ProloguePerSession() override;
 
   common::Status ProloguePerFrame(const ExecutionContext &) override;
 };

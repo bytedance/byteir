@@ -2,9 +2,6 @@
 
 #include "brt/core/framework/op_kernel.h"
 
-
-
-
 namespace brt {
 namespace pim {
 namespace hbmpim {
@@ -16,10 +13,10 @@ namespace hbmpim {
  */
 template <typename T> class GEMV final : public OpKernel {
 public:
-  explicit GEMV(const OpKernelInfo &info) ;
+  explicit GEMV(const OpKernelInfo &info);
 
   common::Status RunImpl(const ExecutionContext &) override;
-    common::Status ProloguePerSession() override;
+  common::Status ProloguePerSession() override;
 
   common::Status ProloguePerFrame(const ExecutionContext &) override;
 };

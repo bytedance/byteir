@@ -16,46 +16,47 @@
 //===----------------------------------------------------------------------===//
 #pragma once
 
+#include "brt/backends/pim/samsung/providers/default/HBMPIMKernel.h"
 #include "brt/core/context/work_queue.h"
 #include <functional>
 #include <vector>
-#include "brt/backends/pim/samsung/providers/default/HBMPIMKernel.h"
-
-
-
-
 
 namespace brt {
 namespace pim {
-    // HBMPIMKernel* make_pim_kernel()
-    // {
-    //     shared_ptr<MultiChannelMemorySystem> mem = make_shared<MultiChannelMemorySystem>(
-    //         "ini/HBMPIM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".", "example_app",
-    //         256 * 64 * 2);
-    //     int numPIMChan = 64;
-    //     int numPIMRank = 1;
-    //     HBMPIMKernel* kernel = new HBMPIMKernel(mem, numPIMChan, numPIMRank);
+// HBMPIMKernel* make_pim_kernel()
+// {
+//     shared_ptr<MultiChannelMemorySystem> mem =
+//     make_shared<MultiChannelMemorySystem>(
+//         "ini/HBMPIM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".",
+//         "example_app", 256 * 64 * 2);
+//     int numPIMChan = 64;
+//     int numPIMRank = 1;
+//     HBMPIMKernel* kernel = new HBMPIMKernel(mem, numPIMChan, numPIMRank);
 
-    //     return kernel;
-    // }
+//     return kernel;
+// }
 
 // common utilities
 class HBMPIMWorkQueue : public WorkQueue {
 public:
-  explicit HBMPIMWorkQueue(
-                          const std::string &name = "hbmpim")
+  explicit HBMPIMWorkQueue(const std::string &name = "HBMPIM")
       : WorkQueue(name) {
+    mem = make_shared<MultiChannelMemorySystem>(
+        "/home/csgrad/amirnass/byteir/runtime/external/pimlib/ini/"
+        "HBM2_samsung_2M_16B_x64.ini",
+        "/home/csgrad/amirnass/byteir/runtime/external/pimlib/"
+        "system_hbm_64ch.ini",
+        ".", "example_app", 256 * 64 * 2);
+    // shared_ptr<MultiChannelMemorySystem> mem =
+    // make_shared<MultiChannelMemorySystem>(
+    //     "ini/HBMPIM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".",
+    //     "example_app", 256 * 64 * 2);
+    int numPIMChan = 64;
+    int numPIMRank = 1;
+    // HBMPIMKernel* kernel =
 
-
-        shared_ptr<MultiChannelMemorySystem> mem = make_shared<MultiChannelMemorySystem>(
-            "ini/HBMPIM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".", "example_app",
-            256 * 64 * 2);
-        int numPIMChan = 64;
-        int numPIMRank = 1;
-        // HBMPIMKernel* kernel = 
-
-        pimkernel = new HBMPIMKernel(mem, numPIMChan, numPIMRank);
-      }
+    pimkernel = make_shared<HBMPIMKernel>(mem, numPIMChan, numPIMRank);
+  }
 
   virtual ~HBMPIMWorkQueue() {}
 
@@ -73,15 +74,14 @@ public:
   }
 
   // Get the kernel
-    HBMPIMKernel* Getkenrel() { return pimkernel; }
+  shared_ptr<HBMPIMKernel> Getkernel() { return pimkernel; }
 
 private:
   HBMPIMWorkQueue(const HBMPIMWorkQueue &) = delete;
   HBMPIMWorkQueue &operator=(const HBMPIMWorkQueue &) = delete;
-   HBMPIMKernel*  pimkernel;
-  
-
-};// namespace
+  shared_ptr<HBMPIMKernel> pimkernel;
+  shared_ptr<MultiChannelMemorySystem> mem;
+}; // namespace
 
 } // namespace pim
 } // namespace brt

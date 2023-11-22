@@ -9,7 +9,7 @@
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
-
+#include "FP16.h"
 
 #include <utility>
 
@@ -78,14 +78,14 @@ common::Status GEMV<T>::RunImpl(const ExecutionContext &ctx) {
   uint32_t output_dim = m * n;
   vector<T> c = vector<T>(A, A + output_dim);
   vector<T> d = vector<T>(B, B + output_dim);
-  auto kernel = static_cast<HBMPIMWorkQueue *>(ctx.work_queue)->Getkenrel();
+  auto kernel = *static_cast<HBMPIMWorkQueue *>(ctx.work_queue)->Getkernel();
   // BurstTensor<T> C(output_dim);
 
 TensorBurstType *input_npbst_ = new TensorBurstType();
 TensorBurstType *input1_npbst_ = new TensorBurstType();
   
-  kernel->preloadGemv(input_npbst_, 0, 0);
-   kernel->preloadGemv(input1_npbst_, 0, 0);
+   kernel.preloadGemv(input_npbst_, 0, 0);
+   kernel.preloadGemv(input1_npbst_, 0, 0);
 
  
 
@@ -101,8 +101,8 @@ TensorBurstType *input1_npbst_ = new TensorBurstType();
   return common::Status::OK();
 };
 template class GEMV<float>;
-// template class GEMV<int>;
-// template class GEMV<__half>;
+template class GEMV<int>;
+template class GEMV<half_float::half>;
 } // namespace hbmpim
 } // namespace pim
 } // namespace brt

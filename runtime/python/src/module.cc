@@ -266,7 +266,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                } else {
                  auto provider = std::make_unique<HBMPIMExecutionProvider>();
               auto allocator =
-                  std::make_unique<HBMPIMAllocator>(0,"HBMPIM");
+                  std::make_unique<HBMPIMAllocator>(0,"hbmpim");
                  session->AddAllocator(std::move(allocator));
                  session->AddExecutionProvider(std::move(provider));
                }
@@ -301,6 +301,10 @@ PYBIND11_MODULE(MODULE_NAME, m) {
               BRT_CUDA_CHECK(cudaGetDevice(&device_id));
               work_queue.reset(new CUDAWorkQueue(device_id));
             }
+
+#elseif BRT_USE_HBMPIM
+  
+              work_queue.reset(new HBMPIMWorkQueue()); 
 #endif
             
             return std::make_unique<ReqeustContextWithSession>(

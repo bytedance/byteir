@@ -20,11 +20,11 @@
 #include "brt/core/common/utils/math_helper.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
+#include "brt/core/framework/op_accessor.h"
 #include "brt/core/framework/op_kernel.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
-#include "brt/core/framework/op_accessor.h"
 
 #ifndef GEMV_DPU_BINARY
 #define GEMV_DPU_BINARY "./bin/gemv_dpu"
@@ -34,24 +34,17 @@ namespace brt {
 namespace pim {
 namespace upmem {
 
-
-
-
-
-
 /**
  * Add Ops
  * This is just an example for OpKernel.
  * All elementwise ops should be generated through macro or generator.
  */
-template <typename T> class GeMVOPKernel final: public OpKernel {
+template <typename T> class GeMVOPKernel final : public OpKernel {
 public:
-  explicit GeMVOPKernel(const OpKernelInfo &info) : OpKernel(info){}
+  explicit GeMVOPKernel(const OpKernelInfo &info) : OpKernel(info) {}
 
   common::Status RunImpl(const ExecutionContext &) override;
 };
-
-
 
 } // namespace upmem
 } // namespace pim

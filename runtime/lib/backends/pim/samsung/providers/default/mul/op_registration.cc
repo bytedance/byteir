@@ -16,34 +16,34 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/backends/pim/samsung/providers/default/mul/op_registration.h"
-#include"./elementwise_ops.h"
+#include "./elementwise_ops.h"
+#include "FP16.h"
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
 namespace pim {
 namespace hbmpim {
- void RegisterMulOp(KernelRegistry *registry) {
+void RegisterMulOp(KernelRegistry *registry) {
   registry->Register(
       "pytorch.mul_hbm.fp32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new Mul<float>(info));
+        auto kernel = std::shared_ptr<OpKernel>(new Mul<float>(info));
         return kernel;
       });
-        registry->Register(
+  registry->Register(
       "pytorch.mul_hbm.fp16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new Mul<float>(info));
+        auto kernel =
+            std::shared_ptr<OpKernel>(new Mul<half_float::half>(info));
         return kernel;
       });
-      registry->Register(
-      "pytorch.mul_hbm",
+  registry->Register(
+      "pytorch.mul_hbm.int",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new Mul<float>(info));
+        auto kernel = std::shared_ptr<OpKernel>(new Mul<int>(info));
         return kernel;
       });
 };
-
-
 
 } // namespace hbmpim
 } // namespace pim

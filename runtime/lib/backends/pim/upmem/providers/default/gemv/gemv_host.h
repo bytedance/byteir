@@ -17,15 +17,15 @@
 
 #pragma once
 
+#include "brt/backends/pim/upmem/device/common.h"
 #include "brt/core/common/utils/math_helper.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
+#include "brt/core/framework/op_accessor.h"
 #include "brt/core/framework/op_kernel.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
-#include "brt/core/framework/op_accessor.h"
-#include "brt/backends/pim/upmem/device/common.h"
 #ifndef GEMV_DPU_BINARY
 #define GEMV_DPU_BINARY "./bin/gemv_dpu"
 #endif
@@ -33,25 +33,18 @@
 namespace brt {
 namespace pim {
 namespace upmem {
-  namespace kernel{
-    template <typename T>
-    common::Status rungemv(dpu_set_t *dpu_set, dpu_set_t dpu, uint32_t nr_of_dpus, T *A, T *B,
-                T *C, int m, int n);
+namespace kernel {
+template <typename T>
+common::Status rungemv(dpu_set_t *dpu_set, dpu_set_t dpu, uint32_t nr_of_dpus,
+                       T *A, T *B, T *C, int m, int n);
 
-  }
-
-
-
-
-
+}
 
 /**
  * Add Ops
  * This is just an example for OpKernel.
  * All elementwise ops should be generated through macro or generator.
  */
-
-
 
 } // namespace upmem
 } // namespace pim

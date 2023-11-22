@@ -17,9 +17,9 @@
 
 #include "brt/backends/pim/upmem/device/upmem_worker_queue.h"
 
-#include <dpu.h>
 #include "brt/backends/pim/upmem/device/dpu_call.h"
 #include "brt/core/common/common.h"
+#include <dpu.h>
 
 using namespace brt;
 using namespace brt::common;

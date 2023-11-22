@@ -15,10 +15,10 @@ namespace kernel {
 
 // declaration
 template <typename T>
-void add_kernel(  HBMPIMKernel *kernel, DRAMSim::TDataDim* data_dim,  DRAMSim::BurstType *C  );
-
+void add_kernel(HBMPIMKernel kernel, DRAMSim::TDataDim *data_dim,
+                DRAMSim::BurstType *C);
 
 } // namespace kernel
-} // namespace hbm
+} // namespace hbmpim
 } // namespace pim
 } // namespace brt

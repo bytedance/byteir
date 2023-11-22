@@ -26,22 +26,30 @@
 
 namespace mlir {
 
+constexpr llvm::StringRef getAddHBMPIMName() {
+  return PYTORCH_NAME_PREFIX "add_hbm";
+}
+constexpr llvm::StringRef getAddScalarHBMPIMName() {
+  return PYTORCH_NAME_PREFIX "add_scalar_hbm";
+}
+constexpr llvm::StringRef getSubHBMPIMName() {
+  return PYTORCH_NAME_PREFIX "sub_hbm";
+}
+constexpr llvm::StringRef getMulHBMPIMName() {
+  return PYTORCH_NAME_PREFIX "mul_hbm";
+}
+constexpr llvm::StringRef getDivHBMPIMName() {
+  return PYTORCH_NAME_PREFIX "div_hbm";
+}
 
-constexpr llvm::StringRef getAddHBMPIMName() { return     PYTORCH_NAME_PREFIX  "add_hbm"; }
-constexpr llvm::StringRef getAddScalarHBMPIMName() { return PYTORCH_NAME_PREFIX  "add_scalar_hbm"; }
-constexpr llvm::StringRef getSubHBMPIMName() { return   PYTORCH_NAME_PREFIX      "sub_hbm"; }
-constexpr llvm::StringRef getMulHBMPIMName() { return   PYTORCH_NAME_PREFIX   "mul_hbm"; }
-constexpr llvm::StringRef getDivHBMPIMName() { return   PYTORCH_NAME_PREFIX "div_hbm"; }
-constexpr llvm::StringRef getRsqrtHBMPIMName() { return PYTORCH_NAME_PREFIX   "rsqrt_hbm"; }
-constexpr llvm::StringRef getTanhHBMPIMName() { return  PYTORCH_NAME_PREFIX  "tanh_hbm"; }
-constexpr llvm::StringRef getReluHBMPIMName() { return  PYTORCH_NAME_PREFIX   "relu_hbm"; }
-
-
+constexpr llvm::StringRef getReluHBMPIMName() {
+  return PYTORCH_NAME_PREFIX "relu_hbm";
+}
 
 constexpr llvm::StringRef getAddUpmemName() {
   return PYTORCH_NAME_PREFIX "add_upmem";
 }
-constexpr llvm::StringRef getAddScalarUpmemName(){
+constexpr llvm::StringRef getAddScalarUpmemName() {
   return PYTORCH_NAME_PREFIX "add_scalar_upmem";
 }
 constexpr llvm::StringRef getSubUpmemName() {
@@ -68,7 +76,7 @@ constexpr llvm::StringRef getSoftmaxUpmemName() {
 
 constexpr llvm::StringRef getGemvUpmemName() {
   return PYTORCH_NAME_PREFIX "gemv_upmem";
-} 
+}
 constexpr llvm::StringRef getCustomCallAttrName() { return "byteir_attrs"; }
 
 constexpr llvm::StringRef getNonZeroName() {

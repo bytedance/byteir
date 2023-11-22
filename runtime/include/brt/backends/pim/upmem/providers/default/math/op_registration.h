@@ -21,7 +21,7 @@ namespace brt {
 class KernelRegistry;
 namespace pim {
 namespace upmem {
-    void RegisterMathOps(KernelRegistry *registry);
+void RegisterMathOps(KernelRegistry *registry);
 // void RegisterADDOps(KernelRegistry *registry);
 // void RegisterSUBOps(KernelRegistry *registry);
 // void RegisterMULOps(KernelRegistry *registry);

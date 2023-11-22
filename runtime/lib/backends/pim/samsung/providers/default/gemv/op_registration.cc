@@ -19,26 +19,27 @@
 #include"./op_impl.h"
 #include "brt/core/framework/kernel_registry.h"
 
+#include "FP16.h"
 namespace brt {
 namespace pim {
 namespace hbmpim {
  void RegisterGEMVOp(KernelRegistry *registry) {
   registry->Register(
-      "pytorch.add_hbm.fp32",
+      "pytorch.gemv_hbm.fp32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
              auto kernel = std::shared_ptr<OpKernel>(new GEMV<float>(info));
         return kernel;
       });
         registry->Register(
-      "pytorch.add_hbm.fp16",
+      "pytorch.gemv_hbm.fp16",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new GEMV<float>(info));
+             auto kernel = std::shared_ptr<OpKernel>(new GEMV<half_float::half>(info));
         return kernel;
       });
       registry->Register(
-      "pytorch.add_hbm",
+      "pytorch.gemv_hbm.int",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-             auto kernel = std::shared_ptr<OpKernel>(new GEMV<float>(info));
+             auto kernel = std::shared_ptr<OpKernel>(new GEMV<int>(info));
         return kernel;
       });
 };

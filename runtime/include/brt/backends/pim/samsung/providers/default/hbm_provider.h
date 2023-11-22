@@ -5,9 +5,8 @@
 #include "brt/core/framework/execution_provider.h"
 
 namespace brt {
-  class Session;
-  // namespace pim{
-
+class Session;
+// namespace pim{
 
 class HBMPIMExecutionProvider : public ExecutionProvider {
 public:
@@ -15,8 +14,7 @@ public:
 };
 
 // TODO add more option later
-common::Status DefaultHBMPIMExecutionProviderFactory(Session *session
-                                                   );
+common::Status DefaultHBMPIMExecutionProviderFactory(Session *session);
 
 // } // namespace brt
-}
+} // namespace brt

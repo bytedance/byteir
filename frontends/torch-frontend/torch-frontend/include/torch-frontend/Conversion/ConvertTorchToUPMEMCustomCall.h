@@ -1,4 +1,4 @@
-//===- op_registration.cc -------------------------------------*--- C++ -*-===//
+//===- ConvertTorchToCustomCall.h -----------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "brt/backends/pim/upmem/providers/default/gemv/op_registration.h"
+#ifndef TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOUPMEMCUSTOMCALL_H
+#define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOUPMEMCUSTOMCALL_H
 
-#include "./gemv.h"
-#include "brt/core/framework/kernel_registry.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
-namespace brt {
-namespace pim {
-namespace upmem {
+namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-template <typename T> void RegisterGeMVOp(KernelRegistry *registry) {
-  registry->Register(
-      "pytorch.gemv_upmem",
-      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        return std::make_shared<GeMVOPKernel<T>>(info);
-      });
-}
-} // namespace upmem
-} // namespace pim
-} // namespace brt
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToUPMEMCustomCall();
+
+} // namespace mlir
+
+#endif // TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOUPMEMCUSTOMCALL_H

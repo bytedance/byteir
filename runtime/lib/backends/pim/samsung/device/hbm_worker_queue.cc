@@ -35,14 +35,14 @@ namespace brt {
 namespace pim {
 
 // common utilities
-common::Status compute(const void *func, void **args,
-                       HBMPIMKernel*pimkernel) {
+common::Status compute(const void *func, void **args
+                      ) {
 
     // void **args = static_cast<void **>(args);
     // void **args = static_cast<void **>(args);
     // size_t *count = static_cast<size_t *>(args[2]);  
 
-    pimkernel->runPIM();
+    // pimkernel->runPIM();
     // return BRT_HBMPIM_CALL();
 
 
@@ -59,7 +59,7 @@ common::Status HBMPIMWorkQueue::AddTask(int task_type, const void *func,
 
   switch (task_type) {
   case 0:
-    compute(func, args, pimkernel);
+    compute(func, args);
     return Status(BRT, OK, "add kernel");
 
   default:

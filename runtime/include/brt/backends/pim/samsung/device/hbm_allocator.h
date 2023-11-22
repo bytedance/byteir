@@ -34,6 +34,18 @@ public:
   void *Alloc(size_t size) override;
   void Free(void *p) override;
 
+private:
+  void CheckDevice(bool throw_when_fail) const;
+};
+class HBMPIMoutputAllocator : public IAllocator {
+public:
+  HBMPIMoutputAllocator(int device_id, const char *name)
+      : IAllocator(BrtMemoryInfo(name, "HBMPIM_output",
+                                 BrtAllocatorType::BrtCustomAllocator,
+                                 device_id, BrtMemTypeCPUOutput)) {}
+
+  void *Alloc(size_t size) override;
+  void Free(void *p) override;
 
 private:
   void CheckDevice(bool throw_when_fail) const;
@@ -45,7 +57,7 @@ class HBMPIMExternalAllocator : public HBMPIMAllocator {
 
 public:
   HBMPIMExternalAllocator(int device_id, const char *name, void *alloc,
-                         void *free)
+                          void *free)
       : HBMPIMAllocator(device_id, name) {
     alloc_ = reinterpret_cast<ExternalAlloc>(alloc);
     free_ = reinterpret_cast<ExternalFree>(free);
@@ -59,9 +71,8 @@ private:
   ExternalFree free_;
 };
 
-
 common::Status HBMPIMAllocatorFactory(Session *session, int device_id = 0,
-                                     bool use_arena = false,
-                                     size_t size = 1 << 30);
+                                      bool use_arena = false,
+                                      size_t size = 1 << 30);
 
 } // namespace brt

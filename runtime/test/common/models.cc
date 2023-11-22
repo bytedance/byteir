@@ -116,7 +116,8 @@ addop->setAttr("device", StringAttr::get(ctx, "hbmpim"));
 add2->setAttr("device", StringAttr::get(ctx, "hbmpim"));
   //  insert ReturnOp
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
-
+  add2->dump();
+  // op_builder.->dump();
   return m.getAsOpaquePointer();
 }
 

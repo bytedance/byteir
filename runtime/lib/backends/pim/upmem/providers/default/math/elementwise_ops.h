@@ -19,10 +19,10 @@
 #include "brt/core/common/utils/math_helper.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
+#include "brt/core/framework/op_kernel.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
-#include "brt/core/framework/op_kernel.h"
 #ifndef ADD_DPU_BINARY
 #define ADD_DPU_BINARY "./bin/add_dpu"
 #endif

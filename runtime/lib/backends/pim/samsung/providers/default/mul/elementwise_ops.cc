@@ -1,6 +1,7 @@
 
 #include "./elementwise_ops.h"
 #include "./mul.h"
+#include "FP16.h"
 #include "brt/backends/pim/samsung/device/BurstTensor.h"
 #include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
 #include "brt/core/context/execution_context.h"
@@ -9,7 +10,6 @@
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
-
 
 #include <utility>
 
@@ -76,31 +76,28 @@ common::Status Mul<T>::RunImpl(const ExecutionContext &ctx) {
   int n = b_shape[1];
 
   uint32_t output_dim = m * n;
-  vector<T> c = vector<T>(A, A + output_dim);
-  vector<T> d = vector<T>(B, B + output_dim);
-  auto kernel = static_cast<HBMPIMWorkQueue *>(ctx.work_queue)->Getkenrel();
-
+  vector<float> c = vector<float>(A, A + output_dim);
+  vector<float> d = vector<float>(B, B + output_dim);
+  auto kernel = *static_cast<HBMPIMWorkQueue *>(ctx.work_queue)->Getkernel();
 
   // BurstTensor<T> C(output_dim);
 
   TDataDim *dim_data =
       new TDataDim(KernelType::MUL, 1, output_dim, output_dim, true, c, d, c);
 
-  kernel->preloadNoReplacement(&dim_data->input_npbst_, 0, 0);
-  kernel->preloadNoReplacement(&dim_data->input1_npbst_, 0, 0);
+  kernel.preloadNoReplacement(&dim_data->input_npbst_, 0, 0);
+  kernel.preloadNoReplacement(&dim_data->input1_npbst_, 0, 0);
 
   DRAMSim::BurstType *r = new DRAMSim::BurstType[output_dim];
 
-  
   kernel::mul_kernel<T>(kernel, dim_data, r);
   work_queue->AddTask(0, NULL, NULL);
-
 
   return common::Status::OK();
 };
 template class Mul<float>;
-// template class Mul<int>;
-// template class Mul<__half>;
+template class Mul<int>;
+template class Mul<half_float::half>;
 } // namespace hbmpim
 } // namespace pim
 } // namespace brt

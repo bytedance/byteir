@@ -36,7 +36,7 @@ struct dpu_info_t {
 namespace brt {
 namespace pim {
 namespace upmem {
-inline uint32_t MakeDPUSet(UpmemEnv &env,char * x){
+inline uint32_t MakeDPUSet(UpmemEnv &env, char *x) {
 
   uint32_t nr_of_dpus;
   // Allocate DPUs and load binary
@@ -44,7 +44,6 @@ inline uint32_t MakeDPUSet(UpmemEnv &env,char * x){
   DPU_ASSERT(dpu_load(*env.GetDpuSet(), x, NULL));
   DPU_ASSERT(dpu_get_nr_dpus(*env.GetDpuSet(), &nr_of_dpus));
 
-  
   return nr_of_dpus;
 }
 

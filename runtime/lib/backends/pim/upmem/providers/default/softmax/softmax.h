@@ -27,12 +27,9 @@ namespace brt {
 namespace pim {
 namespace upmem {
 
-
 #pragma once
 
 #include "brt/core/framework/op_kernel.h"
-
-
 
 /**
  * Add Ops
@@ -45,8 +42,6 @@ public:
 
   common::Status RunImpl(const ExecutionContext &) override;
 };
-
-
 
 } // namespace upmem
 } // namespace pim
