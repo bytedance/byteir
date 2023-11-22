@@ -32,6 +32,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # Options
 option(brt_BUILD_SHARED_LIB "Build using shared libraries" ON)
 option(brt_USE_CUDA "Build with CUDA support" OFF)
+option(brt_USE_HBMPIM "Build with HBMPIM support" OFF)
 option(brt_BUILD_UNIT_TESTS "Build Runtime unit tests" ON)
 option(brt_CROSS_COMPILING "Cross compiling for another platform" OFF)
 
@@ -217,6 +218,10 @@ set(BRT_INCLUDE_DIR ${REPO_ROOT}/include)
 
 # linking 
 set(brt_LINK_DIRS )
+if(brt_USE_HBMPIM)
+  message(STATUS "brt_USE_HBMPIM On")
+endif()
+
 
 # link CUDADNN
 if(brt_USE_CUDA)
@@ -244,7 +249,7 @@ FILE(TO_NATIVE_PATH ${PROJECT_SOURCE_DIR}  BRT_SOURCE_DIR)
 #However, all these things are legacy and deprecated and should be replaced with functions in brt_c_api.h.
 set(BRT_PROVIDER_NAMES cpu)
 # list(APPEND BRT_PROVIDER_NAMES upmem)
-list(APPEND BRT_PROVIDER_NAMES hbm)
+list(APPEND BRT_PROVIDER_NAMES hbmpim)
 set(BRT_PROVIDER_FLAGS)
 set(BRT_PROVIDER_CMAKE_FLAGS)
 
@@ -256,6 +261,12 @@ if (brt_USE_CUDA)
       list(APPEND BRT_PROVIDER_FLAGS -DBRT_ENABLE_FLASH_ATTENSION=1)
       list(APPEND BRT_PROVIDER_CMAKE_FLAGS -Dbrt_ENABLE_FLASH_ATTENSION=1)
     endif()
+endif()
+
+if (brt_USE_HBMPIM)
+    list(APPEND BRT_PROVIDER_FLAGS -DBRT_USE_HBMPIM=1)
+    list(APPEND BRT_PROVIDER_CMAKE_FLAGS -Dbrt_USE_HBMPIM=1)
+    list(APPEND BRT_PROVIDER_NAMES hbmpim)
 endif()
 
 # utility functions 
@@ -465,16 +476,17 @@ set(BRT_TARGETS
     brt_framework
     brt_device_cpu
     brt_provider_cpu
-    # brt_device_upmem
-    # brt_provider_upmem
-    brt_device_hbm
-    brt_provider_hbm)
+ )
 
 if(brt_USE_CUDA)
   list(APPEND BRT_TARGETS brt_device_cuda)
   list(APPEND BRT_TARGETS brt_provider_cuda)
 endif()
 
+if(brt_USE_HBMPIM)
+  list(APPEND BRT_TARGETS brt_device_hbmpim)
+  list(APPEND BRT_TARGETS brt_provider_hbmpim)
+endif()
 if(brt_ENABLE_PYTHON_BINDINGS)
   list(APPEND BRT_TARGETS brt_python_bindings)
 endif()
@@ -529,8 +541,8 @@ target_sources(brt.objs INTERFACE
   $<TARGET_OBJECTS:brt_provider_cpu>
   # $<TARGET_OBJECTS:brt_device_upmem>
   # $<TARGET_OBJECTS:brt_provider_upmem>
-  $<TARGET_OBJECTS:brt_device_hbm>
-  $<TARGET_OBJECTS:brt_provider_hbm>
+  $<TARGET_OBJECTS:brt_device_hbmpim>
+  $<TARGET_OBJECTS:brt_provider_hbmpim>
 )
 target_link_libraries(brt.objs INTERFACE
   brt_common
@@ -540,8 +552,8 @@ target_link_libraries(brt.objs INTERFACE
   brt_provider_cpu
   # brt_provider_upmem
   # brt_device_upmem
-  brt_provider_hbm
-  brt_device_hbm
+  brt_provider_hbmpim
+  brt_device_hbmpim
 )
 if(brt_USE_CUDA)
   target_sources(brt.objs INTERFACE

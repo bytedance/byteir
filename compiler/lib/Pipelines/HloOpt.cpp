@@ -90,6 +90,7 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   pm.addNestedPass<func::FuncOp>(createReduceFusionPass());
   pm.addNestedPass<func::FuncOp>(createReshapeGatherPass());
   pm.addPass(createConvertOpToCustomCallPass());
+  
 
   // rewrite with constraint
   pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());
@@ -99,7 +100,13 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   // add fusion patterns
   if (target == "CPU") {
     addCPUHloFusionPatterns(pm, entryFunc);
-  } else {
+  }else if (target == "PIM") {
+
+    addCPUHloFusionPatterns(pm, entryFunc);
+    addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp,
+                                outlineCatOp, aggressiveCatFusion);
+                                pm.addPass(createConvertOpToPimCustomCallPass());}
+   else {
     addGenericHloFusionPatterns(pm, entryFunc, outlineSingleElemwiseOp,
                                 outlineCatOp, aggressiveCatFusion);
   }

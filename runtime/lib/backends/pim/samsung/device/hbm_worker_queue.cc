@@ -18,7 +18,7 @@
 #include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
 #include "brt/backends/pim/samsung/device/dpu_call.h"
 #include "MultiChannelMemorySystem.h"
-#include "brt/backends/pim/samsung/providers/default/PIMKernel.h"
+#include "brt/backends/pim/samsung/providers/default/hbm_provider.h"
 #include "tests/KernelAddrGen.h"
 #include <memory>
 #include <vector>
@@ -30,29 +30,31 @@ enum hbm_error_t{
 using namespace brt;
 using namespace brt::common;
 using namespace brt::pim;
-// using namespace brt::pim::hbm;
+// using namespace brt::pim::hbmpim;
 namespace brt {
 namespace pim {
 
 // common utilities
 common::Status compute(const void *func, void **args,
-                       shared_ptr<PIMKernel> pimkernel) {
+                       HBMPIMKernel*pimkernel) {
 
     // void **args = static_cast<void **>(args);
     // void **args = static_cast<void **>(args);
     // size_t *count = static_cast<size_t *>(args[2]);  
-    // return BRT_HBM_CALL(pimkernel->runPIM());
+
+    pimkernel->runPIM();
+    // return BRT_HBMPIM_CALL();
 
 
   return common::Status::OK();
 }
 
-common::Status HBMWorkQueue::Sync() {
+common::Status HBMPIMWorkQueue::Sync() {
   return common::Status::OK();
 }
 
-// HBMWorkQueue
-common::Status HBMWorkQueue::AddTask(int task_type, const void *func,
+// HBMPIMWorkQueue
+common::Status HBMPIMWorkQueue::AddTask(int task_type, const void *func,
                                      void **args) {
 
   switch (task_type) {

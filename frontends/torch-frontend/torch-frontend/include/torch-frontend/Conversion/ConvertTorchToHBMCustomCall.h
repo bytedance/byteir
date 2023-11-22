@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOHBMCUSTOMCALL_H
-#define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOHBMCUSTOMCALL_H
+#ifndef TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOHBMPIMCUSTOMCALL_H
+#define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOHBMPIMCUSTOMCALL_H
 
 #include "mlir/Pass/Pass.h"
 #include <memory>
@@ -26,8 +26,8 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToHBMCustomCall();
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToHBMPIMCustomCall();
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOHBMCUSTOMCALL_H
+#endif // TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOHBMPIMCUSTOMCALL_H

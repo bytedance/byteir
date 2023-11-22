@@ -23,6 +23,7 @@
 #include "byteir/Dialect/mhlo/Transforms/ConvertFuncToCustomCall.h"
 #include "byteir/Dialect/mhlo/Transforms/ConvertInsertion.h"
 #include "byteir/Dialect/mhlo/Transforms/ConvertOpToCustomCall.h"
+#include "byteir/Dialect/mhlo/Transforms/ConvertOpToPimCustomCall.h"
 #include "byteir/Dialect/mhlo/Transforms/DTypeConversion.h"
 #include "byteir/Dialect/mhlo/Transforms/DynamicShapeClustering.h"
 #include "byteir/Dialect/mhlo/Transforms/FuncArgRearrangement.h"
@@ -69,6 +70,10 @@ inline void registerByteIRMhloPassesExt() {
 
   ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
     return mlir::createHloAggressiveFusionPass();
+  });
+  
+  ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
+    return mlir::createConvertOpToPimCustomCallPass();
   });
 }
 

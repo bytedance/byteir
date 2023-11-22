@@ -23,7 +23,7 @@ struct DeviceKind {
   constexpr static char CPU[] = "CPU";
   constexpr static char CUDA[] = "CUDA";
   constexpr static char UPMEM[] = "UPMEM";
-  constexpr static char HBM[] = "HBM";
+  constexpr static char HBMPIM[] = "HBMPIM";
 };
 
 struct ProviderType {

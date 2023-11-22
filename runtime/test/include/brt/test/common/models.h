@@ -27,6 +27,9 @@ namespace test {
 
 const void *CreateAddOp2(brt::ir::ByREBuilder &byre_builder,
                          const std::string &space);
+const void *CreateAddOp2pim(brt::ir::ByREBuilder &byre_builder,
+                         const std::string &space);
+                         
 
 const void *CreateAddWeight(brt::ir::ByREBuilder &byre_builder,
                             const std::string &space);

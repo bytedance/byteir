@@ -71,10 +71,8 @@ class CustomBuild(build_ext):
   def build_brt(self, ext):
     brt_path = os.path.join(root_path, "build", "install", "lib", "libbrt.so")
     _brt_path = os.path.join(root_path, "build", "install", "_brt.so")
-    dramsim_path = os.path.join("/usr", "local", "lib", "libdramsim2.so")
     brt_dst_path = os.path.join(self.build_lib, "brt", "lib", "libbrt.so")
     _brt_dst_path = self.get_ext_fullpath(ext.name)
-    dramsim_dst_path = os.path.join(self.build_lib, "brt", "lib", "libdramsim2.so")
     os.makedirs(os.path.dirname(brt_dst_path), exist_ok=True)
     os.makedirs(os.path.dirname(dramsim_dst_path), exist_ok=True)
     os.makedirs(os.path.dirname(_brt_dst_path), exist_ok=True)

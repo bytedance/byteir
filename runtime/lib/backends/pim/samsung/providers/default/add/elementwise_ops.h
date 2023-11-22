@@ -7,7 +7,7 @@
 
 namespace brt {
 namespace pim {
-namespace hbm {
+namespace hbmpim {
 
 /**
  * Add Ops
@@ -24,6 +24,6 @@ public:
   common::Status ProloguePerFrame(const ExecutionContext &) override;
 };
 
-} // namespace hbm
+} // namespace hbmpim
 } // namespace pim
 } // namespace brt

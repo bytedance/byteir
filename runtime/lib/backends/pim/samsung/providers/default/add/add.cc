@@ -1,42 +1,45 @@
 #include "add.h"
-// #include ""
 
+#include "brt/backends/pim/samsung/device/BurstTensor.h"
 // #pragma once
 
 namespace brt {
 namespace pim {
-namespace hbm {
+namespace hbmpim {
 
 namespace kernel {
 
 // declaration
 template <typename T>
-void add_kernel(shared_ptr<PIMKernel> *kernel, T *A, T *B,uint32_t output_dim) {
-  int input_row0 = 0;
-  int input_row1 = 128;
-  int result_row = 256;
+void add_kernel(HBMPIMKernel *kernel, TDataDim *dim_data,  DRAMSim::BurstType *result
+                ) {
 
+  
 
-  // kernel->preloadNoReplacement(a, input_row0, 0);
-  // kernel->preloadNoReplacement(b, input_row1, 0);
-  // kernel->executeEltwise(a->dimTobShape(output_dim),
-  //                        pimBankType::ALL_BANK, KernelType::ADD, input_row0,
-  //                        result_row, input_row1);
-  // result = new BurstType[output_dim];
-  // kernel->readData(result, dim_data->dimTobShape(output_dim),
-  //                  result_row, 0);
+  kernel->executeEltwise(dim_data->dimTobShape(dim_data->output_dim_),
+                         pimBankType::ALL_BANK, KernelType::ADD, 0, 0,
+                         0);
+
+  kernel->readData(result, dim_data->dimTobShape(dim_data->output_dim_),
+                   0, 0);
+
 };
-//initiate template
-template void add_kernel<int>(shared_ptr<PIMKernel> *kernel, int *A, int *B,uint32_t output_dim);
-// template float add_kernel<float>(shared_ptr<PIMKernel> *kernel, float *A, float *B,uint32_t output_dim);
-//initi template float
-template void add_kernel<float>(shared_ptr<PIMKernel> *kernel, float *A, float *B,uint32_t output_dim);
+// initiate template
+// template void add_kernel<int>(HBMPIMKernel *kernel, TDataDim dim_Data,DRAMSim::BurstType *C
+//                              );
+// template float add_kernel<float>(HBMPIMKernel**kernel, float *A,
+// float *B,uint32_t output_dim);
+// initi template float
+template void add_kernel<float>(HBMPIMKernel *kernel, TDataDim *dim_data,  DRAMSim::BurstType *result
+                                );
+// template void add_kernel<__half>(HBMPIMKernel *kernel, TDataDim dim_Data,DRAMSim::BurstType *C
+//                                 );  
+// template void add_kernel<int>(HBMPIMKernel *kernel, TDataDim dim_Data,DRAMSim::BurstType *C  
+//                               );
 
-}
+} // namespace kernel
 
-
-
- // namespace kernel
+// namespace kernel
 } // namespace hbm
 } // namespace pim
 } // namespace brt

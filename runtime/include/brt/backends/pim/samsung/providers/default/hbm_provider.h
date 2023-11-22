@@ -9,13 +9,13 @@ namespace brt {
   // namespace pim{
 
 
-class HBMExecutionProvider : public ExecutionProvider {
+class HBMPIMExecutionProvider : public ExecutionProvider {
 public:
-  explicit HBMExecutionProvider(const std::string &name = ProviderType::BRT);
+  explicit HBMPIMExecutionProvider(const std::string &name = ProviderType::BRT);
 };
 
 // TODO add more option later
-common::Status DefaultHBMExecutionProviderFactory(Session *session
+common::Status DefaultHBMPIMExecutionProviderFactory(Session *session
                                                    );
 
 // } // namespace brt

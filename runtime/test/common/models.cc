@@ -79,6 +79,46 @@ const void *CreateAddOp2(brt::ir::ByREBuilder &byre_builder,
 
   return m.getAsOpaquePointer();
 }
+const void *CreateAddOp2pim(brt::ir::ByREBuilder &byre_builder,
+                         const std::string &space) {
+
+  mlir::ModuleOp m = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+
+  auto space_attr = StringAttr::get(ctx, space);
+  llvm::SmallVector<int64_t, 4> shape = {100, 32};
+  auto arg_type = MemRefType::get(shape, op_builder.getF32Type(),
+                                  MemRefLayoutAttrInterface{}, space_attr);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{arg_type, AT::Input, "A"},
+               {arg_type, AT::Input, "B"},
+               {arg_type, AT::Output, "C"},
+               {arg_type, AT::Output, "D"}});
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+
+  // insert AddOp
+ auto addop= op_builder.create<byre::ComputeOp>(
+      UnknownLoc::get(ctx), "pytorch.add_hbm.fp32",
+      ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
+      ValueRange{entry_block->getArgument(2)});
+addop->setAttr("device", StringAttr::get(ctx, "hbmpim"));
+  // insert AddOp
+  auto add2=op_builder.create<byre::ComputeOp>(
+      UnknownLoc::get(ctx), "pytorch.add_hbm.fp32",
+      ValueRange{entry_block->getArgument(1), entry_block->getArgument(2)},
+      ValueRange{entry_block->getArgument(3)});
+add2->setAttr("device", StringAttr::get(ctx, "hbmpim"));
+  //  insert ReturnOp
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+
+  return m.getAsOpaquePointer();
+}
 
 const void *CreateAddWeight(brt::ir::ByREBuilder &byre_builder,
                             const std::string &space) {

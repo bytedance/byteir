@@ -124,6 +124,11 @@ def compile_cuda(
         f.write(module.operation.get_asm())
 
 
+
+
+
+
+
 def compile_cuda_with_ait(
     input: str,
     output: str,
@@ -243,6 +248,100 @@ def compile_cuda_with_ait(
     with open(output, "w") as f:
         f.write(processor.module.operation.get_asm())
 
+def compile_pim(
+        input: str,
+    output: str,
+    entry_func: str = "main",
+    target: str = "hbmpim",
+    verbose: bool = False,
+    parallelism: int = 1,
+):
+    target = "hbmpim"
+    output_file_dir = os.path.dirname(output)
+    output_file_name = os.path.basename(output)
+    useBarePtrCallConv = False # all tensor must have static shapes if True
+
+    context = ir.Context()
+
+    with open(input, "r") as f:
+        module = ir.Module.parse(f.read(), context)
+        if verbose:
+            _print_verbose(module, "// IR Dump Input MLIR:")
+
+    entry_func_str = "entry-func={}".format(entry_func)
+    target_str = "target={}".format(target)
+    with context:
+        PassManager().parse("builtin.module(hlo-opt{target=CPU})").run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After Hlo Opt:")
+    with context:
+        PassManager.parse("builtin.module(linalg-tensor-opt{target=CPU})").run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After Linalg Tensor Opt:")
+    with context:
+        PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After Byre Tensor Opt:")
+    with context:
+        PassManager.parse("builtin.module(byteir-bufferize-opt)").run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After ByteIR Bufferize Opt:")
+    with context:
+        PassManager.parse("builtin.module(linalg-memref-opt)").run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After Linalg Memref Opt:")
+    with context:
+        PassManager.parse("builtin.module(scf-opt{target=CPU})").run(module.operation)
+    if verbose:
+        _print_verbose(module, "// IR Dump After SCF Opt:")
+    # with context:
+    #     if useBarePtrCallConv:
+    #         PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(module.operation)
+    #     else:
+    #         PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
+    # if verbose:
+    #     _print_verbose(module, "// IR Dump After GPU Opt:")
+    with context:
+        PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
+        PassManager.parse("builtin.module(inline)").run(module.operation)
+    #     if useBarePtrCallConv:
+    #         PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(module.operation)
+    #     else:
+    #         PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(module.operation)
+        PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str +  "}))").run(module.operation)
+        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + "})").run(module.operation)
+    # if verbose:
+    #     _print_verbose(module, "// IR Dump After Set Space Opt:")
+    # with context:
+    #     PassManager.parse("builtin.module(byre-opt{append-arg-types " + entry_func_str + "})").run(module.operation)
+    # if verbose:
+    #     _print_verbose(module, "// IR Dump After Byre Opt:")
+
+    # create device context and module
+    module_str = module.operation.get_asm(print_generic_op_form=True)
+    # with ir.Context() as new_context:
+    #     device_module = ir.Module.parse(module_str, new_context)
+    #     if useBarePtrCallConv:
+    #         PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true})").run(device_module.operation)
+    #     else:
+    #         PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
+    #     if verbose:
+    #         _print_verbose(device_module, "// IR Dump After NVVM Codegen:")
+    #     # write to output device ptx
+    #     byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name)
+    #     byteir.translate_to_ll
+    # with context:
+    #     PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(module.operation)
+    # if verbose:
+    #     _print_verbose(module, "// IR Dump After Byre Host:")
+    # write to output host mlir
+    with open(output, "w") as f:
+        f.write(module.operation.get_asm())
+
+
+
+
+
 
 def compile(
     input: str,
@@ -271,5 +370,9 @@ def compile(
                               aggressive_mode=True, 
                               parallelism=parallelism,
                               disable_byteir_cache=disable_byteir_cache)
+    elif target=="hbmpim":
+        compile_pim(input, output, entry_func, verbose, parallelism=parallelism)
+    elif target=="upmem":
+        compile_pim(input, output, entry_func, verbose, parallelism=parallelism)
     else:
         raise NotImplemented("not implemented target: {}".format(target))

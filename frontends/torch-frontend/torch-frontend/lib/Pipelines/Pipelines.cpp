@@ -29,7 +29,7 @@ using namespace mlir;
 using namespace mlir::torch;
 
 void mlir::torch_frontend::createTorchToMhloPipeline(OpPassManager &pm) {
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToHBMCustomCall());
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToHBMPIMPIMCustomCall());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToCustomCall());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloExt());
   pm.addNestedPass<func::FuncOp>(

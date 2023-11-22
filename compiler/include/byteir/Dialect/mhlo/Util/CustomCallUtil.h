@@ -25,6 +25,9 @@
 #define PYTORCH_NAME_PREFIX "pytorch."
 
 namespace mlir {
+constexpr llvm::StringRef getGemvhbmpimName() {
+  return PYTORCH_NAME_PREFIX "gemv_hbmpim";
+}
 
 constexpr llvm::StringRef getAddUpmemName() {
   return PYTORCH_NAME_PREFIX "add_upmem";

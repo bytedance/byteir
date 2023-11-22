@@ -111,17 +111,17 @@ def byteir_compile_fx_inner(graph: torch.fx.GraphModule, inputs, is_backward, ba
 
     compile_type = 'mhlo'
     backend_legal_ops = [
-        "aten._softmax",
-        "aten.softmax.int",
-        "aten.log_softmax.int",
-        "aten._log_softmax",
-        # "aten.native_layer_norm",
-        # "aten.layer_norm",
-        "aten.gelu",
-        "aten.argmax",
-        "aten.max.dim",
-        "aten.one_hot",
-        "aten.topk",
+        # "aten._softmax",
+        # "aten.softmax.int",
+        # "aten.log_softmax.int",
+        # "aten._log_softmax",
+        # # "aten.native_layer_norm",
+        # # "aten.layer_norm",
+        # "aten.gelu",
+        # "aten.argmax",
+        # "aten.max.dim",
+        # "aten.one_hot",
+        # "aten.topk",
         "pytorch.gemv_upmem",
         "byteir.flash_attn_fwd",
         "byteir.flash_attn_bwd",
@@ -142,7 +142,7 @@ def byteir_compile_fx_inner(graph: torch.fx.GraphModule, inputs, is_backward, ba
                                        large_elements_limit=None)
 
     with maybe_disable_fake_tensor_mode():
-        byteir.compile(mlir_file_name, output_mlir_file_name, entry_func='forward', target='cuda_with_ait')
+        byteir.compile(mlir_file_name, output_mlir_file_name, entry_func='forward', target='hbmpim')
 
     outputs = FakeTensorProp(graph).propagate(*inputs)
     mhlo_ret_dtypes = [t.dtype for t in outputs]

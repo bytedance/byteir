@@ -82,6 +82,7 @@ add_mlir_dialect_library(ByteIRMhloPasses
   Transforms/ConvForwardFusion.cpp
   Transforms/ConvertFuncToCustomCall.cpp
   Transforms/ConvertOpToCustomCall.cpp
+    Transforms/ConvertOpToPimCustomCall.cpp
   Transforms/ConvertInsertion.cpp
   Transforms/DotTransposeFusion.cpp
   Transforms/DTypeConversion.cpp

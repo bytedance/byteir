@@ -21,8 +21,8 @@ namespace {
 // TODO: to add dynamic suppport.
 // clang-format off
 BRT_STATIC_KERNEL_REGISTRATION(DeviceKind::UPMEM, ProviderType::BRT, [](KernelRegistry *registry) {
-      upmem::RegisterGeMVOps(registry);
-      upmem::RegisterCopyOps(registry);
+      upmem::RegisterGeMVOp(registry);
+      upmem::RegisterSoftmaxOp(registry);
       upmem::RegisterMathOps(registry);
       RegisterCommonBuiltinOps(registry);
     });

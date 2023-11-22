@@ -28,8 +28,7 @@
 
 #include "brt/core/context/work_queue.h"
 
-#include "brt/backends/pim/samsung/providers/default/hbm_provider.h"
-#include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
+
 // #include "brt/backends/cuda/providers/default/cuda_provider.h"
 
 
@@ -41,7 +40,14 @@
 #include <cuda_runtime.h>
 
 using namespace brt::cuda;
+#elseif BRT_USE_HBMPIM
+#include "brt/backends/pim/samsung/providers/default/hbm_provider.h"
+#include "brt/backends/pim/samsung/device/hbm_allocator.h"
+#include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
+using namespace brt::pim::hbmpim;
 #endif
+
+
 
 #include <memory>
 #include <optional>
@@ -235,7 +241,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
       .def(py::init([](const std::string &device, py::object alloc_f,
                        py::object free_f) {
              auto session = std::make_shared<Session>();
-             if (device != "CUDA") {
+             if (device != "CUDA" && device != "HBMPIM") {
                throw std::runtime_error("unsupported device type " + device);
              }
 
@@ -252,10 +258,25 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                  session->AddExecutionProvider(std::move(provider));
                }
              }
+#elseif BRT_USE_HBMPIM
+             else {
+               if (!alloc_f || !free_f) {
+                 THROW_ON_FAIL(
+                     DefaultHBMPIMExecutionProviderFactory(session.get()));
+               } else {
+                 auto provider = std::make_unique<HBMPIMExecutionProvider>();
+              auto allocator =
+                  std::make_unique<HBMPIMAllocator>(0,"HBMPIM");
+                 session->AddAllocator(std::move(allocator));
+                 session->AddExecutionProvider(std::move(provider));
+               }
+             }
 #endif
 
-              auto provider = std::make_unique<HBMExecutionProvider>();
-                session->AddExecutionProvider(std::move(provider));
+              // auto provider2 = std::make_unique<HBMPIMExecutionProvider>();
+
+              // session->AddAllocator(std::move(allocator2));
+              //   session->AddExecutionProvider(std::move(provider2));
              return session;
            }),
            py::arg("device") = "CUDA", py::arg("alloc_func") = py::none(),

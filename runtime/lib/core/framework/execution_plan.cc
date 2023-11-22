@@ -31,6 +31,9 @@
 #if BRT_USE_CUDA
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #endif
+#if BRT_USE_HBMPIM
+#include "brt/backends/pim/samsung/device/hbm_worker_queue.h"
+#endif
 
 using namespace brt;
 using namespace brt::common;
@@ -478,7 +481,10 @@ void StaticBRTExecutionPlan::CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) {
 #if BRT_USE_CUDA
   // wq_ = std::unique_ptr<WorkQueue>(new CUDAWorkQueue());
   *wq = std::unique_ptr<WorkQueue>(new CUDASingleStreamWorkQueue(0));
+#elseif BRT_USE_HBMPIM
+  *wq = std::unique_ptr<WorkQueue>(new HBMPIMWorkQueue());
 #endif
+
 }
 
 void StaticBRTExecutionPlan::CreateExecutinFrame(

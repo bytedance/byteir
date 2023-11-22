@@ -24,12 +24,12 @@
 namespace brt {
 class Session;
 
-class HBMAllocator : public IAllocator {
+class HBMPIMAllocator : public IAllocator {
 public:
-  HBMAllocator(int device_id, const char *name)
-      : IAllocator(BrtMemoryInfo(name, "HBM",
+  HBMPIMAllocator(int device_id, const char *name)
+      : IAllocator(BrtMemoryInfo(name, "HBMPIM",
                                  BrtAllocatorType::BrtDeviceAllocator,
-                                 device_id, BrtMemTypeCPU)) {}
+                                 device_id, BrtMemTypeDefault)) {}
 
   void *Alloc(size_t size) override;
   void Free(void *p) override;
@@ -39,14 +39,14 @@ private:
   void CheckDevice(bool throw_when_fail) const;
 };
 
-class HBMExternalAllocator : public HBMAllocator {
+class HBMPIMExternalAllocator : public HBMPIMAllocator {
   typedef void *(*ExternalAlloc)(size_t size);
   typedef void (*ExternalFree)(void *p);
 
 public:
-  HBMExternalAllocator(int device_id, const char *name, void *alloc,
+  HBMPIMExternalAllocator(int device_id, const char *name, void *alloc,
                          void *free)
-      : HBMAllocator(device_id, name) {
+      : HBMPIMAllocator(device_id, name) {
     alloc_ = reinterpret_cast<ExternalAlloc>(alloc);
     free_ = reinterpret_cast<ExternalFree>(free);
   }
@@ -59,8 +59,8 @@ private:
   ExternalFree free_;
 };
 
-// TODO add more option later
-common::Status HBMAllocatorFactory(Session *session, int device_id = 0,
+
+common::Status HBMPIMAllocatorFactory(Session *session, int device_id = 0,
                                      bool use_arena = false,
                                      size_t size = 1 << 30);
 

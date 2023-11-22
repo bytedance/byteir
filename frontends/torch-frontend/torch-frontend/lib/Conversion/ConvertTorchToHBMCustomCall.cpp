@@ -1,4 +1,4 @@
-//===- ConvertTorchToHBMCustomCall.cpp ---------------------------*--- C++
+//===- ConvertTorchToHBMPIMCustomCall.cpp ---------------------------*--- C++
 //-*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
@@ -16,7 +16,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "torch-frontend/Conversion/ConvertTorchToHBMCustomCall.h"
+#include "torch-frontend/Conversion/ConvertTorchToHBMPIMPIMCustomCall.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -170,12 +170,12 @@ public:
     //                           rewriter.getI64ArrayAttr({}));
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getAddHBMName()));
+                       rewriter.getStringAttr(getAddHBMPIMName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-    customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+    customCallOp->setAttr("device", rewriter.getStringAttr("hbmpim"));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
@@ -207,7 +207,7 @@ public:
 
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getAddScalarHBMName()));
+                       rewriter.getStringAttr(getAddScalarHBMPIMName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
@@ -253,7 +253,7 @@ public:
              .isa<Float16Type>())) {
       attrs.emplace_back(
           rewriter.getStringAttr("call_target_name"),
-          rewriter.getStringAttr(getAddScalarHBMName() + ".fp16"));
+          rewriter.getStringAttr(getAddScalarHBMPIMName() + ".fp16"));
     } else if ((a.getType()
                     .cast<ShapedType>()
                     .getElementType()
@@ -261,10 +261,10 @@ public:
 
       attrs.emplace_back(
           rewriter.getStringAttr("call_target_name"),
-          rewriter.getStringAttr(getAddScalarHBMName() + ".fp32"));
+          rewriter.getStringAttr(getAddScalarHBMPIMName() + ".fp32"));
     } else {
       attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                         rewriter.getStringAttr(getAddScalarHBMName()));
+                         rewriter.getStringAttr(getAddScalarHBMPIMName()));
     }
 
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
@@ -274,7 +274,7 @@ public:
 
     // if type is  float
 
-    customCallOp->setAttr("device", rewriter.getStringAttr("hbm"));
+    customCallOp->setAttr("device", rewriter.getStringAttr("hbmpim"));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
@@ -315,7 +315,7 @@ public:
              .isa<Float16Type>())) {
       attrs.emplace_back(
           rewriter.getStringAttr("call_target_name"),
-          rewriter.getStringAttr(getAddHBMName() + ".fp16"));
+          rewriter.getStringAttr(getAddHBMPIMName() + ".fp16"));
     } else if ((a.getType()
                     .cast<ShapedType>()
                     .getElementType()
@@ -323,10 +323,10 @@ public:
 
       attrs.emplace_back(
           rewriter.getStringAttr("call_target_name"),
-          rewriter.getStringAttr(getAddHBMName() + ".fp32"));
+          rewriter.getStringAttr(getAddHBMPIMName() + ".fp32"));
     } else {
       attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                         rewriter.getStringAttr(getAddHBMName()));
+                         rewriter.getStringAttr(getAddHBMPIMName()));
     }
 
     //         if (a.getType()
@@ -334,10 +334,10 @@ public:
     //              .getElementType()
     //              .isa<FloatType>()) {
     //    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-    //                      rewriter.getStringAttr(getAddScalarHBMName()+".float"));
+    //                      rewriter.getStringAttr(getAddScalarHBMPIMName()+".float"));
     //   } else {
     //  attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-    //                      rewriter.getStringAttr(getAddScalarHBMName()));
+    //                      rewriter.getStringAttr(getAddScalarHBMPIMName()));
     //   }
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
@@ -380,7 +380,7 @@ public:
 
 //       auto attrs = getDefaultAttrs(rewriter);
 //       attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-//                          rewriter.getStringAttr(getGemvHBMName()));
+//                          rewriter.getStringAttr(getGemvHBMPIMName()));
 //       attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
 //                          rewriter.getDictionaryAttr(byteir_attrs));
 
@@ -399,7 +399,7 @@ public:
 
 //       auto attrs = getDefaultAttrs(rewriter);
 //       attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-//                          rewriter.getStringAttr(getGemvHBMName()));
+//                          rewriter.getStringAttr(getGemvHBMPIMName()));
 //       attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
 //                          rewriter.getDictionaryAttr(byteir_attrs));
 
@@ -423,8 +423,8 @@ public:
 //
 
 namespace {
-class ConvertTorchToHBMCustomCall
-    : public ConvertTorchToHBMCustomCallBase<ConvertTorchToHBMCustomCall> {
+class ConvertTorchToHBMPIMCustomCall
+    : public ConvertTorchToHBMPIMCustomCallBase<ConvertTorchToHBMPIMCustomCall> {
 public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
@@ -470,6 +470,6 @@ public:
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createConvertTorchToHBMCustomCall() {
-  return std::make_unique<ConvertTorchToHBMCustomCall>();
+mlir::createConvertTorchToHBMPIMCustomCall() {
+  return std::make_unique<ConvertTorchToHBMPIMCustomCall>();
 }

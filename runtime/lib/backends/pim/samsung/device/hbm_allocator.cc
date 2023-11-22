@@ -17,7 +17,7 @@ namespace brt {
 
 
 
-void *HBMAllocator::Alloc(size_t size) {void *p;
+void *HBMPIMAllocator::Alloc(size_t size) {void *p;
   size_t alignment = 32;
     int ret = posix_memalign(&p, alignment, size);
   if (ret != 0)
@@ -25,24 +25,24 @@ void *HBMAllocator::Alloc(size_t size) {void *p;
 
   return p; }
 
-void HBMAllocator::Free(void *p) {  free(p); }
+void HBMPIMAllocator::Free(void *p) {  free(p); }
 
-common::Status HBMAllocatorFactory(Session *session, bool use_arena,
+common::Status HBMPIMAllocatorFactory(Session *session, bool use_arena,
                                    size_t size) {
 
   if (use_arena) {
-    auto HBM_allocator = std::make_unique<BFCArena>(
-        std::unique_ptr<IAllocator>(new HBMAllocator(0,"HBM")), size);
-    auto status = session->AddAllocator(std::move(HBM_allocator));
+    auto HBMPIM_allocator = std::make_unique<BFCArena>(
+        std::unique_ptr<IAllocator>(new HBMPIMAllocator(0,"HBMPIM")), size);
+    auto status = session->AddAllocator(std::move(HBMPIM_allocator));
     return status;
   }
 
-  auto HBM_allocator = std::make_unique<HBMAllocator>(0,"HBM");
-  auto status = session->AddAllocator(std::move(HBM_allocator));
+  auto HBMPIM_allocator = std::make_unique<HBMPIMAllocator>(0,"HBMPIM");
+  auto status = session->AddAllocator(std::move(HBMPIM_allocator));
   return status;
 }
 
-void *HBMExternalAllocator::Alloc(size_t size) {
+void *HBMPIMExternalAllocator::Alloc(size_t size) {
   void *p = nullptr;
   if (size > 0) {
     p = alloc_(size);
@@ -53,20 +53,20 @@ void *HBMExternalAllocator::Alloc(size_t size) {
   return p;
 }
 
-void HBMExternalAllocator::Free(void *p) { free_(p); }
+void HBMPIMExternalAllocator::Free(void *p) { free_(p); }
 
 
 // TODO add more option later
-common::Status HBMAllocatorFactory(Session *session, int device_id,
+common::Status HBMPIMAllocatorFactory(Session *session, int device_id,
                                     bool arena_option, size_t size) {
 
 
 
   
 
-  auto cuda_pinned =
-      std::make_unique<HBMAllocator>(device_id, "HBM");
-  auto status = session->AddAllocator(std::move(cuda_pinned));
+  auto hbmpim =
+      std::make_unique<HBMPIMAllocator>(device_id, "hbmpim");
+  auto status = session->AddAllocator(std::move(hbmpim));
 
   return status;
 }

@@ -8,7 +8,7 @@ module {
     %1 = "tf.Equal"(%arg0, %0) {device = "host", incompatible_shape_error = true} : (tensor<1x1x!tf_type.string>, tensor<!tf_type.string>) -> tensor<1x1xi1>
     %2 = mhlo.reshape %1 : (tensor<1x1xi1>) -> tensor<i1>
     %3 = mhlo.select %2, %arg1, %arg2 : tensor<i1>, tensor<1x10xf32>
-    %4 = mhlo.custom_call @pytorch.add_hbm(%3, %arg1) {backend_config = "", byteir_attrs = {}, device = "hbm"} : (tensor<1x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
+    %4 = mhlo.custom_call @pytorch.add_hbm(%3, %arg1) {backend_config = "", byteir_attrs = {}, device = "hbmpim"} : (tensor<1x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
     return %4 : tensor<1x10xf32>
   }
 }

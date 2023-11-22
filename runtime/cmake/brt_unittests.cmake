@@ -15,7 +15,9 @@ set(brt_test_common_src_patterns
 if(brt_USE_CUDA)
   list(APPEND brt_test_common_src_patterns "${TEST_SRC_DIR}/include/brt/test/common/cuda/*.h")
 endif()
-
+# if(brt_USE_HBMPIM)
+#   list(APPEND brt_test_common_src_patterns "${TEST_SRC_DIR}/include/brt/test/common/hbmpim/*.h")
+#   endif()
 file(GLOB brt_test_common_src CONFIGURE_DEPENDS
   ${brt_test_common_src_patterns}
 )
@@ -68,6 +70,24 @@ file(GLOB brt_test_cpu_provider_src CONFIGURE_DEPENDS
 )
 list(APPEND brt_test_providers_src ${brt_test_cpu_provider_src})
 
+if(brt_USE_HBMPIM)
+  ### test hbmpim providers
+  set(brt_test_hbmpim_provider_src_patterns
+    "${TEST_SRC_DIR}/backends/pim/samsung/providers/default/*.cc"
+    "${TEST_SRC_DIR}/backends/pim/samsung/providers/default/*.h"
+    "${TEST_SRC_DIR}/backends/pim/samsung/providers/default/kernel/*.cc"
+    "${TEST_SRC_DIR}/backends/pim/samsung/providers/default/kernel/*.h"
+    "${TEST_SRC_DIR}/backends/pim/samsung/providers/default/e2e/*.cc"
+    "${TEST_SRC_DIR}/backends/pim/samsung/providers/default/e2e/*.h"
+  )
+
+  file(GLOB brt_test_hbmpim_provider_src CONFIGURE_DEPENDS
+    ${brt_test_hbmpim_provider_src_patterns}
+  )
+
+  list(APPEND brt_test_providers_src ${brt_test_hbmpim_provider_src})
+endif()
+
 ### test cuda providers
 if(brt_USE_CUDA)
   set(brt_test_cuda_provider_src_patterns
@@ -101,6 +121,21 @@ file(GLOB brt_test_cpu_device_src CONFIGURE_DEPENDS
 
 list(APPEND brt_test_devices_src ${brt_test_cpu_device_src})
 
+
+if(brt_USE_HBMPIM)
+  ### test hbmpim device
+  set(brt_test_hbmpim_device_src_patterns
+    "${TEST_SRC_DIR}/backends/pim/samsung/device/*.cc"
+    "${TEST_SRC_DIR}/backends/pim/samsung/device/*.h"
+  )
+
+  file(GLOB brt_test_hbmpim_device_src CONFIGURE_DEPENDS
+    ${brt_test_hbmpim_device_src_patterns}
+  )
+
+  list(APPEND brt_test_devices_src ${brt_test_hbmpim_device_src})
+
+endif()
 ### test cuda device
 if(brt_USE_CUDA)
   ## CUDA device
@@ -162,6 +197,12 @@ if (brt_USE_CUDA)
     "${TEST_SRC_DIR}/external_kernels/cuda/*.cu"
     "${TEST_SRC_DIR}/external_kernels/cuda/*.h")
 endif()
+
+# if (brt_USE_HBMPIM)
+#   list(APPEND brt_external_kernels_patterns
+#     "${TEST_SRC_DIR}/external_kernels/hbmpim/*.cc"
+#     "${TEST_SRC_DIR}/external_kernels/hbmpim/*.h")
+# endif()
 
 file(GLOB brt_external_kernels_src CONFIGURE_DEPENDS
   ${brt_external_kernels_patterns}

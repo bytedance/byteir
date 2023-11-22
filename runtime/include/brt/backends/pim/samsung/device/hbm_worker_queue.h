@@ -19,7 +19,7 @@
 #include "brt/core/context/work_queue.h"
 #include <functional>
 #include <vector>
-#include "brt/backends/pim/samsung/providers/default/PIMKernel.h"
+#include "brt/backends/pim/samsung/providers/default/HBMPIMKernel.h"
 
 
 
@@ -27,37 +27,37 @@
 
 namespace brt {
 namespace pim {
-    // shared_ptr<PIMKernel> make_pim_kernel()
+    // HBMPIMKernel* make_pim_kernel()
     // {
     //     shared_ptr<MultiChannelMemorySystem> mem = make_shared<MultiChannelMemorySystem>(
-    //         "ini/HBM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".", "example_app",
+    //         "ini/HBMPIM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".", "example_app",
     //         256 * 64 * 2);
     //     int numPIMChan = 64;
     //     int numPIMRank = 1;
-    //     shared_ptr<PIMKernel> kernel = make_shared<PIMKernel>(mem, numPIMChan, numPIMRank);
+    //     HBMPIMKernel* kernel = new HBMPIMKernel(mem, numPIMChan, numPIMRank);
 
     //     return kernel;
     // }
 
 // common utilities
-class HBMWorkQueue : public WorkQueue {
+class HBMPIMWorkQueue : public WorkQueue {
 public:
-  explicit HBMWorkQueue(
-                          const std::string &name = "hbm")
+  explicit HBMPIMWorkQueue(
+                          const std::string &name = "hbmpim")
       : WorkQueue(name) {
 
 
         shared_ptr<MultiChannelMemorySystem> mem = make_shared<MultiChannelMemorySystem>(
-            "ini/HBM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".", "example_app",
+            "ini/HBMPIM2_samsung_2M_16B_x64.ini", "system_hbm_64ch.ini", ".", "example_app",
             256 * 64 * 2);
         int numPIMChan = 64;
         int numPIMRank = 1;
-        // shared_ptr<PIMKernel> kernel = 
+        // HBMPIMKernel* kernel = 
 
-        pimkernel = make_shared<PIMKernel>(mem, numPIMChan, numPIMRank);
+        pimkernel = new HBMPIMKernel(mem, numPIMChan, numPIMRank);
       }
 
-  virtual ~HBMWorkQueue() {}
+  virtual ~HBMPIMWorkQueue() {}
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
@@ -73,12 +73,12 @@ public:
   }
 
   // Get the kernel
-    shared_ptr<PIMKernel> Getkenrel() { return pimkernel; }
+    HBMPIMKernel* Getkenrel() { return pimkernel; }
 
 private:
-  HBMWorkQueue(const HBMWorkQueue &) = delete;
-  HBMWorkQueue &operator=(const HBMWorkQueue &) = delete;
-   shared_ptr<PIMKernel> pimkernel;
+  HBMPIMWorkQueue(const HBMPIMWorkQueue &) = delete;
+  HBMPIMWorkQueue &operator=(const HBMPIMWorkQueue &) = delete;
+   HBMPIMKernel*  pimkernel;
   
 
 };// namespace
