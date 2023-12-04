@@ -28,7 +28,7 @@ class IRProcessor:
                  job_name, 
                  workdir, 
                  compile_parallelism = MAX_COMPILATION_PARALLELISM,
-                 disable_byteir_cache = False,
+                 disable_byteir_ait_cache = False,
                  verbose = False):
         self.job_name = job_name
         self.workdir = workdir
@@ -38,8 +38,8 @@ class IRProcessor:
         self.pool = multiprocessing.Pool(compile_parallelism)
         self.byteir_cache = AITCache()
         self.verbose = verbose
-        self.disable_byteir_cache = disable_byteir_cache
-        if not disable_byteir_cache:
+        self.disable_byteir_ait_cache = disable_byteir_ait_cache
+        if not disable_byteir_ait_cache:
             self.byteir_cache.load_or_create_cache()
 
     def _get_builder(self, module, subgraph_name, backend="ait"):
@@ -168,7 +168,7 @@ class IRProcessor:
         print("compilation finished in {}s".format(t_ed-t_st))
 
         # update byteir cache
-        if not self.disable_byteir_cache:
+        if not self.disable_byteir_ait_cache:
             for key, lib_path in libs_to_add_to_cache.items():
                 self.byteir_cache.add(gpu_type, key, lib_path, override=False)
             self.byteir_cache._save()

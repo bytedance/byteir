@@ -47,15 +47,6 @@ module attributes {byre.container_module} {
 // -----
 
 module attributes {byre.container_module} {
-  // expected-error @+1 {{expected at least 1 argument which was attached with 'byre.argtype' attribute contained 'Output'}}
-  func.func @invalid_entry_func(%arg0 : memref<100x?xf32> {byre.argtype = 1: i32, byre.argname = "output"}) attributes {byre.entry_point} {
-    return
-  }
-}
-
-// -----
-
-module attributes {byre.container_module} {
   // expected-error @+1 {{invalid argtype 'Input|Output'}}
   func.func @invalid_entry_func(%arg0 : memref<100x?xf32> {byre.argtype = 3: i32}) attributes {byre.entry_point} {
     return

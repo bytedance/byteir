@@ -29,6 +29,8 @@ class CppEmitter {
 public:
   explicit CppEmitter(llvm::raw_ostream &os, bool declareVariablesAtTop);
 
+  virtual ~CppEmitter() = default;
+
   /// Emits attribute or returns failure.
   virtual mlir::LogicalResult emitAttribute(mlir::Location loc,
                                             mlir::Attribute attr);

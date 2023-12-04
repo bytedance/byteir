@@ -1,5 +1,4 @@
-//===- rng_state_context.h --------------------------------------*--- C++
-//-*-===//
+//===- op_registration.h --------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,24 +18,10 @@
 #pragma once
 
 namespace brt {
+class KernelRegistry;
 namespace cuda {
 
-class rngStateContext {
-private:
-  int64_t seed;
-  int64_t offset;
-
-public:
-  explicit rngStateContext() : seed(0), offset(0) {}
-
-  int64_t getSeed() { return seed; }
-
-  int64_t nextOffset() { return offset++; }
-
-  void setSeed(int64_t seed_) { seed = seed_; }
-};
-
-using rngStateHandle_t = rngStateContext *;
+void RegisterNCCLOps(KernelRegistry *registry);
 
 } // namespace cuda
 } // namespace brt

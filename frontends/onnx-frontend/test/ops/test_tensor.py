@@ -141,6 +141,26 @@ class TestOpsTensor(TestBase):
         ]
         self.run(model_filename="arg_min.onnx", input_shape_dtype=input_shape_dtype)
 
+    def test_onehot(self):
+        input_shape_dtype = [
+            ["X", (2, 3, 4), "int64"],
+            ["depth", (1,), "int64"],
+            ["values", (2,), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Y", (2, 3, 4, 5), "float32"],
+        ]
+        depth_tensor = onnx.helper.make_tensor(
+            "depth", onnx.TensorProto.INT64, [1], np.array([5]))
+        values_tensor = onnx.helper.make_tensor(
+            "values", onnx.TensorProto.FLOAT, [2], np.array([0.0, 1.0]))
+        proto = build_onnx(
+            "OneHot", input_shape_dtype, output_shape_dtype,
+            initializer=[depth_tensor, values_tensor], axis=-1
+        )
+        input_shape_dtype = [input_shape_dtype[0]]
+        self.run(model_filename="onehot.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
     def test_pad(self):
         input_shape_dtype = [
             ["X", (1, 3, 5, 5), "float32"],

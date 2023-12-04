@@ -1,0 +1,79 @@
+diff --git a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
+index 38198a91..fd4a40df 100644
+--- a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
++++ b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
+@@ -10,6 +10,7 @@
+ #include "PassDetail.h"
+ 
+ #include "mlir/IR/BuiltinOps.h"
++#include "mlir/IR/OpDefinition.h"
+ #include "mlir/Pass/PassManager.h"
+ #include "mlir/Transforms/DialectConversion.h"
+ #include "mlir/Transforms/Passes.h"
+@@ -30,6 +31,50 @@ using namespace mlir::torch::Torch;
+ // Checking the backend contract.
+ //===----------------------------------------------------------------------===//
+ 
++static void markDynamicShapeOpAsIllegal(ConversionTarget &target) {
++  auto isPrimConstantValue = [](Value v) -> bool {
++    Operation *op = v.getDefiningOp();
++    return op->hasTrait<mlir::OpTrait::ConstantLike>() ||
++           llvm::isa<ConstantDeviceOp>(op);
++  };
++  auto isListOfConstantIntValue = [](Value v) -> bool {
++    SmallVector<int64_t> values;
++    if (!matchPattern(v, m_TorchListOfConstantInts(values))) {
++      return false;
++    }
++    return true;
++  };
++  auto isOpResultLegal = [&](Operation *op) -> bool {
++    bool staticShapeConstraint = true;
++    for (auto operand : op->getOperands()) {
++      if (auto ty = operand.getType().dyn_cast<BaseTensorType>()) {
++        if (!ty.areAllSizesKnown()) {
++          staticShapeConstraint = false;
++        }
++      } else if (!isPrimConstantValue(operand) &&
++                 !isListOfConstantIntValue(operand)) {
++        staticShapeConstraint = false;
++      }
++    }
++    if (staticShapeConstraint == false) {
++      return true;
++    }
++
++    for (auto result : op->getResults()) {
++      if (auto ty = result.getType().dyn_cast<BaseTensorType>()) {
++        if (ty.areAllSizesKnown())
++          continue;
++        else
++          return false;
++      }
++    }
++    return true;
++  };
++  target.addDynamicallyLegalOp<AtenArangeStartStepOp>(isOpResultLegal);
++  target.addDynamicallyLegalOp<AtenViewOp>(isOpResultLegal);
++  target.addDynamicallyLegalOp<AtenSliceTensorOp>(isOpResultLegal);
++}
++
+ static void markDecomposedOpsAsIllegal(MLIRContext *context,
+                                        ConversionTarget &target,
+                                        llvm::StringSet<> backendLegalOps);
+@@ -251,6 +296,7 @@ getBackendContractTarget(MLIRContext *context, bool decompose,
+                          llvm::StringSet<> backendLegalOpsSet) {
+   ConversionTarget target(*context);
+   target.addLegalDialect<func::FuncDialect, Torch::TorchDialect>();
++  markDynamicShapeOpAsIllegal(target);
+   if (decompose)
+     markDecomposedOpsAsIllegal(context, target, backendLegalOpsSet);
+   return target;
+@@ -386,6 +432,7 @@ static void markDecomposedOpsAsIllegal(MLIRContext *context,
+   target.addIllegalOp<Aten_SoftmaxBackwardDataOp>();
+   target.addIllegalOp<AtenTanhBackwardOp>();
+   target.addIllegalOp<AtenAddmmOp>();
++  target.addIllegalOp<AtenEinsumOp>();
+   target.addIllegalOp<AtenMeanOp>();
+   target.addIllegalOp<AtenMeanDimOp>();
+   target.addIllegalOp<AtenNormScalarOptDimOp>();

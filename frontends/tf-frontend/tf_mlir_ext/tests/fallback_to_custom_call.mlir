@@ -6,6 +6,12 @@ func.func @test_tf_const_string() -> tensor<!tf_type.string> {
 }
 // CHECK:  %0 = "ace.constant"() {value = dense<"fork_active_pay"> : tensor<!ace.string>} : () -> tensor<!ace.string>
 
+func.func @test_tf_squeeze_string(%arg0: tensor<512x1x!tf_type.string>) -> tensor<512x!tf_type.string> {
+  %0 = "tf.Squeeze"(%arg0) {squeeze_dims = [-1]} : (tensor<512x1x!tf_type.string>) -> tensor<512x!tf_type.string>
+  func.return %0 : tensor<512x!tf_type.string>
+}
+// CHECK: ace.reshape
+
 func.func @test_to_mhlo_custom_call(%arg0 : tensor<?xi1>) -> tensor<?x1xi64> {
   %0 = "tf.Where"(%arg0) {_XlaCompile = false, _XlaScope = "jit_scope_0", _XlaSeparateCompiledGradients = false, device = "/device:CPU:0"} : (tensor<?xi1>) -> tensor<?x1xi64>
   func.return %0 : tensor<?x1xi64>

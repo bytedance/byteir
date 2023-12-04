@@ -87,9 +87,9 @@ int main(int argc, char *argv[]) {
   if (emissionTarget == onnx_frontend::EmitMhloIR) {
     onnx_frontend::addCustomizedONNXToMhloPasses(pm,
                                                  onnx_frontend::customCallOps);
+    onnx_frontend::addVerifyONNXToMhloPasses(pm);
   }
   auto status = onnx_frontend::compileModule(
       module, pm, onnx_mlir::outputBaseName, emissionTarget, emitElide);
-  onnx_frontend::addVerifyONNXToMhloPasses(pm);
   return status;
 }

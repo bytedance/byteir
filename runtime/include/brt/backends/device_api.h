@@ -1,5 +1,4 @@
-//===- device_api.h -----------------------------------------------*--- C++
-//-*-===//
+//===- device_api.h -------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2023 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +18,8 @@
 #pragma once
 
 #include <cstddef>
+
+namespace brt {
 
 enum class DeviceType { CPU = 1, CUDA };
 
@@ -43,3 +44,5 @@ struct DeviceAPI {
   MemcpyD2DFunc MemcpyD2D;
   SetDeviceFunc SetDevice;
 };
+
+} // namespace brt

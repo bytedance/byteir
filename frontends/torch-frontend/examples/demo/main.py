@@ -9,10 +9,13 @@ import torch.nn.functional as F
 
 import transformers
 import argparse
+from context import ByteirContext
 
 MODEL_LIST = ["gpt2", "bloom-560m", "llama", "llama-2", "opt-1.3b", "nanogpt", "chatglm"]
 
 AUTH_TOKEN="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"
+
+torch.manual_seed(4)
 
 class InferLLAMAModule(torch.nn.Module):
     def __init__(self):
@@ -224,16 +227,17 @@ def train_model(args):
     backend.MODEL_NAME = model_name
     backend.FLASH = use_flash_attn
 
-    optimized_model = torch.compile(model, backend=fuse_aware_byteir_compile_fx, fullgraph=True)
+    with ByteirContext():
+        optimized_model = torch.compile(model, backend=fuse_aware_byteir_compile_fx, fullgraph=True)
 
-    data = make_data(optimized_model, model_name, device)
-    model.zero_grad(set_to_none=True)
-    with torch.cuda.amp.autocast(enabled=True, dtype=torch.float16):
-        loss = compute_loss(optimized_model, data, model_name)
-        torch_loss = compute_loss(model, data, model_name)
-        print("loss:", loss)
-        print("torch_loss:", torch_loss)
-        loss.backward()
+        data = make_data(optimized_model, model_name, device)
+        model.zero_grad(set_to_none=True)
+        with torch.cuda.amp.autocast(enabled=True, dtype=torch.float16):
+            loss = compute_loss(optimized_model, data, model_name)
+            torch_loss = compute_loss(model, data, model_name)
+            print("loss:", loss)
+            print("torch_loss:", torch_loss)
+            loss.backward()
 
 
 if __name__ == "__main__":

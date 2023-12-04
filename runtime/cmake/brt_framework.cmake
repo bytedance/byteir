@@ -1,9 +1,12 @@
 file(GLOB_RECURSE brt_framework_srcs CONFIGURE_DEPENDS
     "${BRT_INCLUDE_DIR}/brt/core/context/*.h"
+    "${BRT_INCLUDE_DIR}/brt/core/distributed/*.h"
     "${BRT_INCLUDE_DIR}/brt/core/framework/*.h"
     "${BRT_INCLUDE_DIR}/brt/core/session/*.h"
     "${LIB_ROOT}/core/context/*.h"
     "${LIB_ROOT}/core/context/*.cc"
+    "${LIB_ROOT}/core/distributed/*.h"
+    "${LIB_ROOT}/core/distributed/*.cc"
     "${LIB_ROOT}/core/framework/*.h"
     "${LIB_ROOT}/core/framework/*.cc"
     "${LIB_ROOT}/core/session/*.h"

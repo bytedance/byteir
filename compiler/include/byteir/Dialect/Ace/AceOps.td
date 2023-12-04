@@ -48,10 +48,24 @@ def Ace_ConstOp : Ace_Op<"constant", [
   let builders = [
     OpBuilder<(ins "Attribute":$value)>];
 
-  // FIXME: let this op only has generic format for golden ref calculate.
+  // FIXME: let this op only has generic format for loading without register ace dialect.
   // let assemblyFormat = "attr-dict $value";
   let hasFolder = 1;
   let hasVerifier = 0;
+}
+
+
+def Ace_ReshapeOp : Ace_Op<"reshape", [Pure, SameOperandsAndResultElementType]> {
+  let summary = "Reshape operation";
+  let description = [{
+    Performs reshape of `operand` tensor to a `result` tensor, like `mhlo.reshape`.
+  }];
+
+  let arguments = (ins AnyTensor:$operand);
+
+  let results = (outs Ace_StaticShapeTensor);
+  let hasVerifier = 1;
+  // note: let this op only has generic format for loading without register ace dialect.
 }
 
 

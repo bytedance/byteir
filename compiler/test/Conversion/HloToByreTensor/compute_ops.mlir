@@ -78,6 +78,16 @@ func.func @test_mhlo_reshape_2(%arg0 : tensor<2x3x4x5xf32>) -> tensor<8x15xf32> 
 
 // -----
 
+func.func @test_ace_reshape_0(%arg0 : tensor<2x3x4x5x!ace.string>) -> tensor<6x20x!ace.string> attributes {__placeholder__byre.entry_point} {
+  %0 = "ace.reshape"(%arg0) : (tensor<2x3x4x5x!ace.string>) -> tensor<6x20x!ace.string>
+  return %0 : tensor<6x20x!ace.string>
+}
+// CHECK-LABEL: func.func @test_ace_reshape_0
+// CHECK-NEXT: tensor.collapse_shape
+//   CHECK-SAME: {{\[}}[0, 1], [2, 3]]
+
+// -----
+
 func.func @test_mhlo_dot(%arg0: tensor<128x64xf32>, %arg1: tensor<64x32xf32>) -> tensor<128x32xf32> attributes {__placeholder__byre.entry_point} {
   %0 = "mhlo.dot"(%arg0, %arg1) : (tensor<128x64xf32>, tensor<64x32xf32>) -> tensor<128x32xf32>
   return %0 : tensor<128x32xf32>

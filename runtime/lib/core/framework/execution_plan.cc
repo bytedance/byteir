@@ -506,13 +506,14 @@ common::Status StaticBRTExecutionPlan::EpiloguePerSession() {
   return common::Status::OK();
 }
 
-void StaticBRTExecutionPlan::CreateWorkQueue(std::unique_ptr<WorkQueue> *wq) {
+void StaticBRTExecutionPlan::CreateWorkQueue(std::unique_ptr<WorkQueue> *wq,
+                                             int rank) {
   // create WQ
   // TODO remove this
   // TODO avoid using BRT_USE_CUDA
 #if BRT_USE_CUDA
   // wq_ = std::unique_ptr<WorkQueue>(new CUDAWorkQueue());
-  *wq = std::unique_ptr<WorkQueue>(new CUDASingleStreamWorkQueue(0));
+  *wq = std::unique_ptr<WorkQueue>(new CUDASingleStreamWorkQueue(rank));
 #endif
 }
 

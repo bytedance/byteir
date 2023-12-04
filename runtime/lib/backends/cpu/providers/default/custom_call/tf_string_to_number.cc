@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "./tf_stringToNumber.h"
+#include "./tf_string_to_number.h"
 #include "brt/core/framework/op_accessor.h"
 #include <cerrno>
 #include <cstdlib>

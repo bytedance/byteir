@@ -18,7 +18,7 @@ func.func @main(%arg0: tensor<1xi64>, %arg1: tensor<1xi64>, %arg2: tensor<1xi64>
 """),
         HostOptPipeline(r"""
 // CHECK-LABEL: memref.global "private"
-// CHECK-LABEL: func.func @Unknown1(
+// CHECK-LABEL: func.func @Unknown0(
 // CHECK-SAME: %[[ARG0:.*]]: memref<1xi64>, %[[ARG1:.*]]: memref<1xi64>, %[[ARG2:.*]]: memref<1xi64>, %[[ARG3:.*]]: memref<1x128xi32>, %[[RES0:.*]]: memref<1x128xi32>, %[[RES1:.*]]: memref<1x128xi32>)
 // CHECK-LABEL: func.func @main
         """),
