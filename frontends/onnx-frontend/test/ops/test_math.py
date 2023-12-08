@@ -247,8 +247,35 @@ class TestOpsMath(TestBase):
                  model_onnx_pb=proto,
                  input_shape_dtype=input_shape_dtype)
 
+    def test_min(self):
+        input_shape_dtype = [
+            ["X", (3, 2), "float32"],
+            ["Y", (3, 2), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Z", (3, 2), "float32"],
+        ]
+        proto = build_onnx("Min", input_shape_dtype, output_shape_dtype)
+        self.run(model_filename="min.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)
+
     def test_gelu(self):
         input_shape_dtype = [
             ["input_0", (1, 5, 5, 3), "float32"],
         ]
         self.run(model_filename="gelu.onnx", input_shape_dtype=input_shape_dtype)
+
+    def test_where(self):
+        input_shape_dtype = [
+            ["pred", (3, 2), "bool"],
+            ["X", (3, 2), "float32"],
+            ["Y", (3, 2), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Z", (3, 2), "float32"],
+        ]
+        proto = build_onnx("Where", input_shape_dtype, output_shape_dtype)
+        self.run(model_filename="where.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)

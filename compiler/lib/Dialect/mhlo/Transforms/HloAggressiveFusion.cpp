@@ -18,6 +18,7 @@
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 
 #include "byteir/Dialect/mhlo/Transforms/GenericFusionCommon.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Dialect/mhlo/Util/FusionUtil.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/IRRewrite.h"
@@ -35,7 +36,16 @@ using namespace mlir::mhlo;
 namespace {
 namespace aggressive_fusion {
 
+bool isCustomMhloRngUniformOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRngUniformName();
+  }
+  return false;
+}
+
 bool isFusibleCandidate(Operation *op) {
+  if (isCustomMhloRngUniformOp(op))
+    return true;
   return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
 }
 

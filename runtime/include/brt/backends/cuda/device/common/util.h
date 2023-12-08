@@ -19,7 +19,6 @@
 
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
-#include "brt/backends/cuda/providers/default/tensor_generate/rng_state_context.h"
 #include "brt/core/common/status.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
@@ -33,7 +32,6 @@
 #define BRT_CUBLAS_HANDLE_NAME "cublasHandle"
 #define BRT_CUDNN_HANDLE_NAME "cudnnHandle"
 #define BRT_CURAND_GENERATOR_NAME "curandGenerator"
-#define BRT_RNG_STATE_HANDLE_NAME "rngStateHandle"
 
 namespace brt {
 namespace cuda {
@@ -166,48 +164,6 @@ inline common::Status DeleteCurandGenerator(const brt::ExecutionContext &ctx) {
   if (ptr != nullptr) {
     curandGenerator_t generator = static_cast<curandGenerator_t>(ptr);
     BRT_CURAND_CHECK(curandDestroyGenerator(generator));
-  }
-  return brt::common::Status::OK();
-}
-
-//===----------------------------------------------------------------------===//
-// RNGStateHandle Util
-// TODO : move to common utility.
-//===----------------------------------------------------------------------===//
-
-inline rngStateHandle_t GetRNGStateHandle(const brt::ExecutionContext &ctx) {
-  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
-  size_t offset = state_info.GetStateOffset(BRT_RNG_STATE_HANDLE_NAME);
-  return static_cast<rngStateHandle_t>(ctx.exec_frame->GetState(offset));
-}
-
-inline common::Status CreateRNGStateHandle(const brt::ExecutionContext &ctx) {
-  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
-  return state_info.CreateStateIfNotExist(
-      BRT_RNG_STATE_HANDLE_NAME, ctx.exec_frame, []() {
-        rngStateHandle_t handle = new rngStateContext();
-        return handle;
-      });
-}
-
-inline rngStateHandle_t
-GetOrCreateRNGStateHandle(const brt::ExecutionContext &ctx) {
-  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
-  if (!state_info.HasState(BRT_RNG_STATE_HANDLE_NAME)) {
-    BRT_ENFORCE(CreateRNGStateHandle(ctx) == common::Status::OK());
-  }
-  return GetRNGStateHandle(ctx);
-}
-
-inline common::Status DeleteRNGStateHandle(const brt::ExecutionContext &ctx) {
-  brt::ExecutionFrame::StateInfo &state_info = ctx.frame_state_info;
-  size_t offset = state_info.GetStateOffset(BRT_RNG_STATE_HANDLE_NAME);
-  void *ptr = ctx.exec_frame->GetAndResetState(offset);
-  if (ptr != nullptr) {
-    rngStateHandle_t handle = static_cast<rngStateHandle_t>(ptr);
-    if (handle != nullptr) {
-      delete handle;
-    }
   }
   return brt::common::Status::OK();
 }

@@ -223,9 +223,12 @@ int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
                   mlir::PassManager &pm, std::string outputFilename,
                   onnx_frontend::EmissionTargetType emissionTarget,
                   bool emitElide) {
-  if (mlir::failed(pm.run(*module)))
+  bool runFailure = mlir::failed(pm.run(*module));
+  int outputStatus =
+      emitOutput(module, outputFilename, emissionTarget, emitElide);
+  if (runFailure)
     return onnx_mlir::CompilerFailure;
-  return emitOutput(module, outputFilename, emissionTarget, emitElide);
+  return outputStatus;
 }
 
 } // namespace onnx_frontend

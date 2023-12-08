@@ -1,5 +1,4 @@
-//===- rng_state.cc -------------------------------------------------*--- C++
-//-*-===//
+//===- rng_state.cc -------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,12 +16,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "./rng_state.h"
-#include "brt/backends/cuda/device/common/util.h"
+
 #include "brt/backends/cuda/device/cuda_allocator.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
+#include "brt/backends/rng_state_context.h"
 #include "brt/core/common/common.h"
 #include "brt/core/framework/op_accessor.h"
 #include <cuda_fp16.h>
+#include <cuda_runtime.h>
 
 namespace brt {
 namespace cuda {

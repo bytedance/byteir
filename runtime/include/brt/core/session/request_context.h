@@ -18,6 +18,7 @@
 #pragma once
 
 #include "brt/core/common/status.h"
+#include "brt/core/distributed/distributed_session.h"
 #include "brt/core/framework/event.h"
 #include "brt/core/session/session.h"
 #include <memory>
@@ -65,6 +66,7 @@ public:
 
 private:
   friend Session;
+  friend DistributedSession;
 
   /**
    * Private RequestContext constructor

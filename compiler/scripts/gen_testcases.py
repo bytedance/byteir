@@ -45,7 +45,7 @@ class HostPipelineCollections:
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
+        "--hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byre-tensor-opt=\"entry-func=main append-arg-types\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
     ])
     HostOptPipeline = functools.partial(OptPipeline, HostOpt, [ByreHost, ToLLVM], [
         "--host-opt", "--byre-opt",

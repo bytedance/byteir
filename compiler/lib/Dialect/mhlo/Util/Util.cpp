@@ -160,7 +160,7 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
     return std::nullopt;
   }
   int64_t index = K_INITIAL;
-  for (size_t i = 0; i < inputShape.getRank(); i++) {
+  for (int64_t i = 0; i < inputShape.getRank(); i++) {
     if (window_dimensions[i] == 1 && padding[i * 2] == 0 &&
         padding[i * 2 + 1] == 0) {
       // not cumsum index
@@ -597,7 +597,7 @@ mlir::computeReshapeInputOutputRankMapIndex(ShapedType inputType,
       j++;
     }
   }
-  if (result.size() != inputType.getRank()) {
+  if (result.size() != static_cast<size_t>(inputType.getRank())) {
     return std::nullopt;
   }
   return result;
@@ -626,10 +626,10 @@ mlir::computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp) {
     return std::nullopt;
   }
   auto index = *maybeIndex;
-  for (int64_t i = 0; i < reshapeResultType.getRank(); i++) {
+  for (int64_t i = 0; i < reshapeOperandType.getRank(); i++) {
     if (index[i] != i) {
       return i;
     }
   }
-  return std::nullopt;
+  return reshapeOperandType.getRank();
 }

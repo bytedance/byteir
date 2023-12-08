@@ -41,8 +41,8 @@ enum class NamedLayout : uint32_t {
 
 inline std::string stringifyEnum(NamedLayout layout) {
   switch (layout) {
-  case NamedLayout::UNKNOWN:
-    return "UNKNOWN";
+  // case NamedLayout::UNKNOWN:
+  //   return "UNKNOWN";
   case NamedLayout::NHWC:
     return "NHWC";
   case NamedLayout::NDHWC:

@@ -24,7 +24,7 @@ module {
     }
     return %alloc : memref<1x224x224x3xf16>
   }
-  func.func @main(%arg0: memref<1x224x224x3xf32>) -> memref<1x224x224x3xf16> {
+  func.func @main(%arg0: memref<1x224x224x3xf32>) -> memref<1x224x224x3xf16> attributes {__placeholder__byre.entry_point} {
     %0 = call @Unknown0(%arg0) : (memref<1x224x224x3xf32>) -> memref<1x224x224x3xf16>
     return %0 : memref<1x224x224x3xf16>
   }

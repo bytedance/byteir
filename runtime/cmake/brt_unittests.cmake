@@ -16,6 +16,10 @@ if(brt_USE_CUDA)
   list(APPEND brt_test_common_src_patterns "${TEST_SRC_DIR}/include/brt/test/common/cuda/*.h")
 endif()
 
+if(brt_USE_NCCL)
+  list(APPEND brt_test_common_src_patterns "${TEST_SRC_DIR}/include/brt/test/common/nccl/*.h")
+endif()
+
 file(GLOB brt_test_common_src CONFIGURE_DEPENDS
   ${brt_test_common_src_patterns}
 )
@@ -53,6 +57,16 @@ file(GLOB brt_test_session_src CONFIGURE_DEPENDS
   ${brt_test_session_src_patterns}
 )
 
+## test distributed
+set(brt_test_distributed_src_patterns
+  "${TEST_SRC_DIR}/distributed/*.cc"
+  "${TEST_SRC_DIR}/distributed/*.h"
+)
+
+file(GLOB brt_test_distributed_src CONFIGURE_DEPENDS
+  ${brt_test_distributed_src_patterns}
+)
+
 ## test providers
 set(brt_test_providers_src "")
 
@@ -84,6 +98,20 @@ if(brt_USE_CUDA)
   )
   
   list(APPEND brt_test_providers_src ${brt_test_cuda_provider_src})
+endif()
+
+### test nccl providers
+if(brt_USE_NCCL)
+  set(brt_test_nccl_provider_src_patterns
+  "${TEST_SRC_DIR}/backends/nccl/providers/*.cc"
+  "${TEST_SRC_DIR}/backends/nccl/providers/*.h"
+  )
+
+  file(GLOB brt_test_nccl_provider_src CONFIGURE_DEPENDS
+    ${brt_test_nccl_provider_src_patterns}
+  )
+  
+  list(APPEND brt_test_providers_src ${brt_test_nccl_provider_src})
 endif()
 
 ## test devices
@@ -118,6 +146,20 @@ if(brt_USE_CUDA)
  list(APPEND brt_test_devices_src ${brt_test_cuda_device_src})
 endif()
 
+### test nccl device
+if(brt_USE_NCCL)
+  set(brt_test_nccl_device_src_patterns
+  "${TEST_SRC_DIR}/backends/nccl/device/*.cc"
+  "${TEST_SRC_DIR}/backends/nccl/device/*.h"
+  )
+
+  file(GLOB brt_test_nccl_device_src CONFIGURE_DEPENDS
+    ${brt_test_nccl_device_src_patterns}
+  )
+  
+  list(APPEND brt_test_devices_src ${brt_test_nccl_device_src})
+endif()
+
 ## include all src's  
 set(all_test 
   ${brt_test_common_src}
@@ -125,6 +167,7 @@ set(all_test
   ${brt_test_framework_src}
   ${brt_test_ir_src}
   ${brt_test_session_src}
+  ${brt_test_distributed_src}
   ${brt_test_providers_src}
   ${brt_unittest_main_src}
 )

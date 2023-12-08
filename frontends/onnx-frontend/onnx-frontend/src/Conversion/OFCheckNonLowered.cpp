@@ -38,7 +38,7 @@ struct OFCheckNonLoweredPass
       if (isa<ONNXDialect>(op->getDialect())) {
         llvm::Twine msg(op->getName().getStringRef() +
                         ": ONNX op is not lowered");
-        emitRemark(op->getLoc(), msg);
+        emitWarning(op->getLoc(), msg);
         onnxFound = true;
       }
     });
@@ -48,6 +48,7 @@ struct OFCheckNonLoweredPass
     } else {
       llvm::Twine msg("Please lower all ONNX ops");
       emitError(func.getLoc(), msg);
+      return signalPassFailure();
     }
   }
 };

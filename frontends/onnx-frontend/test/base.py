@@ -50,7 +50,7 @@ class TestBase:
         with open(mhlo_ir_path, "w") as f:
             f.write(out)
 
-    def onnx_mhlo_test_helper(self, onnx_path, mhlo_ir_path, input_data: Dict[str, npt.NDArray]):
+    def onnx_mhlo_test_helper(self, onnx_path, mhlo_ir_path, input_data: Dict[str, npt.NDArray], decimal):
         # TODO: handle a model with multiple final outputs
         onnx_model = onnx.load(onnx_path)
         onnx_init_names = set([init.name for init in onnx_model.graph.initializer])
@@ -66,7 +66,7 @@ class TestBase:
         mhlo_data: List[npt.NDArray] = [input_data[name] for name in input_names]
         mhlo_outputs: List[npt.NDArray] = interp.call_function("main", mhlo_data)
 
-        np.testing.assert_almost_equal(onnx_outputs, mhlo_outputs, decimal=4)
+        np.testing.assert_almost_equal(onnx_outputs, mhlo_outputs, decimal=decimal)
 
     def run(self,
             model_filename: Optional[str] = None,
@@ -74,15 +74,16 @@ class TestBase:
             input_data: Optional[Dict[str, npt.NDArray]] = None,
             input_filename: Optional[str] = None,
             input_shape_dtype: Optional[List[List]] = None,
-            batch_size: int = 1):
+            batch_size: int = 1,
+            decimal: int = 4):
         assert self.data_dir is not None, "self.data_dir not initialized in derived class"
-        assert osp.isdir(self.data_dir), "self.data_dir (" + \
-            self.data_dir + ") is not a directory"
         assert self.tmp_dir is not None, "self.tmp_dir not initialized in derived class"
         assert osp.isdir(self.tmp_dir), "self.tmp_dir (" + \
             self.tmp_dir + ") is not a directory"
 
         if input_filename is not None:
+            assert osp.isdir(self.data_dir), "self.data_dir (" + \
+                self.data_dir + ") is not a directory"
             # set inputs
             content = pickle.load(
                 open(osp.join(self.data_dir, input_filename), 'rb'))
@@ -109,7 +110,7 @@ class TestBase:
                     onnx.save(model_onnx_pb, onnx_path)
 
                 self.convert_onnx_to_mhlo_ir(onnx_path, mhlo_ir_path, batch_size)
-                self.onnx_mhlo_test_helper(onnx_path, mhlo_ir_path, input_data)
+                self.onnx_mhlo_test_helper(onnx_path, mhlo_ir_path, input_data, decimal)
             else:
                 raise ValueError(
                 "Model file {} has an unkown extension name".format(model_filename))

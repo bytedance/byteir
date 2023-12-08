@@ -28,18 +28,21 @@ class IRProcessor:
                  job_name, 
                  workdir, 
                  compile_parallelism = MAX_COMPILATION_PARALLELISM,
-                 disable_byteir_cache = False,
+                 disable_byteir_ait_cache = False,
                  verbose = False):
         self.job_name = job_name
         self.workdir = workdir
         self.module = None
         self.ait_reuse_recorder = {} # key: hash str, value: Tuple(dll_name, ait_module_path)
         self.compile_parallelism = min(compile_parallelism, MAX_COMPILATION_PARALLELISM)
-        self.pool = multiprocessing.Pool(compile_parallelism)
+        if self.compile_parallelism > 1:
+            self.pool = multiprocessing.Pool(compile_parallelism)
+        else:
+            self.pool = None
         self.byteir_cache = AITCache()
         self.verbose = verbose
-        self.disable_byteir_cache = disable_byteir_cache
-        if not disable_byteir_cache:
+        self.disable_byteir_ait_cache = disable_byteir_ait_cache
+        if not disable_byteir_ait_cache:
             self.byteir_cache.load_or_create_cache()
 
     def _get_builder(self, module, subgraph_name, backend="ait"):
@@ -159,16 +162,19 @@ class IRProcessor:
         print("compile ait module using {} processes".format(min(len(work_items_not_in_cache), self.compile_parallelism)))
         t_st = time.time()
         for func_ir_str in work_items_not_in_cache:
-            self.pool.apply_async(_parallel_ait_compile, (self.workdir, func_ir_str))
-            # _parallel_ait_compile(self.workdir, func_ir_str)
+            if self.pool:
+                self.pool.apply_async(_parallel_ait_compile, (self.workdir, func_ir_str))
+            else:
+                _parallel_ait_compile(self.workdir, func_ir_str)
         
-        self.pool.close()
-        self.pool.join()
+        if self.pool:
+            self.pool.close()
+            self.pool.join()
         t_ed = time.time()
         print("compilation finished in {}s".format(t_ed-t_st))
 
         # update byteir cache
-        if not self.disable_byteir_cache:
+        if not self.disable_byteir_ait_cache:
             for key, lib_path in libs_to_add_to_cache.items():
                 self.byteir_cache.add(gpu_type, key, lib_path, override=False)
             self.byteir_cache._save()

@@ -67,3 +67,26 @@ func.func @cannot_merge(%arg0 : tensor<4xf32>) -> tensor<4xf32> {
 //   CHECK-NEXT: "foo.bar"
 //   CHECK-NEXT: "foo.bar"
 //   CHECK-NEXT: return
+
+// -----
+
+func.func @no_host(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 : tensor<4xf32>, %arg3 : tensor<4xf32>, %arg4 : tensor<4xf32>) -> (tensor<4xf32>, tensor<4xf32>) {
+  %0 = "foo.bar"(%arg0) : (tensor<4xf32>) -> tensor<4xf32>
+  %1 = "foo.bar"(%arg1) : (tensor<4xf32>) -> tensor<4xf32>
+  %2 = "foo.bar"(%arg2) : (tensor<4xf32>) -> tensor<4xf32>
+  %3 = "foo.bar"(%arg3) : (tensor<4xf32>) -> tensor<4xf32>
+  %4 = "foo.bar"(%arg4) : (tensor<4xf32>) -> tensor<4xf32>
+  %5 = "foo.bar"(%1, %2, %3, %4) : (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %6 = "foo.bar"(%0, %1, %2, %3) : (tensor<4xf32>, tensor<4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  return %6, %5 : tensor<4xf32>, tensor<4xf32>
+}
+
+// CHECK-LABEL: func.func @no_host_test
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: "foo.bar"
+//   CHECK-NEXT: return

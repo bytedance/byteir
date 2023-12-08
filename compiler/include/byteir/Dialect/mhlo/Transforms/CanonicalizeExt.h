@@ -32,6 +32,13 @@ namespace mhlo {
 // fold multi op with zero
 void populateFoldMultiplyZeroPattern(RewritePatternSet &patterns);
 
+// fold large binary Op
+void populateFoldLargeBinaryOpPatterns(RewritePatternSet &patterns);
+
+// fold benefical convert with constant
+void populateFoldBeneficialConstantConvertOpPattern(
+    RewritePatternSet &patterns);
+
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                      MLIRContext *context,

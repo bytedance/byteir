@@ -120,6 +120,22 @@ void LowerToAceConstant(TF::ConstOp op) {
   ReplaceOp(op, ace_const_op);
 }
 
+void LowerToAceReshape(TF::SqueezeOp op) {
+  ShapedType ty = op.getOutput().getType().dyn_cast<ShapedType>();
+  // TODO(lyq): handle resource type
+  if (!ty || !ty.getElementType().isa<TF::StringType>() ||
+      !ty.hasStaticShape()) {
+    return;
+  }
+  OpBuilder builder(op);
+
+  auto new_result_ty =
+      ty.cloneWith(std::nullopt, ace::StringType::get(op->getContext()));
+  ace::ReshapeOp ace_reshape_op = builder.create<ace::ReshapeOp>(
+      op->getLoc(), new_result_ty, op->getOperand(0));
+  ReplaceOp(op, ace_reshape_op);
+}
+
 void RewriteTFPrint(Operation *op) {
   auto operands = llvm::to_vector(op->getOperands());
   auto results = op->getResults();
@@ -161,6 +177,10 @@ struct TfFallbackToCustomCallPass
       }
       if (llvm::isa<TF::ConstOp>(op)) {
         LowerToAceConstant(llvm::cast<TF::ConstOp>(op));
+        return;
+      }
+      if (llvm::isa<TF::SqueezeOp>(op)) {
+        LowerToAceReshape(llvm::cast<TF::SqueezeOp>(op));
         return;
       }
       if (llvm::any_of(op->getOperandTypes(), check_is_string_or_resource) ||

@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "brt/backends/cpu/providers/default/math/elementwise_ops.h"
+#include "./elementwise_ops.h"
 
 #include "brt/core/common/common.h"
 #include "brt/core/context/execution_context.h"

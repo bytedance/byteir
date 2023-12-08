@@ -42,13 +42,15 @@ If an op is frontend-specific, it uses a frontend-specific prefix, such as `tf` 
 
 Further needed infomation for a given coarse-grained op are encoded in a dictionary attribute, called `byteir_attrs`, which includes all named attributes. 
 
-```Op Attribute: byteir_attrs = {approximate = "none"} or byteir_attrs = {} of if none```
+**Op Attribute**:
+  * ```byteir_attrs = {approximate = "none"}``` or ```byteir_attrs = {}``` if no attribute
+  * ```axis``` attribute must be positive
 
 ### byteir.layer_norm
 - Operands:
   - input: Tensor
-  - weight: Tensor
-  - bias: Tensor
+  - weight: Tensor (shape should be same as axis of input tensor)
+  - bias: Tensor (shape should be same as axis of input tensor)
 - Attrs
   - epsilon: F64Attr
   - axis: I64ArrayAttr
@@ -138,6 +140,12 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 %0 = "mhlo.custom_call"(%arg0) {call_target_name = "byteir.erf", has_side_effect = false} : (tensor<?x64xf32>) -> tensor<?x64xf32>
 ```
 
+### byteir.addn
+- Operands:
+  - inputs: Variadic\<Tensor>
+- Results:
+  - outputs: Tensor
+
 ### byteir.one_hot
 - Operands:
   - indices: IntTensor
@@ -149,13 +157,20 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 - Results:
   - output: Tensor (ElementType same as on_value and off_value)
 
+### byteir.repeat
+- Operands:
+  - input: Tensor
+  - repeats: Int32/Int64 Tensor
+- Results:
+  - output: Tensor (ElementType same as input)
+
 ### byteir.quantize
 - Operands:
   - input: FloatTensor
   - scale: FloatTensor (rank=0 for per-tensor quantization, or rank=1 for per-channel quantization)
   - zero_point: Int8/Int16/Uint8/Uint16 Tensor (shape same as scale)
 - Attrs
-  - axis: I64Attr (Optional, required only for per-channel quantization)
+  - axis: Optional\<I64Attr> (required only for per-channel quantization)
 - Results:
   - output: Int8/Int16/Uint8/Uint16 Tensor (type same as zero_point)
 
@@ -165,7 +180,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - scale: FloatTensor (rank=0 for per-tensor dequantization, or rank=1 for per-channel dequantization)
   - zero_point: Int8/Int16/Uint8/Uint16 Tensor (shape same as scale, type same as input)
 - Attrs
-  - axis: I64Attr (Optional, channel axis index, required only for per-channel dequantization)
+  - axis: Optional\<I64Attr> (channel axis index, required only for per-channel dequantization)
 - Results:
   - output: FloatTensor
 
@@ -220,3 +235,39 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 %shape = shape.shape_of %arg0 : tensor<3xindex>
 %0 = "mhlo.custom_call"(%low, %high, %seed, %offset, %shape) {call_target_name = "byteir.rng_uniform", has_side_effect = false} : (tensor<f32>, tensor<f32>, tensor<i64>, tensor<i64>, tensor<3xindex>) -> tensor<?x?x?xf32>
 ```
+
+### byteir.flash_attn_fwd
+- Operands:
+  - q: Tensor
+  - k: Tensor
+  - v: Tensor
+- Attrs:
+  - dropout_p: FloatAttr
+  - softmax_scale: FloatAttr
+  - causal: BoolAttr
+  - return_softmax: BoolAttr
+- Results:
+  - output: Tensor
+  - softmax_lse: Tensor
+  - softmax_return: Tensor
+  - rng: Tensor
+
+### byteir.flash_attn_bwd
+- Operands:
+  - dout: Tensor
+  - q: Tensor
+  - k: Tensor
+  - v: Tensor
+  - out: Tensor
+  - softmax_lse: Tensor
+  - rng_state: Tensor
+- Attrs:
+  - dropout_p: FloatAttr
+  - softmax_scale: FloatAttr
+  - causal: BoolAttr
+- Results:
+  - dq: Tensor
+  - dk: Tensor
+  - dv: Tensor
+  - d_softmax: Tensor
+  - dq_accum: Tensor

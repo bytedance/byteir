@@ -129,16 +129,16 @@ public:
   }
 };
 
-class ConvertReshapeOp : public OpConversionPattern<mhlo::ReshapeOp> {
+template <typename OP> class ConvertReshapeOp : public OpConversionPattern<OP> {
 public:
-  using OpConversionPattern::OpConversionPattern;
+  using OpConversionPattern<OP>::OpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(mhlo::ReshapeOp op, mhlo::ReshapeOp::Adaptor adaptor,
+  matchAndRewrite(OP op, typename OP::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     auto operand = adaptor.getOperand();
-    auto operandType = operand.getType().cast<ShapedType>();
-    auto resultType = op.getType().cast<ShapedType>();
+    auto operandType = operand.getType().template cast<ShapedType>();
+    auto resultType = op.getType().template cast<ShapedType>();
 
     if (!operandType.hasStaticShape() || !resultType.hasStaticShape())
       return failure();
@@ -749,9 +749,10 @@ void mlir::populateHloToByreTensorPattern(
                ConvertSelectAndScatterOpToByrePattern>(patterns.getContext(),
                                                        appendArgTypes);
 
-  patterns.add<ConvertConstLikeOp<mhlo::ConstantOp>,
-               ConvertConstLikeOp<ace::ConstOp>, ConvertReshapeOp,
-               ConvertSliceOp, ConvertConcatenateOp>(patterns.getContext());
+  patterns.add<
+      ConvertConstLikeOp<mhlo::ConstantOp>, ConvertConstLikeOp<ace::ConstOp>,
+      ConvertReshapeOp<mhlo::ReshapeOp>, ConvertReshapeOp<ace::ReshapeOp>,
+      ConvertSliceOp, ConvertConcatenateOp>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

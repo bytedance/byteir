@@ -14,6 +14,24 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+//
+// Some code comes from openxla/stablehlo project, the original license:
+// Copyright 2019 The TensorFlow Authors. All Rights Reserved.
+// Copyright 2022 The StableHLO Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Ace/AceDialect.h"
 #include "mlir/IR/Builders.h"
@@ -75,3 +93,29 @@ void AceDialect::initialize() {
 //===----------------------------------------------------------------------===//
 
 OpFoldResult mlir::ace::ConstOp::fold(FoldAdaptor) { return getValue(); }
+
+//===----------------------------------------------------------------------===//
+// ReshapeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult mlir::ace::ReshapeOp::verify() {
+  auto operandTy = getOperand().getType().dyn_cast<RankedTensorType>();
+  // If the operand type is dynamically shaped there is nothing to verify.
+  if (!operandTy || !operandTy.hasStaticShape())
+    return success();
+
+  // If the operand type is statically shaped (not required) the number of
+  // elements must match that of the result type.
+  auto resultTy = getResult().getType().cast<RankedTensorType>();
+  assert(resultTy && resultTy.hasStaticShape() &&
+         "result type must be statically shaped");
+  int64_t numResultElements = resultTy.getNumElements();
+  int64_t numOperandElements = operandTy.getNumElements();
+  if (numResultElements != numOperandElements)
+    return emitOptionalError(getLoc(), "number of output elements (",
+                             numResultElements,
+                             ") doesn't match expected number of elements (",
+                             numOperandElements, ")");
+
+  return success();
+}

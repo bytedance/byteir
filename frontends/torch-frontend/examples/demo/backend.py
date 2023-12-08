@@ -12,11 +12,10 @@ import byteir
 
 import torch_frontend
 from torch_frontend import list_decomposed_ops, preprocess_fx_graph, fx_replace_attn_pattern, replace_flash_attn, get_none_indices
-
+from context import FxGraphCache
 
 TRACE = False
 
-submodule_cnt = 0
 MODEL_NAME = ''
 FLASH = False
 
@@ -151,50 +150,70 @@ def extract_internal(graph, is_backward):
         print("\n\n============")
         print(f"{category} Part")
         print("============\n\n")
-        none_indices = get_none_indices(graph)
-        fx_graph = preprocess_fx_graph(graph)
 
+        graph_kwargs = {
+            #"cudagraphs": cudagraphs,
+            #"num_fixed": num_fixed,
+            "is_backward": is_backward,
+            #"graph_id": graph_id,
+            #"cpp_wrapper": cpp_wrapper,
+            #"aot_mode": aot_mode,
+            #"is_inference": is_inference,
+            #"user_visible_outputs": user_visible_outputs,
+            #"layout_opt": layout_opt,
+            #"extern_node_serializer": extern_node_serializer,
+        }
         compile_type = 'stablehlo'
-        backend_legal_ops = [
-            "aten._softmax",
-            "aten.softmax.int",
-            "aten.log_softmax.int",
-            "aten._log_softmax",
-            # "aten.native_layer_norm",
-            # "aten.layer_norm",
-            "aten.gelu",
-            "aten.argmax",
-            "aten.max.dim",
-            "aten.one_hot",
-            "aten.topk",
-            "byteir.flash_attn_fwd",
-            "byteir.flash_attn_bwd",
-        ]
-        with maybe_disable_fake_tensor_mode():
-            compiled_graph = torch_frontend.compile(fx_graph, inputs, compile_type, backend_legal_ops=backend_legal_ops)
-
         model_name = MODEL_NAME
-        global submodule_cnt
         TEMP_FOLDER="./temp"
+        RT_FOLDER=TEMP_FOLDER + f"/{model_name}_{category}"
         os.makedirs(TEMP_FOLDER, exist_ok=True)
-        os.makedirs(TEMP_FOLDER + f"/{model_name}_{category}_{submodule_cnt}", exist_ok=True)
-        mlir_file_name = f'{TEMP_FOLDER}/{model_name}_{category}_{submodule_cnt}.{compile_type}.mlir'
-        output_mlir_file_name = f'{TEMP_FOLDER}/{model_name}_{category}_{submodule_cnt}/{model_name}_{category}_{submodule_cnt}.rt.mlir'
-        submodule_cnt = submodule_cnt + 1
-        with open(mlir_file_name, "w+") as fout:
-            compiled_graph.operation.print(file=fout,
-                                        large_elements_limit=None)
+        os.makedirs(RT_FOLDER, exist_ok=True)
+        mlir_file_name = f'{TEMP_FOLDER}/{model_name}_{category}.{compile_type}.mlir'
+        output_mlir_file_name = f'{TEMP_FOLDER}/{model_name}_{category}/{model_name}_{category}.rt.mlir'
 
-        with maybe_disable_fake_tensor_mode():
-            byteir.compile(mlir_file_name, output_mlir_file_name, entry_func='forward', target='cuda_with_ait')
+        # load FxCache
+        key = FxGraphCache.get_hash_key(graph, inputs, graph_kwargs)
+        print(f"fx graph hash key: {key}")
+        cache_hit = FxGraphCache.try_load(key, RT_FOLDER)
 
+        if not cache_hit:
+            fx_graph = preprocess_fx_graph(graph)
+            backend_legal_ops = [
+                "aten._softmax",
+                "aten.softmax.int",
+                "aten.log_softmax.int",
+                "aten._log_softmax",
+                # "aten.native_layer_norm",
+                # "aten.layer_norm",
+                "aten.gelu",
+                "aten.argmax",
+                "aten.max.dim",
+                "aten.one_hot",
+                "aten.topk",
+                "byteir.flash_attn_fwd",
+                "byteir.flash_attn_bwd",
+            ]
+            with maybe_disable_fake_tensor_mode():
+                compiled_graph = torch_frontend.compile(fx_graph, inputs, compile_type, backend_legal_ops=backend_legal_ops)
+
+            with open(mlir_file_name, "w+") as fout:
+                compiled_graph.operation.print(file=fout,
+                                            large_elements_limit=None)
+
+            with maybe_disable_fake_tensor_mode():
+                byteir.compile(mlir_file_name, output_mlir_file_name, entry_func='forward', target='cuda_with_ait')
+            
+            # save to cache
+            FxGraphCache.save_to_cache(RT_FOLDER, key)
+
+        none_indices = get_none_indices(graph)
         outputs = FakeTensorProp(graph).propagate(*inputs)
         if isinstance(outputs, torch.Tensor):
             outputs = [outputs]
         mhlo_ret_dtypes = [t.dtype for t in outputs]
         mhlo_ret_shapes = [t.shape for t in outputs]
 
-        print(output_mlir_file_name)
         runner = ByteIRFunction(output_mlir_file_name, mhlo_ret_shapes, mhlo_ret_dtypes, none_indices, device=outputs[0].device)
         return runner(*inputs)
     return byteir_runner
