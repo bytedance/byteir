@@ -31,7 +31,6 @@ function prepare_for_build() {
   git submodule update --init -f $TORCH_MLIR_ROOT
   pushd $TORCH_MLIR_ROOT
   git submodule update --init -f externals/stablehlo
-  git submodule update --init -f externals/llvm-project
   popd
 
   # apply patches
