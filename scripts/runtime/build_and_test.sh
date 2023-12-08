@@ -8,6 +8,10 @@ while [[ $# -gt 1 ]]; do
       BRT_USE_CUDA=ON
       shift
       ;;
+    --nccl)
+      BRT_USE_NCCL=ON
+      shift
+      ;;
     --asan)
       BRT_ENABLE_ASAN=ON
       CMAKE_BUILD_TYPE=Debug
@@ -65,6 +69,7 @@ cmake -GNinja \
   -DLLVM_INSTALL_PATH="$LLVM_INSTALL_DIR" \
   -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
   -Dbrt_USE_CUDA=${BRT_USE_CUDA} \
+  -Dbrt_USE_NCCL=${BRT_USE_NCCL} \
   -Dbrt_BUILD_FLASH_ATTN=${brt_BUILD_FLASH_ATTN} \
   -Dbrt_ENABLE_ASAN=${BRT_ENABLE_ASAN} \
   -Dbrt_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS}

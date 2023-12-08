@@ -7,7 +7,7 @@ declare ptr @malloc(i64)
 
 declare void @free(ptr)
 
-define void @Unknown1(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6, i64 %7, i64 %8, i64 %9, ptr %10, ptr %11, i64 %12, i64 %13, i64 %14, ptr %15, ptr %16, i64 %17, i64 %18, i64 %19, i64 %20, i64 %21, ptr %22, ptr %23, i64 %24, i64 %25, i64 %26, i64 %27, i64 %28, ptr %29, ptr %30, i64 %31, i64 %32, i64 %33, i64 %34, i64 %35) {
+define void @Unknown0(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6, i64 %7, i64 %8, i64 %9, ptr %10, ptr %11, i64 %12, i64 %13, i64 %14, ptr %15, ptr %16, i64 %17, i64 %18, i64 %19, i64 %20, i64 %21, ptr %22, ptr %23, i64 %24, i64 %25, i64 %26, i64 %27, i64 %28, ptr %29, ptr %30, i64 %31, i64 %32, i64 %33, i64 %34, i64 %35) {
   br label %37
 
 37:                                               ; preds = %40, %36
@@ -56,7 +56,7 @@ define void @Unknown1(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, ptr %5, ptr %6, i6
   ret void
 }
 
-define void @_mlir_ciface_Unknown1(ptr %0, ptr %1, ptr %2, ptr %3, ptr %4, ptr %5) {
+define void @_mlir_ciface_Unknown0(ptr %0, ptr %1, ptr %2, ptr %3, ptr %4, ptr %5) {
   %7 = load { ptr, ptr, i64, [1 x i64], [1 x i64] }, ptr %0, align 8
   %8 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %7, 0
   %9 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %7, 1
@@ -99,7 +99,7 @@ define void @_mlir_ciface_Unknown1(ptr %0, ptr %1, ptr %2, ptr %3, ptr %4, ptr %
   %46 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %41, 3, 1
   %47 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %41, 4, 0
   %48 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %41, 4, 1
-  call void @Unknown1(ptr %8, ptr %9, i64 %10, i64 %11, i64 %12, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, ptr %20, ptr %21, i64 %22, i64 %23, i64 %24, ptr %26, ptr %27, i64 %28, i64 %29, i64 %30, i64 %31, i64 %32, ptr %34, ptr %35, i64 %36, i64 %37, i64 %38, i64 %39, i64 %40, ptr %42, ptr %43, i64 %44, i64 %45, i64 %46, i64 %47, i64 %48)
+  call void @Unknown0(ptr %8, ptr %9, i64 %10, i64 %11, i64 %12, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, ptr %20, ptr %21, i64 %22, i64 %23, i64 %24, ptr %26, ptr %27, i64 %28, i64 %29, i64 %30, i64 %31, i64 %32, ptr %34, ptr %35, i64 %36, i64 %37, i64 %38, i64 %39, i64 %40, ptr %42, ptr %43, i64 %44, i64 %45, i64 %46, i64 %47, i64 %48)
   ret void
 }
 

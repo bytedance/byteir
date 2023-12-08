@@ -8,7 +8,7 @@ declare ptr @malloc(i64)
 
 declare void @free(ptr)
 
-define void @Unknown6(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %13, ptr %14, i64 %15, i64 %16, i64 %17) {
+define void @Unknown0(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %13, ptr %14, i64 %15, i64 %16, i64 %17) {
   %19 = call ptr @malloc(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 388800) to i64))
   br label %20
 
@@ -38,12 +38,12 @@ define void @Unknown6(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i6
 34:                                               ; preds = %31
   %35 = srem i64 %32, 1296
   %36 = sdiv i64 %32, 1296
-  %37 = mul i64 %36, 3888
-  %38 = add i64 %37, 2
+  %37 = getelementptr i32, ptr %19, i32 2
+  %38 = mul i64 %36, 3888
   %39 = mul i64 %35, 3
   %40 = add i64 %38, %39
   %41 = add i64 %40, 0
-  %42 = getelementptr i32, ptr %19, i64 %41
+  %42 = getelementptr i32, ptr %37, i64 %41
   %43 = load i32, ptr %42, align 4
   %44 = mul i64 %36, 3888
   %45 = mul i64 %35, 3
@@ -51,12 +51,12 @@ define void @Unknown6(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i6
   %47 = add i64 %46, 0
   %48 = getelementptr i32, ptr %19, i64 %47
   %49 = load i32, ptr %48, align 4
-  %50 = mul i64 %36, 3888
-  %51 = add i64 %50, 1
+  %50 = getelementptr i32, ptr %19, i32 1
+  %51 = mul i64 %36, 3888
   %52 = mul i64 %35, 3
   %53 = add i64 %51, %52
   %54 = add i64 %53, 0
-  %55 = getelementptr i32, ptr %19, i64 %54
+  %55 = getelementptr i32, ptr %50, i64 %54
   %56 = load i32, ptr %55, align 4
   %57 = getelementptr i32, ptr @__constant_100xi32, i64 %36
   %58 = load i32, ptr %57, align 4
@@ -122,7 +122,7 @@ define void @Unknown6(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i6
   ret void
 }
 
-define void @_mlir_ciface_Unknown6(ptr %0, ptr %1) {
+define void @_mlir_ciface_Unknown0(ptr %0, ptr %1) {
   %3 = load { ptr, ptr, i64, [5 x i64], [5 x i64] }, ptr %0, align 8
   %4 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %3, 0
   %5 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %3, 1
@@ -143,7 +143,7 @@ define void @_mlir_ciface_Unknown6(ptr %0, ptr %1) {
   %20 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 2
   %21 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 3, 0
   %22 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 4, 0
-  call void @Unknown6(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, ptr %18, ptr %19, i64 %20, i64 %21, i64 %22)
+  call void @Unknown0(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, ptr %18, ptr %19, i64 %20, i64 %21, i64 %22)
   ret void
 }
 

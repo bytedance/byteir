@@ -56,10 +56,16 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
          "Quantize/Dequantize's scale type must be ranked");
   assert(scaleType.getRank() <= 1 &&
          "Quantize/Dequantize's scale rank should be 0 or 1");
-  // rewrite output type from float32 to uint16 for quantize
+  Value zeropoint = inputs[2];
+  RankedTensorType zeropointType =
+      zeropoint.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(zeropointType != nullptr &&
+         "Quantize/Dequantize's zeropoint type must be ranked");
+  Type zpElementType = zeropointType.getElementType(); 
+  // rewrite output type to zpElementType for quantize
   if (func_name == "quantize")
     outputType = RankedTensorType::get(
-      outputType.getShape(), rewriter.getIntegerType(16, /*isSigned*/ false));
+      outputType.getShape(), zpElementType);
 
   std::string call_target_name = std::string(CALL_TARGET_NAME_PREFIX) +
                                  func_name.str();

@@ -81,6 +81,10 @@ constexpr llvm::StringRef getDequantizeName() {
   return CUSTOM_CALL_NAME_PREFIX "dequantize";
 }
 
+constexpr llvm::StringRef getResizeName() {
+  return CUSTOM_CALL_NAME_PREFIX "resize";
+}
+
 constexpr llvm::StringRef getRngUniformName() {
   return CUSTOM_CALL_NAME_PREFIX "rng_uniform";
 }

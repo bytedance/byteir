@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s --hlo-opt="target=CPU" --linalg-tensor-opt="target=CPU" --byteir-bufferize-opt --scf-opt="target=CPU" | FileCheck %s
+// RUN: byteir-opt %s --hlo-opt="target=CPU" --linalg-tensor-opt="target=CPU" --byre-tensor-opt="entry-func=main append-arg-types" --byteir-bufferize-opt --scf-opt="target=CPU" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
 

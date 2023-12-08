@@ -1,4 +1,4 @@
-// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,resize" -of-canonicalize -constprop-onnx -of-canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-frontend-opt -rewrite-to-custom-call="ops=arg_max,arg_min,layer_norm,erf,gelu,l2_norm,quantize,dequantize,softmax,resize,one_hot" -of-canonicalize -constprop-onnx -of-canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_arg_max(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   %0 = "onnx.ArgMax"(%arg0) {axis = 3 : si64, keepdims = 0 : si64, onnx_node_name = "ArgMax_0"} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
@@ -95,6 +95,29 @@ func.func @test_layer_norm_without_last_add(%arg0: tensor<1x3xf32>) -> tensor<1x
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3xf32>
 // CHECK-NEXT:   %2 = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
 // CHECK-NEXT:   return %2 : tensor<1x3xf32>
+}
+
+// -----
+
+func.func @test_layer_norm_squeeze(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
+  %22 = "onnx.ReduceMeanV13"(%arg0) {axes = [-1], onnx_node_name = "ReduceMean_25"} : (tensor<2x4x3xf32>) -> tensor<2x4x1xf32>
+  %23 = "onnx.Sub"(%arg0, %22) {onnx_node_name = "Sub_26"} : (tensor<2x4x3xf32>, tensor<2x4x1xf32>) -> tensor<2x4x3xf32>
+  %25 = "onnx.Mul"(%23, %23) : (tensor<2x4x3xf32>, tensor<2x4x3xf32>) -> tensor<2x4x3xf32>
+  %26 = "onnx.ReduceMeanV13"(%25) {axes = [-1], onnx_node_name = "ReduceMean_29"} : (tensor<2x4x3xf32>) -> tensor<2x4x1xf32>
+  %27 = "onnx.Constant"() {value = dense<9.99999974E-6> : tensor<f32>} : () -> tensor<f32>
+  %28 = "onnx.Add"(%26, %27) {onnx_node_name = "Add_31"} : (tensor<2x4x1xf32>, tensor<f32>) -> tensor<2x4x1xf32>
+  %29 = "onnx.Sqrt"(%28) {onnx_node_name = "Sqrt_32"} : (tensor<2x4x1xf32>) -> tensor<2x4x1xf32>
+  %30 = "onnx.Div"(%23, %29) {onnx_node_name = "Div_33"} : (tensor<2x4x3xf32>, tensor<2x4x1xf32>) -> tensor<2x4x3xf32>
+  %31 = "onnx.Constant"() {value = dense<[[[0.15, 0.2, 0.25]]]> : tensor<1x1x3xf32>} : () -> tensor<1x1x3xf32>
+  %32 = "onnx.Mul"(%30, %31) {onnx_node_name = "Mul_34"} : (tensor<2x4x3xf32>, tensor<1x1x3xf32>) -> tensor<2x4x3xf32>
+  %33 = "onnx.Constant"() {value = dense<[[[1.0, 2.0, 3.0]]]> : tensor<1x1x3xf32>} : () -> tensor<1x1x3xf32>
+  %34 = "onnx.Add"(%32, %33) {onnx_node_name = "Add_35"} : (tensor<2x4x3xf32>, tensor<1x1x3xf32>) -> tensor<2x4x3xf32>
+  return %34 : tensor<2x4x3xf32>
+// CHECK-LABEL:  @test_layer_norm_squeeze(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
+// CHECK-DAG:    [[VAR_0_:%.+]] = mhlo.constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
+// CHECK-DAG:    [[VAR_1_:%.+]] = mhlo.constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf32>
+// CHECK-NEXT:   %2 = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
+// CHECK-NEXT:   return %2 : tensor<2x4x3xf32>
 }
 
 // -----
@@ -342,4 +365,18 @@ func.func @test_not_l2_norm_gelu_dense(%1092: tensor<1x4xf32>) -> tensor<1x4xf32
   return %1105 : tensor<1x4xf32>
 // CHECK-LABEL:  func.func @test_not_l2_norm_gelu_dense
 // CHECK-NOT: mhlo.custom_call @byteir.gelu
+}
+
+func.func @test_onehot(%arg0 : tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64> {
+  %0 = onnx.Constant dense<64> : tensor<1xi64>
+  %1 = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+  %2 = "onnx.OneHot"(%arg0, %0, %1) {axis = -1 : si64} : (tensor<2x3x4xi64>, tensor<1xi64>, tensor<2xi64>) -> tensor<2x3x4x64xi64>
+  "func.return"(%2) : (tensor<2x3x4x64xi64>) -> ()
+// CHECK-LABEL: func.func @test_onehot
+// CHECK-SAME: (%[[ARG0:.+]]: tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64> {
+// CHECK: %[[GE_ZERO:.+]] = mhlo.compare  GE, %[[ARG0]], %[[ZERO:.+]],  NOTYPE : (tensor<2x3x4xi64>, tensor<2x3x4xi64>) -> tensor<2x3x4xi1>
+// CHECK: %[[POS_ARG0:.+]] = mhlo.add %[[ARG0]], %[[DEPTH:.+]] : tensor<2x3x4xi64>
+// CHECK: %[[NORM_ARG:.+]] = mhlo.select %[[GE_ZERO]], %[[ARG0]], %[[POS_ARG0]] : tensor<2x3x4xi1>, tensor<2x3x4xi64>
+// CHECK: %[[RESULT:.+]] = mhlo.custom_call @byteir.one_hot(%[[NORM_ARG]]) {backend_config = "", byteir_attrs = {axis = 3 : i64, depth = 64 : i64, off_value = 0 : i64, on_value = 1 : i64}} : (tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64>
+// CHECK: return %[[RESULT]] : tensor<2x3x4x64xi64>
 }

@@ -30,6 +30,7 @@ namespace {
 #define CALL_TARGET_NAME_PREFIX "byteir."
 
 // clang-format off
+// func(byteir_op_name, onnx_op_name)
 #define VALID_CUSTOM_CALL_OP(func) \
     func(arg_max, ArgMax)          \
     func(arg_min, ArgMin)          \
@@ -39,17 +40,21 @@ namespace {
     func(instance_norm, InstanceNorm) \
     func(l2_norm, L2Norm)          \
     func(layer_norm, LayerNorm)    \
+    func(log_softmax, LogSoftmax)  \
+    func(one_hot, OneHot)          \
     func(quantize, Quantize)       \
     func(resize, Resize)           \
-    func(softmax, Softmax)         \
-    func(log_softmax, LogSoftmax)
+    func(softmax, Softmax)
 
+// generate get name function name, function name contains onnx op name,
+// return byteir custom call target op name
 #define GEN_FUNCNAME(call_target_name, func_name)                            \
   constexpr const char *get##func_name##NameWithPrefix() {                   \
     return CALL_TARGET_NAME_PREFIX #call_target_name;                        \
   }                                                                          \
   constexpr const char *get##func_name##Name() { return #call_target_name; }
 
+// Wrapname class which outputs target name for ops that can be simply replaced.
 #define WRAP(onnx_class, func_name)                                                   \
   template <> struct WrapName<onnx_class> {                                           \
     static constexpr const char *call_target_name = get##func_name##NameWithPrefix(); \
@@ -58,9 +63,9 @@ namespace {
 #define WRAP_LIST(func)                      \
     func(ONNXArgMaxOp, ArgMax)               \
     func(ONNXArgMinOp, ArgMin)               \
+    func(ONNXDequantizeLinearOp, Dequantize) \
     func(ONNXErfOp, Erf)                     \
-    func(ONNXQuantizeLinearOp, Quantize)     \
-    func(ONNXDequantizeLinearOp, Dequantize)
+    func(ONNXQuantizeLinearOp, Quantize)
 // clang-format on
 
 VALID_CUSTOM_CALL_OP(GEN_FUNCNAME)
@@ -334,31 +339,57 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
 //===----------------------------------------------------------------------===//
 // LayerNorm
 //===----------------------------------------------------------------------===//
+
+Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
+                          SmallVector<int64_t, 4> &axis_vec) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  int64_t inputRank = inputType.getRank();
+  int64_t axisSize = axis_vec.size();
+  if (inputRank == axisSize)
+    return input;
+  Type elemType = inputType.getElementType();
+  auto inputShape = inputType.getShape();
+  SmallVector<int64_t> outputShape;
+  for (int64_t axis : axis_vec) {
+    outputShape.emplace_back(inputShape[axis]);
+  }
+  RankedTensorType outputType = RankedTensorType::get(outputShape, elemType);
+  Value output = rewriter.create<mhlo::ReshapeOp>(loc, outputType, input);
+  return output;
+}
+
 Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
                       Value scale, Value B, ArrayAttr axis_attr,
                       Attribute epsilon_attr) {
   RankedTensorType inputType =
       input.getType().dyn_cast_or_null<RankedTensorType>();
   assert(inputType != nullptr && "Input type must be ranked");
-  int64_t axis = axis_attr[0].cast<IntegerAttr>().getInt();
-  // canonicalize axis to be positive
-  if (axis < 0) {
-    axis = inputType.getRank() + axis;
+  int64_t num_axis = axis_attr.size();
+  SmallVector<int64_t, 4> axis_vec;
+  for (int64_t i = 0; i < num_axis; i++) {
+    int64_t axis = axis_attr[i].cast<IntegerAttr>().getInt();
+    // canonicalize axis to be positive
+    if (axis < 0)
+      axis = inputType.getRank() + axis;
+    axis_vec.emplace_back(axis);
   }
+  Value squeezedScale = createSqueezedValue(rewriter, loc, scale, axis_vec);
+  Value squeezedB = createSqueezedValue(rewriter, loc, B, axis_vec);
   double eps = (*epsilon_attr.cast<ElementsAttr>().getValues<APFloat>().begin())
                    .convertToDouble();
   std::string call_target_name = getLayerNormNameWithPrefix();
   mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
       loc, llvm::ArrayRef<Type>{inputType},
-      llvm::ArrayRef<Value>{input, scale, B}, call_target_name, false,
-      rewriter.getStringAttr(""),
+      llvm::ArrayRef<Value>{input, squeezedScale, squeezedB}, call_target_name,
+      false, rewriter.getStringAttr(""),
       mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
       rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
       mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
       rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
   DictionaryAttrWrapper attrs(rewriter.getContext());
   attrs.setAttr("epsilon", rewriter.getF64FloatAttr(eps));
-  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr(ArrayRef(axis_vec)));
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
   return customCallOp.getResults()[0];
 }
@@ -465,6 +496,75 @@ Value createLayerNormGeLU(PatternRewriter &rewriter, Location loc, Value input,
   Value result = createLayerNormWithoutLastAdd(rewriter, loc, input, scale,
                                                axis_attr, epsilon_attr);
   return createGeLU(rewriter, loc, result);
+}
+
+//===----------------------------------------------------------------------===//
+// OneHot Pattern
+//===----------------------------------------------------------------------===//
+
+Value createOneHot(PatternRewriter &rewriter, Location loc, Value indices,
+                   Value depthValue, Value values, IntegerAttr axisAttr,
+                   Value output) {
+  // indices
+  RankedTensorType indicesType = indices.getType().dyn_cast<RankedTensorType>();
+  assert(indicesType && indicesType.hasStaticShape() &&
+         "indices must be static");
+  int64_t indicesRank = indicesType.getRank();
+  Type indicesElementType = indicesType.getElementType();
+  // depth
+  ONNXConstantOp depthOp = depthValue.getDefiningOp<ONNXConstantOp>();
+  assert(depthOp && "onnx.OneHot's depth should be constant");
+  ElementsAttr depthAttr = depthOp.getValueAttr().dyn_cast<ElementsAttr>();
+  int64_t depth = depthAttr.getValues<APInt>()[0].getSExtValue();
+  // axis
+  int64_t axis = axisAttr.getSInt();
+  if (axis < 0)
+    axis += indicesRank + 1;
+  assert(axis >= 0 && axis <= indicesRank && "axis not in range");
+  // normalized indices
+  Value zero = rewriter.create<mhlo::ConstantOp>(
+      loc,
+      DenseIntElementsAttr::get(RankedTensorType::get({}, indicesElementType),
+                                ArrayRef<int64_t>{0}));
+  Value broadcastZero = rewriter.create<mhlo::BroadcastInDimOp>(
+      loc, indicesType, zero, rewriter.getI64TensorAttr({}));
+  Value broadcastDepth;
+  int64_t depthRank = depthValue.getType().cast<RankedTensorType>().getRank();
+  if (depthRank == 1)
+    broadcastDepth = rewriter.create<mhlo::BroadcastInDimOp>(
+        loc, indicesType, depthValue, rewriter.getI64TensorAttr({0}));
+  else
+    broadcastDepth = rewriter.create<mhlo::BroadcastInDimOp>(
+        loc, indicesType, depthValue, rewriter.getI64TensorAttr({}));
+  Value compareGeZero = rewriter.create<mhlo::CompareOp>(
+      loc, indices, broadcastZero, mhlo::ComparisonDirection::GE);
+  Value positiveIndices =
+      rewriter.create<mhlo::AddOp>(loc, indices, broadcastDepth);
+  Value normalizedIndices = rewriter.create<mhlo::SelectOp>(
+      loc, indicesType, compareGeZero, indices, positiveIndices);
+  // values
+  ONNXConstantOp ValuesOp = values.getDefiningOp<ONNXConstantOp>();
+  assert(ValuesOp && "onnx.OneHot's values should be constant");
+  ElementsAttr valuesAttr = ValuesOp.getValueAttr().dyn_cast<ElementsAttr>();
+  assert(valuesAttr && valuesAttr.size() == 2 &&
+         "value should keep ElementsAttr with size = 2");
+  Attribute off_value = valuesAttr.getValues<Attribute>()[0];
+  Attribute on_value = valuesAttr.getValues<Attribute>()[1];
+  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+      loc, llvm::ArrayRef<Type>{output.getType()},
+      llvm::ArrayRef<Value>{normalizedIndices}, getOneHotNameWithPrefix(),
+      false, rewriter.getStringAttr(""),
+      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
+      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("depth", rewriter.getI64IntegerAttr(depth));
+  attrs.setAttr("axis", rewriter.getI64IntegerAttr(axis));
+  attrs.setAttr("on_value", on_value);
+  attrs.setAttr("off_value", off_value);
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+  return customCallOp.getResults()[0];
 }
 
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.inc"
@@ -577,6 +677,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteLayerNormWithoutLastAdd>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteInstanceNorm>(context));
+    validOpSet[getOneHotName()].emplace_back(
+        std::make_unique<RewriteOneHot>(context));
     validOpSet[getArgMaxName()].emplace_back(
         std::make_unique<RewriteMathArg<ONNXArgMaxOp, ONNXArgMaxOpAdaptor>>(
             context, 1));

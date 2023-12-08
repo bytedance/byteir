@@ -251,14 +251,6 @@ LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
       }
     }
 
-    if (!numOutputs) {
-      return op->emitError(
-                 "expected at least 1 argument which was attached with '")
-             << ByreDialect::getEntryPointFuncArgTypeAttrName()
-             << "' attribute contained '"
-             << stringifyEnum(EntryFuncArgType::Output) << '\'';
-    }
-
     // FuncOp has no return
     if (funcOp.getNumResults() != 0) {
       return op->emitError("expected no return in ")

@@ -1,5 +1,4 @@
-//===- rng_state_test.cc -------------------------------------------*--- C++
-//-*-===//
+//===- rng_state_test.cc --------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +25,7 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
-static std::string test_file_fill = "test/test_files/rng_state.mlir";
+static std::string test_file_fill = "test/test_files/rng_state_cuda.mlir";
 
 using namespace brt;
 using namespace brt::cuda;

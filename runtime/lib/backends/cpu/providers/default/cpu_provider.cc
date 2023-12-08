@@ -19,15 +19,16 @@
 
 #include "./custom_call/tf_equal.h"
 #include "./custom_call/tf_select.h"
-#include "./custom_call/tf_stringToNumber.h"
+#include "./custom_call/tf_string_to_number.h"
 #include "./custom_call/tf_where.h"
 #include "./custom_call/topk.h"
 #include "./llvm/jit.h"
+#include "./math/elementwise_ops.h"
 #include "./shape/shape_compute.h"
 #include "./tensor_generate/fill.h"
+#include "./tensor_generate/rng_state.h"
 #include "./typecvt/typecvt.h"
 #include "brt/backends/common.h"
-#include "brt/backends/cpu/providers/default/math/elementwise_ops.h" // TODO move to another header
 #include "brt/core/framework/execution_provider.h"
 #include "brt/core/session/session.h"
 #include "half/half.hpp"
@@ -110,6 +111,16 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "tf.StringToNumber",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::TFStringToNumber>(info);
+          });
+      registry->Register(
+          "GetSeed",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::GetSeedOpKernel>(info);
+          });
+      registry->Register(
+          "NextOffset",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::NextOffsetOpKernel>(info);
           });
       RegisterCommonBuiltinOps(registry);
     });

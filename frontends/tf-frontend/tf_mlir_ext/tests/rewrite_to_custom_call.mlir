@@ -43,6 +43,22 @@ func.func @gelu_erf_case0(%arg0: tensor<100x?x?xf32>) -> tensor<100x?x?xf32> {
 // CHECK-SAME: @byteir.gelu
 // CHECK-SAME: byteir_attrs = {approximate = "erf"}
 
+func.func @gelu_erf_case1(%arg0: tensor<100x?x?xf32>) -> tensor<100x?x?xf32> {
+  %cst = "tf.Const"() {value = dense<0.707106769> : tensor<f32>} : () -> tensor<f32>
+  %cst_0 = "tf.Const"() {value = dense<1.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  %cst_1 = "tf.Const"() {value = dense<5.000000e-01> : tensor<f32>} : () -> tensor<f32>
+  %1 = "tf.Mul"(%arg0, %cst) : (tensor<100x?x?xf32>, tensor<f32>) -> tensor<100x?x?xf32>
+  %2 = "tf.Erf"(%1) : (tensor<100x?x?xf32>) -> tensor<100x?x?xf32>
+  %3 = "tf.AddV2"(%2, %cst_0) : (tensor<100x?x?xf32>, tensor<f32>) -> tensor<100x?x?xf32>
+  %4 = "tf.Mul"(%3, %cst_1) : (tensor<100x?x?xf32>, tensor<f32>) -> tensor<100x?x?xf32>
+  %5 = "tf.Mul"(%arg0, %4) : (tensor<100x?x?xf32>, tensor<100x?x?xf32>) -> tensor<100x?x?xf32>
+  func.return %5 : tensor<100x?x?xf32>
+}
+// CHECK-LABEL:  func.func @gelu_erf_case1(%arg0: tensor<100x?x?xf32>) -> tensor<100x?x?xf32> {
+// CHECK:  mhlo.custom_call
+// CHECK-SAME: @byteir.gelu
+// CHECK-SAME: byteir_attrs = {approximate = "erf"}
+
 func.func @gelu_tanh_case0(%arg0: tensor<100x?x?xf32>) -> tensor<100x?x?xf32> {
   %cst = "tf.Const"() {value = dense<4.471500e-02> : tensor<f32>} : () -> tensor<f32>
   %cst_0 = "tf.Const"() {value = dense<3.000000e+00> : tensor<f32>} : () -> tensor<f32>
@@ -386,6 +402,33 @@ func.func @layer_norm_with_cast(%79: tensor<150x3xf16>) -> tensor<150x3xf16> {
 // CHECK-SAME: @byteir.layer_norm
 // CHECK-SAME: byteir_attrs = {axis = [1], epsilon = 1.0132789611816406E-6 : f64}
 
+func.func @layer_norm_with_cast_v2(%79: tensor<150x3xf16>) -> tensor<150x3xf16> {
+  %cst_61 = "tf.Const"() {value = dense<[0.0401659757, -0.11370486, 0.432680517]> : tensor<3xf16>} : () -> tensor<3xf16>
+  %cst_62 = "tf.Const"() {value = dense<[0.445568085, 0.45303449, 3.227140e-01]> : tensor<3xf16>} : () -> tensor<3xf16>
+  %cst_157 = "tf.Const"() {value = dense<1.013280e-06> : tensor<f16>} : () -> tensor<f16>
+  %cst_158 = "tf.Const"() {value = dense<-1> : tensor<i32>} : () -> tensor<i32>
+  %80 = "tf.Cast"(%79) {Truncate = false, device = ""} : (tensor<150x3xf16>) -> tensor<150x3xf32>
+  %81 = "tf.Mean"(%80, %cst_158) {device = "", keep_dims = true} : (tensor<150x3xf32>, tensor<i32>) -> tensor<150x1xf32>
+  %82 = "tf.Cast"(%81) {Truncate = false, device = ""} : (tensor<150x1xf32>) -> tensor<150x1xf16>
+  %83 = "tf.SquaredDifference"(%80, %81) {device = ""} : (tensor<150x3xf32>, tensor<150x1xf32>) -> tensor<150x3xf32>
+  %84 = "tf.Mean"(%83, %cst_158) {device = "", keep_dims = true} : (tensor<150x3xf32>, tensor<i32>) -> tensor<150x1xf32>
+  %85 = "tf.Cast"(%84) {Truncate = false, device = ""} : (tensor<150x1xf32>) -> tensor<150x1xf16>
+  %86 = "tf.AddV2"(%85, %cst_157) {device = ""} : (tensor<150x1xf16>, tensor<f16>) -> tensor<150x1xf16>
+  %87 = "tf.Rsqrt"(%86) {device = ""} : (tensor<150x1xf16>) -> tensor<150x1xf16>
+  %88 = "tf.Mul"(%87, %cst_61) {_grappler_ArithmeticOptimizer_MinimizeBroadcasts = true, device = ""} : (tensor<150x1xf16>, tensor<3xf16>) -> tensor<150x3xf16>
+  %89 = "tf.Mul"(%79, %88) {_grappler_ArithmeticOptimizer_MinimizeBroadcasts = true, device = ""} : (tensor<150x3xf16>, tensor<150x3xf16>) -> tensor<150x3xf16>
+  %90 = "tf.Mul"(%88, %82) {_grappler_ArithmeticOptimizer_MinimizeBroadcasts = true, device = ""} : (tensor<150x3xf16>, tensor<150x1xf16>) -> tensor<150x3xf16>
+  %91 = "tf.Sub"(%cst_62, %90) {device = ""} : (tensor<3xf16>, tensor<150x3xf16>) -> tensor<150x3xf16>
+  %92 = "tf.AddV2"(%89, %91) {device = ""} : (tensor<150x3xf16>, tensor<150x3xf16>) -> tensor<150x3xf16>
+  return %92 : tensor<150x3xf16>
+}
+// CHECK-LABEL:  func.func @layer_norm_with_cast_v2(%arg0: tensor<150x3xf16>) -> tensor<150x3xf16> {
+// CHECK-NEXT:    %cst = "tf.Const"() {value = dense<[4.016110e-02, -1.137080e-01, 4.326170e-01]> : tensor<3xf16>} : () -> tensor<3xf16>
+// CHECK-NEXT:    %cst_0 = "tf.Const"() {value = dense<[4.455570e-01, 4.531250e-01, 3.227540e-01]> : tensor<3xf16>} : () -> tensor<3xf16>
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.layer_norm
+// CHECK-SAME: byteir_attrs = {axis = [1], epsilon = 1.0132789611816406E-6 : f64}
+
 func.func @layer_norm_with_cast_disable_minimize_broadcast(%46: tensor<1024x4xf16>) -> tensor<1024x4xf16> {
   %cst_103 = "tf.Const"() {value = dense<[0.0401659757, -0.11370486, 0.432680517, 0.4000000]> : tensor<4xf16>} : () -> tensor<4xf16>
   %cst_104 = "tf.Const"() {value = dense<[0.445568085, 0.45303449, 3.227140e-01, 0.4000000]> : tensor<4xf16>} : () -> tensor<4xf16>
@@ -448,6 +491,20 @@ func.func @l2_norm_V2(%1871: tensor<1x128xf16>) -> tensor<1x128xf16> {
   return %1876 : tensor<1x128xf16>
 }
 // CHECK-LABEL: @l2_norm_V2
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.l2_norm
+// CHECK-SAME: byteir_attrs = {axis = [1], epsilon = 0.000000e+00 : f64}
+
+func.func @l2_norm_V2_swap_mul(%1871: tensor<1x128xf16>) -> tensor<1x128xf16> {
+  %cst_5 = "tf.Const"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %1872 = "tf.Square"(%1871) {device = ""} : (tensor<1x128xf16>) -> tensor<1x128xf16>
+  %1873 = "tf.Sum"(%1872, %cst_5) {device = "", keep_dims = true} : (tensor<1x128xf16>, tensor<i32>) -> tensor<1x1xf16>
+  %1874 = "tf.Relu"(%1873) : (tensor<1x1xf16>) -> tensor<1x1xf16>
+  %1875 = "tf.Rsqrt"(%1874) {device = ""} : (tensor<1x1xf16>) -> tensor<1x1xf16>
+  %1876 = "tf.Mul"(%1871, %1875) {device = ""} : (tensor<1x128xf16>, tensor<1x1xf16>) -> tensor<1x128xf16>
+  return %1876 : tensor<1x128xf16>
+}
+// CHECK-LABEL: @l2_norm_V2_swap_mul
 // CHECK: mhlo.custom_call
 // CHECK-SAME: @byteir.l2_norm
 // CHECK-SAME: byteir_attrs = {axis = [1], epsilon = 0.000000e+00 : f64}

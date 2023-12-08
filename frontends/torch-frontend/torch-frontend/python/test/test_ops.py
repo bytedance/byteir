@@ -133,3 +133,28 @@ def test_clamp_derefine():
     inputs = [tu.randn(3, 4)]
     module = convert_to_mhlo_via_torch_mlir(ClampDerefineModule(), inputs)
     print(module.operation.get_asm())
+
+# ==============================================================================
+# tuple cases
+
+class Tuple1Module(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x):
+        return (x, )
+
+def test_tuple_one_tensor():
+    inputs = [tu.randn(3, 4)]
+    module = convert_to_mhlo_via_torch_mlir(Tuple1Module(), inputs)
+    print(module.operation.get_asm())
+
+class Tuple2Module(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x):
+        return (x, x)
+
+def test_tuple_one_tensor():
+    inputs = [tu.randn(3, 4)]
+    module = convert_to_mhlo_via_torch_mlir(Tuple2Module(), inputs)
+    print(module.operation.get_asm())

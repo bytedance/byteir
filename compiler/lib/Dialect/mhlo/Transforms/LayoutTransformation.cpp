@@ -567,7 +567,6 @@ struct BatchNormTrainingLayoutTransformationPattern
     if (op->hasAttr(TransformationDisableKey)) {
       return failure();
     }
-    auto inputType = op.getOperand().getType().cast<RankedTensorType>();
     if (targetLayout == "NHWC") {
       Value inputTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
@@ -608,7 +607,7 @@ struct BatchNormInferenceLayoutTransformationPattern
     if (op->hasAttr(TransformationDisableKey)) {
       return failure();
     }
-    auto inputType = op.getOperand().getType().cast<RankedTensorType>();
+    // auto inputType = op.getOperand().getType().cast<RankedTensorType>();
     if (targetLayout == "NHWC") {
       Value inputTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
@@ -645,7 +644,7 @@ struct BatchNormGradLayoutTransformationPattern
     if (op->hasAttr(TransformationDisableKey)) {
       return failure();
     }
-    auto inputType = op.getOperand().getType().cast<RankedTensorType>();
+    // auto inputType = op.getOperand().getType().cast<RankedTensorType>();
     if (targetLayout == "NHWC") {
       Value operandTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
@@ -677,7 +676,7 @@ struct BatchNormGradLayoutTransformationPattern
 // return the input layout of conv op when there are conv op which have
 // the same input layout in funcOp
 byteir::NamedLayout findGlobalLayout(func::FuncOp func) {
-  Region &body = func.getBody();
+  // Region &body = func.getBody();
   byteir::NamedLayout inputLayout = byteir::NamedLayout::UNKNOWN;
 
   func.walk([&inputLayout](mhlo::ConvolutionOp conv) {

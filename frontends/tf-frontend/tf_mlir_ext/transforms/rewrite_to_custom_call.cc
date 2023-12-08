@@ -60,7 +60,8 @@ namespace {
     cb(layer_norm, LayerNorm, CALL_TARGET_NAME_PREFIX)    \
     cb(l2_norm, L2Norm, CALL_TARGET_NAME_PREFIX)          \
     cb(addn, AddN, CALL_TARGET_NAME_PREFIX)               \
-    cb(one_hot, OneHot, CALL_TARGET_NAME_PREFIX)           \
+    cb(one_hot, OneHot, CALL_TARGET_NAME_PREFIX)          \
+    cb(repeat, Repeat, CALL_TARGET_NAME_PREFIX)           \
     cb(DynamicMaskStitch, DynamicMaskStitch, CALL_TF_TARGET_NAME_PREFIX) \
     cb(DynamicPartition, DynamicPartition, CALL_TF_TARGET_NAME_PREFIX)   \
     cb(DynamicStitch, DynamicStitch, CALL_TF_TARGET_NAME_PREFIX)
@@ -446,6 +447,30 @@ struct RewriteOneHot : public OpRewritePattern<TF::OneHotOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Repeat Pattern
+//===----------------------------------------------------------------------===//
+struct RewriteRepeat : public RewritePattern {
+  RewriteRepeat(MLIRContext *context, PatternBenefit benefits = 1)
+      : RewritePattern("tf.Repeat", benefits, context) {}
+  LogicalResult matchAndRewrite(Operation *op,
+                                PatternRewriter &rewriter) const override {
+    // llvm::outs() << op->getName().getStringRef();
+    assert(op->getName().getStringRef() == "tf.Repeat");
+    mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+        op->getLoc(), op->getResults().getTypes(), op->getOperands(),
+        getRepeatNameWithPrefix(), false, rewriter.getStringAttr(""),
+        mhlo::CustomCallApiVersion{
+            mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL},
+        rewriter.getArrayAttr(ArrayRef<Attribute>{}),
+        mhlo::CustomCallSchedule{mhlo::CustomCallSchedule::NONE}, nullptr,
+        nullptr, rewriter.getArrayAttr(ArrayRef<Attribute>{}));
+    customCallOp->setAttr(getByteIRAttrs(), getCleanAttr(op));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // SimpleReplace Pattern
 //===----------------------------------------------------------------------===//
 
@@ -616,6 +641,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<RewriteGELUtanhV3>(context));
       validCustomCallOpSet[getGeLUName()].emplace_back(
           std::make_unique<RewriteGELUerf>(context));
+      validCustomCallOpSet[getGeLUName()].emplace_back(
+          std::make_unique<RewriteGELUerfV2>(context));
 
       if (keepBody) {
         validCustomCallOpSet[getLayerNormName()].emplace_back(
@@ -643,6 +670,8 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithCast>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormWithCastV2>(context));
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithCastDisableMinimizeBroadcast>(
               context));
 
@@ -652,6 +681,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<RewriteL2NormV1SwapMul>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV2>(context));
+      validCustomCallOpSet[getL2NormName()].emplace_back(
+          std::make_unique<RewriteL2NormV2SwapMul>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV3>(context));
 
@@ -681,6 +712,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<SimpleReplaceDynamicPartition>(context, 1));
       validCustomCallOpSet[getDynamicStitchName()].emplace_back(
           std::make_unique<SimpleReplaceDynamicStitch>(context, 1));
+      validCustomCallOpSet[getRepeatName()].emplace_back(
+          std::make_unique<RewriteRepeat>(context, 1));
 
       RewritePatternSet patterns(context);
       for (auto op : opsSet) {
