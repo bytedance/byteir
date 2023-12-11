@@ -7,7 +7,7 @@ file(GLOB_RECURSE brt_device_cuda_srcs CONFIGURE_DEPENDS
 source_group(TREE ${REPO_ROOT} FILES ${brt_device_cuda_srcs})
 
 brt_add_object_library(brt_device_cuda ${brt_device_cuda_srcs})
-target_link_libraries(brt_device_cuda CUDA::cuda_driver CUDA::cudart CUDA::nvrtc)
+target_link_libraries(brt_device_cuda brt_ir CUDA::cuda_driver CUDA::cudart CUDA::nvrtc)
 brt_add_include_to_target(brt_device_cuda brt_framework brt_common)
 set_target_properties(brt_device_cuda PROPERTIES FOLDER "Brt")
 

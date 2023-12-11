@@ -59,6 +59,8 @@ public:
   virtual common::Status AddTask(int task_type, const void *func,
                                  void **args) override;
 
+  virtual common::Status AddEventWait(mlir::Operation *,
+                                      std::vector<mlir::Operation *>) override;
   // Barrier
   virtual common::Status Sync() override;
 
@@ -93,6 +95,8 @@ public:
   // func is a stateless function
   common::Status AddTask(int task_type, const void *func, void **args) override;
 
+  common::Status AddEventWait(mlir::Operation *,
+                              std::vector<mlir::Operation *>) override;
   // Barrier
   common::Status Sync() override;
 
@@ -125,6 +129,11 @@ public:
 
   // Barrier
   common::Status Sync() override;
+
+  size_t GetStreamIdx(mlir::Operation *op);
+
+  common::Status AddEventWait(mlir::Operation *,
+                              std::vector<mlir::Operation *>) override;
 
   CUstream_st *GetComputeStream() override { return streams_[0]; }
 

@@ -242,6 +242,65 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
   if (!status_internal.IsOK())
     return status_internal;
 
+  // handle op dependency
+  // TODO: move to compiler
+  llvm::DenseMap<Value, Operation *> dependent_op;
+  graph_.IterateNode([&](Operation *op) {
+    if (auto compute_op = llvm::dyn_cast<byre::ComputeOp>(op)) {
+      auto memory_effects = compute_op.getMemoryEffects();
+      if (memory_effects.has_value()) {
+        auto memory_effects_val = memory_effects.value();
+        if (op->getNumOperands() != memory_effects_val.size()) {
+          const std::string &key = ByREHandle::GetKey(compute_op);
+          status_internal = Status(
+              BRT, FAIL,
+              "expect memory effects size equals to number of operands " + key);
+          return WalkResult::interrupt();
+        }
+        for (size_t i = 0; i < memory_effects_val.size(); i++) {
+          auto memory_effect_attr =
+              memory_effects_val[i].cast<byre::MemoryEffectAttr>().getValue();
+          if (memory_effect_attr == byre::MemoryEffect::Read) {
+            // Read from operand, update dependency_graph
+            if (dependent_op.count(op->getOperand(i)) > 0) {
+              frame_construct_info_.dependency_graph[op].push_back(
+                  dependent_op[op->getOperand(i)]);
+            }
+          } else if (memory_effect_attr == byre::MemoryEffect::Write) {
+            // Write to operand, update dependent_op
+            dependent_op[op->getOperand(i)] = op;
+          } else {
+            // Read then Write
+            if (dependent_op.count(op->getOperand(i)) > 0) {
+              frame_construct_info_.dependency_graph[op].push_back(
+                  dependent_op[op->getOperand(i)]);
+            }
+            dependent_op[op->getOperand(i)] = op;
+          }
+        }
+      } else {
+        // no memory effect detected. Assume read & write for all operands.
+        for (int i = 0; i < op->getNumOperands(); ++i) {
+          Value operand = op->getOperand(i);
+          if (dependent_op.count(operand) > 0) {
+            frame_construct_info_.dependency_graph[op].push_back(
+                dependent_op[operand]);
+          }
+          dependent_op[operand] = op;
+        }
+      }
+    } else if (auto copy_op = llvm::dyn_cast<byre::CopyOp>(op)) {
+      if (dependent_op.count(op->getOperand(0)) > 0) {
+        frame_construct_info_.dependency_graph[op].push_back(
+            dependent_op[op->getOperand(0)]);
+      }
+      dependent_op[op->getOperand(1)] = op;
+    }
+    return WalkResult::advance();
+  });
+  if (!status_internal.IsOK())
+    return status_internal;
+
   // create op kernel, generate tensor id and mapping IR value to it
   graph_.IterateNode([&](Operation *op) {
     if (auto byre_op = dyn_cast<byre::ByreOp>(op)) {
@@ -312,12 +371,15 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
         if (IsAliasOp(byre_op))
           break;
 
+        if (frame_construct_info_.dependency_graph.count(op) == 0) {
+          frame_construct_info_.dependency_graph[op] = {};
+        }
         // creat an OpKerenl based on the hitting provider
-        OpKernelInfo op_kernel_info(*provider, graph_, op, allocators,
-                                    last_alloc, graph_info_.tensor_to_id,
-                                    graph_info_.scalar_to_id,
-                                    frame_construct_info_.weights,
-                                    intermediate_begin, graph_.GetIRPath());
+        OpKernelInfo op_kernel_info(
+            *provider, graph_, op, allocators, last_alloc,
+            graph_info_.tensor_to_id, graph_info_.scalar_to_id,
+            frame_construct_info_.weights, intermediate_begin,
+            graph_.GetIRPath(), frame_construct_info_.dependency_graph[op]);
 
         auto op_ptr = (*registry)(key, op_kernel_info);
 

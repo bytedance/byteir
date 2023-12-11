@@ -356,6 +356,10 @@ public:
     // store all buffers of weights
     std::vector<AsyncValue> weights;
 
+    // store op dependency
+    std::unordered_map<mlir::Operation *, std::vector<mlir::Operation *>>
+        dependency_graph;
+
     std::vector<IAllocator *> weight_and_ios_allocators;
 
     // each dynamic allocation request is a pair of (intermediate_index,
