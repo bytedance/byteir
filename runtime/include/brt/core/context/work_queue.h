@@ -18,6 +18,7 @@
 #pragma once
 
 #include "brt/core/common/status.h"
+#include "brt/core/ir/ir.h"
 #include <functional>
 #include <string>
 
@@ -65,6 +66,10 @@ public:
 
   // Enqueue a task on host side
   virtual common::Status AddHostTask(std::function<void(void)> &&task) = 0;
+
+  // Add wait event if any
+  virtual common::Status AddEventWait(mlir::Operation *,
+                                      std::vector<mlir::Operation *>) = 0;
 
   // Enqueue through a functor
   // Note, the functor is called immediately.

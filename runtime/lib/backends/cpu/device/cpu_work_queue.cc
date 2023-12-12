@@ -30,6 +30,11 @@ common::Status CPUNaiveWorkQueue::AddTask(int /*task_type*/,
                         "Use AddHostTask for cpu work queue");
 }
 
+common::Status CPUNaiveWorkQueue::AddEventWait(mlir::Operation *,
+                                               std::vector<mlir::Operation *>) {
+  return common::Status::OK();
+}
+
 common::Status CPUNaiveWorkQueue::Sync() { return common::Status::OK(); }
 
 common::Status
@@ -51,6 +56,11 @@ common::Status CPULazyWorkQueue::Sync() {
   for (auto &&task : tasks) {
     task();
   }
+  return common::Status::OK();
+}
+
+common::Status CPULazyWorkQueue::AddEventWait(mlir::Operation *,
+                                              std::vector<mlir::Operation *>) {
   return common::Status::OK();
 }
 

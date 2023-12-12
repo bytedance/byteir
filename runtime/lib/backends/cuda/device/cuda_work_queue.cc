@@ -19,6 +19,8 @@
 
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/core/common/common.h"
+#include "brt/core/ir/ir.h"
+#include "byteir/Dialect/Byre/ByreDialect.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -109,6 +111,12 @@ common::Status CUDAWorkQueue::AddTask(int task_type, const void *func,
                 "unsupported task type " + std::to_string(task_type));
 }
 
+common::Status
+CUDAWorkQueue::AddEventWait(mlir::Operation *op,
+                            std::vector<mlir::Operation *> dependency_list) {
+  return Status::OK();
+}
+
 common::Status CUDAWorkQueue::Sync() {
   GetCudaEnv().Activate();
   return BRT_CUDA_CALL(cudaDeviceSynchronize());
@@ -146,6 +154,12 @@ common::Status CUDASingleStreamWorkQueue::AddTask(int task_type,
 
   return Status(BRT, FAIL,
                 "unsupported task type " + std::to_string(task_type));
+}
+
+common::Status CUDASingleStreamWorkQueue::AddEventWait(
+    mlir::Operation *op, std::vector<mlir::Operation *> dependency_list) {
+  // single stream, no need to wait
+  return Status::OK();
 }
 
 common::Status CUDASingleStreamWorkQueue::Sync() {
@@ -224,9 +238,35 @@ common::Status CUDAOneComputeTwoTransferWorkQueue::AddTask(int task_type,
                 "unsupported task type " + std::to_string(task_type));
 }
 
+common::Status CUDAOneComputeTwoTransferWorkQueue::AddEventWait(
+    mlir::Operation *op, std::vector<mlir::Operation *> dependency_list) {
+  for (auto dep_op : dependency_list) {
+    size_t wait_stream = GetStreamIdx(dep_op);
+    size_t curr_stream = GetStreamIdx(op);
+    if (curr_stream == wait_stream)
+      continue;
+    void *record_args[] = {&wait_stream, nullptr /*placeholder for event*/};
+    this->AddTask(CUDATaskType::kRecordEvent, nullptr, record_args);
+    void *wait_args[] = {&curr_stream, record_args[1]};
+    this->AddTask(CUDATaskType::kWaitEvent, nullptr, wait_args);
+  }
+  return Status::OK();
+}
+
 common::Status CUDAOneComputeTwoTransferWorkQueue::Sync() {
   GetCudaEnv().Activate();
   return BRT_CUDA_CALL(cudaDeviceSynchronize());
+}
+
+size_t CUDAOneComputeTwoTransferWorkQueue::GetStreamIdx(mlir::Operation *op) {
+  auto byre_op = static_cast<mlir::byre::ByreOp>(op);
+  const std::string &key = ir::ByREHandle::GetKey(byre_op);
+  if (key == "cpu2cuda") {
+    return 1;
+  } else if (key == "cuda2cpu") {
+    return 2;
+  }
+  return 0;
 }
 
 CUDAExternalStreamWorkQueue::CUDAExternalStreamWorkQueue(CUstream_st *stream)

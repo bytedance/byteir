@@ -32,6 +32,9 @@ public:
   common::Status AddTask(int /*task_type*/, const void * /*func*/,
                          void ** /*args*/) override;
 
+  common::Status AddEventWait(mlir::Operation *,
+                              std::vector<mlir::Operation *>) override;
+
   common::Status Sync() override;
 
   common::Status AddHostTask(std::function<void(void)> &&task) override;
@@ -44,6 +47,9 @@ public:
 
   common::Status AddTask(int /*task_type*/, const void * /*func*/,
                          void ** /*args*/) override;
+
+  common::Status AddEventWait(mlir::Operation *,
+                              std::vector<mlir::Operation *>) override;
 
   common::Status Sync() override;
 

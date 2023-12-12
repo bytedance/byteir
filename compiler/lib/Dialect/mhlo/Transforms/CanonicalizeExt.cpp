@@ -1139,6 +1139,55 @@ struct FoldLargeBinaryOp : OpRewritePattern<Op> {
   }
 };
 
+struct FoldClampOp : public OpRewritePattern<mhlo::ClampOp> {
+  using OpRewritePattern<mhlo::ClampOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ClampOp op,
+                                PatternRewriter &rewriter) const override {
+    mhlo::ConstantOp constOp =
+        op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    mhlo::ConstantOp minOp = op.getMin().getDefiningOp<mhlo::ConstantOp>();
+    mhlo::ConstantOp maxOp = op.getMax().getDefiningOp<mhlo::ConstantOp>();
+    if (!constOp || !minOp || !maxOp) {
+      return failure();
+    }
+
+    RankedTensorType operandType =
+        op.getOperand().getType().cast<RankedTensorType>();
+    ElementsAttr minValue = minOp.getValue();
+    ElementsAttr maxValue = maxOp.getValue();
+    if (minValue.getShapedType().getRank() == 0) {
+      minValue = DenseElementsAttr::get(operandType,
+                                        minValue.getValues<Attribute>()[0]);
+    }
+    if (maxValue.getShapedType().getRank() == 0) {
+      maxValue = DenseElementsAttr::get(operandType,
+                                        maxValue.getValues<Attribute>()[0]);
+    }
+
+    Attribute result;
+    if (operandType.getElementType().isa<FloatType>()) {
+      result = BinaryFolder<mhlo::ClampOp, FloatType, APFloat, Max<APFloat>>(
+          &op, ArrayRef<Attribute>{minValue, constOp.getValue()});
+      result = BinaryFolder<mhlo::ClampOp, FloatType, APFloat, Min<APFloat>>(
+          &op, ArrayRef<Attribute>{maxValue, result});
+
+    } else if (operandType.getElementType().isa<IntegerType>()) {
+      result = BinaryFolder<mhlo::ClampOp, IntegerType, APInt, Max<APSInt>>(
+          &op, ArrayRef<Attribute>{minValue, constOp.getValue()});
+      result = BinaryFolder<mhlo::ClampOp, IntegerType, APInt, Min<APSInt>>(
+          &op, ArrayRef<Attribute>{maxValue, result});
+    }
+    if (!result) {
+      return failure();
+    }
+
+    mhlo::ConstantOp newConstOp =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), result);
+    rewriter.replaceOp(op, newConstOp.getOutput());
+    return success();
+  }
+};
+
 struct FoldLargeCompareOp : public OpRewritePattern<mhlo::CompareOp> {
   using OpRewritePattern<mhlo::CompareOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::CompareOp op,
@@ -1921,6 +1970,7 @@ void mlir::mhlo::populateFoldLargeBinaryOpPatterns(
   patterns.add<FoldLargeBinaryOp<mhlo::MinOp, Min>>(ctx);
   patterns.add<FoldLargeBinaryOp<mhlo::PowOp, Pow>>(ctx);
   patterns.add<FoldLargeCompareOp>(ctx);
+  patterns.add<FoldClampOp>(ctx);
 }
 
 void mlir::mhlo::populateFoldBeneficialConstantConvertOpPattern(
