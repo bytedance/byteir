@@ -47,8 +47,9 @@ ByteIR编译器和ByteIR Runtime通过ByRE格式进行交互，其版本可能�
 
 ## 出版与引用
 
-ByteIR是许多字节跳动的杰出研究人员和实习生共同努力的成果。以下是我们的出版物列表：
-* [Linalg is All You Need to Optimize Attention](compiler/paper/c4ml23_poster.pdf) -- C4ML'23
+ByteIR是许多字节跳动的杰出研究人员和实习生共同努力的成果。以下是我们的公开演讲列表：
+* [Linalg is All You Need to Optimize Attention](talks/c4ml23_poster.pdf) -- C4ML'23
+* [ByteIR: 迈向端到端的AI编译](talks/ChinaSoftCon-ByteIR.pdf) -- China SoftCon'23
 
 如果您认为ByteIR有用，请考虑引用。
 ``` 

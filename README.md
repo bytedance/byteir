@@ -63,9 +63,10 @@ Other ByRE formats are under development.
 
 ## Publication and Citation
 
-ByteIR is the product of many great researchers and interns in ByteDance. Below is a list of our publications:
+ByteIR is the product of many great researchers and interns in ByteDance. Below is a list of our public talks:
 
-* [Linalg is All You Need to Optimize Attention](compiler/paper/c4ml23_poster.pdf) -- C4ML'23
+* [Linalg is All You Need to Optimize Attention](talks/c4ml23_poster.pdf) -- C4ML'23
+* [ByteIR: Towards End-to-End AI Compilation](talks/ChinaSoftCon-ByteIR.pdf) -- China SoftCon'23
 
 
 If you find ByteIR useful, please consider citing.
