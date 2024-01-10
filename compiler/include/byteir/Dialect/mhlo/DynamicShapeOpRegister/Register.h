@@ -55,11 +55,15 @@ inline void registerAllMhloInferReturnTypeComponents() {
 void registerDynamicPartitionInferBoundedReturnTypeComponents();
 void registerNonZeroInferBoundedReturnTypeComponents();
 void registerWhereInferBoundedReturnTypeComponents();
+void registerStridedSliceInferBoundedReturnTypeComponents();
+void registerRepeatInferBoundedReturnTypeComponents();
 
 inline void registerAllMhloInferBoundedReturnTypeComponents() {
   registerDynamicPartitionInferBoundedReturnTypeComponents();
   registerNonZeroInferBoundedReturnTypeComponents();
   registerWhereInferBoundedReturnTypeComponents();
+  registerStridedSliceInferBoundedReturnTypeComponents();
+  registerRepeatInferBoundedReturnTypeComponents();
 }
 
 //===----------------------------------------------------------------------===//

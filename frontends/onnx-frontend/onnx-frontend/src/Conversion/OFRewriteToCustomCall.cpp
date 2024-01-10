@@ -394,6 +394,13 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+Value createLayerNormWithNoneEps(PatternRewriter &rewriter, Location loc,
+                                 Value input, Value scale, Value B,
+                                 ArrayAttr axis_attr) {
+  DenseFPElementsAttr zero = rewriter.getF64VectorAttr({0.0f});
+  return createLayerNorm(rewriter, loc, input, scale, B, axis_attr, zero);
+}
+
 Value createLayerNormWithoutLastAdd(PatternRewriter &rewriter, Location loc,
                                     Value input, Value scale,
                                     ArrayAttr axis_attr,
@@ -673,6 +680,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteLayerNormGeLUWithMulConstPropagation>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNorm>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteLayerNormWithNoneEps>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNormWithoutLastAdd>(context));
     validOpSet[getLayerNormName()].emplace_back(

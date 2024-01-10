@@ -373,7 +373,11 @@ void ShapeValueAnalysis::visitOperation(
         visitOperation(op, operands, shapeLattices, results);
       })
       .Case<arith::IndexCastOp>([&](Operation *op) {
-        Attribute constAttr = operands[0]->getValue().getConstantValue();
+        const ShapeValueLattice *index = operands[0];
+        if (index->getValue().isUninitialized()) {
+          return;
+        }
+        Attribute constAttr = index->getValue().getConstantValue();
         if (auto denseInt =
                 constAttr.dyn_cast_or_null<DenseIntElementsAttr>()) {
 

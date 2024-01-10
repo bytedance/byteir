@@ -97,6 +97,10 @@ constexpr llvm::StringRef getFlashAttnBwdName() {
   return CUSTOM_CALL_NAME_PREFIX "flash_attn_bwd";
 }
 
+constexpr llvm::StringRef getRepeatName() {
+  return CUSTOM_CALL_NAME_PREFIX "repeat";
+}
+
 constexpr llvm::StringRef getDynamicPartitionName() {
   return TF_NAME_PREFIX "DynamicPartition";
 }
@@ -110,6 +114,9 @@ constexpr llvm::StringRef getDynamicMaskStitchName() {
 }
 
 constexpr llvm::StringRef getWhereName() { return TF_NAME_PREFIX "Where"; }
+constexpr llvm::StringRef getStridedSliceName() {
+  return TF_NAME_PREFIX "StridedSlice";
+}
 
 } // namespace mlir
 

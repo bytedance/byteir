@@ -119,7 +119,7 @@ struct CustomCallOpInterface
                         {static_cast<int32_t>(op->getNumOperands()),
                          static_cast<int32_t>(op->getNumResults())}));
     bufferization::replaceOpWithBufferizedValues(
-        rewriter, op, makeArrayRef(bufferArgs).slice(op->getNumOperands()));
+        rewriter, op, ArrayRef<Value>(bufferArgs).slice(op->getNumOperands()));
     return success();
   }
 };

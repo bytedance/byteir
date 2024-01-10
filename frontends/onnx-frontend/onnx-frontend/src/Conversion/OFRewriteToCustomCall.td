@@ -131,6 +131,34 @@ def RewriteLayerNorm : Pat<
    (HasOneUse $mul_result),
   ]>;
 
+def RewriteLayerNormWithNoneEps : Pat<
+  (ONNXAddOp
+    (ONNXMulOp:$mul_result
+      (ONNXDivOp
+        (ONNXSubOp:$input_zero_mean_0
+          $input,
+          (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
+        ),
+        (ONNXSqrtOp
+          (ONNXReduceMeanV13Op
+            (ONNXMulOp
+              $input_zero_mean_1,
+              $input_zero_mean_1
+            ), $axis_attr_1, $_
+          )
+        )
+      ),
+      (ONNXConstantOp:$scale $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+  ),
+  (NativeCodeCall<"createLayerNormWithNoneEps($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $B, $axis_attr_1),
+  [(IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
+   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+   (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+   (HasOneUse $mul_result),
+  ]>;
+
 def RewriteLayerNormWithoutLastAdd : Pat<
   (ONNXMulOp
     (ONNXDivOp

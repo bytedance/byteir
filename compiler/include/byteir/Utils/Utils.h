@@ -80,13 +80,21 @@ bool isMinValueAttribute(Attribute value);
 // it will check all of sub attributes.
 bool isMaxValueAttribute(Attribute value);
 
-// TODO add Largest if needed.
-
 // Returns true if the given `attr` is a splat value and is `value`.
 bool isSplatValue(DenseIntElementsAttr attr, int64_t value);
 
 // Returns true if the given `attr` is a splat value as the given `value`.
 bool isSplatValue(DenseFPElementsAttr attr, double value);
+
+inline bool isSplatElementsAttribute(DenseIntOrFPElementsAttr attr,
+                                     int64_t intValue, double doubleValue) {
+  if (attr.isa<DenseIntElementsAttr>()) {
+    return isSplatValue(attr.cast<DenseIntElementsAttr>(), intValue);
+  } else if (attr.isa<DenseFPElementsAttr>()) {
+    return isSplatValue(attr.cast<DenseFPElementsAttr>(), doubleValue);
+  }
+  assert(false && "attr must be DenseIntElementsAttr or DenseFPElementsAttr");
+}
 
 // Returns true if the given `attr` is a splat value and close to `value`.
 bool isSplatCloseToValue(DenseFPElementsAttr attr, double value,
@@ -216,10 +224,10 @@ OpFoldResult canonicalizeOpFoldResult(OpFoldResult ofr,
 SmallVector<OpFoldResult> canonicalizeOpFoldResult(ArrayRef<OpFoldResult> ofrs,
                                                    bool enableFold = false);
 
-// Return ture if block contains single op
+// Return true if block contains single op
 template <typename Op> bool isBlockSingleOp(Block *block) {
   if (block == nullptr)
-    return true;
+    return false;
 
   Operation *retOp = block->getTerminator();
   if (retOp->getNumOperands() != 1)
