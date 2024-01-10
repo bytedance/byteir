@@ -36,7 +36,6 @@ LogicalResult VerifyBMMLayout(Value lhs, Value rhs, Value out,
                               llvm::StringRef layoutStr) {
   auto lhsType = lhs.getType().cast<ShapedType>();
   auto rhsType = rhs.getType().cast<ShapedType>();
-  // auto outType = out.getType().cast<ShapedType>();
   if (lhsType.getRank() != 3 || rhsType.getRank() != 3)
     return failure();
 

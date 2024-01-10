@@ -295,6 +295,16 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             dependent_op[op->getOperand(0)]);
       }
       dependent_op[op->getOperand(1)] = op;
+    } else if (auto groupcopy_op = llvm::dyn_cast<byre::GroupCopyOp>(op)) {
+      for (auto operand : groupcopy_op.getSource()) {
+        if (dependent_op.count(operand) > 0) {
+          frame_construct_info_.dependency_graph[op].push_back(
+              dependent_op[operand]);
+        }
+      }
+      for (auto target : groupcopy_op.getTarget()) {
+        dependent_op[target] = op;
+      }
     }
     return WalkResult::advance();
   });

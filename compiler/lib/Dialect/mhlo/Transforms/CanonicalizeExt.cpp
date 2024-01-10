@@ -64,21 +64,6 @@
 using namespace llvm;
 using namespace mlir;
 
-// common util
-namespace {
-bool isSplatZero(SplatElementsAttr attr) {
-  if (!attr)
-    return false;
-  if (attr.getElementType().isa<FloatType>()) {
-    return attr.getSplatValue<APFloat>().isZero();
-  }
-  if (attr.getElementType().isa<IntegerType>()) {
-    return attr.getSplatValue<APInt>().isZero();
-  }
-  return false;
-}
-} // namespace
-
 ///
 ///  foldBroadcastInDimConstWithBinary
 ///
@@ -439,17 +424,12 @@ struct SimplifyAddInsertSlicesToInsertSlices
       if (!cstOp)
         return false;
 
-      DenseElementsAttr valAttr =
-          cstOp.getValue().dyn_cast<DenseElementsAttr>();
+      DenseIntOrFPElementsAttr valAttr =
+          cstOp.getValue().dyn_cast<DenseIntOrFPElementsAttr>();
       if (!valAttr)
         return false;
 
-      SplatElementsAttr splatAttr =
-          valAttr.dyn_cast_or_null<SplatElementsAttr>();
-      if (!splatAttr)
-        return false;
-
-      return isSplatZero(splatAttr);
+      return isSplatElementsAttribute(valAttr, 0, 0.0);
     };
 
     if (!checkZero(lhsChain->init) || !checkZero(rhsChain->init)) {
@@ -634,10 +614,6 @@ struct EliminateRedundantConvertFromI1
     }
     auto firstType =
         convertOp.getOperand().getType().cast<TensorType>().getElementType();
-    auto secondType =
-        op.getOperand().getType().cast<TensorType>().getElementType();
-    auto thirdType =
-        op.getResult().getType().cast<TensorType>().getElementType();
     auto loc = rewriter.getFusedLoc({convertOp->getLoc(), op->getLoc()});
 
     if (firstType.isa<IntegerType>() &&
@@ -735,9 +711,9 @@ struct FoldConcatWithSlicesAndRehape
               break;
             }
           } else if ((startAttr.getValues<IntegerAttr>()[j].getInt() !=
-                      i * sliceSize) ||
+                      static_cast<int64_t>(i * sliceSize)) ||
                      (limitAttr.getValues<IntegerAttr>()[j].getInt() !=
-                      (i + 1) * sliceSize) ||
+                      static_cast<int64_t>((i + 1) * sliceSize)) ||
                      (stridesAttr.getValues<IntegerAttr>()[j].getInt() != 1)) {
             isAllSliceOpLegal = false;
             break;
@@ -755,8 +731,9 @@ struct FoldConcatWithSlicesAndRehape
           opOperandList[0]->get().getDefiningOp<mhlo::ReshapeOp>());
 
       // only support that reshape expand's dim is  equal to concat dim
-      if ((!expandDim.has_value()) || (*expandDim != concatDim) ||
-          (*expandDim != sliceOperandShape.size() - 1)) {
+      if ((!expandDim.has_value()) ||
+          (*expandDim != static_cast<int64_t>(concatDim)) ||
+          (*expandDim != static_cast<int64_t>(sliceOperandShape.size() - 1))) {
         continue;
       }
       SmallVector<int64_t> newReshapeShape(sliceOperandShape.begin(),
@@ -906,17 +883,12 @@ struct FoldMultiplyZero : public OpRewritePattern<mhlo::MulOp> {
       if (!cstOp)
         return false;
 
-      DenseElementsAttr valAttr =
-          cstOp.getValue().dyn_cast<DenseElementsAttr>();
+      DenseIntOrFPElementsAttr valAttr =
+          cstOp.getValue().dyn_cast<DenseIntOrFPElementsAttr>();
       if (!valAttr)
         return false;
 
-      SplatElementsAttr splatAttr =
-          valAttr.dyn_cast_or_null<SplatElementsAttr>();
-      if (!splatAttr)
-        return false;
-
-      if (isSplatZero(splatAttr)) {
+      if (isSplatElementsAttribute(valAttr, 0, 0.0)) {
         rewriter.replaceOp(op, cstOp.getResult());
         return true;
       }
@@ -1672,7 +1644,7 @@ struct CanonicalizeConcatWithBroadcast
     std::unordered_set<int64_t> dimensions(
         firstBcast.getBroadcastDimensions().getValues<int64_t>().begin(),
         firstBcast.getBroadcastDimensions().getValues<int64_t>().end());
-    if (dimensions.size() !=
+    if (static_cast<int64_t>(dimensions.size()) !=
         (firstBcast.getType().cast<ShapedType>().getRank() - 1)) {
       return failure();
     }
@@ -1897,6 +1869,134 @@ struct FoldReverseWithConstant : public OpRewritePattern<mhlo::ReverseOp> {
   }
 };
 
+// this pattern matches a ScatterOp with iota scatter_indices,
+// the output of ScatterOp maybe equal to the input or update.
+struct FoldScatterWithInputAndUpdate
+    : public OpRewritePattern<mhlo::ScatterOp> {
+  using OpRewritePattern<mhlo::ScatterOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ScatterOp op,
+                                PatternRewriter &rewriter) const override {
+
+    auto isEmptyBlock = [](Block *block) {
+      if (block == nullptr)
+        return false;
+
+      auto &ops = block->getOperations();
+      if (ops.size() != 1)
+        return false;
+      Operation *retOp = block->getTerminator();
+      // scatter should return the `update` argument
+      if (retOp->getNumOperands() != 1 ||
+          retOp->getOperand(0) != block->getArgument(1))
+        return false;
+      return true;
+    };
+
+    // Variadic Scatter not yet implemented
+    if (op.getInputs().size() != 1 || op.getUpdates().size() != 1 ||
+        op.getResults().size() != 1) {
+      return failure();
+    }
+
+    auto update = op.getUpdates()[0].getDefiningOp<mhlo::ConstantOp>();
+    Block &block = op.getUpdateComputation().front();
+    // update_computation == "add"
+    // if update is zeros, use input to replace scatter op
+    // else return failure
+    if (isBlockSingleOp<mhlo::AddOp>(&block)) {
+      if (update) {
+        auto updateAttr = update.getValue().cast<DenseIntOrFPElementsAttr>();
+        if (isSplatElementsAttribute(updateAttr, 0, 0.0)) {
+          rewriter.replaceOp(op, op.getInputs());
+          return success();
+        }
+      }
+      return failure();
+    }
+
+    // update_computation == "multiply"
+    // if update is ones, use input to replace scatter op;
+    // else if update is zeros, do the same check with
+    // update_computation == "none";
+    // else return failure
+    if (isBlockSingleOp<mhlo::MulOp>(&block)) {
+      if (update) {
+        auto updateAttr = update.getValue().cast<DenseIntOrFPElementsAttr>();
+        if (isSplatElementsAttribute(updateAttr, 1, 1.0)) {
+          rewriter.replaceOp(op, op.getInputs());
+          return success();
+        }
+        if (!isSplatElementsAttribute(updateAttr, 0, 0.0)) {
+          return failure();
+        }
+      } else {
+        return failure();
+      }
+    }
+
+    // update_computation == "none"
+    if (isEmptyBlock(&block) || isBlockSingleOp<mhlo::MulOp>(&block)) {
+      auto inputTy = cast<ShapedType>(op.getInputs()[0].getType());
+      auto updateTy = cast<ShapedType>(op.getUpdates()[0].getType());
+
+      if (inputTy != updateTy) {
+        return failure();
+      }
+
+      // check wether scatter_indices is iotaOp
+      auto scatterIndices = op.getScatterIndices();
+      auto scatterIndicesTy = cast<ShapedType>(scatterIndices.getType());
+      auto iotaOp = scatterIndices.getDefiningOp<mhlo::IotaOp>();
+      if (!iotaOp || !scatterIndicesTy.hasRank()) {
+        return failure();
+      }
+
+      // the following checks make sure that results are the same as updates
+      int64_t indexVectorDim = scatterIndicesTy.getRank();
+
+      auto scatterDimensionNumbers = op.getScatterDimensionNumbers();
+      if (scatterDimensionNumbers.getIndexVectorDim() != indexVectorDim ||
+          indexVectorDim != 1) {
+        return failure();
+      }
+
+      if (scatterDimensionNumbers.getScatterDimsToOperandDims().size() != 1) {
+        return failure();
+      }
+
+      // the size of insertedWindowDims should be 1
+      if (scatterDimensionNumbers.getInsertedWindowDims().size() != 1) {
+        return failure();
+      }
+
+      int64_t scatterDimsToOperandDim =
+          scatterDimensionNumbers.getScatterDimsToOperandDims()[0];
+      int64_t insertedWindowDim =
+          scatterDimensionNumbers.getInsertedWindowDims()[0];
+
+      if (insertedWindowDim != scatterDimsToOperandDim) {
+        return failure();
+      }
+
+      auto uodateWindowDims = scatterDimensionNumbers.getUpdateWindowDims();
+      for (auto dims : uodateWindowDims) {
+        if (dims == insertedWindowDim) {
+          return failure();
+        }
+      }
+
+      // if the scatter index and update window index are disjoint,
+      // and the scatter index is generate by IotaOp,
+      // if (update_computation == "multiply" && updates is zeros)
+      // || update_computation == "none"
+      // the results of scatterOp is equal to updates
+      rewriter.replaceOp(op, op.getUpdates());
+      return success();
+    }
+    return failure();
+  }
+};
+
 // this pattern match a GatherOp with iota start_indices,
 // the output of GatherOp maybe equal to the input.
 struct FoldGatherWithInput : public OpRewritePattern<mhlo::GatherOp> {
@@ -2000,6 +2100,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<SimplifyTransposeReshapeTranspose>(ctx);
   patterns.add<FoldReverseWithConstant>(ctx);
   patterns.add<FoldGatherWithInput>(ctx);
+  patterns.add<FoldScatterWithInputAndUpdate>(ctx);
   if (blindFold) {
     patterns.add<FoldLargeConcatenate>(ctx);
   }
