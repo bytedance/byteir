@@ -25,12 +25,22 @@ function install_aitemplate() {
   popd
 }
 
+function load_llvm_prebuilt() {
+  LLVM_INSTALL_DIR="/data00/llvm_libraries/4592543a01609feb4b3c19e81a9d54743e15e329/llvm_build"
+}
+
+function load_pytorch_llvm_prebuilt() {
+  TORCH_FRONTEND_LLVM_INSTALL_DIR="/data00/llvm_libraries/f7250179e22ce4aab96166493b27223fa28c2181/llvm_build"
+}
+
 function prepare_for_compiler() {
   git submodule update --init --recursive -f external/mlir-hlo external/AITemplate
   apply_aitemplate_patches
   install_aitemplate
+  load_llvm_prebuilt
 }
 
 function prepare_for_runtime() {
   git submodule update --init --recursive -f external/mlir-hlo external/cutlass external/date external/googletest external/pybind11
+  load_llvm_prebuilt
 }

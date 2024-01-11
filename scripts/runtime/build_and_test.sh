@@ -58,7 +58,6 @@ BRT_TEST=${BRT_TEST:-ON}
 
 source $CUR_DIR/../prepare.sh
 prepare_for_runtime
-LLVM_INSTALL_DIR="$1"
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
