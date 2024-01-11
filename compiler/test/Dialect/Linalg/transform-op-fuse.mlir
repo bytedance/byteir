@@ -406,6 +406,50 @@ transform.sequence failures(propagate) {
 
 // -----
 
+
+// CHECK-LABEL: func.func @fuse_softmax_matmul_broadcast_elementwise
+func.func @fuse_softmax_matmul_broadcast_elementwise(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x64xf32>) -> tensor<1024x64xf32> {
+  //     CHECK-DAG: linalg.fill
+  //     CHECK-DAG: linalg.fill
+  //     CHECK:     scf.for
+  //     CHECK:       linalg_ext.softmax
+  //     CHECK:       linalg_ext.diag
+  //     CHECK:       linalg.matmul
+  //     CHECK:       linalg.matmul
+  //     CHECK:     }
+  //     CHECK:     linalg.broadcast
+  //     CHECK:     linalg.elemwise_binary
+  %0 = tensor.empty() : tensor<1024x64xf32>
+  %2 = tensor.empty() : tensor<1024x32xf32>
+  %3 = tensor.empty() : tensor<1024xf32>
+  %4 = tensor.empty() : tensor<1024xf32>
+  %5 = tensor.empty() : tensor<1024xf32>
+  %t1 = tensor.empty() : tensor<1024x1024xf32>
+  %cst = arith.constant 0xFF800000 : f32
+  %fill_3 = linalg.fill ins(%cst : f32) outs(%3 : tensor<1024xf32>) -> tensor<1024xf32>
+  %cst_0 = arith.constant 0.0 : f32
+  %fill_4 = linalg.fill ins(%cst_0 : f32) outs(%4 : tensor<1024xf32>) -> tensor<1024xf32>
+  %6:4 = linalg_ext.softmax
+    dimension(1)
+    ins(%arg0 : tensor<1024x32xf32>) outs(%2, %fill_3, %fill_4, %5 : tensor<1024x32xf32>, tensor<1024xf32>, tensor<1024xf32>, tensor<1024xf32>) : tensor<1024x32xf32>, tensor<1024xf32>, tensor<1024xf32>, tensor<1024xf32>
+  %7 = linalg.matmul {__root__} ins(%6#0, %arg1: tensor<1024x32xf32>, tensor<32x64xf32>)
+                     outs(%0: tensor<1024x64xf32>)
+    -> tensor<1024x64xf32>
+  %broadcasted = linalg.broadcast ins(%6#2 : tensor<1024xf32>) outs(%0 : tensor<1024x64xf32>) dimensions = [1]
+  %8 = linalg.elemwise_binary ins(%7, %broadcasted : tensor<1024x64xf32>, tensor<1024x64xf32>)
+                              outs(%0: tensor<1024x64xf32>) -> tensor<1024x64xf32>
+  return %8 : tensor<1024x64xf32>
+}
+
+transform.sequence failures(propagate) {
+^bb1(%arg1: !pdl.operation):
+  %0 = transform.structured.match attributes {__root__} in %arg1 : (!pdl.operation) -> !pdl.operation
+  %1, %loop = transform.structured.fuse_ext %0 {tile_sizes = [0, 0, 4], tile_interchange = [0, 1, 2]}
+  transform.structured.tile_loop_hint %1 : !pdl.operation
+}
+
+// -----
+
 // CHECK-LABEL: func.func @fuse_matmul_matmul
 func.func @fuse_matmul_matmul(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf32>, %arg2: tensor<512x32xf32>) -> tensor<1024x32xf32> {
 // CHECK: scf.for

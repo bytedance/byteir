@@ -26,6 +26,8 @@
 
 namespace brt {
 
+struct ProviderOptions {};
+
 /**
  * ExecutionProvider organizes a set of kernels
  * with a specific set of allocators.
@@ -63,7 +65,8 @@ public:
   /**
    * Get execution provider's configuration options.
    */
-  // virtual ProviderOptions GetProviderOptions() const { return {}; }
+  // virtual const ProviderOptions &GetProviderOptions() const { return
+  // options_; }
 
   const std::string &DeviceKind() const { return deviceKind_; }
 
@@ -88,6 +91,9 @@ protected:
 
   // a string to check name
   const std::string name_;
+
+  // execution provider options
+  // const ProviderOptions &options_;
 
   // MemoryInfoSet mem_info_set_;  // to ensure only allocators with unique
   // memory info are registered in the provider. It will be set when this object

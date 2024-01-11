@@ -14,8 +14,8 @@ class CUDAAllocator : public IAllocator {
 public:
   CUDAAllocator(int device_id, const char *name)
       : IAllocator(BrtMemoryInfo(name, "cuda",
-                                 BrtAllocatorType::BrtDeviceAllocator,
-                                 device_id, BrtMemTypeDefault)) {}
+                                 BrtAllocatorType::DeviceAllocator, device_id,
+                                 BrtMemType::Default)) {}
 
   void *Alloc(size_t size) override;
   void Free(void *p) override;
@@ -50,8 +50,8 @@ class CUDAPinnedAllocator : public IAllocator {
 public:
   CUDAPinnedAllocator(int device_id, const char *name)
       : IAllocator(BrtMemoryInfo(name, "cudaPinned",
-                                 BrtAllocatorType::BrtDeviceAllocator,
-                                 device_id, BrtMemTypeCPUOutput)) {}
+                                 BrtAllocatorType::DeviceAllocator, device_id,
+                                 BrtMemType::CPUOutput)) {}
 
   void *Alloc(size_t size) override;
   void Free(void *p) override;

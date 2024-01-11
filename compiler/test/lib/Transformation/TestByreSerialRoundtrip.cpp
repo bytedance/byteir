@@ -33,7 +33,9 @@ using namespace mlir;
 using namespace mlir::byre;
 using namespace mlir::byre::serialization;
 
+#ifndef __clang__
 #define CHECK_DIALECT_INTERFACE 1
+#endif
 
 namespace {
 #ifdef CHECK_DIALECT_INTERFACE

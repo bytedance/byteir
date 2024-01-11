@@ -7,7 +7,7 @@ func.func @test_tf_const_string() -> tensor<!tf_type.string> {
   %0 = "tf.Const"() {value = dense<"fork_active_pay"> : tensor<!tf_type.string>} : () -> tensor<!tf_type.string>
   func.return %0 : tensor<!tf_type.string>
 }
-// CHECK:  %0 = "ace.constant"() {value = dense<"fork_active_pay"> : tensor<!ace.string>} : () -> tensor<!ace.string>
+// CHECK:  %0 = "ace.constant"() <{value = dense<"fork_active_pay"> : tensor<!ace.string>}> : () -> tensor<!ace.string>
 
 func.func @test_to_mhlo_custom_call(%arg0 : tensor<?xi1>) -> tensor<?x1xi64> {
   %0 = "tf.Where"(%arg0) {_XlaCompile = false, _XlaScope = "jit_scope_0", _XlaSeparateCompiledGradients = false, device = "/device:CPU:0"} : (tensor<?xi1>) -> tensor<?x1xi64>
@@ -23,8 +23,8 @@ func.func @test_string_to_ace_custom_call(%arg0: tensor<2x!tf_type.string>) ->  
 }
 // CHECK-LABEL: func.func @test_string_to_ace_custom_call(%arg0: tensor<2x!ace.string>) -> tensor<2x!ace.string> {
 // CHECK:  ace.custom_call
-// CHECK-SAME: byteir_attrs = {pattern = "[ \\t\\n\\r\\p{Zs}]", replace_global = true, rewrite = " "}
 // CHECK-SAME: call_target_name = "tf.StaticRegexReplace"
+// CHECK-SAME: byteir_attrs = {pattern = "[ \\t\\n\\r\\p{Zs}]", replace_global = true, rewrite = " "}
 
 func.func @test_dynamic_partition(%1: tensor<4x4xf32>, %arg1: tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>) {
   %2:2 = "tf.DynamicPartition"(%1, %arg1) {T = f32, device = "", num_partitions = 2 : i64} : (tensor<4x4xf32>, tensor<4xi32>) -> (tensor<?x4xf32>, tensor<?x4xf32>)

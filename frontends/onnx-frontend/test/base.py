@@ -13,7 +13,7 @@ import onnx
 import onnxruntime as ort
 import pickle
 
-from test.env import ONNX_FRONTEND_PATH
+from test.env import ONNX_FRONTEND_PATH, ONNX_FRONTEND_OPT_PATH
 
 CUSTOM_CALL_OPS = [
     "arg_max",
@@ -32,7 +32,7 @@ class TestBase:
         self.data_dir = dir
         self.tmp_dir = str(tmpdir_factory.mktemp(dir.replace("/", "_")))
 
-    def convert_onnx_to_mhlo_ir(self, onnx_path, mhlo_ir_path, batch_size):
+    def convert_onnx_to_mhlo_ir(self, onnx_path, mhlo_ir_path, batch_size, onnx_frontend_option):
         if not osp.exists(onnx_path):
             raise ValueError("onnx_path {} not exists".format(onnx_path))
 
@@ -42,6 +42,9 @@ class TestBase:
         cmd_opts.append(f"-custom-call-ops={','.join(CUSTOM_CALL_OPS)}")
         cmd_opts.append("-invokeOnnxVersionConverter")
         cmd_opts.append("-mlir-print-op-generic")
+        if onnx_frontend_option != "":
+            cmd_opts.append(onnx_frontend_option)
+
         # cmd_opts.append(f"-o={mhlo_ir_path}")
         p = subprocess.run(
             cmd_opts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -60,13 +63,13 @@ class TestBase:
         ort_sess = ort.InferenceSession(onnx_path)
         onnx_outputs: List[npt.NDArray] = ort_sess.run(None, input_data)
 
-        # load mhlo mlir
-        interp = Interpreter.load_from_file(mhlo_ir_path)
-        # generate all golden references
         mhlo_data: List[npt.NDArray] = [input_data[name] for name in input_names]
-        mhlo_outputs: List[npt.NDArray] = interp.call_function("main", mhlo_data)
-
-        np.testing.assert_almost_equal(onnx_outputs, mhlo_outputs, decimal=decimal)
+        # load mhlo mlir
+        with Interpreter.load_from_file(mhlo_ir_path) as interp:
+            # generate all golden references
+            mhlo_outputs: List[npt.NDArray] = interp.call_function("main", mhlo_data)
+            for onnx_output, mhlo_output in zip(onnx_outputs, mhlo_outputs):
+                np.testing.assert_almost_equal(onnx_output, mhlo_output, decimal=decimal)
 
     def run(self,
             model_filename: Optional[str] = None,
@@ -75,7 +78,8 @@ class TestBase:
             input_filename: Optional[str] = None,
             input_shape_dtype: Optional[List[List]] = None,
             batch_size: int = 1,
-            decimal: int = 4):
+            decimal: int = 4,
+            onnx_frontend_option: str = ""):
         assert self.data_dir is not None, "self.data_dir not initialized in derived class"
         assert self.tmp_dir is not None, "self.tmp_dir not initialized in derived class"
         assert osp.isdir(self.tmp_dir), "self.tmp_dir (" + \
@@ -109,7 +113,7 @@ class TestBase:
                     # save onnx pb to tmp_dir
                     onnx.save(model_onnx_pb, onnx_path)
 
-                self.convert_onnx_to_mhlo_ir(onnx_path, mhlo_ir_path, batch_size)
+                self.convert_onnx_to_mhlo_ir(onnx_path, mhlo_ir_path, batch_size, onnx_frontend_option)
                 self.onnx_mhlo_test_helper(onnx_path, mhlo_ir_path, input_data, decimal)
             else:
                 raise ValueError(

@@ -94,6 +94,32 @@ func.func @softmax_memref(%arg0: memref<1024x64xf32>) -> (memref<1024x64xf32>) {
 //CHECK-LABEL: func.func @softmax_memref
 //CHECK: linalg_ext.softmax
 
+func.func @unnorm_softmax_tensor(%arg0: tensor<1024x64xf32>) -> (tensor<1024x64xf32>) {
+  %0 = tensor.empty() : tensor<1024x64xf32>
+  %1 = tensor.empty() : tensor<64xf32>
+  %2 = tensor.empty() : tensor<64xf32>
+  %3 = tensor.empty() : tensor<64xf32>
+  %4:4 = linalg_ext.unnorm_softmax 
+    dimension(0) 
+    ins(%arg0 : tensor<1024x64xf32>) outs(%0, %1, %2, %3 : tensor<1024x64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>) : tensor<1024x64xf32>, tensor<64xf32>, tensor<64xf32>, tensor<64xf32>
+  return %4#0 : tensor<1024x64xf32>
+}
+//CHECK-LABEL: func.func @unnorm_softmax_tensor
+//CHECK: linalg_ext.unnorm_softmax
+
+func.func @unnorm_softmax_memref(%arg0: memref<1024x64xf32>) -> (memref<1024x64xf32>) {
+  %0 = memref.alloc() : memref<1024x64xf32>
+  %1 = memref.alloc() : memref<64xf32>
+  %2 = memref.alloc() : memref<64xf32>
+  %3 = memref.alloc() : memref<64xf32>
+  linalg_ext.unnorm_softmax 
+    dimension(0)
+    ins(%arg0 : memref<1024x64xf32>) outs(%0, %1, %2, %3 : memref<1024x64xf32>, memref<64xf32>, memref<64xf32>, memref<64xf32>)
+  return %0 : memref<1024x64xf32>
+}
+//CHECK-LABEL: func.func @unnorm_softmax_memref
+//CHECK: linalg_ext.unnorm_softmax
+
 func.func @diag_tensor(%arg0: tensor<1024xf32>) -> (tensor<1024x1024xf32>) {
   %0 = tensor.empty() : tensor<1024x1024xf32>
   %1 = linalg_ext.diag 

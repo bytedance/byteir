@@ -25,6 +25,7 @@ extern llvm::cl::OptionCategory OnnxFrontendOptions;
 
 extern llvm::cl::list<std::string> customCallOps;
 extern llvm::cl::opt<int64_t> batchSize;
+extern llvm::cl::opt<bool> enableUnroll;
 extern llvm::cl::opt<bool> forceSetBatchSize;
 extern llvm::cl::opt<std::string> inputShapes;
 extern llvm::cl::opt<int> ofRepeatStatic;

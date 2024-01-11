@@ -17,7 +17,6 @@
 
 #include "byteir/Pipelines/BufferizeOpt.h"
 
-#include "byteir/Conversion/HloToLHlo/HloToLHlo.h"
 #include "byteir/Dialect/MemRef/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"

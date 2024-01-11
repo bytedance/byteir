@@ -11,7 +11,6 @@ add_mlir_dialect_library(ByteIRMhloUtils
   ByteIRUtils
 
   LINK_LIBS PUBLIC
-  LmhloDialect
   MLIRIR
   MhloDialect
   MLIRSideEffectInterfaces
@@ -65,14 +64,12 @@ add_mlir_dialect_library(ByteIRMhloAnalysis
   DEPENDS
   ByteIRAnalysis
   MhloDialect
-  LmhloDialect
 
   LINK_LIBS PUBLIC
   ByteIRAnalysis
   MLIRIR
   MLIRSupport
   MhloDialect
-  LmhloDialect
 )
 
 add_mlir_dialect_library(ByteIRMhloPasses

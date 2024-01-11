@@ -19,6 +19,18 @@ class TestOpsTensor(TestBase):
         self.run(model_filename="concat.onnx",
                  input_shape_dtype=input_shape_dtype)
 
+    def test_depth_to_space(self):
+        input_shape_dtype = [
+            ["X", (10, 16, 20, 20), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Y", (10, 4, 40, 40), "float32"],
+        ]
+        proto = build_onnx("DepthToSpace", input_shape_dtype, output_shape_dtype, blocksize=2)
+        self.run(model_filename="depth_to_space.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)
+
     def test_shape(self):
         input_shape_dtype = [
             ["X", (3, 2, 4, 5), "float32"],
@@ -64,7 +76,7 @@ class TestOpsTensor(TestBase):
             "Y": np.array([[0, 1], [1, 2]], dtype=np.int64),
         }
         self.run(model_filename="gather_elments.onnx", model_onnx_pb=proto, input_data=input_data)
-        
+
     def test_scatternd(self):
         input_shape_dtype = [
             ["data", (4, 4, 4), "float32"],

@@ -21,6 +21,7 @@
 #include "./topk.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/util.h"
+
 #include <iostream>
 #include <omp.h>
 
@@ -129,7 +130,8 @@ template <typename Tdata, typename Tidx, class Comparator>
 static void FindTopKElements(const Tdata *input_data, const Shape &input_shape,
                              Tdata *output_values, Tidx *output_indices,
                              const Shape &output_shape, const unsigned k,
-                             bool sorted, const unsigned axis_parsed) {
+                             bool sorted, const unsigned axis_parsed,
+                             int brt_omp_num_threads) {
   // Cache some values that will be used in the implementation below
   const int64_t rows =
       brt::ir::SizeToDimension(input_shape, axis_parsed).value();
@@ -153,7 +155,7 @@ static void FindTopKElements(const Tdata *input_data, const Shape &input_shape,
     // just need to compare values and not indexes as the first instance of the
     // best value is always selected
     Comparator comparer(input_data);
-#pragma omp parallel for
+#pragma omp parallel for num_threads(brt_omp_num_threads)
     for (auto i = 0; i < rows; ++i) {
       auto row_offset = i * cols;
       for (int64_t j = 0; j < block_slice; ++j) {
@@ -181,7 +183,7 @@ static void FindTopKElements(const Tdata *input_data, const Shape &input_shape,
     }
   } else if (use_priority_queue) {
     Comparator comparer(input_data);
-#pragma omp parallel for
+#pragma omp parallel for num_threads(brt_omp_num_threads)
     for (auto i = 0; i < rows; ++i) {
       std::vector<Tidx> indices_data(k);
       Tidx *indices =
@@ -243,7 +245,7 @@ static void FindTopKElements(const Tdata *input_data, const Shape &input_shape,
     }
   } else {
     Comparator comparer(input_data);
-#pragma omp parallel for
+#pragma omp parallel for num_threads(brt_omp_num_threads)
     for (auto i = 0; i < rows; ++i) {
       std::vector<Tidx> data_holder(num_blocks);
       auto row_offset = i * cols;
@@ -268,7 +270,8 @@ static void FindTopKElements(const Tdata *input_data, const Shape &input_shape,
 }
 
 template <typename Tdata, typename Tidx>
-void TopKImpl(const OpAccessor &accessor, WorkQueue *work_queue) {
+void TopKImpl(const OpAccessor &accessor, WorkQueue *work_queue,
+              int brt_omp_num_threads) {
   const auto &shape = accessor.GetArgShape(0);
   const int64_t num_elements = accessor.GetNumElementsOfShape(shape);
   // get input data
@@ -297,7 +300,8 @@ void TopKImpl(const OpAccessor &accessor, WorkQueue *work_queue) {
   // TODO: add support for thread pool
   DispatchHostTask(work_queue, {
     (FindTopKElements<Tdata, Tidx, GreaterValueCmp<Tdata, Tidx>>(
-        data, shape, values, indices, output_shape, k, sort_top_k, axis_value));
+        data, shape, values, indices, output_shape, k, sort_top_k, axis_value,
+        brt_omp_num_threads));
   });
 }
 
@@ -312,7 +316,8 @@ common::Status TopK::RunImpl(const ExecutionContext &ctx) {
 #define HANDLE_DTYPE(DType, IType)                                             \
   if (data_dtype == DType && index_dtype == IType) {                           \
     TopKImpl<typename DTypeTraits<DType>::type_t,                              \
-             typename DTypeTraits<IType>::type_t>(accessor, ctx.work_queue);   \
+             typename DTypeTraits<IType>::type_t>(accessor, ctx.work_queue,    \
+                                                  GetNumThreads());            \
     return common::Status::OK();                                               \
   }
   HANDLE_DTYPE(DTypeEnum::Float16, DTypeEnum::Int32)

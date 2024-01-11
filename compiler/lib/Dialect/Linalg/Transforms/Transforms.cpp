@@ -52,7 +52,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "linalg-transforms"
+#define DEBUG_TYPE "linalg-ext-transforms"
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
 
 using namespace llvm;
@@ -410,8 +410,7 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
   // TODO: relax this, by making indexingMaps all reduce
   // TODO: support tensor::expand_shape or collapse_shape
   if (failed(indexingMaps)) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "skip getLoopIteratorTypes due to no indexingMaps\n");
+    LLVM_DEBUG(DBGS() << "skip getLoopIteratorTypes due to no indexingMaps\n");
     return failure();
   }
 
@@ -419,8 +418,8 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
   // early termination if no indexingMaps
   // TODO: relax this, by making localComputation false.
   if (failed(localComputation)) {
-    LLVM_DEBUG(llvm::dbgs() << "skip getLoopIteratorTypes due to no support of "
-                            << op << "\n");
+    LLVM_DEBUG(DBGS() << "skip getLoopIteratorTypes due to no support of " << op
+                      << "\n");
     return failure();
   }
 
@@ -1131,7 +1130,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   while (!candidates.empty()) {
     // 2a. Traverse the slices in BFS fashion.
     tensor::ExtractSliceOp candidateSliceOp = candidates.front();
-    LLVM_DEBUG(llvm::dbgs() << "deque candidate " << candidateSliceOp << "\n");
+    LLVM_DEBUG(DBGS() << "deque candidate " << candidateSliceOp << "\n");
     candidates.pop_front();
 
     // 2b. Get the producer of the source (potentially walking through
@@ -1140,7 +1139,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
         getUntiledProducerFromSliceSource(&candidateSliceOp->getOpOperand(0),
                                           tileAndFuseResult.loops);
     if (!fusibleProducer) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since no fusibleProducer\n");
+      LLVM_DEBUG(DBGS() << "skip since no fusibleProducer\n");
       continue;
     }
 
@@ -1152,8 +1151,8 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
                                                      fusibleProducer);
 
     if (failed(fusedTilingResult)) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since no ExtractSlice of producuer for "
-                              << fusibleProducer << "\n");
+      LLVM_DEBUG(DBGS() << "skip since no ExtractSlice of producuer for "
+                        << fusibleProducer << "\n");
       continue;
     }
 
@@ -1173,7 +1172,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
 
     if (failed(confirmValidFusion(rewriter, fusibleProducer, fusedProducerOp,
                                   candidateSliceOp))) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since failing confirmValidFusion\n");
+      LLVM_DEBUG(DBGS() << "skip since failing confirmValidFusion\n");
       continue;
     }
 
@@ -1194,8 +1193,8 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
             rewriter, fusibleProducer.getOwner(), fusedProducerOp,
             candidateSliceOp, tileAndFuseResult.loops,
             tileAndFuseResult.replacements, destinationIterArg))) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since failing createResultSlices for "
-                              << fusibleProducer << "\n");
+      LLVM_DEBUG(DBGS() << "skip since failing createResultSlices for "
+                        << fusibleProducer << "\n");
       continue;
     }
 
@@ -1326,8 +1325,8 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
       auto loopIterTypes =
           getLoopIteratorTypes(fusedOp, tileAndFuseResult.loops);
       if (failed(loopIterTypes)) {
-        LLVM_DEBUG(llvm::dbgs() << "skip clean-up due to no loopIterTypes for "
-                                << fusedOp << "\n");
+        LLVM_DEBUG(DBGS() << "skip clean-up due to no loopIterTypes for "
+                          << fusedOp << "\n");
         resultOffset += numResult;
         continue;
       }
@@ -1557,7 +1556,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
         getUntiledProducerFromSliceSource(&candidateSliceOp->getOpOperand(0),
                                           tileAndFuseResult.loops);
     if (!fusibleProducer) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since no fusibleProducer\n");
+      LLVM_DEBUG(DBGS() << "skip since no fusibleProducer\n");
       continue;
     }
 
@@ -1567,8 +1566,8 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
         tensor::replaceExtractSliceWithTiledProducer(rewriter, candidateSliceOp,
                                                      fusibleProducer);
     if (failed(fusedTilingResult)) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since no ExtractSlice of producuer for "
-                              << fusibleProducer << "\n");
+      LLVM_DEBUG(DBGS() << "skip since no ExtractSlice of producuer for "
+                        << fusibleProducer << "\n");
       continue;
     }
 
@@ -1588,7 +1587,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
 
     if (failed(confirmValidFusion(rewriter, fusibleProducer, fusedProducerOp,
                                   candidateSliceOp))) {
-      LLVM_DEBUG(llvm::dbgs() << "skip since failing confirmValidFusion\n");
+      LLVM_DEBUG(DBGS() << "skip since failing confirmValidFusion\n");
       continue;
     }
 
@@ -1607,8 +1606,8 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
               rewriter, fusibleProducer.getOwner(), fusedProducerOp,
               candidateSliceOp, tileAndFuseResult.loops,
               tileAndFuseResult.replacements, destinationIterArg))) {
-        LLVM_DEBUG(llvm::dbgs() << "skip since failing createResultSlices for "
-                                << fusibleProducer << "\n");
+        LLVM_DEBUG(DBGS() << "skip since failing createResultSlices for "
+                          << fusibleProducer << "\n");
         continue;
       }
     }

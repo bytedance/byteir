@@ -311,7 +311,7 @@ Operation *commonMergeReductions(Operation *op, OpBuilder &b, Location loc,
 // Global Utils
 //===----------------------------------------------------------------------===//
 
-/// Return whether if involved iterAxes includes dim,
+/// Check whether involve iterAxes including reduction
 bool mlir::linalg_ext::involveReduction(
     Operation &tiled, ArrayRef<mlir::AffineMap> indexingMaps,
     ArrayRef<utils::IteratorType> loopIteratorTypes) {
@@ -953,12 +953,18 @@ LogicalResult ScatterOp::generateScalarImplementation(OpBuilder &builder,
 }
 
 //===----------------------------------------------------------------------===//
-// SoftmaxOp
+// Softmax-like utilities
 //===----------------------------------------------------------------------===//
 
+// Utilities for softmax-like ops, such as SoftmaxOp or UnnormalizedSoftmaxOp
 namespace {
 
-mlir::LogicalResult validSoftmaxConsumer(Operation *op) {
+bool isSoftmaxLike(Operation *op) {
+  return isa<mlir::linalg_ext::SoftmaxOp,
+             mlir::linalg_ext::UnnormalizedSoftmaxOp>(op);
+}
+
+mlir::LogicalResult validSoftmaxLikeConsumer(Operation *op) {
   if (op == nullptr)
     return failure();
 
@@ -971,14 +977,19 @@ mlir::LogicalResult validSoftmaxConsumer(Operation *op) {
   return failure();
 }
 
-Value getSoftmaxScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
-                                mlir::linalg_ext::SoftmaxOp softmax,
-                                Value consumerOutput) {
-  auto scale = softmax->getResult(3);
+// insert a diagonal matrix that has a diagonal value as scale
+FailureOr<Value> getSoftmaxLikeScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
+                                               Operation *op,
+                                               Value consumerOutput) {
+  // only support softmax-like ops.
+  if (!isSoftmaxLike(op))
+    return failure();
+
+  auto scale = op->getResult(3);
   if (auto scaleTensorTy = scale.getType().dyn_cast<TensorType>()) {
     if (!consumerOutput.getType().isa<TensorType>()) {
       // Not support mixing TensorType with other types
-      return Value();
+      return failure();
     }
     auto consumerTensorTy = consumerOutput.getType().cast<TensorType>();
     auto scaleEmpty = b.create<tensor::EmptyOp>(
@@ -1008,12 +1019,12 @@ Value getSoftmaxScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
     return scaleBatchMatmul->getResult(0);
   }
 
-  return Value();
+  return failure();
 }
 
-void rewriteSoftmaxFusedConsumer(OpBuilder &b,
-                                 mlir::linalg_ext::SoftmaxOp fused,
-                                 Value result, Operation *consumer) {
+// rewrite a consumer op of a softmax-like op after fusion
+void rewriteSoftmaxLikeFusedConsumer(OpBuilder &b, Operation *fused,
+                                     Value result, Operation *consumer) {
   if (consumer == nullptr)
     return;
 
@@ -1024,29 +1035,33 @@ void rewriteSoftmaxFusedConsumer(OpBuilder &b,
     // Here assume first ouput is fused as result
     // TODO: fix this if the assumption not hold
     auto firstOutput = linaglOp.getDpsInitOperand(0)->get();
-    auto scaleMatmul = getSoftmaxScaleDiagMatmul(b, loc, fused, firstOutput);
-    if (scaleMatmul == nullptr)
+    auto scaleMatmul =
+        getSoftmaxLikeScaleDiagMatmul(b, loc, fused, firstOutput);
+
+    if (failed(scaleMatmul))
       return;
-    linaglOp.setDpsInitOperand(0, scaleMatmul);
+
+    linaglOp.setDpsInitOperand(0, *scaleMatmul);
   }
 }
 
-void rewriteSoftmaxFusedConsumers(OpBuilder &b, Operation *unfused,
-                                  mlir::linalg_ext::SoftmaxOp fused,
-                                  Value result) {
+// rewrite all consumer ops of a softmax-like op after fusion
+void rewriteSoftmaxLikeFusedConsumers(OpBuilder &b, Operation *unfused,
+                                      Operation *fused, Value result) {
   if (unfused == nullptr)
     return;
 
   for (auto user : result.getUsers()) {
     if (auto sliceOp = dyn_cast<tensor::ExtractSliceOp>(user)) {
       for (auto sliceUser : sliceOp.getResult().getUsers()) {
-        rewriteSoftmaxFusedConsumer(b, fused, result, sliceUser);
+        rewriteSoftmaxLikeFusedConsumer(b, fused, result, sliceUser);
       }
     }
   }
 }
 
-mlir::LogicalResult validSoftmaxFusedConsumer(Operation *op) {
+// check whether a softmax-like op's consumer is valid during fusion
+mlir::LogicalResult validSoftmaxLikeFusedConsumer(Operation *op) {
   if (op == nullptr)
     return failure();
 
@@ -1056,71 +1071,83 @@ mlir::LogicalResult validSoftmaxFusedConsumer(Operation *op) {
                           tiledOp.getLoopIteratorTypes())) {
       return failure();
     }
-    return validSoftmaxConsumer(op);
+    return validSoftmaxLikeConsumer(op);
   }
   return failure();
 }
 
-/// This is too conservative
-/// TODO extend this
-mlir::LogicalResult checkSoftmaxConsumer(Operation *unfused,
-                                         unsigned resultNumber) {
-
+// check all consumers of a softmax-like op
+/// TODO: extend this, since this might be too conservative
+mlir::LogicalResult checkSoftmaxLikeConsumer(Operation *unfused,
+                                             unsigned resultNumber) {
   if (unfused == nullptr)
     return failure();
 
   // particular result given an resultNumber
   for (const auto &opResult : unfused->getOpResults()) {
-    if (opResult.getResultNumber() == resultNumber) {
-      if (useCount(opResult) != 2) {
-        // 2 as 1 consumer before fused and 1 from fused but not replaced value
-        // this might be too conservative
+    auto curNumber = opResult.getResultNumber();
+    if (curNumber == resultNumber) {
+      auto count = useCount(opResult);
+      if (count != 2) {
+        // 2 as 1 consumer before fused and 1 from fused but not replaced value.
+        // // FIXME: (lwc) this might be still too conservative.
+        LLVM_DEBUG(DBGS() << "failed use count as " << count << " for result "
+                          << curNumber << "\n");
         return failure();
       }
 
       for (const auto &use : opResult.getUses()) {
         if (auto sliceOp = dyn_cast<tensor::ExtractSliceOp>(use.getOwner())) {
           for (auto sliceUser : sliceOp.getResult().getUsers()) {
-            if (failed(validSoftmaxFusedConsumer(sliceUser))) {
+            if (failed(validSoftmaxLikeFusedConsumer(sliceUser))) {
               return failure();
             }
           }
-        } else if (failed(validSoftmaxConsumer(use.getOwner()))) {
+        } else if (failed(validSoftmaxLikeConsumer(use.getOwner()))) {
           return failure();
         }
       }
-    } else {
-      if (useCount(opResult) != 0) {
-        // FIXME: (lwc) this might be too conservative
+    } else if (curNumber == 3) {
+      // Result 3 shouldn't be used for any unfused softmaxlike.
+      // FIXME: (lwc) this might be still too conservative
+      auto count = useCount(opResult);
+      if (count != 0) {
+        LLVM_DEBUG(DBGS() << "failed use count as " << count << " for result "
+                          << curNumber << "\n");
         return failure();
       }
-    } // if opResult.getResultNumber() == offset
-  }   // for opResult : unfused->getOpResults())
+    }
+  } // for opResult : unfused->getOpResults())
 
   return success();
 }
 
-} // namespace
-
-mlir::LogicalResult mlir::linalg_ext::SoftmaxOp::verify() {
-  Operation *op = getOperation();
-  if (getNumInputs() != 1) {
+// Unifying utils for all softmaxlike ops
+template <class SoftmaxLikeOp>
+mlir::LogicalResult verifySoftmaxLikeOp(SoftmaxLikeOp softmaxLikeOp) {
+  Operation *op = softmaxLikeOp.getOperation();
+  if (softmaxLikeOp.getNumInputs() != 1) {
     return op->emitOpError("expected one input operands");
   }
-  if (getNumOutputs() != 4) {
+  if (softmaxLikeOp.getNumOutputs() != 4) {
     return op->emitOpError("expected 4 output operands");
   }
-  if (!input().getType().isa<ShapedType>()) {
+  if (!softmaxLikeOp.input().getType().template isa<ShapedType>()) {
     return op->emitOpError("expected first input element type to be shaped");
   }
 
-  auto maxType = max().getType().cast<ShapedType>();
-  auto accumulatorType = accumulator().getType().cast<ShapedType>();
-  auto scaleType = scale().getType().cast<ShapedType>();
-  auto inputType = input().getType().cast<ShapedType>();
-  auto outputType = output().getType().cast<ShapedType>();
+  auto maxType = softmaxLikeOp.max().getType().template cast<ShapedType>();
+  auto accumulatorType =
+      softmaxLikeOp.accumulator().getType().template cast<ShapedType>();
+  auto scaleType = softmaxLikeOp.scale().getType().template cast<ShapedType>();
+  auto inputType = softmaxLikeOp.input().getType().template cast<ShapedType>();
+  auto outputType =
+      softmaxLikeOp.output().getType().template cast<ShapedType>();
   ArrayRef<int64_t> inputShapes = inputType.getShape();
   ArrayRef<int64_t> outputShapes = outputType.getShape();
+
+  // TODO: relax type constraint.
+  // max/acc/scale/output types don't need to be identical
   if (maxType.getElementType() != inputType.getElementType() ||
       accumulatorType.getElementType() != inputType.getElementType() ||
       scaleType.getElementType() != inputType.getElementType() ||
@@ -1136,6 +1163,7 @@ mlir::LogicalResult mlir::linalg_ext::SoftmaxOp::verify() {
   ArrayRef<int64_t> scaleShape = maxType.getShape();
   int64_t scaleRank = scaleType.getRank();
   int64_t expectedRank = inputType.getRank() - 1;
+
   if (maxRank != expectedRank || accumulatorRank != expectedRank ||
       scaleRank != expectedRank) {
     return op->emitOpError(
@@ -1144,7 +1172,7 @@ mlir::LogicalResult mlir::linalg_ext::SoftmaxOp::verify() {
 
   SmallVector<int64_t> expectedShape;
   for (int64_t i = 0; i < inputType.getRank(); i++) {
-    if (static_cast<uint64_t>(i) != getDimension())
+    if (static_cast<uint64_t>(i) != softmaxLikeOp.getDimension())
       expectedShape.push_back(inputShapes[i]);
   }
   if (llvm::any_of(
@@ -1181,21 +1209,25 @@ mlir::LogicalResult mlir::linalg_ext::SoftmaxOp::verify() {
   return success();
 }
 
-LogicalResult mlir::linalg_ext::SoftmaxOp::isValidTiling(Operation *tiled) {
+template <class SoftmaxLikeOp>
+LogicalResult isSoftmaxLikeValidTiling(SoftmaxLikeOp softmaxLikeOp,
+                                       Operation *tiled) {
   if (tiled == nullptr)
     return failure();
-  if (involveReduction(*tiled, getIndexingMapsArray(),
-                       getLoopIteratorTypes())) {
+
+  if (involveReduction(*tiled, softmaxLikeOp.getIndexingMapsArray(),
+                       softmaxLikeOp.getLoopIteratorTypes())) {
     return failure();
   }
   return success();
 }
 
-LogicalResult mlir::linalg_ext::SoftmaxOp::isValidTiledProducerOp(
-    Operation * /*fusibleProducer*/, unsigned consumerOperandNumber) {
-
-  if (involveReduction(*getOperation(), getIndexingMapsArray(),
-                       getLoopIteratorTypes())) {
+template <class SoftmaxLikeOp>
+LogicalResult isValidTiledSoftmaxLikeOp(SoftmaxLikeOp softmaxLikeOp,
+                                        unsigned consumerOperandNumber) {
+  auto op = softmaxLikeOp.getOperation();
+  if (involveReduction(*op, softmaxLikeOp.getIndexingMapsArray(),
+                       softmaxLikeOp.getLoopIteratorTypes())) {
     // if `2` as max, and `3` as accumulator,
     // return failure when it is reduction
     if (consumerOperandNumber == 2 || consumerOperandNumber == 3) {
@@ -1205,33 +1237,37 @@ LogicalResult mlir::linalg_ext::SoftmaxOp::isValidTiledProducerOp(
   return success();
 }
 
-LogicalResult mlir::linalg_ext::SoftmaxOp::makeValidTiledConsumerOps(
-    OpBuilder &b, Operation *fusedProducerOp, unsigned producerResultNumber) {
+template <class SoftmaxLikeOp>
+LogicalResult makeValidTiledConsumerOpsForSoftmaxLikeOp(
+    SoftmaxLikeOp softmaxLikeOp, OpBuilder &b, Operation *fusedProducerOp,
+    unsigned producerResultNumber) {
+
   if (fusedProducerOp == nullptr)
     return failure();
 
+  auto op = softmaxLikeOp.getOperation();
+
   // check whehther involveReduction
-  if (!involveReduction(*fusedProducerOp, getIndexingMapsArray(),
-                        getLoopIteratorTypes())) {
+  if (!involveReduction(*fusedProducerOp, softmaxLikeOp.getIndexingMapsArray(),
+                        softmaxLikeOp.getLoopIteratorTypes())) {
     // if not reduction, directly return a success without modifying anything
     return success();
   }
 
-  auto op = getOperation();
   // check consumer
-  if (failed(checkSoftmaxConsumer(op, producerResultNumber))) {
+  if (failed(checkSoftmaxLikeConsumer(op, producerResultNumber))) {
+    LLVM_DEBUG(DBGS() << "failed at checking consumer\n");
     return failure();
   }
 
   // rewrite all fused consumers
-  auto fusedSoftmax = cast<SoftmaxOp>(fusedProducerOp);
-  rewriteSoftmaxFusedConsumers(b, op, fusedSoftmax,
-                               op->getResult(producerResultNumber));
+  rewriteSoftmaxLikeFusedConsumers(b, op, fusedProducerOp,
+                                   op->getResult(producerResultNumber));
 
   return success();
 }
 
-bool mlir::linalg_ext::SoftmaxOp::isOperandRead(unsigned number) {
+bool isOperandReadForSoftmaxLikeOp(unsigned number) {
   if (number == 0 || number == 2 || number == 3) {
     // input and max, accumulator
     return true;
@@ -1240,9 +1276,8 @@ bool mlir::linalg_ext::SoftmaxOp::isOperandRead(unsigned number) {
   return false;
 }
 
-bool mlir::linalg_ext::SoftmaxOp::isResultLoopInvariant(int64_t number,
-                                                        bool hasOneOrZeroUse,
-                                                        bool allLoopParallel) {
+bool isResultLoopInvariantForSoftmaxLikeOp(int64_t number, bool hasOneOrZeroUse,
+                                           bool allLoopParallel) {
   assert(number < 4);
 
   if (number == 0) {
@@ -1255,6 +1290,192 @@ bool mlir::linalg_ext::SoftmaxOp::isResultLoopInvariant(int64_t number,
   return false;
 }
 
+template <class SoftmaxLikeOp>
+SmallVector<utils::IteratorType>
+getLoopIteratorTypesForSoftmaxLikeOp(SoftmaxLikeOp softmaxLikeOp) {
+  // All loops except the dimension are parallel.
+  SmallVector<utils::IteratorType> iteratorTypes(softmaxLikeOp.getOperandRank(),
+                                                 utils::IteratorType::parallel);
+  iteratorTypes[softmaxLikeOp.getDimension()] = utils::IteratorType::reduction;
+  return iteratorTypes;
+}
+
+template <class SoftmaxLikeOp>
+ArrayAttr getIndexingMapsForSoftmaxLikeOp(SoftmaxLikeOp softmaxLikeOp) {
+  unsigned rank = softmaxLikeOp.getOperandRank();
+  SmallVector<AffineMap> maps;
+  MLIRContext *ctx = softmaxLikeOp.getContext();
+
+  // input
+  maps.push_back(AffineMap::getMultiDimIdentityMap(rank, ctx));
+
+  // outputs
+  // result
+  maps.push_back(AffineMap::getMultiDimIdentityMap(rank, ctx));
+  unsigned dim = softmaxLikeOp.getDimension();
+  // max
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
+  // accum
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
+  // scale
+  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
+
+  return Builder(ctx).getAffineMapArrayAttr(maps);
+}
+
+template <class SoftmaxLikeOp>
+FailureOr<TilingResult> getTiledImplementationForSoftmaxLikeOp(
+    SoftmaxLikeOp softmaxLikeOp, OpBuilder &builder,
+    ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes) {
+  int64_t rank = softmaxLikeOp.getOperandRank();
+  assert(offsets.size() == static_cast<size_t>(rank) &&
+         sizes.size() == static_cast<size_t>(rank));
+
+  auto oneAttr = builder.getI64IntegerAttr(1);
+
+  SmallVector<OpFoldResult> strides(rank, oneAttr);
+
+  Location loc = softmaxLikeOp.getLoc();
+  SmallVector<Value> tiledOperands;
+
+  // input // operand 0 // data
+  tiledOperands.emplace_back(
+      getSlice(builder, loc, softmaxLikeOp.input(), offsets, sizes, strides));
+
+  // output // operand 1 // result
+  tiledOperands.emplace_back(getSlice(
+      builder, loc, softmaxLikeOp.getOutputs()[0], offsets, sizes, strides));
+  if (rank > 1) {
+    ////////////////////
+    // handle max carry
+    ////////////////////
+    SmallVector<OpFoldResult> maxOffsets, maxSizes;
+    // use getResultTilePosition with index as 1 for max, since they use the
+    // same tile position
+    if (failed(softmaxLikeOp.getResultTilePosition(builder, 1, offsets, sizes,
+                                                   maxOffsets, maxSizes))) {
+      return {};
+    }
+    SmallVector<OpFoldResult> maxStrides(rank - 1, oneAttr);
+    // output // operand 1 // max loop carry
+    tiledOperands.emplace_back(getSlice(builder, loc,
+                                        softmaxLikeOp.getOutputs()[1],
+                                        maxOffsets, maxSizes, maxStrides));
+
+    ////////////////////
+    // handle accum carry
+    ////////////////////
+    SmallVector<OpFoldResult> accumOffsets, accumSizes;
+    // use getResultTilePosition with index as 2 for accum, since they use the
+    // same tile position
+    if (failed(softmaxLikeOp.getResultTilePosition(builder, 2, offsets, sizes,
+                                                   accumOffsets, accumSizes))) {
+      return {};
+    }
+    SmallVector<OpFoldResult> accumStrides(rank - 1, oneAttr);
+    // output // operand 3 // accum loop carry
+    tiledOperands.emplace_back(
+        getSlice(builder, loc, softmaxLikeOp.getOutputs()[2], accumOffsets,
+                 accumSizes, accumStrides));
+
+    ////////////////////
+    // handle scale
+    ////////////////////
+    SmallVector<OpFoldResult> scaleOffsets, scaleSizes;
+    // use getResultTilePosition with index as 3 for scale, since they use the
+    // same tile position
+    if (failed(softmaxLikeOp.getResultTilePosition(builder, 3, offsets, sizes,
+                                                   scaleOffsets, scaleSizes))) {
+      return {};
+    }
+
+    SmallVector<OpFoldResult> scaleStrides(rank - 1, oneAttr);
+    // output // operand 2 // scale
+    tiledOperands.emplace_back(
+        getSlice(builder, loc, softmaxLikeOp.getOutputs()[3], scaleOffsets,
+                 scaleSizes, scaleStrides));
+  } else {
+    tiledOperands.emplace_back(softmaxLikeOp.getOutputs()[1]);
+    tiledOperands.emplace_back(softmaxLikeOp.getOutputs()[2]);
+    tiledOperands.emplace_back(softmaxLikeOp.getOutputs()[3]);
+  }
+
+  SmallVector<Type, 4> resultTypes;
+  if (softmaxLikeOp.hasTensorSemantics()) {
+    resultTypes.push_back(tiledOperands[1].getType());
+    resultTypes.push_back(tiledOperands[2].getType());
+    resultTypes.push_back(tiledOperands[3].getType());
+    resultTypes.push_back(tiledOperands[4].getType());
+  }
+
+  Operation *tiledSoftmaxLikeOp = mlir::clone(
+      builder, softmaxLikeOp.getOperation(), resultTypes, tiledOperands);
+  return TilingResult{{tiledSoftmaxLikeOp},
+                      SmallVector<Value>(tiledSoftmaxLikeOp->getResults())};
+}
+
+template <class SoftmaxLikeOp>
+LogicalResult getResultTilePositionForSoftmaxLikeOp(
+    SoftmaxLikeOp softmaxLikeOp, OpBuilder &b, unsigned resultNumber,
+    ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes,
+    SmallVector<OpFoldResult> &resultOffsets,
+    SmallVector<OpFoldResult> &resultSizes) {
+  if (resultNumber == 0) {
+    resultOffsets.assign(offsets.begin(), offsets.end());
+    resultSizes.assign(sizes.begin(), sizes.end());
+    return success();
+  }
+  if (resultNumber == 1 || resultNumber == 2 || resultNumber == 3) {
+    int64_t rank = softmaxLikeOp.getOperandRank();
+    if (rank > 1) {
+      for (auto i : llvm::seq<uint64_t>(0, rank)) {
+        if (i == softmaxLikeOp.getDimension())
+          continue;
+        resultOffsets.push_back(offsets[i]);
+        resultSizes.push_back(sizes[i]);
+      }
+    }
+    return success();
+  }
+  return failure();
+}
+
+} // namespace
+
+//===----------------------------------------------------------------------===//
+// SoftmaxOp
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult mlir::linalg_ext::SoftmaxOp::verify() {
+  return verifySoftmaxLikeOp(*this);
+}
+
+LogicalResult mlir::linalg_ext::SoftmaxOp::isValidTiling(Operation *tiled) {
+  return isSoftmaxLikeValidTiling(*this, tiled);
+}
+
+LogicalResult mlir::linalg_ext::SoftmaxOp::isValidTiledProducerOp(
+    Operation * /*fusibleProducer*/, unsigned consumerOperandNumber) {
+  return isValidTiledSoftmaxLikeOp(*this, consumerOperandNumber);
+}
+
+LogicalResult mlir::linalg_ext::SoftmaxOp::makeValidTiledConsumerOps(
+    OpBuilder &b, Operation *fusedProducerOp, unsigned producerResultNumber) {
+  return makeValidTiledConsumerOpsForSoftmaxLikeOp(*this, b, fusedProducerOp,
+                                                   producerResultNumber);
+}
+
+bool mlir::linalg_ext::SoftmaxOp::isOperandRead(unsigned number) {
+  return isOperandReadForSoftmaxLikeOp(number);
+}
+
+bool mlir::linalg_ext::SoftmaxOp::isResultLoopInvariant(int64_t number,
+                                                        bool hasOneOrZeroUse,
+                                                        bool allLoopParallel) {
+  return isResultLoopInvariantForSoftmaxLikeOp(number, hasOneOrZeroUse,
+                                               allLoopParallel);
+}
+
 FailureOr<TilingResult> mlir::linalg_ext::SoftmaxOp::generateResultTileValue(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
@@ -1264,33 +1485,11 @@ FailureOr<TilingResult> mlir::linalg_ext::SoftmaxOp::generateResultTileValue(
 
 SmallVector<utils::IteratorType>
 mlir::linalg_ext::SoftmaxOp::getLoopIteratorTypes() {
-  // All loops except the dimension are parallel.
-  SmallVector<utils::IteratorType> iteratorTypes(getOperandRank(),
-                                                 utils::IteratorType::parallel);
-  iteratorTypes[getDimension()] = utils::IteratorType::reduction;
-  return iteratorTypes;
+  return getLoopIteratorTypesForSoftmaxLikeOp(*this);
 }
 
 ArrayAttr mlir::linalg_ext::SoftmaxOp::getIndexingMaps() {
-  unsigned rank = getOperandRank();
-  SmallVector<AffineMap> maps;
-  MLIRContext *ctx = getContext();
-
-  // input
-  maps.push_back(AffineMap::getMultiDimIdentityMap(rank, ctx));
-
-  // outputs
-  // result
-  maps.push_back(AffineMap::getMultiDimIdentityMap(rank, ctx));
-  unsigned dim = getDimension();
-  // max
-  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
-  // accum
-  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
-  // scale
-  maps.push_back(getMultiDimIdentityMapWithSkips(rank, {dim}, ctx));
-
-  return Builder(ctx).getAffineMapArrayAttr(maps);
+  return getIndexingMapsForSoftmaxLikeOp(*this);
 }
 
 SmallVector<Range> mlir::linalg_ext::SoftmaxOp::getIterationDomain(
@@ -1302,112 +1501,15 @@ SmallVector<Range> mlir::linalg_ext::SoftmaxOp::getIterationDomain(
 FailureOr<TilingResult> mlir::linalg_ext::SoftmaxOp::getTiledImplementation(
     OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes) {
-  int64_t rank = getOperandRank();
-  assert(offsets.size() == static_cast<size_t>(rank) &&
-         sizes.size() == static_cast<size_t>(rank));
-
-  auto oneAttr = builder.getI64IntegerAttr(1);
-
-  SmallVector<OpFoldResult> strides(rank, oneAttr);
-
-  Location loc = getLoc();
-  SmallVector<Value> tiledOperands;
-
-  // input // operand 0 // data
-  tiledOperands.emplace_back(
-      getSlice(builder, loc, input(), offsets, sizes, strides));
-
-  // output // operand 1 // result
-  tiledOperands.emplace_back(
-      getSlice(builder, loc, getOutputs()[0], offsets, sizes, strides));
-  if (rank > 1) {
-    ////////////////////
-    // handle max carry
-    ////////////////////
-    SmallVector<OpFoldResult> maxOffsets, maxSizes;
-    // use getResultTilePosition with index as 1 for max, since they use the
-    // same tile position
-    if (failed(getResultTilePosition(builder, 1, offsets, sizes, maxOffsets,
-                                     maxSizes))) {
-      return {};
-    }
-    SmallVector<OpFoldResult> maxStrides(rank - 1, oneAttr);
-    // output // operand 1 // max loop carry
-    tiledOperands.emplace_back(getSlice(builder, loc, getOutputs()[1],
-                                        maxOffsets, maxSizes, maxStrides));
-
-    ////////////////////
-    // handle accum carry
-    ////////////////////
-    SmallVector<OpFoldResult> accumOffsets, accumSizes;
-    // use getResultTilePosition with index as 2 for accum, since they use the
-    // same tile position
-    if (failed(getResultTilePosition(builder, 2, offsets, sizes, accumOffsets,
-                                     accumSizes))) {
-      return {};
-    }
-    SmallVector<OpFoldResult> accumStrides(rank - 1, oneAttr);
-    // output // operand 3 // accum loop carry
-    tiledOperands.emplace_back(getSlice(
-        builder, loc, getOutputs()[2], accumOffsets, accumSizes, accumStrides));
-
-    ////////////////////
-    // handle scale
-    ////////////////////
-    SmallVector<OpFoldResult> scaleOffsets, scaleSizes;
-    // use getResultTilePosition with index as 3 for scale, since they use the
-    // same tile position
-    if (failed(getResultTilePosition(builder, 3, offsets, sizes, scaleOffsets,
-                                     scaleSizes))) {
-      return {};
-    }
-
-    SmallVector<OpFoldResult> scaleStrides(rank - 1, oneAttr);
-    // output // operand 2 // scale
-    tiledOperands.emplace_back(getSlice(
-        builder, loc, getOutputs()[3], scaleOffsets, scaleSizes, scaleStrides));
-  } else {
-    tiledOperands.emplace_back(getOutputs()[1]);
-    tiledOperands.emplace_back(getOutputs()[2]);
-    tiledOperands.emplace_back(getOutputs()[3]);
-  }
-
-  SmallVector<Type, 4> resultTypes;
-  if (hasTensorSemantics()) {
-    resultTypes.push_back(tiledOperands[1].getType());
-    resultTypes.push_back(tiledOperands[2].getType());
-    resultTypes.push_back(tiledOperands[3].getType());
-    resultTypes.push_back(tiledOperands[4].getType());
-  }
-
-  Operation *tiledSoftmaxOp =
-      mlir::clone(builder, getOperation(), resultTypes, tiledOperands);
-  return TilingResult{{tiledSoftmaxOp},
-                      SmallVector<Value>(tiledSoftmaxOp->getResults())};
+  return getTiledImplementationForSoftmaxLikeOp(*this, builder, offsets, sizes);
 }
 
 LogicalResult mlir::linalg_ext::SoftmaxOp::getResultTilePosition(
     OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
     ArrayRef<OpFoldResult> sizes, SmallVector<OpFoldResult> &resultOffsets,
     SmallVector<OpFoldResult> &resultSizes) {
-  if (resultNumber == 0) {
-    resultOffsets.assign(offsets.begin(), offsets.end());
-    resultSizes.assign(sizes.begin(), sizes.end());
-    return success();
-  }
-  if (resultNumber == 1 || resultNumber == 2 || resultNumber == 3) {
-    int64_t rank = getOperandRank();
-    if (rank > 1) {
-      for (auto i : llvm::seq<uint64_t>(0, rank)) {
-        if (i == getDimension())
-          continue;
-        resultOffsets.push_back(offsets[i]);
-        resultSizes.push_back(sizes[i]);
-      }
-    }
-    return success();
-  }
-  return failure();
+  return getResultTilePositionForSoftmaxLikeOp(
+      *this, b, resultNumber, offsets, sizes, resultOffsets, resultSizes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1545,6 +1647,79 @@ bool mlir::linalg_ext::TopkOp::isResultLoopInvariant(int64_t number,
     return allLoopParallel;
   }
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// UnnormalizedSoftmaxOp
+//===----------------------------------------------------------------------===//
+
+mlir::LogicalResult mlir::linalg_ext::UnnormalizedSoftmaxOp::verify() {
+  return verifySoftmaxLikeOp(*this);
+}
+
+LogicalResult
+mlir::linalg_ext::UnnormalizedSoftmaxOp::isValidTiling(Operation *tiled) {
+  return isSoftmaxLikeValidTiling(*this, tiled);
+}
+
+LogicalResult mlir::linalg_ext::UnnormalizedSoftmaxOp::isValidTiledProducerOp(
+    Operation * /*fusibleProducer*/, unsigned consumerOperandNumber) {
+  return isValidTiledSoftmaxLikeOp(*this, consumerOperandNumber);
+}
+
+LogicalResult
+mlir::linalg_ext::UnnormalizedSoftmaxOp::makeValidTiledConsumerOps(
+    OpBuilder &b, Operation *fusedProducerOp, unsigned producerResultNumber) {
+  return makeValidTiledConsumerOpsForSoftmaxLikeOp(*this, b, fusedProducerOp,
+                                                   producerResultNumber);
+}
+
+bool mlir::linalg_ext::UnnormalizedSoftmaxOp::isOperandRead(unsigned number) {
+  return isOperandReadForSoftmaxLikeOp(number);
+}
+
+bool mlir::linalg_ext::UnnormalizedSoftmaxOp::isResultLoopInvariant(
+    int64_t number, bool hasOneOrZeroUse, bool allLoopParallel) {
+  return isResultLoopInvariantForSoftmaxLikeOp(number, hasOneOrZeroUse,
+                                               allLoopParallel);
+}
+
+FailureOr<TilingResult>
+mlir::linalg_ext::UnnormalizedSoftmaxOp::generateResultTileValue(
+    OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  return commonGenerateResultTileValueForLinalgExtOp(
+      getOperation(), b, resultNumber, offsets, sizes, getOperandRank());
+}
+
+SmallVector<utils::IteratorType>
+mlir::linalg_ext::UnnormalizedSoftmaxOp::getLoopIteratorTypes() {
+  return getLoopIteratorTypesForSoftmaxLikeOp(*this);
+}
+
+ArrayAttr mlir::linalg_ext::UnnormalizedSoftmaxOp::getIndexingMaps() {
+  return getIndexingMapsForSoftmaxLikeOp(*this);
+}
+
+SmallVector<Range> mlir::linalg_ext::UnnormalizedSoftmaxOp::getIterationDomain(
+    class mlir::OpBuilder &builder) {
+  return commonGetIterationDomainForLinalgExt(
+      getOperation(), builder, getOperandRank(), getOutputs()[0]);
+}
+
+FailureOr<TilingResult>
+mlir::linalg_ext::UnnormalizedSoftmaxOp::getTiledImplementation(
+    OpBuilder &builder, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes) {
+  return getTiledImplementationForSoftmaxLikeOp(*this, builder, offsets, sizes);
+}
+
+LogicalResult mlir::linalg_ext::UnnormalizedSoftmaxOp::getResultTilePosition(
+    OpBuilder &b, unsigned resultNumber, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, SmallVector<OpFoldResult> &resultOffsets,
+    SmallVector<OpFoldResult> &resultSizes) {
+  return getResultTilePositionForSoftmaxLikeOp(
+      *this, b, resultNumber, offsets, sizes, resultOffsets, resultSizes);
 }
 
 //===----------------------------------------------------------------------===//
@@ -2043,6 +2218,7 @@ DEFINE_OP_GET_EFFECTS(LayerNormOp)
 DEFINE_OP_GET_EFFECTS(ScanOp)
 DEFINE_OP_GET_EFFECTS(ScatterOp)
 DEFINE_OP_GET_EFFECTS(mlir::linalg_ext::SoftmaxOp)
+DEFINE_OP_GET_EFFECTS(mlir::linalg_ext::UnnormalizedSoftmaxOp)
 DEFINE_OP_GET_EFFECTS(TopkOp)
 
 namespace {
@@ -2067,6 +2243,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
 DEFINE_OP_FOLD(DiagOp)
 DEFINE_OP_FOLD(ScanOp)
 DEFINE_OP_FOLD(mlir::linalg_ext::SoftmaxOp)
+DEFINE_OP_FOLD(mlir::linalg_ext::UnnormalizedSoftmaxOp)
 DEFINE_OP_FOLD(TopkOp)
 
 namespace {

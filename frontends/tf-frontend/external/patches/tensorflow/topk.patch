@@ -1,0 +1,13 @@
+diff --git a/third_party/xla/xla/service/topk_rewriter.cc b/third_party/xla/xla/service/topk_rewriter.cc
+index 6310f5d9042..c42a2561175 100644
+--- a/third_party/xla/xla/service/topk_rewriter.cc
++++ b/third_party/xla/xla/service/topk_rewriter.cc
+@@ -172,7 +172,7 @@ static bool IsNanSafeGt(HloComputation* comp) {
+ // Look for the instructions emitted from: xla/client/lib/sorting.cc
+ static bool HasIota(HloSortInstruction* sort, HloInstruction* data) {
+   namespace m = match;
+-  const std::array<int64_t, 1> sort_dims = {
++  const absl::Span<const int64_t> sort_dims = {
+       data->shape().dimensions(sort->sort_dimension())};
+   auto match_iota = [](auto dims) {
+     return m::Iota().WithShape(m::Shape().WithElementType(S32).WithDims(dims));

@@ -33,6 +33,11 @@ llvm::cl::opt<int64_t> batchSize(
     llvm::cl::desc("Specify batch size, default value is -1 (not to specify)."),
     llvm::cl::init(-1), llvm::cl::cat(OnnxFrontendOptions));
 
+llvm::cl::opt<bool> enableUnroll(
+    "enable-unroll",
+    llvm::cl::desc("Enable unroll rather than lowering to mhlo::WhileOp."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxFrontendOptions));
+
 llvm::cl::opt<bool> forceSetBatchSize(
     "force-set-batch-size",
     llvm::cl::desc("override the first dimension with specified batch size, "

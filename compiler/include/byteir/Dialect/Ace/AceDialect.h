@@ -18,6 +18,7 @@
 #ifndef BYTEIR_DIALECT_ACE_ACEDIALECT_H
 #define BYTEIR_DIALECT_ACE_ACEDIALECT_H
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 

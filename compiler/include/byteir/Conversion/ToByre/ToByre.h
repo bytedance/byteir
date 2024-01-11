@@ -31,12 +31,6 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-// Collect a set of patterns to convert ops from Lmhlo dialect to Byre dialect
-// Note: supportMap is a reference.
-void populateLmhloToByreConversionPatterns(
-    RewritePatternSet &patterns, llvm::StringMap<StringRef> &supportMap,
-    bool appendArgTypes);
-
 void populateViewLikeToByreConversionPatterns(RewritePatternSet &patterns);
 
 void populateStdToByreConversionPatterns(RewritePatternSet &patterns,
@@ -50,9 +44,6 @@ createConvertToByrePass(bool appendArgTypes = false);
 std::unique_ptr<OperationPass<ModuleOp>>
 createConvertFuncAndCallToByrePass(bool appendArgTypes = false,
                                    bool removeDupOutputs = false);
-
-std::unique_ptr<OperationPass<func::FuncOp>>
-createConvertLmhloToByrePass(bool appendArgTypes = false);
 
 } // namespace mlir
 

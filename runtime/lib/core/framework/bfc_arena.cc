@@ -15,7 +15,7 @@ BFCArena::BFCArena(std::unique_ptr<IAllocator> resource_allocator,
                    int initial_growth_chunk_size_bytes)
     : IArenaAllocator(BrtMemoryInfo(
           resource_allocator->Info().name, resource_allocator->Info().key,
-          BrtAllocatorType::BrtArenaAllocator, resource_allocator->Info().id,
+          BrtAllocatorType::ArenaAllocator, resource_allocator->Info().id,
           resource_allocator->Info().mem_type)),
       device_allocator_(std::move(resource_allocator)),
       free_chunks_list_(kInvalidChunkHandle), next_allocation_id_(1),

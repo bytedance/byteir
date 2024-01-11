@@ -26,7 +26,8 @@
 namespace onnx_frontend {
 
 void addCustomizedONNXToMhloPasses(
-    mlir::PassManager &pm, const std::vector<std::string> &customCallOps) {
+    mlir::PassManager &pm, const std::vector<std::string> &customCallOps,
+    bool enableUnroll) {
 
   // Statically add passes for shape inference
   for (int i = 0; i < onnx_frontend::ofRepeatStatic; i++) {
@@ -79,7 +80,7 @@ void addCustomizedONNXToMhloPasses(
   pm.addPass(mlir::createSymbolDCEPass());
 
   pm.addPass(onnx_frontend::createOFModifyEntryPointPass());
-  pm.addPass(onnx_mlir::createLowerToMhloPass());
+  pm.addPass(onnx_mlir::createLowerToMhloPass(enableUnroll));
   pm.addPass(onnx_frontend::createOFCanonicalizerPass());
   (void)mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);

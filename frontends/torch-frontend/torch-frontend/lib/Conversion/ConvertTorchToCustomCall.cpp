@@ -140,33 +140,75 @@ Value promoteType(Location loc, Value input, TensorType desiredType,
       inType.cloneWith(inType.getShape(), desiredType.getElementType());
   return rewriter.create<stablehlo::ConvertOp>(loc, promotedType, input);
 }
+
+DenseFPElementsAttr getSplatFloatAttr(RankedTensorType type, double value) {
+  bool losesInfo;
+  APFloat v = APFloat(value);
+  v.convert(type.getElementType().cast<mlir::FloatType>().getFloatSemantics(),
+            APFloat::rmNearestTiesToEven, &losesInfo);
+  assert(!losesInfo && "should not lose info");
+  return DenseFPElementsAttr::get(type, {v});
+}
 } // namespace
 
 namespace {
 
-// AtenNativeLayerNormOp
-class ConvertAtenNativeLayerNormOp
-    : public OpConversionPattern<AtenNativeLayerNormOp> {
+// AtenNativeLayerNormOp & AtenLayerNormOp
+template <typename AtenOpT>
+class ConvertAtenLayerNormOp : public OpConversionPattern<AtenOpT> {
 public:
-  using OpConversionPattern::OpConversionPattern;
-
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
   LogicalResult
-  matchAndRewrite(AtenNativeLayerNormOp op, OpAdaptor adaptor,
+  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    RankedTensorType outType = getTypeConverter()
-                                   ->convertType(op.getResultTypes()[0])
-                                   .cast<RankedTensorType>();
+    mlir::RankedTensorType outType =
+        OpConversionPattern<AtenOpT>::getTypeConverter()
+            ->convertType(op->getResultTypes()[0])
+            .template cast<RankedTensorType>();
+    mlir::FloatType outElementType =
+        outType.getElementType().template cast<mlir::FloatType>();
+
+    // promote input
     Value input =
         promoteType(op->getLoc(), adaptor.getInput(), outType, rewriter);
-    Value weight =
-        promoteType(op->getLoc(), adaptor.getWeight(), outType, rewriter);
-    Value bias =
-        promoteType(op->getLoc(), adaptor.getBias(), outType, rewriter);
+    auto inputType = input.getType().template cast<RankedTensorType>();
+    // infer the axis list and axis shape
+    llvm::SmallVector<int64_t> normalizedShape;
+    if (!matchPattern(op.getNormalizedShape(),
+                      m_TorchListOfConstantInts(normalizedShape))) {
+      return op.emitError("normalizedShape must be a int list");
+    }
+    auto inputShape = inputType.getShape();
+    std::vector<int64_t> axisList;
+    std::vector<int64_t> axisShape;
+    for (size_t i = 0; i < normalizedShape.size(); ++i) {
+      axisList.push_back(inputShape.size() - 1 - i);
+      axisShape.push_back(inputShape[inputShape.size() - 1 - i]);
+    }
+    std::reverse(axisList.begin(), axisList.end());
+    std::reverse(axisShape.begin(), axisShape.end());
+    // construct or promote weight/bias
+    Value weight = adaptor.getWeight();
+    Value bias = adaptor.getBias();
+    mlir::RankedTensorType weightBiasType =
+        RankedTensorType::get(axisShape, outElementType);
+    if (weight.getType().template isa<Torch::NoneType>()) {
+      weight = rewriter.create<stablehlo::ConstantOp>(
+          op->getLoc(), getSplatFloatAttr(weightBiasType, 1.0));
+    }
+    if (bias.getType().template isa<Torch::NoneType>()) {
+      bias = rewriter.create<stablehlo::ConstantOp>(
+          op->getLoc(), getSplatFloatAttr(weightBiasType, 0.0));
+    }
+    weight = promoteType(op->getLoc(), weight, outType, rewriter);
+    bias = promoteType(op->getLoc(), bias, outType, rewriter);
+
+    // collect inputs/outputs
     SmallVector<Value> bufferArgs({input, weight, bias});
-    RankedTensorType inType = input.getType().cast<RankedTensorType>();
     SmallVector<Type> resultTypes;
-    if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
-                                                resultTypes))) {
+    if (failed(OpConversionPattern<AtenOpT>::getTypeConverter()->convertTypes(
+            op->getResultTypes(), resultTypes))) {
       return op.emitError("could not convert output types");
     }
 
@@ -175,116 +217,11 @@ public:
       return op.emitError("eps must be a scalar constant");
     }
 
-    SmallVector<int64_t> normalizedShape;
-    if (!matchPattern(op.getNormalizedShape(),
-                      m_TorchListOfConstantInts(normalizedShape))) {
-      return op.emitError("eps must be a int list");
-    }
-    // Infer the axis list
-    ArrayRef<int64_t> inShape = inType.getShape();
-    std::vector<int64_t> axisValue;
-    for (size_t i = 0; i < normalizedShape.size(); ++i) {
-      axisValue.push_back(inShape.size() - 1 - i);
-    }
-    std::reverse(axisValue.begin(), axisValue.end());
-
     std::vector<NamedAttribute> byteir_attrs;
     byteir_attrs.emplace_back(rewriter.getStringAttr("epsilon"),
                               rewriter.getF64FloatAttr(epsValue));
     byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
-                              rewriter.getI64ArrayAttr(axisValue));
-
-    auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getLayerNormName()));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                       rewriter.getDictionaryAttr(byteir_attrs));
-
-    if (op.getResults()[1].use_empty() && op.getResults()[2].use_empty()) {
-      auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-          op->getLoc(), ArrayRef<Type>{resultTypes[0]}, bufferArgs,
-          ArrayRef<NamedAttribute>{attrs});
-      rewriter.replaceOp(
-          op, ArrayRef<Value>{customCallOp.getResults()[0], Value(), Value()});
-      return success();
-    } else {
-      auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-          op->getLoc(), resultTypes, bufferArgs,
-          ArrayRef<NamedAttribute>{attrs});
-      rewriter.replaceOp(op, customCallOp->getResults());
-      return success();
-    }
-  }
-};
-
-// AtenLayerNormOp
-class ConvertAtenLayerNormOp : public OpConversionPattern<AtenLayerNormOp> {
-public:
-  using OpConversionPattern::OpConversionPattern;
-
-  LogicalResult
-  matchAndRewrite(AtenLayerNormOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    RankedTensorType outType = getTypeConverter()
-                                   ->convertType(op.getResult().getType())
-                                   .cast<RankedTensorType>();
-    Value input =
-        promoteType(op->getLoc(), adaptor.getInput(), outType, rewriter);
-    Value weight = adaptor.getWeight();
-    Value bias = adaptor.getBias();
-    auto inputTy = input.getType().cast<RankedTensorType>();
-    auto inputElemTy = inputTy.getElementType();
-    Value channelDim =
-        rewriter.create<mlir::tensor::DimOp>(op->getLoc(), input, 1);
-    Value channelShape = rewriter.create<mlir::tensor::FromElementsOp>(
-        op->getLoc(), ValueRange{channelDim});
-    auto biasType = bias.getType();
-    if (biasType.isa<mlir::NoneType>() || biasType.isa<Torch::NoneType>()) {
-      bias = hlo::getConstantOfShape(
-          rewriter, op->getLoc(),
-          {APFloat::getZero(
-              inputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
-              /*negative=*/false)},
-          channelShape,
-          RankedTensorType::get({inputTy.getShape()[1]}, inputElemTy));
-    }
-    auto weightType = weight.getType();
-    if (weightType.isa<mlir::NoneType>() || weightType.isa<Torch::NoneType>()) {
-      weight = hlo::getConstantOfShape(
-          rewriter, op->getLoc(),
-          {APFloat::getAllOnesValue(
-              inputElemTy.cast<mlir::FloatType>().getFloatSemantics())},
-          channelShape,
-          RankedTensorType::get({inputTy.getShape()[1]}, inputElemTy));
-    }
-    bias = promoteType(op->getLoc(), bias, outType, rewriter);
-    weight = promoteType(op->getLoc(), weight, outType, rewriter);
-
-    SmallVector<Value> bufferArgs({input, weight, bias});
-    RankedTensorType inType = input.getType().cast<RankedTensorType>();
-    double epsValue;
-    if (!matchPattern(op.getEps(), m_TorchConstantFloat(&epsValue))) {
-      return op.emitError("eps must be a scalar constant");
-    }
-
-    SmallVector<int64_t> normalizedShape;
-    if (!matchPattern(op.getNormalizedShape(),
-                      m_TorchListOfConstantInts(normalizedShape))) {
-      return op.emitError("eps must be a int list");
-    }
-    // Infer the axis list
-    ArrayRef<int64_t> inShape = inType.getShape();
-    std::vector<int64_t> axisValue;
-    for (size_t i = 0; i < normalizedShape.size(); ++i) {
-      axisValue.push_back(inShape.size() - 1 - i);
-    }
-    std::reverse(axisValue.begin(), axisValue.end());
-
-    std::vector<NamedAttribute> byteir_attrs;
-    byteir_attrs.emplace_back(rewriter.getStringAttr("epsilon"),
-                              rewriter.getF64FloatAttr(epsValue));
-    byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
-                              rewriter.getI64ArrayAttr(axisValue));
+                              rewriter.getI64ArrayAttr(axisList));
     if (op->hasAttr("eps_outside_sqrt")) {
       byteir_attrs.emplace_back(rewriter.getStringAttr("eps_outside_sqrt"),
                                 op->getAttr("eps_outside_sqrt"));
@@ -295,11 +232,121 @@ public:
                        rewriter.getStringAttr(getLayerNormName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
-    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), outType, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-    rewriter.replaceOp(op, customCallOp->getResults());
 
+    if constexpr (std::is_same_v<AtenOpT, AtenNativeLayerNormOp>) {
+      if (op->getResult(1).use_empty() && op->getResult(2).use_empty()) {
+        auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+            op->getLoc(), ArrayRef<Type>{resultTypes[0]}, bufferArgs,
+            ArrayRef<NamedAttribute>{attrs});
+        rewriter.replaceOp(op, ArrayRef<Value>{customCallOp.getResults()[0],
+                                               Value(), Value()});
+        return success();
+      }
+    }
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+    rewriter.replaceOp(op, customCallOp->getResults());
     return success();
+  }
+};
+
+// AtenNativeGroupNormOp & AtenGroupNormOp
+template <typename AtenOpT>
+class ConvertAtenGroupNormOp : public OpConversionPattern<AtenOpT> {
+public:
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult
+  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    RankedTensorType outType = OpConversionPattern<AtenOpT>::getTypeConverter()
+                                   ->convertType(op->getResultTypes()[0])
+                                   .template cast<RankedTensorType>();
+    if (!outType.hasStaticShape()) {
+      return op.emitError("must be static shape");
+    }
+
+    Value input = adaptor.getInput();
+    Value weight = adaptor.getWeight();
+    Value bias = adaptor.getBias();
+    int64_t group = -999;
+    if constexpr (std::is_same_v<AtenOpT, AtenNativeGroupNormOp>) {
+      if (!matchPattern(op.getGroup(), m_TorchConstantInt(&group))) {
+        return op.emitError("group must be constant int");
+      }
+    } else if constexpr (std::is_same_v<AtenOpT, AtenGroupNormOp>) {
+      if (!matchPattern(op.getNumGroups(), m_TorchConstantInt(&group))) {
+        return op.emitError("num_groups must be constant int");
+      }
+    }
+    if (outType.getDimSize(1) % group != 0) {
+      return op.emitError("channel size must be divisible by group size");
+    }
+    if constexpr (std::is_same_v<AtenOpT, AtenNativeGroupNormOp>) {
+      if (!op.getResults()[1].use_empty() || !op.getResults()[2].use_empty()) {
+        return op.emitError(
+            "can't convert native_group_norm to byteir.layer_norm");
+      }
+    }
+    double eps;
+    if (!matchPattern(op.getEps(), m_TorchConstantFloat(&eps))) {
+      return op.emitError("eps must be constant float");
+    }
+
+    // construct layer_norm weight/bias and pre-reshape
+    int64_t N = outType.getDimSize(0);
+    int64_t HW = outType.getNumElements() / (N * group);
+    RankedTensorType reshapeType = RankedTensorType::get(
+        ArrayRef<int64_t>{N, group, HW}, outType.getElementType());
+    RankedTensorType weightBiasType =
+        RankedTensorType::get(ArrayRef<int64_t>{HW}, outType.getElementType());
+    Value layerNormWeight = rewriter.create<stablehlo::ConstantOp>(
+        op->getLoc(), getSplatFloatAttr(weightBiasType, 1.0));
+    Value layerNormBias = rewriter.create<stablehlo::ConstantOp>(
+        op->getLoc(), getSplatFloatAttr(weightBiasType, 0.0));
+    Value preReshape =
+        rewriter.create<stablehlo::ReshapeOp>(op->getLoc(), reshapeType, input);
+
+    // construct byteir.layer_norm
+    SmallVector<Value> bufferArgs({preReshape, layerNormWeight, layerNormBias});
+    SmallVector<Type> resultTypes({reshapeType});
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("epsilon"),
+                              rewriter.getF64FloatAttr(eps));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
+                              rewriter.getI64ArrayAttr({2}));
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getLayerNormName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+
+    // post-reshape
+    Value result = rewriter.create<stablehlo::ReshapeOp>(
+        op->getLoc(), outType, customCallOp->getResult(0));
+    // group_norm weight/bias
+    if (!weight.getType().template isa<Torch::NoneType>()) {
+      Value bcastWeight = rewriter.create<stablehlo::BroadcastInDimOp>(
+          op->getLoc(), outType, weight, rewriter.getI64TensorAttr({1}));
+      result =
+          rewriter.create<stablehlo::MulOp>(op->getLoc(), result, bcastWeight);
+    }
+    if (!bias.getType().template isa<Torch::NoneType>()) {
+      Value bcastBias = rewriter.create<stablehlo::BroadcastInDimOp>(
+          op->getLoc(), outType, bias, rewriter.getI64TensorAttr({1}));
+      result =
+          rewriter.create<stablehlo::AddOp>(op->getLoc(), result, bcastBias);
+    }
+
+    if constexpr (std::is_same_v<AtenOpT, AtenNativeGroupNormOp>) {
+      rewriter.replaceOp(op, ArrayRef<Value>{result, Value(), Value()});
+      return success();
+    } else {
+      rewriter.replaceOp(op, result);
+      return success();
+    }
   }
 };
 
@@ -1111,9 +1158,17 @@ public:
 
     RewritePatternSet patterns(context);
     target.addIllegalOp<AtenNativeLayerNormOp>();
-    patterns.add<ConvertAtenNativeLayerNormOp>(typeConverter, context);
+    patterns.add<ConvertAtenLayerNormOp<AtenNativeLayerNormOp>>(typeConverter,
+                                                                context);
     target.addIllegalOp<AtenLayerNormOp>();
-    patterns.add<ConvertAtenLayerNormOp>(typeConverter, context);
+    patterns.add<ConvertAtenLayerNormOp<AtenLayerNormOp>>(typeConverter,
+                                                          context);
+    target.addIllegalOp<AtenNativeGroupNormOp>();
+    patterns.add<ConvertAtenGroupNormOp<AtenNativeGroupNormOp>>(typeConverter,
+                                                                context);
+    target.addIllegalOp<AtenGroupNormOp>();
+    patterns.add<ConvertAtenGroupNormOp<AtenGroupNormOp>>(typeConverter,
+                                                          context);
     target.addIllegalOp<Aten_SoftmaxOp>();
     patterns.add<ConvertAtenSoftmaxOp<Aten_SoftmaxOp>>(typeConverter, context);
     target.addIllegalOp<AtenSoftmaxIntOp>();

@@ -37,7 +37,7 @@ td_library(
     includes = ["../../external/tensorflow"], # patch tensorflow_ops_td_files's `includes`
     deps = [
         "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
-        "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+        "@local_xla//xla/mlir_hlo:hlo_ops_td_files",
     ],
 )
 
@@ -87,6 +87,7 @@ cc_library(
         "rewrite_func_attr_to_byteir.cc",
         "rewrite_to_custom_call.cc",
         "tf_fallback_to_custom_call.cc",
+        "tf_switch_merge_to_if.cc",
     ],
     hdrs = [
       "constant_folding.h",
@@ -100,6 +101,7 @@ cc_library(
       "rewrite_func_attr_to_byteir.h",
       "rewrite_to_custom_call.h",
       "tf_fallback_to_custom_call.h",
+      "tf_switch_merge_to_if.h",
     ],
     textual_hdrs = [
        "passes_detail.h",
@@ -118,7 +120,7 @@ cc_library(
       "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:shape_inference_utils",
       "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow",
       "@org_tensorflow//tensorflow/compiler/mlir/lite:validators",
-      "@org_tensorflow//tensorflow/compiler/xla/mlir_hlo",
+      "@local_xla//xla/mlir_hlo",
       "@llvm-project//llvm:Support",
       "@llvm-project//mlir:Dialect",
       "@llvm-project//mlir:IR",

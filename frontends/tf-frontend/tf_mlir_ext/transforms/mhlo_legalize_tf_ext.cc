@@ -197,7 +197,8 @@ public:
     auto input_ty = op.getInput().getType().dyn_cast<RankedTensorType>();
     auto result_ty = op.getType().dyn_cast<RankedTensorType>();
 
-    if (input_ty.hasStaticShape() || result_ty.hasStaticShape())
+    if (!input_ty || input_ty.hasStaticShape() || !result_ty ||
+        result_ty.hasStaticShape())
       return rewriter.notifyMatchFailure(
           op, "this pattern only intended for dynamic shape input & output");
 

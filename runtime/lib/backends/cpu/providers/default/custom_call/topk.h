@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/framework/op_kernel_impl_base.h"
 
 namespace brt {
@@ -24,9 +25,19 @@ namespace cpu {
 
 class TopK final : public OpKernel {
 public:
-  explicit TopK(const OpKernelInfo &info) : OpKernel(info) {}
+  explicit TopK(const OpKernelInfo &info) : OpKernel(info) {
+    const CPUExecutionProviderOptions &options =
+        static_cast<const CPUExecutionProvider &>(info.GetExecutionProvider())
+            .GetProviderOptions();
+    this->brt_omp_num_threads = options.brt_omp_num_threads;
+  }
+
+  int GetNumThreads() { return brt_omp_num_threads; }
 
   common::Status RunImpl(const ExecutionContext &ctx) override;
+
+private:
+  int brt_omp_num_threads;
 };
 
 } // namespace cpu

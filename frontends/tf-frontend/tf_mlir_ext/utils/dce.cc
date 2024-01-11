@@ -46,18 +46,18 @@ void dce(Operation *parentOp) {
     Operation *backOp = emptyUseOps.back();
     emptyUseOps.pop_back();
 
-    SmallVector<Operation *> defOps;
+    llvm::DenseSet<Operation *> defOps;
     for (Value v : backOp->getOperands()) {
       Operation *defOp = v.getDefiningOp();
       if (defOp)
-        defOps.push_back(defOp);
+        defOps.insert(defOp);
     }
     if (auto landOp = llvm::dyn_cast<tf_executor::IslandOp>(backOp)) {
       for (Operation &bodyOp : landOp.GetBody().without_terminator()) {
         for (Value v : bodyOp.getOperands()) {
           Operation *defOp = v.getDefiningOp();
           if (defOp)
-            defOps.push_back(defOp);
+            defOps.insert(defOp);
         }
       }
     }

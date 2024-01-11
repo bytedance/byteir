@@ -17,7 +17,6 @@
 
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/Utils.h"
-#include "lhlo/IR/lhlo_ops.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/IR/Operation.h"
 
@@ -454,8 +453,6 @@ void mlir::handleConvAttribute(NamedAttrList &attrs, T conv_op,
 // instantiate
 template void mlir::handleConvAttribute<mhlo::ConvolutionOp>(
     NamedAttrList &, mhlo::ConvolutionOp, OpBuilder &);
-template void mlir::handleConvAttribute<lmhlo::ConvolutionOp>(
-    NamedAttrList &, lmhlo::ConvolutionOp, OpBuilder &);
 
 namespace {
 
@@ -601,12 +598,6 @@ mlir::computeReshapeInputOutputRankMapIndex(ShapedType inputType,
     return std::nullopt;
   }
   return result;
-}
-
-bool mlir::isLmhloConstantValue(mlir::Value value) {
-  return llvm::any_of(value.getUses(), [&](OpOperand &use) {
-    return llvm::isa<lmhlo::ConstantOp>(use.getOwner());
-  });
 }
 
 // compute the index of the reshape's expand dimension
