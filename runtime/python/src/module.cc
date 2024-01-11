@@ -132,7 +132,8 @@ PyEnv::PyEnv() {
 class PyCustomAllocator final : public IAllocator {
 public:
   PyCustomAllocator(py::object alloc_f, py::object free_f)
-      : IAllocator(BrtMemoryInfo("PyCustom", "cuda", BrtCustomAllocator)),
+      : IAllocator(BrtMemoryInfo("PyCustom", "cuda",
+                                 brt::BrtAllocatorType::CustomAllocator)),
         alloc_f_(alloc_f), free_f_(free_f) {}
   void *Alloc(size_t size) override {
     py::gil_scoped_acquire _;

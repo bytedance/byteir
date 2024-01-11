@@ -704,9 +704,7 @@ public:
       : ConvertHloToByreTensorBase() {
     this->appendArgTypes = appendArgTypes;
 
-    supportMap.insert({"mhlo.add", "AddOp"});
     supportMap.insert({"mhlo.transpose", "TransposeOp"});
-    supportMap.insert({"mhlo.convert", "Typecvt"});
   }
 
   void runOnOperation() override {

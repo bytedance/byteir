@@ -17,7 +17,7 @@ include(MLIR.cmake)
 #-------------------------------------------------------------------------------
 
 set(TORCH_MLIR_BUILD_EMBEDDED ON)
-set(TORCH_MLIR_ENABLE_MHLO ON)
+set(TORCH_MLIR_ENABLE_STABLEHLO ON)
 add_definitions(-DTORCH_MLIR_ENABLE_STABLEHLO)
 set(TORCH_MLIR_ENABLE_JIT_IR_IMPORTER ON)
 set(TORCH_MLIR_ENABLE_LTC OFF)

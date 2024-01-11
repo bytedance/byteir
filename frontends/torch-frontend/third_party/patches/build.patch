@@ -1,16 +1,16 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index cf33ccac..66a1853e 100644
+index f821d600..dac8e802 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -39,6 +39,7 @@ if(TORCH_MLIR_ENABLE_STABLEHLO)
+@@ -43,6 +43,7 @@ if(TORCH_MLIR_ENABLE_STABLEHLO)
    add_definitions(-DTORCH_MLIR_ENABLE_STABLEHLO)
  endif()
  
 +option(TORCH_MLIR_BUILD_EMBEDDED "Build torch mlir as part of another project" OFF)
  option(TORCH_MLIR_OUT_OF_TREE_BUILD "Specifies an out of tree build" OFF)
  
- # PT1 options.
-@@ -103,7 +104,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR TORCH_MLIR_OUT_OF_TREE_
+ # PyTorch native extension gate. If OFF, then no features which depend on
+@@ -94,7 +95,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR TORCH_MLIR_OUT_OF_TREE_
  
    set(TORCH-MLIR_BUILT_STANDALONE ON)
    set(BACKEND_PACKAGE_STRING "LLVM ${LLVM_PACKAGE_VERSION}")
@@ -19,7 +19,7 @@ index cf33ccac..66a1853e 100644
    message(STATUS "Torch-MLIR in-tree build.")
    # In-tree build with LLVM_EXTERNAL_PROJECTS=torch-mlir
  
-@@ -114,6 +115,8 @@ else()
+@@ -105,6 +106,8 @@ else()
    set(MLIR_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/../mlir/include)
    set(MLIR_GENERATED_INCLUDE_DIR ${LLVM_BINARY_DIR}/tools/mlir/include)
    set(MLIR_INCLUDE_DIRS "${MLIR_INCLUDE_DIR};${MLIR_GENERATED_INCLUDE_DIR}")

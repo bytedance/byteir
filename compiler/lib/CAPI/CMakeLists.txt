@@ -15,9 +15,6 @@ add_mlir_public_c_api_library(ByteIRCAPI
   # conversion passes
   ByteIRGPUToNVVM
   ByteIRHloToCat
-  ByteIRHloToLhlo
-  ByteIRLmhloToLace
-  ByteIRLmhloToMemref
   ByteIRToAce
   ByteIRToAIT
   ByteIRToByre

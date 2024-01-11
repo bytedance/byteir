@@ -174,7 +174,7 @@ public:
 
   CPUAllocator()
       : IAllocator(
-            BrtMemoryInfo(CPU, "cpu", BrtAllocatorType::BrtDeviceAllocator)) {}
+            BrtMemoryInfo(CPU, "cpu", BrtAllocatorType::DeviceAllocator)) {}
 
   void *Alloc(size_t size) override;
   void Free(void *p) override;

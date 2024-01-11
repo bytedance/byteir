@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
   // These are in compiler/mlir/xla and not part of the above MHLO passes.
   mlir::mhlo::registerTfXlaPasses();
   mlir::mhlo::registerLegalizeTFPass();
-  mlir::mhlo::registerLegalizeTfTypesPassPass();
+  // mlir::mhlo::registerLegalizeTfTypesPassPass();
   mlir::TFL::registerTensorFlowLitePasses();
   mlir::tf_test::registerTensorFlowTestPasses();
 

@@ -143,9 +143,6 @@ computeReshapeInputOutputRankMapIndex(ShapedType inputType,
 // ex6: reshape(<1x16x32xf32>) : <16x32xf32> return nullopt
 std::optional<int64_t> computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp);
 
-// TODO: move this to lmhlo
-bool isLmhloConstantValue(mlir::Value value);
-
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_MHLO_UTIL_UTIL_H

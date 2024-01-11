@@ -1,11 +1,11 @@
 // RUN: byteir-opt -hlo-to-byre-tensor --canonicalize --split-input-file %s | FileCheck %s
 
-func.func @test_add(%arg0: tensor<4xf32>, %arg1: tensor<4xf32>) -> tensor<4xf32> attributes {__placeholder__byre.entry_point} {
-  %0 = mhlo.add %arg0, %arg1 : tensor<4xf32>
-  return %0 : tensor<4xf32>
+func.func @test_transpose(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32> attributes {__placeholder__byre.entry_point} {
+  %0 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<2x2xf32>) -> tensor<2x2xf32>
+  return %0 : tensor<2x2xf32>
 }
-// CHECK-LABEL: func.func @test_add
-//   CHECK: byre.compute @AddOp
+// CHECK-LABEL: func.func @test_transpose
+//   CHECK: byre.compute @TransposeOp
 
 // -----
 

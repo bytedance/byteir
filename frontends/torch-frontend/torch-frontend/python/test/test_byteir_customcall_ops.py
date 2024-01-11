@@ -8,7 +8,7 @@ def custom_test_helper(module, inputs, custom_op_name):
     mlir_module = convert_to_mhlo_via_torch_mlir(module, inputs)
     mlir_str = mlir_module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
     compare_str = "stablehlo.custom_call @{}".format(custom_op_name)
-    # print(mlir_str)
+    print(mlir_str)
     assert compare_str in mlir_str
 
 # ==============================================================================
@@ -77,6 +77,28 @@ class LayerNormNoneBiasModule(torch.nn.Module):
 def test_layer_norm_none_bias():
     inputs = [tu.rand(2, 5, 2, 2, 3).to(torch.float16)]
     custom_test_helper(LayerNormNoneBiasModule(), inputs, "byteir.layer_norm")
+
+class GroupNormModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x, weight, bias):
+        return torch.ops.aten.group_norm(x, 2, weight, bias, 0.5)
+
+def test_group_norm():
+    inputs = [tu.rand(2, 6, 14), tu.rand(6), tu.rand(6)]
+    custom_test_helper(GroupNormModule(), inputs, "byteir.layer_norm")
+
+class GroupNormNoneBiasModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.ops.aten.group_norm(x, 2, weight=None, bias=None, eps=0.5, cudnn_enabled=False)
+
+def test_group_norm_none_bias():
+    inputs = [tu.rand(2, 6, 14)]
+    custom_test_helper(GroupNormNoneBiasModule(), inputs, "byteir.layer_norm")
 
 # ==============================================================================
 

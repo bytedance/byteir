@@ -82,6 +82,6 @@ common::Status CPUAllocatorFactory(Session *session, bool use_arena,
 
 } // namespace brt
 
-std::ostream &operator<<(std::ostream &out, const BrtMemoryInfo &info) {
+std::ostream &operator<<(std::ostream &out, const ::brt::BrtMemoryInfo &info) {
   return (out << info.ToString());
 }

@@ -35,6 +35,8 @@
 
 #include <memory>
 
+#define BRT_CPU_DEFAULT_OMP_NUM_THREADS 12
+
 using namespace brt;
 using namespace brt::common;
 
@@ -127,12 +129,33 @@ BRT_STATIC_KERNEL_REGISTRATION(
 
 } // namespace
 
-CPUExecutionProvider::CPUExecutionProvider(const std::string &name)
-    : ExecutionProvider(DeviceKind::CPU, name) {}
+static CPUExecutionProviderOptions GetDefaultCPUOptions() {
+  CPUExecutionProviderOptions options;
+  // TODO: fix default value
+  options.brt_omp_num_threads = BRT_CPU_DEFAULT_OMP_NUM_THREADS;
+  return options;
+}
+
+CPUExecutionProvider::CPUExecutionProvider(
+    const CPUExecutionProviderOptions &options, const std::string &name)
+    : ExecutionProvider(DeviceKind::CPU, name), options_(options) {}
+
+const CPUExecutionProviderOptions &
+CPUExecutionProvider::GetProviderOptions() const {
+  return options_;
+}
 
 common::Status NaiveCPUExecutionProviderFactory(Session *session) {
+  // use default CPU provider options
+  CPUExecutionProviderOptions default_options = GetDefaultCPUOptions();
+  return NaiveCPUExecutionProviderFactory(session, default_options);
+}
+
+common::Status
+NaiveCPUExecutionProviderFactory(Session *session,
+                                 const CPUExecutionProviderOptions &options) {
   // create a CPU provider
-  auto cpu_provider = std::make_unique<CPUExecutionProvider>();
+  auto cpu_provider = std::make_unique<CPUExecutionProvider>(options);
 
   // give ownership to the session
   return session->AddExecutionProvider(std::move(cpu_provider));

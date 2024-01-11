@@ -19,7 +19,8 @@
 namespace onnx_frontend {
 
 void addCustomizedONNXToMhloPasses(
-    mlir::PassManager &pm, const std::vector<std::string> &customCallOps);
+    mlir::PassManager &pm, const std::vector<std::string> &customCallOps,
+    bool enableUnroll);
 
 void addVerifyONNXToMhloPasses(mlir::PassManager &pm);
 

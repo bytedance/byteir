@@ -18,7 +18,6 @@
 #include "byteir/Conversion/ToPTX/ToPTX.h"
 
 #include "byteir/Analysis/Alias.h"
-#include "byteir/Conversion/ToByre/Common.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"

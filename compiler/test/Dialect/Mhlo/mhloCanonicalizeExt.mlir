@@ -184,3 +184,97 @@ func.func @add_insert_slices(%arg0: tensor<64x256x384xf32>, %arg1: tensor<64x256
 // CHECK-LABEL: add_insert_slices
 // CHECK: mhlo.concatenate
 // CHECK-NOT: mhlo.add
+
+// case1
+func.func @fold_concat_with_continuous_slices_1(%arg0: tensor<128x3xf16>) -> tensor<128x3xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%0, %1, %2) {dimension = 1 : i64} : (tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>) -> tensor<128x3xf16>
+  return %3 : tensor<128x3xf16>
+}
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_1(%arg0: tensor<128x3xf16>) -> tensor<128x3xf16> {
+// CHECK-NEXT:    return %arg0 : tensor<128x3xf16>
+// CHECK-NEXT:  }
+
+// case2
+func.func @fold_concat_with_continuous_slices_2(%arg0: tensor<128x4xf16>) -> tensor<128x3xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%0, %1, %2) {dimension = 1 : i64} : (tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>) -> tensor<128x3xf16>
+  return %3 : tensor<128x3xf16>
+}
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_2(%arg0: tensor<128x4xf16>) -> tensor<128x3xf16> {
+// CHECK-NEXT:    %[[A_0:.*]] = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x3xf16>
+// CHECK-NEXT:    return %[[A_0]] : tensor<128x3xf16>
+// CHECK-NEXT:  }
+
+// case3
+func.func @fold_concat_with_continuous_slices_3(%arg0: tensor<128x3xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%arg1, %arg2, %0, %1, %2) {dimension = 1 : i64} : (tensor<128x2xf16>, tensor<128x2xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>) -> tensor<128x7xf16>
+  return %3 : tensor<128x7xf16>
+}
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_3(%arg0: tensor<128x3xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+// CHECK-NEXT:    %[[A_0:.*]] = "mhlo.concatenate"(%arg1, %arg2, %arg0) {dimension = 1 : i64} : (tensor<128x2xf16>, tensor<128x2xf16>, tensor<128x3xf16>) -> tensor<128x7xf16>
+// CHECK-NEXT:    return %[[A_0]] : tensor<128x7xf16>
+// CHECK-NEXT:  }
+
+// case4
+func.func @fold_concat_with_continuous_slices_4(%arg0: tensor<128x3xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%arg1, %0, %1, %2, %arg2) {dimension = 1 : i64} : (tensor<128x2xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+  return %3 : tensor<128x7xf16>
+}
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_4(%arg0: tensor<128x3xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+// CHECK-NEXT:    %[[A_0:.*]] = "mhlo.concatenate"(%arg1, %arg0, %arg2) {dimension = 1 : i64} : (tensor<128x2xf16>, tensor<128x3xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+// CHECK-NEXT:    return %[[A_0]] : tensor<128x7xf16>
+// CHECK-NEXT:  }
+
+// case5
+func.func @fold_concat_with_continuous_slices_5(%arg0: tensor<128x3xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x3xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%0, %1, %2, %arg1, %arg2) {dimension = 1 : i64} : (tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x2xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+  return %3 : tensor<128x7xf16>
+}
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_5(%arg0: tensor<128x3xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+// CHECK-NEXT:    %[[A_0:.*]] = "mhlo.concatenate"(%arg0, %arg1, %arg2) {dimension = 1 : i64} : (tensor<128x3xf16>, tensor<128x2xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+// CHECK-NEXT:    return %[[A_0]] : tensor<128x7xf16>
+// CHECK-NEXT:  }
+
+// case6
+func.func @fold_concat_with_continuous_slices_6(%arg0: tensor<128x4xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%0, %1, %2, %arg1, %arg2) {dimension = 1 : i64} : (tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x2xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+  return %3 : tensor<128x7xf16>
+}
+
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_6(%arg0: tensor<128x4xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+// CHECK-NEXT:    %[[A_0:.*]] = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x3xf16>
+// CHECK-NEXT:    %[[A_1:.*]] = "mhlo.concatenate"(%[[A_0]], %arg1, %arg2) {dimension = 1 : i64} : (tensor<128x3xf16>, tensor<128x2xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+// CHECK-NEXT:    return %[[A_1]] : tensor<128x7xf16>
+// CHECK-NEXT:  }
+
+// case7
+func.func @fold_concat_with_continuous_slices_7(%arg0: tensor<128x4xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+  %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 1]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %1 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 2]> : tensor<2xi64>, start_indices = dense<[0, 1]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %2 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<[0, 2]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x1xf16>
+  %3 = "mhlo.concatenate"(%arg1, %0, %1, %2, %arg2) {dimension = 1 : i64} : (tensor<128x2xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x1xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+  return %3 : tensor<128x7xf16>
+}
+
+// CHECK-LABEL: func.func @fold_concat_with_continuous_slices_7(%arg0: tensor<128x4xf16>, %arg1: tensor<128x2xf16>, %arg2: tensor<128x2xf16>) -> tensor<128x7xf16> {
+// CHECK-NEXT:    %[[A_0:.*]] = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 3]> : tensor<2xi64>, start_indices = dense<0> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<128x4xf16>) -> tensor<128x3xf16>
+// CHECK-NEXT:    %[[A_1:.*]] = "mhlo.concatenate"(%arg1, %0, %arg2) {dimension = 1 : i64} : (tensor<128x2xf16>, tensor<128x3xf16>, tensor<128x2xf16>) -> tensor<128x7xf16>
+// CHECK-NEXT:    return %[[A_1]] : tensor<128x7xf16>
+// CHECK-NEXT:  }

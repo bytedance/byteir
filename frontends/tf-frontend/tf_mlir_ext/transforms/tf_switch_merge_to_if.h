@@ -1,4 +1,4 @@
-//===- LmhloToMemref.h ----------------------------------------*--- C++ -*-===//
+//===- tf_switch_merge_to_if.h --------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,21 +15,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_CONVERSION_LMHLOTOMEMREF_H
-#define BYTEIR_CONVERSION_LMHLOTOMEMREF_H
+#ifndef TFEXT_TRANSFORMS_TF_SWITCH_MERGE_TO_IF
+#define TFEXT_TRANSFORMS_TF_SWITCH_MERGE_TO_IF
 
-#include "mlir/Pass/Pass.h"
 #include <memory>
 
+#include "mlir/IR/MLIRContext.h"  // from @llvm-project
+#include "mlir/IR/PatternMatch.h" // from @llvm-project
+#include "mlir/Pass/Pass.h"       // from @llvm-project
+#include "tensorflow/compiler/mlir/tensorflow/ir/tf_executor.h"
+
 namespace mlir {
-namespace func {
-class FuncOp;
-} // namespace func
+namespace tfext {
 
-void populateLmhloToMemrefPattern(RewritePatternSet &patterns);
+// -------------------------------------------
+std::unique_ptr<OperationPass<func::FuncOp>> createTFSwitchMergeToIfPass();
 
-std::unique_ptr<OperationPass<func::FuncOp>> createLmhloToMemrefPass();
-
+} // namespace tfext
 } // namespace mlir
 
-#endif // BYTEIR_CONVERSION_LMHLOTOMEMREF_H
+#endif // TFEXT_TRANSFORMS_TF_SWITCH_MERGE_TO_IF

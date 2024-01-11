@@ -55,14 +55,13 @@ module {
 // CHECK:     memref.copy %[[ARG_2]], %[[ARG_3]] : memref<4xf32> to memref<4xf32>
 // CHECK:     return
 
+memref.global "private" constant @constant0 : memref<4xf32> = dense<-3.40282347E+38>
   func.func @return_constant_value() -> (memref<4xf32> {__placeholder__byre.argname = "C"}, memref<4xf32> {__placeholder__byre.argname = "D"}) attributes { __placeholder__byre.entry_point } {
-    %alloc = memref.alloc() : memref<4xf32>
-    "lmhlo.constant"(%alloc) {value = dense<-3.40282347E+38> : tensor<4xf32>} : (memref<4xf32>) -> ()
-    return %alloc, %alloc : memref<4xf32>, memref<4xf32>
+    %0 = memref.get_global @constant0 : memref<4xf32>
+    return %0, %0 : memref<4xf32>, memref<4xf32>
   }
   // CHECK: @return_constant_value(%[[ARG0:.*]]: memref<4xf32> {byre.argname = "C", byre.argtype = 2 : i32}, %[[ARG1:.*]]: memref<4xf32> {byre.arg_alias_index = 0 : i64, byre.argname = "D", byre.argtype = 2 : i32})
-  // CHECK: memref.alloc
-  // CHECK: lmhlo.constant
+  // CHECK: memref.get_global
   // CHECK: memref.copy
   // CHECK: memref.copy
   // CHECK: return

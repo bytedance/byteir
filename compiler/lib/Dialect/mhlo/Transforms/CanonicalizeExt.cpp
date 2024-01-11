@@ -785,9 +785,8 @@ struct FoldConcatWithContinuousSlices
       LLVM_DEBUG(llvm::dbgs() << "concat has no static shape\n");
       return failure();
     }
-
-    SmallDenseSet<Value> operandsSet(op->getOperands().begin(),
-                                     op->getOperands().end());
+    auto operands = op.getOperands();
+    SmallDenseSet<Value> operandsSet(operands.begin(), operands.end());
     if (operandsSet.size() != op->getNumOperands()) {
       LLVM_DEBUG(llvm::dbgs() << "concat has some same operands\n");
       return failure();
@@ -832,19 +831,37 @@ struct FoldConcatWithContinuousSlices
         LLVM_DEBUG(llvm::dbgs() << "operand id from " << c.ids.front() << " to "
                                 << c.ids.back() << "\n");
       }
+    }
+    // only one fused chunk case
+    int sliceCount =
+        std::count_if(chunks.begin(), chunks.end(),
+                      [](const ConcatChunk &chunk) { return chunk.isSlice; });
+    if (sliceCount != 1) {
       return failure();
     }
 
-    // only one chunk case
-    // chunks.size() == 1
     auto concatTy = op.getType();
-    const auto &chunk = chunks.back();
     // either identity or 1 slice
-    auto extent = concatTy.getShape()[dim];
-    if (auto inputTy = chunk.val.getType().dyn_cast<TensorType>()) {
-      if (inputTy == concatTy && chunk.begin == 0 && chunk.end == extent) {
-        // identity
-        rewriter.replaceOp(op, chunk.val);
+    for (auto &chunk : chunks) {
+      if (!chunk.isSlice) {
+        continue;
+      }
+      auto inputTy = dyn_cast<TensorType>(chunk.val.getType());
+      int extent = 0;
+      for (auto &id : chunk.ids) {
+        extent += cast<ShapedType>(op.getOperand(id).getType()).getShape()[dim];
+      }
+      SmallVector<Value> concatIns;
+      if (chunk.begin == 0 && chunk.end == extent &&
+          extent == inputTy.getShape()[dim]) {
+        concatIns.insert(concatIns.end(), operands.begin(),
+                         operands.begin() + chunk.ids.front());
+        concatIns.push_back(chunk.val);
+        concatIns.insert(concatIns.end(),
+                         operands.begin() + chunk.ids.back() + 1,
+                         operands.end());
+        rewriter.replaceOpWithNewOp<mhlo::ConcatenateOp>(op, op.getType(),
+                                                         concatIns, dim);
       } else {
         // 1 slice
         int64_t rank = op.getType().getRank();
@@ -858,10 +875,25 @@ struct FoldConcatWithContinuousSlices
 
         computeBeginAndEnd(chunk, dim, begins, ends);
 
-        rewriter.replaceOpWithNewOp<mhlo::SliceOp>(
-            op, chunk.val, DenseIntElementsAttr::get(indicesTy, begins),
+        auto newSliceShape = llvm::to_vector(concatTy.getShape());
+        newSliceShape[dim] = extent;
+        auto sliceResType =
+            RankedTensorType::get(newSliceShape, concatTy.getElementType());
+
+        Value newSlice = rewriter.create<mhlo::SliceOp>(
+            op.getLoc(), sliceResType, chunk.val,
+            DenseIntElementsAttr::get(indicesTy, begins),
             DenseIntElementsAttr::get(indicesTy, ends),
             DenseIntElementsAttr::get(indicesTy, strides));
+
+        concatIns.insert(concatIns.end(), operands.begin(),
+                         operands.begin() + chunk.ids.front());
+        concatIns.push_back(newSlice);
+        concatIns.insert(concatIns.end(),
+                         operands.begin() + chunk.ids.back() + 1,
+                         operands.end());
+        rewriter.replaceOpWithNewOp<mhlo::ConcatenateOp>(op, op.getType(),
+                                                         concatIns, dim);
       }
       return success();
     }

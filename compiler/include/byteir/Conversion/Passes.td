@@ -44,21 +44,6 @@ def GPUToNVVMExt : Pass<"gpu-to-nvvm-ext", "gpu::GPUModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// HloToLHlo
-//===----------------------------------------------------------------------===//
-
-def ConvertHloToLHlo : Pass<"convert-hlo-to-lhlo", "ModuleOp"> {
-  let summary = "An extension to convert hlo to lhlo Op.";
-  let constructor = "mlir::createConvertHloToLHloPass()";
-  let dependentDialects = [
-    "mlir::lmhlo::LmhloDialect",
-    "mlir::memref::MemRefDialect",
-    "mlir::shape::ShapeDialect",
-    "mlir::bufferization::BufferizationDialect",
-  ];
-}
-
-//===----------------------------------------------------------------------===//
 // ToLinalg
 //===----------------------------------------------------------------------===//
 
@@ -99,27 +84,6 @@ def TensorToLinalg : Pass<"tensor-to-linalg", "func::FuncOp"> {
 def LinalgExtToLinalg : Pass<"linalg-ext-to-linalg", "func::FuncOp"> {
   let summary = "Convert LinalgExt ops to Linalg";
   let constructor = "mlir::createLinalgExtToLinalgPass()";
-}
-
-//===----------------------------------------------------------------------===//
-// LmhloToLace
-//===----------------------------------------------------------------------===//
-
-def LmhloToLace : Pass<"lmhlo-to-lace", "func::FuncOp"> {
-  let summary = "Convert from Lmhlo Dialect to Lace Dialect.";
-  let constructor = "mlir::createLmhloToLacePass()";
-  let dependentDialects = [
-    "mlir::lace::LaceDialect",
-  ];
-}
-
-//===----------------------------------------------------------------------===//
-// LmhloToMemref
-//===----------------------------------------------------------------------===//
-
-def LmhloToMemref : Pass<"lmhlo-to-memref", "func::FuncOp"> {
-  let summary = "Convert from Lmhlo Dialect to MemRef Dialect.";
-  let constructor = "mlir::createLmhloToMemrefPass()";
 }
 
 //===----------------------------------------------------------------------===//
@@ -215,20 +179,6 @@ def ConvertFuncAndCallToByre : Pass<"convert-func-and-call-to-byre", "ModuleOp">
     Option<"removeDupOutputs", "remove-dup-outputs", "bool", /*default=*/"false",
             "remove dup function outputs to avoid inserting copy">,
   ];
-}
-
-def ConvertLmhloToByre : Pass<"convert-lmhlo-to-byre", "func::FuncOp"> {
-  let summary = "Convert lmhlo to Byre";
-  let constructor = "mlir::createConvertLmhloToByrePass()";
-  let dependentDialects = [
-    "mlir::byre::ByreDialect",
-    "mlir::memref::MemRefDialect",
-  ];
-  let options = [
-    Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
-           "append arg types to Byre">,
-  ];
-
 }
 
 //===----------------------------------------------------------------------===//

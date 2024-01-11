@@ -50,6 +50,10 @@ set(_source_components
   TorchMLIRPythonSources
   TorchMLIRPythonExtensions
   TorchFrontendMLIRPythonExtensions
+
+  # Sources related to optional Torch extension dependent features. Typically
+  # empty unless if project features are enabled.
+  TorchMLIRPythonTorchExtensionsSources
 )
 
 add_mlir_python_common_capi_library(TorchFrontendMLIRAggregateCAPI

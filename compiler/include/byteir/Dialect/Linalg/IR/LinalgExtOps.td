@@ -229,6 +229,77 @@ def LinalgExt_SoftmaxOp : LinalgExt_Op<"softmax",
 
 }
 
+def LinalgExt_UnnormalizedSoftmaxOp : LinalgExt_Op<"unnorm_softmax",
+    [DeclareOpInterfaceMethods<LinalgExtInterface, 
+        ["isValidTiling",
+         "isValidTiledProducerOp",
+         "makeValidTiledConsumerOps",
+         "isResultLoopInvariant",
+         "isOperandRead"]>,
+     DeclareOpInterfaceMethods<TilingInterface,
+        ["generateResultTileValue",
+         "getIterationDomain",
+         "getLoopIteratorTypes",
+         "getResultTilePosition", 
+         "getTiledImplementation"]>]> {
+
+  let summary = "Unnormalized Softmax Op";
+  let description = [{
+    Computes unnormalized softmax (unnorm_softmax) along a given dimension.
+    Tensor:
+      [result, max, accum, scale] = unnorm_softmax {dimension} ins(data) outs(result, max, accum, scale);
+    Memeref
+      unnorm_softmax {dimension} ins(data) outs(result, scale, max, accum)
+    Computation: 
+      max_new = max(max_old, max(data along dimension)).
+      accum_new = accum_old * exp(max_old - max_new) + sum(exp(data - max_new)). 
+      scale = exp(max_old - max_new).
+      result = exp(data - max_new).
+  }];
+
+  let arguments = (ins
+      Variadic<AnyRankedTensorOrMemRefType>:$inputs,
+      Variadic<AnyRankedTensorOrMemRefType>:$outputs,
+      I64Attr:$dimension
+  );
+
+  let results = (outs Variadic<AnyRankedTensor>:$results);
+
+  let assemblyFormat = [{
+    attr-dict 
+    `dimension` `(` $dimension `)`
+    (`ins` `(` $inputs^ `:` type($inputs) `)`)?
+    (`outs` `(` $outputs^ `:` type($outputs) `)`)?
+    (`:` type($results)^)?
+  }];
+  let hasFolder = 1;
+
+  let extraClassDeclaration = extraLinalgExtOpClassDeclaration # [{
+    Value input() {
+      return getInputOperand(0)->get();
+    }
+    Value output() {
+      return getOutputOperand(0)->get();
+    }
+    Value max() {
+      return getOutputOperand(1)->get();
+    }
+    Value accumulator() {
+      return getOutputOperand(2)->get();
+    }
+    Value scale() {
+      return getOutputOperand(3)->get();
+    }
+    ShapedType getOperandType() {
+      return output().getType().cast<ShapedType>();
+    }
+    int64_t getOperandRank() {
+      return getOperandType().getRank();
+    }
+  }];
+
+}
+
 def LinalgExt_DiagOp : LinalgExt_Op<"diag", 
     [DeclareOpInterfaceMethods<LinalgExtInterface>]> {
 

@@ -65,10 +65,6 @@ namespace lace {
 class LaceDialect;
 } // namespace lace
 
-namespace lmhlo {
-class LmhloDialect;
-} // namespace lmhlo
-
 namespace linalg {
 class LinalgDialect;
 } // namespace linalg

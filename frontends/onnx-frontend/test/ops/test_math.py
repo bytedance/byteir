@@ -90,7 +90,20 @@ class TestOpsMath(TestBase):
         self.run(model_filename="pow.onnx",
                  model_onnx_pb=proto,
                  input_shape_dtype=input_shape_dtype)
-        
+
+    def test_elu(self):
+        input_shape_dtype = [
+            ["X", (20, 40), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Y", (20, 40), "float32"],
+        ]
+        proto = build_onnx("Elu", input_shape_dtype, output_shape_dtype, alpha=1.0)
+        self.run(model_filename="elu.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)
+
+
     def test_prelu(self):
         input_shape_dtype = [
             ["x", (3, 4, 5), "float32"],
@@ -109,7 +122,6 @@ class TestOpsMath(TestBase):
             ["X", (3, 2, 5, 4), "float32"],
             ["Y", (3, 2, 4, 3), "float32"]
         ]
-        
         output_shape_dtype = [
             ["Z", (3, 2, 5, 3), "float32"],
         ]
@@ -189,6 +201,18 @@ class TestOpsMath(TestBase):
         ]
         proto = build_onnx("GlobalAveragePool", input_shape_dtype, output_shape_dtype)
         self.run(model_filename="globalavg.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)
+
+    def test_hard_sigmoid(self):
+        input_shape_dtype = [
+            ["X", (20, 40), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Y", (20, 40), "float32"],
+        ]
+        proto = build_onnx("HardSigmoid", input_shape_dtype, output_shape_dtype, alpha=0.5, beta=0.5)
+        self.run(model_filename="hardsigmoid.onnx",
                  model_onnx_pb=proto,
                  input_shape_dtype=input_shape_dtype)
 

@@ -24,12 +24,26 @@
 namespace brt {
 class Session;
 
-class CPUExecutionProvider : public ExecutionProvider {
-public:
-  explicit CPUExecutionProvider(const std::string &name = ProviderType::BRT);
+struct CPUExecutionProviderOptions : ProviderOptions {
+  int brt_omp_num_threads;
 };
 
-// TODO add more option later
+class CPUExecutionProvider : public ExecutionProvider {
+public:
+  explicit CPUExecutionProvider(const CPUExecutionProviderOptions &options,
+                                const std::string &name = ProviderType::BRT);
+
+  const CPUExecutionProviderOptions &GetProviderOptions() const;
+
+protected:
+  CPUExecutionProviderOptions options_;
+};
+
 common::Status NaiveCPUExecutionProviderFactory(Session *session);
+
+// TODO add more option later
+common::Status
+NaiveCPUExecutionProviderFactory(Session *session,
+                                 const CPUExecutionProviderOptions &options);
 
 } // namespace brt

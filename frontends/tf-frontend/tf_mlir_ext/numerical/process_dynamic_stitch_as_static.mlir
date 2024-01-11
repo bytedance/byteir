@@ -23,11 +23,11 @@ func.func @dynamic_stitch_with_multiple_data(%arg0: tensor<512x368xf16>, %arg1: 
 }
 
 // CHECK-LABEL:  func.func @dynamic_stitch_with_multiple_data
-// CHECK-DAG:    %[[CST:.+]] = "tf.Const"() {value = dense<1> : tensor<512xi32>} : () -> tensor<512xi32>
-// CHECK-DAG:    %[[CST0:.+]] = "tf.Const"() {value = dense<-1> : tensor<i32>} : () -> tensor<i32>
+// CHECK-DAG:    %[[CST:.+]] = "tf.Const"() <{value = dense<1> : tensor<512xi32>}> : () -> tensor<512xi32>
+// CHECK-DAG:    %[[CST0:.+]] = "tf.Const"() <{value = dense<-1> : tensor<i32>}> : () -> tensor<i32>
 // CHECK-NEXT:    %0 = "tf.ConcatV2"(%arg0, %arg1, %[[CST0]]) {device = ""} : (tensor<512x368xf16>, tensor<512x368xf16>, tensor<i32>) -> tensor<?x736xf16>
 // CHECK-NEXT:    %1 = "tf.ConcatV2"(%arg1, %arg2, %[[CST0]]) {device = ""} : (tensor<512x368xf16>, tensor<512x368xf16>, tensor<i32>) -> tensor<?x736xf16>
-// CHECK-NEXT:    %2 = "tf.Equal"(%arg3, %cst) {incompatible_shape_error = true} : (tensor<512xi32>, tensor<512xi32>) -> tensor<512xi1>
+// CHECK-NEXT:    %2 = "tf.Equal"(%arg3, %cst) <{incompatible_shape_error = true}> : (tensor<512xi32>, tensor<512xi32>) -> tensor<512xi1>
 // CHECK-NEXT:    %3 = "tf.Select"(%2, %1, %0) : (tensor<512xi1>, tensor<?x736xf16>, tensor<?x736xf16>) -> tensor<?x736xf16>
 // CHECK-NEXT:    return %3 : tensor<?x736xf16>
 
@@ -67,12 +67,12 @@ func.func @dynamic_stitch_with_zero_fill(%arg0: tensor<4x5xf32>, %arg1: tensor<4
 }
 
 // CHECK-LABEL:  func.func @dynamic_stitch_with_zero_fill
-// CHECK-DAG:    %[[CST:.+]] = "tf.Const"() {value = dense<1> : tensor<4xi32>} : () -> tensor<4xi32>
-// CHECK-DAG:    %[[CST0:.+]] = "tf.Const"() {value = dense<-1> : tensor<i32>} : () -> tensor<i32>
+// CHECK-DAG:    %[[CST:.+]] = "tf.Const"() <{value = dense<1> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:    %[[CST0:.+]] = "tf.Const"() <{value = dense<-1> : tensor<i32>}> : () -> tensor<i32>
 // CHECK-NEXT:    %0 = "tf.ConcatV2"(%arg0, %arg1, %[[CST0]]) {device = ""} : (tensor<4x5xf32>, tensor<4x5xf32>, tensor<i32>) -> tensor<?x10xf32>
 // CHECK-NEXT:    %1 = "tf.ZerosLike"(%0) {device = ""} : (tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK-NEXT:    %2 = "tf.SelectV2"(%arg2, %0, %1) {device = ""} : (tensor<4x10xi1>, tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK-NEXT:    %3 = "tf.ZerosLike"(%2) : (tensor<?x10xf32>) -> tensor<?x10xf32>
-// CHECK-NEXT:    %4 = "tf.Equal"(%arg3, %cst) {incompatible_shape_error = true} : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi1>
+// CHECK-NEXT:    %4 = "tf.Equal"(%arg3, %cst) <{incompatible_shape_error = true}> : (tensor<4xi32>, tensor<4xi32>) -> tensor<4xi1>
 // CHECK-NEXT:    %5 = "tf.Select"(%4, %2, %3) : (tensor<4xi1>, tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK-NEXT:    return %5 : tensor<?x10xf32>

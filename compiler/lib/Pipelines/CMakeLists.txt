@@ -43,8 +43,6 @@ add_mlir_library(ByteIRPipelines
   ByteIRByrePasses
   ByteIRFuncToByre
   ByteIRHloToByreTensor
-  ByteIRHloToLhlo
-  ByteIRLmhloToLace
   ByteIRMemrefToByre
   ByteIRMhloPasses
   ByteIRShapePasses

@@ -36,6 +36,7 @@
 #include "tf_mlir_ext/transforms/rewrite_to_custom_call.h"
 #include "tf_mlir_ext/transforms/rewrite_to_if.h"
 #include "tf_mlir_ext/transforms/tf_fallback_to_custom_call.h"
+#include "tf_mlir_ext/transforms/tf_switch_merge_to_if.h"
 
 namespace mlir {
 

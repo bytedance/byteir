@@ -1,0 +1,160 @@
+From 1bf4d5368ea4e97ac57fbdc1b772904969aff97e Mon Sep 17 00:00:00 2001
+From: "quanbo.liu" <liuquanbo@bytedance.com>
+Date: Sun, 31 Dec 2023 11:38:26 +0800
+Subject: [PATCH] [Fix] support tf shape inference
+
+---
+ .../tensorflow/transforms/shape_inference.cc  | 107 +++++++++++-------
+ 1 file changed, 67 insertions(+), 40 deletions(-)
+
+diff --git a/tensorflow/compiler/mlir/tensorflow/transforms/shape_inference.cc b/tensorflow/compiler/mlir/tensorflow/transforms/shape_inference.cc
+index 92bbc1f5a99..1fe63ef49fe 100644
+--- a/tensorflow/compiler/mlir/tensorflow/transforms/shape_inference.cc
++++ b/tensorflow/compiler/mlir/tensorflow/transforms/shape_inference.cc
+@@ -1121,6 +1121,40 @@ bool ShapeInference::InferShapeForCast(Operation* op) {
+   return UpdateTypeAndInsertIncompatibleUseCasts(new_type, result);
+ }
+ 
++// Finds element type to be used for result from operand, with special handling
++// for handle types.
++Type GetElementTypeFromOperand(TensorType operand_type,
++                               TensorType result_type) {
++  auto operand_handle_type =
++      operand_type.getElementType().dyn_cast<TensorFlowTypeWithSubtype>();
++  if (!operand_handle_type) return result_type.getElementType();
++  auto result_handle_type =
++      result_type.getElementType().cast<TensorFlowTypeWithSubtype>();
++  if (operand_handle_type.GetSubtypes().empty() ||
++      !result_handle_type.GetSubtypes().empty())
++    return result_type.getElementType();
++  return operand_handle_type;
++}
++
++// Creates a compatible RankedTensorType where mismatched dimensions are
++// replaced with dynamic sizes.
++RankedTensorType GetCompatibleRankedTensorType(RankedTensorType lhs,
++                                               RankedTensorType rhs) {
++  assert(lhs.getRank() == rhs.getRank());
++  llvm::SmallVector<int64_t, 4> dims;
++  dims.reserve(lhs.getRank());
++  for (auto dim : llvm::zip(lhs.getShape(), rhs.getShape())) {
++    int64_t lhs_dim = std::get<0>(dim);
++    if (lhs_dim == std::get<1>(dim)) {
++      dims.push_back(lhs_dim);
++    } else {
++      dims.push_back(ShapedType::kDynamic);
++    }
++  }
++  return tensorflow::GetTypeFromTFTensorShape(
++      dims, GetElementTypeFromOperand(lhs, rhs));
++}
++
+ bool ShapeInference::InferShapeForIf(IfOp op) {
+   DCOMMENT_OP(op.getOperation(), "Infer shape for if ");
+   bool changed = false;
+@@ -1130,8 +1164,22 @@ bool ShapeInference::InferShapeForIf(IfOp op) {
+       op.ResolveElseFunction(&symbol_table_).getFunctionType().getResults();
+   for (auto it : llvm::zip(op.getResults(), then_results, else_results)) {
+     // If then and else types do not match, skip refinement for that result.
+-    if (std::get<1>(it) != std::get<2>(it)) continue;
+-    changed = RefineResultType(op, std::get<0>(it), std::get<1>(it)) || changed;
++    //if (std::get<1>(it) != std::get<2>(it)) continue;
++    auto lhs_type = std::get<1>(it);
++    auto rhs_type = std::get<2>(it);
++    auto lhs_rank_type = lhs_type.dyn_cast<RankedTensorType>();
++    auto rhs_rank_type = rhs_type.dyn_cast<RankedTensorType>();
++    auto expected_type = lhs_type;
++    if (lhs_type != rhs_type) {
++      if(lhs_rank_type && rhs_rank_type &&
++        lhs_rank_type.getRank() == rhs_rank_type.getRank()) {
++        expected_type = GetCompatibleRankedTensorType(lhs_rank_type,
++          rhs_rank_type);
++      } else {
++        continue;
++      }
++    }
++    changed = RefineResultType(op, std::get<0>(it), expected_type) || changed;
+   }
+   return changed;
+ }
+@@ -1141,12 +1189,25 @@ bool ShapeInference::InferShapeForIfRegion(IfRegionOp op) {
+ 
+   Operation* then_yield = op.getThenBranch().front().getTerminator();
+   Operation* else_yield = op.getElseBranch().front().getTerminator();
+-  for (auto result : zip(op.getResults(), then_yield->getOperandTypes(),
++  for (auto it : zip(op.getResults(), then_yield->getOperandTypes(),
+                          else_yield->getOperandTypes())) {
+     // If then and else types do not match, skip refinement for that result.
+-    if (std::get<1>(result) != std::get<2>(result)) continue;
+-    changed = RefineResultType(op, std::get<0>(result), std::get<1>(result)) ||
+-              changed;
++    //if (std::get<1>(it) != std::get<2>(it)) continue;
++    auto lhs_type = std::get<1>(it);
++    auto rhs_type = std::get<2>(it);
++    auto lhs_rank_type = lhs_type.dyn_cast<RankedTensorType>();
++    auto rhs_rank_type = rhs_type.dyn_cast<RankedTensorType>();
++    auto expected_type = lhs_type;
++    if (lhs_type != rhs_type) {
++      if(lhs_rank_type && rhs_rank_type &&
++        lhs_rank_type.getRank() == rhs_rank_type.getRank()) {
++        expected_type = GetCompatibleRankedTensorType(lhs_rank_type,
++          rhs_rank_type);
++      } else {
++        continue;
++      }
++    }
++    changed = RefineResultType(op, std::get<0>(it), expected_type) || changed;
+   }
+   return changed;
+ }
+@@ -2318,21 +2379,6 @@ bool ShapeInference::InferShapeForNonTFDialectOperation(Operation* op) {
+   return false;
+ }
+ 
+-// Finds element type to be used for result from operand, with special handling
+-// for handle types.
+-Type GetElementTypeFromOperand(TensorType operand_type,
+-                               TensorType result_type) {
+-  auto operand_handle_type =
+-      operand_type.getElementType().dyn_cast<TensorFlowTypeWithSubtype>();
+-  if (!operand_handle_type) return result_type.getElementType();
+-  auto result_handle_type =
+-      result_type.getElementType().cast<TensorFlowTypeWithSubtype>();
+-  if (operand_handle_type.GetSubtypes().empty() ||
+-      !result_handle_type.GetSubtypes().empty())
+-    return result_type.getElementType();
+-  return operand_handle_type;
+-}
+-
+ // Checks if one tensor type can refine another type for tf.While/
+ // tf.WhileRegion. If rank differs or static dimensions can be lost, the other
+ // type cannot be used for refinement.
+@@ -2692,25 +2738,6 @@ bool RankedAndSameRank(TensorType lhs, TensorType rhs) {
+   return lhs.hasRank() && rhs.hasRank() && lhs.getRank() == rhs.getRank();
+ }
+ 
+-// Creates a compatible RankedTensorType where mismatched dimensions are
+-// replaced with dynamic sizes.
+-RankedTensorType GetCompatibleRankedTensorType(RankedTensorType lhs,
+-                                               RankedTensorType rhs) {
+-  assert(lhs.getRank() == rhs.getRank());
+-  llvm::SmallVector<int64_t, 4> dims;
+-  dims.reserve(lhs.getRank());
+-  for (auto dim : llvm::zip(lhs.getShape(), rhs.getShape())) {
+-    int64_t lhs_dim = std::get<0>(dim);
+-    if (lhs_dim == std::get<1>(dim)) {
+-      dims.push_back(lhs_dim);
+-    } else {
+-      dims.push_back(ShapedType::kDynamic);
+-    }
+-  }
+-  return tensorflow::GetTypeFromTFTensorShape(
+-      dims, GetElementTypeFromOperand(lhs, rhs));
+-}
+-
+ // Finds compatible types to propagate into functions/regions of a shape
+ // invariant tf.While/tf.WhileRegion. If operand and result types are the same,
+ // that type is returned. If operand and result types are of the same rank, a
+-- 
+2.30.2
+

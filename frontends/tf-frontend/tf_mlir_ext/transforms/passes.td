@@ -103,4 +103,9 @@ def RewriteFuncAttrToByteIR: Pass<"rewrite-func-attr-to-byteir", "func::FuncOp">
   let dependentDialects = [];
 }
 
+def TFSwitchMergeToIf : Pass<"tf-switch-merge-to-if", "func::FuncOp"> {
+  let summary = "transform merge and switch to TF.If";
+  let constructor = "mlir::tfext::createTFSwitchMergeToIfPass()";
+}
+
 #endif // TF_MLIR_EXT_PASSES

@@ -72,14 +72,14 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::createSCCPPass());
     pm.addPass(mlir::createCanonicalizerPass());
 
-    // not safe remove-control-flow pass
-    if (removeControlFlow)
+    //// not safe remove-control-flow pass
+    // if (removeControlFlow)
+    //   pm.addNestedPass<mlir::func::FuncOp>(
+    //       mlir::tfext::createRemoveControlFlowPass());
+    if (removeControlFlow) {
       pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::tfext::createRemoveControlFlowPass());
-
-    // Note that the region-based control-flow produced here still contains
-    // function call ops which get inlined by the subsequent inliner pass.
-    pm.addPass(mlir::TF::CreateTFFunctionalControlFlowToRegions());
+          mlir::tfext::createTFSwitchMergeToIfPass());
+    }
 
     // prun useless tf node
     pm.addNestedPass<mlir::func::FuncOp>(
@@ -114,13 +114,13 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::TF::CreatePromoteResourcesToArgsPass());
     pm.addPass(mlir::createSymbolDCEPass());
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
-    // TODO(b/171426148): We cannot completely remove region to functional
-    // control flow conversion from this pipeline yet as it causes some unit
-    // tests to fail.
+    //// TODO(b/171426148): We cannot completely remove region to functional
+    //// control flow conversion from this pipeline yet as it causes some unit
+    //// tests to fail.
     pm.addPass(mlir::TF::CreateTFRegionControlFlowToFunctional());
-    // LegalizeTFControlFlow encapsulates arguments for control flow operations
-    // with a tuple argument which break the assumption of resource lifting
-    // inside PromoteResourcesToArgs.
+    //  LegalizeTFControlFlow encapsulates arguments for control flow operations
+    //  with a tuple argument which break the assumption of resource lifting
+    //  inside PromoteResourcesToArgs.
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::CreateExecutorDialectToFunctionalConversionPass());
     if (staticalizeDynamicShape) {
@@ -137,7 +137,7 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
-    pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
+    // pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
 
     // fuse dilated conv
     pm.addNestedPass<mlir::func::FuncOp>(

@@ -85,8 +85,8 @@ int main(int argc, char *argv[]) {
   mlir::PassManager pm(module.get()->getName(),
                        mlir::OpPassManager::Nesting::Implicit);
   if (emissionTarget == onnx_frontend::EmitMhloIR) {
-    onnx_frontend::addCustomizedONNXToMhloPasses(pm,
-                                                 onnx_frontend::customCallOps);
+    onnx_frontend::addCustomizedONNXToMhloPasses(
+        pm, onnx_frontend::customCallOps, onnx_frontend::enableUnroll);
     onnx_frontend::addVerifyONNXToMhloPasses(pm);
   }
   auto status = onnx_frontend::compileModule(

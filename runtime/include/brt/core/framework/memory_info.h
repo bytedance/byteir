@@ -9,27 +9,27 @@
 #include <sstream>
 #include <string>
 
+namespace brt {
 /**
  * memory types for allocator, exec provider specific types should be extended
  * in each provider Whenever this struct is updated, please also update the
  * MakeKey function in brt/core/framework/execution_provider.cc
  */
-typedef enum BrtMemType {
-  BrtMemTypeCPUInput = -2,  // Any CPU memory used by non-CPU execution provider
-  BrtMemTypeCPUOutput = -1, // CPU accessible memory outputted by non-CPU
-                            // execution provider, i.e. CUDA_PINNED
-  BrtMemTypeCPU =
-      BrtMemTypeCPUOutput, // temporary CPU accessible memory allocated by
-                           // non-CPU execution provider, i.e. CUDA_PINNED
-  BrtMemTypeDefault = 0,   // the default allocator for execution provider
-} BrtMemType;
+enum class BrtMemType {
+  CPUInput = -2,   // Any CPU memory used by non-CPU execution provider
+  CPUOutput = -1,  // CPU accessible memory outputted by non-CPU
+                   // execution provider, i.e. CUDA_PINNED
+  CPU = CPUOutput, // temporary CPU accessible memory allocated by
+                   // non-CPU execution provider, i.e. CUDA_PINNED
+  Default = 0,     // the default allocator for execution provider
+};
 
-typedef enum BrtAllocatorType {
+enum class BrtAllocatorType {
   Invalid = -1,
-  BrtDeviceAllocator = 0,
-  BrtArenaAllocator = 1,
-  BrtCustomAllocator = 2
-} BrtAllocatorType;
+  DeviceAllocator = 0,
+  ArenaAllocator = 1,
+  CustomAllocator = 2
+};
 
 struct BrtMemoryInfo {
   BrtMemoryInfo() = default; // to allow default construction of Tensor
@@ -39,11 +39,12 @@ struct BrtMemoryInfo {
   const char *name = nullptr;
   const char *key = nullptr;
   int id = -1;
-  BrtMemType mem_type = BrtMemTypeDefault;
-  BrtAllocatorType alloc_type = Invalid;
+  BrtMemType mem_type = BrtMemType::Default;
+  BrtAllocatorType alloc_type = BrtAllocatorType::Invalid;
 
   constexpr BrtMemoryInfo(const char *name_, BrtAllocatorType type_,
-                          int id_ = 0, BrtMemType mem_type_ = BrtMemTypeDefault)
+                          int id_ = 0,
+                          BrtMemType mem_type_ = BrtMemType::Default)
 #if ((defined(__GNUC__) && __GNUC__ > 4) || defined(__clang__))
       // this causes a spurious error in CentOS gcc 4.8 build so disable if GCC
       // version < 5
@@ -55,7 +56,7 @@ struct BrtMemoryInfo {
 
   constexpr BrtMemoryInfo(const char *name_, const char *key_,
                           BrtAllocatorType type_, int id_ = 0,
-                          BrtMemType mem_type_ = BrtMemTypeDefault)
+                          BrtMemType mem_type_ = BrtMemType::Default)
 #if ((defined(__GNUC__) && __GNUC__ > 4) || defined(__clang__))
       // this causes a spurious error in CentOS gcc 4.8 build so disable if GCC
       // version < 5
@@ -80,8 +81,9 @@ struct BrtMemoryInfo {
   std::string ToString() const {
     std::ostringstream ostr;
     ostr << "BrtMemoryInfo:["
-         << "name:" << name << " id:" << id << " BrtMemType:" << mem_type
-         << " BrtAllocatorType:" << alloc_type << "]";
+         << "name:" << name << " id:" << id
+         << " BrtMemType:" << static_cast<int>(mem_type)
+         << " BrtAllocatorType:" << static_cast<int>(alloc_type) << "]";
     return ostr.str();
   }
 };
@@ -97,3 +99,4 @@ inline bool operator!=(const BrtMemoryInfo &lhs, const BrtMemoryInfo &rhs) {
 }
 
 std::ostream &operator<<(std::ostream &out, const BrtMemoryInfo &info);
+} // namespace brt

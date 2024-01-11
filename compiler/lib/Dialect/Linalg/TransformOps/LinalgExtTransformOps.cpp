@@ -443,6 +443,8 @@ static LogicalResult applyTilingToAll(
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
   for (Operation *target : targetPayloadOps) {
+    LLVM_DEBUG(DBGS() << "Fuse target: " << *target << "\n");
+
     auto funcOp = target->getParentOfType<func::FuncOp>();
 
     // simplify tensor::DimOp
@@ -1142,13 +1144,15 @@ StringAttr getAllReduceType(linalg::GenericOp mergeOp, linalg::FillOp initOp) {
     reduceType = StringAttr::get(ctx, ccl::getRedOpMinName());
   // TODO: support avg / prod all-reduce type
   else {
-    DBGS() << "operations in the block can't match any reduce type\n";
+    LLVM_DEBUG(
+        DBGS() << "operations in the block can't match any reduce type\n");
     return nullptr;
   }
 
   auto constOp = initOp.getInputs()[0].getDefiningOp<arith::ConstantOp>();
   if (!constOp) {
-    DBGS() << "fill op's input is expected to be type of arith.constant\n";
+    LLVM_DEBUG(
+        DBGS() << "fill op's input is expected to be type of arith.constant\n");
     return nullptr;
   }
 

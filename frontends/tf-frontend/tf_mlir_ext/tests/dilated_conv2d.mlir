@@ -11,7 +11,7 @@ func.func @dilated_conv(%1164 : tensor<1x20x30x40xf16>, %weight: tensor<5x5x40x3
     return %1187 : tensor<1x20x30x32xf16>
 }
 // CHECK-LABEL: @dilated_conv
-// CHECK-NEXT: %0 = "tf.Conv2D"(%arg0, %arg1) {data_format = "NHWC", device = "", dilations = [1, 2, 2, 1], explicit_paddings = [], padding = "SAME", strides = [1, 1, 1, 1], use_cudnn_on_gpu = true} : (tensor<1x20x30x40xf16>, tensor<5x5x40x32xf16>) -> tensor<1x20x30x32xf16>
+// CHECK-NEXT: %0 = "tf.Conv2D"(%arg0, %arg1) <{data_format = "NHWC", dilations = [1, 2, 2, 1], explicit_paddings = [], padding = "SAME", strides = [1, 1, 1, 1], use_cudnn_on_gpu = true}> {device = ""} : (tensor<1x20x30x40xf16>, tensor<5x5x40x32xf16>) -> tensor<1x20x30x32xf16>
 // CHECK-NEXT: return %0 : tensor<1x20x30x32xf16>
 // MHLO-LABEL: @dilated_conv
 // MHLO-NEXT: %0 = mhlo.convolution(%arg0, %arg1) dim_numbers = [b, 0, 1, f]x[0, 1, i, o]->[b, 0, 1, f], window = {stride = [1, 1], pad = {{\[}}[4, 4], [4, 4]{{\]}}, rhs_dilate = [2, 2]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<1x20x30x40xf16>, tensor<5x5x40x32xf16>) -> tensor<1x20x30x32xf16>
@@ -26,7 +26,7 @@ func.func @dilated_conv1(%816: tensor<?x12x26x4xf16>, %weight: tensor<5x7x4x12xf
     return %819 : tensor<?x12x26x12xf16>
 }
 // CHECK-LABEL: func.func @dilated_conv1(%arg0: tensor<?x12x26x4xf16>, %arg1: tensor<5x7x4x12xf16>) -> tensor<?x12x26x12xf16>
-// CHECK-NEXT: %0 = "tf.Conv2D"(%arg0, %arg1) {data_format = "NHWC", device = "", dilations = [1, 2, 2, 1], explicit_paddings = [], padding = "SAME", strides = [1, 1, 1, 1], use_cudnn_on_gpu = true} : (tensor<?x12x26x4xf16>, tensor<5x7x4x12xf16>) -> tensor<?x12x26x12xf16>
+// CHECK-NEXT: %0 = "tf.Conv2D"(%arg0, %arg1) <{data_format = "NHWC", dilations = [1, 2, 2, 1], explicit_paddings = [], padding = "SAME", strides = [1, 1, 1, 1], use_cudnn_on_gpu = true}> {device = ""} : (tensor<?x12x26x4xf16>, tensor<5x7x4x12xf16>) -> tensor<?x12x26x12xf16>
 // CHECK-NEXT: return %0 : tensor<?x12x26x12xf16>
 // MHLO-LABEL: @dilated_conv1
 // MHLO-NEXT: %0 = mhlo.convolution(%arg0, %arg1) dim_numbers = [b, 0, 1, f]x[0, 1, i, o]->[b, 0, 1, f], window = {stride = [1, 1], pad = {{\[}}[4, 4], [6, 6]{{\]}}, rhs_dilate = [2, 2]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<?x12x26x4xf16>, tensor<5x7x4x12xf16>) -> tensor<?x12x26x12xf16>
