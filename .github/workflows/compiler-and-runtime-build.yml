@@ -1,13 +1,13 @@
 name: Compiler And Runtime Build
 
-on: 
+on:
   push:
     branches:
       - main
     paths-ignore:
       - "frontends/**"
       - "scripts/frontends/**"
-  pull_request_target:
+  pull_request:
     branches:
       - main
     paths-ignore:
@@ -20,7 +20,11 @@ on:
 # any in-progress jobs in the same github workflow and github
 # ref (e.g. refs/heads/main or refs/pull/<pr_number>/merge).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # A PR number if a pull request and otherwise the commit hash. This cancels
+  # queued and in-progress runs for the same PR (presubmit) or commit
+  # (postsubmit). The workflow name is prepended to avoid conflicts between
+  # different workflows.
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -30,37 +34,25 @@ jobs:
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
-  check_permission:
-    runs-on: self-hosted
-    needs: [clear_workspace]
-    steps:
-      - name: Approve
-        run: echo For security reasons, all pull requests need to be approved first before running any automated CI.
   byteir_compiler_build_and_test:
     name: byteir compiler build and test
     runs-on: self-hosted
-    environment: github-ci
-    needs: [check_permission]
+    needs: [clear_workspace]
     steps:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Run build and test
-        run: ./scripts/compiler/build_and_lit_test.sh ${{ secrets.LLVM_INSTALL_DIR }}
+        run: ./scripts/compiler/build_and_lit_test.sh
         shell: bash
   brt_check_cpu:
     name: BRT cpu test
     runs-on: self-hosted
-    environment: github-ci
-    needs: [check_permission]
+    needs: [clear_workspace]
     steps:
     - name: Checkout byteir repo
       uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
     - name: Build and test BRT
-      run: ./scripts/runtime/build_and_test.sh --python ${{ secrets.LLVM_INSTALL_DIR }}
+      run: ./scripts/runtime/build_and_test.sh --python
       shell: bash
     - name: Build and test BRT external project
       run: ./scripts/runtime/build_external_project.sh
@@ -68,39 +60,30 @@ jobs:
   brt_check_cuda:
     name: BRT CUDA test
     runs-on: self-hosted
-    environment: github-ci
-    needs: [check_permission]
+    needs: [clear_workspace]
     steps:
     - name: Checkout byteir repo
       uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
     - name: Build and test BRT with CUDA ON
-      run: ./scripts/runtime/build_and_test.sh --cuda --python ${{ secrets.LLVM_INSTALL_DIR }}
+      run: ./scripts/runtime/build_and_test.sh --cuda --python
       shell: bash
   brt_check_asan:
     name: BRT test with asan
     runs-on: self-hosted
-    environment: github-ci
-    needs: [check_permission]
+    needs: [clear_workspace]
     steps:
     - name: Checkout byteir repo
       uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
     - name: Build and test BRT with asan
-      run: ./scripts/runtime/build_and_test.sh --cuda --asan ${{ secrets.LLVM_INSTALL_DIR }}
+      run: ./scripts/runtime/build_and_test.sh --cuda --asan
       shell: bash
   byteir_compiler_build_and_test_python:
     name: byteir cat test CI
     runs-on: self-hosted
-    environment: github-ci
-    needs: [check_permission]
+    needs: [clear_workspace]
     steps:
     - name: Checkout byteir repo
       uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.sha || github.ref }}
     - name: Build and Test Python APIs
-      run: ./scripts/compiler/build_and_test_cat.sh ${{ secrets.LLVM_INSTALL_DIR }}
+      run: ./scripts/compiler/build_and_test_cat.sh
       shell: bash

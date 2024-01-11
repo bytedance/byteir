@@ -1,13 +1,13 @@
 name: TorchFrontend CI
 
-on: 
+on:
   push:
     branches:
       - main
     paths:
       - "frontends/torch-frontend/**"
       - "scripts/frontends/torch-frontend/**"
-  pull_request_target:
+  pull_request:
     branches:
       - main
     paths:
@@ -20,27 +20,22 @@ on:
 # any in-progress jobs in the same github workflow and github
 # ref (e.g. refs/heads/main or refs/pull/<pr_number>/merge).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # A PR number if a pull request and otherwise the commit hash. This cancels
+  # queued and in-progress runs for the same PR (presubmit) or commit
+  # (postsubmit). The workflow name is prepended to avoid conflicts between
+  # different workflows.
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
-  check_permission:
-    runs-on: self-hosted
-    steps:
-      - name: Approve
-        run: echo For security reasons, all pull requests need to be approved first before running any automated CI.
   torch_frontend_build_and_test:
     name: torch-frontend CI
     runs-on: self-hosted
-    needs: check_permission
-    environment: github-ci
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout byteir repo
         uses: actions/checkout@v3
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - name: Build and test TorchFrontend
-        run: ./scripts/frontends/torch-frontend/build_and_test.sh ${{ secrets.TORCH_FRONTEND_LLVM_INSTALL_DIR }}
+        run: ./scripts/frontends/torch-frontend/build_and_test.sh
         shell: bash

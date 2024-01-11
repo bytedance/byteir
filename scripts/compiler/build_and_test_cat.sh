@@ -15,7 +15,6 @@ INSTALL_DIR="$BUILD_DIR/byre_install"
 
 source $CUR_DIR/../prepare.sh
 
-LLVM_INSTALL_DIR="$1"
 prepare_for_compiler
 
 rm -rf "$BUILD_DIR"

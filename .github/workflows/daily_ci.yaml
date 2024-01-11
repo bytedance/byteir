@@ -1,0 +1,33 @@
+name: ByteIR Daily CI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+jobs:
+  clear_workspace:
+    name: Clear workspace
+    runs-on: self-hosted
+    steps:
+      - name: clear workspace
+        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+  byteir_compiler_build_and_test:
+    name: byteir compiler build and test
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+      - name: Checkout byteir repo
+        uses: actions/checkout@v3
+      - name: Run build and test
+        run: ./scripts/compiler/build_and_lit_test.sh
+        shell: bash
+  numerical_e2e_test:
+    name: e2e CI
+    runs-on: self-hosted
+    needs: [clear_workspace]
+    steps:
+      - name: Checkout byteir repo
+        uses: actions/checkout@v3
+      - name: Build and test e2e
+        run: ./scripts/e2e/build_and_test_e2e.sh
+        shell: bash
