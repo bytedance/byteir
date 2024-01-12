@@ -39,10 +39,10 @@ namespace {
 #ifdef CHECK_DIALECT_INTERFACE
 using InterfaceMapT = DenseMap<TypeID, std::unique_ptr<DialectInterface>>;
 template <typename T, auto MP> struct InterfacesMapPA {
-  friend InterfaceMapT& GetInterfaces(T *dialect) { return dialect->*MP; }
+  friend InterfaceMapT &GetInterfaces(T *dialect) { return dialect->*MP; }
 };
 
-static InterfaceMapT& GetInterfaces(Dialect *inst);
+static InterfaceMapT &GetInterfaces(Dialect *inst);
 template struct InterfacesMapPA<Dialect, &Dialect::registeredInterfaces>;
 
 #define REPORT_FATAL_ERROR_DIALECT(dialect, where)                             \
