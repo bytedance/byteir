@@ -33,18 +33,17 @@ using namespace mlir;
 using namespace mlir::byre;
 using namespace mlir::byre::serialization;
 
-#ifndef __clang__
 #define CHECK_DIALECT_INTERFACE 1
-#endif
 
 namespace {
 #ifdef CHECK_DIALECT_INTERFACE
+using InterfaceMapT = DenseMap<TypeID, std::unique_ptr<DialectInterface>>;
 template <typename T, auto MP> struct InterfacesMapPA {
-  friend auto &&GetInterfaces(T *dialect) { return dialect->*MP; }
+  friend InterfaceMapT& GetInterfaces(T *dialect) { return dialect->*MP; }
 };
 
-static auto &&GetInterfaces(Dialect *inst);
-template class InterfacesMapPA<Dialect, &Dialect::registeredInterfaces>;
+static InterfaceMapT& GetInterfaces(Dialect *inst);
+template struct InterfacesMapPA<Dialect, &Dialect::registeredInterfaces>;
 
 #define REPORT_FATAL_ERROR_DIALECT(dialect, where)                             \
   llvm::report_fatal_error("Only support byre_serial dialect in our bytecode " \
