@@ -5,14 +5,22 @@ on:
     branches:
       - main
     paths:
-      - "frontends/torch-frontend/**"
+      - ".github/workflows/torch-frontend-ci.yml"
       - "scripts/frontends/torch-frontend/**"
+      - "frontends/torch-frontend/**"
+      - "!**/**.md"
+      - "!talks/**"
+      - "!frontends/torch-frontend/torch-frontend/python/version.txt"
   pull_request:
     branches:
       - main
     paths:
-      - "frontends/torch-frontend/**"
+      - ".github/workflows/torch-frontend-ci.yml"
       - "scripts/frontends/torch-frontend/**"
+      - "frontends/torch-frontend/**"
+      - "!**/**.md"
+      - "!talks/**"
+      - "!frontends/torch-frontend/torch-frontend/python/version.txt"
   workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same

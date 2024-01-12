@@ -7,12 +7,20 @@ on:
     paths-ignore:
       - "frontends/**"
       - "scripts/frontends/**"
+      - "**/**.md"
+      - "talks/**"
+      - "compiler/python/version.txt"
+      - "runtime/VERSION_NUMBER"
   pull_request:
     branches:
       - main
     paths-ignore:
       - "frontends/**"
       - "scripts/frontends/**"
+      - "**/**.md"
+      - "talks/**"
+      - "compiler/python/version.txt"
+      - "runtime/VERSION_NUMBER"
   workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same
