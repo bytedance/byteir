@@ -4,19 +4,17 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "frontends/onnx-frontend/**"
-      - "frontends/tf-frontend/**"
-      - "scripts/frontends/onnx-frontend/**"
-      - "scripts/frontends/tf-frontend/**"
+    paths:
+      - ".github/workflows/e2e_test.yaml"
+      - "scripts/e2e/build_and_test_e2e.sh"
+      - "tests/**"
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - "frontends/onnx-frontend/**"
-      - "frontends/tf-frontend/**"
-      - "scripts/frontends/onnx-frontend/**"
-      - "scripts/frontends/tf-frontend/**"
+    paths:
+      - ".github/workflows/e2e_test.yaml"
+      - "scripts/e2e/build_and_test_e2e.sh"
+      - "tests/**"
   workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same
