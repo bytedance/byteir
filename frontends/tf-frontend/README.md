@@ -14,6 +14,7 @@ cd frontends/tf-frontend
 # build:
 ./bazel build //tools:tf-frontend //tools:tf-ext-opt
 # test:
+export TF_PYTHON_VERSION=3.9 # change this to python version which installed lit
 ./bazel test //tf_mlir_ext/tests:all
 ```
 
