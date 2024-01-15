@@ -33,6 +33,10 @@ function load_pytorch_llvm_prebuilt() {
   TORCH_FRONTEND_LLVM_INSTALL_DIR="/data00/llvm_libraries/f7250179e22ce4aab96166493b27223fa28c2181/llvm_build"
 }
 
+function load_onnx_llvm_rtti_prebuilt() {
+  ONNX_FRONTEND_LLVM_RTTI_INSTALL_DIR="/data00/llvm_libraries/d13da154a7c7eff77df8686b2de1cfdfa7cc7029/llvm_build_rtti"
+}
+
 function prepare_for_compiler() {
   git submodule update --init --recursive -f external/mlir-hlo external/AITemplate
   apply_aitemplate_patches
