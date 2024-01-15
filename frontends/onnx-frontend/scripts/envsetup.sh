@@ -1,10 +1,5 @@
 #!/bin/bash
 
-export BYTEIR_ROOT=$ROOT_PROJ_DIR
-export ONNX_FRONTEND_ROOT=$PROJ_DIR
-echo "BYTEIR_ROOT = $BYTEIR_ROOT"
-echo "ONNX_FRONTEND_ROOT = $ONNX_FRONTEND_ROOT"
-
 function of_envsetup() {
   pushd $ONNX_FRONTEND_ROOT
 
@@ -27,7 +22,6 @@ function of_envsetup() {
   git apply $ONNX_FRONTEND_ROOT/third_party/patches/OnnxOfficial*.patch
   popd
 
-  unset http_proxy; unset https_proxy; unset no_proxy
   popd
 }
 
@@ -57,6 +51,7 @@ function of_test_lit() {
 function of_test_ops() {
   pushd $ONNX_FRONTEND_ROOT
   python3 -m pytest $ONNX_FRONTEND_ROOT/test/ops -s
+  python3 -m pytest $ONNX_FRONTEND_ROOT/test/models -s
   popd
 }
 

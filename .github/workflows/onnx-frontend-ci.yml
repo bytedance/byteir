@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - ".github/workflows/onnx-frontend-ci.yml"
-      - "scripts/frontends/onnx-frontend/**"
       - "frontends/onnx-frontend/**"
       - "!**/**.md"
       - "!talks/**"
@@ -15,7 +14,6 @@ on:
       - main
     paths:
       - ".github/workflows/onnx-frontend-ci.yml"
-      - "scripts/frontends/onnx-frontend/**"
       - "frontends/onnx-frontend/**"
       - "!**/**.md"
       - "!talks/**"
@@ -41,5 +39,5 @@ jobs:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Build and test onnx-frontend
-        run: ./scripts/frontends/onnx-frontend/build_and_test.sh
+        run: ./frontends/onnx-frontend/scripts/build_and_test.sh
         shell: bash
