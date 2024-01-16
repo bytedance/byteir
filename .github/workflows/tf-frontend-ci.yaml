@@ -1,26 +1,20 @@
-name: TorchFrontend CI
+name: TfFrontend CI
 
 on:
   push:
     branches:
       - main
     paths:
-      - ".github/workflows/torch-frontend-ci.yml"
-      - "scripts/frontends/torch-frontend/**"
-      - "frontends/torch-frontend/**"
+      - ".github/workflows/tf-frontend-ci.yaml"
+      - "frontends/tf-frontend/**"
       - "!**/**.md"
-      - "!talks/**"
-      - "!frontends/torch-frontend/torch-frontend/python/version.txt"
   pull_request:
     branches:
       - main
     paths:
-      - ".github/workflows/torch-frontend-ci.yml"
-      - "scripts/frontends/torch-frontend/**"
-      - "frontends/torch-frontend/**"
+      - ".github/workflows/tf-frontend-ci.yaml"
+      - "frontends/tf-frontend/**"
       - "!**/**.md"
-      - "!talks/**"
-      - "!frontends/torch-frontend/torch-frontend/python/version.txt"
   workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same
@@ -36,14 +30,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  torch_frontend_build_and_test:
-    name: torch-frontend CI
+  tf_frontend_build_and_test:
+    name: tf-frontend CI
     runs-on: self-hosted
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout byteir repo
         uses: actions/checkout@v3
-      - name: Build and test TorchFrontend
-        run: ./scripts/frontends/torch-frontend/build_and_test.sh
+      - name: Build and test TfFrontend
+        run: TF_PYTHON_VERSION=3.9 ./frontends/tf-frontend/scripts/build_and_test.sh
         shell: bash

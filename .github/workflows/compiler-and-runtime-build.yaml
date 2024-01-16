@@ -5,6 +5,8 @@ on:
     branches:
       - main
     paths-ignore:
+      - ".github/workflows/tf-frontend-ci.yaml"
+      - ".github/workflows/torch-frontend-ci.yaml"
       - "frontends/**"
       - "scripts/frontends/**"
       - "**/**.md"
@@ -15,6 +17,8 @@ on:
     branches:
       - main
     paths-ignore:
+      - ".github/workflows/tf-frontend-ci.yaml"
+      - ".github/workflows/torch-frontend-ci.yaml"
       - "frontends/**"
       - "scripts/frontends/**"
       - "**/**.md"
