@@ -4,7 +4,7 @@
 
 // RUN: tf-ext-opt -fuse-tf-ops -xla-legalize-tf -canonicalize %s -o %t1
 // RUN: FileCheck %s < %t1 --check-prefix MHLO
-// RUN: python3 numerical_test.py %s %t0
+// RUN: python3 numerical_test.py %s %t0 --config fuse_tf_ops
 
 func.func @dilated_conv3d(%70: tensor<1x100x27x48x32xf32>, %cst_32: tensor<3x1x1x32x16xf32>) -> tensor<1x100x27x48x16xf32> {
   %crops = "tf.Const"() {device = "", value = dense<0> : tensor<3x2xi32>} : () -> tensor<3x2xi32>
