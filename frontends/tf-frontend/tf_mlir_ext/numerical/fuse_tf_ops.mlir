@@ -1,6 +1,6 @@
 // RUN: tf-ext-opt -fuse-tf-ops %s -o %t0
 // RUN: FileCheck %s < %t0
-// RUN: python3 numerical_test.py %s %t0
+// RUN: python3 numerical_test.py %s %t0 --config fuse_tf_ops
 
 // RUN: tf-ext-opt -fuse-tf-ops -xla-legalize-tf -canonicalize %s -o %t1
 // RUN: FileCheck %s < %t1 --check-prefix MHLO

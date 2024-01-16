@@ -7,6 +7,9 @@ import argparse
 def get_config(config: str):
     if config == "":
         return {}
+    if config == "fuse_tf_ops":
+        # FIXME: remove black_list when tf.Conv3D with dilates could run on AMD cpu
+        return {"black_list": ["dilated_conv3d"]}
     if config == "dilated_conv2d":
         # FIXME: remove black_list when support mhlo.convolution dynamic shape
         return {"black_list": ["dilated_conv1"]}
