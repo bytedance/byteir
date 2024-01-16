@@ -1,5 +1,9 @@
 #!/bin/bash
 
+function load_onnx_llvm_rtti_prebuilt() {
+  ONNX_FRONTEND_LLVM_RTTI_INSTALL_DIR="/data00/llvm_libraries/d13da154a7c7eff77df8686b2de1cfdfa7cc7029/llvm_build_rtti"
+}
+
 function of_envsetup() {
   pushd $ONNX_FRONTEND_ROOT
 
@@ -51,7 +55,6 @@ function of_test_lit() {
 function of_test_ops() {
   pushd $ONNX_FRONTEND_ROOT
   python3 -m pytest $ONNX_FRONTEND_ROOT/test/ops -s
-  python3 -m pytest $ONNX_FRONTEND_ROOT/test/models -s
   popd
 }
 

@@ -13,7 +13,6 @@ export BYTEIR_ROOT="$BYTEIR_ROOT"
 export ONNX_FRONTEND_ROOT="$ONNX_FRONTEND_ROOT"
 
 source $CUR_DIR/envsetup.sh
-source $BYTEIR_ROOT/scripts/prepare.sh
 load_onnx_llvm_rtti_prebuilt
 
 of_envsetup
