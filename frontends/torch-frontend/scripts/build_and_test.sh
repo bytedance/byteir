@@ -12,7 +12,6 @@ PROJ_DIR="$ROOT_PROJ_DIR/frontends/torch-frontend"
 
 source $CUR_DIR/envsetup.sh
 prepare_for_build
-source $CUR_DIR/../../prepare.sh
 load_pytorch_llvm_prebuilt
 
 pushd $PROJ_DIR
@@ -28,7 +27,6 @@ cmake -S . \
 
 cmake --build ./build --target all
 
-python3 -m pip install -r ./torch-requirements.txt
 PYTHONPATH=./build/python_packages/ python3 -m pytest torch-frontend/python/test
 
 popd
