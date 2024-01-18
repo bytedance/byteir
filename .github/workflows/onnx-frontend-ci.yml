@@ -1,0 +1,43 @@
+name: ONNX-Frontend CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/onnx-frontend-ci.yml"
+      - "frontends/onnx-frontend/**"
+      - "!**/**.md"
+      - "!talks/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/onnx-frontend-ci.yml"
+      - "frontends/onnx-frontend/**"
+      - "!**/**.md"
+      - "!talks/**"
+  workflow_dispatch:
+
+# Ensure that only a single job or workflow using the same
+# concurrency group will run at a time. This would cancel
+# any in-progress jobs in the same github workflow and github
+# ref (e.g. refs/heads/main or refs/pull/<pr_number>/merge).
+concurrency:
+  # A PR number if a pull request and otherwise the commit hash. This cancels
+  # queued and in-progress runs for the same PR (presubmit) or commit
+  # (postsubmit). The workflow name is prepended to avoid conflicts between
+  # different workflows.
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  onnx_frontend_build_and_test:
+    name: onnx-frontend CI
+    runs-on: self-hosted
+    steps:
+      - name: Checkout byteir repo
+        uses: actions/checkout@v3
+      - name: Build and test onnx-frontend
+        run: ./frontends/onnx-frontend/scripts/build_and_test.sh
+        shell: bash

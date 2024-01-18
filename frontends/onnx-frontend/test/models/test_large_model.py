@@ -1,7 +1,8 @@
+import os
 import pytest
 from test.base import TestBase
-from test.env import LARGE_MODEL_PATH
 
+LARGE_MODEL_PATH = os.environ["LARGE_MODEL_PATH"]
 
 class TestLargeModel(TestBase):
 

@@ -13,7 +13,7 @@ import onnx
 import onnxruntime as ort
 import pickle
 
-from test.env import ONNX_FRONTEND_PATH, ONNX_FRONTEND_OPT_PATH
+from test.env import ONNX_FRONTEND_PATH
 
 CUSTOM_CALL_OPS = [
     "arg_max",
