@@ -41,5 +41,5 @@ jobs:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Build and test TorchFrontend
-        run: ./scripts/frontends/torch-frontend/build_and_test.sh
+        run: ./frontends/torch-frontend/scripts/build_and_test.sh
         shell: bash
