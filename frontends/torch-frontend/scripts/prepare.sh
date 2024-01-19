@@ -12,7 +12,7 @@ TORCH_MLIR_PATCHES_DIR="$TORCH_FRONTEND_DIR/third_party/patches"
 
 pushd $TORCH_FRONTEND_DIR
 # install requirements
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt -r torch-requirements.txt
 
 # init submodule
 git submodule update --init --recursive -f $TORCH_MLIR_DIR
