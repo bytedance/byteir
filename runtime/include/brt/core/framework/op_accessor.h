@@ -70,6 +70,8 @@ public:
   template <typename T>
   std::vector<T> GetAttrAsVector(const std::string &name) const;
 
+  void *GetAttrAsVoidPtr(const std::string &name) const;
+
   std::string GetUID() const;
 
   static int64_t GetNumElementsOfShape(const Shape &shape);

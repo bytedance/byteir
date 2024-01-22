@@ -18,6 +18,7 @@
 #include "byteir/Pipelines/ByreTensorOpt.h"
 
 #include "byteir/Conversion/FuncToByre/FuncToByre.h"
+#include "byteir/Conversion/HloToByreTensor/HloToByreCustom.h"
 #include "byteir/Conversion/HloToByreTensor/HloToByreTensor.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Passes.h"
@@ -44,6 +45,10 @@ void createByreTensorOptPipelineImpl(OpPassManager &pm, std::string entryFunc,
   pm.addPass(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       createConvertHloToByreTensorPass(appendArgTypes));
+  auto *gpuRule = new CudaCustomConvertRule();
+  pm.addNestedPass<func::FuncOp>(
+      createConvertHloToByreCustomPass(gpuRule));
+  delete gpuRule;
   pm.addPass(createCanonicalizerPass());
 }
 } // namespace

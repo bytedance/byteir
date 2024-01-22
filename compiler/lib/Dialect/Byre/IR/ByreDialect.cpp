@@ -485,6 +485,14 @@ std::string AliasOp::getCalleeName() { return "AliasOp"; }
 
 Value AliasOp::getViewSource() { return getSource(); }
 
+//===----------------------------------------------------------------------===//
+// CustomOp
+//===----------------------------------------------------------------------===/
+
+LogicalResult CustomOp::verify() {
+  return verifyOpInEntryPointFunc(this->getOperation());
+}
+
 // LWC: ignore Async for now
 //
 //===----------------------------------------------------------------------===//

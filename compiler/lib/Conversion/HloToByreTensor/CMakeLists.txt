@@ -1,4 +1,5 @@
 add_byteir_conversion_library(ByteIRHloToByreTensor
+  HloToByreCustom.cpp
   HloToByreTensor.cpp
 
   ADDITIONAL_HEADER_DIRS

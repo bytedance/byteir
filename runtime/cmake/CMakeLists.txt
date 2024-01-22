@@ -39,28 +39,8 @@ option(brt_CROSS_COMPILING "Cross compiling for another platform" OFF)
 # Parameters for LLVM
 set(LLVM_INSTALL_PATH "" CACHE STRING "The path to the installed LLVM library")
 
-set(FLASH_ATTN_INSTALL_PATH "" CACHE STRING "The path to the installed flash attn library")
-if(FLASH_ATTN_INSTALL_PATH AND NOT brt_USE_CUDA)
-  message(FATAL_ERROR "config FLASH_ATTN_INSTALL_PATH=... must with brt_USE_CUDA=ON")
-endif()
-
 if(brt_USE_NCCL AND NOT brt_USE_CUDA)
   message(FATAL_ERROR "brt_USE_NCCL=ON must with brt_USE_CUDA=ON")
-endif()
-
-
-set(brt_ENABLE_FLASH_ATTENTION false)
-if(FLASH_ATTN_INSTALL_PATH)
-  set(brt_ENABLE_FLASH_ATTENTION true)
-endif()
-
-option(brt_BUILD_FLASH_ATTN "build flash attention shared library" OFF)
-
-if(brt_BUILD_FLASH_ATTN)
-  if(FLASH_ATTN_INSTALL_PATH)
-    message(FATAL_ERROR "config FLASH_ATTN_INSTALL_PATH=... must with brt_BUILD_FLASH_ATTN=OFF")
-  endif()
-  set(brt_ENABLE_FLASH_ATTENTION true)
 endif()
 
 # Optimizations Related
@@ -243,9 +223,6 @@ set(brt_LINK_DIRS )
 # link CUDADNN
 if(brt_USE_CUDA)
   message(STATUS "brt_USE_CUDA On")
-  if (brt_ENABLE_FLASH_ATTENTION)
-    message(STATUS "brt_ENABLE_FLASH_ATTENTION On")
-  endif()
   find_package(CUDAToolkit REQUIRED)
 	include_directories("${CUDAToolkit_INCLUDE_DIRS}")
   message("CUDAToolkit Include Dirs = ${CUDAToolkit_INCLUDE_DIRS}")
@@ -280,10 +257,6 @@ if (brt_USE_CUDA)
     list(APPEND BRT_PROVIDER_FLAGS -DBRT_USE_CUDA=1)
     list(APPEND BRT_PROVIDER_CMAKE_FLAGS -Dbrt_USE_CUDA=1)
     list(APPEND BRT_PROVIDER_NAMES cuda)
-    if (brt_ENABLE_FLASH_ATTENTION)
-      list(APPEND BRT_PROVIDER_FLAGS -DBRT_ENABLE_FLASH_ATTENTION=1)
-      list(APPEND BRT_PROVIDER_CMAKE_FLAGS -Dbrt_ENABLE_FLASH_ATTENTION=1)
-    endif()
 endif()
 
 if (brt_USE_NCCL)

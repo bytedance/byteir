@@ -15,8 +15,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if BRT_ENABLE_FLASH_ATTENTION
-
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_allocator.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
@@ -288,5 +286,3 @@ TEST(SM80CUDATestFlashAttnBwd, Basic) {
         std::cout << "dv max_diff (ratio):" << max_diff << std::endl;
       });
 }
-
-#endif // BRT_ENABLE_FLASH_ATTENTION
