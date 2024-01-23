@@ -32,34 +32,17 @@ class FuncOp;
 } // namespace func
 class Operation;
 
-// abstract struct for convert rule
-struct ByreCustomConvertRuleBase {
-  ByreCustomConvertRuleBase(){};
-  ~ByreCustomConvertRuleBase() {}
-
-  virtual llvm::StringRef getCustomLibPath(llvm::StringRef callee) {
-    return "";
-  }
-
-  virtual llvm::StringRef getApiName(llvm::StringRef callee) { return ""; }
-
-  virtual ArrayAttr getExtraArgs(mhlo::CustomCallOp op,
-                                 PatternRewriter &rewriter) {
-    return {};
-  }
+struct ByreCustomConfig {
+  std::function<llvm::StringRef(llvm::StringRef)> getCustomLibPath;
+  std::function<llvm::StringRef(llvm::StringRef)> getApiName;
+  std::function<ArrayAttr(mhlo::CustomCallOp)> getExtraArgs;
 };
 
-// convert rules for cuda custom ops
-struct CudaCustomConvertRule : public ByreCustomConvertRuleBase {
-  llvm::StringRef getCustomLibPath(llvm::StringRef callee) override;
-  llvm::StringRef getApiName(llvm::StringRef callee) override;
-  ArrayAttr getExtraArgs(mhlo::CustomCallOp op,
-                         PatternRewriter &rewriter) override;
-};
+ByreCustomConfig getCudaByreCustomConfig();
 
 // use ByreCustomConvertRuleBase to decide how to convert to byre custom op
 std::unique_ptr<OperationPass<func::FuncOp>>
-createConvertHloToByreCustomPass(ByreCustomConvertRuleBase *);
+createConvertHloToByreCustomPass(const ByreCustomConfig &);
 
 } // namespace mlir
 

@@ -29,6 +29,11 @@ function load_llvm_prebuilt() {
   LLVM_INSTALL_DIR="/data00/llvm_libraries/4592543a01609feb4b3c19e81a9d54743e15e329/llvm_build"
 }
 
+function lfs_pull_external_libs() {
+  git lfs pull --include runtime/test/test_files/external_libs/libflash_attn.so 
+  git lfs pull --include external_libs/libs/libflash_attn.so 
+}
+
 function prepare_for_compiler() {
   git submodule update --init --recursive -f external/mlir-hlo external/AITemplate
   apply_aitemplate_patches
@@ -39,4 +44,5 @@ function prepare_for_compiler() {
 function prepare_for_runtime() {
   git submodule update --init --recursive -f external/mlir-hlo external/cutlass external/date external/googletest external/pybind11
   load_llvm_prebuilt
+  lfs_pull_external_libs
 }

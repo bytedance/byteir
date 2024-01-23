@@ -44,11 +44,9 @@ void createByreTensorOptPipelineImpl(OpPassManager &pm, std::string entryFunc,
   pm.addPass(createSymbolDCEPass());
   pm.addPass(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
-      createConvertHloToByreTensorPass(appendArgTypes));
-  auto *gpuRule = new CudaCustomConvertRule();
+      createConvertHloToByreCustomPass(getCudaByreCustomConfig()));
   pm.addNestedPass<func::FuncOp>(
-      createConvertHloToByreCustomPass(gpuRule));
-  delete gpuRule;
+      createConvertHloToByreTensorPass(appendArgTypes));
   pm.addPass(createCanonicalizerPass());
 }
 } // namespace

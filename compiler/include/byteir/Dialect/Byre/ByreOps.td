@@ -179,7 +179,8 @@ def Byre_AliasOp
 }
 
 def Byre_CustomOp : Byre_Op<"custom",
-    [HasParent<"func::FuncOp">, ByreInterface]> {
+    [HasParent<"func::FuncOp">,
+    DeclareOpInterfaceMethods<ByreInterface, ["getCalleeName"]>]> {
   let summary = "compute custom operation passed by library path and api name. ";
   let description = [{ 
     Example:
@@ -193,12 +194,21 @@ def Byre_CustomOp : Byre_Op<"custom",
     StrAttr:$lib_path,
     StrAttr:$api_name,
     Variadic<AnyType>:$operands,
-    ArrayAttr:$extra_args
+    ArrayAttr:$extra_args,
+    OptionalAttr<ArrayAttr>:$memory_effects
   );
 
   let results = (outs
     Variadic<AnyType>:$results
   );
+
+  let builders = [
+     OpBuilder<(ins "StringRef":$lib_path,
+                    "StringRef":$api_name,
+                    "ValueRange":$inputs,
+                    "ValueRange":$outputs,
+                    "ArrayAttr":$extra_args)>
+  ];
 
   let extraClassDeclaration = [{
     FunctionType getType();

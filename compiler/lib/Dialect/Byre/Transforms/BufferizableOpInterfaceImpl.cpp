@@ -163,11 +163,83 @@ struct ByreComputeOpBufferization
     return success();
   }
 };
+
+struct ByreCustomOpBufferization
+    : public BufferizableOpInterface::ExternalModel<ByreCustomOpBufferization,
+                                                    byre::CustomOp> {
+  bool bufferizesToAllocation(Operation * /*op*/, OpResult /*opResult*/) const {
+    return true;
+  }
+
+  bool bufferizesToMemoryRead(Operation * /*op*/, OpOperand & /*opOperand*/,
+                              const AnalysisState & /*state*/) const {
+    return true;
+  }
+
+  bool bufferizesToMemoryWrite(Operation * /*op*/, OpOperand & /*opOperand*/,
+                               const AnalysisState & /*state*/) const {
+    return false;
+  }
+
+  AliasingOpResultList
+  getAliasingOpResults(Operation * /*op*/, OpOperand & /*opOperand*/,
+                       const AnalysisState & /*state*/) const {
+    return {};
+  }
+
+  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
+                          const BufferizationOptions &options) const {
+    SmallVector<Value> bufferOperands, bufferResults;
+
+    for (auto &&opOperand : op->getOpOperands()) {
+      auto buffer =
+          getBufferInValidLayout(rewriter, op->getLoc(), opOperand, options);
+      if (failed(buffer))
+        return failure();
+
+      bufferOperands.push_back(*buffer);
+    }
+
+    for (auto &&opResult : op->getOpResults()) {
+      auto tensorType = opResult.getType().dyn_cast_or_null<RankedTensorType>();
+      if (!tensorType)
+        return failure();
+
+      bool dealloc = shouldDeallocateOpResult(opResult, options);
+      auto tensorAlloc = allocateTensorForShapedValue(
+          rewriter, op->getLoc(), opResult, /*escapse*/ !dealloc, options);
+      if (failed(tensorAlloc))
+        return failure();
+
+      auto memrefType =
+          MemRefType::get(tensorType.getShape(), tensorType.getElementType());
+      Value buffer = rewriter.create<bufferization::ToMemrefOp>(
+          op->getLoc(), memrefType, *tensorAlloc);
+      bufferResults.push_back(buffer);
+    }
+
+    auto newOp = rewriter.create<byre::CustomOp>(
+        op->getLoc(), cast<byre::CustomOp>(op).getLibPath(),
+        cast<byre::CustomOp>(op).getApiName(), bufferOperands, bufferResults,
+        cast<byre::CustomOp>(op).getExtraArgs());
+
+    for (auto &&namedAttr : op->getAttrs()) {
+      StringRef name = namedAttr.getName();
+      if (!name.startswith("bufferization.") && !newOp->hasAttr(name)) {
+        newOp->setAttr(name, namedAttr.getValue());
+      }
+    }
+
+    bufferization::replaceOpWithBufferizedValues(rewriter, op, bufferResults);
+    return success();
+  }
+};
 } // namespace
 
 void mlir::byre::registerBufferizableOpInterfaceExternalModels(
     DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, byre::ByreDialect *) {
     byre::ComputeOp::attachInterface<ByreComputeOpBufferization>(*ctx);
+    byre::CustomOp::attachInterface<ByreCustomOpBufferization>(*ctx);
   });
 }

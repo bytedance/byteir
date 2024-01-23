@@ -592,8 +592,9 @@ void run_flash_attn_fwd(void **tensors, void *extra_args, cudaStream_t stream) {
   auto window_size_right =
       static_cast<uint32_t>(getIntFromVoidPtr(extra_args, pos));
 
-  run_mha(tensors[0], tensors[1], tensors[2], tensors[3], tensors[4],
-          tensors[5], tensors[6],
+  // tensors: q, k, v, rng_state, o, softmax_lse, softmax_sum
+  run_mha(tensors[0], tensors[1], tensors[2], tensors[4], tensors[5],
+          tensors[6], tensors[3],
           /*q_batch_stride*/ q_batch_stride,
           /*k_batch_stride*/ k_batch_stride,
           /*v_batch_stride*/ v_batch_stride,
