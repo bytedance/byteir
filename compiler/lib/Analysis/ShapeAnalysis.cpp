@@ -363,8 +363,21 @@ void ShapeValueAnalysis::visitOperation(
   LLVM_DEBUG(llvm::dbgs() << "shape value analysis on " << *op << "\n");
   TypeSwitch<Operation *>(op)
       .Case<shape::ShapeOfOp>([&](Operation *op) {
-        auto shapeLattice = getOrCreate<ShapeLattice>(op->getOperand(0));
-        visitOperation(op, operands, {shapeLattice}, results);
+        auto shapeLattice = getOrCreateFor<ShapeLattice>(op, op->getOperand(0));
+        auto shapeKnowledge = shapeLattice->getValue();
+        if (!shapeKnowledge.isUninitialized() && shapeKnowledge) {
+          if (auto shapedType =
+                  llvm::dyn_cast<ShapedType>(shapeKnowledge.getType())) {
+            if (shapedType.hasStaticShape()) {
+              ShapeValueLattice *result = results[0];
+              Builder builder(op->getContext());
+              auto staticShape =
+                  builder.getIndexTensorAttr(shapedType.getShape());
+              propagateIfChanged(result, result->join(dataflow::ConstantValue(
+                                             staticShape, op->getDialect())));
+            }
+          }
+        }
       })
       .Case<tensor::DimOp>([&](Operation *op) {
         SmallVector<const ShapeLattice *> shapeLattices(op->getNumOperands(),

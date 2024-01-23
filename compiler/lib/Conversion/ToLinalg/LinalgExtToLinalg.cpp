@@ -301,7 +301,7 @@ public:
     auto loc = op.getLoc();
 
     // 1. Build Max
-    auto partialMax = createReduce<arith::MaxFOp>(
+    auto partialMax = createReduce<arith::MaxNumFOp>(
         op.input(), op.max(), op.getDimension(), loc, rewriter);
 
     // 2. Build exp(x-max)

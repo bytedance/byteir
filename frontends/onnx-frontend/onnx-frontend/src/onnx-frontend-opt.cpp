@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::func::FuncDialect>();
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::ONNXDialect>();
-  registry.insert<mlir::mhlo::MhloDialect>();
+  registry.insert<mlir::stablehlo::StablehloDialect>();
 
   return mlir::failed(mlir::MlirOptMain(
       argc, argv, "ONNX-Frontend modular optimizer driver\n", registry));

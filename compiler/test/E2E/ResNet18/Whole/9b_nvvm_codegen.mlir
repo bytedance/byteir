@@ -2093,7 +2093,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x512x7x7xi1>
@@ -2145,7 +2145,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x512x7x7xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x512x7x7xi1>
@@ -2199,7 +2199,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x512x7x7xi1>
@@ -2251,7 +2251,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x512x7x7xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x512x7x7xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x512x7x7xi1>
@@ -2305,7 +2305,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x256x14x14xi1>
@@ -2357,7 +2357,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x256x14x14xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x256x14x14xi1>
@@ -2411,7 +2411,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x256x14x14xi1>
@@ -2463,7 +2463,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x256x14x14xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x256x14x14xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x256x14x14xi1>
@@ -2517,7 +2517,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x128x28x28xi1>
@@ -2569,7 +2569,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x128x28x28xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x128x28x28xi1>
@@ -2623,7 +2623,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x128x28x28xi1>
@@ -2675,7 +2675,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x128x28x28xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x128x28x28xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x128x28x28xi1>
@@ -2729,7 +2729,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x64x56x56xi1>
@@ -2781,7 +2781,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x64x56x56xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x64x56x56xi1>
@@ -2835,7 +2835,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         %37 = memref.load %arg1[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         %38 = arith.addf %36, %37 : f16
-        %39 = arith.maxf %38, %cst : f16
+        %39 = arith.maxnumf %38, %cst : f16
         %40 = arith.cmpf ogt, %39, %cst : f16
         memref.store %39, %arg2[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         memref.store %40, %arg3[%35, %29, %19, %9] : memref<4x64x56x56xi1>
@@ -2887,7 +2887,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x64x56x56xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x64x56x56xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x64x56x56xi1>
@@ -2939,7 +2939,7 @@ module @IrToMhlo.2452 attributes {byre.container_module, gpu.container_module} {
         %34 = arith.subi %c-1, %33 : index
         %35 = arith.select %30, %34, %33 : index
         %36 = memref.load %arg0[%35, %29, %19, %9] : memref<4x64x112x112xf16>
-        %37 = arith.maxf %36, %cst : f16
+        %37 = arith.maxnumf %36, %cst : f16
         %38 = arith.cmpf ogt, %37, %cst : f16
         memref.store %37, %arg1[%35, %29, %19, %9] : memref<4x64x112x112xf16>
         memref.store %38, %arg2[%35, %29, %19, %9] : memref<4x64x112x112xi1>

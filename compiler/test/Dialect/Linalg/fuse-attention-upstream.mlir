@@ -30,7 +30,7 @@ func.func @dot_attention(%arg0: tensor<1024x32xf32>, %arg1: tensor<32x512xf32>, 
   %7 = linalg.matmul ins(%arg0, %arg1 : tensor<1024x32xf32>, tensor<32x512xf32>) outs(%4 : tensor<1024x512xf32>) -> tensor<1024x512xf32>
   %reduced = linalg.reduce ins(%7 : tensor<1024x512xf32>) outs(%3 : tensor<1024xf32>) dimensions = [1]
     (%in: f32, %init: f32) {
-      %11 = arith.maxf %in, %init : f32
+      %11 = arith.maxnumf %in, %init : f32
       linalg.yield %11 : f32
     }
   %8 = linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel"]} ins(%7, %reduced : tensor<1024x512xf32>, tensor<1024xf32>) outs(%0 : tensor<1024x512xf32>) {

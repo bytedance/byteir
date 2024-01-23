@@ -44,17 +44,11 @@ set(LLVM_LINK_COMPONENTS
   )
 
 set(MHLO_LIBS
-  AllGmlStPasses
-  GmlStDialect
-  GmlStTransforms
-  MLIRGmlStUtils
   LmhloDialect
   LmhloGPUDialect
   MhloRegisterDialects
   LmhloPasses
   AllMhloPasses
-  AllThloPasses
-  DeallocationDialect
   DeallocationPasses
   MLIRBufferTransforms
   MLIRHLOGPUTransforms

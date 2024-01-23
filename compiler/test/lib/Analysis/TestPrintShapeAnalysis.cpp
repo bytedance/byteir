@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Analysis/ShapeAnalysis.h"
+#include "byteir/Dialect/mhlo/Analysis/ShapeAnalysis.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
@@ -43,8 +44,8 @@ struct TestPrintShapeAnalysisPass
     Operation *top = getOperation();
 
     DataFlowSolver solver;
-    solver.load<ShapeAnalysis>();
-    solver.load<ShapeValueAnalysis>();
+    solver.load<MhloShapeAnalysis>();
+    solver.load<MhloShapeValueAnalysis>();
     solver.load<DeadCodeAnalysis>();
     if (failed(solver.initializeAndRun(top)))
       return signalPassFailure();

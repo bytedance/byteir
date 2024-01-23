@@ -59,7 +59,7 @@ module attributes {byre.container_module, gpu.container_module, torch.debug_modu
         %16 = memref.load %arg1[%15, %9] : memref<2x20xf32>
         %17 = memref.load %arg0[%9] : memref<20xf32>
         %18 = arith.addf %16, %17 : f32
-        %19 = arith.maxf %18, %cst : f32
+        %19 = arith.maxnumf %18, %cst : f32
         memref.store %19, %arg2[%15, %9] : memref<2x20xf32>
       }
       gpu.return
@@ -90,7 +90,7 @@ module attributes {byre.container_module, gpu.container_module, torch.debug_modu
         %16 = memref.load %arg1[%15, %9] : memref<2x20xf32>
         %17 = memref.load %arg0[%9] : memref<20xf32>
         %18 = arith.addf %16, %17 : f32
-        %19 = arith.maxf %18, %cst : f32
+        %19 = arith.maxnumf %18, %cst : f32
         memref.store %19, %arg2[%15, %9] : memref<2x20xf32>
       }
       gpu.return

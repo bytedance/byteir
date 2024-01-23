@@ -179,10 +179,10 @@ public:
 void populateOptionalGpuToNVVMExtConversionPatterns(
     LLVMTypeConverter &converter, RewritePatternSet &patterns) {
 
-  patterns.add<OpToFuncCallLowering<arith::MaxFOp>>(converter, "__nv_fmaxf",
-                                                    "__nv_fmax");
-  patterns.add<OpToFuncCallLowering<arith::MinFOp>>(converter, "__nv_fminf",
-                                                    "__nv_fmin");
+  patterns.add<OpToFuncCallLowering<arith::MaxNumFOp>>(converter, "__nv_fmaxf",
+                                                       "__nv_fmax");
+  patterns.add<OpToFuncCallLowering<arith::MinNumFOp>>(converter, "__nv_fminf",
+                                                       "__nv_fmin");
 }
 
 static IntegerAttr wrapNumericMemorySpace(MLIRContext *ctx, unsigned space) {

@@ -25,7 +25,7 @@ module attributes {byre.container_module, llvm.data_layout = ""} {
     %13 = llvm.getelementptr %12[0, 0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<100 x array<1296 x i32>>
     %14 = llvm.mlir.addressof @__constant_100xi32 : !llvm.ptr
     %15 = llvm.getelementptr %14[0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<100 x i32>
-    %16 = llvm.mlir.null : !llvm.ptr
+    %16 = llvm.mlir.zero : !llvm.ptr
     %17 = llvm.getelementptr %16[388800] : (!llvm.ptr) -> !llvm.ptr, i32
     %18 = llvm.ptrtoint %17 : !llvm.ptr to i64
     %19 = llvm.call @malloc(%18) : (i64) -> !llvm.ptr
@@ -42,7 +42,7 @@ module attributes {byre.container_module, llvm.data_layout = ""} {
     %26 = llvm.add %20, %4  : i64
     llvm.br ^bb1(%26 : i64)
   ^bb3:  // pred: ^bb1
-    %27 = llvm.mlir.null : !llvm.ptr
+    %27 = llvm.mlir.zero : !llvm.ptr
     %28 = llvm.getelementptr %27[129600] : (!llvm.ptr) -> !llvm.ptr, i32
     %29 = llvm.ptrtoint %28 : !llvm.ptr to i64
     %30 = llvm.call @malloc(%29) : (i64) -> !llvm.ptr

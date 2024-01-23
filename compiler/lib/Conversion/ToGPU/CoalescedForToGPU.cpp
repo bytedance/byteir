@@ -167,7 +167,7 @@ bool CoalescedAffineLoopToGpuConverter::collectBound(
     return false;
   }
   dim = builder.create<SubIOp>(loc, upperBound, lb);
-  step = builder.create<ConstantIndexOp>(loc, forOp.getStep());
+  step = builder.create<ConstantIndexOp>(loc, forOp.getStepAsInt());
 
   if (!isConstantIndex(step, 1)) {
     // dim/step  only support perfect loop for now

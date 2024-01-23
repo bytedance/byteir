@@ -5,7 +5,7 @@ func.func @test_arg_max(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   return %0 : tensor<1x5x5xi64>
 // CHECK-LABEL:  @test_arg_max
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.arg_max(%arg0) {backend_config = "", byteir_attrs = {axis = 3 : i64, keep_dims = false, select_last_index = false}} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.arg_max(%arg0) {byteir_attrs = {axis = 3 : i64, keep_dims = false, select_last_index = false}} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<1x5x5xi64>
 }
 
@@ -16,7 +16,7 @@ func.func @test_arg_min(%arg0: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
   return %0 : tensor<1x5x5xi64>
 // CHECK-LABEL:  @test_arg_min
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.arg_min(%arg0) {backend_config = "", byteir_attrs = {axis = 3 : i64, keep_dims = false, select_last_index = false}} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.arg_min(%arg0) {byteir_attrs = {axis = 3 : i64, keep_dims = false, select_last_index = false}} : (tensor<1x5x5x3xf32>) -> tensor<1x5x5xi64>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<1x5x5xi64>
 }
 
@@ -39,7 +39,7 @@ func.func @test_layer_norm(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
 // CHECK-LABEL:  @test_layer_norm(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf32>
-// CHECK-NEXT:   %2 = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
+// CHECK-NEXT:   %2 = stablehlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
 // CHECK-NEXT:   return %2 : tensor<2x4x3xf32>
 }
 
@@ -60,7 +60,7 @@ func.func @test_layer_norm_with_non_eps(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x
 // CHECK-LABEL:  @test_layer_norm_with_non_eps(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf32>
-// CHECK-NEXT:   %2 = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 0.000000e+00 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
+// CHECK-NEXT:   %2 = stablehlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {byteir_attrs = {axis = [2], epsilon = 0.000000e+00 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
 // CHECK-NEXT:   return %2 : tensor<2x4x3xf32>
 }
 
@@ -88,7 +88,7 @@ func.func @test_layer_norm_multi_add(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf32>
 // CHECK-DAG:    [[VAR_2_:%.+]] = onnx.Constant dense<[4.000000e+00, 5.000000e+00, 6.000000e+00]> : tensor<3xf32>
 // CHECK-DAG:    [[VAR_3_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3xf32>
-// CHECK-NEXT:   [[VAR_4_:%.+]] = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_3_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
+// CHECK-NEXT:   [[VAR_4_:%.+]] = stablehlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_3_]]) {byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
 // CHECK-NEXT:   [[VAR_5_:%.+]] = "onnx.Add"([[VAR_4_]], [[VAR_1_]]) : (tensor<2x4x3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
 // CHECK-NEXT:   [[VAR_6_:%.+]] = "onnx.Add"([[VAR_4_]], [[VAR_2_]]) : (tensor<2x4x3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
 // CHECK-NEXT:   [[VAR_7_:%.+]] = "onnx.Mul"([[VAR_5_]], [[VAR_6_]]) : (tensor<2x4x3xf32>, tensor<2x4x3xf32>) -> tensor<2x4x3xf32>
@@ -114,7 +114,7 @@ func.func @test_layer_norm_without_last_add(%arg0: tensor<1x3xf32>) -> tensor<1x
 // CHECK-LABEL:  @test_layer_norm_without_last_add(%arg0: tensor<1x3xf32>) -> tensor<1x3xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3xf32>
-// CHECK-NEXT:   %2 = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
+// CHECK-NEXT:   %2 = stablehlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
 // CHECK-NEXT:   return %2 : tensor<1x3xf32>
 }
 
@@ -134,11 +134,15 @@ func.func @test_layer_norm_squeeze(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32
   %33 = "onnx.Constant"() {value = dense<[[[1.0, 2.0, 3.0]]]> : tensor<1x1x3xf32>} : () -> tensor<1x1x3xf32>
   %34 = "onnx.Add"(%32, %33) {onnx_node_name = "Add_35"} : (tensor<2x4x3xf32>, tensor<1x1x3xf32>) -> tensor<2x4x3xf32>
   return %34 : tensor<2x4x3xf32>
-// CHECK-LABEL:  @test_layer_norm_squeeze(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
-// CHECK-DAG:    [[VAR_0_:%.+]] = mhlo.constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
-// CHECK-DAG:    [[VAR_1_:%.+]] = mhlo.constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf32>
-// CHECK-NEXT:   %2 = mhlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
-// CHECK-NEXT:   return %2 : tensor<2x4x3xf32>
+// CHECK-LABEL:  func.func @test_layer_norm_squeeze
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[1.000000e+00, 2.000000e+00, 3.000000e+00]{{.}}{{.}}> : tensor<1x1x3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<{{.}}{{.}}[1.500000e-01, 2.000000e-01, 2.500000e-01]{{.}}{{.}}> : tensor<1x1x3xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.reshape [[VAR_1_]] : (tensor<1x1x3xf32>) -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.reshape [[VAR_0_]] : (tensor<1x1x3xf32>) -> tensor<3xf32>
+// CHECK:           [[VAR_4_:%.+]] = stablehlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_2_]], [[VAR_3_]]) {byteir_attrs = {axis = [2], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<2x4x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x4x3xf32>
+// CHECK:           return [[VAR_4_]] : tensor<2x4x3xf32>
 }
 
 // -----
@@ -148,7 +152,7 @@ func.func @test_erf(%arg0: tensor<3x2xf32>) -> tensor<3x2xf32> {
   return %0 : tensor<3x2xf32>
 // CHECK-LABEL:  @test_erf
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x2xf32>) -> tensor<3x2xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.erf(%arg0) {backend_config = ""} : (tensor<3x2xf32>) -> tensor<3x2xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.erf(%arg0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<3x2xf32>
 }
 
@@ -168,7 +172,7 @@ func.func @test_gelu(%37: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
   return %47 : tensor<1x3x5x5xf32>
 // CHECK-LABEL:  @test_gelu
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.gelu([[PARAM_0_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.gelu([[PARAM_0_]]) {byteir_attrs = {approximate = "erf"}} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<1x3x5x5xf32>
 }
 
@@ -190,7 +194,7 @@ func.func @test_gelu_without_last_mul(%arg0: tensor<1x3x5x5xf32>, %arg1: tensor<
   return %48 : tensor<1x3x5x5xf32>
 // CHECK-LABEL:  @test_gelu_without_last_mul
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x5xf32>, [[PARAM_1_:%.+]]: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.gelu([[PARAM_0_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.gelu([[PARAM_0_]]) {byteir_attrs = {approximate = "erf"}} : (tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
 // CHECK-NEXT:   [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_1_]], [[VAR_0_]]) : (tensor<1x3x5x5xf32>, tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32>
 // CHECK-NEXT:   return [[VAR_1_]] : tensor<1x3x5x5xf32>
 }
@@ -207,7 +211,7 @@ func.func @test_l2_norm_pat1(%267: tensor<16x128xf32>) -> tensor<16x128xf32> {
   return %271 : tensor<16x128xf32>
 // CHECK-LABEL:  @test_l2_norm_pat1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<16x128xf32>) -> tensor<16x128xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.l2_norm(%arg0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.999999960041972E-13 : f64}} : (tensor<16x128xf32>) -> tensor<16x128xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.l2_norm(%arg0) {byteir_attrs = {axis = [1], epsilon = 9.999999960041972E-13 : f64}} : (tensor<16x128xf32>) -> tensor<16x128xf32>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<16x128xf32>
 }
 
@@ -219,35 +223,35 @@ func.func @test_l2_norm_pat2(%1146: tensor<12x128xf32>) -> tensor<12x128xf32> {
   return %1148 : tensor<12x128xf32>
 // CHECK-LABEL:  @test_l2_norm_pat2
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x128xf32>) -> tensor<12x128xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.l2_norm(%arg0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 0.000000e+00 : f64}} : (tensor<12x128xf32>) -> tensor<12x128xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.l2_norm(%arg0) {byteir_attrs = {axis = [1], epsilon = 0.000000e+00 : f64}} : (tensor<12x128xf32>) -> tensor<12x128xf32>
 // CHECK-NEXT:   return [[VAR_0_]] : tensor<12x128xf32>
 }
 
 // -----
 
 func.func @test_quantize_per_tensor(%arg0: tensor<16x3x256x256xf32>) -> tensor<16x3x256x256xi8> {
-  %291 = mhlo.constant dense<0.0207054354> : tensor<f32>
-  %292 = mhlo.constant dense<0> : tensor<i8>
+  %291 = stablehlo.constant dense<0.0207054354> : tensor<f32>
+  %292 = stablehlo.constant dense<0> : tensor<i8>
   %293 = "onnx.QuantizeLinear"(%arg0, %291, %292) {onnx_node_name = "QuantizeLinear_2"} : (tensor<16x3x256x256xf32>, tensor<f32>, tensor<i8>) -> tensor<16x3x256x256xi8>
   return %293 : tensor<16x3x256x256xi8>
 // CHECK-LABEL:  @test_quantize_per_tensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<16x3x256x256xf32>) -> tensor<16x3x256x256xi8> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.constant dense<0.0207054354> : tensor<f32>
-// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.constant dense<0> : tensor<i8>
-// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.quantize(%arg0, %0, %1) {backend_config = "", byteir_attrs = {}} : (tensor<16x3x256x256xf32>, tensor<f32>, tensor<i8>) -> tensor<16x3x256x256xi8>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.constant dense<0.0207054354> : tensor<f32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = stablehlo.constant dense<0> : tensor<i8>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = stablehlo.custom_call @byteir.quantize(%arg0, %0, %1) {byteir_attrs = {}} : (tensor<16x3x256x256xf32>, tensor<f32>, tensor<i8>) -> tensor<16x3x256x256xi8>
 // CHECK-NEXT:   return [[VAR_2_]] : tensor<16x3x256x256xi8>
 }
 
 func.func @test_dequantize_per_channel_on_weights(%295: tensor<4x3x7x7xi8>) -> tensor<4x3x7x7xf32> {
-  %288 = mhlo.constant dense<[6.71244226E-4, 8.52292985E-4, 9.84143698E-4, 6.72663445E-4]> : tensor<4xf32>
-  %289 = mhlo.constant dense<0> : tensor<4xi8>
+  %288 = stablehlo.constant dense<[6.71244226E-4, 8.52292985E-4, 9.84143698E-4, 6.72663445E-4]> : tensor<4xf32>
+  %289 = stablehlo.constant dense<0> : tensor<4xi8>
   %296 = "onnx.DequantizeLinear"(%295, %288, %289) {axis = 0 : si64, onnx_node_name = "DequantizeLinear_8"} : (tensor<4x3x7x7xi8>, tensor<4xf32>, tensor<4xi8>) -> tensor<4x3x7x7xf32>
   return %296 : tensor<4x3x7x7xf32>
 // CHECK-LABEL:  func.func @test_dequantize_per_channel_on_weights
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x3x7x7xi8>) -> tensor<4x3x7x7xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.constant dense<[6.71244226E-4, 8.52292985E-4, 9.84143698E-4, 6.72663445E-4]> : tensor<4xf32>
-// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.constant dense<0> : tensor<4xi8>
-// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.dequantize(%arg0, %0, %1) {backend_config = "", byteir_attrs = {axis = 0 : i64}} : (tensor<4x3x7x7xi8>, tensor<4xf32>, tensor<4xi8>) -> tensor<4x3x7x7xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.constant dense<[6.71244226E-4, 8.52292985E-4, 9.84143698E-4, 6.72663445E-4]> : tensor<4xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = stablehlo.constant dense<0> : tensor<4xi8>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = stablehlo.custom_call @byteir.dequantize(%arg0, %0, %1) {byteir_attrs = {axis = 0 : i64}} : (tensor<4x3x7x7xi8>, tensor<4xf32>, tensor<4xi8>) -> tensor<4x3x7x7xf32>
 // CHECK-NEXT:   return [[VAR_2_]] : tensor<4x3x7x7xf32>
 }
 
@@ -256,7 +260,7 @@ func.func @test_softmax(%9: tensor<1x10xf32>) -> tensor<1x10xf32> {
   return %10 : tensor<1x10xf32>
 // CHECK-LABEL:  func.func @test_softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x10xf32>) -> tensor<1x10xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.softmax(%arg0) {byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
 }
 
 func.func @test_log_softmax(%9: tensor<1x10xf32>) -> tensor<1x10xf32> {
@@ -264,7 +268,7 @@ func.func @test_log_softmax(%9: tensor<1x10xf32>) -> tensor<1x10xf32> {
   return %10 : tensor<1x10xf32>
 // CHECK-LABEL:  func.func @test_log_softmax
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x10xf32>) -> tensor<1x10xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.custom_call @byteir.softmax(%arg0) {backend_config = "", byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.softmax(%arg0) {byteir_attrs = {axis = 1 : i64}} : (tensor<1x10xf32>) -> tensor<1x10xf32>
 // CHECK-NEXT:   [[VAR_1_:%.+]] = "onnx.Log"(%0) : (tensor<1x10xf32>) -> tensor<1x10xf32>
 }
 
@@ -273,11 +277,11 @@ func.func @test_instance_norm(%116: tensor<1x32x3xf32>, %67: tensor<32xf32>, %68
   return %117 : tensor<1x32x3xf32>
 // CHECK-LABEL:  func.func @test_instance_norm
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x32x3xf32>, [[PARAM_1_:%.+]]: tensor<32xf32>, [[PARAM_2_:%.+]]: tensor<32xf32>) -> tensor<1x32x3xf32> {
-// CHECK-NEXT:   [[VAR_0_:%.+]] = mhlo.constant dense<1.000000e+00> : tensor<3xf32>
-// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.constant dense<0.000000e+00> : tensor<3xf32>
-// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}} : (tensor<1x32x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x32x3xf32>
-// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.reshape [[PARAM_1_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
-// CHECK-NEXT:   [[VAR_4_:%.+]] = mhlo.reshape [[PARAM_2_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
+// CHECK-NEXT:   [[VAR_0_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<3xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<3xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = stablehlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]]) {byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}} : (tensor<1x32x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x32x3xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = stablehlo.reshape [[PARAM_1_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
+// CHECK-NEXT:   [[VAR_4_:%.+]] = stablehlo.reshape [[PARAM_2_]] : (tensor<32xf32>) -> tensor<1x32x1xf32>
 // CHECK-NEXT:   [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_3_]]) : (tensor<1x32x3xf32>, tensor<1x32x1xf32>) -> tensor<1x32x3xf32>
 // CHECK-NEXT:   [[VAR_6_:%.+]] = "onnx.Add"([[VAR_5_]], [[VAR_4_]]) : (tensor<1x32x3xf32>, tensor<1x32x1xf32>) -> tensor<1x32x3xf32>
 }
@@ -291,7 +295,7 @@ func.func @test_resize_nearest_by_scale(%268: tensor<1x3x4x4xf32>) -> tensor<1x3
 // CHECK-LABEL:  func.func @test_resize
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x4x4xf32>) -> tensor<1x3x8x8xf32> {
 // CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
-// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.custom_call @byteir.resize([[PARAM_0_]], [[VAR_0_]]) {backend_config = "", byteir_attrs = {coordinate_transformation_mode = "asymmetric", mode = "nearest", target_mode = "scale"}} : (tensor<1x3x4x4xf32>, tensor<4xf32>) -> tensor<1x3x8x8xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = stablehlo.custom_call @byteir.resize([[PARAM_0_]], [[VAR_0_]]) {byteir_attrs = {coordinate_transformation_mode = "asymmetric", mode = "nearest", target_mode = "scale"}} : (tensor<1x3x4x4xf32>, tensor<4xf32>) -> tensor<1x3x8x8xf32>
 }
 
 func.func @test_resize_linear_by_size(%214: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {
@@ -303,7 +307,7 @@ func.func @test_resize_linear_by_size(%214: tensor<1x1x15x20xf32>) -> tensor<1x1
 // CHECK-LABEL:  func.func @test_resize_linear_by_size
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x15x20xf32>) -> tensor<1x1x30x40xf32> {
 // CHECK-NEXT:   [[VAR_0_:%.+]] = onnx.Constant dense<[1, 1, 30, 40]> : tensor<4xi64>
-// CHECK-NEXT:   [[VAR_1_:%.+]] = mhlo.custom_call @byteir.resize(%arg0, %0) {backend_config = "", byteir_attrs = {coordinate_transformation_mode = "pytorch_half_pixel", mode = "linear", target_mode = "size"}} : (tensor<1x1x15x20xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
+// CHECK-NEXT:   [[VAR_1_:%.+]] = stablehlo.custom_call @byteir.resize(%arg0, %0) {byteir_attrs = {coordinate_transformation_mode = "pytorch_half_pixel", mode = "linear", target_mode = "size"}} : (tensor<1x1x15x20xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
 }
 
 func.func @test_l2_norm_gelu_splat(%1092: tensor<1x768xf32>) -> tensor<1x768xf32> {
@@ -330,8 +334,8 @@ func.func @test_l2_norm_gelu_splat(%1092: tensor<1x768xf32>) -> tensor<1x768xf32
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x768xf32>) -> tensor<1x768xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<768xf32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<768xf32>
-// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x768xf32>, tensor<768xf32>, tensor<768xf32>) -> tensor<1x768xf32>
-// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.custom_call @byteir.gelu([[VAR_2_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x768xf32>) -> tensor<1x768xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = stablehlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x768xf32>, tensor<768xf32>, tensor<768xf32>) -> tensor<1x768xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = stablehlo.custom_call @byteir.gelu([[VAR_2_]]) {byteir_attrs = {approximate = "erf"}} : (tensor<1x768xf32>) -> tensor<1x768xf32>
 // CHECK-NEXT:   return [[VAR_3_]] : tensor<1x768xf32>
 }
 
@@ -359,8 +363,8 @@ func.func @test_l2_norm_gelu_dense(%1092: tensor<1x4xf32>) -> tensor<1x4xf32> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x4xf32>) -> tensor<1x4xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<4xf32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 2.000000e+00, 4.000000e+00, 4.000000e+00]> : tensor<4xf32>
-// CHECK-NEXT:   [[VAR_2_:%.+]] = mhlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
-// CHECK-NEXT:   [[VAR_3_:%.+]] = mhlo.custom_call @byteir.gelu([[VAR_2_]]) {backend_config = "", byteir_attrs = {approximate = "erf"}} : (tensor<1x4xf32>) -> tensor<1x4xf32>
+// CHECK-NEXT:   [[VAR_2_:%.+]] = stablehlo.custom_call @byteir.layer_norm([[PARAM_0_]], [[VAR_1_]], [[VAR_0_]]) {byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
+// CHECK-NEXT:   [[VAR_3_:%.+]] = stablehlo.custom_call @byteir.gelu([[VAR_2_]]) {byteir_attrs = {approximate = "erf"}} : (tensor<1x4xf32>) -> tensor<1x4xf32>
 // CHECK-NEXT:   return [[VAR_3_]] : tensor<1x4xf32>
 }
 
@@ -385,7 +389,7 @@ func.func @test_not_l2_norm_gelu_dense(%1092: tensor<1x4xf32>) -> tensor<1x4xf32
   %1105 = "onnx.Mul"(%1104, %143) : (tensor<1x4xf32>, tensor<4xf32>) -> tensor<1x4xf32>
   return %1105 : tensor<1x4xf32>
 // CHECK-LABEL:  func.func @test_not_l2_norm_gelu_dense
-// CHECK-NOT: mhlo.custom_call @byteir.gelu
+// CHECK-NOT: stablehlo.custom_call @byteir.gelu
 }
 
 func.func @test_onehot(%arg0 : tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64> {
@@ -395,9 +399,9 @@ func.func @test_onehot(%arg0 : tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64> {
   "func.return"(%2) : (tensor<2x3x4x64xi64>) -> ()
 // CHECK-LABEL: func.func @test_onehot
 // CHECK-SAME: (%[[ARG0:.+]]: tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64> {
-// CHECK: %[[GE_ZERO:.+]] = mhlo.compare  GE, %[[ARG0]], %[[ZERO:.+]],  NOTYPE : (tensor<2x3x4xi64>, tensor<2x3x4xi64>) -> tensor<2x3x4xi1>
-// CHECK: %[[POS_ARG0:.+]] = mhlo.add %[[ARG0]], %[[DEPTH:.+]] : tensor<2x3x4xi64>
-// CHECK: %[[NORM_ARG:.+]] = mhlo.select %[[GE_ZERO]], %[[ARG0]], %[[POS_ARG0]] : tensor<2x3x4xi1>, tensor<2x3x4xi64>
-// CHECK: %[[RESULT:.+]] = mhlo.custom_call @byteir.one_hot(%[[NORM_ARG]]) {backend_config = "", byteir_attrs = {axis = 3 : i64, depth = 64 : i64, off_value = 0 : i64, on_value = 1 : i64}} : (tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64>
+// CHECK: %[[GE_ZERO:.+]] = stablehlo.compare  GE, %[[ARG0]], %[[ZERO:.+]],  NOTYPE : (tensor<2x3x4xi64>, tensor<2x3x4xi64>) -> tensor<2x3x4xi1>
+// CHECK: %[[POS_ARG0:.+]] = stablehlo.add %[[ARG0]], %[[DEPTH:.+]] : tensor<2x3x4xi64>
+// CHECK: %[[NORM_ARG:.+]] = stablehlo.select %[[GE_ZERO]], %[[ARG0]], %[[POS_ARG0]] : tensor<2x3x4xi1>, tensor<2x3x4xi64>
+// CHECK: %[[RESULT:.+]] = stablehlo.custom_call @byteir.one_hot(%[[NORM_ARG]]) {byteir_attrs = {axis = 3 : i64, depth = 64 : i64, off_value = 0 : i64, on_value = 1 : i64}} : (tensor<2x3x4xi64>) -> tensor<2x3x4x64xi64>
 // CHECK: return %[[RESULT]] : tensor<2x3x4x64xi64>
 }

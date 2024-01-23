@@ -18,8 +18,8 @@
 #include "byteir/Utils/Hoist.h"
 #include "mlir/IR/Block.h"
 #include "mlir/IR/Dominance.h"
-#include "mlir/IR/FunctionInterfaces.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 
 using namespace mlir;
 

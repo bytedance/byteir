@@ -49,13 +49,13 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Diagnostics.h"
-#include "mlir/IR/FunctionImplementation.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Value.h"
+#include "mlir/Interfaces/FunctionImplementation.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
@@ -235,7 +235,7 @@ Operation *commonTileToPartialReduction(Operation *op, OpBuilder &b,
     outputExpr.push_back(b.getAffineDimExpr(reductionDims[0]));
 
   // Step 1: Extract a slice of the input operands.
-  SmallVector<Value> valuesToTile = linalgOp.getDpsInputOperands();
+  SmallVector<Value> valuesToTile = linalgOp.getDpsInputs();
   SmallVector<Value, 4> tiledOperands =
       makeTiledShapes(b, loc, linalgOp, valuesToTile, offsets, sizes, {}, true);
 
@@ -294,8 +294,7 @@ Operation *commonMergeReductions(Operation *op, OpBuilder &b, Location loc,
 
   auto reduction = b.create<GenericOp>(
       loc, op->getResultTypes(), ValueRange({partialReduce[0]}),
-      SmallVector<Value>{linalgOp.getDpsInitOperands()}, reductionMaps,
-      reductionIteratorTypes,
+      linalgOp.getDpsInits(), reductionMaps, reductionIteratorTypes,
       [reductionOp](OpBuilder &b, Location loc, ValueRange inputs) {
         Operation *clonedReductionOp = b.clone(*reductionOp);
         clonedReductionOp->setOperand(0, inputs[0]);
@@ -1827,9 +1826,7 @@ ParseResult mlir::linalg_ext::BatchMatmulOp::parse(OpAsmParser &parser,
 }
 
 void mlir::linalg_ext::BatchMatmulOp::print(OpAsmPrinter &p) {
-  printCommonStructuredOpPartsWithNewLine(
-      p, SmallVector<Value>(getDpsInputOperands()),
-      SmallVector<Value>(getDpsInitOperands()));
+  printCommonStructuredOpPartsWithNewLine(p, getDpsInputs(), getDpsInits());
   p << ' ' << getLayoutAttrName().strref() << " = \"" << getLayout() << "\" ";
   p.printOptionalAttrDict((*this)->getAttrs(), {getLayoutAttrName()});
 }
@@ -1923,8 +1920,8 @@ mlir::linalg_ext::BatchMatmulOp::generateResultTileValue(
 void mlir::linalg_ext::BatchMatmulOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  getGenericEffectsImpl(effects, getOperation()->getResults(),
-                        getDpsInputOperands(), getDpsInitOperands());
+  getGenericEffectsImpl(effects, getOperation()->getResults(), getDpsInputs(),
+                        getDpsInits());
 }
 
 FailureOr<Operation *>
@@ -2181,8 +2178,8 @@ static void getEffectsImpl(
     LinalgExtOp linalgExtOp,
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects,
-    ValueRange results, OpOperandVector inputBuffers,
-    OpOperandVector outputBuffers) {
+    ValueRange results, SmallVector<OpOperand *> inputBuffers,
+    SmallVector<OpOperand *> outputBuffers) {
   for (Value value : results) {
     effects.emplace_back(MemoryEffects::Allocate::get(), value,
                          SideEffects::DefaultResource::get());

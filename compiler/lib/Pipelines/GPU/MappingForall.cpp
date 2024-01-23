@@ -133,8 +133,8 @@ void createGPUMappingForallTransformImpl(OpPassManager &pm,
         /* result type*/ pdlType,
         /* target */ launchOp.getResult(),
         /* block_dims */ mappingConfig.blockDims,
-        /* warp_dims */ llvm::ArrayRef<int64_t>{},
-        /* sync_after_distribute*/ true);
+        /* sync_after_distribute*/ true,
+        /* warp_dims */ 32);
   };
 
   pm.addPass(createGenericTransformInsertionPass(config));

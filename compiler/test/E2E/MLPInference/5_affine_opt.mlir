@@ -17,7 +17,7 @@ module attributes {torch.debug_module_name = "GraphModule"} {
     linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel"]} ins(%arg1, %arg0 : memref<2x20xf32>, memref<20xf32>) outs(%alloc : memref<2x20xf32>) {
     ^bb0(%in: f32, %in_0: f32, %out: f32):
       %0 = arith.addf %in, %in_0 : f32
-      %1 = arith.maxf %0, %cst : f32
+      %1 = arith.maxnumf %0, %cst : f32
       linalg.yield %1 : f32
     }
     return %alloc : memref<2x20xf32>
@@ -28,7 +28,7 @@ module attributes {torch.debug_module_name = "GraphModule"} {
     linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel"]} ins(%arg1, %arg0 : memref<2x20xf32>, memref<20xf32>) outs(%alloc : memref<2x20xf32>) {
     ^bb0(%in: f32, %in_0: f32, %out: f32):
       %0 = arith.addf %in, %in_0 : f32
-      %1 = arith.maxf %0, %cst : f32
+      %1 = arith.maxnumf %0, %cst : f32
       linalg.yield %1 : f32
     }
     return %alloc : memref<2x20xf32>

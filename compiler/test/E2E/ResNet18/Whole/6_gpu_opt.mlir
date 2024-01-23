@@ -977,7 +977,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x64x112x112xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x64x112x112xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x64x112x112xi1>
@@ -1026,7 +1026,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x64x56x56xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x64x56x56xi1>
@@ -1077,7 +1077,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x64x56x56xi1>
@@ -1126,7 +1126,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x64x56x56xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x64x56x56xi1>
@@ -1177,7 +1177,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x64x56x56xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x64x56x56xi1>
@@ -1226,7 +1226,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x128x28x28xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x128x28x28xi1>
@@ -1277,7 +1277,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x128x28x28xi1>
@@ -1326,7 +1326,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x128x28x28xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x128x28x28xi1>
@@ -1377,7 +1377,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x128x28x28xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x128x28x28xi1>
@@ -1426,7 +1426,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x256x14x14xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x256x14x14xi1>
@@ -1477,7 +1477,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x256x14x14xi1>
@@ -1526,7 +1526,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x256x14x14xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x256x14x14xi1>
@@ -1577,7 +1577,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x256x14x14xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x256x14x14xi1>
@@ -1626,7 +1626,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x512x7x7xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x512x7x7xi1>
@@ -1677,7 +1677,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x512x7x7xi1>
@@ -1726,7 +1726,7 @@ module @IrToMhlo.2452 {
       %28 = arith.subi %c-1, %27 : index
       %29 = arith.select %24, %28, %27 : index
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x512x7x7xf16>
-      %31 = arith.maxf %30, %cst : f16
+      %31 = arith.maxnumf %30, %cst : f16
       %32 = arith.cmpf ogt, %31, %cst : f16
       memref.store %31, %alloc[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       memref.store %32, %alloc_0[%29, %23, %13, %3] : memref<4x512x7x7xi1>
@@ -1777,7 +1777,7 @@ module @IrToMhlo.2452 {
       %30 = memref.load %arg0[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       %31 = memref.load %arg1[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       %32 = arith.addf %30, %31 : f16
-      %33 = arith.maxf %32, %cst : f16
+      %33 = arith.maxnumf %32, %cst : f16
       %34 = arith.cmpf ogt, %33, %cst : f16
       memref.store %33, %alloc[%29, %23, %13, %3] : memref<4x512x7x7xf16>
       memref.store %34, %alloc_0[%29, %23, %13, %3] : memref<4x512x7x7xi1>

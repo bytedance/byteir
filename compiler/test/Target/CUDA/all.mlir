@@ -26,7 +26,7 @@ module attributes {gpu.container_module}  {
           %4 = memref.load %arg0[%2, %3, %arg3, %arg4] : memref<6x12x96x96xf32>
           %5 = memref.load %arg1[%2, %3, %arg3] : memref<6x12x96xf32>
           %6 = arith.subf %4, %5 : f32
-          %7 = emitc.call "expf" (%6) : (f32) -> f32
+          %7 = emitc.call_opaque "expf" (%6) : (f32) -> f32
           memref.store %7, %arg2[%2, %3, %arg3, %arg4] : memref<6x12x96x96xf32>
         }
       }

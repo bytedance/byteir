@@ -5,7 +5,7 @@ index d7dff949..95ad6b4c 100644
 @@ -760,6 +760,18 @@ struct ONNXResizeOpShapeHelper : public ONNXOpShapeHelper {
    llvm::SmallVector<IndexExpr, 4> scales;
  };
- 
+
 +struct ONNXResizeV13OpShapeHelper : public ONNXOpShapeHelper {
 +  ONNXResizeV13OpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
 +      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
@@ -28,7 +28,7 @@ index d8e11c29..abedb620 100644
 @@ -86,6 +86,48 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
    return success();
  }
- 
+
 +LogicalResult ONNXResizeV13OpShapeHelper::computeShape() {
 +  ONNXResizeV13OpAdaptor operandAdaptor(operands);
 +  uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
@@ -72,7 +72,7 @@ index d8e11c29..abedb620 100644
 +}
 +
  } // namespace onnx_mlir
- 
+
  //===----------------------------------------------------------------------===//
 @@ -127,3 +191,13 @@ LogicalResult ONNXResizeOp::inferShapes(
    ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
@@ -92,12 +92,12 @@ diff --git a/src/Dialect/ONNX/ONNXUnsupportedOps.hpp b/src/Dialect/ONNX/ONNXUnsu
 index baa23f55..e8bce2a0 100644
 --- a/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
 +++ b/src/Dialect/ONNX/ONNXUnsupportedOps.hpp
-@@ -62,7 +62,7 @@ UNSUPPORTED_OPS(ONNXRandomUniformLikeOp)
+@@ -63,7 +63,7 @@ UNSUPPORTED_OPS(ONNXRandomUniformLikeOp)
  UNSUPPORTED_OPS(ONNXRandomUniformOp)
  UNSUPPORTED_OPS(ONNXResizeV10Op)
  UNSUPPORTED_OPS(ONNXResizeV11Op)
 -UNSUPPORTED_OPS(ONNXResizeV13Op)
 +// UNSUPPORTED_OPS(ONNXResizeV13Op)
+ UNSUPPORTED_OPS(ONNXResizeV18Op)
  UNSUPPORTED_OPS(ONNXSequenceMapOp)
  UNSUPPORTED_OPS(ONNXSVMClassifierOp)
- UNSUPPORTED_OPS(ONNXSVMRegressorOp)

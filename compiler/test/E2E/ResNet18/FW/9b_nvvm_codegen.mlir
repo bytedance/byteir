@@ -903,7 +903,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
       }
       gpu.return
@@ -991,7 +991,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
       }
       gpu.return
@@ -1081,7 +1081,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
       }
       gpu.return
@@ -1169,7 +1169,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x512x7x7xf16>
       }
       gpu.return
@@ -1287,7 +1287,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
       }
       gpu.return
@@ -1375,7 +1375,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
       }
       gpu.return
@@ -1465,7 +1465,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
       }
       gpu.return
@@ -1553,7 +1553,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x256x14x14xf16>
       }
       gpu.return
@@ -1671,7 +1671,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
       }
       gpu.return
@@ -1759,7 +1759,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
       }
       gpu.return
@@ -1849,7 +1849,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
       }
       gpu.return
@@ -1937,7 +1937,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x128x28x28xf16>
       }
       gpu.return
@@ -2055,7 +2055,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
       }
       gpu.return
@@ -2143,7 +2143,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
       }
       gpu.return
@@ -2233,7 +2233,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
         %27 = memref.load %arg1[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
         %28 = arith.addf %26, %27 : f16
-        %29 = arith.maxf %28, %cst : f16
+        %29 = arith.maxnumf %28, %cst : f16
         memref.store %29, %arg2[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
       }
       gpu.return
@@ -2321,7 +2321,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x64x56x56xf16>
       }
       gpu.return
@@ -2409,7 +2409,7 @@ module attributes {byre.container_module, gpu.container_module} {
         %24 = arith.subi %c-1, %23 : index
         %25 = arith.select %20, %24, %23 : index
         %26 = memref.load %arg0[%c0, %25, %19, %9] : memref<1x64x112x112xf16>
-        %27 = arith.maxf %26, %cst : f16
+        %27 = arith.maxnumf %26, %cst : f16
         memref.store %27, %arg1[%c0, %25, %19, %9] : memref<1x64x112x112xf16>
       }
       gpu.return

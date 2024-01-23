@@ -17,13 +17,13 @@ namespace onnx_frontend {
 /* Type of compiler emission targets */
 typedef enum {
   EmitONNXIR,
-  EmitMhloIR,
+  EmitStablehloIR,
 } EmissionTargetType;
 
 /* Input IR can be at one of these levels */
 typedef enum {
   ONNXLevel,
-  MhloLevel,
+  StablehloLevel,
 } InputIRLevelType;
 
 } // namespace onnx_frontend

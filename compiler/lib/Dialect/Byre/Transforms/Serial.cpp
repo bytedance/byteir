@@ -78,7 +78,7 @@ struct DumpByrePass : public DumpByreBase<DumpByrePass> {
       return signalPassFailure();
     }
 
-    BytecodeWriterConfig config;
+    BytecodeWriterConfig config(targetVersion->getBytecodeProducerString());
     config.setDesiredBytecodeVersion(targetVersion->getBytecodeVersion());
     if (failed(writeBytecodeToFile(*newModule, ofile->os(), config))) {
       newModule->emitOpError() << "failed to write bytecode\n";

@@ -15,21 +15,21 @@ func.func @reduction_row(%arg0: memref<1024x512xf32>, %arg1: memref<1024xf32>) -
     %subview = memref.subview %arg0[0, %arg2] [1024, 8] [1, 1] : memref<1024x512xf32> to memref<1024x8xf32, strided<[512, 1], offset: ?>>
     linalg.generic {indexing_maps = [#map, #map], iterator_types = ["parallel", "parallel"]} ins(%subview : memref<1024x8xf32, strided<[512, 1], offset: ?>>) outs(%alloc : memref<1024x8xf32>) attrs =  {__split__} {
     ^bb0(%in: f32, %out: f32):
-      %0 = arith.maxf %out, %in : f32
+      %0 = arith.maxnumf %out, %in : f32
       linalg.yield %0 : f32
     }
     // CHECK: scf.for
     // CHECK:   scf.for
-    // CHECK:     arith.maxf
+    // CHECK:     arith.maxnumf
   }
   linalg.generic {indexing_maps = [#map, #map1], iterator_types = ["parallel", "reduction"]} ins(%alloc : memref<1024x8xf32>) outs(%arg1 : memref<1024xf32>) attrs =  {__merge__} {
   ^bb0(%in: f32, %out: f32):
-    %0 = arith.maxf %in, %out : f32
+    %0 = arith.maxnumf %in, %out : f32
     linalg.yield %0 : f32
   }
   // CHECK: scf.for
   // CHECK:   scf.for
-  // CHECK:     arith.maxf
+  // CHECK:     arith.maxnumf
   return %arg1 : memref<1024xf32>
 }
 

@@ -107,7 +107,7 @@ memref.global "private" constant @constant0 : memref<4xf32> = dense<-3.40282347E
 // CHECK:     byre.compute @customAddOp5(%[[ARG_0]], %[[ARG_2]], %[[ARG_1]])
 //   CHECK-SAME: memory_effects = [1 : i32, 2 : i32, 1 : i32]
 //   CHECK-SAME: memref<4xf32>, memref<4xf32>, memref<4xf32>
-// CHECK:     %[[VALUE0:.*]] = "byre.alias"(%[[ARG_2]]) {offset = 0 : i64} : (memref<4xf32>) -> memref<1x4xf32>
+// CHECK:     %[[VALUE0:.*]] = "byre.alias"(%[[ARG_2]]) <{offset = 0 : i64}> : (memref<4xf32>) -> memref<1x4xf32>
 // CHECK:     memref.copy %[[VALUE0]], %[[ARG_3]] : memref<1x4xf32> to memref<1x4xf32>
 // CHECK:     return
 }

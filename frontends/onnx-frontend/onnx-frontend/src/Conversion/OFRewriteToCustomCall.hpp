@@ -21,8 +21,8 @@
 
 namespace onnx_frontend {
 
-/// Add pass for lowering to Mhlo Custom Call with byteir attributes.
+/// Add pass for lowering to Stablehlo Custom Call with byteir attributes.
 std::unique_ptr<mlir::Pass> createOFRewriteToCustomCallPass(
-    const std::vector<std::string>& customCallOps = {});
+    const std::vector<std::string> &customCallOps = {});
 
-}  // namespace onnx_frontend
+} // namespace onnx_frontend

@@ -59,13 +59,13 @@ module {
 
 // CHECK-LABEL: func.func private @func_with_bufferization() -> memref<1x97xf32, "cpu"> attributes {device = "cpu"} {
 // CHECK-NEXT:    %alloc = memref.alloc() : memref<f32, "cpu">
-// CHECK-NEXT:    "lmhlo.constant"(%alloc) {device = "cpu", value = dense<0.000000e+00> : tensor<f32>} : (memref<f32, "cpu">) -> ()
+// CHECK-NEXT:    "lmhlo.constant"(%alloc) <{value = dense<0.000000e+00> : tensor<f32>}> {device = "cpu"} : (memref<f32, "cpu">) -> ()
 // CHECK-NEXT:    %0 = bufferization.to_tensor %alloc {device = "cpu"} : memref<f32, "cpu">
 // CHECK-NEXT:    %alloc_0 = memref.alloc() : memref<f32, "cpu">
-// CHECK-NEXT:    "lmhlo.constant"(%alloc_0) {device = "cpu", value = dense<1.000000e+00> : tensor<f32>} : (memref<f32, "cpu">) -> ()
+// CHECK-NEXT:    "lmhlo.constant"(%alloc_0) <{value = dense<1.000000e+00> : tensor<f32>}> {device = "cpu"} : (memref<f32, "cpu">) -> ()
 // CHECK-NEXT:    %1 = bufferization.to_tensor %alloc_0 {device = "cpu"} : memref<f32, "cpu">
 // CHECK-NEXT:    %alloc_1 = memref.alloc() : memref<2xi64, "cpu">
-// CHECK-NEXT:    "lmhlo.constant"(%alloc_1) {device = "cpu", value = dense<[1, 97]> : tensor<2xi64>} : (memref<2xi64, "cpu">) -> ()
+// CHECK-NEXT:    "lmhlo.constant"(%alloc_1) <{value = dense<[1, 97]> : tensor<2xi64>}> {device = "cpu"} : (memref<2xi64, "cpu">) -> ()
 // CHECK-NEXT:    %2 = bufferization.to_tensor %alloc_1 {device = "cpu"} : memref<2xi64, "cpu">
 // CHECK-NEXT:    %3 = "mhlo.rng"(%0, %1, %2) {device = "host", rng_distribution = #mhlo.rng_distribution<UNIFORM>} : (tensor<f32>, tensor<f32>, tensor<2xi64>) -> tensor<1x97xf32>
 // CHECK-NEXT:    %4 = bufferization.to_memref %3 {device = "cpu"} : memref<1x97xf32, "cpu">

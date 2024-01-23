@@ -2151,7 +2151,7 @@ void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
                                                 MLIRContext *ctx,
                                                 bool blindFold) {
   // add dialect level getCanonicalizationPatterns
-  auto mhloDailect = ctx->getOrLoadDialect<mhlo::MhloDialect>();
+  auto mhloDailect = ctx->getLoadedDialect<mhlo::MhloDialect>();
   if (mhloDailect) {
     mhloDailect->getCanonicalizationPatterns(patterns);
   }
@@ -2171,7 +2171,7 @@ void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
 void mlir::mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
     RewritePatternSet &patterns, MLIRContext *ctx, bool blindFold) {
   // add dialect level getCanonicalizationPatterns
-  auto mhloDailect = ctx->getOrLoadDialect<mhlo::MhloDialect>();
+  auto mhloDailect = ctx->getLoadedDialect<mhlo::MhloDialect>();
   if (mhloDailect) {
     mhloDailect->getCanonicalizationPatterns(patterns);
   }

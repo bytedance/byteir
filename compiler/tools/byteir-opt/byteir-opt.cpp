@@ -40,9 +40,6 @@
 #include "byteir/Pipelines/InitAllPipelines.h"
 #include "byteir/Transforms/Passes.h"
 #include "byteir/Utils/OpInterfaceUtils.h"
-#include "gml_st/IR/gml_st_ops.h"
-#include "gml_st/transforms/passes.h"
-#include "gml_st/transforms/test_passes.h"
 #include "lhlo/IR/lhlo_ops.h"
 #include "lhlo/transforms/passes.h"
 #include "lhlo_gpu/IR/lhlo_gpu_ops.h"
@@ -60,8 +57,6 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "stablehlo/dialect/Register.h"
-#include "thlo/IR/thlo_ops.h"
-#include "thlo/transforms/passes.h"
 #include "transforms/gpu_passes.h"
 #include "transforms/passes.h"
 #include "llvm/Support/CommandLine.h"
@@ -118,9 +113,6 @@ int main(int argc, char **argv) {
   mlir::registerLMHLOGPUTransformsPasses();
   mlir::mhlo::registerAllMhloPasses();
   mlir::lmhlo::registerAllLmhloPasses();
-  mlir::thlo::registerAllThloPasses();
-  mlir::gml_st::registerGmlStPasses();
-  mlir::gml_st::registerGmlStTestPasses();
 
   registerByteIRConversionPasses();
   registerByteIRTransformsPasses();

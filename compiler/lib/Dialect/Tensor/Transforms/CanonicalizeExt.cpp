@@ -181,7 +181,7 @@ void mlir::tensor::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
                                                   bool blindFold) {
 
   // add dialect level getCanonicalizationPatterns
-  auto tensorDialect = ctx->getOrLoadDialect<tensor::TensorDialect>();
+  auto tensorDialect = ctx->getLoadedDialect<tensor::TensorDialect>();
   if (tensorDialect) {
     tensorDialect->getCanonicalizationPatterns(patterns);
   }

@@ -113,7 +113,7 @@ static void dataPlaceImpl(OpBuilder &b, LinalgOp op) {
   int idx = 0;
 
   // handle inputs
-  for (Value input : SmallVector<Value>(op.getDpsInputOperands())) {
+  for (Value input : op.getDpsInputs()) {
     int64_t space = getSpace(memSpaces, idx++);
 
     if (space == getUnplacedSpace()) {
@@ -134,7 +134,7 @@ static void dataPlaceImpl(OpBuilder &b, LinalgOp op) {
 
   // handle outputs
   SmallVector<bool, 4> outputReplaced;
-  for (auto output : SmallVector<Value>(op.getDpsInitOperands())) {
+  for (auto output : op.getDpsInits()) {
     int64_t space = getSpace(memSpaces, idx++);
 
     if (space == getUnplacedSpace()) {
@@ -162,7 +162,7 @@ static void dataPlaceImpl(OpBuilder &b, LinalgOp op) {
 
   idx = 0;
   int64_t numInputs = op.getNumDpsInputs();
-  for (auto output : SmallVector<Value>(op.getDpsInitOperands())) {
+  for (auto output : op.getDpsInits()) {
     if (outputReplaced[idx]) {
       // copy output
       b.create<linalg::CopyOp>(loc, operands[numInputs + idx], output);

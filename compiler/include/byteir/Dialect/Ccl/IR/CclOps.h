@@ -18,6 +18,7 @@
 #ifndef BYTEIR_DIALECT_CCL_CCLOPS_H
 #define BYTEIR_DIALECT_CCL_CCLOPS_H
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpImplementation.h"

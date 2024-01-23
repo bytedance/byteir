@@ -39,12 +39,13 @@ using namespace mlir::byre::serialization;
 
 namespace {
 #ifdef CHECK_DIALECT_INTERFACE
+using InterfaceMapT = DenseMap<TypeID, std::unique_ptr<DialectInterface>>;
 template <typename T, auto MP> struct InterfacesMapPA {
-  friend auto &&GetInterfaces(T *dialect) { return dialect->*MP; }
+  friend InterfaceMapT &GetInterfaces(T *dialect) { return dialect->*MP; }
 };
 
-static auto &&GetInterfaces(Dialect *inst);
-template class InterfacesMapPA<Dialect, &Dialect::registeredInterfaces>;
+static InterfaceMapT &GetInterfaces(Dialect *inst);
+template struct InterfacesMapPA<Dialect, &Dialect::registeredInterfaces>;
 
 #define REPORT_FATAL_ERROR_DIALECT(dialect, where)                             \
   llvm::report_fatal_error("Only support byre_serial dialect in our bytecode " \
@@ -66,12 +67,6 @@ struct UnsupportedDialectBytecodeInterface : public BytecodeDialectInterface {
   Type readType(DialectBytecodeReader &reader) const override {
     REPORT_FATAL_ERROR;
   }
-
-  Type readType(DialectBytecodeReader &reader,
-                const DialectVersion &) const override {
-    REPORT_FATAL_ERROR;
-  }
-
   LogicalResult writeAttribute(Attribute attr,
                                DialectBytecodeWriter &writer) const override {
     REPORT_FATAL_ERROR;
@@ -80,12 +75,6 @@ struct UnsupportedDialectBytecodeInterface : public BytecodeDialectInterface {
   Attribute readAttribute(DialectBytecodeReader &reader) const override {
     REPORT_FATAL_ERROR;
   }
-
-  Attribute readAttribute(DialectBytecodeReader &reader,
-                          const DialectVersion &) const override {
-    REPORT_FATAL_ERROR;
-  }
-
   void writeVersion(DialectBytecodeWriter &writer) const override {
     REPORT_FATAL_ERROR;
   }
@@ -123,11 +112,6 @@ struct BuiltinDialectBytecodeInterface : public BytecodeDialectInterface {
     REPORT_FATAL_ERROR;
   }
 
-  Type readType(DialectBytecodeReader &reader,
-                const DialectVersion &) const override {
-    REPORT_FATAL_ERROR;
-  }
-
   LogicalResult writeAttribute(Attribute attr,
                                DialectBytecodeWriter &writer) const final {
     if (llvm::isa<UnknownLoc>(attr)) {
@@ -141,11 +125,6 @@ struct BuiltinDialectBytecodeInterface : public BytecodeDialectInterface {
 
   Attribute readAttribute(DialectBytecodeReader &reader) const final {
     return impl->readAttribute(reader);
-  }
-
-  Attribute readAttribute(DialectBytecodeReader &reader,
-                          const DialectVersion &version) const final {
-    return impl->readAttribute(reader, version);
   }
 
   void writeVersion(DialectBytecodeWriter &writer) const override {
@@ -230,7 +209,7 @@ struct TestByreSerialRoundtripPass
 
     std::string buffer;
     llvm::raw_string_ostream ostream(buffer);
-    BytecodeWriterConfig config;
+    BytecodeWriterConfig config(targetVersion.getBytecodeProducerString());
     config.setDesiredBytecodeVersion(targetVersion.getBytecodeVersion());
     if (failed(writeBytecodeToFile(*newModule, ostream, config))) {
       newModule->emitOpError() << "failed to write bytecode\n";
