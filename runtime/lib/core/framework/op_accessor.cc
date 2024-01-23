@@ -215,11 +215,11 @@ void *OpAccessor::GetAttrAsVoidPtr(const std::string &name) const {
     for (Attribute elementAttr : attr) {
       if (auto floatAttr = dyn_cast<FloatAttr>(elementAttr)) {
         float val = floatAttr.getValueAsDouble();
-        std::memcpy(static_cast<char*>(result) + ptr, &val, sizeof(float));
+        std::memcpy(static_cast<char *>(result) + ptr, &val, sizeof(float));
         ptr += sizeof(float);
       } else if (auto intAttr = dyn_cast<IntegerAttr>(elementAttr)) {
         int64_t val = intAttr.getInt();
-        std::memcpy(static_cast<char*>(result) + ptr, &val, sizeof(int64_t));
+        std::memcpy(static_cast<char *>(result) + ptr, &val, sizeof(int64_t));
         ptr += sizeof(int64_t);
       }
     }
