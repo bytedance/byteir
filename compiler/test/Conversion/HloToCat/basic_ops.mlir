@@ -45,7 +45,7 @@ func.func @test_max_pooling2d(%arg0: tensor<2x112x112x64xf32>) -> tensor<2x56x56
 }
 
 // CHECK: func.func
-// CHECK-NEXT: "cat.pooling2d"(%arg0) {kernel_size = 3 : i64, padding = 1 : i64, reduce_func = "max2d", window_stride = 2 : i64}
+// CHECK-NEXT: "cat.pooling2d"(%arg0) <{kernel_size = 3 : i64, padding = 1 : i64, reduce_func = "max2d", window_stride = 2 : i64}>
 
 func.func @test_relu(%arg0: tensor<2x56x56x256xf32>) -> tensor<2x56x56x256xf32> {
     %0 = mhlo.constant dense<0.000000e+00> : tensor<2x56x56x256xf32>
@@ -109,4 +109,4 @@ func.func @test_avg_pooling2d(%arg0 : tensor<2x7x7x2048xf16>) -> tensor<2x1x1x20
 }
 
 // CHECK: func.func
-// CHECK-NEXT: "cat.pooling2d"(%arg0) {kernel_size = 7 : i64, padding = 0 : i64, reduce_func = "avg2d", window_stride = 1 : i64}
+// CHECK-NEXT: "cat.pooling2d"(%arg0) <{kernel_size = 7 : i64, padding = 0 : i64, reduce_func = "avg2d", window_stride = 1 : i64}>

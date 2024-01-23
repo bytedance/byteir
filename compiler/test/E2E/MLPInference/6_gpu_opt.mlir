@@ -31,7 +31,7 @@ module attributes {torch.debug_module_name = "GraphModule"} {
       %10 = memref.load %arg1[%9, %3] : memref<2x20xf32>
       %11 = memref.load %arg0[%3] : memref<20xf32>
       %12 = arith.addf %10, %11 : f32
-      %13 = arith.maxf %12, %cst : f32
+      %13 = arith.maxnumf %12, %cst : f32
       memref.store %13, %alloc[%9, %3] : memref<2x20xf32>
     }
     return %alloc : memref<2x20xf32>
@@ -58,7 +58,7 @@ module attributes {torch.debug_module_name = "GraphModule"} {
       %10 = memref.load %arg1[%9, %3] : memref<2x20xf32>
       %11 = memref.load %arg0[%3] : memref<20xf32>
       %12 = arith.addf %10, %11 : f32
-      %13 = arith.maxf %12, %cst : f32
+      %13 = arith.maxnumf %12, %cst : f32
       memref.store %13, %alloc[%9, %3] : memref<2x20xf32>
     }
     return %alloc : memref<2x20xf32>

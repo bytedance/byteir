@@ -415,7 +415,7 @@ LogicalResult mlir::loopUnrollByFactorExt(
       std::get<0>(e).replaceAllUsesWith(std::get<1>(e));
     }
     epilogueForOp->setOperands(epilogueForOp.getNumControlOperands(),
-                               epilogueForOp.getNumIterOperands(), results);
+                               epilogueForOp.getInitArgs().size(), results);
     (void)epilogueForOp.promoteIfSingleIteration(rewriter);
   }
 

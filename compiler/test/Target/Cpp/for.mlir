@@ -3,7 +3,7 @@
 
 func.func @test_for(%arg0 : index, %arg1 : index, %arg2 : index) {
   scf.for %i0 = %arg0 to %arg1 step %arg2 {
-    %0 = emitc.call "f"() : () -> i32
+    %0 = emitc.call_opaque "f"() : () -> i32
   }
   return
 }
@@ -29,8 +29,8 @@ func.func @test_for_yield() {
   %p0 = arith.constant 1.0 : f32
   
   %result:2 = scf.for %iter = %start to %stop step %step iter_args(%si = %s0, %pi = %p0) -> (i32, f32) {
-    %sn = emitc.call "add"(%si, %iter) : (i32, index) -> i32
-    %pn = emitc.call "mul"(%pi, %iter) : (f32, index) -> f32
+    %sn = emitc.call_opaque "add"(%si, %iter) : (i32, index) -> i32
+    %pn = emitc.call_opaque "mul"(%pi, %iter) : (f32, index) -> f32
     scf.yield %sn, %pn : i32, f32
   }
 

@@ -80,11 +80,8 @@ FailureOr<Value> getBufferInValidLayout(RewriterBase &rewriter, Location loc,
     } else {
       // TODO: Create alloc_tensor ops during TensorCopyInsertion.
       AnalysisState analysisState(options);
-      FailureOr<Value> tensorAlloc = allocateTensorForShapedValue(
-          rewriter, loc, opOperand.get(),
-          !options.createDeallocs ||
-              analysisState.isTensorYielded(opOperand.get()),
-          options);
+      FailureOr<Value> tensorAlloc =
+          allocateTensorForShapedValue(rewriter, loc, opOperand.get(), options);
       if (failed(tensorAlloc))
         return failure();
       buffer = rewriter.create<bufferization::ToMemrefOp>(loc, memRefType,
@@ -97,7 +94,7 @@ FailureOr<Value> getBufferInValidLayout(RewriterBase &rewriter, Location loc,
 struct ByreComputeOpBufferization
     : public BufferizableOpInterface::ExternalModel<ByreComputeOpBufferization,
                                                     byre::ComputeOp> {
-  bool bufferizesToAllocation(Operation * /*op*/, OpResult /*opResult*/) const {
+  bool bufferizesToAllocation(Operation * /*op*/, Value /*value*/) const {
     return true;
   }
 
@@ -111,9 +108,9 @@ struct ByreComputeOpBufferization
     return false;
   }
 
-  AliasingOpResultList
-  getAliasingOpResults(Operation * /*op*/, OpOperand & /*opOperand*/,
-                       const AnalysisState & /*state*/) const {
+  AliasingValueList getAliasingValues(Operation * /*op*/,
+                                      OpOperand & /*opOperand*/,
+                                      const AnalysisState & /*state*/) const {
     return {};
   }
 
@@ -135,9 +132,8 @@ struct ByreComputeOpBufferization
       if (!tensorType)
         return failure();
 
-      bool dealloc = shouldDeallocateOpResult(opResult, options);
-      auto tensorAlloc = allocateTensorForShapedValue(
-          rewriter, op->getLoc(), opResult, /*escapse*/ !dealloc, options);
+      auto tensorAlloc = allocateTensorForShapedValue(rewriter, op->getLoc(),
+                                                      opResult, options);
       if (failed(tensorAlloc))
         return failure();
 

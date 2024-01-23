@@ -36,6 +36,7 @@
 #include "mlir/Support/LLVM.h"
 
 namespace mlir {
+
 namespace linalg_ext {
 class LinalgExtOp;
 

@@ -231,7 +231,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x64x112x112xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x64x112x112xf16>) outs(%0, %1 : tensor<4x64x112x112xf16>, tensor<4x64x112x112xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x64x112x112xf16>, tensor<4x64x112x112xi1>)
@@ -249,7 +249,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x64x56x56xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x64x56x56xf16>) outs(%0, %1 : tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>)
@@ -268,7 +268,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x64x56x56xf16>, tensor<4x64x56x56xf16>) outs(%0, %1 : tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>)
@@ -286,7 +286,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x64x56x56xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x64x56x56xf16>) outs(%0, %1 : tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>)
@@ -305,7 +305,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x64x56x56xf16>, tensor<4x64x56x56xf16>) outs(%0, %1 : tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x64x56x56xf16>, tensor<4x64x56x56xi1>)
@@ -329,7 +329,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x128x28x28xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x128x28x28xf16>) outs(%0, %1 : tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>)
@@ -348,7 +348,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x128x28x28xf16>, tensor<4x128x28x28xf16>) outs(%0, %1 : tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>)
@@ -366,7 +366,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x128x28x28xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x128x28x28xf16>) outs(%0, %1 : tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>)
@@ -385,7 +385,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x128x28x28xf16>, tensor<4x128x28x28xf16>) outs(%0, %1 : tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x128x28x28xf16>, tensor<4x128x28x28xi1>)
@@ -409,7 +409,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x256x14x14xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x256x14x14xf16>) outs(%0, %1 : tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>)
@@ -428,7 +428,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x256x14x14xf16>, tensor<4x256x14x14xf16>) outs(%0, %1 : tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>)
@@ -446,7 +446,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x256x14x14xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x256x14x14xf16>) outs(%0, %1 : tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>)
@@ -465,7 +465,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x256x14x14xf16>, tensor<4x256x14x14xf16>) outs(%0, %1 : tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x256x14x14xf16>, tensor<4x256x14x14xi1>)
@@ -489,7 +489,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x512x7x7xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x512x7x7xf16>) outs(%0, %1 : tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>)
@@ -508,7 +508,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x512x7x7xf16>, tensor<4x512x7x7xf16>) outs(%0, %1 : tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>)
@@ -526,7 +526,7 @@ module @IrToMhlo.2452 {
     %1 = tensor.empty() : tensor<4x512x7x7xi1>
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : tensor<4x512x7x7xf16>) outs(%0, %1 : tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>) {
     ^bb0(%in: f16, %out: f16, %out_0: i1):
-      %3 = arith.maxf %in, %cst : f16
+      %3 = arith.maxnumf %in, %cst : f16
       %4 = arith.cmpf ogt, %3, %cst : f16
       linalg.yield %3, %4 : f16, i1
     } -> (tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>)
@@ -545,7 +545,7 @@ module @IrToMhlo.2452 {
     %2:2 = linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : tensor<4x512x7x7xf16>, tensor<4x512x7x7xf16>) outs(%0, %1 : tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>) {
     ^bb0(%in: f16, %in_0: f16, %out: f16, %out_1: i1):
       %3 = arith.addf %in, %in_0 : f16
-      %4 = arith.maxf %3, %cst : f16
+      %4 = arith.maxnumf %3, %cst : f16
       %5 = arith.cmpf ogt, %4, %cst : f16
       linalg.yield %4, %5 : f16, i1
     } -> (tensor<4x512x7x7xf16>, tensor<4x512x7x7xi1>)

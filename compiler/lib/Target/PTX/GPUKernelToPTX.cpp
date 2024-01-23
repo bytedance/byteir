@@ -49,23 +49,23 @@ using namespace mlir;
 namespace {
 
 // TODO: maybe move another file
-static llvm::CodeGenOpt::Level LLVMCodeGenOpt(unsigned optLevel) {
-  llvm::CodeGenOpt::Level codegenOptLevel;
+static llvm::CodeGenOptLevel LLVMCodeGenOpt(unsigned optLevel) {
+  llvm::CodeGenOptLevel codegenOptLevel;
   switch (optLevel) {
   case 0:
-    codegenOptLevel = llvm::CodeGenOpt::None;
+    codegenOptLevel = llvm::CodeGenOptLevel::None;
     break;
   case 1:
-    codegenOptLevel = llvm::CodeGenOpt::Less;
+    codegenOptLevel = llvm::CodeGenOptLevel::Less;
     break;
   case 2:
-    codegenOptLevel = llvm::CodeGenOpt::Default;
+    codegenOptLevel = llvm::CodeGenOptLevel::Default;
     break;
   case 3:
-    codegenOptLevel = llvm::CodeGenOpt::Aggressive;
+    codegenOptLevel = llvm::CodeGenOptLevel::Aggressive;
     break;
   default:
-    codegenOptLevel = llvm::CodeGenOpt::Aggressive;
+    codegenOptLevel = llvm::CodeGenOptLevel::Aggressive;
     break;
   }
   return codegenOptLevel;
@@ -232,7 +232,7 @@ void SerializeToPTX::translateToISA(llvm::Module &llvmModule,
   llvm::legacy::PassManager codegenPasses;
   codegenPasses.add(llvm::createVerifierPass());
   targetMachine.addPassesToEmitFile(codegenPasses, pstream, nullptr,
-                                    llvm::CGFT_AssemblyFile);
+                                    llvm::CodeGenFileType::AssemblyFile);
   codegenPasses.run(llvmModule);
 }
 

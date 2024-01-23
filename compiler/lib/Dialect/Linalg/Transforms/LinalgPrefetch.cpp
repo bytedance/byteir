@@ -138,7 +138,8 @@ static void modifyLoopBody(OpBuilder &b, linalg::CopyOp oldCopy,
   assert(oldCopy.getOutputs().size() == 1);
 
   auto loopIV = getInductionVar(looplike);
-  auto &loopBlock = looplike.getLoopBody().front();
+  assert(llvm::hasSingleElement(looplike.getLoopRegions()));
+  auto &loopBlock = looplike.getLoopRegions().front()->front();
   auto oldStep = getLoopStep(looplike);
 
   if (unroll) {

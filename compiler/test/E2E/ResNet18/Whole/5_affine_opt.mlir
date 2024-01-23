@@ -225,7 +225,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x64x112x112xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x64x112x112xf16>) outs(%alloc, %alloc_0 : memref<4x64x112x112xf16>, memref<4x64x112x112xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -237,7 +237,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x64x56x56xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x64x56x56xf16>) outs(%alloc, %alloc_0 : memref<4x64x56x56xf16>, memref<4x64x56x56xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -250,7 +250,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x64x56x56xf16>, memref<4x64x56x56xf16>) outs(%alloc, %alloc_0 : memref<4x64x56x56xf16>, memref<4x64x56x56xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -262,7 +262,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x64x56x56xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x64x56x56xf16>) outs(%alloc, %alloc_0 : memref<4x64x56x56xf16>, memref<4x64x56x56xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -275,7 +275,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x64x56x56xf16>, memref<4x64x56x56xf16>) outs(%alloc, %alloc_0 : memref<4x64x56x56xf16>, memref<4x64x56x56xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -287,7 +287,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x128x28x28xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x128x28x28xf16>) outs(%alloc, %alloc_0 : memref<4x128x28x28xf16>, memref<4x128x28x28xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -300,7 +300,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x128x28x28xf16>, memref<4x128x28x28xf16>) outs(%alloc, %alloc_0 : memref<4x128x28x28xf16>, memref<4x128x28x28xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -312,7 +312,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x128x28x28xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x128x28x28xf16>) outs(%alloc, %alloc_0 : memref<4x128x28x28xf16>, memref<4x128x28x28xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -325,7 +325,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x128x28x28xf16>, memref<4x128x28x28xf16>) outs(%alloc, %alloc_0 : memref<4x128x28x28xf16>, memref<4x128x28x28xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -337,7 +337,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x256x14x14xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x256x14x14xf16>) outs(%alloc, %alloc_0 : memref<4x256x14x14xf16>, memref<4x256x14x14xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -350,7 +350,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x256x14x14xf16>, memref<4x256x14x14xf16>) outs(%alloc, %alloc_0 : memref<4x256x14x14xf16>, memref<4x256x14x14xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -362,7 +362,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x256x14x14xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x256x14x14xf16>) outs(%alloc, %alloc_0 : memref<4x256x14x14xf16>, memref<4x256x14x14xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -375,7 +375,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x256x14x14xf16>, memref<4x256x14x14xf16>) outs(%alloc, %alloc_0 : memref<4x256x14x14xf16>, memref<4x256x14x14xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -387,7 +387,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x512x7x7xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x512x7x7xf16>) outs(%alloc, %alloc_0 : memref<4x512x7x7xf16>, memref<4x512x7x7xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -400,7 +400,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x512x7x7xf16>, memref<4x512x7x7xf16>) outs(%alloc, %alloc_0 : memref<4x512x7x7xf16>, memref<4x512x7x7xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }
@@ -412,7 +412,7 @@ module @IrToMhlo.2452 {
     %alloc_0 = memref.alloc() : memref<4x512x7x7xi1>
     linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0 : memref<4x512x7x7xf16>) outs(%alloc, %alloc_0 : memref<4x512x7x7xf16>, memref<4x512x7x7xi1>) {
     ^bb0(%in: f16, %out: f16, %out_1: i1):
-      %0 = arith.maxf %in, %cst : f16
+      %0 = arith.maxnumf %in, %cst : f16
       %1 = arith.cmpf ogt, %0, %cst : f16
       linalg.yield %0, %1 : f16, i1
     }
@@ -425,7 +425,7 @@ module @IrToMhlo.2452 {
     linalg.generic {indexing_maps = [#map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1 : memref<4x512x7x7xf16>, memref<4x512x7x7xf16>) outs(%alloc, %alloc_0 : memref<4x512x7x7xf16>, memref<4x512x7x7xi1>) {
     ^bb0(%in: f16, %in_1: f16, %out: f16, %out_2: i1):
       %0 = arith.addf %in, %in_1 : f16
-      %1 = arith.maxf %0, %cst : f16
+      %1 = arith.maxnumf %0, %cst : f16
       %2 = arith.cmpf ogt, %1, %cst : f16
       linalg.yield %1, %2 : f16, i1
     }

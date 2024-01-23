@@ -27,6 +27,7 @@ def CustomizedTfToMhloPipeline : Pass<"customized-tf-to-mhlo", "mlir::ModuleOp">
     "mlir::TF::TensorFlowDialect",
     "mlir::mhlo::MhloDialect",
     "mlir::chlo::ChloDialect",
+    "mlir::stablehlo::StablehloDialect",
     "mlir::shape::ShapeDialect",
     "mlir::ace::AceDialect",
   ];

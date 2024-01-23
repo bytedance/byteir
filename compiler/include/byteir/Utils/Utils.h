@@ -20,8 +20,8 @@
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/FunctionInterfaces.h"
 #include "mlir/IR/Visitors.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -225,7 +225,7 @@ SmallVector<OpFoldResult> canonicalizeOpFoldResult(ArrayRef<OpFoldResult> ofrs,
                                                    bool enableFold = false);
 
 // Return true if block contains single op
-template <typename Op> bool isBlockSingleOp(Block *block) {
+template <typename... Ops> bool isBlockSingleOp(Block *block) {
   if (block == nullptr)
     return false;
 
@@ -234,7 +234,7 @@ template <typename Op> bool isBlockSingleOp(Block *block) {
     return false;
 
   auto computeOp = retOp->getOperand(0).getDefiningOp();
-  if (isa_and_nonnull<Op>(computeOp)) {
+  if (computeOp && (isa<Ops>(computeOp) || ...)) {
     return (computeOp->getOperand(0) == block->getArgument(0) &&
             computeOp->getOperand(1) == block->getArgument(1)) ||
            (computeOp->getOperand(0) == block->getArgument(1) &&

@@ -453,9 +453,9 @@ FailureOr<SmallVector<Value>> collapseGenericOpIterationDimsEx(
   SmallVector<Value> outputOperands;
   resultTypes.reserve(genericOp.getNumDpsInits());
   outputOperands.reserve(genericOp.getNumDpsInits());
-  for (OpOperand *output : genericOp.getDpsInitOperands()) {
-    Value newOutput =
-        getCollapsedOpOperand(loc, genericOp, output, collapsingInfo, rewriter);
+  for (OpOperand &output : genericOp.getDpsInitsMutable()) {
+    Value newOutput = getCollapsedOpOperand(loc, genericOp, &output,
+                                            collapsingInfo, rewriter);
     outputOperands.push_back(newOutput);
     resultTypes.push_back(newOutput.getType());
   }

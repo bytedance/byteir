@@ -22,13 +22,14 @@
 #ifndef BYTEIR_DIALECT_CAT_IR_CATDIALECT_H
 #define BYTEIR_DIALECT_CAT_IR_CATDIALECT_H
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/IR/FunctionInterfaces.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
 #include "byteir/Dialect/Cat/IR/CatOpInterfaces.h.inc"

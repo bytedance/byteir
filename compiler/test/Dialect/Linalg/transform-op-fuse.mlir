@@ -75,7 +75,7 @@ transform.sequence failures(propagate) {
   %0 = transform.structured.match ops{["linalg.elemwise_binary"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse_ext %0 {tile_sizes = [32, 32], tile_interchange = [0, 1]}
   %loop = transform.cast %loops#0 : !pdl.operation to !transform.op<"scf.for">
-  transform.loop.peel %loop : (!transform.op<"scf.for">) -> !pdl.operation
+  transform.loop.peel %loop : (!transform.op<"scf.for">) -> (!pdl.operation, !pdl.operation)
 }
 
 // -----
@@ -148,7 +148,7 @@ transform.sequence failures(propagate) {
   %0 = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse %0 {tile_sizes = [5, 0, 7], tile_interchange = [0, 2, 1]} :
     (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation)
-  %2, %loops_2 = transform.structured.tile %1 [0, 4] : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
+  %2, %loops_2 = transform.structured.tile_using_for %1 [0, 4] : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
 }
 
 // -----
@@ -673,14 +673,14 @@ func.func @max_pool_generic(%arg0: tensor<4x126x126x16xf32>) -> tensor<4x63x63x1
 // CHECK: scf.for
 // CHECK:   linalg.generic
 // CHEKC-SAME: iterator_types = ["parallel", "parallel", "parallel", "parallel", "reduction", "reduction"]
-// CHECK:     arith.maxf
+// CHECK:     arith.maxnumf
 // CHECK:     linalg.yield
 // CHECK: scf.yield
   %cst = arith.constant dense<0xFC00> : tensor<4x63x63x16xf32>
   %0 = tensor.empty() : tensor<2x2xf32>
   %1 = linalg.generic {indexing_maps = [#map, #map1, #map2], iterator_types = ["parallel", "parallel", "parallel", "parallel", "reduction", "reduction"]} ins(%arg0, %0 : tensor<4x126x126x16xf32>, tensor<2x2xf32>) outs(%cst : tensor<4x63x63x16xf32>) attrs =  {__root__} {
   ^bb0(%in: f32, %in_0: f32, %out: f32):
-    %5 = arith.maxf %out, %in : f32
+    %5 = arith.maxnumf %out, %in : f32
     linalg.yield %5 : f32
   } -> tensor<4x63x63x16xf32>
   return %1 : tensor<4x63x63x16xf32>

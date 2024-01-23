@@ -19,11 +19,13 @@
 
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
+#include "byteir/Dialect/Linalg/Util/Util.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -59,7 +61,8 @@ LogicalResult linalg_ext::TilingInterfaceBaseTilingPattern::matchAndRewriteBase(
   if (failed(isValidTiling(result.tiledOps.back()))) {
     return tilableOp.emitOpError("has invalid tiling");
   }
-  labelTileLoopType(result.tiledOps.back(), result.loops);
+  labelTileLoopType(result.tiledOps.back(),
+                    castToTypedOperations<scf::ForOp>(result.loops));
   return success();
 }
 
@@ -109,7 +112,9 @@ struct LinalgOpTilingPass : public LinalgOpTilingBase<LinalgOpTilingPass> {
     RewritePatternSet patterns(context);
 
     patterns.add<TilingInterfaceTilingPattern>(
-        context, scf::SCFTilingOptions().setTileSizes(tileSizes),
+        context,
+        scf::SCFTilingOptions().setTileSizes(
+            getAsIndexOpFoldResult(context, tileSizes)),
         linalg_ext::LinalgTransformationFilter(
             StringAttr::get(context, getLinalgExtTileAttrName())));
 

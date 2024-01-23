@@ -7,7 +7,7 @@ func.func @relu(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
   return %1 : tensor<4x4xf32>
 }
 // CHECK-LABEL: func.func @relu(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-// CHECK-NEXT:    %0 = "ace.activate"(%arg0) {act_func = "relu"} : (tensor<4x4xf32>) -> tensor<4x4xf32>
+// CHECK-NEXT:    %0 = "ace.activate"(%arg0) <{act_func = "relu"}> : (tensor<4x4xf32>) -> tensor<4x4xf32>
 // CHECK-NEXT:    return %0 : tensor<4x4xf32>
 // CHECK-NEXT:  }
 
@@ -18,7 +18,7 @@ func.func @relu6(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
   return %2 : tensor<4x4xf32>
 }
 // CHECK-LABEL:  func.func @relu6(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-// CHECK-NEXT:    %0 = "ace.activate"(%arg0) {act_func = "relu6"} : (tensor<4x4xf32>) -> tensor<4x4xf32>
+// CHECK-NEXT:    %0 = "ace.activate"(%arg0) <{act_func = "relu6"}> : (tensor<4x4xf32>) -> tensor<4x4xf32>
 // CHECK-NEXT:    return %0 : tensor<4x4xf32>
 // CHECK-NEXT:  }
 
@@ -31,6 +31,6 @@ func.func @leaky_relu(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
   return %4 : tensor<4x4xf32>
 }
 // CHECK-LABEL: func.func @leaky_relu(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-// CHECK-NEXT:    %0 = "ace.activate"(%arg0) {act_func = "leaky_relu", alpha = 2.000000e-01 : f32} : (tensor<4x4xf32>) -> tensor<4x4xf32>
+// CHECK-NEXT:    %0 = "ace.activate"(%arg0) <{act_func = "leaky_relu"}> {alpha = 2.000000e-01 : f32} : (tensor<4x4xf32>) -> tensor<4x4xf32>
 // CHECK-NEXT:    return %0 : tensor<4x4xf32>
 // CHECK-NEXT:  }

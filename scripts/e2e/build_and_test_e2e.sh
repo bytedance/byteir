@@ -13,7 +13,7 @@ bash scripts/compiler/build_and_lit_test.sh
 # build runtime
 bash scripts/runtime/build_and_test.sh --cuda --python --no-test
 # build torch_frontend
-bash scripts/frontends/torch-frontend/build_and_test.sh
+bash frontends/torch-frontend/scripts/build_and_test.sh
 
 pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl --force-reinstall
 pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl --force-reinstall

@@ -23,7 +23,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lhlo/transforms/passes.h"
 #include "mhlo/IR/register.h"
 #include "mhlo/transforms/passes.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"     // from @llvm-project
@@ -45,6 +44,8 @@
 #include "tf_mlir_ext/transforms/passes.h"
 #include "tf_mlir_ext/transforms/process_dynamic_stitch_as_static.h"
 
+#include "stablehlo/dialect/Register.h"
+
 int main(int argc, char **argv) {
   tensorflow::InitMlir y(&argc, &argv);
 
@@ -53,11 +54,9 @@ int main(int argc, char **argv) {
   mlir::TFDevice::registerTensorFlowDevicePasses();
   mlir::tf_saved_model::registerTensorFlowSavedModelPasses();
   mlir::mhlo::registerAllMhloPasses();
-  mlir::lmhlo::registerAllLmhloPasses();
   // These are in compiler/mlir/xla and not part of the above MHLO passes.
   mlir::mhlo::registerTfXlaPasses();
   mlir::mhlo::registerLegalizeTFPass();
-  // mlir::mhlo::registerLegalizeTfTypesPassPass();
   mlir::TFL::registerTensorFlowLitePasses();
   mlir::tf_test::registerTensorFlowTestPasses();
 
@@ -68,6 +67,7 @@ int main(int argc, char **argv) {
   mlir::registerAllDialects(registry);
   mlir::RegisterAllTensorFlowDialects(registry);
   mlir::mhlo::registerAllMhloDialects(registry);
+  mlir::stablehlo::registerAllDialects(registry);
   registry.insert<mlir::ace::AceDialect>(); // register ace dialect
   registry.insert<mlir::shape::ShapeDialect>();
   registry.insert<mlir::kernel_gen::tf_framework::TFFrameworkDialect>();

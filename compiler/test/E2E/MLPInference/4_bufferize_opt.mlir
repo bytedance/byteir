@@ -11,7 +11,7 @@ module attributes {torch.debug_module_name = "GraphModule"} {
     %1 = linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel"]} ins(%arg1, %arg0 : tensor<2x20xf32>, tensor<20xf32>) outs(%0 : tensor<2x20xf32>) {
     ^bb0(%in: f32, %in_0: f32, %out: f32):
       %2 = arith.addf %in, %in_0 : f32
-      %3 = arith.maxf %2, %cst : f32
+      %3 = arith.maxnumf %2, %cst : f32
       linalg.yield %3 : f32
     } -> tensor<2x20xf32>
     return %1 : tensor<2x20xf32>
@@ -22,7 +22,7 @@ module attributes {torch.debug_module_name = "GraphModule"} {
     %1 = linalg.generic {indexing_maps = [#map, #map1, #map], iterator_types = ["parallel", "parallel"]} ins(%arg1, %arg0 : tensor<2x20xf32>, tensor<20xf32>) outs(%0 : tensor<2x20xf32>) {
     ^bb0(%in: f32, %in_0: f32, %out: f32):
       %2 = arith.addf %in, %in_0 : f32
-      %3 = arith.maxf %2, %cst : f32
+      %3 = arith.maxnumf %2, %cst : f32
       linalg.yield %3 : f32
     } -> tensor<2x20xf32>
     return %1 : tensor<2x20xf32>

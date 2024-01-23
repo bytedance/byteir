@@ -119,20 +119,19 @@ ParseResult mlir::parseDstStyleOp(
 void mlir::getGenericEffectsImpl(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects,
-    ValueRange results, const OpOperandVector &inputOperands,
-    const OpOperandVector &outputOperands) {
-  for (auto *operand : inputOperands) {
-    if (!operand->get().getType().isa<MemRefType>())
+    ValueRange results, ValueRange inputs, ValueRange outputs) {
+  for (auto input : inputs) {
+    if (!input.getType().isa<MemRefType>())
       continue;
-    effects.emplace_back(MemoryEffects::Read::get(), operand->get(),
+    effects.emplace_back(MemoryEffects::Read::get(), input,
                          SideEffects::DefaultResource::get());
   }
-  for (auto *operand : outputOperands) {
-    if (!operand->get().getType().isa<MemRefType>())
+  for (auto output : outputs) {
+    if (!output.getType().isa<MemRefType>())
       continue;
-    effects.emplace_back(MemoryEffects::Read::get(), operand->get(),
+    effects.emplace_back(MemoryEffects::Read::get(), output,
                          SideEffects::DefaultResource::get());
-    effects.emplace_back(MemoryEffects::Write::get(), operand->get(),
+    effects.emplace_back(MemoryEffects::Write::get(), output,
                          SideEffects::DefaultResource::get());
   }
 }

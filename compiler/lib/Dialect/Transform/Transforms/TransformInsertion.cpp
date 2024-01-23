@@ -68,8 +68,8 @@ void insertTransformIR(func::FuncOp funcOp, OpBuilder &builder,
                 ctx, b.getNamedAttr(annotation, UnitAttr::get(ctx)));
             auto match = b.create<transform::MatchOp>(
                 loc, blockArg.getType(), blockArg, ArrayAttr(),
-                transform::MatchInterfaceEnumAttr(), annotationAttr,
-                TypeAttr());
+                transform::MatchInterfaceEnumAttr(), annotationAttr, TypeAttr(),
+                ArrayAttr());
             ImplicitLocOpBuilder ib(loc, b);
             config.transformBuilder(ib, op, match);
             b.create<transform::YieldOp>(loc);

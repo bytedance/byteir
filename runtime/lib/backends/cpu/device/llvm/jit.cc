@@ -167,9 +167,9 @@ void packFunctionArguments(llvm::Module *module) {
 
     // Given a function `foo(<...>)`, define the interface function
     // `mlir_foo(i8**)`.
-    auto *newType = llvm::FunctionType::get(
-        builder.getVoidTy(), builder.getInt8PtrTy()->getPointerTo(),
-        /*isVarArg=*/false);
+    auto *newType = llvm::FunctionType::get(builder.getVoidTy(),
+                                            builder.getPtrTy()->getPointerTo(),
+                                            /*isVarArg=*/false);
     auto newName = makePackedFunctionName(func.getName());
     auto funcCst = module->getOrInsertFunction(newName, newType);
     llvm::Function *interfaceFunc =
@@ -188,9 +188,8 @@ void packFunctionArguments(llvm::Module *module) {
       llvm::Value *argIndex = llvm::Constant::getIntegerValue(
           builder.getInt64Ty(), llvm::APInt(64, indexedArg.index()));
       llvm::Value *argPtrPtr =
-          builder.CreateGEP(builder.getInt8PtrTy(), argList, argIndex);
-      llvm::Value *argPtr =
-          builder.CreateLoad(builder.getInt8PtrTy(), argPtrPtr);
+          builder.CreateGEP(builder.getPtrTy(), argList, argIndex);
+      llvm::Value *argPtr = builder.CreateLoad(builder.getPtrTy(), argPtrPtr);
       llvm::Type *argTy = indexedArg.value().getType();
       argPtr = builder.CreateBitCast(argPtr, argTy->getPointerTo());
       llvm::Value *arg = builder.CreateLoad(argTy, argPtr);
@@ -205,9 +204,8 @@ void packFunctionArguments(llvm::Module *module) {
       llvm::Value *retIndex = llvm::Constant::getIntegerValue(
           builder.getInt64Ty(), llvm::APInt(64, llvm::size(func.args())));
       llvm::Value *retPtrPtr =
-          builder.CreateGEP(builder.getInt8PtrTy(), argList, retIndex);
-      llvm::Value *retPtr =
-          builder.CreateLoad(builder.getInt8PtrTy(), retPtrPtr);
+          builder.CreateGEP(builder.getPtrTy(), argList, retIndex);
+      llvm::Value *retPtr = builder.CreateLoad(builder.getPtrTy(), retPtrPtr);
       retPtr = builder.CreateBitCast(retPtr, result->getType()->getPointerTo());
       builder.CreateStore(result, retPtr);
     }

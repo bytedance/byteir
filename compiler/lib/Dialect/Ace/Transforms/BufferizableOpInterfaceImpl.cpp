@@ -43,8 +43,7 @@ struct ConstOpInterface
       return failure();
     // don't dealloc constant, alawys mark as escaped
     FailureOr<Value> tensorAlloc = bufferization::allocateTensorForShapedValue(
-        rewriter, op->getLoc(), output,
-        /* escape */ true, options);
+        rewriter, op->getLoc(), output, options);
     if (failed(tensorAlloc))
       return failure();
     auto memrefType =
@@ -72,8 +71,8 @@ struct CustomCallOpInterface
     return false; // Arguments are read-only.
   }
 
-  bufferization::AliasingOpResultList
-  getAliasingOpResults(Operation *, OpOperand &, const AnalysisState &) const {
+  bufferization::AliasingValueList
+  getAliasingValues(Operation *, OpOperand &, const AnalysisState &) const {
     return {};
   }
 
@@ -100,9 +99,8 @@ struct CustomCallOpInterface
         return failure();
       AnalysisState analysisState(options);
       FailureOr<Value> tensorAlloc =
-          bufferization::allocateTensorForShapedValue(
-              rewriter, op->getLoc(), result,
-              analysisState.isTensorYielded(result), options);
+          bufferization::allocateTensorForShapedValue(rewriter, op->getLoc(),
+                                                      result, options);
       if (failed(tensorAlloc))
         return failure();
       auto memrefType =

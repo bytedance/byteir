@@ -523,11 +523,6 @@ struct ByreDialectBytecodeInterface : public BytecodeDialectInterface {
     }
   }
 
-  Type readType(DialectBytecodeReader &reader,
-                const DialectVersion &) const final {
-    return readType(reader);
-  }
-
   LogicalResult writeAttribute(Attribute attr,
                                DialectBytecodeWriter &writer) const final {
     return TypeSwitch<Attribute, LogicalResult>(attr)
@@ -569,11 +564,6 @@ struct ByreDialectBytecodeInterface : public BytecodeDialectInterface {
     default:
       return Attribute();
     }
-  }
-
-  Attribute readAttribute(DialectBytecodeReader &reader,
-                          const DialectVersion &) const final {
-    return readAttribute(reader);
   }
 
   // TODO: Version information was added to each type/attribute/op separately

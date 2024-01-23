@@ -54,5 +54,6 @@ cc_library(
         "@local_xla//xla/mlir_hlo:mhlo_passes",
         "@org_tensorflow//tensorflow/compiler/mlir/tf2xla/transforms:tf_xla_passes",
 		"@stablehlo//:chlo_ops",
+        "@stablehlo//:stablehlo_ops",
     ]
 )

@@ -19,6 +19,5 @@
 #define PYTHON_BINDINGS_CAT_OPS
 
 include "byteir/Dialect/Cat/IR/CatOps.td"
-include "mlir/Bindings/Python/Attributes.td"
 
 #endif // PYTHON_BINDINGS_CAT_OPS

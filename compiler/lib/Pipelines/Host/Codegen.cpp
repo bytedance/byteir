@@ -127,7 +127,7 @@ void createTileAndVectorizeTransposeTransformImpl(OpPassManager &pm,
       interchange[i] = static_cast<int64_t>(i);
     }
     SmallVector<bool> scalableSizes(tileConfig.tileSizes.size(), false);
-    auto tileOp = b.create<transform::TileOp>(
+    auto tileOp = b.create<transform::TileUsingForOp>(
         /* tiledOp type*/ pdlType,
         /* loops type */
         SmallVector<Type>(tileConfig.tileSizes.size(), pdlType),
@@ -148,17 +148,18 @@ void createTileAndVectorizeTransposeTransformImpl(OpPassManager &pm,
             SmallVector<Attribute>(2, b.getIntegerAttr(paddingType, 0)));
       }
       b.create<transform::PadOp>(
-          TypeRange{pdlType, pdlType}, tileOp.getTiledLinalgOp(),
+          TypeRange{pdlType, pdlType, pdlType}, tileOp.getTiledLinalgOp(),
           /*padding_values=*/paddingValues,
           /*padding_dimensions=*/
           b.getI64ArrayAttr(tileConfig.paddingDimensions),
           /*padToMultipleOf=*/ArrayAttr{},
           /*pack_paddings=*/ArrayAttr{},
           /*transpose_paddings=*/ArrayAttr{},
-          /*copyBack=*/false);
+          /*copyBack=*/transform::PadOp::kCopyOpNone);
     }
-    b.create<transform::VectorizeOp>(outlineOp.getFunctions(),
-                                     /*vectorizePadding=*/true);
+    b.create<transform::VectorizeChildrenAndApplyPatternsOp>(
+        outlineOp.getFunctions(),
+        /*vectorizePadding=*/true);
     b.create<transform::InlineOp>(outlineOp.getCalls());
   };
 

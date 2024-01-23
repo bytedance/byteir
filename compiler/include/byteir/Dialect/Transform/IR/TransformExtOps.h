@@ -18,6 +18,7 @@
 #ifndef BYTEIR_DIALECT_TRANSFORM_IR_TRANSFORMEXTOPS_H
 #define BYTEIR_DIALECT_TRANSFORM_IR_TRANSFORMEXTOPS_H
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"

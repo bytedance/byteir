@@ -112,7 +112,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x64x112x112xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x64x112x112xf16>
     }
     return %alloc : memref<1x64x112x112xf16>
@@ -192,7 +192,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
     }
     return %alloc : memref<1x64x56x56xf16>
@@ -274,7 +274,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
     }
     return %alloc : memref<1x64x56x56xf16>
@@ -354,7 +354,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
     }
     return %alloc : memref<1x64x56x56xf16>
@@ -436,7 +436,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x64x56x56xf16>
     }
     return %alloc : memref<1x64x56x56xf16>
@@ -540,7 +540,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
     }
     return %alloc : memref<1x128x28x28xf16>
@@ -622,7 +622,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
     }
     return %alloc : memref<1x128x28x28xf16>
@@ -702,7 +702,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
     }
     return %alloc : memref<1x128x28x28xf16>
@@ -784,7 +784,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x128x28x28xf16>
     }
     return %alloc : memref<1x128x28x28xf16>
@@ -888,7 +888,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
     }
     return %alloc : memref<1x256x14x14xf16>
@@ -970,7 +970,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
     }
     return %alloc : memref<1x256x14x14xf16>
@@ -1050,7 +1050,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
     }
     return %alloc : memref<1x256x14x14xf16>
@@ -1132,7 +1132,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x256x14x14xf16>
     }
     return %alloc : memref<1x256x14x14xf16>
@@ -1236,7 +1236,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
     }
     return %alloc : memref<1x512x7x7xf16>
@@ -1318,7 +1318,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
     }
     return %alloc : memref<1x512x7x7xf16>
@@ -1398,7 +1398,7 @@ module {
       %18 = arith.subi %c-1, %17 : index
       %19 = arith.select %14, %18, %17 : index
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
-      %21 = arith.maxf %20, %cst : f16
+      %21 = arith.maxnumf %20, %cst : f16
       memref.store %21, %alloc[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
     }
     return %alloc : memref<1x512x7x7xf16>
@@ -1480,7 +1480,7 @@ module {
       %20 = memref.load %arg0[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
       %21 = memref.load %arg1[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
       %22 = arith.addf %20, %21 : f16
-      %23 = arith.maxf %22, %cst : f16
+      %23 = arith.maxnumf %22, %cst : f16
       memref.store %23, %alloc[%c0, %19, %13, %3] : memref<1x512x7x7xf16>
     }
     return %alloc : memref<1x512x7x7xf16>

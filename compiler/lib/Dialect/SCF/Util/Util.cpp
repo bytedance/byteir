@@ -62,7 +62,7 @@ scf::ForOp mlir::scf::replaceLoopWithNewYields(
   // Create a new loop before the existing one, with the extra operands.
   OpBuilder::InsertionGuard g(builder);
   builder.setInsertionPoint(loop);
-  auto operands = llvm::to_vector(loop.getIterOperands());
+  auto operands = llvm::to_vector(loop.getInitArgs());
   operands.append(newIterOperands.begin(), newIterOperands.end());
   scf::ForOp newLoop = builder.create<scf::ForOp>(
       loop.getLoc(), loop.getLowerBound(), loop.getUpperBound(), loop.getStep(),
@@ -92,7 +92,7 @@ scf::ForOp mlir::scf::replaceLoopWithNewYields(
 
   // Remap the BlockArguments from the original loop to the new loop
   // BlockArguments.
-  ArrayRef<BlockArgument> bbArgs = loopBody->getArguments();
+  MutableArrayRef<BlockArgument> bbArgs = loopBody->getArguments();
   for (auto it :
        llvm::zip(bbArgs, newLoopBody->getArguments().take_front(bbArgs.size())))
     std::get<0>(it).replaceAllUsesWith(std::get<1>(it));

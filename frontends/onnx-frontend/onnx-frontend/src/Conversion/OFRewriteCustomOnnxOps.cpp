@@ -61,7 +61,7 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
       zeropoint.getType().dyn_cast_or_null<RankedTensorType>();
   assert(zeropointType != nullptr &&
          "Quantize/Dequantize's zeropoint type must be ranked");
-  Type zpElementType = zeropointType.getElementType(); 
+  Type zpElementType = zeropointType.getElementType();
   // rewrite output type to zpElementType for quantize
   if (func_name == "quantize")
     outputType = RankedTensorType::get(
@@ -69,13 +69,13 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
 
   std::string call_target_name = std::string(CALL_TARGET_NAME_PREFIX) +
                                  func_name.str();
-  mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+  stablehlo::CustomCallOp customCallOp = rewriter.create<mlir::stablehlo::CustomCallOp>(
       loc, llvm::ArrayRef<Type>{outputType},
       inputs, call_target_name, false,
       rewriter.getStringAttr(""),
-      mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+      stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
       rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}),
-      mhlo::CustomCallSchedule::NONE, nullptr, nullptr,
+      nullptr, nullptr,
       rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
   DictionaryAttrWrapper attrs(rewriter.getContext());
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));

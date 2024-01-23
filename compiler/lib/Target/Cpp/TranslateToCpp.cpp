@@ -342,7 +342,8 @@ static LogicalResult printOperation(CppEmitter &emitter, func::CallOp callOp) {
   return success();
 }
 
-static LogicalResult printOperation(CppEmitter &emitter, emitc::CallOp callOp) {
+static LogicalResult printOperation(CppEmitter &emitter,
+                                    emitc::CallOpaqueOp callOp) {
   raw_ostream &os = emitter.ostream();
   Operation &op = *callOp.getOperation();
 
@@ -420,7 +421,7 @@ static LogicalResult printOperation(CppEmitter &emitter, scf::ForOp forOp) {
 
   raw_indented_ostream &os = emitter.ostream();
 
-  OperandRange operands = forOp.getIterOperands();
+  OperandRange operands = forOp.getInitArgs();
   Block::BlockArgListType iterArgs = forOp.getRegionIterArgs();
   Operation::result_range results = forOp.getResults();
 
@@ -981,7 +982,7 @@ LogicalResult CppEmitter::emitOperation(Operation &op, bool trailingSemicolon) {
   LogicalResult status =
       llvm::TypeSwitch<Operation *, LogicalResult>(&op)
           // EmitC ops.
-          .Case<emitc::ApplyOp, emitc::CallOp, emitc::ConstantOp,
+          .Case<emitc::ApplyOp, emitc::CallOpaqueOp, emitc::ConstantOp,
                 emitc::IncludeOp>(
               [&](auto op) { return printOperation(*this, op); })
           // SCF ops.

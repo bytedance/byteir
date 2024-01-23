@@ -34,12 +34,12 @@ struct LinalgExtBufferizableOpInterfaceImpl {
                                const bufferization::AnalysisState &state) const;
 
   bufferization::AliasingOpOperandList
-  getAliasingOpOperands(Operation *op, OpResult opResult,
+  getAliasingOpOperands(Operation *op, Value value,
                         const bufferization::AnalysisState &) const;
 
-  bufferization::AliasingOpResultList
-  getAliasingOpResults(Operation *op, OpOperand &opOperand,
-                       const bufferization::AnalysisState &) const;
+  bufferization::AliasingValueList
+  getAliasingValues(Operation *op, OpOperand &opOperand,
+                    const bufferization::AnalysisState &) const;
 
   bufferization::BufferRelation
   bufferRelation(Operation *op, OpResult opResult,
@@ -60,7 +60,7 @@ struct LinalgExtBufferizableOpInterface
   using LinalgExtBufferizableOpInterfaceImpl::bufferizesToMemoryWrite;
   using LinalgExtBufferizableOpInterfaceImpl::bufferRelation;
   using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpOperands;
-  using LinalgExtBufferizableOpInterfaceImpl::getAliasingOpResults;
+  using LinalgExtBufferizableOpInterfaceImpl::getAliasingValues;
 };
 
 void registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry);

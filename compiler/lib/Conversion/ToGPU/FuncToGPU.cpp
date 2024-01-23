@@ -83,7 +83,8 @@ static void creaetGuardedSIMT(OpBuilder &b, Value id, Value bound,
     return;
 
   b.setInsertionPointToStart(guardedBlock);
-  for (auto &block : looplike.getLoopBody()) {
+  assert(llvm::hasSingleElement(looplike.getLoopRegions()));
+  for (auto &block : *looplike.getLoopRegions().front()) {
     for (auto &op : block.without_terminator()) {
       b.clone(op, bvm);
     }

@@ -29,10 +29,10 @@ if (ONNX_FRONTEND_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS ON CACHE BOOL "Suppress warning in third_party code." FORCE)
 endif()
 
-set(ONNX_MLIR_ENABLE_MHLO ON)
+set(ONNX_MLIR_ENABLE_STABLEHLO ON)
 add_subdirectory(third_party/onnx-mlir EXCLUDE_FROM_ALL)
-include_directories(${ONNX_FRONTEND_SRC_ROOT}/third_party/onnx-mlir/third_party/mlir-hlo)
-include_directories(${ONNX_FRONTEND_BIN_ROOT}/third_party/onnx-mlir/third_party/mlir-hlo)
+include_directories(${ONNX_FRONTEND_SRC_ROOT}/third_party/onnx-mlir/third_party/stablehlo)
+include_directories(${ONNX_FRONTEND_BIN_ROOT}/third_party/onnx-mlir/third_party/stablehlo)
 
 # Ensure warnings are reported for onnx-frontend code.
 if (ONNX_FRONTEND_SUPPRESS_THIRD_PARTY_WARNINGS)
@@ -47,14 +47,13 @@ endif()
 
 include(MLIR.cmake)
 
-if (ONNX_MLIR_ENABLE_MHLO)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
   llvm_update_compile_flags(stablehlo-opt)
   llvm_update_compile_flags(stablehlo-translate)
-  llvm_update_compile_flags(mlir-hlo-opt)
 endif()
 
-if (ONNX_MLIR_ENABLE_MHLO)
-  add_compile_definitions(ONNX_MLIR_ENABLE_MHLO)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
+  add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
 add_compile_options(-Wno-comment -Wno-suggest-override)

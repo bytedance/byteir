@@ -208,7 +208,7 @@ int emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
                onnx_frontend::EmissionTargetType emissionTarget,
                bool emitElide) {
   if (emissionTarget == onnx_frontend::EmitONNXIR ||
-      emissionTarget == onnx_frontend::EmitMhloIR) {
+      emissionTarget == onnx_frontend::EmitStablehloIR) {
     if (emitElide) {
       return onnx_mlir::outputCode(module, outputFilename,
                                    /*largeElementLimit=*/100);

@@ -36,6 +36,10 @@ struct CoalecsedForExtractFromShapeCast
 
   LogicalResult matchAndRewrite(vector::ExtractOp extractOp,
                                 PatternRewriter &rewriter) const override {
+    // TODO: handle dynamic position
+    if (!extractOp.getDynamicPosition().empty())
+      return failure();
+
     auto shapeCastOp = llvm::dyn_cast_or_null<vector::ShapeCastOp>(
         extractOp.getVector().getDefiningOp());
     if (!shapeCastOp)
@@ -43,12 +47,12 @@ struct CoalecsedForExtractFromShapeCast
 
     auto srcVectorType = extractOp.getVector().getType();
 
-    SmallVector<Attribute> newPosition;
+    SmallVector<int64_t> newPosition;
     SmallVector<int64_t> newSrcShape;
     SmallVector<bool> newSrcScalableDims;
-    for (auto &&[pos, dim, scalable] :
-         llvm::zip_first(extractOp.getPosition(), srcVectorType.getShape(),
-                         srcVectorType.getScalableDims())) {
+    for (auto &&[pos, dim, scalable] : llvm::zip_first(
+             extractOp.getStaticPosition(), srcVectorType.getShape(),
+             srcVectorType.getScalableDims())) {
       if (dim != 1) {
         newPosition.push_back(pos);
         newSrcShape.push_back(dim);
@@ -56,14 +60,14 @@ struct CoalecsedForExtractFromShapeCast
       }
     }
 
-    auto &&tailShape =
-        srcVectorType.getShape().drop_front(extractOp.getPosition().size());
+    auto &&tailShape = srcVectorType.getShape().drop_front(
+        extractOp.getStaticPosition().size());
     newSrcShape.append(tailShape.begin(), tailShape.end());
     auto &&tailScalableDims = srcVectorType.getScalableDims().drop_front(
-        extractOp.getPosition().size());
+        extractOp.getStaticPosition().size());
     newSrcScalableDims.append(tailScalableDims.begin(), tailScalableDims.end());
 
-    if (newPosition.size() == extractOp.getPosition().size())
+    if (newPosition.size() == extractOp.getStaticPosition().size())
       return failure();
 
     if (newSrcShape.size() != newSrcScalableDims.size())
@@ -77,8 +81,8 @@ struct CoalecsedForExtractFromShapeCast
     if (newPosition.size() == 0) {
       rewriter.replaceAllUsesWith(extractOp.getResult(), newShapeCasted);
     } else {
-      rewriter.replaceOpWithNewOp<vector::ExtractOp>(
-          extractOp, newShapeCasted, rewriter.getArrayAttr(newPosition));
+      rewriter.replaceOpWithNewOp<vector::ExtractOp>(extractOp, newShapeCasted,
+                                                     newPosition);
     }
 
     return success();

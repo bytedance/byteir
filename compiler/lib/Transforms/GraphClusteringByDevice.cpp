@@ -134,7 +134,7 @@ getFunctionMetadatasFallback(func::FuncOp funcOp, StringRef attrName,
 }
 
 struct ActiveDeviceCluster {
-  using OpList = llvm::SetVector<Operation *>;
+  using OpList = llvm::SetVector<Operation *, std::vector<Operation *>>;
   using OpClusterMap = llvm::DenseMap<Operation *, ActiveDeviceCluster>;
   OpList operations;
   ActiveDeviceCluster *mergedInto;
