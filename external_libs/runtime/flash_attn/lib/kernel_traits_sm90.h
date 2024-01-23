@@ -88,11 +88,11 @@ struct Flash_fwd_kernel_traits : public Base {
       // This has to be kBlockKSmem, using kHeadDim gives wrong results for
       // d=128
       Layout<Shape<_8, Int<kBlockKSmem>>, Stride<Int<kBlockKSmem>, _1>>{}));
-  using SmemLayoutQ = decltype(
-      tile_to_shape(SmemLayoutAtomQ{}, Shape<Int<kBlockM>, Int<kHeadDim>>{}));
+  using SmemLayoutQ = decltype(tile_to_shape(
+      SmemLayoutAtomQ{}, Shape<Int<kBlockM>, Int<kHeadDim>>{}));
 
-  using SmemLayoutKV = decltype(
-      tile_to_shape(SmemLayoutAtomQ{}, Shape<Int<kBlockN>, Int<kHeadDim>>{}));
+  using SmemLayoutKV = decltype(tile_to_shape(
+      SmemLayoutAtomQ{}, Shape<Int<kBlockN>, Int<kHeadDim>>{}));
 
   using SmemLayoutAtomVtransposed =
       decltype(composition(Swizzle<kSwizzle, 3, 3>{},
@@ -110,8 +110,8 @@ struct Flash_fwd_kernel_traits : public Base {
   using SmemLayoutAtomO = decltype(composition(
       Swizzle<kSwizzle, 3, 3>{},
       Layout<Shape<Int<8>, Int<kBlockKSmem>>, Stride<Int<kBlockKSmem>, _1>>{}));
-  using SmemLayoutO = decltype(
-      tile_to_shape(SmemLayoutAtomO{}, Shape<Int<kBlockM>, Int<kHeadDim>>{}));
+  using SmemLayoutO = decltype(tile_to_shape(
+      SmemLayoutAtomO{}, Shape<Int<kBlockM>, Int<kHeadDim>>{}));
   using SmemCopyAtomO = Copy_Atom<DefaultCopy, elem_type>;
 
   static constexpr int kSmemQCount = size(SmemLayoutQ{});
@@ -147,9 +147,9 @@ struct Flash_fwd_kernel_traits : public Base {
   using GmemTiledCopyQKV = decltype(make_tiled_copy(
       Copy_Atom<Gmem_copy_struct, elem_type>{}, GmemLayoutAtom{},
       Layout<Shape<_1, _8>>{})); // Val layout, 8 vals per read
-  using GmemTiledCopyO = decltype(
-      make_tiled_copy(Copy_Atom<DefaultCopy, elem_type>{}, GmemLayoutAtom{},
-                      Layout<Shape<_1, _8>>{})); // Val layout, 8 vals per store
+  using GmemTiledCopyO = decltype(make_tiled_copy(
+      Copy_Atom<DefaultCopy, elem_type>{}, GmemLayoutAtom{},
+      Layout<Shape<_1, _8>>{})); // Val layout, 8 vals per store
   static constexpr int kGmemThreadsPerRowP = kBlockN / kGmemElemsPerLoad;
   static_assert(kNThreads % kGmemThreadsPerRowP == 0,
                 "kNThreads must be a multiple of kGmemThreadsPerRowP");
@@ -157,9 +157,9 @@ struct Flash_fwd_kernel_traits : public Base {
       Shape<Int<kNThreads / kGmemThreadsPerRowP>, Int<kGmemThreadsPerRowP>>,
       Stride<Int<kGmemThreadsPerRowP>, _1>>;
 
-  using GmemTiledCopyP = decltype(
-      make_tiled_copy(Copy_Atom<DefaultCopy, elem_type>{}, GmemLayoutAtomP{},
-                      Layout<Shape<_1, _8>>{})); // Val layout, 8 vals per store
+  using GmemTiledCopyP = decltype(make_tiled_copy(
+      Copy_Atom<DefaultCopy, elem_type>{}, GmemLayoutAtomP{},
+      Layout<Shape<_1, _8>>{})); // Val layout, 8 vals per store
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

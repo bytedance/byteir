@@ -1,4 +1,4 @@
-//===- copy.cc ------------------------------------------------*--- C++ -*-===//
+//===- custom.cc ----------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,10 +20,8 @@
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
-#include "mlir/IR/BuiltinOps.h" // ModuleOp
 #include <dlfcn.h>
 #include <filesystem>
-#include <iostream>
 #include <vector>
 
 using namespace brt;
@@ -41,8 +39,6 @@ CustomOpKernel::CustomOpKernel(const OpKernelInfo &info) : OpKernel(info) {
   std::string lib_path = accessor.GetAttrAsString("lib_path");
   std::string api_name = accessor.GetAttrAsString("api_name");
   custom_lib_hdl = dlopen(lib_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
-  // std::cout << "Current path is " << std::filesystem::current_path() << '\n';
-  // std::cout << "API name is " << api_name << '\n';
   std::string msg = std::string("Custom lib ") + lib_path + " load failed";
   BRT_ENFORCE(custom_lib_hdl != nullptr, msg);
   run_func_ = reinterpret_cast<decltype(run_func_)>(
@@ -77,7 +73,7 @@ common::Status CustomOpKernel::RunImpl(const ExecutionContext &ctx) {
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
 
   run_func_(tensor_args, extra_args, stream);
-  // need to free extra_args since there is a mallocnbg=
+  // need to free extra_args since there is a malloc
   free(extra_args);
   delete[] tensor_args;
   return common::Status::OK();
