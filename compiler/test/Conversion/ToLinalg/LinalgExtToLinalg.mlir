@@ -12,7 +12,7 @@ func.func @softmax(%arg0: tensor<128x16x1024x1024xf32>) -> tensor<128x16x1024x10
   %5 = linalg.fill ins(%cst : f32) outs(%2 : tensor<128x16x1024xf32>) -> tensor<128x16x1024xf32>
   %6:4 = linalg_ext.softmax dimension(3) ins(%arg0 : tensor<128x16x1024x1024xf32>) outs(%0, %4, %5, %3 : tensor<128x16x1024x1024xf32>, tensor<128x16x1024xf32>, tensor<128x16x1024xf32>, tensor<128x16x1024xf32>) : tensor<128x16x1024x1024xf32>, tensor<128x16x1024xf32>, tensor<128x16x1024xf32>, tensor<128x16x1024xf32>
 // CHECK: linalg.reduce
-// CHECK:   arith.maxf
+// CHECK:   arith.maxnumf
 // CHECK: linalg.generic
 // CHECK:   arith.subf
 // CHECK:   math.exp

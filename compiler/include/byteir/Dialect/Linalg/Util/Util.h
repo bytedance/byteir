@@ -71,8 +71,7 @@ ParseResult parseCommonStructuredOpParts(OpAsmParser &parser,
 void getGenericEffectsImpl(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects,
-    ValueRange results, const OpOperandVector &inputOperands,
-    const OpOperandVector &outputOperands);
+    ValueRange results, ValueRange inputs, ValueRange outputs);
 
 void calculateTileOffsetsAndSizes(
     RewriterBase &b, Location loc, ValueRange inductionVars,
@@ -82,6 +81,29 @@ void calculateTileOffsetsAndSizes(
     SmallVector<OpFoldResult> &tiledOffsets,
     SmallVector<OpFoldResult> &tiledSizes);
 
+/// Convert a list of ops of type `SrcOpTy` to list of `Operation *`.
+template <typename SrcOpTy>
+static SmallVector<Operation *> getAsOperations(ArrayRef<SrcOpTy> ops) {
+  return llvm::to_vector(
+      llvm::map_range(ops, [](auto op) -> Operation * { return op; }));
+}
+template <typename SrcOpTy>
+static SmallVector<Operation *>
+getAsOperations(const SmallVector<SrcOpTy> &ops) {
+  return getAsOperations(ArrayRef<SrcOpTy>(ops));
+}
+
+/// Convert a list of `Operation *` to a list of `DstOpTy.
+template <typename DstOpTy>
+static SmallVector<DstOpTy> castToTypedOperations(ArrayRef<Operation *> ops) {
+  return llvm::to_vector(
+      llvm::map_range(ops, [](Operation *op) { return cast<DstOpTy>(op); }));
+}
+template <typename DstOpTy>
+static SmallVector<DstOpTy>
+castToTypedOperations(const SmallVector<Operation *> &ops) {
+  return castToTypedOperations<DstOpTy>(ArrayRef<Operation *>(ops));
+}
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_LINALG_UTIL_UTIL_H

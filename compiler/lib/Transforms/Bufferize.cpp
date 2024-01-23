@@ -119,11 +119,10 @@ struct OneShotBufferizePass
 
   void runOnOperation() override {
     bufferization::OneShotBufferizationOptions opts;
-    opts.allowReturnAllocs = true;
+    opts.allowReturnAllocsFromLoops = true;
     opts.bufferizeFunctionBoundaries = true;
     opts.setFunctionBoundaryTypeConversion(
         bufferization::LayoutMapOption::IdentityLayoutMap);
-    opts.createDeallocs = false;
     opts.bufferAlignment = 0;
     opts.allocationFn = [](OpBuilder &b, Location loc, MemRefType type,
                            ValueRange dynShape,
@@ -135,19 +134,20 @@ struct OneShotBufferizePass
       return createAlloc<memref::AllocOp>(b, loc, type, dynShape,
                                           bufferAlignment);
     };
-    opts.deallocationFn = [](OpBuilder &b, Location loc,
-                             Value allocatedBuffer) -> LogicalResult {
-      if (auto bufferType =
-              llvm::dyn_cast_or_null<MemRefType>(allocatedBuffer.getType())) {
-        if (isGPUSharedMem(bufferType)) {
-          return success();
-        }
-      }
+    // opts.deallocationFn = [](OpBuilder &b, Location loc,
+    //                          Value allocatedBuffer) -> LogicalResult {
+    //   if (auto bufferType =
+    //           llvm::dyn_cast_or_null<MemRefType>(allocatedBuffer.getType()))
+    //           {
+    //     if (isGPUSharedMem(bufferType)) {
+    //       return success();
+    //     }
+    //   }
 
-      // Default buffer deallocation via DeallocOp.
-      b.create<memref::DeallocOp>(loc, allocatedBuffer);
-      return success();
-    };
+    //   // Default buffer deallocation via DeallocOp.
+    //   b.create<memref::DeallocOp>(loc, allocatedBuffer);
+    //   return success();
+    // };
 
     // deny some corner cases
     opts.opFilter.denyOperation([&](Operation *op) {
@@ -285,10 +285,7 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
         // TODO: Create alloc_tensor ops during TensorCopyInsertion.
         AnalysisState analysisState(options);
         FailureOr<Value> tensorAlloc = allocateTensorForShapedValue(
-            rewriter, op->getLoc(), opOperand.get(),
-            !options.createDeallocs ||
-                analysisState.isTensorYielded(opOperand.get()),
-            options);
+            rewriter, op->getLoc(), opOperand.get(), options);
         if (failed(tensorAlloc))
           return failure();
         auto memrefType = MemRefType::get(

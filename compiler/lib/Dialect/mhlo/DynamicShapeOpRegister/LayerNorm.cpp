@@ -1,4 +1,4 @@
-//===- Repeat.cpp ---------------------------------------------*--- C++ -*-===//
+//===- LayerNorm.cpp ---------------------------------------------- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,27 +17,34 @@
 
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
+#include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
+#include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "dynamic-shape-op-register"
 
 using namespace mlir;
 
-void mlir::registerRepeatInferBoundedReturnTypeComponents() {
-  static InferBoundedReturnTypeComponentsRegistration shapeRegister(
-      getRepeatName(),
-      [](MLIRContext *context, std::optional<Location>,
-         ValueShapeRange operands, DictionaryAttr, RegionRange,
+void mlir::registerLayerNormInferReturnTypeComponents() {
+  static InferReturnTypeComponentsRegistration shapeRegister(
+      getLayerNormName(),
+      [](MLIRContext *context, std::optional<Location> loc,
+         ValueShapeRange operands, DictionaryAttr attr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        Value input = operands[0];
-        ShapedType inputShape = input.getType().dyn_cast<ShapedType>();
-        if (!inputShape || !inputShape.hasStaticShape())
+        ShapedType dataType = operands[0].getType().dyn_cast<ShapedType>();
+        if (!dataType) {
+          LLVM_DEBUG(llvm::dbgs() << loc << ": get dataType failed\n");
           return failure();
-        // TODO: set config for repeat bounded shape inference
-        Type type = RankedTensorType::get(inputShape.getShape(),
-                                          IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        }
+        if (!dataType.hasRank() || !dataType.hasStaticShape()) {
+          LLVM_DEBUG(llvm::dbgs() << loc << ": rank or shape not static\n");
+          return failure();
+        }
+        inferredReturnTypes.emplace_back(dataType.getShape(),
+                                         IntegerType::get(context, 64));
         return success();
       });
 }

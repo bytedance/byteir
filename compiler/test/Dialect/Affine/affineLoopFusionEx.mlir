@@ -68,8 +68,8 @@ func.func @withApply(%arg0: memref<128x128xf32>, %arg1: memref<128xf32>, %arg2: 
     %25 = affine.load %arg19[%5, %4, %3] : memref<1x128x128xf32>
     %26 = arith.addf %6, %7 : f32
     %27 = arith.mulf %26, %10 : f32
-    %28 = arith.minf %27, %11 : f32
-    %29 = arith.maxf %28, %9 : f32
+    %28 = arith.minnumf %27, %11 : f32
+    %29 = arith.maxnumf %28, %9 : f32
     %30 = arith.mulf %29, %29 : f32
     %31 = arith.mulf %30, %12 : f32
     %32 = arith.addf %31, %20 : f32
@@ -135,8 +135,8 @@ func.func @withApply(%arg0: memref<128x128xf32>, %arg1: memref<128xf32>, %arg2: 
     %32 = arith.mulf %28, %31 : f32
     %33 = arith.mulf %32, %27 : f32
     %34 = arith.mulf %28, %9 : f32
-    %35 = arith.minf %34, %10 : f32
-    %36 = arith.maxf %35, %6 : f32
+    %35 = arith.minnumf %34, %10 : f32
+    %36 = arith.maxnumf %35, %6 : f32
     %37 = arith.mulf %36, %36 : f32
     %38 = arith.mulf %37, %11 : f32
     %39 = arith.addf %38, %19 : f32

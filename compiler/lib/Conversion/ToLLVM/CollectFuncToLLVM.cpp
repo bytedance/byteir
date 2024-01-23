@@ -20,6 +20,7 @@
 #include "byteir/Dialect/MemRef/Transforms/RemoveCopy.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/MemRef/Transforms/AllocationOpInterfaceImpl.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/SymbolTable.h"
@@ -117,7 +118,7 @@ struct CollectFuncToLLVMPass
 
   void getDependentDialects(DialectRegistry &registry) const override {
     CollectFuncToLLVMBase::getDependentDialects(registry);
-    bufferization::registerAllocationOpInterfaceExternalModels(registry);
+    memref::registerAllocationOpInterfaceExternalModels(registry);
   }
 
   void runOnOperation() override {

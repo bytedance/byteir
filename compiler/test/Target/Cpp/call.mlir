@@ -3,8 +3,8 @@
 
 func.func @emitc_call_unary() {
   %c0 = arith.constant 0 : i32
-  %0 = emitc.call "max" (%c0) : (i32) -> i32
-  %1 = emitc.call "unknowAdd" (%0, %c0) : (i32,i32) -> i32
+  %0 = emitc.call_opaque "max" (%c0) : (i32) -> i32
+  %1 = emitc.call_opaque "unknowAdd" (%0, %c0) : (i32,i32) -> i32
   return
 }
 // CPP-DEFAULT: void emitc_call_unary() {
@@ -22,8 +22,8 @@ func.func @emitc_call_unary() {
 
 
 func.func @emitc_call() {
-  %0 = emitc.call "func_a" () : () -> i32
-  %1 = emitc.call "func_b" () : () -> i32
+  %0 = emitc.call_opaque "func_a" () : () -> i32
+  %1 = emitc.call_opaque "func_b" () : () -> i32
   return
 }
 // CPP-DEFAULT: void emitc_call() {
@@ -39,7 +39,7 @@ func.func @emitc_call() {
 
 func.func @emitc_call_two_results() {
   %0 = arith.constant 0 : index
-  %1:2 = emitc.call "two_results" () : () -> (i32, i32)
+  %1:2 = emitc.call_opaque "two_results" () : () -> (i32, i32)
   return
 }
 // CPP-DEFAULT: void emitc_call_two_results() {

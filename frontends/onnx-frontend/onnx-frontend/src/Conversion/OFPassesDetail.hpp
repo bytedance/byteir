@@ -20,7 +20,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "mhlo/IR/hlo_ops.h"
+#include "stablehlo/dialect/StablehloOps.h"
 
 #include "third_party/onnx-mlir/src/Dialect/ONNX/ONNXOps.hpp"
 

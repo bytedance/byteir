@@ -32,7 +32,7 @@ class TestBase:
         self.data_dir = dir
         self.tmp_dir = str(tmpdir_factory.mktemp(dir.replace("/", "_")))
 
-    def convert_onnx_to_mhlo_ir(self, onnx_path, mhlo_ir_path, batch_size, onnx_frontend_option):
+    def convert_onnx_to_stablehlo_ir(self, onnx_path, stablehlo_ir_path, batch_size, onnx_frontend_option):
         if not osp.exists(onnx_path):
             raise ValueError("onnx_path {} not exists".format(onnx_path))
 
@@ -41,19 +41,20 @@ class TestBase:
         cmd_opts.append(f"-batch-size={batch_size}")
         cmd_opts.append(f"-custom-call-ops={','.join(CUSTOM_CALL_OPS)}")
         cmd_opts.append("-invokeOnnxVersionConverter")
-        cmd_opts.append("-mlir-print-op-generic")
+        # mhlo-tools not accept generic format for now
+        # cmd_opts.append("-mlir-print-op-generic")
         if onnx_frontend_option != "":
             cmd_opts.append(onnx_frontend_option)
 
-        # cmd_opts.append(f"-o={mhlo_ir_path}")
+        # cmd_opts.append(f"-o={stablehlo_ir_path}")
         p = subprocess.run(
             cmd_opts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         out, err = p.stdout, p.stderr
         assert not err, str(err)
-        with open(mhlo_ir_path, "w") as f:
+        with open(stablehlo_ir_path, "w") as f:
             f.write(out)
 
-    def onnx_mhlo_test_helper(self, onnx_path, mhlo_ir_path, input_data: Dict[str, npt.NDArray], decimal):
+    def onnx_stablehlo_test_helper(self, onnx_path, stablehlo_ir_path, input_data: Dict[str, npt.NDArray], decimal):
         # TODO: handle a model with multiple final outputs
         onnx_model = onnx.load(onnx_path)
         onnx_init_names = set([init.name for init in onnx_model.graph.initializer])
@@ -63,13 +64,13 @@ class TestBase:
         ort_sess = ort.InferenceSession(onnx_path)
         onnx_outputs: List[npt.NDArray] = ort_sess.run(None, input_data)
 
-        mhlo_data: List[npt.NDArray] = [input_data[name] for name in input_names]
-        # load mhlo mlir
-        with Interpreter.load_from_file(mhlo_ir_path) as interp:
+        stablehlo_data: List[npt.NDArray] = [input_data[name] for name in input_names]
+        # load stablehlo mlir
+        with Interpreter.load_from_file(stablehlo_ir_path, True) as interp:
             # generate all golden references
-            mhlo_outputs: List[npt.NDArray] = interp.call_function("main", mhlo_data)
-            for onnx_output, mhlo_output in zip(onnx_outputs, mhlo_outputs):
-                np.testing.assert_almost_equal(onnx_output, mhlo_output, decimal=decimal)
+            stablehlo_outputs: List[npt.NDArray] = interp.call_function("main", stablehlo_data)
+            for onnx_output, stablehlo_output in zip(onnx_outputs, stablehlo_outputs):
+                np.testing.assert_almost_equal(onnx_output, stablehlo_output, decimal=decimal)
 
     def run(self,
             model_filename: Optional[str] = None,
@@ -106,15 +107,15 @@ class TestBase:
                 base_filename = model_filename[:-len(".onnx")]
 
                 onnx_path = osp.join(self.data_dir, model_filename)  # to read from data_dir
-                mhlo_ir_path = osp.join(self.tmp_dir, base_filename + ".mhlo.mlir")
+                stablehlo_ir_path = osp.join(self.tmp_dir, base_filename + ".stablehlo.mlir")
 
                 if model_onnx_pb is not None:
                     onnx_path = osp.join(self.tmp_dir, model_filename)
                     # save onnx pb to tmp_dir
                     onnx.save(model_onnx_pb, onnx_path)
 
-                self.convert_onnx_to_mhlo_ir(onnx_path, mhlo_ir_path, batch_size, onnx_frontend_option)
-                self.onnx_mhlo_test_helper(onnx_path, mhlo_ir_path, input_data, decimal)
+                self.convert_onnx_to_stablehlo_ir(onnx_path, stablehlo_ir_path, batch_size, onnx_frontend_option)
+                self.onnx_stablehlo_test_helper(onnx_path, stablehlo_ir_path, input_data, decimal)
             else:
                 raise ValueError(
                 "Model file {} has an unkown extension name".format(model_filename))

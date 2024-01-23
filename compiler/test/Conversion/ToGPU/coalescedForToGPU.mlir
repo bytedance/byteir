@@ -10,8 +10,8 @@ func.func @loop1(%arg0: memref<16xf32>, %arg1: memref<16xf32>, %arg2: memref<f32
     %6 = memref.load %arg2[] : memref<f32>
     %7 = memref.load %arg3[%arg4] : memref<16xf32>
     %8 = arith.mulf %6, %7 : f32
-    %9 = arith.maxf %4, %5 : f32
-    %10 = arith.minf %9, %8 : f32
+    %9 = arith.maxnumf %4, %5 : f32
+    %10 = arith.minnumf %9, %8 : f32
     %11 = arith.fptosi %10 : f32 to i64
     %12 = arith.trunci %11 : i64 to i32
     memref.store %12, %0[%arg4] : memref<16xi32>

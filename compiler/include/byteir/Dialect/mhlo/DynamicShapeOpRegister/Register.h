@@ -33,8 +33,10 @@ void registerDynamicReshapeInferReturnTypeComponents();
 void registerRealDynamicSliceInferReturnTypeComponents();
 void registerReduceInferReturnTypeComponents();
 void registerSoftmaxInferReturnTypeComponents();
+void registerAddNInferReturnTypeComponents();
 void registerTorchIndexSelectInferReturnTypeComponents();
 void registerGeLUInferReturnTypeComponents();
+void registerLayerNormInferReturnTypeComponents();
 
 inline void registerAllMhloInferReturnTypeComponents() {
   registerConvolutionInferReturnTypeComponents();
@@ -45,8 +47,10 @@ inline void registerAllMhloInferReturnTypeComponents() {
   registerRealDynamicSliceInferReturnTypeComponents();
   registerReduceInferReturnTypeComponents();
   registerSoftmaxInferReturnTypeComponents();
+  registerAddNInferReturnTypeComponents();
   registerTorchIndexSelectInferReturnTypeComponents();
   registerGeLUInferReturnTypeComponents();
+  registerLayerNormInferReturnTypeComponents();
 }
 
 //===----------------------------------------------------------------------===//

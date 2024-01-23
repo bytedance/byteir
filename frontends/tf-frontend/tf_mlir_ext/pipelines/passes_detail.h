@@ -21,6 +21,8 @@
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
 
+#include "stablehlo/dialect/StablehloOps.h"
+
 namespace mlir {
 
 namespace TF {
@@ -34,6 +36,10 @@ class MhloDialect;
 namespace chlo {
 class ChloDialect;
 } // namespace chlo
+
+namespace stablehlo {
+class StablehloDialect;
+} // namespace stablehlo
 
 namespace shape {
 class ShapeDialect;

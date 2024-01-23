@@ -73,6 +73,8 @@ public:
            std::to_string(patch);
   }
 
+  std::string getBytecodeProducerString() const;
+
   uint32_t getBytecodeVersion() const;
 
   static ArrayRef<Version> getSupportedVersions();

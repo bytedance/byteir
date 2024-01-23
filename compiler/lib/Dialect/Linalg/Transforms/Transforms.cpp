@@ -82,8 +82,8 @@ public:
     // TODO: change code back to calling generalizeNamedOp,
     //       if upstream starting support MapOp's generalization.
     auto linalgOp = cast<linalg::LinalgOp>(mapOp.getOperation());
-    SmallVector<Value> inputs = linalgOp.getDpsInputOperands();
-    SmallVector<Value> outputs = linalgOp.getDpsInitOperands();
+    SmallVector<Value> inputs = linalgOp.getDpsInputs();
+    SmallVector<Value> outputs = linalgOp.getDpsInits();
     SmallVector<AffineMap> indexingMaps = linalgOp.getIndexingMapsArray();
     SmallVector<utils::IteratorType> iterators =
         linalgOp.getIteratorTypesArray();
@@ -229,8 +229,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
       }
     }
 
-    for (auto opOperand : dstOp.getDpsInitOperands()) {
-      auto tensor = opOperand->get();
+    for (Value tensor : dstOp.getDpsInits()) {
       if (auto shapeTy = tensor.getType().dyn_cast<ShapedType>()) {
         for (auto d = 0; d < shapeTy.getRank(); ++d) {
           updateExprToTensorAndDim(tensor, d);
@@ -266,8 +265,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
 
     unsigned inputOffset = offset;
 
-    for (auto opOperand : dstOp.getDpsInitOperands()) {
-      auto tensor = opOperand->get();
+    for (Value tensor : dstOp.getDpsInits()) {
       applyReplaceTensorDimAndUpdateOffset(tensor);
     }
 
@@ -382,9 +380,8 @@ bool isNewValue(Value val) {
 
 FailureOr<bool> getLocalComputation(Operation *op) {
   if (auto linalgOp = dyn_cast<linalg::LinalgOp>(op)) {
-    return llvm::all_of(linalgOp.getDpsInitOperands(), [&](OpOperand *opVal) {
-      return isNewValue(opVal->get());
-    });
+    return llvm::all_of(linalgOp.getDpsInits(),
+                        [&](Value val) { return isNewValue(val); });
   } else if (auto linalgExtOp = dyn_cast<linalg_ext::LinalgExtOp>(op)) {
     return llvm::all_of(linalgExtOp.getOutputOperands(), [&](OpOperand *opVal) {
       return isNewValue(opVal->get());
@@ -573,7 +570,7 @@ getUntiledProducerFromSliceSource(OpOperand *source,
     scf::ForOp loop = *loopIt;
     if (iterArg.getOwner()->getParentOp() != loop)
       break;
-    source = &loop.getOpOperandForRegionIterArg(iterArg);
+    source = loop.getTiedLoopInit(iterArg);
     loopIt++;
   }
   if (loopIt == loops.rend()) {
@@ -674,7 +671,7 @@ yieldTiledValues(RewriterBase &rewriter, ValueRange initValues,
                  MutableArrayRef<scf::ForOp> loops,
                  llvm::DenseMap<Value, Value> &replacements,
                  std::optional<OpOperand *> &destinationIterArg) {
-  NewYieldValueFn yieldValueFn =
+  NewYieldValuesFn yieldValueFn =
       [&](OpBuilder &b, Location loc,
           ArrayRef<BlockArgument> newBBArgs) -> SmallVector<Value> {
     SmallVector<Value> inserts;
@@ -692,27 +689,48 @@ yieldTiledValues(RewriterBase &rewriter, ValueRange initValues,
     return inserts;
   };
 
+  struct CustomListener : public RewriterBase::Listener {
+    CustomListener(llvm::DenseMap<Value, Value> &replacements,
+                   std::optional<OpOperand *> &destinationIterArg)
+        : replacements(replacements), destinationIterArg(destinationIterArg) {}
+
+    void notifyOperationReplaced(Operation *oldOp,
+                                 ValueRange newValues) override {
+      if (destinationIterArg.has_value()) {
+        if ((*destinationIterArg)->getOwner() == oldOp) {
+          auto newOp = newValues[0].getDefiningOp();
+          *destinationIterArg =
+              &newOp->getOpOperand((*destinationIterArg)->getOperandNumber());
+        }
+      }
+
+      for (auto &it : replacements) {
+        if (auto oldResult = dyn_cast<OpResult>(it.second)) {
+          if (dyn_cast_or_null<scf::ForOp>(oldOp) == oldResult.getOwner()) {
+            it.second = newValues[oldResult.getResultNumber()];
+          }
+        }
+      }
+      Listener::notifyOperationReplaced(oldOp, newValues);
+    }
+
+  private:
+    llvm::DenseMap<Value, Value> &replacements;
+    std::optional<OpOperand *> &destinationIterArg;
+  };
+
+  auto oldListener = rewriter.getListener();
+  CustomListener newlistener(replacements, destinationIterArg);
+  rewriter.setListener(&newlistener);
+
   SmallVector<scf::ForOp> newLoops =
       replaceLoopNestWithNewYields(rewriter, loops, initValues, yieldValueFn,
                                    /*replaceIterOperandsUsesInLoop =*/false);
 
-  // this functionality is added on top of the exisitng upstream version
-  updateReplacements(replacements, loops, newLoops);
-
-  // update destinationIterArg
-  if (destinationIterArg.has_value()) {
-    for (const auto &loop : llvm::enumerate(loops)) {
-      // check old loop is the destinationIterArg's getOwner
-      if ((*destinationIterArg)->getOwner() == loop.value()) {
-        *destinationIterArg = &newLoops[loop.index()]->getOpOperand(
-            (*destinationIterArg)->getOperandNumber());
-      }
-    }
-  }
+  rewriter.setListener(oldListener);
 
   // remove loops and make newLoops
   for (const auto &loop : llvm::enumerate(loops)) {
-    rewriter.eraseOp(loop.value());
     loops[loop.index()] = newLoops[loop.index()];
   }
   return success();
@@ -767,7 +785,7 @@ createResultSlices(RewriterBase &rewriter, Operation *op, Operation *tiledOp,
 
   if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(tiledOp)) {
     auto innerMostLoop = loops.back();
-    SmallVector<Value> destinationTensors = dstOp.getDpsInitOperands();
+    SmallVector<Value> destinationTensors = dstOp.getDpsInits();
 
     updateDestinationOperandsForTiledOp(
         rewriter, destinationTensors,
@@ -1021,7 +1039,6 @@ mergeSliceOps(SmallVector<tensor::ExtractSliceOp> &sliceOps) {
 
   return mergedSliceOps;
 }
-
 } // namespace
 
 FailureOr<scf::SCFTileAndFuseResult>
@@ -1076,6 +1093,9 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   if (tileAndFuseResult.loops.empty())
     return tileAndFuseResult;
 
+  auto tileAndFuseResultLoops =
+      castToTypedOperations<scf::ForOp>(tileAndFuseResult.loops);
+
   llvm::SmallVector<std::pair<Operation *, Operation *>> fusedOps;
   fusedOps.emplace_back(consumer.getOperation(),
                         tileAndFuseResult.tiledAndFusedOps.back());
@@ -1099,7 +1119,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
                   opOperand.get().getDefiningOp<tensor::ExtractSliceOp>()) {
             auto [srcResult, destinationIterArg] =
                 getUntiledProducerFromSliceSource(&sliceOp->getOpOperand(0),
-                                                  tileAndFuseResult.loops);
+                                                  tileAndFuseResultLoops);
             if (!srcResult)
               continue;
             Operation *srcOp = srcResult.getOwner();
@@ -1137,7 +1157,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     // `iter_args` of nested `scf.for`)
     auto [fusibleProducer, destinationIterArg] =
         getUntiledProducerFromSliceSource(&candidateSliceOp->getOpOperand(0),
-                                          tileAndFuseResult.loops);
+                                          tileAndFuseResultLoops);
     if (!fusibleProducer) {
       LLVM_DEBUG(DBGS() << "skip since no fusibleProducer\n");
       continue;
@@ -1191,7 +1211,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
 
     if (failed(createResultSlices(
             rewriter, fusibleProducer.getOwner(), fusedProducerOp,
-            candidateSliceOp, tileAndFuseResult.loops,
+            candidateSliceOp, tileAndFuseResultLoops,
             tileAndFuseResult.replacements, destinationIterArg))) {
       LLVM_DEBUG(DBGS() << "skip since failing createResultSlices for "
                         << fusibleProducer << "\n");
@@ -1260,23 +1280,24 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     // ```
     // TODO: This can be modeled better if the `DestinationStyleOpInterface`.
     // Update to use that when it does become available.
-    scf::ForOp outerMostLoop = tileAndFuseResult.loops.front();
+    scf::ForOp outerMostLoop = tileAndFuseResultLoops.front();
     std::optional<unsigned> iterArgNumber;
     if (destinationIterArg) {
-      iterArgNumber =
-          outerMostLoop.getIterArgNumberForOpOperand(**destinationIterArg);
+      auto tiedResult = outerMostLoop.getTiedLoopResult(*destinationIterArg);
+      if (tiedResult)
+        iterArgNumber = tiedResult.getResultNumber();
     }
     if (iterArgNumber) {
       int64_t resultNumber = fusibleProducer.getResultNumber();
       if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(
               fusibleProducer.getOwner())) {
-        outerMostLoop.setIterArg(
-            *iterArgNumber, dstOp.getTiedOpOperand(fusibleProducer)->get());
+        (*destinationIterArg)
+            ->set(dstOp.getTiedOpOperand(fusibleProducer)->get());
       }
 
       if (auto dstOp =
               fusedProducerValue.getDefiningOp<DestinationStyleOpInterface>()) {
-        scf::ForOp innerMostLoop = tileAndFuseResult.loops.back();
+        scf::ForOp innerMostLoop = tileAndFuseResultLoops.back();
         updateDestinationOperandsForTiledOp(
             rewriter, dstOp.getDpsInitOperand(resultNumber)->get(),
             innerMostLoop.getRegionIterArgs()[*iterArgNumber]);
@@ -1287,7 +1308,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
 
   // 3. topologically sort the ops since the order was corrupted in the slice
   // merging step
-  for (auto &loop : tileAndFuseResult.loops) {
+  for (auto &loop : tileAndFuseResultLoops) {
     if (!sortTopologically(loop.getBody()))
       return rewriter.notifyMatchFailure(consumer, "topological sort fails.");
   }
@@ -1297,15 +1318,15 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     // collect all iterArgToOperand for quick access later
     // iterArgToOperand as mapping from Loop's RegionIterArgs to IterOperands
     llvm::DenseMap<Value, Value> iterArgToOperand;
-    for (auto &forOp : tileAndFuseResult.loops) {
+    for (auto &forOp : tileAndFuseResultLoops) {
       for (auto it : llvm::zip(forOp.getRegionIterArgs(), // iter inside region
-                               forOp.getIterOperands()    // iter from outside
+                               forOp.getInitArgs()        // iter from outside
                                )) {
         iterArgToOperand.try_emplace(std::get<0>(it), std::get<1>(it));
       }
     }
 
-    assert(tileAndFuseResult.loops.size() > 0);
+    assert(tileAndFuseResultLoops.size() > 0);
     // check getLoopIteratorTypes for each fusedOp
     // if parallel, corresponding getRegionIterArgs will be simplified
     unsigned resultOffset = 0;
@@ -1323,7 +1344,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
 
       // analyze LoopIteratorTypes before using
       auto loopIterTypes =
-          getLoopIteratorTypes(fusedOp, tileAndFuseResult.loops);
+          getLoopIteratorTypes(fusedOp, tileAndFuseResultLoops);
       if (failed(loopIterTypes)) {
         LLVM_DEBUG(DBGS() << "skip clean-up due to no loopIterTypes for "
                           << fusedOp << "\n");
@@ -1362,7 +1383,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
           return allParallel;
         };
 
-        for (int64_t loopIdx = tileAndFuseResult.loops.size() - 1; loopIdx >= 0;
+        for (int64_t loopIdx = tileAndFuseResultLoops.size() - 1; loopIdx >= 0;
              loopIdx -= 1) {
 
           // update collection every iteration, since it might be replaced.
@@ -1373,11 +1394,11 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
           getProducerAndConsumerTensorSlices(fusedOp, iterArgToOperand,
                                              opCollection, valCollection);
 
-          auto &forOp = tileAndFuseResult.loops[loopIdx];
+          auto &forOp = tileAndFuseResultLoops[loopIdx];
           bool confirmedAllParallel = confirmAllParallel(loopIdx);
 
           auto iterArg = forOp.getRegionIterArg(resultOffset + i);
-          auto iterOperand = forOp.getIterOperands()[resultOffset + i];
+          auto iterOperand = forOp.getInitArgs()[resultOffset + i];
 
           if (isResultLoopInvariant(unfusedOp, i, hasZeroOutsideUse,
                                     confirmedAllParallel)) {
@@ -1411,6 +1432,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     } // for (const auto &p : fusedOps)
   }
 
+  tileAndFuseResult.loops = getAsOperations(tileAndFuseResultLoops);
   return tileAndFuseResult;
 }
 
@@ -1470,8 +1492,10 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
 
   // create scf.for ops
   SmallVector<OpFoldResult> validTileNums = getValidTileNums(tileNums);
-  tileAndFuseResult.loops = scf::createNestedEmptyScfForOpsWithZeroLbAndOneStep(
-      rewriter, loc, validTileNums);
+  auto tileAndFuseResultLoops =
+      scf::createNestedEmptyScfForOpsWithZeroLbAndOneStep(rewriter, loc,
+                                                          validTileNums);
+  tileAndFuseResult.loops = getAsOperations(tileAndFuseResultLoops);
 
   // If there are no loops generated, fusion is immaterial.
   if (tileAndFuseResult.loops.empty())
@@ -1490,10 +1514,12 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
         return rewriter.notifyMatchFailure(tileableOp, "failed to tile");
     }
   }
+  tileAndFuseResultLoops =
+      castToTypedOperations<scf::ForOp>(tileAndFuseResult.loops);
 
   LLVM_DEBUG({
     if (!tileAndFuseResult.loops.empty()) {
-      tileAndFuseResult.loops.front().dump();
+      tileAndFuseResult.loops.front()->dump();
       llvm::dbgs() << "\n";
     }
   });
@@ -1515,7 +1541,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
           if (auto sliceOp =
                   opOperand.get().getDefiningOp<tensor::ExtractSliceOp>()) {
             OpResult srcResult = std::get<0>(getUntiledProducerFromSliceSource(
-                &sliceOp->getOpOperand(0), tileAndFuseResult.loops));
+                &sliceOp->getOpOperand(0), tileAndFuseResultLoops));
             if (!srcResult)
               continue;
             Operation *srcOp = srcResult.getOwner();
@@ -1554,7 +1580,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     // `iter_args` of nested `scf.for`)
     auto [fusibleProducer, destinationIterArg] =
         getUntiledProducerFromSliceSource(&candidateSliceOp->getOpOperand(0),
-                                          tileAndFuseResult.loops);
+                                          tileAndFuseResultLoops);
     if (!fusibleProducer) {
       LLVM_DEBUG(DBGS() << "skip since no fusibleProducer\n");
       continue;
@@ -1604,7 +1630,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     if (rootTensorsSet.contains(tileableTensor)) {
       if (failed(createResultSlices(
               rewriter, fusibleProducer.getOwner(), fusedProducerOp,
-              candidateSliceOp, tileAndFuseResult.loops,
+              candidateSliceOp, tileAndFuseResultLoops,
               tileAndFuseResult.replacements, destinationIterArg))) {
         LLVM_DEBUG(DBGS() << "skip since failing createResultSlices for "
                           << fusibleProducer << "\n");
@@ -1673,23 +1699,24 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     // ```
     // TODO: This can be modeled better if the `DestinationStyleOpInterface`.
     // Update to use that when it does become available.
-    scf::ForOp outerMostLoop = tileAndFuseResult.loops.front();
+    scf::ForOp outerMostLoop = tileAndFuseResultLoops.front();
     std::optional<unsigned> iterArgNumber;
     if (destinationIterArg) {
-      iterArgNumber =
-          outerMostLoop.getIterArgNumberForOpOperand(**destinationIterArg);
+      auto tiedResult = outerMostLoop.getTiedLoopResult(*destinationIterArg);
+      if (tiedResult)
+        iterArgNumber = tiedResult.getResultNumber();
     }
     if (iterArgNumber) {
       int64_t resultNumber = fusibleProducer.getResultNumber();
       if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(
               fusibleProducer.getOwner())) {
-        outerMostLoop.setIterArg(
-            *iterArgNumber, dstOp.getTiedOpOperand(fusibleProducer)->get());
+        (*destinationIterArg)
+            ->set(dstOp.getTiedOpOperand(fusibleProducer)->get());
       }
 
       if (auto dstOp =
               fusedProducerValue.getDefiningOp<DestinationStyleOpInterface>()) {
-        scf::ForOp innerMostLoop = tileAndFuseResult.loops.back();
+        scf::ForOp innerMostLoop = tileAndFuseResultLoops.back();
         updateDestinationOperandsForTiledOp(
             rewriter, dstOp.getDpsInitOperand(resultNumber)->get(),
             innerMostLoop.getRegionIterArgs()[*iterArgNumber]);
@@ -1699,7 +1726,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
 
   // 3. topologically sort the ops since the order was corrupted in the slice
   // merging step
-  for (auto &loop : tileAndFuseResult.loops) {
+  for (auto &loop : tileAndFuseResultLoops) {
     if (!sortTopologically(loop.getBody()))
       return rewriter.notifyMatchFailure(loc, "topological sort fails.");
   }
@@ -1726,6 +1753,7 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     }
   }
 
+  tileAndFuseResult.loops = getAsOperations(tileAndFuseResultLoops);
   return tileAndFuseResult;
 }
 

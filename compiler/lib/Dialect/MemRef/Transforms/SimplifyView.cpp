@@ -142,7 +142,7 @@ struct ComposeSubViewOfView : public OpRewritePattern<memref::SubViewOp> {
 
     rewriter.replaceOpWithNewOp<memref::ViewOp>(
         op, newMemRefType, srcView.getSource(), newShift.getResult(),
-        op.sizes());
+        op.getSizes());
 
     return success();
   }

@@ -53,45 +53,53 @@ struct OFModifyEntryPointPass
         continue; // not an entry point
       }
 
-      if (!funcOp->hasAttrOfType<ArrayAttr>("input_names")) {
-        funcOp->emitOpError()
-            << "ArrayAttr input_names not found in main funcOp";
-        signalPassFailure();
-        break;
-      }
-      if (!funcOp->hasAttrOfType<ArrayAttr>("output_names")) {
-        funcOp->emitOpError()
-            << "ArrayAttr output_names not found in main funcOp";
-        signalPassFailure();
-        break;
-      }
-      ArrayAttr inputNames = funcOp->getAttrOfType<ArrayAttr>("input_names");
-      ArrayAttr outputNames = funcOp->getAttrOfType<ArrayAttr>("output_names");
+      ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
+      ArrayAttr resAttrs = funcOp.getResAttrsAttr();
 
-      if (inputNames.size() != funcOp.getNumArguments()) {
-        funcOp->emitOpError()
-            << "Incorrect number of input_names, expect "
-            << funcOp.getNumArguments() << ", got " << inputNames.size();
-        signalPassFailure();
-        break;
+      SmallVector<Attribute, 4> inputNames;
+      SmallVector<Attribute, 4> outputNames;
+
+      for (unsigned int i = 0; i < funcOp.getNumArguments(); i++) {
+        if (argAttrs) {
+          DictionaryAttr dictAttrs =
+              llvm::dyn_cast<DictionaryAttr>(argAttrs[i]);
+          if (dictAttrs && dictAttrs.contains("onnx.name")) {
+            Attribute inputName =
+                dictAttrs.getNamed("onnx.name").value().getValue();
+            inputNames.push_back(inputName);
+          } else {
+            funcOp->emitOpError() << "Attr onnx.name not found in arg";
+            signalPassFailure();
+            break;
+          }
+        }
       }
-      if (outputNames.size() != funcOp.getNumResults()) {
-        funcOp->emitOpError()
-            << "Incorrect number of output_names, expect "
-            << funcOp.getNumResults() << ", got " << outputNames.size();
-        signalPassFailure();
-        break;
+
+      for (unsigned int i = 0; i < funcOp.getNumResults(); i++) {
+        if (resAttrs) {
+          DictionaryAttr dictAttrs =
+              llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
+          if (dictAttrs && dictAttrs.contains("onnx.name")) {
+            Attribute outputName =
+                dictAttrs.getNamed("onnx.name").value().getValue();
+            outputNames.push_back(outputName);
+          } else {
+            funcOp->emitOpError() << "Attr onnx.name not found in res";
+            signalPassFailure();
+            break;
+          }
+        }
       }
 
       OpBuilder builder(&getContext());
+      ArrayAttr inputNamesAttr = builder.getArrayAttr(inputNames);
+      ArrayAttr outputNamesAttr = builder.getArrayAttr(outputNames);
       llvm::SmallVector<NamedAttribute> byteirAttrs = {
-          NamedAttribute(builder.getStringAttr("inputs"), inputNames),
-          NamedAttribute(builder.getStringAttr("outputs"), outputNames)};
+          NamedAttribute(builder.getStringAttr("inputs"), inputNamesAttr),
+          NamedAttribute(builder.getStringAttr("outputs"), outputNamesAttr)};
 
       funcOp->setAttr("byteir.entry_point",
                       builder.getDictionaryAttr(byteirAttrs));
-      funcOp->removeAttr("input_names");
-      funcOp->removeAttr("output_names");
       funcOp.setSymNameAttr(builder.getStringAttr("main"));
     }
   }

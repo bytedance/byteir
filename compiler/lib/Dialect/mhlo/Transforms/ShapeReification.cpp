@@ -157,6 +157,8 @@ struct ShapeReificationPass
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
     PopulateShapeReificationPatterns(ctx, patterns);
+    // populate `shape_of` => `const_shape` folding pattern
+    shape::ShapeOfOp::getCanonicalizationPatterns(patterns, ctx);
 
     // Apply patterns from the bottom up. This ensures to need no more than one
     // iteration.

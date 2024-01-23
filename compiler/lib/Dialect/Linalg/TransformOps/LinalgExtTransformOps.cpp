@@ -131,8 +131,8 @@ transform::CollapseDimsOp::apply(transform::TransformRewriter &rewriter,
     SimpleRewriter rewriter(getContext());
     rewriter.setInsertionPoint(target);
     std::optional<SmallVector<Value>> replacements =
-        collapseGenericOpIterationDims(genericOp, getReassociationIndices(),
-                                       rewriter);
+        collapseOpIterationDims<linalg::GenericOp>(
+            genericOp, getReassociationIndices(), rewriter);
     if (!replacements)
       return emitDefaultDefiniteFailure(target) << " failed to collapsed dims";
 
@@ -190,12 +190,12 @@ LogicalResult detensorizeLinalgOp(OpBuilder &b, linalg::LinalgOp linalgOp) {
     b.clone(op, map);
   }
 
-  for (auto &&opOperand : linalgOp.getDpsInitOperands()) {
-    OpOperand *yieldOperand = linalgOp.getMatchingYieldValue(opOperand);
+  for (OpOperand &opOperand : linalgOp.getDpsInitsMutable()) {
+    OpOperand *yieldOperand = linalgOp.getMatchingYieldValue(&opOperand);
     Value element = map.lookupOrDefault(yieldOperand->get());
     Value tensor = b.create<tensor::FromElementsOp>(
         loc, RankedTensorType::get({}, element.getType()), ValueRange(element));
-    Value result = linalgOp.getTiedOpResult(opOperand);
+    Value result = linalgOp.getTiedOpResult(&opOperand);
     result.replaceAllUsesWith(tensor);
   }
   linalgOp->erase();
@@ -590,7 +590,8 @@ transform::FuseExtOp::apply(mlir::transform::TransformRewriter &rewriter,
 
   scf::SCFTilingOptions tilingOptions;
   tilingOptions.interchangeVector = tileInterchange;
-  tilingOptions = tilingOptions.setTileSizes(tileSizes);
+  tilingOptions = tilingOptions.setTileSizes(
+      getAsIndexOpFoldResult(rewriter.getContext(), tileSizes));
   scf::SCFTileAndFuseOptions tileAndFuseOptions;
   tileAndFuseOptions.tilingOptions = tilingOptions;
   SmallVector<Operation *> targetOps =
@@ -1018,22 +1019,23 @@ transform::TileExtOp::apply(TransformRewriter &rewriter,
     scf::SCFTilingOptions tilingOptions;
     unsigned index = en.index();
     if (!tileSizes.empty()) {
-      tilingOptions.setTileSizeComputationFunction(
-          [&, index](OpBuilder &b, Operation *) {
-            SmallVector<Value, 4> sizes;
-            sizes.reserve(tileSizes.size());
-            unsigned dynamicIdx = 0;
-            for (OpFoldResult ofr : getMixedSizes()) {
-              if (auto attr = ofr.dyn_cast<Attribute>()) {
-                sizes.push_back(b.create<arith::ConstantIndexOp>(
-                    getLoc(), attr.cast<IntegerAttr>().getInt()));
-              } else {
-                sizes.push_back(
-                    dynamicSizeProducers[dynamicIdx++][index]->getResult(0));
-              }
-            }
-            return sizes;
-          });
+      tilingOptions.setTileSizeComputationFunction([&, index](OpBuilder &b,
+                                                              Operation *) {
+        SmallVector<OpFoldResult, 4> sizes;
+        sizes.reserve(tileSizes.size());
+        unsigned dynamicIdx = 0;
+        for (OpFoldResult ofr : getMixedSizes()) {
+          if (auto attr = ofr.dyn_cast<Attribute>()) {
+            sizes.push_back(b.create<arith::ConstantIndexOp>(
+                                 getLoc(), attr.cast<IntegerAttr>().getInt())
+                                .getResult());
+          } else {
+            sizes.push_back(
+                dynamicSizeProducers[dynamicIdx++][index]->getResult(0));
+          }
+        }
+        return sizes;
+      });
     }
 
     tilingOptions.setInterchange(getInterchange());
@@ -1131,16 +1133,13 @@ StringAttr getAllReduceType(linalg::GenericOp mergeOp, linalg::FillOp initOp) {
   StringAttr reduceType;
   MLIRContext *ctx = mergeOp.getContext();
   Block *block = &mergeOp.getRegion().front();
-  if (isBlockSingleOp<arith::AddFOp>(block) ||
-      isBlockSingleOp<arith::AddIOp>(block))
+  if (isBlockSingleOp<arith::AddFOp, arith::AddIOp>(block))
     reduceType = StringAttr::get(ctx, ccl::getRedOpSumName());
-  else if (isBlockSingleOp<arith::MaxFOp>(block) ||
-           isBlockSingleOp<arith::MaxSIOp>(block) ||
-           isBlockSingleOp<arith::MaxUIOp>(block))
+  else if (isBlockSingleOp<arith::MaximumFOp, arith::MaxNumFOp, arith::MaxSIOp,
+                           arith::MaxUIOp>(block))
     reduceType = StringAttr::get(ctx, ccl::getRedOpMaxName());
-  else if (isBlockSingleOp<arith::MinFOp>(block) ||
-           isBlockSingleOp<arith::MinSIOp>(block) ||
-           isBlockSingleOp<arith::MinUIOp>(block))
+  else if (isBlockSingleOp<arith::MinimumFOp, arith::MinNumFOp, arith::MinSIOp,
+                           arith::MinUIOp>(block))
     reduceType = StringAttr::get(ctx, ccl::getRedOpMinName());
   // TODO: support avg / prod all-reduce type
   else {

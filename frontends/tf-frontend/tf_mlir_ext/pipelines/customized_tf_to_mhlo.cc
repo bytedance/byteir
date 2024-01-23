@@ -137,7 +137,6 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
-    // pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
 
     // fuse dilated conv
     pm.addNestedPass<mlir::func::FuncOp>(
@@ -211,6 +210,8 @@ struct CustomizedTfToMhloPipelinePass
             additional_main_func_attrs));
 
     pm.addPass(mlir::createCanonicalizerPass());
+
+    pm.addPass(mlir::mhlo::createHloLegalizeToStablehloPass());
 
     if (mlir::failed(runPipeline(pm, m))) {
       signalPassFailure();

@@ -70,6 +70,7 @@ class LinalgExt_Op<string mnemonic, list<Trait> traits = []> :
           outputsIndexAndLength.first + outputsIndexAndLength.second);
     }
 
+    MutableOperandRange getDpsInitsMutable() { return getOutputsMutable(); }
   }];
 }
 
@@ -737,6 +738,8 @@ def LinalgExt_BatchMatmulOp : LinalgExtStructuredBase_Op<"batch_matmul",
       int64_t getNumOperands = this->getNumOperands();
       return {getNumOperands - 1, getNumOperands};
     }
+
+    MutableOperandRange getDpsInitsMutable() { return getInitMutable(); }
 
     // Additional functions
     int64_t getFullRank() {

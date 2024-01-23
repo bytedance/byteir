@@ -99,13 +99,13 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the input operands.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getInputOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
         int64_t numInputs = getNumInputs();
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(numInputs);
         llvm::transform(
           this->getOperation()->getOpOperands().take_front(numInputs),
@@ -131,12 +131,12 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the subset of input operands that are of buffer type.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getInputBufferOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(getNumInputs());
         llvm::copy_if(getInputOperands(),
           std::back_inserter(result),
@@ -150,12 +150,12 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the subset of input operands that are of tensor type.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getInputTensorOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(getNumInputs());
         llvm::copy_if(getInputOperands(),
           std::back_inserter(result),
@@ -172,13 +172,13 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the output operands.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getOutputOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
         int64_t numOutputs = getNumOutputs();
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(numOutputs);
         llvm::transform(
           this->getOperation()->getOpOperands()
@@ -219,12 +219,12 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the subset of output operands that are of buffer type.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getOutputBufferOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(getNumOutputs());
         llvm::copy_if(getOutputOperands(),
           std::back_inserter(result),
@@ -238,12 +238,12 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the subset of output operands that are of tensor type.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getOutputTensorOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(getNumOutputs());
         llvm::copy_if(getOutputOperands(),
           std::back_inserter(result),
@@ -298,13 +298,13 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return the range over input and output operands.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getInputAndOutputOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
         int64_t numInputsAndOutputs = getNumInputsAndOutputs();
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(numInputsAndOutputs);
         llvm::transform(
           this->getOperation()->getOpOperands()
@@ -397,7 +397,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*desc=*/[{
         Return operands that are neither inputs nor outputs.
       }],
-      /*retTy=*/"OpOperandVector",
+      /*retTy=*/"SmallVector<OpOperand *>",
       /*methodName=*/"getNonInputOrOutputOperands",
       /*args=*/(ins),
       /*methodBody=*/"",
@@ -407,7 +407,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         assert(numInputsAndOutputs <= numOperands);
         if (numInputsAndOutputs == numOperands)
           return {};
-        OpOperandVector result;
+        SmallVector<OpOperand *> result;
         result.reserve(numOperands - numInputsAndOutputs);
         llvm::transform(
           this->getOperation()->getOpOperands()

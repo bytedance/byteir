@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function load_onnx_llvm_rtti_prebuilt() {
-  ONNX_FRONTEND_LLVM_RTTI_INSTALL_DIR="/data00/llvm_libraries/d13da154a7c7eff77df8686b2de1cfdfa7cc7029/llvm_build_rtti"
+  ONNX_FRONTEND_LLVM_RTTI_INSTALL_DIR="/data00/llvm_libraries/b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc/llvm_build_rtti"
 }
 
 function of_envsetup() {

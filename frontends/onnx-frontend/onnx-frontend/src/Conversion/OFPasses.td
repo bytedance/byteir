@@ -30,10 +30,10 @@ def OFCanonicalizer : Pass<"of-canonicalize", "mlir::ModuleOp"> {
 }
 
 def OFRewriteCustomOnnxOps: Pass<"rewrite-custom-onnx-ops", "mlir::func::FuncOp"> {
-  let summary = "convert onnx custom ops to mhlo.custom_call";
+  let summary = "convert onnx custom ops to stablehlo.custom_call";
   let constructor = "onnx_frontend::createOFRewriteCustomOnnxOpsPass()";
   let dependentDialects = [
-    "mlir::mhlo::MhloDialect",
+    "mlir::stablehlo::StablehloDialect",
   ];
 }
 
@@ -43,15 +43,15 @@ def OFCheckNonLowered : Pass<"check-non-lowered", "mlir::func::FuncOp"> {
 }
 
 def OFRewriteToCustomCall: Pass<"rewrite-to-custom-call", "mlir::func::FuncOp"> {
-  let summary = "convert some ops to mhlo.custom_call";
+  let summary = "convert some ops to stablehlo.custom_call";
   let constructor = "onnx_frontend::createOFRewriteToCustomCallPass()";
   let options = [
     ListOption<"customCallOps", "ops", "std::string",
-               "Operations to be rewritten to mhlo.custom_call",
+               "Operations to be rewritten to stablehlo.custom_call",
                "llvm::cl::ZeroOrMore">,
   ];
   let dependentDialects = [
-    "mlir::mhlo::MhloDialect",
+    "mlir::stablehlo::StablehloDialect",
   ];
 }
 

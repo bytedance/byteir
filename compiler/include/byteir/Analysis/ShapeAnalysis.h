@@ -116,9 +116,10 @@ struct ValueTypeModificatoinRAII {
 
 using ShapeLattice = dataflow::Lattice<shape_analysis::ValueKnowledge>;
 
-class ShapeAnalysis : public dataflow::SparseDataFlowAnalysis<ShapeLattice> {
+class ShapeAnalysis
+    : public dataflow::SparseForwardDataFlowAnalysis<ShapeLattice> {
 public:
-  using SparseDataFlowAnalysis::SparseDataFlowAnalysis;
+  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
 
   void visitOperation(Operation *op, ArrayRef<const ShapeLattice *> operands,
                       ArrayRef<ShapeLattice *> results) override;

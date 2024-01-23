@@ -2,8 +2,7 @@ add_subdirectory(${BYTEIR_SRC_DIR}/../external/mlir-hlo ${CMAKE_CURRENT_BINARY_D
 
 # FIXME: remove this when upstream fix
 target_link_libraries(MhloDialect PUBLIC StablehloTypeInference StablehloAssemblyFormat)
-target_link_libraries(GmlStPasses PUBLIC MLIRGmlStUtils)
-target_link_libraries(MLIRBufferTransforms PUBLIC DeallocationDialect DeallocationPasses)
+target_link_libraries(MLIRBufferTransforms PUBLIC DeallocationPasses)
 
 include_directories(${BYTEIR_SRC_DIR}/../external/mlir-hlo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/mlir-hlo)

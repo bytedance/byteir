@@ -31,6 +31,11 @@ using namespace mlir;
 using namespace mlir::byre;
 using namespace mlir::byre::serialization;
 
+std::string Version::getBytecodeProducerString() const {
+  return "BYRE_" + std::to_string(major) + "_" + std::to_string(minor) + "_" +
+         std::to_string(patch);
+}
+
 uint32_t Version::getBytecodeVersion() const {
   return bytecode::BytecodeVersion::kNativePropertiesEncoding;
 }
