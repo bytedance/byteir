@@ -201,9 +201,8 @@ struct ByreCustomOpBufferization
       if (!tensorType)
         return failure();
 
-      bool dealloc = shouldDeallocateOpResult(opResult, options);
-      auto tensorAlloc = allocateTensorForShapedValue(
-          rewriter, op->getLoc(), opResult, /*escapse*/ !dealloc, options);
+      auto tensorAlloc = allocateTensorForShapedValue(rewriter, op->getLoc(),
+                                                      opResult, options);
       if (failed(tensorAlloc))
         return failure();
 
