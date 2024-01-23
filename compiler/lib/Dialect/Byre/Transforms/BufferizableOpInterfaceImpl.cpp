@@ -177,9 +177,9 @@ struct ByreCustomOpBufferization
     return false;
   }
 
-  AliasingOpResultList
-  getAliasingOpResults(Operation * /*op*/, OpOperand & /*opOperand*/,
-                       const AnalysisState & /*state*/) const {
+  AliasingValueList getAliasingValues(Operation * /*op*/,
+                                      OpOperand & /*opOperand*/,
+                                      const AnalysisState & /*state*/) const {
     return {};
   }
 
