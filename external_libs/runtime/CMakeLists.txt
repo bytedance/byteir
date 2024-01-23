@@ -10,7 +10,8 @@ project(brt-libs LANGUAGES CXX CUDA)
 
 set(REPO_ROOT ${PROJECT_SOURCE_DIR})
 message("REPO_ROOT = ${REPO_ROOT}")
-set(CUTLASS_ROOT ${REPO_ROOT}/../external/cutlass)
+set(BYTEIR_ROOT ${REPO_ROOT}/../..)
+set(CUTLASS_ROOT ${BYTEIR_ROOT}/external/cutlass)
 message("CUTLASS_ROOT = ${CUTLASS_ROOT}")
 
 add_subdirectory(flash_attn)
