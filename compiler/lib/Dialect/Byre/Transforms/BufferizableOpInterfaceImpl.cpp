@@ -163,7 +163,7 @@ struct ByreComputeOpBufferization
 struct ByreCustomOpBufferization
     : public BufferizableOpInterface::ExternalModel<ByreCustomOpBufferization,
                                                     byre::CustomOp> {
-  bool bufferizesToAllocation(Operation * /*op*/, OpResult /*opResult*/) const {
+  bool bufferizesToAllocation(Operation * /*op*/, Value /*value*/) const {
     return true;
   }
 
