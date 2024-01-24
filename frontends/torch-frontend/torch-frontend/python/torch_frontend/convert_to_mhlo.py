@@ -1,10 +1,12 @@
 from typing import Optional, Sequence, Union, List, Tuple
 import torch
+import torch.export
 import sys
 
 from torch_frontend import torch_mlir
 from torch_mlir import ir
 from torch_mlir.passmanager import PassManager
+from torch_mlir.dialects import torch as torch_d
 
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
@@ -130,6 +132,57 @@ def compile(
 
     if verbose:
         print('[RUN] ./build/bin/torch-frontend-opt --torch-to-mhlo-pipeline')
+    with module.context:
+        pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
+        if debug == 1:
+            pm.enable_ir_printing(print_before_pass=False,
+                                  print_after_pass=True,
+                                  print_after_only_on_change=False,
+                                  print_after_only_on_failure=True,
+                                  large_elements_limit=10)
+        if debug == 2:
+            pm.enable_ir_printing(print_before_pass=False,
+                                  print_after_pass=True,
+                                  print_after_only_on_change=True,
+                                  print_after_only_on_failure=False,
+                                  large_elements_limit=10)
+        pm.run(module.operation)
+    return module
+
+
+def compile_exported_program(
+    model: torch.export.ExportedProgram,
+    output_type: str,
+    backend_legal_ops: Optional[Sequence[str]] = None,
+    debug: int = 0,
+):
+    if output_type not in ["raw", "torch", "stablehlo"]:
+        raise NotImplementedError("unsupported output type {}".format(output_type))
+    if debug not in [0, 1, 2]:
+        raise NotImplementedError("unsupported debug option {}".format(debug))
+    if backend_legal_ops is None:
+        backend_legal_ops = _CUSTOM_OPS_IN_TORCH
+
+    from torch_mlir.extras.fx_importer import FxImporter
+    context = ir.Context()
+    torch_d.register_dialect(context)
+    fx_importer = FxImporter(context=context)
+    fx_importer.import_frozen_exported_program(model)
+    module = fx_importer.module_op
+
+    if output_type == "raw":
+        return module
+    if debug == 2:
+        print("// IR Dump After RAW")
+        print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
+        print()
+        sys.stdout.flush()
+    if debug:
+        module.context.enable_multithreading(False)
+    
+    if output_type == "torch":
+        return module
+    
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
         if debug == 1:

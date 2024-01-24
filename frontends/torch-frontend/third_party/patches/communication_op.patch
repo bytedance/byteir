@@ -1,8 +1,8 @@
-diff --git a/./include/torch-mlir/Dialect/Torch/IR/TorchFunctionalCommunicationOps.td b/./include/torch-mlir/Dialect/Torch/IR/TorchFunctionalCommunicationOps.td
+diff --git a/include/torch-mlir/Dialect/Torch/IR/TorchFunctionalCommunicationOps.td b/include/torch-mlir/Dialect/Torch/IR/TorchFunctionalCommunicationOps.td
 new file mode 100644
 index 00000000..d8a58997
 --- /dev/null
-+++ b/./include/torch-mlir/Dialect/Torch/IR/TorchFunctionalCommunicationOps.td
++++ b/include/torch-mlir/Dialect/Torch/IR/TorchFunctionalCommunicationOps.td
 @@ -0,0 +1,66 @@
 +//===-------------------------------------------------------*- tablegen -*-===//
 +//
