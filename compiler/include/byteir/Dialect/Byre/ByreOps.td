@@ -178,4 +178,51 @@ def Byre_AliasOp
   let hasVerifier = 1;
 }
 
+def Byre_CustomOp : Byre_Op<"custom",
+    [HasParent<"func::FuncOp">,
+    DeclareOpInterfaceMethods<ByreInterface, ["getCalleeName"]>]> {
+  let summary = "compute custom operation passed by library path and api name. ";
+  let description = [{ 
+    Example:
+    ```mlir
+    %2 = byre.custom(%0, %1) { lib_path = "xxx.so", api_name = "add", extra_args = [0 : i64, 1 : i64, 2.0 : f32] } : (f32, f32) -> f32
+    ```
+    During execution, "xxx.so" will be loaded, and "add" function will be called.
+  }];
+
+  let arguments = (ins
+    StrAttr:$lib_path,
+    StrAttr:$api_name,
+    Variadic<AnyType>:$operands,
+    ArrayAttr:$extra_args,
+    OptionalAttr<ArrayAttr>:$memory_effects
+  );
+
+  let results = (outs
+    Variadic<AnyType>:$results
+  );
+
+  let builders = [
+     OpBuilder<(ins "StringRef":$lib_path,
+                    "StringRef":$api_name,
+                    "ValueRange":$inputs,
+                    "ValueRange":$outputs,
+                    "ArrayAttr":$extra_args)>
+  ];
+
+  let extraClassDeclaration = [{
+    FunctionType getType();
+	
+    /// Get the argument operands to the called function.
+    operand_range getArgOperands() {
+      return {arg_operand_begin(), arg_operand_end()};
+    }
+
+    operand_iterator arg_operand_begin() { return operand_begin(); }
+    operand_iterator arg_operand_end() { return operand_end(); }
+  }];
+
+  let hasVerifier = 1;
+}
+
 #endif // BYTEIR_DIALECT_BYRE_BYRE_OPS

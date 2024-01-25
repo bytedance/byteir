@@ -116,16 +116,14 @@ def main():
     if args.config == 'all':
         results = run_mlir_test(arch)
         results = results + run_torch_test(arch)
-        # TODO(zzk): disable flash attn test for now
-        # run_torch_dynamo_tests(arch)
+        run_torch_dynamo_tests(arch)
     elif args.config == 'mlir':
         results = run_mlir_test(arch)
     elif args.config == 'torch':
         results = run_torch_test(arch)
     elif args.config == 'dynamo':
         # TODO(zzk): use test infra for dynamo tests
-        # TODO(zzk): disable flash attn test for now
-        # run_torch_dynamo_tests(arch)
+        run_torch_dynamo_tests(arch)
         pass
     failed = report_results(results)
     sys.exit(1 if failed else 0)

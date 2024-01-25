@@ -25,10 +25,6 @@ while [[ $# -gt 1 ]]; do
       BRT_TEST=OFF
       shift
       ;;
-    --flash)
-      brt_BUILD_FLASH_ATTN=ON
-      shift
-      ;;
     *)
       echo "Invalid option: $1"
       exit 1
@@ -52,7 +48,6 @@ BRT_USE_CUDA=${BRT_USE_CUDA:-OFF}
 BRT_ENABLE_ASAN=${BRT_ENABLE_ASAN:-OFF}
 BRT_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS:-OFF}
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
-brt_BUILD_FLASH_ATTN=${brt_BUILD_FLASH_ATTN:-OFF}
 # test options
 BRT_TEST=${BRT_TEST:-ON}
 
@@ -69,7 +64,6 @@ cmake -GNinja \
   -DCMAKE_INSTALL_PREFIX="$BUILD_DIR/install" \
   -Dbrt_USE_CUDA=${BRT_USE_CUDA} \
   -Dbrt_USE_NCCL=${BRT_USE_NCCL} \
-  -Dbrt_BUILD_FLASH_ATTN=${brt_BUILD_FLASH_ATTN} \
   -Dbrt_ENABLE_ASAN=${BRT_ENABLE_ASAN} \
   -Dbrt_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS}
 

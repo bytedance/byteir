@@ -485,6 +485,30 @@ std::string AliasOp::getCalleeName() { return "AliasOp"; }
 
 Value AliasOp::getViewSource() { return getSource(); }
 
+//===----------------------------------------------------------------------===//
+// CustomOp
+//===----------------------------------------------------------------------===/
+
+void CustomOp::build(OpBuilder &builder, OperationState &result,
+                     StringRef lib_path, StringRef api_name, ValueRange inputs,
+                     ValueRange outputs, ArrayAttr extra_args) {
+  SmallVector<Attribute> memoryEffectAttrs;
+  memoryEffectAttrs.append(
+      inputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Read));
+  memoryEffectAttrs.append(
+      outputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Write));
+  build(builder, result, TypeRange{}, lib_path, api_name,
+        llvm::to_vector(llvm::concat<Value>(llvm::to_vector(inputs),
+                                            llvm::to_vector(outputs))),
+        extra_args, builder.getArrayAttr(memoryEffectAttrs));
+}
+
+std::string CustomOp::getCalleeName() { return "custom"; }
+
+LogicalResult CustomOp::verify() {
+  return verifyOpInEntryPointFunc(this->getOperation());
+}
+
 // LWC: ignore Async for now
 //
 //===----------------------------------------------------------------------===//

@@ -196,6 +196,38 @@ std::vector<T> OpAccessor::GetAttrAsVector(const std::string &name) const {
   BRT_THROW("Attribute " + name + " is not supported to get as vector");
 }
 
+void *OpAccessor::GetAttrAsVoidPtr(const std::string &name) const {
+  if (auto attr = info_.GetOperation()->getAttrOfType<ArrayAttr>(name)) {
+    size_t totalSize = 0;
+    for (Attribute elementAttr : attr) {
+      if (auto floatAttr = dyn_cast<FloatAttr>(elementAttr)) {
+        totalSize += sizeof(float);
+      } else if (auto intAttr = dyn_cast<IntegerAttr>(elementAttr)) {
+        totalSize += sizeof(int64_t);
+      } else {
+        // TODO: support string
+        BRT_THROW("Not all elements can be converted to void * for attribute" +
+                  name);
+      }
+    }
+    void *result = malloc(totalSize);
+    int ptr = 0;
+    for (Attribute elementAttr : attr) {
+      if (auto floatAttr = dyn_cast<FloatAttr>(elementAttr)) {
+        float val = floatAttr.getValueAsDouble();
+        std::memcpy(static_cast<char *>(result) + ptr, &val, sizeof(float));
+        ptr += sizeof(float);
+      } else if (auto intAttr = dyn_cast<IntegerAttr>(elementAttr)) {
+        int64_t val = intAttr.getInt();
+        std::memcpy(static_cast<char *>(result) + ptr, &val, sizeof(int64_t));
+        ptr += sizeof(int64_t);
+      }
+    }
+    return result;
+  }
+  BRT_THROW("Attribute " + name + " is not supported to get as void *");
+}
+
 std::string OpAccessor::GetUID() const {
   auto byre_op = llvm::cast<byre::ByreOp>(info_.GetOperation());
   return ByREHandle::GetOpUID(byre_op);
