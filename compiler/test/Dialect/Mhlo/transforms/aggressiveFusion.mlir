@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -hlo-aggressive-fusion| FileCheck %s
+// RUN: byteir-opt %s -hlo-aggressive-fusion | FileCheck %s
 
 func.func @mhlo_aggressive_fusion(%arg0 : tensor<32x32xf32>, %arg1 : tensor<32xi64>, %arg2 : tensor<32x32xf32>) -> tensor<32x32xf32> {
   %0 = "mhlo.add"(%arg0, %arg0) : (tensor<32x32xf32>, tensor<32x32xf32>) -> tensor<32x32xf32>
