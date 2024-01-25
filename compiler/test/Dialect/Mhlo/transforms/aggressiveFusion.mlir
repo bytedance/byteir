@@ -6,7 +6,6 @@ func.func @mhlo_aggressive_fusion(%arg0 : tensor<32x32xf32>, %arg1 : tensor<32xi
   %2 = "mhlo.add"(%1, %arg2) : (tensor<32x32xf32>, tensor<32x32xf32>) -> tensor<32x32xf32>
   return %2 : tensor<32x32xf32>
 }
-
 // CHECK-LABEL: func.func @mhlo_aggressive_fusion
 // CHECK-NEXT:  mhlo.fusion
 // CHECK-NEXT:    mhlo.add
@@ -14,4 +13,28 @@ func.func @mhlo_aggressive_fusion(%arg0 : tensor<32x32xf32>, %arg1 : tensor<32xi
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.return
 // CHECK: {__byteir_hlo_aggressive_fusion__}
+// CHECK:  return
+
+
+func.func @reshape_add(%arg0: tensor<2xf32>, %arg1: tensor<2x1xf32>) -> (tensor<2x1xf32>) {
+  %0 = mhlo.reshape %arg0 : (tensor<2xf32>) -> tensor<2x1xf32>
+  %1 = mhlo.add %0, %arg1 : tensor<2x1xf32>
+  return %1 : tensor<2x1xf32>
+}
+// CHECK-LABEL: func.func @reshape_add
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.reshape
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.return
+// CHECK: {__byteir_hlo_aggressive_fusion__}
+// CHECK:  return
+
+
+func.func @single_reshape(%arg0: tensor<2xf32>) -> tensor<2x1xf32> {
+  %0 = mhlo.reshape %arg0 : (tensor<2xf32>) -> tensor<2x1xf32>
+  return %0 : tensor<2x1xf32>
+}
+// CHECK-LABEL: func.func @single_reshape
+// CHECK-NOT:  mhlo.fusion
+// CHECK:  mhlo.reshape
 // CHECK:  return
