@@ -1,18 +1,6 @@
 name: Compiler And Runtime Build
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - ".github/workflows/onnx-frontend-ci.yaml"
-      - ".github/workflows/tf-frontend-ci.yaml"
-      - ".github/workflows/torch-frontend-ci.yaml"
-      - "frontends/**"
-      - "**/**.md"
-      - "talks/**"
-      - "compiler/python/version.txt"
-      - "runtime/VERSION_NUMBER"
   pull_request:
     branches:
       - main

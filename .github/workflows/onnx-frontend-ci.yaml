@@ -1,14 +1,6 @@
 name: ONNX-Frontend CI
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/onnx-frontend-ci.yaml"
-      - "frontends/onnx-frontend/**"
-      - "!**/**.md"
-      - "!talks/**"
   pull_request:
     branches:
       - main
