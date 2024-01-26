@@ -1,13 +1,6 @@
 name: TfFrontend CI
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/tf-frontend-ci.yaml"
-      - "frontends/tf-frontend/**"
-      - "!**/**.md"
   pull_request:
     branches:
       - main

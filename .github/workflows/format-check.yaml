@@ -1,6 +1,6 @@
 name: Format Check
 
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
 jobs:
   clang-format-check:
