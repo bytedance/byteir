@@ -63,6 +63,9 @@ set(BYTEIR_BUILD_EMBEDDED ON)
 add_subdirectory(${BYRE_SRC_DIR}/cmake ${BYRE_BUILD_DIR} EXCLUDE_FROM_ALL)
 include_directories(${BYRE_SRC_DIR}/include)
 include_directories(${BYRE_BUILD_DIR}/include)
+include_directories(${BYRE_SRC_DIR}/dialects/include)
+include_directories(${BYRE_BUILD_DIR}/dialects/include)
+
 
 set(BYRE_ALL_EXTERNAL_LIBS
   -Wl,--start-group

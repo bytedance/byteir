@@ -1,4 +1,3 @@
-add_subdirectory(IR)
 add_subdirectory(TransformOps)
 
 set(LLVM_TARGET_DEFINITIONS Passes.td)
