@@ -1,20 +1,20 @@
 #!/bin/bash
 
 set -e
+set -x
 
+# path to script
 CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # path to byteir root
 ROOT_PROJ_DIR="$CUR_DIR/../.."
 # path to byteir/compiler
 PROJ_DIR="$ROOT_PROJ_DIR/compiler"
-
 # dir to build
 BUILD_DIR="$PROJ_DIR/build"
 # dir to install
 INSTALL_DIR="$BUILD_DIR/byre_install"
 
 source $CUR_DIR/../prepare.sh
-
 prepare_for_compiler
 
 rm -rf "$BUILD_DIR"
@@ -28,7 +28,17 @@ cmake "-H$PROJ_DIR/cmake" \
       -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
       -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
-cmake --build "$BUILD_DIR" --config Release --target check-byteir
-# FIXME: need python >= 3.8 in CI runner
+cmake --build "$BUILD_DIR" --target all check-byteir install
+cmake --build "$BUILD_DIR" --target check-byteir-numerical
+cmake --build "$BUILD_DIR" --target byteir-python-pack
+
+# test cat
 cmake --build "$BUILD_DIR" --target check-byteir-python
 
+# TODO: make this test more robust
+# test byteir.compile
+pushd $ROOT_PROJ_DIR
+PYTHONPATH=./compiler/build/python_packages/byteir python3 -m byteir.tools.compiler ./compiler/test/E2E/MLPInference/input.mlir -o ./test.mlir --entry_func forward
+rm -f ./test.mlir
+rm -f ./test.mlir.ptx
+popd

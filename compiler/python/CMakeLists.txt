@@ -20,6 +20,8 @@ declare_mlir_python_sources(ByteIRPythonSources.Common
     utils.py
     compile.py
     tools/compiler.py
+    tools/cat_execute.py
+    tools/cat_numerical_test.py
 
     # involve byteir init hooks
     _mlir_libs/_site_initialize_0.py

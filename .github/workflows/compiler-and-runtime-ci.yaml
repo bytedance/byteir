@@ -42,7 +42,7 @@ jobs:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Run build and test
-        run: ./scripts/compiler/build_and_lit_test.sh
+        run: ./scripts/compiler/build_and_test.sh
         shell: bash
   brt_check_cpu:
     name: BRT cpu test
@@ -76,14 +76,4 @@ jobs:
       uses: actions/checkout@v3
     - name: Build and test BRT with asan
       run: ./scripts/runtime/build_and_test.sh --cuda --asan
-      shell: bash
-  byteir_compiler_build_and_test_python:
-    name: byteir cat test CI
-    runs-on: self-hosted
-    needs: [clear_workspace]
-    steps:
-    - name: Checkout byteir repo
-      uses: actions/checkout@v3
-    - name: Build and Test Python APIs
-      run: ./scripts/compiler/build_and_test_cat.sh
       shell: bash
