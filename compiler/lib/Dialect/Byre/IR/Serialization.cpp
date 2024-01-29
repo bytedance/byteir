@@ -433,6 +433,20 @@ LogicalResult replaceByreWithByreSerialImpl(ComputeOp compute) {
   return replaceByreWithByreSerialImpl<ComputeOpV1>(compute);
 }
 
+LogicalResult replaceByreWithByreSerialImpl(memref::AllocOp alloc) {
+  OpBuilder b(alloc);
+  AttrTypeReplacer replacer;
+  populateToByreSerialTypeAndAttrRewriter(replacer);
+  auto newOp = createNewOpGeneric<AllocOpV1>(alloc, replacer, b);
+  if (!newOp)
+    return failure();
+  newOp->setInherentAttr(newOp.getOperandSegmentSizesAttrName(),
+                         newOp->removeDiscardableAttr("operandSegmentSizes"));
+  alloc->replaceAllUsesWith(newOp);
+  alloc->erase();
+  return success();
+}
+
 template <typename T, typename U>
 LogicalResult replaceByreSerialWithByreImpl(U op) {
   AttrTypeReplacer replacer;
@@ -537,9 +551,8 @@ LogicalResult replaceByreWithByreSerial(Operation *op) {
       .Case([](func::ReturnOp op) {
         return replaceByreWithByreSerialImpl<ReturnOpV1>(op);
       })
-      .Case([](memref::AllocOp op) {
-        return replaceByreWithByreSerialImpl<AllocOpV1>(op);
-      })
+      .Case(
+          [](memref::AllocOp op) { return replaceByreWithByreSerialImpl(op); })
       .Case([](ComputeOp op) { return replaceByreWithByreSerialImpl(op); })
       .Case([](AliasOp op) {
         return replaceByreWithByreSerialImpl<AliasOpV1>(op);
