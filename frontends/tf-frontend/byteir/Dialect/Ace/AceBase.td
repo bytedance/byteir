@@ -1,1 +1,1 @@
-../../../../../compiler/include/byteir/Dialect/Ace/AceBase.td
+../../../../../compiler/dialects/include/byteir/Dialect/Ace/AceBase.td
