@@ -1,13 +1,18 @@
+set(LLVM_TARGET_DEFINITIONS FuseOpOnTorchPattern.td)
+mlir_tablegen(FuseOpOnTorchPattern.inc -gen-rewriters)
+add_public_tablegen_target(FuseOpOnTorchPatternIncGen)
+
 add_mlir_library(TorchFrontendTransforms
-  RewriteToByteIREntryPoint.cpp
   RewriteCustomOp.cpp
   CanonicalizeExt.cpp
   UnpackPublicFunctionReturn.cpp
   EliminateUselessOp.cpp
+  FuseOpOnTorch.cpp
 
   DEPENDS
   TorchFrontendTransformsPassIncGen
   TorchMLIRTorchDialect
+  FuseOpOnTorchPatternIncGen
 
   LINK_COMPONENTS
   Core
@@ -19,3 +24,4 @@ add_mlir_library(TorchFrontendTransforms
   TorchMLIRTorchDialect
   TorchFrontendUtils
 )
+target_include_directories(TorchFrontendTransforms PUBLIC ${CMAKE_CURRENT_BINARY_DIR})

@@ -21,13 +21,4 @@ def ConvertTorchToStablehloExt : Pass<"convert-torch-to-stablehlo-ext", "func::F
   let constructor = "mlir::createConvertTorchToStablehloExt()";
 }
 
-//===----------------------------------------------------------------------===//
-// FuseOpOnTorch
-//===----------------------------------------------------------------------===//
-
-def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
-  let summary = "fuse op on torch dialect";
-  let constructor = "mlir::createFuseOpOnTorch()";
-}
-
 #endif // TORCH_FRONTEND_CONVERSION_PASSES_TD

@@ -20,7 +20,6 @@
 
 #include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
 #include "torch-frontend/Conversion/ConvertTorchToStablehloExt.h"
-#include "torch-frontend/Conversion/FuseOpOnTorch.h"
 
 namespace mlir {
 

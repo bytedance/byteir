@@ -5,7 +5,7 @@ from torch_frontend import convert_to_mhlo_via_torch_mlir
 
 def test_resnet18_compile():
     import torchvision.models as models
-    resnet18 = models.resnet18(pretrained=True)
+    resnet18 = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     resnet18.train(False)
     inputs = torch.ones(1, 3, 224, 224)
 
