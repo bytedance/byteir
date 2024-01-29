@@ -26,9 +26,7 @@ function install_aitemplate() {
 }
 
 function load_llvm_prebuilt() {
-  if [[ -z ${LLVM_INSTALL_DIR} ]]; then
-    LLVM_INSTALL_DIR="/data00/llvm_libraries/b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc/llvm_build"
-  fi
+  LLVM_INSTALL_DIR="/data00/llvm_libraries/b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc/llvm_build"
 }
 
 function lfs_pull_external_libs() {
