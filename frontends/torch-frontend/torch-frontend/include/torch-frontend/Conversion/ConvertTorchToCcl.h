@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- ConvertTorchToCcl.h ------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_PASSES
-#define TORCH_FRONTEND_CONVERSION_PASSES
+#ifndef TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCCL_H
+#define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCCL_H
 
-#include "torch-frontend/Conversion/ConvertTorchToCcl.h"
-#include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
-#include "torch-frontend/Conversion/ConvertTorchToStablehloExt.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
-
-class Module;
-
 namespace func {
 class FuncOp;
 } // namespace func
 
-// Generate the code for registering conversion passes.
-#define GEN_PASS_REGISTRATION
-#include "torch-frontend/Conversion/Passes.h.inc"
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToCcl();
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_CONVERSION_PASSES
+#endif // TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCCL_H

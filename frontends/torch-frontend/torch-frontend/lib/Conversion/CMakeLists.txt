@@ -1,4 +1,5 @@
 add_mlir_library(TorchFrontendConversion
+  ConvertTorchToCcl.cpp
   ConvertTorchToCustomCall.cpp
   ConvertTorchToStablehloExt.cpp
 
@@ -15,6 +16,7 @@ add_mlir_library(TorchFrontendConversion
   MLIRTransforms
   ChloOps
   StablehloOps
+  MLIRCclDialect
   TorchMLIRConversionUtils
   TorchMLIRTorchDialect
   TorchMLIRTorchPasses
