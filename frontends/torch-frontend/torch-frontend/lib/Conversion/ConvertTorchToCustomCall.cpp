@@ -1134,88 +1134,6 @@ public:
 } // namespace
 
 namespace {
-class ConvertC10dFunctionalAllReduceOp
-    : public OpConversionPattern<C10dFunctionalAllReduceOp> {
-public:
-  using OpConversionPattern<C10dFunctionalAllReduceOp>::OpConversionPattern;
-
-  LogicalResult
-  matchAndRewrite(C10dFunctionalAllReduceOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value input = adaptor.getSelf();
-    auto inputType = input.getType();
-    auto outType = getTypeConverter()->convertType(op.getResult().getType());
-
-    std::string reduceOp, tag;
-    if (!matchPattern(op.getReduceOp(), m_TorchConstantStr(reduceOp))) {
-      return rewriter.notifyMatchFailure(op, "unsupported value of reduceOp");
-    }
-    if (!matchPattern(op.getTag(), m_TorchConstantStr(tag))) {
-      return rewriter.notifyMatchFailure(op, "unsupported value of tag");
-    }
-    llvm::SmallVector<int64_t> ranks;
-    if (!matchPattern(op.getRanks(), m_TorchListOfConstantInts(ranks))) {
-      return rewriter.notifyMatchFailure(op, "unsupported value of ranks");
-    }
-    int64_t groupSize;
-    if (!matchPattern(op.getGroupSize(), m_TorchConstantInt(&groupSize))) {
-      return rewriter.notifyMatchFailure(op, "unsupported value of group_size");
-    }
-
-    std::vector<NamedAttribute> byteirAttrs;
-    byteirAttrs.emplace_back(rewriter.getStringAttr("reduce_op"),
-                             rewriter.getStringAttr(reduceOp));
-    byteirAttrs.emplace_back(rewriter.getStringAttr("tag"),
-                             rewriter.getStringAttr(tag));
-    byteirAttrs.emplace_back(rewriter.getStringAttr("ranks"),
-                             rewriter.getI64TensorAttr(ranks));
-    byteirAttrs.emplace_back(rewriter.getStringAttr("group_size"),
-                             rewriter.getI64IntegerAttr(groupSize));
-
-    auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr("byteir.all_reduce"));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                       rewriter.getDictionaryAttr(byteirAttrs));
-
-    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), ArrayRef<Type>{outType}, ArrayRef<Value>{input},
-        ArrayRef<NamedAttribute>{attrs});
-    rewriter.replaceOp(op, customCallOp->getResults());
-    return success();
-  }
-};
-
-class ConvertC10dFunctionalWaitTensorOp
-    : public OpConversionPattern<C10dFunctionalWaitTensorOp> {
-public:
-  using OpConversionPattern<C10dFunctionalWaitTensorOp>::OpConversionPattern;
-
-  LogicalResult
-  matchAndRewrite(C10dFunctionalWaitTensorOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value input = adaptor.getSelf();
-    auto inputType = input.getType();
-    auto outType = getTypeConverter()->convertType(op.getResult().getType());
-
-    std::vector<NamedAttribute> byteirAttrs;
-
-    auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr("byteir.wait_tensor"));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                       rewriter.getDictionaryAttr(byteirAttrs));
-
-    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), ArrayRef<Type>{outType}, ArrayRef<Value>{input},
-        ArrayRef<NamedAttribute>{attrs});
-    rewriter.replaceOp(op, customCallOp->getResults());
-    return success();
-  }
-};
-} // namespace
-
-namespace {
 class ConvertTorchToCustomCall
     : public ConvertTorchToCustomCallBase<ConvertTorchToCustomCall> {
 public:
@@ -1276,11 +1194,6 @@ public:
     patterns.add<ConvertAtenOneHotOp>(typeConverter, context);
     target.addIllegalOp<AtenTopkOp>();
     patterns.add<ConvertAtenTopkOp>(typeConverter, context);
-
-    target.addIllegalOp<C10dFunctionalAllReduceOp>();
-    patterns.add<ConvertC10dFunctionalAllReduceOp>(typeConverter, context);
-    target.addIllegalOp<C10dFunctionalWaitTensorOp>();
-    patterns.add<ConvertC10dFunctionalWaitTensorOp>(typeConverter, context);
 
     target.addIllegalOp<CustomOp>();
     patterns.add<ConvertDynamicPartitionCustomOp>(typeConverter, context);

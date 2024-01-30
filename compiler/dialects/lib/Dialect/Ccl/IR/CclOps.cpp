@@ -75,6 +75,19 @@ void CclDialect::initialize() {
 }
 
 //===----------------------------------------------------------------------===//
+// ccl.wait_tensor
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+WaitTensorOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
+                               ValueRange operands, DictionaryAttr,
+                               OpaqueProperties, RegionRange,
+                               SmallVectorImpl<Type> &inferredReturnTypes) {
+  inferredReturnTypes.push_back(operands[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ccl.all_reduce
 //===----------------------------------------------------------------------===//
 

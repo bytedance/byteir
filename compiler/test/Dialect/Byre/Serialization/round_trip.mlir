@@ -22,7 +22,7 @@ module attributes {byre.container_module} {
 //  CHECK-DAG:  byteir.entry_point
 //  CHECK-DAG:  tf.original_input_names
 // CHECK-SAME: }
-// CHECK:   meref.alloc() : memref<4xf32>
+// CHECK:   memref.alloc() : memref<4xf32>
 // CHECK:   byre.compute @some_kernel(%arg0, %arg1) : memref<100x?xf32>, memref<100x?xf32>
 // CHECK:   return
 // CHECK: }
