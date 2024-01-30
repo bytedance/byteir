@@ -58,26 +58,12 @@ public:
       return rewriter.notifyMatchFailure(op, "unsupported value of group_size");
     }
 
-    // std::vector<NamedAttribute> byteirAttrs;
-    // byteirAttrs.emplace_back(rewriter.getStringAttr("reduce_op"),
-    //                          rewriter.getStringAttr(reduceOp));
-    // byteirAttrs.emplace_back(rewriter.getStringAttr("tag"),
-    //                          rewriter.getStringAttr(tag));
-    // byteirAttrs.emplace_back(rewriter.getStringAttr("ranks"),
-    //                          rewriter.getI64TensorAttr(ranks));
-    // byteirAttrs.emplace_back(rewriter.getStringAttr("group_size"),
-    //                          rewriter.getI64IntegerAttr(groupSize));
-
-    // auto attrs = getDefaultAttrs(rewriter);
-    // attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-    //                    rewriter.getStringAttr("byteir.all_reduce"));
-    // attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-    //                    rewriter.getDictionaryAttr(byteirAttrs));
-
-    // auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-    //     op->getLoc(), ArrayRef<Type>{outType}, ArrayRef<Value>{input},
-    //     ArrayRef<NamedAttribute>{attrs});
-    // rewriter.replaceOp(op, customCallOp->getResults());
+    auto cclAllReduceOp = rewriter.create<ccl::AllReduceOp>(
+        op->getLoc(), input, Value(), rewriter.getStringAttr(reduceOp),
+        rewriter.getArrayAttr(
+            ArrayRef<Attribute>{rewriter.getI64ArrayAttr(ranks)}),
+        nullptr);
+    rewriter.replaceOp(op, cclAllReduceOp.getResult());
     return success();
   }
 };

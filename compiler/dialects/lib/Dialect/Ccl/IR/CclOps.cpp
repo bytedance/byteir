@@ -118,6 +118,12 @@ AllReduceOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
 }
 
 LogicalResult AllReduceOp::verify() {
+  auto reduction = getReduction();
+  if (reduction != getRedOpSumName() && reduction != getRedOpProdName() &&
+      reduction != getRedOpMinName() && reduction != getRedOpMaxName() &&
+      reduction != getRedOpAvgName()) {
+    return this->emitError("unknown reduction str: ") << reduction;
+  }
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
 }
