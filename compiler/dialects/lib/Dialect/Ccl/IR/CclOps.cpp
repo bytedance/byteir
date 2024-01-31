@@ -75,6 +75,19 @@ void CclDialect::initialize() {
 }
 
 //===----------------------------------------------------------------------===//
+// ccl.wait_tensor
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+WaitTensorOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
+                               ValueRange operands, DictionaryAttr,
+                               OpaqueProperties, RegionRange,
+                               SmallVectorImpl<Type> &inferredReturnTypes) {
+  inferredReturnTypes.push_back(operands[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ccl.all_reduce
 //===----------------------------------------------------------------------===//
 
@@ -105,6 +118,12 @@ AllReduceOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
 }
 
 LogicalResult AllReduceOp::verify() {
+  auto reduction = getReduction();
+  if (reduction != getRedOpSumName() && reduction != getRedOpProdName() &&
+      reduction != getRedOpMinName() && reduction != getRedOpMaxName() &&
+      reduction != getRedOpAvgName()) {
+    return this->emitError("unknown reduction str: ") << reduction;
+  }
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
 }

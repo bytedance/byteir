@@ -18,9 +18,9 @@
 #ifndef TORCH_FRONTEND_CONVERSION_PASSES
 #define TORCH_FRONTEND_CONVERSION_PASSES
 
+#include "torch-frontend/Conversion/ConvertTorchToCcl.h"
 #include "torch-frontend/Conversion/ConvertTorchToCustomCall.h"
 #include "torch-frontend/Conversion/ConvertTorchToStablehloExt.h"
-#include "torch-frontend/Conversion/FuseOpOnTorch.h"
 
 namespace mlir {
 

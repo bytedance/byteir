@@ -22,12 +22,12 @@ def ConvertTorchToStablehloExt : Pass<"convert-torch-to-stablehlo-ext", "func::F
 }
 
 //===----------------------------------------------------------------------===//
-// FuseOpOnTorch
+// ConvertTorchToCcl
 //===----------------------------------------------------------------------===//
 
-def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
-  let summary = "fuse op on torch dialect";
-  let constructor = "mlir::createFuseOpOnTorch()";
+def ConvertTorchToCcl : Pass<"convert-torch-to-ccl", "func::FuncOp"> {
+  let summary = "convert torch communication ops to byteir ccl dialect.";
+  let constructor = "mlir::createConvertTorchToCcl()";
 }
 
 #endif // TORCH_FRONTEND_CONVERSION_PASSES_TD

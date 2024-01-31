@@ -1,4 +1,4 @@
-//===- RewriteToByteIREntryPoint.cpp --------------------------*--- C++ -*-===//
+//===- ConvertTorchToCcl.h ------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,28 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "torch-frontend/Transforms/RewriteToByteIREntryPoint.h"
-#include "mlir/IR/BuiltinOps.h"
+#ifndef TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCCL_H
+#define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCCL_H
 
-#include "./PassDetail.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
-using namespace mlir;
+namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-namespace {
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToCcl();
 
-struct RewriteToByteIREntryPointPass
-    : public RewriteToByteIREntryPointBase<RewriteToByteIREntryPointPass> {
-  RewriteToByteIREntryPointPass() = default;
-  void runOnOperation() override final {
-    ModuleOp m = getOperation();
-    MLIRContext *ctx = &getContext();
-    // TODO
-  }
-};
+} // namespace mlir
 
-} // namespace
-
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createRewriteToByteIREntryPoint() {
-  return std::make_unique<RewriteToByteIREntryPointPass>();
-}
+#endif // TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCCL_H

@@ -30,6 +30,14 @@ include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/externals/
 include_directories(${TORCH_FRONTEND_BIN_ROOT}/torch-mlir/stablehlo)
 
 #-------------------------------------------------------------------------------
+# ByteIR Dialects
+#-------------------------------------------------------------------------------
+set(BYTEIR_SRC_DIR ${TORCH_FRONTEND_SRC_ROOT}/../../compiler)
+include_directories(${BYTEIR_SRC_DIR}/dialects/include)
+include_directories(${TORCH_FRONTEND_BIN_ROOT}/dialects/include)
+add_subdirectory(${BYTEIR_SRC_DIR}/dialects ${TORCH_FRONTEND_BIN_ROOT}/dialects EXCLUDE_FROM_ALL)
+
+#-------------------------------------------------------------------------------
 # Compile Torch Frontend
 #-------------------------------------------------------------------------------
 

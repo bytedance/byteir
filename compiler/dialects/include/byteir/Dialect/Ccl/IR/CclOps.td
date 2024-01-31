@@ -32,6 +32,19 @@ class Ccl_Op<string mnemonic, list<Trait> traits = []> :
     Op<Ccl_Dialect, mnemonic, traits> {
 }
 
+def Ccl_WaitTensorOp : Ccl_Op<"wait_tensor", [Pure,
+    SameOperandsAndResultElementType,
+    SameOperandsAndResultShape,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "WaitTensor operator";
+  let description = [{
+    Wait until tensor to be ready after asynchronous ops.
+  }];
+
+  let arguments = (ins AnyTensor:$src);
+  let results = (outs AnyTensor:$result);
+}
+
 class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
     Ccl_Op<mnemonic, !listconcat(traits, [Pure])> {
   code commonExtraClassDeclaration = [{

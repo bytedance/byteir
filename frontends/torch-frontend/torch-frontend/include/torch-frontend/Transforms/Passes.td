@@ -3,15 +3,6 @@
 
 include "mlir/Pass/PassBase.td"
 
-//===----------------------------------------------------------------------===//
-// RewriteToByteIREntryPoint
-//===----------------------------------------------------------------------===//
-
-def RewriteToByteIREntryPoint : Pass<"rewrite-to-byteir-entry-point", "ModuleOp"> {
-  let summary = "rewrite to byteir entry point.";
-  let constructor = "mlir::createRewriteToByteIREntryPoint()";
-}
-
 def CanonicalizeExt : Pass<"canonicalize-ext"> {
   let summary = "Perform as an extension of upstream canonicalize pass.";
   let description = [{
@@ -48,6 +39,15 @@ def UnpackPublicFunctionReturn : Pass<"unpack-public-function-return", "func::Fu
 def EliminateUselessOp : Pass<"eliminate-useless-op", "func::FuncOp"> {
   let summary = "eliminate useless op before entering converion pass, i.e., torch.profiler.";
   let constructor = "mlir::createEliminateUselessOpPass()";
+}
+
+//===----------------------------------------------------------------------===//
+// FuseOpOnTorch
+//===----------------------------------------------------------------------===//
+
+def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
+  let summary = "fuse op on torch dialect";
+  let constructor = "mlir::createFuseOpOnTorch()";
 }
 
 #endif // TORCH_FRONTEND_TRANSFORMS_PASSES_TD
