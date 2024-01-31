@@ -301,7 +301,8 @@ LogicalResult mlir::yieldTiledValuesForMultiDst(
         // TODO: there might be other types of all reduce
         Value cclRes = b.create<ccl::AllReduceOp>(
             loc, yieldedValue.value(), /*dynamic_replica_groups*/ nullptr,
-            ccl::getRedOpSumName(), /*replica_groups*/ nullptr,
+            /*synchronous*/ true, ccl::getRedOpSumName(),
+            /*replica_groups*/ nullptr,
             /*unique_id*/ nullptr);
         inserts.push_back(cclRes);
       } else {

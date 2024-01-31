@@ -18,7 +18,7 @@ declare_mlir_python_sources(TorchFrontendPythonSources.TopLevel
     fx_rewrite.py
     fx_tracer.py
     fx_utils.py
-    convert_to_mhlo.py
+    compile.py
 )
 
 ################################################################################

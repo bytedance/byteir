@@ -15,5 +15,5 @@ func.func @torch.c10d_functional.all_reduce(%arg0: !torch.vtensor<[4],f32>) -> (
 }
 // CHECK-LABEL: func.func @torch.c10d_functional.all_reduce
 // CHECK: ccl.all_reduce
-// CHECK-SAME{LITERAL}: {reduction = "sum", replica_groups = [[0, 1, 2, 3]]}
-// CHECK: ccl.wait_tensor
+// CHECK-SAME{LITERAL}: {reduction = "sum", replica_groups = [[0, 1, 2, 3]], synchronous = false}
+// CHECK: ccl.wait

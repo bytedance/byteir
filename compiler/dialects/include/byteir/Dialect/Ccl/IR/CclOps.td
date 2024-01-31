@@ -32,11 +32,11 @@ class Ccl_Op<string mnemonic, list<Trait> traits = []> :
     Op<Ccl_Dialect, mnemonic, traits> {
 }
 
-def Ccl_WaitTensorOp : Ccl_Op<"wait_tensor", [Pure,
+def Ccl_WaitOp : Ccl_Op<"wait", [Pure,
     SameOperandsAndResultElementType,
     SameOperandsAndResultShape,
     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
-  let summary = "WaitTensor operator";
+  let summary = "Wait operator";
   let description = [{
     Wait until tensor to be ready after asynchronous ops.
   }];
@@ -82,6 +82,7 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
   let arguments = (ins
     AnyTensor:$src,
     Optional<AnyTensor>:$dynamic_replica_groups,
+    BoolAttr:$synchronous,
     StrAttr:$reduction,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
     OptionalAttr<I64Attr>:$unique_id
@@ -111,6 +112,7 @@ def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather", [Pure]> {
   let arguments = (ins
     AnyTensor:$src,
     Optional<AnyTensor>:$dynamic_replica_groups,
+    BoolAttr:$synchronous,
     I64Attr:$axis,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
     OptionalAttr<I64Attr>:$unique_id
@@ -134,6 +136,7 @@ def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter", [Pure]> {
   let arguments = (ins
     AnyTensor:$src,
     Optional<AnyTensor>:$dynamic_replica_groups,
+    BoolAttr:$synchronous,
     StrAttr:$reduction,
     I64Attr:$axis,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
@@ -158,6 +161,7 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all", [Pure]> {
   let arguments = (ins
     AnyTensor:$src,
     Optional<AnyTensor>:$dynamic_replica_groups,
+    BoolAttr:$synchronous,
     I64Attr:$split_axis,
     I64Attr:$concat_axis,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
@@ -168,5 +172,37 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all", [Pure]> {
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
 }
+
+def Ccl_SendOp : Ccl_Op<"send", [Pure,
+    SameOperandsAndResultElementType,
+    SameOperandsAndResultShape,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "Send operator";
+  let description = [{
+    Send `src` tensor to `target_index` device.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$src,
+    BoolAttr:$synchronous,
+    I64Attr:$target_index
+  );
+  let results = (outs AnyTensor:$result);
+}
+
+def Ccl_RecvOp : Ccl_Op<"recv", [Pure]> {
+  let summary = "Recv operator";
+  let description = [{
+    Recv tensor from `source_index`.
+    if dynmaic shape, `shape` should be given.
+  }];
+
+  let arguments = (ins
+    Optional<1DTensorOf<[Index, I64]>>:$shape,
+    BoolAttr:$synchronous,
+    I64Attr:$source_index
+  );
+  let results = (outs AnyTensor:$result);
+} 
 
 #endif // BYTEIR_DIALECT_CCL_CCL_OPS
