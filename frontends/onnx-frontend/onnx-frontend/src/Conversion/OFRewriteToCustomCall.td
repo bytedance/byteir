@@ -29,6 +29,13 @@ def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr sho
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are actually the same">;
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">, "value has exactly one use">;
 
+def isScalarConstantTensor :
+    Constraint<CPred<"onnx_mlir::isScalarConstantTensor($_self)">,
+  "Value is produced by a dense ONNXConstantOp and has size one">;
+def SameTwoIntegerScalarConstantValues :
+    Constraint<CPred<"onnx_mlir::getElementAttributeFromONNXValue($0).getValues<APInt>()[0].getSExtValue() == onnx_mlir::getElementAttributeFromONNXValue($1).getValues<APInt>()[0].getSExtValue()">,
+  "Two integer scalar constant Value have the same integer scalar">;
+
 //===----------------------------------------------------------------------===//
 // L2Norm Pattern
 //===----------------------------------------------------------------------===//
@@ -37,22 +44,22 @@ def RewriteL2NormPat1 : Pat<
     $input,
     (ONNXExpandOp
       (ONNXAddOp
-        (ONNXReduceL2V13Op $input, $axis_attr, $keep_dims),
+        (ONNXReduceL2Op $input, $axes, $keep_dims, $noop_with_empty_axes),
         (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
       ),
       (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)  // should be the shape of $input
     )
   ),
-  (NativeCodeCall<"createL2Norm($_builder, $_loc, $0, $1, $2)"> $input, $axis_attr, $epsilon_attr),
-  [(IsOneSize $axis_attr), (TrueBoolAttr $keep_dims), (IsOneSizeElements $epsilon_attr)]>;
+  (NativeCodeCall<"createL2Norm($_builder, $_loc, $0, $1, $2)"> $input, $axes, $epsilon_attr),
+  [(isScalarConstantTensor:$axes), (TrueBoolAttr $keep_dims), (IsOneSizeElements $epsilon_attr)]>;
 
 def RewriteL2NormPat2 : Pat<
   (ONNXDivOp
     $input,
-    (ONNXReduceL2V13Op $input, $axis_attr, $keep_dims)
+    (ONNXReduceL2Op $input, $axes, $keep_dims, $noop_with_empty_axes)
   ),
-  (NativeCodeCall<"createL2NormWithoutEps($_builder, $_loc, $0, $1)"> $input, $axis_attr),
-  [(IsOneSize $axis_attr), (TrueBoolAttr $keep_dims)]>;
+  (NativeCodeCall<"createL2NormWithoutEps($_builder, $_loc, $0, $1)"> $input, $axes),
+  [(isScalarConstantTensor:$axes), (TrueBoolAttr $keep_dims)]>;
 
 //===----------------------------------------------------------------------===//
 // Quantize/Dequantize Pattern
@@ -105,15 +112,15 @@ def RewriteLayerNorm : Pat<
       (ONNXDivOp
         (ONNXSubOp:$input_zero_mean_0
           $input,
-          (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
+          (ONNXReduceMeanOp $input, $axes_0, $_, $_)
         ),
         (ONNXSqrtOp
           (ONNXAddOp
-            (ONNXReduceMeanV13Op
+            (ONNXReduceMeanOp
               (ONNXMulOp
                 $input_zero_mean_1,
                 $input_zero_mean_1
-              ), $axis_attr_1, $_
+              ), $axes_1, $_, $_
             ),
             (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
           )
@@ -123,10 +130,10 @@ def RewriteLayerNorm : Pat<
     ),
     (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
   ),
-  (NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $scale, $B, $axis_attr_1, $epsilon_attr),
+  (NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $scale, $B, $axes_0, $epsilon_attr),
   [(IsOneSizeElements $epsilon_attr),
-   (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
-   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+   (isScalarConstantTensor:$axes_0), (isScalarConstantTensor:$axes_1),
+   (SameTwoIntegerScalarConstantValues $axes_0, $axes_1),
    (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
    (HasOneUse $mul_result),
   ]>;
@@ -137,14 +144,14 @@ def RewriteLayerNormWithNoneEps : Pat<
       (ONNXDivOp
         (ONNXSubOp:$input_zero_mean_0
           $input,
-          (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
+          (ONNXReduceMeanOp $input, $axes_0, $_, $_)
         ),
         (ONNXSqrtOp
-          (ONNXReduceMeanV13Op
+          (ONNXReduceMeanOp
             (ONNXMulOp
               $input_zero_mean_1,
               $input_zero_mean_1
-            ), $axis_attr_1, $_
+            ), $axes_1, $_, $_
           )
         )
       ),
@@ -152,9 +159,9 @@ def RewriteLayerNormWithNoneEps : Pat<
     ),
     (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
   ),
-  (NativeCodeCall<"createLayerNormWithNoneEps($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $B, $axis_attr_1),
-  [(IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
-   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+  (NativeCodeCall<"createLayerNormWithNoneEps($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $B, $axes_0),
+  [(isScalarConstantTensor:$axes_0), (isScalarConstantTensor:$axes_1),
+   (SameTwoIntegerScalarConstantValues $axes_0, $axes_1),
    (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
    (HasOneUse $mul_result),
   ]>;
@@ -164,15 +171,15 @@ def RewriteLayerNormWithoutLastAdd : Pat<
     (ONNXDivOp
       (ONNXSubOp:$input_zero_mean_0
         $input,
-        (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
+        (ONNXReduceMeanOp $input, $axes_0, $_, $_)
       ),
       (ONNXSqrtOp
         (ONNXAddOp
-          (ONNXReduceMeanV13Op
+          (ONNXReduceMeanOp
             (ONNXMulOp
               $input_zero_mean_1,
               $input_zero_mean_1
-            ), $axis_attr_1, $_
+            ), $axes_1, $_, $_
           ),
           (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
         )
@@ -180,10 +187,10 @@ def RewriteLayerNormWithoutLastAdd : Pat<
     ),
     (ONNXConstantOp:$scale $_, $_, $_, $_, $_, $_, $_, $_)
   ),
-  (NativeCodeCall<"createLayerNormWithoutLastAdd($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $axis_attr_1, $epsilon_attr),
+  (NativeCodeCall<"createLayerNormWithoutLastAdd($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $axes_0, $epsilon_attr),
   [(IsOneSizeElements $epsilon_attr),
-   (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
-   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
+   (isScalarConstantTensor:$axes_0), (isScalarConstantTensor:$axes_1),
+   (SameTwoIntegerScalarConstantValues $axes_0, $axes_1),
    (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
   ]>;
 
@@ -240,52 +247,6 @@ def RewriteGeLUWithoutLastMul : Pat<
   (NativeCodeCall<"createGeLUWithoutLastMul($_builder, $_loc, $0)"> $input),
   [(IsOneSizeElements $sqrt_two), (IsOneSizeElements $one),
    (ValueSqrtTwo $sqrt_two), (ValueOne $one)
-   ]>;
-
-def RewriteLayerNormGeLUWithMulConstPropagation : Pat<
-  (ONNXMulOp
-    (ONNXMulOp
-      $constproped_input_0,
-      (ONNXAddOp
-        (ONNXErfOp
-          (ONNXDivOp
-            (ONNXMulOp
-              (ONNXDivOp:$constproped_input_1
-                (ONNXSubOp:$input_zero_mean_0
-                  $input,
-                  (ONNXReduceMeanV13Op $input, $axis_attr_0, $_)
-                ),
-                (ONNXSqrtOp
-                  (ONNXAddOp
-                    (ONNXReduceMeanV13Op
-                      (ONNXMulOp
-                        $input_zero_mean_1,
-                        $input_zero_mean_1
-                      ), $axis_attr_1, $_
-                    ),
-                    (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
-                  )
-                )
-              ),
-              (ONNXConstantOp:$scale $_, $const_1, $_, $_, $_, $_, $_, $_)
-            ),
-            (ONNXConstantOp $_, $sqrt_two, $_, $_, $_, $_, $_, $_)
-          )
-        ),
-        (ONNXConstantOp $_, $one, $_, $_, $_, $_, $_, $_)
-      )
-    ),
-    (ONNXConstantOp $_, $const_2, $_, $_, $_, $_, $_, $_)
-  ),
-  (NativeCodeCall<"createLayerNormGeLU($_builder, $_loc, $0, $1, $2, $3)"> $input, $scale, $axis_attr_1, $epsilon_attr),
-  [(IsOneSizeElements $epsilon_attr),
-   (IsOneSize $axis_attr_0), (IsOneSize $axis_attr_1),
-   (SameTwoValuesOrAttrs $constproped_input_0, $constproped_input_1),
-   (SameTwoValuesOrAttrs $axis_attr_0, $axis_attr_1),
-   (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
-   (IsOneSizeElements $sqrt_two), (IsOneSizeElements $one),
-   (ValueSqrtTwo $sqrt_two), (ValueOne $one),
-   (IsTwoTimes $const_1, $const_2)
    ]>;
 
 //===----------------------------------------------------------------------===//
