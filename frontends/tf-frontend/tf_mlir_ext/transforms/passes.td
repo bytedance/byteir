@@ -108,4 +108,9 @@ def TFSwitchMergeToIf : Pass<"tf-switch-merge-to-if", "func::FuncOp"> {
   let constructor = "mlir::tfext::createTFSwitchMergeToIfPass()";
 }
 
+def RemoveCstrReshapable : Pass<"remove-cstr-reshapable", "func::FuncOp"> {
+  let summary = "replace cstr_reshapable to true";
+  let constructor = "mlir::tfext::createRemoveCstrReshapablePass()";
+}
+
 #endif // TF_MLIR_EXT_PASSES

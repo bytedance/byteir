@@ -88,6 +88,7 @@ cc_library(
         "rewrite_to_custom_call.cc",
         "tf_fallback_to_custom_call.cc",
         "tf_switch_merge_to_if.cc",
+        "remove_cstr_reshapable.cc",
     ],
     hdrs = [
       "constant_folding.h",
@@ -102,6 +103,7 @@ cc_library(
       "rewrite_to_custom_call.h",
       "tf_fallback_to_custom_call.h",
       "tf_switch_merge_to_if.h",
+        "remove_cstr_reshapable.h",
     ],
     textual_hdrs = [
        "passes_detail.h",
