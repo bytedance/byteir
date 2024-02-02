@@ -96,12 +96,13 @@ template <typename X, typename OP> X getOnePossibleOp(OP op) {
 // L2 Norm
 //===----------------------------------------------------------------------===//
 Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
-                   ArrayAttr axis_attr, Attribute epsilon_attr) {
+                   Value axes, Attribute epsilon_attr) {
   RankedTensorType inputType =
       input.getType().dyn_cast_or_null<RankedTensorType>();
   assert(inputType != nullptr && "L2Norm input type must be ranked");
 
-  int64_t axis = axis_attr[0].cast<IntegerAttr>().getInt();
+  ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
+  int64_t axis = axis_attr.getValues<APInt>()[0].getSExtValue();
   // canonicalize axis to be positive
   if (axis < 0) {
     axis = inputType.getRank() + axis;
@@ -128,12 +129,13 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
 }
 
 Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
-                             Value input, ArrayAttr axis_attr) {
+                             Value input, Value axes) {
   RankedTensorType inputType =
       input.getType().dyn_cast_or_null<RankedTensorType>();
   assert(inputType != nullptr && "L2Norm input type must be ranked");
 
-  int64_t axis = axis_attr[0].cast<IntegerAttr>().getInt();
+  ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
+  int64_t axis = axis_attr.getValues<APInt>()[0].getSExtValue();
   // canonicalize axis to be positive
   if (axis < 0) {
     axis = inputType.getRank() + axis;
@@ -341,41 +343,32 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
 //===----------------------------------------------------------------------===//
 
 Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
-                          SmallVector<int64_t, 4> &axis_vec) {
+                          int axis) {
   RankedTensorType inputType =
       input.getType().dyn_cast_or_null<RankedTensorType>();
   int64_t inputRank = inputType.getRank();
-  int64_t axisSize = axis_vec.size();
-  if (inputRank == axisSize)
+  if (inputRank == 1)
     return input;
   Type elemType = inputType.getElementType();
   auto inputShape = inputType.getShape();
-  SmallVector<int64_t> outputShape;
-  for (int64_t axis : axis_vec) {
-    outputShape.emplace_back(inputShape[axis]);
-  }
+  SmallVector<int64_t> outputShape{inputShape[axis]};
   RankedTensorType outputType = RankedTensorType::get(outputShape, elemType);
   Value output = rewriter.create<stablehlo::ReshapeOp>(loc, outputType, input);
   return output;
 }
 
 Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
-                      Value scale, Value B, ArrayAttr axis_attr,
+                      Value scale, Value B, Value axes,
                       Attribute epsilon_attr) {
   RankedTensorType inputType =
       input.getType().dyn_cast_or_null<RankedTensorType>();
   assert(inputType != nullptr && "Input type must be ranked");
-  int64_t num_axis = axis_attr.size();
-  SmallVector<int64_t, 4> axis_vec;
-  for (int64_t i = 0; i < num_axis; i++) {
-    int64_t axis = axis_attr[i].cast<IntegerAttr>().getInt();
-    // canonicalize axis to be positive
-    if (axis < 0)
-      axis = inputType.getRank() + axis;
-    axis_vec.emplace_back(axis);
-  }
-  Value squeezedScale = createSqueezedValue(rewriter, loc, scale, axis_vec);
-  Value squeezedB = createSqueezedValue(rewriter, loc, B, axis_vec);
+  ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
+  int64_t axis = axis_attr.getValues<APInt>()[0].getSExtValue();
+  if (axis < 0)
+    axis = inputType.getRank() + axis;
+  Value squeezedScale = createSqueezedValue(rewriter, loc, scale, axis);
+  Value squeezedB = createSqueezedValue(rewriter, loc, B, axis);
   double eps = (*epsilon_attr.cast<ElementsAttr>().getValues<APFloat>().begin())
                    .convertToDouble();
   std::string call_target_name = getLayerNormNameWithPrefix();
@@ -389,26 +382,24 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
           nullptr, rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
   DictionaryAttrWrapper attrs(rewriter.getContext());
   attrs.setAttr("epsilon", rewriter.getF64FloatAttr(eps));
-  attrs.setAttr("axis", rewriter.getI64ArrayAttr(ArrayRef(axis_vec)));
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
   return customCallOp.getResults()[0];
 }
 
 Value createLayerNormWithNoneEps(PatternRewriter &rewriter, Location loc,
                                  Value input, Value scale, Value B,
-                                 ArrayAttr axis_attr) {
+                                 Value axes) {
   DenseFPElementsAttr zero = rewriter.getF64VectorAttr({0.0f});
-  return createLayerNorm(rewriter, loc, input, scale, B, axis_attr, zero);
+  return createLayerNorm(rewriter, loc, input, scale, B, axes, zero);
 }
 
 Value createLayerNormWithoutLastAdd(PatternRewriter &rewriter, Location loc,
-                                    Value input, Value scale,
-                                    ArrayAttr axis_attr,
+                                    Value input, Value scale, Value axes,
                                     Attribute epsilon_attr) {
   Attribute zero = rewriter.getZeroAttr(scale.getType());
   Value B = rewriter.create<ONNXConstantOp>(loc, Attribute(), zero);
-  return createLayerNorm(rewriter, loc, input, scale, B, axis_attr,
-                         epsilon_attr);
+  return createLayerNorm(rewriter, loc, input, scale, B, axes, epsilon_attr);
 }
 
 //===----------------------------------------------------------------------===//
@@ -496,14 +487,6 @@ Value createGeLUWithoutLastMul(PatternRewriter &rewriter, Location loc,
   Attribute attr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
   Value two = rewriter.create<ONNXConstantOp>(loc, Attribute(), attr);
   return rewriter.create<ONNXMulOp>(loc, result, two);
-}
-
-Value createLayerNormGeLU(PatternRewriter &rewriter, Location loc, Value input,
-                          Value scale, ArrayAttr axis_attr,
-                          Attribute epsilon_attr) {
-  Value result = createLayerNormWithoutLastAdd(rewriter, loc, input, scale,
-                                               axis_attr, epsilon_attr);
-  return createGeLU(rewriter, loc, result);
 }
 
 //===----------------------------------------------------------------------===//
@@ -677,8 +660,6 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteGeLU>(context));
     validOpSet[getGeLUName()].emplace_back(
         std::make_unique<RewriteGeLUWithoutLastMul>(context));
-    validOpSet[getLayerNormName()].emplace_back(
-        std::make_unique<RewriteLayerNormGeLUWithMulConstPropagation>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNorm>(context));
     validOpSet[getLayerNormName()].emplace_back(

@@ -37,6 +37,22 @@ class TestOpsNN(TestBase):
                  model_onnx_pb=proto,
                  input_shape_dtype=input_shape_dtype)
 
+    def test_conv_transpose_output_padding(self):
+        input_shape_dtype = [
+            ["X", (1, 2, 2, 2), "float32"],
+            ["W", (2, 2, 3, 3), "float32"],
+        ]
+        output_shape_dtype = [
+            ["Y", (1, 2, 4, 4), "float32"],
+        ]
+        proto = build_onnx(
+            "ConvTranspose", input_shape_dtype, output_shape_dtype,
+            kernel_shape=[3, 3], output_padding=[1, 1], pads=[1, 1, 1, 1], strides=[2, 2]
+        )
+        self.run(model_filename="conv_transpose_output_padding.onnx",
+                 model_onnx_pb=proto,
+                 input_shape_dtype=input_shape_dtype)
+
     def test_conv_transpose_group(self):
         input_shape_dtype = [
             ["X", (1, 6, 8, 14), "float32"],
