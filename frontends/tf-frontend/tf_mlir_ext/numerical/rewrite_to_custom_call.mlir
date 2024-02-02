@@ -124,6 +124,27 @@ func.func @gelu_tanh_case2(%arg0: tensor<1x16x768xf32>) -> tensor<1x16x768xf32> 
 // CHECK-SAME: @byteir.gelu
 // CHECK-SAME: byteir_attrs = {approximate = "tanh"}
 
+func.func @gelu_tanh_case3(%arg0: tensor<128x512xf16>) -> tensor<128x512xf16> {
+  %cst_212 = "tf.Const"() {value = dense<3.000000e+00> : tensor<f16>} : () -> tensor<f16>
+  %cst_99 = "tf.Const"() {value = dense<4.470830e-02> : tensor<f16>} : () -> tensor<f16>
+  %cst_95 = "tf.Const"() {value = dense<7.978520e-01> : tensor<f16>} : () -> tensor<f16>
+  %cst_209 = "tf.Const"() {value = dense<1.000000e+00> : tensor<f16>} : () -> tensor<f16>
+  %cst_101 = "tf.Const"() {value = dense<5.000000e-01> : tensor<f16>} : () -> tensor<f16>
+  %0 = "tf.Pow"(%arg0, %cst_212) {device = ""} : (tensor<128x512xf16>, tensor<f16>) -> tensor<128x512xf16>
+  %1 = "tf.Mul"(%0, %cst_99) {device = ""} : (tensor<128x512xf16>, tensor<f16>) -> tensor<128x512xf16>
+  %2 = "tf.AddV2"(%arg0, %1) {device = ""} : (tensor<128x512xf16>, tensor<128x512xf16>) -> tensor<128x512xf16>
+  %3 = "tf.Mul"(%2, %cst_95) {device = ""} : (tensor<128x512xf16>, tensor<f16>) -> tensor<128x512xf16>
+  %4 = "tf.Tanh"(%3) {device = ""} : (tensor<128x512xf16>) -> tensor<128x512xf16>
+  %5 = "tf.AddV2"(%4, %cst_209) {device = ""} : (tensor<128x512xf16>, tensor<f16>) -> tensor<128x512xf16>
+  %6 = "tf.Mul"(%arg0, %cst_101) {device = ""} : (tensor<128x512xf16>, tensor<f16>) -> tensor<128x512xf16>
+  %7 = "tf.Mul"(%5, %6) {device = ""} : (tensor<128x512xf16>, tensor<128x512xf16>) -> tensor<128x512xf16>
+  func.return %7 : tensor<128x512xf16>
+}
+// CHECK-LABEL:  func.func @gelu_tanh_case3(%arg0: tensor<128x512xf16>) -> tensor<128x512xf16> {
+// CHECK:  mhlo.custom_call
+// CHECK-SAME: @byteir.gelu
+// CHECK-SAME: byteir_attrs = {approximate = "tanh"}
+
 func.func @arg_min_case0(%arg0: tensor<100x?x?xf32>) -> tensor<100x?xi64> {
   %cst = "tf.Const"() {value = dense<2> : tensor<i32>} : () -> tensor<i32>
   %0 = "tf.ArgMin"(%arg0, %cst) : (tensor<100x?x?xf32>, tensor<i32>) -> tensor<100x?xi64>

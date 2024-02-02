@@ -774,4 +774,33 @@ def RewriteGELUtanhV3 : Pat<
   [(GeluValue0 $cst0), (GeluValue1 $cst1), (GeluValue2 $cst2), (GeluValue4 $cst3), (GeluValue3 $cst4)]>;
 
 
+def RewriteGELUtanhV4 : Pat<
+  (TF_MulOp
+    (TF_AddV2Op
+      (TF_TanhOp
+        (TF_MulOp
+          (TF_AddV2Op
+            $input,
+            (TF_MulOp
+              (TF_PowOp
+                $input,
+                (TF_ConstOp $cst0)
+              ),
+              (TF_ConstOp $cst)
+            )
+          ),
+          (TF_ConstOp $cst3)
+        )
+      ),
+      (TF_ConstOp $cst1)
+    ),
+    (TF_MulOp
+      $input,
+      (TF_ConstOp $cst2)
+    )
+  ),
+  (NativeCodeCall<"createGELU($_builder, $_loc, $0, \"tanh\")"> $input),
+  [(GeluValue4 $cst), (GeluValue3 $cst0), (GeluValue1 $cst1), (GeluValue0 $cst2), (GeluValue2 $cst3)]>;
+
+
 #endif // REWRITE_TO_CUSTOM_CALL_PATTERN
