@@ -1,0 +1,2 @@
+external_libs/libs/libflash_attn.so filter=lfs diff=lfs merge=lfs -text
+runtime/test/test_files/external_libs/libflash_attn.so filter=lfs diff=lfs merge=lfs -text
