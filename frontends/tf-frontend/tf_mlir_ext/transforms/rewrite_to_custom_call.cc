@@ -640,6 +640,8 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getGeLUName()].emplace_back(
           std::make_unique<RewriteGELUtanhV3>(context));
       validCustomCallOpSet[getGeLUName()].emplace_back(
+          std::make_unique<RewriteGELUtanhV4>(context));
+      validCustomCallOpSet[getGeLUName()].emplace_back(
           std::make_unique<RewriteGELUerf>(context));
       validCustomCallOpSet[getGeLUName()].emplace_back(
           std::make_unique<RewriteGELUerfV2>(context));
