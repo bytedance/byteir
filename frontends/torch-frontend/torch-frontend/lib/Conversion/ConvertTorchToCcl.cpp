@@ -235,13 +235,15 @@ public:
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
     registry.insert<ccl::CclDialect>();
+    registry.insert<shape::ShapeDialect>();
     TorchConversion::getBackendTypeConversionDependentDialects(registry);
   }
 
   void runOnOperation() override {
     MLIRContext *context = &getContext();
     ConversionTarget target(*context);
-    target.addLegalDialect<Torch::TorchDialect, ccl::CclDialect>();
+    target.addLegalDialect<Torch::TorchDialect, ccl::CclDialect,
+                           shape::ShapeDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
@@ -259,6 +261,10 @@ public:
                                                              context);
     target.addIllegalOp<C10dFunctionalWaitTensorOp>();
     patterns.add<ConvertC10dFunctionalWaitTensorOp>(typeConverter, context);
+    target.addIllegalOp<C10dFunctionalIsendOp>();
+    patterns.add<ConvertC10dFunctionalIsendOp>(typeConverter, context);
+    target.addIllegalOp<C10dFunctionalIrecvOp>();
+    patterns.add<ConvertC10dFunctionalIrecvOp>(typeConverter, context);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
