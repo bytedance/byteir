@@ -12,7 +12,7 @@ tf_cc_binary(
     name = "tf-frontend",
     srcs = ["tf_frontend_main.cc"],
     deps = [
-        "//byteir/Dialect/Ace:ace_dialect",
+        "@byteir//:ace_dialect",
         "//tf_mlir_ext/pipelines:tfext_pass_pipelines",
         "//utils:graphdef_opt",
         "//utils:misc",
@@ -37,7 +37,7 @@ tf_cc_binary(
     name = "tf-ext-opt",
     srcs = ["tf_ext_opt_main.cc"],
     deps = [
-        "//byteir/Dialect/Ace:ace_dialect",
+        "@byteir//:ace_dialect",
         "//tf_mlir_ext/pipelines:tfext_pass_pipelines",
         "//tf_mlir_ext/transforms:tfext_passes",
         "@org_tensorflow//tensorflow/compiler/mlir:init_mlir",

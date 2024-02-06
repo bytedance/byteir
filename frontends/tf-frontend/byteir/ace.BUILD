@@ -9,9 +9,10 @@ package(
 td_library(
     name = "ace_ir_td_files",
     srcs = [
-        "AceBase.td",
-        "AceOps.td",
+        "include/byteir/Dialect/Ace/AceBase.td",
+        "include/byteir/Dialect/Ace/AceOps.td",
     ],
+    includes = ["include"],
     deps = [
         "@llvm-project//mlir:CallInterfacesTdFiles",
         "@llvm-project//mlir:ControlFlowInterfacesTdFiles",
@@ -19,7 +20,6 @@ td_library(
         "@llvm-project//mlir:LoopLikeInterfaceTdFiles",
         "@llvm-project//mlir:OpBaseTdFiles",
         "@llvm-project//mlir:SideEffectInterfacesTdFiles",
-        "@org_tensorflow//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
     ],
 )
 
@@ -28,39 +28,39 @@ gentbl_cc_library(
     tbl_outs = [
         (
             ["-gen-op-decls"],
-            "AceOps.h.inc",
+            "include/byteir/Dialect/Ace/AceOps.h.inc",
         ),
         (
             ["-gen-op-defs"],
-            "AceOps.cpp.inc",
+            "include/byteir/Dialect/Ace/AceOps.cpp.inc",
         ),
         (
             ["-gen-dialect-decls", "-dialect=ace"],
-            "AceOpsDialect.h.inc",
+            "include/byteir/Dialect/Ace/AceOpsDialect.h.inc",
         ),
         (
             ["-gen-dialect-defs", "-dialect=ace"],
-            "AceOpsDialect.cpp.inc",
+            "include/byteir/Dialect/Ace/AceOpsDialect.cpp.inc",
         ),
         (
             ["-gen-typedef-decls", "-typedefs-dialect=ace"],
-            "AceOpsTypes.h.inc",
+            "include/byteir/Dialect/Ace/AceOpsTypes.h.inc",
         ),
         (
             ["-gen-typedef-defs", "-typedefs-dialect=ace"],
-            "AceOpsTypes.cpp.inc"
+            "include/byteir/Dialect/Ace/AceOpsTypes.cpp.inc"
         ),
         (
             ["-gen-attrdef-decls"],
-            "AceOpsAttributes.h.inc",
+            "include/byteir/Dialect/Ace/AceOpsAttributes.h.inc",
         ),
         (
             ["-gen-attrdef-defs"],
-            "AceOpsAttributes.cpp.inc",
+            "include/byteir/Dialect/Ace/AceOpsAttributes.cpp.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "AceOps.td",
+    td_file = "include/byteir/Dialect/Ace/AceOps.td",
     deps = [
         ":ace_ir_td_files",
     ],
@@ -69,13 +69,15 @@ gentbl_cc_library(
 cc_library(
     name = "ace_dialect",
     srcs = [
-        "AceDialect.h",
-        "AceDialect.cpp",
+        "include/byteir/Dialect/Ace/AceDialect.h",
+        "lib/Dialect/Ace/IR/AceDialect.cpp",
     ],
     textual_hdrs = [
-        "AceOps.h.inc",
-        "AceOpsDialect.h.inc",
+        "include/byteir/Dialect/Ace/AceDialect.h",
+        "include/byteir/Dialect/Ace/AceOps.h.inc",
+        "include/byteir/Dialect/Ace/AceOpsDialect.h.inc",
     ],
+    includes = ["include"],
     deps = [
         ":ace_dialect_inc_gen",
         "@llvm-project//llvm:Support",
