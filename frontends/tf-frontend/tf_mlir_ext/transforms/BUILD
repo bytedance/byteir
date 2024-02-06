@@ -112,7 +112,7 @@ cc_library(
     deps = [
       "//utils:attributes",
       "//tf_mlir_ext/utils:tfext_utils",
-      "//byteir/Dialect/Ace:ace_dialect",
+      "@byteir//:ace_dialect",
       ":tfext_pass_inc_gen",
       ":tfext_fuse_tf_ops_pattern_gen",
       ":tfext_rewrite_to_custom_call_pattern_gen",
