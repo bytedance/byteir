@@ -467,9 +467,65 @@ protected:
   }
 };
 
+// Returns a PrecisionConfig as an array attribute based on whether TF32
+// execution is enabled
+static ArrayAttr GetPrecisionConfig(Builder *builder) {
+  mlir::mhlo::Precision precision = mhlo::Precision::DEFAULT;
+  llvm::SmallVector<mlir::Attribute, 2> attr_vec;
+  const int num_inputs = 2;
+  for (int i = 0; i < num_inputs; i++) {
+    attr_vec.push_back(
+        mlir::mhlo::PrecisionAttr::get(builder->getContext(), precision));
+  }
+  return builder->getArrayAttr(attr_vec);
+}
+
+class ConvertBatchMatMulV2Op : public OpRewritePattern<TF::BatchMatMulV2Op> {
+public:
+  using OpRewritePattern<TF::BatchMatMulV2Op>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::BatchMatMulV2Op op,
+                                PatternRewriter &rewriter) const override {
+    Value lhs = op.getX();
+    Value rhs = op.getY();
+    auto lhs_type = lhs.getType().dyn_cast<RankedTensorType>();
+    auto rhs_type = rhs.getType().dyn_cast<RankedTensorType>();
+    if (!lhs_type || !rhs_type)
+      return failure();
+    if (lhs_type.getRank() != rhs_type.getRank())
+      return failure();
+    auto lhs_batch = lhs_type.getShape().drop_back(2);
+    auto rhs_batch = rhs_type.getShape().drop_back(2);
+    bool batch_equal =
+        std::equal(lhs_batch.begin(), lhs_batch.end(), rhs_batch.begin());
+    bool is_static = std::all_of(lhs_batch.begin(), lhs_batch.end(),
+                                 [](int64_t dim) { return dim > 0; });
+    if (!batch_equal || !is_static) {
+      return failure();
+    }
+    int64_t rank = lhs_type.getRank();
+    auto batch_dimensions = llvm::to_vector<4>(llvm::seq<int64_t>(0, rank - 2));
+    auto lhs_contracting_dimensions = llvm::to_vector<4>(
+        llvm::ArrayRef({op.getAdjX() ? rank - 2 : rank - 1}));
+    auto rhs_contracting_dimensions = llvm::to_vector<4>(
+        llvm::ArrayRef({op.getAdjY() ? rank - 1 : rank - 2}));
+    auto dimension_numbers = mhlo::DotDimensionNumbersAttr::get(
+        rewriter.getContext(),
+        /*lhs_batching_dimensions=*/batch_dimensions,
+        /*rhs_batching_dimensions=*/batch_dimensions,
+        /*lhs_contracting_dimensions=*/lhs_contracting_dimensions,
+        /*rhs_contracting_dimensions=*/rhs_contracting_dimensions);
+    rewriter.replaceOpWithNewOp<mhlo::DotGeneralOp>(
+        op, op.getType(), lhs, rhs, dimension_numbers,
+        /*precision_config=*/GetPrecisionConfig(&rewriter));
+    return success();
+  }
+};
+
 void PopulateMhloLegalizeTfExtPatterns(MLIRContext *context,
                                        RewritePatternSet *patterns) {
   patterns->add(std::make_unique<ConvertStridedSliceOp>(context));
+  patterns->add(std::make_unique<ConvertBatchMatMulV2Op>(context));
 }
 
 struct MhloLegalizeTfExtPass

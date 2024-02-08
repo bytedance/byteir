@@ -19,3 +19,11 @@ func.func @static_strided_slice(%arg0: tensor<1x26xf16>) -> tensor<1x12xf16> {
 }
 // CHECK-LABEL: static_strided_slice
 // CHECK: "tf.StridedSlice"
+
+func.func @static_batch_matmul_v2(%arg0: tensor<32x246x16xf16>, %arg1: tensor<32x16x16xf16>) -> tensor<32x246x16xf16> {
+  %0 = "tf.BatchMatMulV2"(%arg0, %arg1) {adj_x = false, adj_y = false, device = ""} : (tensor<32x246x16xf16>, tensor<32x16x16xf16>) -> tensor<32x246x16xf16>
+  return %0 : tensor<32x246x16xf16> 
+}
+// CHECK-LABEL: @static_batch_matmul_v2
+// CHECK-NEXT: %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<32x246x16xf16>, tensor<32x16x16xf16>) -> tensor<32x246x16xf16>
+// CHECK-NEXT: return %0 : tensor<32x246x16xf16>
