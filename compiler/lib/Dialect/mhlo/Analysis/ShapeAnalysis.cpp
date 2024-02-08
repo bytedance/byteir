@@ -30,6 +30,7 @@
 #define DEBUG_TYPE "mhlo-shape-analysis"
 
 using namespace mlir::shape_analysis;
+using namespace mlir::value_analysis;
 
 #define K_INITIAL -999
 
@@ -136,13 +137,122 @@ void MhloShapeValueAnalysis::visitOperation(
     ArrayRef<ShapeValueLattice *> results) {
   LLVM_DEBUG(llvm::dbgs() << "mhlo shape value analysis on " << *op << "\n");
   TypeSwitch<Operation *>(op)
+      .Case<mhlo::ReshapeOp>([&](Operation *op) {
+        const ShapeValueLattice *product = operands[0];
+        ShapeValueLattice *lattice = results[0];
+        BoundedValueLattice *boundedValue =
+            getOrCreate<BoundedValueLattice>(op->getOperand(0));
+        boundedValue->useDefSubscribe(this);
+        if (!product->getValue().isUninitialized() &&
+            product->getValue().getConstantValue()) {
+          Value input = op->getOperand(0);
+          RankedTensorType inputType =
+              input.getType().dyn_cast<RankedTensorType>();
+          Value output = op->getResult(0);
+          RankedTensorType outputType =
+              output.getType().dyn_cast<RankedTensorType>();
+          if (!inputType || !outputType)
+            return;
+          int inputRank = inputType.getRank();
+          int outputRank = outputType.getRank();
+          if ((inputRank > 0) && (outputRank > 0)) {
+            SparseConstantPropagation::visitOperation(op, operands, results);
+          } else if ((inputRank > 0) &&
+                     inputType.getElementType().isInteger(32)) {
+            int s = product->getValue()
+                        .getConstantValue()
+                        .dyn_cast<DenseElementsAttr>()
+                        .getValues<int>()[0];
+            auto attr = IntegerAttr::get(output.getType(), s);
+            propagateIfChanged(lattice,
+                               lattice->join(mlir::dataflow::ConstantValue(
+                                   attr, op->getDialect())));
+          } else if ((outputRank > 0) &&
+                     outputType.getElementType().isInteger(32)) {
+            int s = product->getValue()
+                        .getConstantValue()
+                        .dyn_cast<IntegerAttr>()
+                        .getInt();
+            auto attr = DenseElementsAttr::get(outputType, s);
+            propagateIfChanged(lattice,
+                               lattice->join(mlir::dataflow::ConstantValue(
+                                   attr, op->getDialect())));
+          }
+          return;
+        }
+
+        RankedTensorType type =
+            op->getOperand(0).getType().dyn_cast<RankedTensorType>();
+        if (!type || !type.getElementType().isInteger(32))
+          return;
+        if (boundedValue->getValue().isUninitialized())
+          return;
+
+        int upper = boundedValue->getValue().upper();
+        Attribute attr = DenseElementsAttr::get(
+            op->getResult(0).getType().dyn_cast<ShapedType>(), upper);
+        propagateIfChanged(lattice, lattice->join(mlir::dataflow::ConstantValue(
+                                        attr, op->getDialect())));
+      })
+      .Case<mhlo::ReduceOp>([&](Operation *op) {
+        mhlo::ReduceOp reduceOp = dyn_cast<mhlo::ReduceOp>(op);
+        if (!reduceOp)
+          return;
+        auto num = op->getNumResults();
+        assert(reduceOp.getInputs().size() == num);
+        assert(results.size() == num);
+        Operation &innerOp = *reduceOp.getBody().front().begin();
+        Value input = reduceOp.getInputs()[0];
+        RankedTensorType inputType =
+            input.getType().dyn_cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return;
+        }
+        if (inputType.getRank() != 1 ||
+            !inputType.getElementType().isInteger(32)) {
+          return SparseConstantPropagation::visitOperation(op, operands,
+                                                           results);
+        }
+
+        if (auto mulOp = dyn_cast<mhlo::MulOp>(&innerOp)) {
+          for (size_t i = 0; i < num; i++) {
+            auto *operand = operands[i];
+            if (operand->getValue().isUninitialized() ||
+                !operand->getValue().getConstantValue()) {
+              continue;
+            }
+            DenseIntElementsAttr inputAttr =
+                operand->getValue()
+                    .getConstantValue()
+                    .dyn_cast<DenseIntElementsAttr>();
+            if (!inputAttr)
+              continue;
+            auto elements = inputAttr.getValues<int>();
+            int product = 1;
+            for (auto s : elements) {
+              product *= s;
+            }
+            IntegerAttr outAttr =
+                IntegerAttr::get(inputType.getElementType(), product);
+            auto lattice = results[i];
+            propagateIfChanged(lattice,
+                               lattice->join(mlir::dataflow::ConstantValue(
+                                   outAttr, op->getDialect())));
+          }
+        } else {
+          return SparseConstantPropagation::visitOperation(op, operands,
+                                                           results);
+        }
+      })
       .Case<mhlo::ComputeReshapeShapeOp>([&](Operation *op) {
         const ShapeValueLattice *product = operands[0];
-        if (product->getValue().isUninitialized()) {
+        if (product->getValue().isUninitialized() ||
+            !product->getValue().getConstantValue()) {
           return;
         }
         const ShapeValueLattice *shape = operands[1];
-        if (shape->getValue().isUninitialized()) {
+        if (shape->getValue().isUninitialized() ||
+            !shape->getValue().getConstantValue()) {
           return;
         }
         ShapeValueLattice *lattice = results[0];
@@ -198,4 +308,179 @@ void MhloShapeValueAnalysis::visitOperation(
         ShapeValueAnalysis::visitOperation(op, operands, results);
       });
 }
+
+void MhloBoundedValueAnalysis::visitOperation(
+    Operation *op, ArrayRef<const BoundedValueLattice *> operands,
+    ArrayRef<BoundedValueLattice *> results) {
+  LLVM_DEBUG(llvm::dbgs() << "shape value analysis on " << *op << "\n");
+  TypeSwitch<Operation *>(op)
+      .Case<mhlo::SignOp>([&](Operation *op) {
+        float lower = -1.0;
+        float upper = 1.0;
+        BoundedValueKnowledge boundedValue =
+            BoundedValueKnowledge::getKnowValue(lower, upper, op->getResult(0));
+        auto lattice = results[0];
+        propagateIfChanged(lattice, lattice->join(boundedValue));
+      })
+      .Case<mhlo::ReduceWindowOp>([&](Operation *op) {
+        mhlo::ReduceWindowOp reduceOp = dyn_cast<mhlo::ReduceWindowOp>(op);
+        if (!reduceOp)
+          return;
+        auto num = op->getNumResults();
+        if (num != 1)
+          return;
+        mhlo::AddOp addOp = dyn_cast<mhlo::AddOp>(reduceOp.getReductionOp(0));
+        if (!addOp)
+          return;
+        assert(reduceOp.getInputs().size() == num);
+        assert(results.size() == num);
+        mhlo::PadOp padOp =
+            dyn_cast<mhlo::PadOp>(*(op->getResult(0).user_begin()));
+        if (!padOp)
+          return;
+
+        auto *operand = operands[0];
+        if (operand->getValue().isUninitialized())
+          return;
+        auto input = op->getOperand(0);
+        auto output = op->getResult(0);
+        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape())
+          return;
+        auto inputShape = inputType.getShape();
+        RankedTensorType outputType = output.getType().cast<RankedTensorType>();
+        if (!outputType || !outputType.hasStaticShape())
+          return;
+        auto outputShape = outputType.getShape();
+        if (inputType.getRank() != outputType.getRank())
+          return;
+        if (!std::equal(inputShape.begin(), inputShape.end(),
+                        outputShape.begin()))
+          return;
+        DenseIntElementsAttr windowDimensions = reduceOp.getWindowDimensions();
+        DenseIntElementsAttr padDimensions = padOp.getEdgePaddingHigh();
+        uint64_t product = 1;
+        for (int i = 0; i < inputType.getRank(); ++i) {
+          auto win = windowDimensions.getValues<int64_t>()[i];
+          auto pad = padDimensions.getValues<int64_t>()[i];
+          product *= (pad > 0) ? win : win + pad;
+        }
+        float lower = operand->getValue().lower();
+        float upper = operand->getValue().upper();
+        lower *= product;
+        upper *= product;
+        auto padLattice = getLatticeElement(padOp.getOperation()->getResult(0));
+        BoundedValueKnowledge boundedValue =
+            BoundedValueKnowledge::getKnowValue(lower, upper, op->getResult(0));
+        propagateIfChanged(padLattice, padLattice->join(boundedValue));
+      })
+      .Case<mhlo::ReduceOp>([&](Operation *op) {
+        mhlo::ReduceOp reduceOp = dyn_cast<mhlo::ReduceOp>(op);
+        if (!reduceOp)
+          return;
+        auto num = op->getNumResults();
+        assert(reduceOp.getInputs().size() == num);
+        assert(results.size() == num);
+        Operation &innerOp = *reduceOp.getBody().front().begin();
+        if (auto maxOp = dyn_cast<mhlo::MaxOp>(&innerOp)) {
+          for (size_t i = 0; i < num; i++) {
+            auto *operand = operands[i];
+            if (operand->getValue().isUninitialized())
+              continue;
+            auto lattice = results[i];
+            propagateIfChanged(lattice, lattice->join(*operand));
+          }
+        }
+      })
+      .Case<mhlo::ConvertOp, mhlo::ReshapeOp, mhlo::TorchIndexSelectOp>(
+          [&](Operation *op) {
+            const BoundedValueLattice *operand = operands[0];
+            if (operand->getValue().isUninitialized())
+              return;
+            auto lattice = results[0];
+            propagateIfChanged(lattice, lattice->join(*operand));
+          })
+      .Case<mhlo::AddOp>([&](Operation *op) {
+        float lhsLower = 0.0;
+        float lhsUpper = 0.0;
+        float rhsLower = 0.0;
+        float rhsUpper = 0.0;
+        DenseIntElementsAttr lhsAttr;
+        const BoundedValueLattice *lhs = operands[0];
+        if (lhs->getValue().isUninitialized() &&
+            (!matchPattern(op->getOperand(0), m_Constant(&lhsAttr)) ||
+             !lhsAttr.isSplat())) {
+          return;
+        }
+        DenseIntElementsAttr rhsAttr;
+        const BoundedValueLattice *rhs = operands[1];
+        if (rhs->getValue().isUninitialized() &&
+            (!matchPattern(op->getOperand(1), m_Constant(&rhsAttr)) ||
+             !rhsAttr.isSplat())) {
+          return;
+        }
+        if (lhs->getValue().isUninitialized()) {
+          lhsLower = lhsAttr.getSplatValue<int>();
+          lhsUpper = lhsAttr.getSplatValue<int>();
+        } else {
+          lhsLower = lhs->getValue().lower();
+          lhsUpper = lhs->getValue().upper();
+        }
+        if (rhs->getValue().isUninitialized()) {
+          rhsLower = rhsAttr.getSplatValue<int>();
+          rhsUpper = rhsAttr.getSplatValue<int>();
+        } else {
+          rhsLower = rhs->getValue().lower();
+          rhsUpper = rhs->getValue().upper();
+        }
+        float lower = lhsLower + rhsLower;
+        float upper = lhsUpper + rhsUpper;
+        BoundedValueKnowledge boundedValue =
+            BoundedValueKnowledge::getKnowValue(lower, upper, op->getResult(0));
+        auto lattice = results[0];
+        propagateIfChanged(lattice, lattice->join(boundedValue));
+      })
+      .Case<mhlo::SelectOp>([&](Operation *op) {
+        float lhsLower = 0.0;
+        float lhsUpper = 0.0;
+        float rhsLower = 0.0;
+        float rhsUpper = 0.0;
+        DenseIntElementsAttr lhsAttr;
+        const BoundedValueLattice *lhs = operands[1];
+        if (lhs->getValue().isUninitialized() &&
+            (!matchPattern(op->getOperand(1), m_Constant(&lhsAttr)) ||
+             !lhsAttr.isSplat())) {
+          return;
+        }
+        DenseIntElementsAttr rhsAttr;
+        const BoundedValueLattice *rhs = operands[2];
+        if (rhs->getValue().isUninitialized() &&
+            (!matchPattern(op->getOperand(2), m_Constant(&rhsAttr)) ||
+             !rhsAttr.isSplat())) {
+          return;
+        }
+        if (lhs->getValue().isUninitialized()) {
+          lhsLower = lhsAttr.getSplatValue<int>();
+          lhsUpper = lhsAttr.getSplatValue<int>();
+        } else {
+          lhsLower = lhs->getValue().lower();
+          lhsUpper = lhs->getValue().upper();
+        }
+        if (rhs->getValue().isUninitialized()) {
+          rhsLower = rhsAttr.getSplatValue<int>();
+          rhsUpper = rhsAttr.getSplatValue<int>();
+        } else {
+          rhsLower = rhs->getValue().lower();
+          rhsUpper = rhs->getValue().upper();
+        }
+        float lower = std::min(lhsLower, rhsLower);
+        float upper = std::max(lhsUpper, rhsUpper);
+        BoundedValueKnowledge boundedValue =
+            BoundedValueKnowledge::getKnowValue(lower, upper, op->getResult(0));
+        auto lattice = results[0];
+        propagateIfChanged(lattice, lattice->join(boundedValue));
+      })
+      .Default([&](Operation *op) { setAllToEntryStates(results); });
+}
+
 } // namespace mlir

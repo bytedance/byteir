@@ -114,6 +114,40 @@ struct ValueTypeModificatoinRAII {
 };
 } // namespace shape_analysis
 
+namespace value_analysis {
+struct BoundedValueKnowledge {
+  explicit BoundedValueKnowledge() = default;
+  explicit BoundedValueKnowledge(DenseFPElementsAttr bdValue)
+      : boundedValue(bdValue) {}
+
+  // Get the static knowledge intrinsic to `type`.
+  static BoundedValueKnowledge getUninitializedValue();
+
+  static BoundedValueKnowledge getKnowValue(float lower, float upper,
+                                            Value value);
+
+  static BoundedValueKnowledge join(const BoundedValueKnowledge &lhs,
+                                    const BoundedValueKnowledge &rhs);
+
+  static BoundedValueKnowledge meet(const BoundedValueKnowledge &lhs,
+                                    const BoundedValueKnowledge &rhs);
+
+  /// Whether the state is uninitialized.
+  bool isUninitialized() const { return !boundedValue.has_value(); }
+
+  bool operator==(const BoundedValueKnowledge &rhs) const {
+    return boundedValue == rhs.boundedValue;
+  }
+
+  float lower() const;
+  float upper() const;
+
+  void print(raw_ostream &os) const;
+
+  std::optional<DenseFPElementsAttr> boundedValue;
+};
+} // namespace value_analysis
+
 using ShapeLattice = dataflow::Lattice<shape_analysis::ValueKnowledge>;
 
 class ShapeAnalysis
@@ -152,14 +186,17 @@ public:
   void visitOperation(Operation *op,
                       ArrayRef<const ShapeValueLattice *> operands,
                       ArrayRef<ShapeValueLattice *> results) override;
+};
 
-protected:
-  // very similar to SparseConstantPropagation but fold \p op with given
-  // inferred operand shape which is stored in \p ShapeLattices
-  virtual void visitOperation(Operation *op,
-                              ArrayRef<const ShapeValueLattice *> operands,
-                              ArrayRef<const ShapeLattice *> ShapeLattices,
-                              ArrayRef<ShapeValueLattice *> results);
+using BoundedValueLattice =
+    dataflow::Lattice<value_analysis::BoundedValueKnowledge>;
+
+class BoundedValueAnalysis
+    : public dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice> {
+public:
+  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
+
+  void setToEntryState(BoundedValueLattice *lattice) override;
 };
 
 } // namespace mlir

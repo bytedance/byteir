@@ -127,6 +127,7 @@ struct BoundedShapeInferencePass
       DataFlowSolver solver;
       solver.load<MhloBoundedShapeAnalysis>();
       solver.load<MhloShapeValueAnalysis>();
+      solver.load<MhloBoundedValueAnalysis>();
       solver.load<DeadCodeAnalysis>();
       if (failed(solver.initializeAndRun(funcOp)))
         return signalPassFailure();
@@ -138,9 +139,10 @@ struct BoundedShapeInferencePass
             continue;
 
           ShapedType newType;
-          if (auto lattice = solver.lookupState<ShapeLattice>(it)) {
-            if (!lattice->getValue().isUninitialized())
+          if (auto *lattice = solver.lookupState<ShapeLattice>(it)) {
+            if (!lattice->getValue().isUninitialized()) {
               newType = lattice->getValue().getType().dyn_cast<ShapedType>();
+            }
           }
 
           if (!newType || !newType.hasRank())

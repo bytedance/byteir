@@ -53,6 +53,15 @@ public:
       llvm::SmallVectorImpl<::mlir::ShapedTypeComponents> &results) override;
 };
 
+class MhloBoundedValueAnalysis : public BoundedValueAnalysis {
+public:
+  using BoundedValueAnalysis::BoundedValueAnalysis;
+
+  void visitOperation(Operation *op,
+                      ArrayRef<const BoundedValueLattice *> operands,
+                      ArrayRef<BoundedValueLattice *> results) override;
+};
+
 } // namespace mlir
 
 #endif // BYTEIR_DIALECT_MHLO_ANALYSIS_SHAPEANALYSIS_H

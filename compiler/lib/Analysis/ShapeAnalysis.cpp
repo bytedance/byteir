@@ -93,6 +93,10 @@ ValueKnowledge ValueKnowledge::join(const ValueKnowledge &lhs,
   for (int i = 0, e = lhs.sizes.size(); i < e; i++) {
     if (lhs.sizes[i] == rhs.sizes[i]) {
       result.sizes[i] = lhs.sizes[i];
+    } else if (lhs.sizes[i] == ShapedType::kDynamic) {
+      result.sizes[i] = rhs.sizes[i];
+    } else if (rhs.sizes[i] == ShapedType::kDynamic) {
+      result.sizes[i] = lhs.sizes[i];
     }
   }
 
@@ -167,6 +171,64 @@ void ValueKnowledge::print(raw_ostream &os) const {
   }
 }
 } // namespace shape_analysis
+
+namespace value_analysis {
+BoundedValueKnowledge BoundedValueKnowledge::getUninitializedValue() {
+  return BoundedValueKnowledge();
+}
+
+BoundedValueKnowledge
+BoundedValueKnowledge::getKnowValue(float lower, float upper, Value value) {
+  Builder builder(value.getContext());
+  RankedTensorType type = RankedTensorType::get({2}, builder.getF32Type());
+  DenseFPElementsAttr attr = DenseFPElementsAttr::get(type, {lower, upper});
+  BoundedValueKnowledge bv;
+  bv.boundedValue = attr;
+  return bv;
+}
+
+float BoundedValueKnowledge::lower() const {
+  assert(!isUninitialized());
+  return (*boundedValue).getValues<float>()[0];
+}
+
+float BoundedValueKnowledge::upper() const {
+  assert(!isUninitialized());
+  return (*boundedValue).getValues<float>()[1];
+}
+
+BoundedValueKnowledge
+BoundedValueKnowledge::join(const BoundedValueKnowledge &lhs,
+                            const BoundedValueKnowledge &rhs) {
+  if (lhs.isUninitialized())
+    return rhs;
+  if (rhs.isUninitialized())
+    return lhs;
+  if (lhs == rhs)
+    return lhs;
+  return getUninitializedValue();
+}
+
+BoundedValueKnowledge
+BoundedValueKnowledge::meet(const BoundedValueKnowledge &lhs,
+                            const BoundedValueKnowledge &rhs) {
+  if (lhs.isUninitialized())
+    return rhs;
+  if (rhs.isUninitialized())
+    return lhs;
+  if (lhs == rhs)
+    return lhs;
+  return getUninitializedValue();
+}
+
+void BoundedValueKnowledge::print(raw_ostream &os) const {
+  if (!boundedValue) {
+    os << "None";
+  } else {
+    os << *boundedValue;
+  }
+}
+} // namespace value_analysis
 
 LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
     Operation *op, ShapeKnowledges shapeKnowledges,
@@ -267,8 +329,6 @@ void ShapeAnalysis::visitOperation(Operation *op,
       if (auto constant = valueLattice->getValue().getConstantValue()) {
         valueProvider[operand] = constant;
       }
-    } else {
-      missingValue = true;
     }
   }
 
@@ -330,60 +390,55 @@ void ShapeAnalysis::setToEntryState(ShapeLattice *lattice) {
 
 void ShapeValueAnalysis::visitOperation(
     Operation *op, ArrayRef<const ShapeValueLattice *> operands,
-    ArrayRef<const ShapeLattice *> ShapeLattices,
-    ArrayRef<ShapeValueLattice *> results) {
-  ValueTypeModificatoinRAII valueTypeModification;
-
-  bool missingShape = false;
-  for (auto &&pi : zip(op->getOperands(), ShapeLattices)) {
-    auto shapeLattice = std::get<1>(pi);
-    if (shapeLattice) {
-      const_cast<ShapeLattice *>(shapeLattice)->useDefSubscribe(this);
-
-      if (!shapeLattice->getValue().isUninitialized()) {
-        auto shapeKnowledge = shapeLattice->getValue();
-        if (shapeKnowledge && shapeKnowledge.dtype) {
-          valueTypeModification.Push(std::get<0>(pi), shapeKnowledge.getType());
-          continue;
-        }
-      } else {
-        missingShape = true;
-      }
-    }
-  }
-  if (missingShape)
-    return;
-
-  SparseConstantPropagation::visitOperation(op, operands, results);
-}
-
-void ShapeValueAnalysis::visitOperation(
-    Operation *op, ArrayRef<const ShapeValueLattice *> operands,
     ArrayRef<ShapeValueLattice *> results) {
   LLVM_DEBUG(llvm::dbgs() << "shape value analysis on " << *op << "\n");
   TypeSwitch<Operation *>(op)
       .Case<shape::ShapeOfOp>([&](Operation *op) {
-        auto shapeLattice = getOrCreateFor<ShapeLattice>(op, op->getOperand(0));
-        auto shapeKnowledge = shapeLattice->getValue();
-        if (!shapeKnowledge.isUninitialized() && shapeKnowledge) {
-          if (auto shapedType =
-                  llvm::dyn_cast<ShapedType>(shapeKnowledge.getType())) {
-            if (shapedType.hasStaticShape()) {
-              ShapeValueLattice *result = results[0];
-              Builder builder(op->getContext());
-              auto staticShape =
-                  builder.getIndexTensorAttr(shapedType.getShape());
-              propagateIfChanged(result, result->join(dataflow::ConstantValue(
-                                             staticShape, op->getDialect())));
-            }
-          }
-        }
+        auto *shapeLattice = getOrCreate<ShapeLattice>(op->getOperand(0));
+        shapeLattice->useDefSubscribe(this);
+        if (shapeLattice->getValue().isUninitialized())
+          return;
+        auto type =
+            shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
+        if (!type || !type.hasStaticShape())
+          return;
+        auto shape = type.getShape();
+        auto outType = op->getResult(0).getType().dyn_cast<RankedTensorType>();
+        if (!outType)
+          return;
+        auto resultAttr = DenseIntElementsAttr::get(outType, shape);
+        auto lattice = results[0];
+        propagateIfChanged(lattice, lattice->join(ConstantValue(
+                                        resultAttr, op->getDialect())));
       })
       .Case<tensor::DimOp>([&](Operation *op) {
-        SmallVector<const ShapeLattice *> shapeLattices(op->getNumOperands(),
-                                                        nullptr);
-        shapeLattices[0] = getOrCreate<ShapeLattice>(op->getOperand(0));
-        visitOperation(op, operands, shapeLattices, results);
+        auto *shapeLattice = getOrCreate<ShapeLattice>(op->getOperand(0));
+        shapeLattice->useDefSubscribe(this);
+        if (shapeLattice->getValue().isUninitialized())
+          return;
+        auto type =
+            shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
+        if (!type || !type.hasStaticShape())
+          return;
+        auto *indexLattice = operands[1];
+        if (indexLattice->getValue().isUninitialized() ||
+            !indexLattice->getValue().getConstantValue()) {
+          return;
+        }
+        Attribute indexAttr = indexLattice->getValue().getConstantValue();
+        IntegerAttr attr = indexAttr.dyn_cast<IntegerAttr>();
+        if (!attr)
+          return;
+
+        int index = attr.getInt();
+        auto shape = type.getShape();
+        auto outType = op->getResult(0).getType();
+        if (!outType)
+          return;
+        auto resultAttr = IntegerAttr::get(outType, shape[index]);
+        auto lattice = results[0];
+        propagateIfChanged(lattice, lattice->join(ConstantValue(
+                                        resultAttr, op->getDialect())));
       })
       .Case<arith::IndexCastOp>([&](Operation *op) {
         const ShapeValueLattice *index = operands[0];
@@ -427,4 +482,11 @@ void ShapeValueAnalysis::visitOperation(
         SparseConstantPropagation::visitOperation(op, operands, results);
       });
 }
+
+void BoundedValueAnalysis::setToEntryState(BoundedValueLattice *lattice) {
+  value_analysis::BoundedValueKnowledge next =
+      value_analysis::BoundedValueKnowledge::getUninitializedValue();
+  propagateIfChanged(lattice, lattice->join(next));
+}
+
 } // namespace mlir
