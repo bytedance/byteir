@@ -52,7 +52,7 @@ transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
     }
     if (!allReduceOp.getSynchronous()) {
       DiagnosedSilenceableFailure diag =
-          emitSilenceableError() << "cll.all_reduce should be synchronous.";
+          emitSilenceableError() << "ccl.all_reduce should be synchronous.";
       return diag;
     }
 
