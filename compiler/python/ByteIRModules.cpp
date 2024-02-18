@@ -45,6 +45,26 @@ PYBIND11_MODULE(_byteir, m) {
         }
       },
       py::arg("context"), py::arg("load") = true);
+  m.def(
+      "register_ace_dialect",
+      [](MlirContext context, bool load) {
+        MlirDialectHandle handle = mlirGetDialectHandle__ace__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (load) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context"), py::arg("load") = true);
+  m.def(
+      "register_ccl_dialect",
+      [](MlirContext context, bool load) {
+        MlirDialectHandle handle = mlirGetDialectHandle__ccl__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (load) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context"), py::arg("load") = true);
 
   m.def("register_dialect_extensions", &byteirRegisterDialectExtensions,
         py::arg("context"));
