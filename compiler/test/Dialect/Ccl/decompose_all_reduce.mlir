@@ -3,7 +3,7 @@
 
 func.func @all_reduce(%arg0: tensor<10x32xf32>) -> tensor<10x32xf32> {
   %0 = "ccl.all_reduce"(%arg0)
-    { reduction = "sum", replica_groups = [[0, 1, 2, 3, 4, 5, 6, 7]], unique_id = 0 : i64} : (tensor<10x32xf32>) -> tensor<10x32xf32>
+    { reduction = "sum", replica_groups = [[0, 1, 2, 3, 4, 5, 6, 7]], unique_id = 0 : i64, synchronous = true} : (tensor<10x32xf32>) -> tensor<10x32xf32>
   func.return %0 : tensor<10x32xf32>
 }
 // CHECK-LABEL: func.func @all_reduce

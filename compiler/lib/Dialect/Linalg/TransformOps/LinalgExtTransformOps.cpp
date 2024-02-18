@@ -1349,7 +1349,8 @@ DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
     parallelBlock->clear();
     builder.setInsertionPointAfterValue(retVal);
     auto allReduceOp = builder.create<ccl::AllReduceOp>(
-        retVal.getLoc(), retVal, /*dynamic_replica_groups*/ nullptr, reduceType,
+        retVal.getLoc(), retVal, /*dynamic_replica_groups*/ nullptr,
+        /*synchronous*/ rewriter.getBoolAttr(true), reduceType,
         /*replica_groups*/ replicaGroupAttrs, /*unique_id*/ nullptr);
 
     // create new merge op

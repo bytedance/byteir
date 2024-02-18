@@ -26,6 +26,6 @@ del importlib
 del _torch_frontend_registry
 
 from .fx_utils import list_decomposed_ops, preprocess_fx_graph, get_none_indices
-from .convert_to_mhlo import convert_to_mhlo_via_torch_mlir, compile, compile_exported_program
+from .compile import convert_to_mhlo_via_torch_mlir, compile, compile_exported_program
 from .flash_attn_op import replace_flash_attn
 from .fx_rewrite import fx_replace_attn_pattern

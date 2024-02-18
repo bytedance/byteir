@@ -50,6 +50,11 @@ transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
           << "target is expected to be of type ccl.all_reduce.";
       return diag;
     }
+    if (!allReduceOp.getSynchronous()) {
+      DiagnosedSilenceableFailure diag =
+          emitSilenceableError() << "ccl.all_reduce should be synchronous.";
+      return diag;
+    }
 
     std::optional<SmallVector<ReplicaGroupsIndices, 4>> replicaGroupsIndices =
         allReduceOp.getReplicaGroupsIndices();
@@ -101,12 +106,14 @@ transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
     OpBuilder builder(target);
     ccl::ReduceScatterOp reduceScatterOp = builder.create<ccl::ReduceScatterOp>(
         target->getLoc(), reduceScatterResultType, allReduceOp.getSrc(),
-        /*dynamic_replica_groups*/ nullptr, allReduceOp.getReductionAttr(),
-        getAxisAttr(), allReduceOp.getReplicaGroupsAttr(),
-        allReduceOp.getUniqueIdAttr());
+        /*dynamic_replica_groups*/ nullptr,
+        /*synchronous*/ allReduceOp.getSynchronousAttr(),
+        allReduceOp.getReductionAttr(), getAxisAttr(),
+        allReduceOp.getReplicaGroupsAttr(), allReduceOp.getUniqueIdAttr());
     ccl::AllGatherOp allGatherOp = builder.create<ccl::AllGatherOp>(
         target->getLoc(), oldResultType, reduceScatterOp.getResult(),
-        /*dynamic_replica_groups*/ nullptr, getAxisAttr(),
+        /*dynamic_replica_groups*/ nullptr,
+        /*synchronous*/ allReduceOp.getSynchronousAttr(), getAxisAttr(),
         allReduceOp.getReplicaGroupsAttr(), allReduceOp.getUniqueIdAttr());
     oldResult.replaceAllUsesWith(allGatherOp.getResult());
     target->erase();

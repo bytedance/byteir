@@ -7,6 +7,7 @@ from torch_frontend import torch_mlir
 from torch_mlir import ir
 from torch_mlir.passmanager import PassManager
 from torch_mlir.dialects import torch as torch_d
+from torch_mlir.extras.fx_importer import FxImporter
 
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
@@ -149,7 +150,12 @@ def compile(
         pm.run(module.operation)
     return module
 
-
+"""
+    debug: int type, one of
+            `0: no debug message`,
+            `1: print after failure`,
+            `2: print after pass only on change`
+"""
 def compile_exported_program(
     model: torch.export.ExportedProgram,
     output_type: str,
@@ -163,7 +169,6 @@ def compile_exported_program(
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
-    from torch_mlir.extras.fx_importer import FxImporter
     context = ir.Context()
     torch_d.register_dialect(context)
     fx_importer = FxImporter(context=context)

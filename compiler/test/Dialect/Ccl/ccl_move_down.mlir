@@ -21,8 +21,8 @@ func.func @decomposed_all_reduce(%arg0: tensor<125x32x15xf32>) -> tensor<125x32x
       %11 = arith.addf %10, %out : f32
       linalg.yield %11 : f32
     } -> tensor<125x32xf32>
-    %7 = "ccl.reduce_scatter"(%6) {axis = 0 : i64, reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<125x32xf32>) -> tensor<25x32xf32>
-    %8 = "ccl.all_gather"(%7) {axis = 0 : i64, replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<25x32xf32>) -> tensor<125x32xf32>
+    %7 = "ccl.reduce_scatter"(%6) {axis = 0 : i64, reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]], synchronous = true} : (tensor<125x32xf32>) -> tensor<25x32xf32>
+    %8 = "ccl.all_gather"(%7) {axis = 0 : i64, replica_groups = [[0, 1, 2, 3, 4]], synchronous = true} : (tensor<25x32xf32>) -> tensor<125x32xf32>
     %9 = linalg.generic {indexing_maps = [#map3, #map3], iterator_types = ["parallel", "parallel"]} ins(%8 : tensor<125x32xf32>) outs(%1 : tensor<125x32xf32>) {
     ^bb0(%in: f32, %out: f32):
       %10 = arith.addf %in, %out : f32
@@ -63,8 +63,8 @@ func.func @decomposed_all_reduce_with_tensor_empty_init_op(%arg0: tensor<125x32x
       %11 = arith.addf %10, %out : f32
       linalg.yield %11 : f32
     } -> tensor<125x32xf32>
-    %7 = "ccl.reduce_scatter"(%6) {axis = 0 : i64, reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<125x32xf32>) -> tensor<25x32xf32>
-    %8 = "ccl.all_gather"(%7) {axis = 0 : i64, replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<25x32xf32>) -> tensor<125x32xf32>
+    %7 = "ccl.reduce_scatter"(%6) {axis = 0 : i64, reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]], synchronous = true} : (tensor<125x32xf32>) -> tensor<25x32xf32>
+    %8 = "ccl.all_gather"(%7) {axis = 0 : i64, replica_groups = [[0, 1, 2, 3, 4]], synchronous = true} : (tensor<25x32xf32>) -> tensor<125x32xf32>
     %9 = linalg.generic {indexing_maps = [#map3, #map3], iterator_types = ["parallel", "parallel"]} ins(%8 : tensor<125x32xf32>) outs(%0 : tensor<125x32xf32>) {
     ^bb0(%in: f32, %out: f32):
       %10 = arith.addf %in, %out : f32
@@ -106,8 +106,8 @@ func.func @user_outside_region_of_all_gather(%arg0: tensor<125x32x15xf32>) -> te
       %11 = arith.addf %10, %out : f32
       linalg.yield %11 : f32
     } -> tensor<125x32xf32>
-    %7 = "ccl.reduce_scatter"(%6) {axis = 0 : i64, reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<125x32xf32>) -> tensor<25x32xf32>
-    %8 = "ccl.all_gather"(%7) {axis = 0 : i64, replica_groups = [[0, 1, 2, 3, 4]]} : (tensor<25x32xf32>) -> tensor<125x32xf32>
+    %7 = "ccl.reduce_scatter"(%6) {axis = 0 : i64, reduction = "sum", replica_groups = [[0, 1, 2, 3, 4]], synchronous = true} : (tensor<125x32xf32>) -> tensor<25x32xf32>
+    %8 = "ccl.all_gather"(%7) {axis = 0 : i64, replica_groups = [[0, 1, 2, 3, 4]], synchronous = true} : (tensor<25x32xf32>) -> tensor<125x32xf32>
     scf.forall.in_parallel {
       tensor.parallel_insert_slice %8 into %arg2[0, 0] [125, 32] [1, 1] : tensor<125x32xf32> into tensor<125x32xf32>
     }
