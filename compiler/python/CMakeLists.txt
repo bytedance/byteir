@@ -54,8 +54,6 @@ declare_mlir_python_extension(ByteIRPythonExtensions.Main
     ByteIRModules.cpp
   EMBED_CAPI_LINK_LIBS
     ByteIRCAPI
-    StablehloCAPI
-    ChloCAPI
   PRIVATE_LINK_LIBS
     LLVMSupport
 )
@@ -74,6 +72,10 @@ add_mlir_python_common_capi_library(ByteIRCAPIAggregation
     MLIRPythonExtension.RegisterEverything
     MLIRHLOPythonSources
     MLIRHLOPythonExtensions
+    ChloPythonSources
+    ChloPythonExtensions
+    StablehloPythonSources
+    StablehloPythonExtensions
     ByteIRPythonSources
     ByteIRPythonExtensions
 )
@@ -94,6 +96,10 @@ add_mlir_python_modules(ByteIRPythonModules
     MLIRPythonExtension.RegisterEverything
     MLIRHLOPythonSources
     MLIRHLOPythonExtensions
+    ChloPythonSources
+    ChloPythonExtensions
+    StablehloPythonSources
+    StablehloPythonExtensions
     ByteIRPythonSources
     ByteIRPythonExtensions
   COMMON_CAPI_LINK_LIBS

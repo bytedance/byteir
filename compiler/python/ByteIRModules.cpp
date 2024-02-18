@@ -22,8 +22,6 @@
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
-#include "stablehlo/integrations/c/ChloDialect.h"
-#include "stablehlo/integrations/c/StablehloDialect.h"
 
 namespace py = pybind11;
 
@@ -41,28 +39,6 @@ PYBIND11_MODULE(_byteir, m) {
       "register_cat_dialect",
       [](MlirContext context, bool load) {
         MlirDialectHandle handle = mlirGetDialectHandle__cat__();
-        mlirDialectHandleRegisterDialect(handle, context);
-        if (load) {
-          mlirDialectHandleLoadDialect(handle, context);
-        }
-      },
-      py::arg("context"), py::arg("load") = true);
-
-  m.def(
-      "register_stablehlo_dialect",
-      [](MlirContext context, bool load) {
-        MlirDialectHandle handle = mlirGetDialectHandle__stablehlo__();
-        mlirDialectHandleRegisterDialect(handle, context);
-        if (load) {
-          mlirDialectHandleLoadDialect(handle, context);
-        }
-      },
-      py::arg("context"), py::arg("load") = true);
-
-  m.def(
-      "register_chlo_dialect",
-      [](MlirContext context, bool load) {
-        MlirDialectHandle handle = mlirGetDialectHandle__chlo__();
         mlirDialectHandleRegisterDialect(handle, context);
         if (load) {
           mlirDialectHandleLoadDialect(handle, context);
