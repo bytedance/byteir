@@ -1,12 +1,6 @@
 import datetime
 import sys
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, Callable, Dict, Tuple, TypeVar, cast
 from functools import wraps
 
 import torch
@@ -89,6 +83,7 @@ def with_comms(func: TestFunc) -> TestFunc:
         self.destroy_pg()
 
     return wrapper
+
 
 def skip_unless_torch_gpu(method: T) -> T:
     """

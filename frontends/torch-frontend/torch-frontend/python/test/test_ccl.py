@@ -3,9 +3,7 @@ from torch.testing import FileCheck
 
 import torch.distributed as dist
 import torch.distributed._functional_collectives as funcol
-from torch.testing._internal.common_utils import (
-    run_tests,
-)
+from torch.testing._internal.common_utils import run_tests
 
 from utils import with_comms, DistributedTestBase
 
