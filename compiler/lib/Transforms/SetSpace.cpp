@@ -361,7 +361,50 @@ void updateOpTypes(FuncOp func, ModuleOp m,
   // rewrite all types
   for (auto &block : func.getBlocks()) {
     for (auto &op : block.without_terminator()) {
-      if (auto opSpaceAttr = op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+      if (auto viewLikeOp = llvm::dyn_cast<ViewLikeOpInterface>(op)) {
+        auto src = viewLikeOp.getViewSource();
+        auto srcType = dyn_cast<MemRefType>(src.getType());
+        if (!srcType)
+          continue;
+        auto srcSpace = srcType.getMemorySpace();
+        if (!srcSpace)
+          continue;
+
+        auto currSpace = srcSpace;
+        // if op has space attribute, use it as memory space
+        if (auto opSpaceAttr = op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+          if (srcSpace != opSpaceAttr) {
+            // insert copy if src space is different with spaceAttr
+            auto newSrcType = cloneMemRefTypeWithMemSpace(srcType, opSpaceAttr);
+            auto newArg = createCopyInputArg(&op, src, newSrcType, opSpaceAttr,
+                                             copyPairToCopyTargets);
+            op.setOperand(0, newArg);
+            currSpace = opSpaceAttr;
+          }
+        }
+        // propagate memory space from currSpace to dest
+        for (auto result : op.getResults()) {
+          auto dstType = result.getType().dyn_cast<MemRefType>();
+          if (!dstType)
+            continue;
+          auto dstSpace = dstType.getMemorySpace();
+
+          if (dstSpace) {
+            if (dstSpace != currSpace) {
+              // insert copy if dst space was already set to different space
+              auto newDstType = cloneMemRefTypeWithMemSpace(dstType, currSpace);
+              result.setType(newDstType);
+              createCopyReturn(viewLikeOp, result, dstType,
+                               copyPairToCopyTargets);
+            }
+          } else {
+            // set to spaceAttr if no space
+            auto newDstType = cloneMemRefTypeWithMemSpace(dstType, currSpace);
+            result.setType(newDstType);
+          }
+        }
+      } else if (auto opSpaceAttr =
+                     op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
         for (unsigned i = 0; i < op.getNumOperands(); ++i) {
           auto operand = op.getOperand(i);
           if (auto MemrefTy = operand.getType().dyn_cast<MemRefType>()) {
@@ -406,37 +449,6 @@ void updateOpTypes(FuncOp func, ModuleOp m,
             auto newOperandType =
                 cloneMemRefTypeWithMemSpace(MemrefTy, opSpaceAttr);
             result.setType(newOperandType);
-          }
-        }
-      } else if (auto viewLikeOp = llvm::dyn_cast<ViewLikeOpInterface>(op)) {
-        // for view like op, we need propagate memory space from source to dest
-        auto src = viewLikeOp.getViewSource();
-        if (auto srcType = src.getType().dyn_cast<MemRefType>()) {
-          auto srcSpace = srcType.getMemorySpace();
-          if (!srcSpace)
-            continue;
-
-          for (auto result : op.getResults()) {
-            auto dstType = result.getType().dyn_cast<MemRefType>();
-            if (!dstType)
-              continue;
-
-            auto dstSpace = dstType.getMemorySpace();
-
-            if (dstSpace) {
-              if (dstSpace != srcSpace) {
-                // insert copy if dst space was already set to different space
-                auto newDstType =
-                    cloneMemRefTypeWithMemSpace(dstType, srcSpace);
-                result.setType(newDstType);
-                createCopyReturn(viewLikeOp, result, dstType,
-                                 copyPairToCopyTargets);
-              }
-            } else {
-              // set to src space if no space
-              auto newDstType = cloneMemRefTypeWithMemSpace(dstType, srcSpace);
-              result.setType(newDstType);
-            }
           }
         }
       }
