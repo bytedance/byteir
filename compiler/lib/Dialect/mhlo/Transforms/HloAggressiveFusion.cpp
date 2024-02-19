@@ -55,12 +55,7 @@ bool isFusibleTrigger(Operation *) { return true; }
 
 bool isFusibleWith(Operation *, Operation *) { return true; }
 
-bool isValidSingleOp(Operation *op) {
-  if (llvm::isa<mhlo::ReshapeOp>(op))
-    return false;
-  else
-    return true;
-}
+bool isValidSingleOp(Operation *op) { return true; }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
 
