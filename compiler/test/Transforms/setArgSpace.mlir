@@ -116,6 +116,25 @@ func.func @main(%arg0 : memref<2x4xf32>) -> memref<8xf32> {
 
 // -----
 
+func.func private @foo(%arg : memref<2x4xf32>) -> memref<2x4xf32> attributes {device = "gpu"}
+
+func.func @main(%arg0 : memref<2x4xf32>) -> memref<8xf32> {
+  %0 = call @foo(%arg0) : (memref<2x4xf32>) -> memref<2x4xf32>
+  %1 = memref.collapse_shape %0 [[0, 1]] {device = "cpu"} : memref<2x4xf32> into memref<8xf32>
+  return %1 : memref<8xf32>
+}
+// CHECK-LABEL: func.func @main
+//  CHECK-SAME: (%[[ARG:.+]]: memref<2x4xf32, "cpu">) -> memref<8xf32, "cpu">
+//  CHECK-NEXT:     %[[ALLOC0:.+]] = memref.alloc() : memref<2x4xf32, "gpu">
+//  CHECK-NEXT:     memref.copy %[[ARG]], %[[ALLOC0]] : memref<2x4xf32, "cpu"> to memref<2x4xf32, "gpu">
+//  CHECK-NEXT:     %[[CALL:.+]] = call @foo(%[[ALLOC0]]) : (memref<2x4xf32, "gpu">) -> memref<2x4xf32, "gpu">
+//  CHECK-NEXT:     %[[ALLOC1:.+]] = memref.alloc() : memref<2x4xf32, "cpu">
+//  CHECK-NEXT:     memref.copy %[[CALL]], %[[ALLOC1]] : memref<2x4xf32, "gpu"> to memref<2x4xf32, "cpu">
+//  CHECK-NEXT:     %[[COLLAPSED:.+]] = memref.collapse_shape %[[ALLOC1]] {{\[}}[0, 1]] {device = "cpu"} : memref<2x4xf32, "cpu"> into memref<8xf32, "cpu">
+//  CHECK-NEXT:     return %[[COLLAPSED]] : memref<8xf32, "cpu">
+
+// -----
+
 memref.global "private" constant @__constant : memref<2x4xf32> = dense<0.0>
 func.func private @foo0(%arg0 : memref<2x4xf32>, %arg1 : memref<2x4xf32>) -> memref<2x4xf32> attributes {device = "device0"}
 func.func private @foo1(%arg0 : memref<2x4xf32>, %arg1 : memref<2x4xf32>) -> memref<2x4xf32> attributes {device = "device1"}

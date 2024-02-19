@@ -65,7 +65,12 @@ ArgSideEffectType ArgSideEffectAnalysis::getType(mlir::Operation *op,
             .has_value()) {
       return ArgSideEffectType::kInput;
     }
-    return ArgSideEffectType::kOutput;
+    if (opInter
+            .getEffectOnValue<MemoryEffects::Write>(op->getOperand(argOffset))
+            .has_value()) {
+      return ArgSideEffectType::kOutput;
+    }
+    return ArgSideEffectType::kError;
   }
 
   // if no MemoryEffectOpInterface, use lookup
