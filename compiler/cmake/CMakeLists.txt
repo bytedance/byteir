@@ -119,7 +119,7 @@ add_subdirectory(${BYTEIR_SRC_DIR}/tools ${BYTEIR_BINARY_DIR}/tools)
 if (BYTEIR_ENABLE_BINDINGS_PYTHON)
   include(MLIRDetectPythonEnv)
   mlir_configure_python_dev_packages()
-  add_subdirectory(${BYTEIR_SRC_DIR}/python ${CMAKE_BINARY_DIR}/python)
+  add_subdirectory(${BYTEIR_SRC_DIR}/python ${BYTEIR_BINARY_DIR}/python)
 endif()
 
 if(MSVC)

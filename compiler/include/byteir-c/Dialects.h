@@ -25,6 +25,8 @@ extern "C" {
 #endif
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Cat, cat);
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Ace, ace);
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Ccl, ccl);
 
 MLIR_CAPI_EXPORTED void byteirRegisterDialectExtensions(MlirContext context);
 

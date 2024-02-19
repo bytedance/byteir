@@ -17,7 +17,9 @@
 
 #include "byteir-c/Dialects.h"
 
+#include "byteir/Dialect/Ace/AceDialect.h"
 #include "byteir/Dialect/Cat/IR/CatDialect.h"
+#include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
@@ -28,6 +30,8 @@
 using namespace mlir;
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Cat, cat, mlir::cat::CatDialect)
+MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Ace, ace, mlir::ace::AceDialect)
+MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Ccl, ccl, mlir::ccl::CclDialect)
 
 void byteirRegisterDialectExtensions(MlirContext context) {
   DialectRegistry registry;
