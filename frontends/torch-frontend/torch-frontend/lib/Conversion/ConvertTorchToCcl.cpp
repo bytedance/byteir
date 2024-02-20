@@ -46,6 +46,9 @@ public:
     if (!matchPattern(op.getReduceOp(), m_TorchConstantStr(reduceOp))) {
       return rewriter.notifyMatchFailure(op, "unsupported value of reduceOp");
     }
+    // make sure reduce op is lowercase string.
+    std::transform(reduceOp.begin(), reduceOp.end(), reduceOp.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
     if (!matchPattern(op.getTag(), m_TorchConstantStr(tag))) {
       return rewriter.notifyMatchFailure(op, "unsupported value of tag");
     }
@@ -123,6 +126,9 @@ public:
     if (!matchPattern(op.getReduceOp(), m_TorchConstantStr(reduceOp))) {
       return rewriter.notifyMatchFailure(op, "unsupported value of reduceOp");
     }
+    // make sure reduce op is lowercase string.
+    std::transform(reduceOp.begin(), reduceOp.end(), reduceOp.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
     if (!matchPattern(op.getTag(), m_TorchConstantStr(tag))) {
       return rewriter.notifyMatchFailure(op, "unsupported value of tag");
     }
@@ -145,6 +151,61 @@ public:
             ArrayRef<Attribute>{rewriter.getI64ArrayAttr(ranks)}),
         /*unique_id=*/nullptr);
     rewriter.replaceOp(op, cclReduceScatterOp.getResult());
+    return success();
+  }
+};
+
+class ConvertC10dFunctionalBroadcastOp
+    : public OpConversionPattern<C10dFunctionalBroadcastOp> {
+public:
+  using OpConversionPattern<
+      C10dFunctionalBroadcastOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(C10dFunctionalBroadcastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getSelf();
+    auto outType = getTypeConverter()->convertType(op.getResult().getType());
+
+    int64_t src;
+    if (!matchPattern(op.getSrc(), m_TorchConstantInt(&src))) {
+      return rewriter.notifyMatchFailure(op,
+                                         "non-const src rank is not supported");
+    }
+    int64_t groupSize;
+    if (!matchPattern(op.getGroupSize(), m_TorchConstantInt(&groupSize))) {
+      return rewriter.notifyMatchFailure(
+          op, "non-const group_size is not supported");
+    }
+    llvm::SmallVector<int64_t> ranks;
+    if (!matchPattern(op.getRanks(), m_TorchListOfConstantInts(ranks))) {
+      return rewriter.notifyMatchFailure(
+          op, "non-const ranks list is not supported");
+    }
+    if (static_cast<int64_t>(ranks.size()) != groupSize) {
+      return rewriter.notifyMatchFailure(op,
+                                         "group_size should be equal with the "
+                                         "number of the processes in ranks");
+    }
+
+    if (src != ranks[0]) {
+      for (auto it = ranks.begin(); it != ranks.end(); it++) {
+        if (*it == src) {
+          ranks.erase(it);
+          break;
+        }
+      }
+      ranks.insert(ranks.begin(), src);
+    }
+
+    auto cclBroadcastOp = rewriter.create<ccl::BroadcastOp>(
+        op->getLoc(), outType, input, Value(),
+        /*synchronous=*/rewriter.getBoolAttr(false),
+        rewriter.getArrayAttr(
+            ArrayRef<Attribute>{rewriter.getI64ArrayAttr(ranks)}),
+        /*unique_id=*/nullptr);
+
+    rewriter.replaceOp(op, cclBroadcastOp.getResult());
     return success();
   }
 };
@@ -261,6 +322,8 @@ public:
                                                              context);
     target.addIllegalOp<C10dFunctionalWaitTensorOp>();
     patterns.add<ConvertC10dFunctionalWaitTensorOp>(typeConverter, context);
+    target.addIllegalOp<C10dFunctionalBroadcastOp>();
+    patterns.add<ConvertC10dFunctionalBroadcastOp>(typeConverter, context);
     target.addIllegalOp<C10dFunctionalIsendOp>();
     patterns.add<ConvertC10dFunctionalIsendOp>(typeConverter, context);
     target.addIllegalOp<C10dFunctionalIrecvOp>();

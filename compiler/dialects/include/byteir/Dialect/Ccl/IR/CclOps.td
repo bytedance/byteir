@@ -173,6 +173,29 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all", [Pure]> {
   let hasVerifier = 1;
 }
 
+def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", [Pure]> {
+  let summary = "Broadcast operator";
+  let description = [{
+    Broadcast `src` tensor of the first rank to the other ranks within 
+    the same process group.
+    
+    The usage of `dynamic_replica_groups`, `replica_groups` and `unique_id` is
+    the same as that in `ccl.all_reduce`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$src,
+    Optional<AnyTensor>:$dynamic_replica_groups,
+    BoolAttr:$synchronous,
+    OptionalAttr<IndexListArrayAttr>:$replica_groups,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
+
+  let extraClassDeclaration = commonExtraClassDeclaration;
+  let hasVerifier = 1;
+}
+
 def Ccl_SendOp : Ccl_Op<"send", [Pure,
     SameOperandsAndResultElementType,
     SameOperandsAndResultShape,
