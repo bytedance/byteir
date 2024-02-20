@@ -158,8 +158,7 @@ public:
 class ConvertC10dFunctionalBroadcastOp
     : public OpConversionPattern<C10dFunctionalBroadcastOp> {
 public:
-  using OpConversionPattern<
-      C10dFunctionalBroadcastOp>::OpConversionPattern;
+  using OpConversionPattern<C10dFunctionalBroadcastOp>::OpConversionPattern;
 
   LogicalResult
   matchAndRewrite(C10dFunctionalBroadcastOp op, OpAdaptor adaptor,
