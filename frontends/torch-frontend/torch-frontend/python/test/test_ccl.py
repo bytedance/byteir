@@ -1,3 +1,5 @@
+import unittest
+
 import torch
 from torch.testing import FileCheck
 
@@ -5,7 +7,7 @@ import torch.distributed as dist
 import torch.distributed._functional_collectives as funcol
 from torch.testing._internal.common_utils import run_tests
 
-from utils import with_comms, DistributedTestBase
+from utils import with_comms, DistributedTestBase, skip_unless_torch_version_bigger_than
 
 import torch_frontend
 from torch_frontend import compile_dynamo_model
@@ -85,6 +87,7 @@ class DistributedCollectiveTest(DistributedTestBase):
             ).check("-> tensor<16xf32>").check("ccl.wait").run(ir)
 
     @with_comms
+    @skip_unless_torch_version_bigger_than(torch_version="2.2")
     def test_broadcast(self):
         module = BroadcastModule()
         inputs = [torch.tensor([1, 2, 3, 4], dtype=torch.float32)]

@@ -5,11 +5,10 @@ from functools import wraps
 
 import torch
 import torch.distributed as dist
-from torch.testing._internal.common_distributed import (
-    TEST_SKIPS,
-    MultiProcessTestCase,
-    skip_if_lt_x_gpu,
-)
+from torch.testing._internal.common_distributed import TEST_SKIPS, MultiProcessTestCase, skip_if_lt_x_gpu, TestSkip
+
+# add new skipped test exit code
+TEST_SKIPS["torch-version-2.2"] = TestSkip(90, "Need torch version bigger than 2.2")
 
 TestFunc = Callable[[object], object]
 T = TypeVar("T")
@@ -96,3 +95,27 @@ def skip_unless_torch_gpu(method: T) -> T:
     """
     # The builtin @skip_if_no_gpu relies on os.environ['WORLD_SIZE'] being set.
     return cast(T, skip_if_lt_x_gpu(NUM_DEVICES)(method))
+
+
+def skip_unless_torch_version_bigger_than(torch_version: str):
+    """
+    Test decorator which skips the test unless current torch version is
+    bigger than the given number.
+
+    >>> # xdoctest: +SKIP
+    >>> @skip_unless_torch_version_bigger_than(torch_version="2.2")
+    >>> def test_some_method(self) -> None:
+    >>>   ...
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_torch_version = torch.__version__
+            if current_torch_version >= torch_version:
+                return func(*args, **kwargs)
+            sys.exit(TEST_SKIPS[f"torch-version-{torch_version}"].exit_code)
+
+        return wrapper
+
+    return decorator
