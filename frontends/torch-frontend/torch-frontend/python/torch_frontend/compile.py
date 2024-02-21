@@ -226,7 +226,7 @@ def compile_dynamo_model(
         # We still need torch-function-to-torch-pipeline help us do something, e.g.,
         # decompose ops, like aten.addmm, aten.t and so on.
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
-        pm = PassManager.parse(f"builtin.module(torch-function-to-torch-pipeline{option_string}")
+        pm = PassManager.parse(f"builtin.module(torch-function-to-torch-pipeline{option_string})")
         if debug == 1:
             pm.enable_ir_printing(
                 print_before_pass=False,
