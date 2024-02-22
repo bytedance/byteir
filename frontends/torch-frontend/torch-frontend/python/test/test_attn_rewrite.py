@@ -57,6 +57,7 @@ def trival_compile_fx(model_: torch.fx.GraphModule, inputs):
     return module
 
 def test_flash_attn_gpt2_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.GPT2Config.from_pretrained('gpt2')
     config.num_labels = config.vocab_size
@@ -91,6 +92,7 @@ def test_flash_attn_gpt2_pattern():
 
 
 def test_flash_attn_llama_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.LlamaConfig(num_hidden_layers=4)
     model = transformers.LlamaForCausalLM(config=config).to("cuda")
@@ -109,7 +111,7 @@ def test_flash_attn_llama_pattern():
         output = flash_model(input_data)
         golden_logits = output.logits
         golden_loss = F.cross_entropy(golden_logits.view(-1, model.config.vocab_size), label.view(-1))
-    
+
         flash_input_data, flash_label = flash_data
         flash_output = flash_attn_gm(flash_input_data)
         flash_logits = flash_output["logits"]
@@ -121,6 +123,7 @@ def test_flash_attn_llama_pattern():
 
 
 def test_flash_attn_bloom_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.BloomConfig.from_pretrained('bigscience/bloom-560m')
     config.tie_word_embeddings = False
@@ -140,7 +143,7 @@ def test_flash_attn_bloom_pattern():
         output = flash_model(input_data)
         golden_logits = output.logits
         golden_loss = F.cross_entropy(golden_logits.view(-1, model.config.vocab_size), label.view(-1))
-    
+
         flash_model.zero_grad(set_to_none=True)
         flash_attn_gm = torch.compile(flash_model, backend=trival_compile_fx)
         flash_input_data, flash_label = flash_data
@@ -153,6 +156,7 @@ def test_flash_attn_bloom_pattern():
 
 
 def test_flash_attn_opt_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.AutoConfig.from_pretrained("facebook/opt-1.3b")
     config.tie_word_embeddings = False
@@ -173,7 +177,7 @@ def test_flash_attn_opt_pattern():
         output = flash_model(input_data)
         golden_logits = output.logits
         golden_loss = F.cross_entropy(golden_logits.view(-1, model.config.vocab_size), label.view(-1))
-    
+
         flash_model.zero_grad(set_to_none=True)
         flash_attn_gm = torch.compile(flash_model, backend=trival_compile_fx)
         flash_input_data, flash_label = flash_data
@@ -186,6 +190,8 @@ def test_flash_attn_opt_pattern():
 
 
 def test_flash_attn_llama_inference_pattern():
+    torch.cuda.empty_cache()
+
     config = transformers.LlamaConfig(num_hidden_layers=4)
     model = transformers.LlamaForCausalLM(config=config).to("cuda")
     model.eval()
