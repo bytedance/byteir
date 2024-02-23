@@ -5,7 +5,7 @@ ByteIR Runtime is a common Runtime mainly serving both existing kernels and Byte
 
 ## Dependency 
 
-***LLVM/MLIR*** https://github.com/llvm/llvm-project, current llvm commit id: 4592543a01609feb4b3c19e81a9d54743e15e329
+***LLVM/MLIR*** https://github.com/llvm/llvm-project, llvm commit id see `external/llvm-project`.
 
 ***ByteIR ByRE dialect***  https://github.com/bytedance/byteir/compiler
 
