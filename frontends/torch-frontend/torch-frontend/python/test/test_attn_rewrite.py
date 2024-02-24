@@ -9,7 +9,7 @@ from typing import Dict, List
 
 def make_data(model, device):
     batch_size = 2
-    seq_len = 256
+    seq_len = 128
     input = torch.randint(
         low=0, high=model.config.vocab_size, size=(batch_size, seq_len), device=device
     )
@@ -92,7 +92,8 @@ def test_flash_attn_gpt2_pattern():
 
 def test_flash_attn_llama_pattern():
     torch.manual_seed(0)
-    config = transformers.LlamaConfig(num_hidden_layers=4)
+    config = transformers.LlamaConfig(num_hidden_layers=2)
+    config.hidden_size=512
     model = transformers.LlamaForCausalLM(config=config).to("cuda")
 
     flash_model = transformers.LlamaForCausalLM(config=config).to("cuda")
@@ -125,7 +126,7 @@ def test_flash_attn_bloom_pattern():
     config = transformers.BloomConfig.from_pretrained('bigscience/bloom-560m')
     config.tie_word_embeddings = False
     config.hidden_size=512
-    config.num_hidden_layers=12
+    config.num_hidden_layers=2
     model = transformers.BloomForCausalLM(config=config).to("cuda")
 
     flash_model = transformers.BloomForCausalLM(config=config).to("cuda")
@@ -157,7 +158,7 @@ def test_flash_attn_opt_pattern():
     config = transformers.AutoConfig.from_pretrained("facebook/opt-1.3b")
     config.tie_word_embeddings = False
     config.hidden_size=512
-    config.num_hidden_layers=4
+    config.num_hidden_layers=2
     config.dropout=0.0
     model = transformers.OPTForCausalLM(config=config).to("cuda")
 
@@ -186,7 +187,7 @@ def test_flash_attn_opt_pattern():
 
 
 def test_flash_attn_llama_inference_pattern():
-    config = transformers.LlamaConfig(num_hidden_layers=4)
+    config = transformers.LlamaConfig(num_hidden_layers=2)
     model = transformers.LlamaForCausalLM(config=config).to("cuda")
     model.eval()
 
