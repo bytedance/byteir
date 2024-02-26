@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
+#include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;
@@ -168,6 +169,65 @@ LogicalResult AllToAllOp::verify() {
 LogicalResult BroadcastOp::verify() {
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
+}
+
+// If two and more WaitOp's follow a BroadcastOp, the excess WaitOp's are
+// eliminated and only one WaitOp is retained.
+struct EliminateDuplicateWait : public OpRewritePattern<BroadcastOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(BroadcastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto nextOp = op.getOperation()->getNextNode();
+    if (nextOp && isa<WaitOp>(nextOp)) {
+      auto nextNextOp = nextOp->getNextNode();
+      if (nextNextOp && isa<WaitOp>(nextNextOp)) {
+        rewriter.replaceOp(nextNextOp, nextOp);
+        return success();
+      }
+    }
+    return failure();
+  }
+};
+
+// A BroadcastOp with a synchronous of false plus a WaitOp equals a BroadcastOp
+// with a synchronous of true.
+struct CombineBroadcastAndWait : public OpRewritePattern<BroadcastOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(BroadcastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto nextOp = op.getOperation()->getNextNode();
+    if (nextOp && isa<WaitOp>(nextOp) && op.getSynchronous() == false) {
+      op.setSynchronous(true);
+      rewriter.replaceOp(nextOp, op);
+      return success();
+    }
+    return failure();
+  }
+};
+
+// Eliminate the WaitOp after a BroadcastOp which synchronous is true.
+struct EliminateUnnecessaryWait : public OpRewritePattern<BroadcastOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(BroadcastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto nextOp = op.getOperation()->getNextNode();
+    if (nextOp && isa<WaitOp>(nextOp) && op.getSynchronous() == true) {
+      rewriter.replaceOp(nextOp, op);
+      return success();
+    }
+    return failure();
+  }
+};
+
+void BroadcastOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                              MLIRContext *context) {
+  // clang-format off
+  results.add<
+  EliminateDuplicateWait,
+  EliminateUnnecessaryWait,
+  CombineBroadcastAndWait
+  >(context);
+  // clamg-format on
 }
 
 //===----------------------------------------------------------------------===//
