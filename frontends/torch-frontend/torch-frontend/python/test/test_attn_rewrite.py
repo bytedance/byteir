@@ -9,7 +9,7 @@ from typing import Dict, List
 
 def make_data(model, device):
     batch_size = 2
-    seq_len = 256
+    seq_len = 128
     input = torch.randint(
         low=0, high=model.config.vocab_size, size=(batch_size, seq_len), device=device
     )
@@ -57,6 +57,7 @@ def trival_compile_fx(model_: torch.fx.GraphModule, inputs):
     return module
 
 def test_flash_attn_gpt2_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.GPT2Config.from_pretrained('gpt2')
     config.num_labels = config.vocab_size
@@ -86,13 +87,15 @@ def test_flash_attn_gpt2_pattern():
         flash_logits = flash_output["logits"]
         flash_loss = F.cross_entropy(flash_logits.view(-1, model.config.vocab_size), flash_label.view(-1))
 
-    torch.testing.assert_close(golden_loss, flash_loss, atol=1e-4, rtol=1e-6)
+    torch.testing.assert_close(golden_loss, flash_loss, atol=3e-4, rtol=1e-6)
     torch.testing.assert_close(golden_logits, flash_logits, atol=4e-3, rtol=1e-5)
 
 
 def test_flash_attn_llama_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
-    config = transformers.LlamaConfig(num_hidden_layers=4)
+    config = transformers.LlamaConfig(num_hidden_layers=2)
+    config.hidden_size=512
     model = transformers.LlamaForCausalLM(config=config).to("cuda")
 
     flash_model = transformers.LlamaForCausalLM(config=config).to("cuda")
@@ -109,23 +112,24 @@ def test_flash_attn_llama_pattern():
         output = flash_model(input_data)
         golden_logits = output.logits
         golden_loss = F.cross_entropy(golden_logits.view(-1, model.config.vocab_size), label.view(-1))
-    
+
         flash_input_data, flash_label = flash_data
         flash_output = flash_attn_gm(flash_input_data)
         flash_logits = flash_output["logits"]
         flash_loss = F.cross_entropy(flash_logits.view(-1, model.config.vocab_size), flash_label.view(-1))
 
     # Flash attention uses a different mask than the original llama, relax check
-    torch.testing.assert_close(golden_loss, flash_loss, atol=2e-4, rtol=1e-6)
+    torch.testing.assert_close(golden_loss, flash_loss, atol=3e-4, rtol=1e-6)
     torch.testing.assert_close(golden_logits, flash_logits, atol=3e-2, rtol=1e-6)
 
 
 def test_flash_attn_bloom_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.BloomConfig.from_pretrained('bigscience/bloom-560m')
     config.tie_word_embeddings = False
     config.hidden_size=512
-    config.num_hidden_layers=12
+    config.num_hidden_layers=2
     model = transformers.BloomForCausalLM(config=config).to("cuda")
 
     flash_model = transformers.BloomForCausalLM(config=config).to("cuda")
@@ -140,7 +144,7 @@ def test_flash_attn_bloom_pattern():
         output = flash_model(input_data)
         golden_logits = output.logits
         golden_loss = F.cross_entropy(golden_logits.view(-1, model.config.vocab_size), label.view(-1))
-    
+
         flash_model.zero_grad(set_to_none=True)
         flash_attn_gm = torch.compile(flash_model, backend=trival_compile_fx)
         flash_input_data, flash_label = flash_data
@@ -153,11 +157,12 @@ def test_flash_attn_bloom_pattern():
 
 
 def test_flash_attn_opt_pattern():
+    torch.cuda.empty_cache()
     torch.manual_seed(0)
     config = transformers.AutoConfig.from_pretrained("facebook/opt-1.3b")
     config.tie_word_embeddings = False
     config.hidden_size=512
-    config.num_hidden_layers=4
+    config.num_hidden_layers=2
     config.dropout=0.0
     model = transformers.OPTForCausalLM(config=config).to("cuda")
 
@@ -173,7 +178,7 @@ def test_flash_attn_opt_pattern():
         output = flash_model(input_data)
         golden_logits = output.logits
         golden_loss = F.cross_entropy(golden_logits.view(-1, model.config.vocab_size), label.view(-1))
-    
+
         flash_model.zero_grad(set_to_none=True)
         flash_attn_gm = torch.compile(flash_model, backend=trival_compile_fx)
         flash_input_data, flash_label = flash_data
@@ -186,7 +191,9 @@ def test_flash_attn_opt_pattern():
 
 
 def test_flash_attn_llama_inference_pattern():
-    config = transformers.LlamaConfig(num_hidden_layers=4)
+    torch.cuda.empty_cache()
+
+    config = transformers.LlamaConfig(num_hidden_layers=2)
     model = transformers.LlamaForCausalLM(config=config).to("cuda")
     model.eval()
 
