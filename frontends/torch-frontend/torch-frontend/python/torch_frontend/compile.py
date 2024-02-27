@@ -7,6 +7,7 @@ from torch_frontend import torch_mlir
 from torch_mlir import ir
 from torch_mlir.passmanager import PassManager
 from torch_mlir.dialects import torch as torch_d
+from torch_mlir.dialects.builtin import ModuleOp
 from torch_mlir.extras.fx_importer import FxImporter
 
 _CUSTOM_OPS_IN_TORCH = [
@@ -88,7 +89,7 @@ def compile(
     backend_legal_ops: Optional[Sequence[str]] = None,
     verbose: bool = False,
     debug: int = 0,
-):
+) -> ModuleOp:
     """
     Args:
         debug: int type, one of
@@ -182,7 +183,7 @@ def compile_dynamo_model(
     output_type: str,
     backend_legal_ops: Optional[Sequence[str]] = None,
     debug: int = 0,
-):
+) -> ModuleOp:
     """
     Args:
         debug: int type, one of
@@ -276,7 +277,10 @@ def convert_to_mhlo_via_torch_mlir(
     backend_legal_ops: Optional[Sequence[str]] = None,
     use_tracing: bool = False,
     verbose: bool = False,
-):
+) -> ModuleOp:
+    """
+    Deprecated, use torch_frontend.compile instead.
+    """
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
     # torch_mlir.BACKEND_LEGAL_OPS[torch_mlir.OutputType.TORCH] = backend_legal_ops
