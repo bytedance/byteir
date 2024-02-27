@@ -45,3 +45,11 @@ func.func @all_to_all(%arg0: tensor<4x16xf32>) -> tensor<16x4xf32> {
   func.return %0 : tensor<16x4xf32>
 }
 // CHECK-LABEL: func.func @all_to_all
+
+func.func @broadcast_replica_groups(%arg0: tensor<2x3x8xf32>) -> tensor<2x3x8xf32> {
+  %0 = "ccl.broadcast"(%arg0) <{replica_groups = [[2, 3]], synchronous = false}> : (tensor<2x3x8xf32>) -> tensor<2x3x8xf32>
+  return %0 : tensor<2x3x8xf32>
+}
+// CHCK-LABEL: func.func @broadcast_replica_groups
+// CHECK:      %[[VAL_0:.*]] = ccl.broadcast 
+// CHECK-SAME: %[[VAL_1:.*]] {replica_groups = {{\[\[}}2, 3]], synchronous = false} : (tensor<2x3x8xf32>) -> tensor<2x3x8xf32>
