@@ -171,6 +171,7 @@ LogicalResult BroadcastOp::verify() {
                              getDynamicReplicaGroups());
 }
 
+namespace {
 // If two and more WaitOp's follow a BroadcastOp, the excess WaitOp's are
 // eliminated and only one WaitOp is retained.
 struct EliminateDuplicateWait : public OpRewritePattern<BroadcastOp> {
@@ -218,6 +219,7 @@ struct EliminateUnnecessaryWait : public OpRewritePattern<BroadcastOp> {
     return failure();
   }
 };
+} // namespace
 
 void BroadcastOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                               MLIRContext *context) {
