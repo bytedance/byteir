@@ -19,7 +19,7 @@ A clear and concise description of what you expected to happen.
 **Stack trace/logs**
 If applicable, add the stack trace or logs from the time of the error.
 
-**Environment (please complete the following information):**
+**Environment**
 
 **Proposed fix**
 If you have a proposal for how to fix the issue state it here or link to a PR.
