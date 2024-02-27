@@ -227,16 +227,17 @@ public:
   }
 };
 
-class ConvertC10dFunctionalIsendOp
-    : public OpConversionPattern<C10dFunctionalIsendOp> {
+template <typename OP, bool SYNC>
+class ConvertSendOp : public OpConversionPattern<OP> {
 public:
-  using OpConversionPattern<C10dFunctionalIsendOp>::OpConversionPattern;
+  using OpConversionPattern<OP>::OpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(C10dFunctionalIsendOp op, OpAdaptor adaptor,
+  matchAndRewrite(OP op, typename OP::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto outType = getTypeConverter()->convertType(op.getResult().getType());
+    auto outType = OpConversionPattern<OP>::getTypeConverter()->convertType(
+        op.getResult().getType());
 
     int64_t dst;
     if (!matchPattern(op.getDst(), m_TorchConstantInt(&dst))) {
@@ -245,24 +246,25 @@ public:
 
     auto cclSendOp = rewriter.create<ccl::SendOp>(
         op->getLoc(), outType, input,
-        /*synchronous=*/rewriter.getBoolAttr(false),
+        /*synchronous=*/rewriter.getBoolAttr(SYNC),
         /*target_index=*/rewriter.getI64IntegerAttr(dst));
     rewriter.replaceOp(op, cclSendOp.getResult());
     return success();
   }
 };
 
-class ConvertC10dFunctionalIrecvOp
-    : public OpConversionPattern<C10dFunctionalIrecvOp> {
+template <typename OP, bool SYNC>
+class ConvertRecvOp : public OpConversionPattern<OP> {
 public:
-  using OpConversionPattern<C10dFunctionalIrecvOp>::OpConversionPattern;
+  using OpConversionPattern<OP>::OpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(C10dFunctionalIrecvOp op, OpAdaptor adaptor,
+  matchAndRewrite(OP op, typename OP::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
     auto outType = llvm::cast<RankedTensorType>(
-        getTypeConverter()->convertType(op.getResult().getType()));
+        OpConversionPattern<OP>::getTypeConverter()->convertType(
+            op.getResult().getType()));
 
     int64_t src;
     if (!matchPattern(op.getSrc(), m_TorchConstantInt(&src))) {
@@ -272,14 +274,14 @@ public:
     if (outType.hasStaticShape()) {
       auto cclRecvOp = rewriter.create<ccl::RecvOp>(
           op->getLoc(), outType, Value(),
-          /*synchronous=*/rewriter.getBoolAttr(false),
+          /*synchronous=*/rewriter.getBoolAttr(SYNC),
           /*target_index=*/rewriter.getI64IntegerAttr(src));
       rewriter.replaceOp(op, cclRecvOp.getResult());
     } else {
       Value shape = rewriter.create<shape::ShapeOfOp>(op->getLoc(), input);
       auto cclRecvOp = rewriter.create<ccl::RecvOp>(
           op->getLoc(), outType, shape,
-          /*synchronous=*/rewriter.getBoolAttr(false),
+          /*synchronous=*/rewriter.getBoolAttr(SYNC),
           /*target_index=*/rewriter.getI64IntegerAttr(src));
       rewriter.replaceOp(op, cclRecvOp.getResult());
     }
@@ -324,9 +326,17 @@ public:
     target.addIllegalOp<C10dFunctionalBroadcastOp>();
     patterns.add<ConvertC10dFunctionalBroadcastOp>(typeConverter, context);
     target.addIllegalOp<C10dFunctionalIsendOp>();
-    patterns.add<ConvertC10dFunctionalIsendOp>(typeConverter, context);
+    patterns.add<ConvertSendOp<C10dFunctionalIsendOp, false>>(typeConverter,
+                                                              context);
+    target.addIllegalOp<C10dFunctionalSendOp>();
+    patterns.add<ConvertSendOp<C10dFunctionalSendOp, true>>(typeConverter,
+                                                            context);
     target.addIllegalOp<C10dFunctionalIrecvOp>();
-    patterns.add<ConvertC10dFunctionalIrecvOp>(typeConverter, context);
+    patterns.add<ConvertRecvOp<C10dFunctionalIrecvOp, false>>(typeConverter,
+                                                              context);
+    target.addIllegalOp<C10dFunctionalRecvOp>();
+    patterns.add<ConvertRecvOp<C10dFunctionalRecvOp, true>>(typeConverter,
+                                                            context);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
