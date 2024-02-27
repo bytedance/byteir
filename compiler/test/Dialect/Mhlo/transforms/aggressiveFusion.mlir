@@ -30,3 +30,11 @@ func.func @reshape_add(%arg0: tensor<2xf32>, %arg1: tensor<2x1xf32>) -> (tensor<
 // CHECK:  return
 
 
+func.func @single_reshape(%arg0: tensor<2xf32>) -> tensor<2x1xf32> {
+  %0 = mhlo.reshape %arg0 : (tensor<2xf32>) -> tensor<2x1xf32>
+  return %0 : tensor<2x1xf32>
+}
+// CHECK-LABEL: func.func @single_reshape
+// CHECK-NOT:  mhlo.fusion
+// CHECK:  mhlo.reshape
+// CHECK:  return
