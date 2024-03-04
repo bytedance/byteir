@@ -38,16 +38,57 @@ using namespace mlir::memref;
 namespace {
 
 // to check whether all uses of oldValue can be safely replaced with newValue
-bool anyIncompatibleUse(Value oldValue, Value newValue) {
+bool anyIncompatibleUse(Value oldValue, Value newValue,
+                        bool useReshapeOp = false) {
+  if (useReshapeOp)
+    return llvm::any_of(oldValue.getUses(),
+                        [](OpOperand &operand) {
+                          Operation *op = operand.getOwner();
+                          Dialect *dialect = op->getDialect();
+                          return llvm::isa<func::CallOp>(op) ||
+                                 (dialect && dialect->getNamespace() == "byre");
+                        }) &&
+           (oldValue.getType() != newValue.getType());
   return llvm::any_of(oldValue.getUses(),
                       [](OpOperand &operand) {
                         Operation *op = operand.getOwner();
                         Dialect *dialect = op->getDialect();
-                        return llvm::isa<memref::CollapseShapeOp, func::CallOp>(
-                                   op) ||
+                        return llvm::isa<memref::CollapseShapeOp, func::CallOp,
+                                         memref::ExpandShapeOp>(op) ||
                                (dialect && dialect->getNamespace() == "byre");
                       }) &&
          (oldValue.getType() != newValue.getType());
+}
+
+bool allAliasesFromReshapeOp(ArrayRef<Value> aliases) {
+  if (aliases.size() > 1) {
+    if (!isa<memref::AllocOp>(aliases[0].getDefiningOp()))
+      return false;
+    for (size_t idx = 1; idx != aliases.size(); ++idx) {
+      if (!isa<memref::CollapseShapeOp, memref::ExpandShapeOp>(
+              aliases[idx].getDefiningOp()))
+        return false;
+      return true;
+    }
+  }
+  return false;
+}
+
+SmallVector<ReassociationIndices>
+getReassociation(ArrayRef<int64_t> srcShape, ArrayRef<int64_t> targetShape) {
+  SmallVector<ReassociationIndices> reassociation;
+  size_t indice = 0;
+  size_t targetShapeIndex = 0;
+  for (auto srcDim : srcShape) {
+    ReassociationIndices indices;
+    while (targetShapeIndex < targetShape.size() &&
+           srcDim / targetShape[targetShapeIndex] >= 1) {
+      srcDim /= targetShape[targetShapeIndex++];
+      indices.push_back(indice++);
+    }
+    reassociation.push_back(indices);
+  }
+  return reassociation;
 }
 
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
@@ -63,12 +104,6 @@ public:
       return failure();
 
     LLVM_DEBUG(llvm::dbgs() << "match CopyOp " << copyOp << "\n");
-
-    // only support at least one alloc for now
-    if (!src.getDefiningOp<memref::AllocOp>() &&
-        !target.getDefiningOp<memref::AllocOp>()) {
-      return failure();
-    }
 
     auto allocUseInTerminator = [](memref::AllocOp alloc) {
       for (auto user : alloc.getResult().getUsers()) {
@@ -172,24 +207,58 @@ public:
       }
     }
 
-    if (auto srcAlloc = src.getDefiningOp<memref::AllocOp>()) {
+    if (src.getDefiningOp<memref::AllocOp>() ||
+        allAliasesFromReshapeOp(aliases[0])) {
+      auto srcAlloc = cast<memref::AllocOp>(aliases[0][0].getDefiningOp());
       if (auto targetDef = target.getDefiningOp()) {
         if (isa<memref::AllocOp, memref::SubViewOp>(targetDef))
           hoistUpOpInBlock(targetDef, domInfo);
       }
-
       if (!domInfo.properlyDominates(target, srcAlloc)) {
         LLVM_DEBUG(llvm::dbgs() << "failed at target " << target
                                 << " not dominated by " << srcAlloc << "\n");
         return failure();
       }
+      auto srcAllocType = srcAlloc.getType();
+      auto targetType = target.getType().cast<MemRefType>();
+      auto srcAllocShape = srcAllocType.getShape();
+      auto targetShape = targetType.getShape();
 
-      if (!anyIncompatibleUse(src, target)) {
-        rewriter.replaceOp(srcAlloc, {target});
+      // If `srcAllocShape` has the same shape as `targetShape`, simply replace
+      // `srcAlloc` with `target`.
+      if (srcAllocShape == targetShape) {
+        if (!anyIncompatibleUse(srcAlloc, target)) {
+          rewriter.replaceOp(srcAlloc, {target});
+          return success();
+        }
+      } else if (srcAllocType.getRank() < targetType.getRank()) {
+        // If the rank of `srcAlloc` is less than the rank of `target`, you need
+        // to use `CollapseShapeOp` to convert the shape of `target` to
+        // `srcAlloc`.
+        auto &&reassociation = getReassociation(srcAllocShape, targetShape);
+        rewriter.setInsertionPoint(srcAlloc);
+        auto collapseShapeOp = rewriter.create<memref::CollapseShapeOp>(
+            srcAlloc.getLoc(), srcAllocType, target, reassociation);
+        if (!anyIncompatibleUse(srcAlloc, collapseShapeOp, true))
+          rewriter.replaceOp(srcAlloc, collapseShapeOp);
+        if (!anyIncompatibleUse(src, target))
+          rewriter.replaceOp(src.getDefiningOp(), target);
+        return success();
+      } else if (srcAllocType.getRank() > targetType.getRank()) {
+        // If the rank of `srcAlloc` is greater than the rank of `target`, you
+        // need to use `ExpandShapeOp` to convert the shape of `target` to
+        // `srcAlloc`.
+        auto &&reassociation = getReassociation(targetShape, srcAllocShape);
+        rewriter.setInsertionPoint(srcAlloc);
+        auto expandShape = rewriter.create<memref::ExpandShapeOp>(
+            srcAlloc.getLoc(), srcAllocType, target, reassociation);
+        if (!anyIncompatibleUse(srcAlloc, expandShape, true))
+          rewriter.replaceOp(srcAlloc, expandShape);
+        if (!anyIncompatibleUse(src, target))
+          rewriter.replaceOp(src.getDefiningOp(), target);
         return success();
       }
     }
-
     return failure();
   }
 
