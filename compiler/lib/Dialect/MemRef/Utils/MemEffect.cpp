@@ -49,7 +49,8 @@ void mlir::getAllAlias(Operation *op,
                        bool skipNonOverlapedSubviews) {
   AliasAnalysis aliasAnalysis(op);
   op->getBlock()->walk<WalkOrder::PreOrder>([&](Operation *inner) {
-    if (isa<memref::GetGlobalOp, memref::AllocOp, memref::SubViewOp>(inner)) {
+    if (isa<memref::GetGlobalOp, memref::AllocOp, memref::SubViewOp,
+            memref::CollapseShapeOp, memref::ExpandShapeOp>(inner)) {
       for (const auto &en : llvm::enumerate(op->getOperands())) {
         if (aliasAnalysis.alias(en.value(), inner->getResult(0)).isMust()) {
           if (skipNonOverlapedSubviews) {
