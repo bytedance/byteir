@@ -114,8 +114,12 @@ constexpr llvm::StringRef getDynamicMaskStitchName() {
 }
 
 constexpr llvm::StringRef getWhereName() { return TF_NAME_PREFIX "Where"; }
+constexpr llvm::StringRef getScatterNdName() { return TF_NAME_PREFIX "ScatterNd"; }
 constexpr llvm::StringRef getStridedSliceName() {
   return TF_NAME_PREFIX "StridedSlice";
+}
+constexpr llvm::StringRef getBatchMatMulName() {
+  return TF_NAME_PREFIX "BatchMatMul";
 }
 
 } // namespace mlir

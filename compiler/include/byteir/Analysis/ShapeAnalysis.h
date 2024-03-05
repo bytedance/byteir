@@ -38,17 +38,14 @@ namespace shape_analysis {
 ///
 /// This class could also be called "dataflow facts", "lattice value", etc.
 struct ValueKnowledge {
-  ValueKnowledge() : hasError(false), hasRank(false), dtype(std::nullopt) {}
+  ValueKnowledge() : hasRank(false), dtype(std::nullopt) {}
 
-  ValueKnowledge(bool hasRank, llvm::ArrayRef<int64_t> newSizes,
-                 std::optional<Type> dtype)
-      : hasError(false), hasRank(hasRank), dtype(dtype) {
+  ValueKnowledge(bool hasRank, llvm::ArrayRef<int64_t> newSizes, Type dtype)
+      : hasRank(hasRank), dtype(dtype) {
     sizes.reserve(newSizes.size());
     for (auto size : newSizes)
       sizes.push_back(size);
   }
-
-  operator bool() const { return !hasError; }
 
   // Get the static knowledge intrinsic to `type`.
   static ValueKnowledge getKnowledgeFromType(Type type);
@@ -62,18 +59,28 @@ struct ValueKnowledge {
   /// Whether the state is uninitialized.
   bool isUninitialized() const { return !dtype.has_value(); }
 
-  ShapedTypeComponents getShapedTypeComponents() const {
-    return hasRank ? ShapedTypeComponents(sizes) : ShapedTypeComponents();
-  }
-
   Type getType() const {
-    if (hasRank)
+    if (isUninitialized() || !(*dtype)) {
+      return Type();
+    }
+    if(hasRank) {
       return RankedTensorType::get(llvm::ArrayRef(sizes), *dtype);
-    return UnrankedTensorType::get(*dtype);
+    }
+    return *dtype;
   }
 
   bool operator==(const ValueKnowledge &rhs) const {
-    return hasRank == rhs.hasRank && sizes == rhs.sizes && dtype == rhs.dtype;
+    if(hasRank != rhs.hasRank || 
+       sizes.size() != rhs.sizes.size() ||
+       dtype != rhs.dtype) {
+      return false;
+    }
+    for(int i = 0; i < sizes.size(); ++i) {
+      if(sizes[i] != rhs.sizes[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   static ValueKnowledge join(const ValueKnowledge &lhs,
@@ -84,8 +91,6 @@ struct ValueKnowledge {
 
   void print(raw_ostream &os) const;
 
-  // Whether the value information has an error.
-  bool hasError;
   // Whether the value has known rank.
   bool hasRank;
   // If `hasRank`, the sizes along each rank. Unknown sizes are represented as
@@ -113,6 +118,67 @@ struct ValueTypeModificatoinRAII {
   SmallVector<std::pair<Value, Type>> toRestore;
 };
 } // namespace shape_analysis
+
+namespace value_analysis {
+struct BoundedValueKnowledge {
+  struct BoundedValue {
+    Attribute lower;
+    Attribute upper;
+    bool operator==(const BoundedValue &rhs) const {
+      return lower == rhs.lower && upper == rhs.upper;
+    }
+    bool isUnknwon() const {
+      return (!lower) || (!upper);
+    }
+  };
+  explicit BoundedValueKnowledge() = default;
+  explicit BoundedValueKnowledge(BoundedValue bdValue)
+    : boundedValue(bdValue) {}
+  explicit BoundedValueKnowledge(Attribute lower, Attribute upper) {
+    BoundedValue bv;
+    bv.lower = lower;
+    bv.upper = upper;
+    boundedValue = bv;
+  }
+
+  // Get the static knowledge intrinsic to `type`.
+  static BoundedValueKnowledge getUninitializedValue();
+
+  static BoundedValueKnowledge getUnknownValue();
+
+  static BoundedValueKnowledge getKnownValue(Attribute lower, Attribute upper);
+
+  static BoundedValueKnowledge join(const BoundedValueKnowledge &lhs,
+                             const BoundedValueKnowledge &rhs);
+
+  static BoundedValueKnowledge meet(const BoundedValueKnowledge &lhs,
+                             const BoundedValueKnowledge &rhs);
+
+  /// Whether the state is uninitialized.
+  bool isUninitialized() const {
+    return !boundedValue.has_value();
+  }
+
+  bool isUnknown() const {
+    return boundedValue.has_value() && boundedValue->isUnknwon();
+  }
+
+  bool isKnown() const {
+    return boundedValue.has_value() && !boundedValue->isUnknwon();
+  }
+
+  bool operator==(const BoundedValueKnowledge &rhs) const {
+    return boundedValue == rhs.boundedValue;
+  }
+
+  Attribute lower() const;
+  Attribute upper() const;
+
+  void print(raw_ostream &os) const;
+
+  std::optional<BoundedValue> boundedValue;
+};
+} // namespace value_analysis
 
 using ShapeLattice = dataflow::Lattice<shape_analysis::ValueKnowledge>;
 
@@ -152,7 +218,6 @@ public:
   void visitOperation(Operation *op,
                       ArrayRef<const ShapeValueLattice *> operands,
                       ArrayRef<ShapeValueLattice *> results) override;
-
 protected:
   // very similar to SparseConstantPropagation but fold \p op with given
   // inferred operand shape which is stored in \p ShapeLattices
@@ -160,6 +225,15 @@ protected:
                               ArrayRef<const ShapeValueLattice *> operands,
                               ArrayRef<const ShapeLattice *> ShapeLattices,
                               ArrayRef<ShapeValueLattice *> results);
+};
+
+using BoundedValueLattice = dataflow::Lattice<value_analysis::BoundedValueKnowledge>;
+
+class BoundedValueAnalysis : public dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice> {
+public:
+  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
+
+  void setToEntryState(BoundedValueLattice *lattice) override;
 };
 
 } // namespace mlir
