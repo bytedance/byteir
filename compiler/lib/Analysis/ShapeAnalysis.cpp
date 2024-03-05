@@ -141,8 +141,8 @@ BoundedValueKnowledge BoundedValueKnowledge::getUnknownValue() {
   bv.boundedValue = boundedValue;
   return bv;
 }
-BoundedValueKnowledge BoundedValueKnowledge::getKnownValue(
-    Attribute lower, Attribute upper) {
+BoundedValueKnowledge BoundedValueKnowledge::getKnownValue(Attribute lower,
+                                                           Attribute upper) {
   assert(lower);
   assert(upper);
   BoundedValue boundedValue = {lower, upper};
@@ -161,8 +161,9 @@ Attribute BoundedValueKnowledge::upper() const {
   return (*boundedValue).upper;
 }
 
-BoundedValueKnowledge BoundedValueKnowledge::join(const BoundedValueKnowledge &lhs,
-    const BoundedValueKnowledge &rhs) {
+BoundedValueKnowledge
+BoundedValueKnowledge::join(const BoundedValueKnowledge &lhs,
+                            const BoundedValueKnowledge &rhs) {
   if (lhs.isUninitialized())
     return rhs;
   if (rhs.isUninitialized())
@@ -172,8 +173,9 @@ BoundedValueKnowledge BoundedValueKnowledge::join(const BoundedValueKnowledge &l
   return getUnknownValue();
 }
 
-BoundedValueKnowledge BoundedValueKnowledge::meet(const BoundedValueKnowledge &lhs,
-                           const BoundedValueKnowledge &rhs) {
+BoundedValueKnowledge
+BoundedValueKnowledge::meet(const BoundedValueKnowledge &lhs,
+                            const BoundedValueKnowledge &rhs) {
   auto res = getUnknownValue();
   if (lhs.isUninitialized())
     return rhs;
@@ -206,19 +208,19 @@ void BoundedValueKnowledge::print(raw_ostream &os) const {
   if (isUninitialized()) {
     os << "Uninitialized\n";
   } else if (isUnknown()) {
-    if((*boundedValue).lower) {
+    if ((*boundedValue).lower) {
       os << "lower: " << (*boundedValue).lower << "\n";
     } else {
       os << "lower: Unknwon\n";
     }
-    if((*boundedValue).upper) {
+    if ((*boundedValue).upper) {
       os << "upper: " << (*boundedValue).upper << "\n";
     } else {
       os << "upper: Unknwon\n";
     }
   } else {
-      os << "lower: " << (*boundedValue).lower << "\n";
-      os << "upper: " << (*boundedValue).upper << "\n";
+    os << "lower: " << (*boundedValue).lower << "\n";
+    os << "upper: " << (*boundedValue).upper << "\n";
   }
 }
 } // namespace value_analysis
@@ -426,15 +428,18 @@ void ShapeValueAnalysis::visitOperation(
       .Case<shape::ShapeOfOp>([&](Operation *op) {
         auto *shapeLattice = getOrCreate<ShapeLattice>(op->getOperand(0));
         shapeLattice->useDefSubscribe(this);
-        if(shapeLattice->getValue().isUninitialized() ||
-           !shapeLattice->getValue().getType()) {
+        if (shapeLattice->getValue().isUninitialized() ||
+            !shapeLattice->getValue().getType()) {
           return;
         }
-        auto type = shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
-        if(!type || !type.hasStaticShape()) return;
+        auto type =
+            shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
+        if (!type || !type.hasStaticShape())
+          return;
         auto shape = type.getShape();
         auto outType = op->getResult(0).getType().dyn_cast<RankedTensorType>();
-        if(!outType || !outType.hasStaticShape()) return;
+        if (!outType || !outType.hasStaticShape())
+          return;
         auto resultAttr = DenseIntElementsAttr::get(outType, shape);
         auto lattice = results[0];
         propagateIfChanged(lattice, lattice->join(ConstantValue(
@@ -492,7 +497,7 @@ void ShapeValueAnalysis::visitOperation(
 
 void BoundedValueAnalysis::setToEntryState(BoundedValueLattice *lattice) {
   value_analysis::BoundedValueKnowledge next =
-    value_analysis::BoundedValueKnowledge::getUnknownValue();
+      value_analysis::BoundedValueKnowledge::getUnknownValue();
   propagateIfChanged(lattice, lattice->join(next));
 }
 } // namespace mlir

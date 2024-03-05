@@ -57,11 +57,14 @@ class MhloBoundedValueAnalysis : public BoundedValueAnalysis {
 public:
   using BoundedValueAnalysis::BoundedValueAnalysis;
 
-  void visitOperation(Operation *op, ArrayRef<const BoundedValueLattice *> operands,
+  void visitOperation(Operation *op,
+                      ArrayRef<const BoundedValueLattice *> operands,
                       ArrayRef<BoundedValueLattice *> results) override;
+
 protected:
-  void foldOp(Operation* op, ArrayRef<Attribute> lowerAttrs,
-      ArrayRef<Attribute> upperAttrs, ArrayRef<BoundedValueLattice *> results);
+  void foldOp(Operation *op, ArrayRef<Attribute> lowerAttrs,
+              ArrayRef<Attribute> upperAttrs,
+              ArrayRef<BoundedValueLattice *> results);
 };
 
 } // namespace mlir

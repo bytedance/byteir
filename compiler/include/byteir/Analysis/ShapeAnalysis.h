@@ -63,20 +63,19 @@ struct ValueKnowledge {
     if (isUninitialized() || !(*dtype)) {
       return Type();
     }
-    if(hasRank) {
+    if (hasRank) {
       return RankedTensorType::get(llvm::ArrayRef(sizes), *dtype);
     }
     return *dtype;
   }
 
   bool operator==(const ValueKnowledge &rhs) const {
-    if(hasRank != rhs.hasRank || 
-       sizes.size() != rhs.sizes.size() ||
-       dtype != rhs.dtype) {
+    if (hasRank != rhs.hasRank || sizes.size() != rhs.sizes.size() ||
+        dtype != rhs.dtype) {
       return false;
     }
-    for(int i = 0; i < sizes.size(); ++i) {
-      if(sizes[i] != rhs.sizes[i]) {
+    for (int i = 0; i < sizes.size(); ++i) {
+      if (sizes[i] != rhs.sizes[i]) {
         return false;
       }
     }
@@ -127,13 +126,11 @@ struct BoundedValueKnowledge {
     bool operator==(const BoundedValue &rhs) const {
       return lower == rhs.lower && upper == rhs.upper;
     }
-    bool isUnknwon() const {
-      return (!lower) || (!upper);
-    }
+    bool isUnknwon() const { return (!lower) || (!upper); }
   };
   explicit BoundedValueKnowledge() = default;
   explicit BoundedValueKnowledge(BoundedValue bdValue)
-    : boundedValue(bdValue) {}
+      : boundedValue(bdValue) {}
   explicit BoundedValueKnowledge(Attribute lower, Attribute upper) {
     BoundedValue bv;
     bv.lower = lower;
@@ -149,15 +146,13 @@ struct BoundedValueKnowledge {
   static BoundedValueKnowledge getKnownValue(Attribute lower, Attribute upper);
 
   static BoundedValueKnowledge join(const BoundedValueKnowledge &lhs,
-                             const BoundedValueKnowledge &rhs);
+                                    const BoundedValueKnowledge &rhs);
 
   static BoundedValueKnowledge meet(const BoundedValueKnowledge &lhs,
-                             const BoundedValueKnowledge &rhs);
+                                    const BoundedValueKnowledge &rhs);
 
   /// Whether the state is uninitialized.
-  bool isUninitialized() const {
-    return !boundedValue.has_value();
-  }
+  bool isUninitialized() const { return !boundedValue.has_value(); }
 
   bool isUnknown() const {
     return boundedValue.has_value() && boundedValue->isUnknwon();
@@ -218,6 +213,7 @@ public:
   void visitOperation(Operation *op,
                       ArrayRef<const ShapeValueLattice *> operands,
                       ArrayRef<ShapeValueLattice *> results) override;
+
 protected:
   // very similar to SparseConstantPropagation but fold \p op with given
   // inferred operand shape which is stored in \p ShapeLattices
@@ -227,9 +223,11 @@ protected:
                               ArrayRef<ShapeValueLattice *> results);
 };
 
-using BoundedValueLattice = dataflow::Lattice<value_analysis::BoundedValueKnowledge>;
+using BoundedValueLattice =
+    dataflow::Lattice<value_analysis::BoundedValueKnowledge>;
 
-class BoundedValueAnalysis : public dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice> {
+class BoundedValueAnalysis
+    : public dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice> {
 public:
   using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
 

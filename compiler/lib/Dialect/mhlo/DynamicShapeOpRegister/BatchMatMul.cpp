@@ -52,7 +52,7 @@ void mlir::registerBatchMatMulInferReturnTypeComponents() {
                             .getAs<BoolAttr>("adj_x");
         auto adjyAttr = attr.getAs<DictionaryAttr>(getCustomCallAttrName())
                             .getAs<BoolAttr>("adj_y");
-        if(!adjxAttr || !adjyAttr || lhsShape.size() != rhsShape.size()) {
+        if (!adjxAttr || !adjyAttr || lhsShape.size() != rhsShape.size()) {
           return failure();
         }
         int rank = lhsShape.size();
@@ -60,11 +60,11 @@ void mlir::registerBatchMatMulInferReturnTypeComponents() {
         bool adjX = adjxAttr.getValue();
         bool adjY = adjyAttr.getValue();
         llvm::SmallVector<int64_t> resShape(lhsShape.begin(), lhsShape.end());
-        resShape[rank - 2] = (adjX)? lhsShape[rank - 1] : lhsShape[rank - 2];
-        resShape[rank - 1] = (adjY)? rhsShape[rank - 2] : rhsShape[rank - 1];
+        resShape[rank - 2] = (adjX) ? lhsShape[rank - 1] : lhsShape[rank - 2];
+        resShape[rank - 1] = (adjY) ? rhsShape[rank - 2] : rhsShape[rank - 1];
 
-        Type type = RankedTensorType::get(
-            resShape, IntegerType::get(context, 64));
+        Type type =
+            RankedTensorType::get(resShape, IntegerType::get(context, 64));
         inferredReturnTypes.push_back(type.cast<ShapedType>());
         return success();
       });

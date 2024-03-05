@@ -33,12 +33,12 @@ void mlir::registerScatterNdInferBoundedReturnTypeComponents() {
          ValueShapeRange operands, DictionaryAttr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         auto adaptor = operands.getValueAsShape(2);
-        if(!adaptor || !adaptor.hasStaticShape()) return failure();
+        if (!adaptor || !adaptor.hasStaticShape())
+          return failure();
 
         llvm::SmallVector<int64_t> dims;
         adaptor.getDims(dims);
-        Type type = RankedTensorType::get(
-            dims, IntegerType::get(context, 64));
+        Type type = RankedTensorType::get(dims, IntegerType::get(context, 64));
         inferredReturnTypes.push_back(type.cast<ShapedType>());
         return success();
       });
