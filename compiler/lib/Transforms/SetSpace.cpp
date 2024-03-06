@@ -99,6 +99,29 @@ Attribute getOrCreateSpaceAttr(ModuleOp m, llvm::StringRef name) {
   return StringAttr::get(m.getContext(), name);
 }
 
+memref::AllocOp createNewAllocWithDstMemrefTy(OpBuilder &b, Location loc,
+                                              Value input,
+                                              MemRefType dstMemrefTy) {
+  // if the definingOp of input  is also a AllocOp,
+  // reuse the operand to avoid redudant dimOp under dynamic shape.
+  if (auto preAlloc = input.getDefiningOp<memref::AllocOp>()) {
+    return b.create<memref::AllocOp>(loc, dstMemrefTy, preAlloc.getOperands());
+  }
+
+  int64_t rank = dstMemrefTy.getRank();
+  SmallVector<Value> dynamicDims;
+  // Get the dynamic dims of dstType
+  for (int i = 0; i < rank; ++i) {
+    if (!dstMemrefTy.isDynamicDim(i))
+      continue;
+    Value index = b.create<arith::ConstantIndexOp>(loc, i);
+    Value dimOp = b.create<memref::DimOp>(loc, input, index);
+    dynamicDims.push_back(dimOp);
+  }
+  auto newAlloc = b.create<memref::AllocOp>(loc, dstMemrefTy, dynamicDims);
+  return newAlloc;
+}
+
 // creat copy for input Arg
 /* Op(A)
 => newA = Alloc() in dstMemrefTy (new space);
@@ -110,8 +133,16 @@ Value createCopyInputArg(Operation *op, Value oldArg, MemRefType dstMemrefTy,
                          Attribute desiredSpaceAttr,
                          DenseMap<CopyType_t, Value> &copyPairToCopyTargets) {
   OpBuilder b(op);
+  if (auto defOp = oldArg.getDefiningOp()) {
+    // create Op after defOp
+    b.setInsertionPointAfter(defOp);
+  } else {
+    // create Op in blockStart.
+    auto curBlock = oldArg.cast<BlockArgument>().getOwner();
+    b.setInsertionPoint(&(*(curBlock->begin())));
+  }
   auto loc = op->getLoc();
-  auto newAlloc = b.create<memref::AllocOp>(loc, dstMemrefTy);
+  auto newAlloc = createNewAllocWithDstMemrefTy(b, loc, oldArg, dstMemrefTy);
   auto newArg = newAlloc.getResult();
   b.create<memref::CopyOp>(loc, oldArg, newArg);
 
@@ -134,9 +165,25 @@ Value createCopyReturn(Operation *op, Value oldArg, MemRefType dstMemrefTy,
   OpBuilder b(op);
   b.setInsertionPointAfter(op);
   auto loc = op->getLoc();
-  auto newAlloc = b.create<memref::AllocOp>(loc, dstMemrefTy);
+  auto oriOldArgUsers = oldArg.getUsers();
+  auto newAlloc = createNewAllocWithDstMemrefTy(b, loc, oldArg, dstMemrefTy);
   auto newArg = newAlloc.getResult();
-  oldArg.replaceAllUsesExcept(newArg, op);
+  SmallPtrSet<Operation *, 4> excepts;
+  // if the shape of oldArg is dynamic, oldArg is used for DimOp when create a
+  // new AllocOp. Therefore replacement needs to exclude these operators to
+  // avoid circular dependencies
+  for (auto curUser : oldArg.getUsers()) {
+    bool needExclude = true;
+    for (auto oldUser : oriOldArgUsers) {
+      if (oldUser == curUser) {
+        needExclude = false;
+      }
+    }
+    if (needExclude) {
+      excepts.insert(curUser);
+    }
+  }
+  oldArg.replaceAllUsesExcept(newArg, excepts);
   b.create<memref::CopyOp>(loc, oldArg, newArg);
   CopyType_t copyKey = {oldArg, dstMemrefTy.getMemorySpace()};
   copyPairToCopyTargets.try_emplace(copyKey, newArg);
