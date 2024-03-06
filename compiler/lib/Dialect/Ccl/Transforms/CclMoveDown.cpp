@@ -249,6 +249,7 @@ struct AllGatherMoveDownPattern : public OpRewritePattern<ccl::AllGatherOp> {
         cloneAndReplaceResultTypes(rewriter, user, bvm, newUserResultType);
     rewriter.replaceOpWithNewOp<ccl::AllGatherOp>(
         user, user->getResultTypes(), newUser->getResults(), op->getAttrs());
+    rewriter.eraseOp(op);
     return success();
   }
 };

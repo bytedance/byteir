@@ -32,7 +32,7 @@ class Ccl_Op<string mnemonic, list<Trait> traits = []> :
     Op<Ccl_Dialect, mnemonic, traits> {
 }
 
-def Ccl_WaitOp : Ccl_Op<"wait", [Pure,
+def Ccl_WaitOp : Ccl_Op<"wait", [
     SameOperandsAndResultElementType,
     SameOperandsAndResultShape,
     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
@@ -46,7 +46,7 @@ def Ccl_WaitOp : Ccl_Op<"wait", [Pure,
 }
 
 class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
-    Ccl_Op<mnemonic, !listconcat(traits, [Pure])> {
+    Ccl_Op<mnemonic, traits> {
   code commonExtraClassDeclaration = [{
     static StringRef getReplicaGroupsAttrStrName() { return "replica_groups"; }
     std::optional<SmallVector<ReplicaGroupsIndices, 4>> getReplicaGroupsIndices() {
@@ -65,7 +65,7 @@ class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
 }
 
 def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
-    [Pure, DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "AllReduce operator";
   let description = [{
     Performs a reduction specified by `reduction` attribute across replicas.
@@ -99,7 +99,7 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
   let hasVerifier = 1;
 }
 
-def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather", [Pure]> {
+def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather"> {
   let summary = "AllGather operator";
   let description = [{
     Performs concatenation across replicas and the concatenation dim is
@@ -123,7 +123,7 @@ def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather", [Pure]> {
   let hasVerifier = 1;
 }
 
-def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter", [Pure]> {
+def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter"> {
   let summary = "AllGather operator";
   let description = [{
     Perform reductions using type of `reduction` attribute. And then split the
@@ -148,7 +148,7 @@ def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter", [Pure]> {
   let hasVerifier = 1;
 }
 
-def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all", [Pure]> {
+def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all"> {
   let summary = "AllToAll operator";
   let description = [{
     Split the `src` along `split_axis` into parts, scatters the split parts, and
@@ -173,7 +173,7 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all", [Pure]> {
   let hasVerifier = 1;
 }
 
-def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", [Pure]> {
+def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast"> {
   let summary = "Broadcast operator";
   let description = [{
     Broadcast `src` tensor of the first rank to the other ranks within 
@@ -196,7 +196,7 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", [Pure]> {
   let hasVerifier = 1;
 }
 
-def Ccl_SendOp : Ccl_Op<"send", [Pure,
+def Ccl_SendOp : Ccl_Op<"send", [
     SameOperandsAndResultElementType,
     SameOperandsAndResultShape,
     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
@@ -213,7 +213,7 @@ def Ccl_SendOp : Ccl_Op<"send", [Pure,
   let results = (outs AnyTensor:$result);
 }
 
-def Ccl_RecvOp : Ccl_Op<"recv", [Pure]> {
+def Ccl_RecvOp : Ccl_Op<"recv"> {
   let summary = "Recv operator";
   let description = [{
     Recv tensor from `source_index`.
