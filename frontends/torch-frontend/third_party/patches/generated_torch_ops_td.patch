@@ -1,8 +1,16 @@
 diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-index 7ccd0449..2ee62deb 100644
+index c09900ce..f080990b 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -14381,3 +14381,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
+@@ -9101,6 +9101,7 @@ def Torch_AtenCloneOp : Torch_Op<"aten.clone", [
+       printDefaultTorchOp(printer, *this, 2, 1);
+     }
+   }];
++  let hasFolder = 1;
+ }
+ 
+ def Torch_AtenLiftFreshCopyOp : Torch_Op<"aten.lift_fresh_copy", [
+@@ -15185,3 +15186,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
    }];
  }
  
