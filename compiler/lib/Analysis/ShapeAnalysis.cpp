@@ -33,14 +33,14 @@ namespace shape_analysis {
 
 ValueKnowledge ValueKnowledge::getKnowledgeFromType(Type type) {
   ValueKnowledge result = getPessimisticValueState();
-  if (auto rankedType = type.dyn_cast_or_null<RankedTensorType>()) {
-    if (rankedType.hasRank() && rankedType.hasStaticShape()) {
+  if (auto shapedType = type.dyn_cast_or_null<ShapedType>()) {
+    if (shapedType.hasRank()) {
       result.hasRank = true;
-      result.sizes.reserve(rankedType.getRank());
-      for (auto dim : rankedType.getShape())
+      result.sizes.reserve(shapedType.getRank());
+      for (auto dim : shapedType.getShape())
         result.sizes.push_back(dim);
-      result.dtype = rankedType.getElementType();
     }
+    result.dtype = shapedType.getElementType();
   }
   return result;
 }
@@ -59,20 +59,36 @@ ValueKnowledge ValueKnowledge::getPessimisticValueState(Value value) {
 ValueKnowledge ValueKnowledge::join(const ValueKnowledge &lhs,
                                     const ValueKnowledge &rhs) {
   ValueKnowledge result = getPessimisticValueState();
+  result.hasError = true;
 
+  // if ((lhs.dtype.has_value() && !lhs.dtype.value()) ||
+  //     (rhs.dtype.has_value() && !rhs.dtype.value()) ||
+  //     (lhs.dtype.has_value() && rhs.dtype.has_value() &&
+  //      lhs.dtype.value() != rhs.dtype.value()))
+  //   return result;
   if (lhs.isUninitialized())
     return rhs;
   if (rhs.isUninitialized())
     return lhs;
   // Early termination when dtype is nullptr
   // or not identical
-  assert(lhs.hasRank == rhs.hasRank);
-  assert(lhs.sizes.size() == rhs.sizes.size());
-  assert(lhs.dtype == rhs.dtype);
+  if (!(*lhs.dtype) || !(*rhs.dtype) || *lhs.dtype != *rhs.dtype)
+    return result;
 
-  result.hasRank = lhs.hasRank;
+  result.hasError = false;
   result.dtype = lhs.dtype;
 
+  if (!lhs.hasRank || !rhs.hasRank) {
+    result.hasRank = false;
+    return result;
+  }
+
+  if (lhs.sizes.size() != rhs.sizes.size()) {
+    result.hasRank = false;
+    return result;
+  }
+
+  result.hasRank = true;
   result.sizes.resize(lhs.sizes.size(), ShapedType::kDynamic);
   for (int i = 0, e = lhs.sizes.size(); i < e; i++) {
     if (lhs.sizes[i] == rhs.sizes[i]) {
@@ -86,20 +102,44 @@ ValueKnowledge ValueKnowledge::join(const ValueKnowledge &lhs,
 ValueKnowledge ValueKnowledge::meet(const ValueKnowledge &lhs,
                                     const ValueKnowledge &rhs) {
   ValueKnowledge result = getPessimisticValueState();
+  result.hasError = true;
 
+  // if ((lhs.dtype.has_value() && !lhs.dtype.value()) ||
+  //     (rhs.dtype.has_value() && !rhs.dtype.value()) ||
+  //     (lhs.dtype.has_value() && rhs.dtype.has_value() &&
+  //      lhs.dtype.value() != rhs.dtype.value()))
+  //   return result;
   if (lhs.isUninitialized())
     return rhs;
   if (rhs.isUninitialized())
     return lhs;
   // Early termination when dtype is nullptr
   // or not identical
-  assert(lhs.hasRank == rhs.hasRank);
-  assert(lhs.sizes.size() == rhs.sizes.size());
-  assert(lhs.dtype == rhs.dtype);
+  if (!(*lhs.dtype) || !(*rhs.dtype) || *lhs.dtype != *rhs.dtype)
+    return result;
 
-  result.hasRank = lhs.hasRank;
+  result.hasError = false;
   result.dtype = lhs.dtype;
 
+  if (!lhs.hasRank && !rhs.hasRank)
+    return result;
+
+  if (!rhs.hasRank) {
+    result.hasRank = true;
+    result.sizes = lhs.sizes;
+    return result;
+  }
+
+  if (!lhs.hasRank) {
+    result.hasRank = true;
+    result.sizes = rhs.sizes;
+    return result;
+  }
+
+  if (lhs.sizes.size() != rhs.sizes.size())
+    return result;
+
+  result.hasRank = true;
   result.sizes.resize(lhs.sizes.size(), ShapedType::kDynamic);
   for (auto i : llvm::seq<unsigned>(0, result.sizes.size())) {
     int64_t lhsSize = lhs.sizes[i];
@@ -112,7 +152,7 @@ ValueKnowledge ValueKnowledge::meet(const ValueKnowledge &lhs,
     } else if (lhsSize == rhsSize) {
       resultSize = lhsSize;
     } else {
-      assert(false);
+      result.hasError = true;
     }
   }
 
@@ -120,12 +160,12 @@ ValueKnowledge ValueKnowledge::meet(const ValueKnowledge &lhs,
 }
 
 void ValueKnowledge::print(raw_ostream &os) const {
-  if (isUninitialized()) {
-    os << "Uninitialized";
+  if (hasError || !dtype) {
+    os << "None\n";
   } else if (!(*dtype)) {
-    os << "Unknown";
+    os << "Unknown\n";
   } else {
-    os << getType();
+    os << getType() << "\n";
   }
 }
 } // namespace shape_analysis
@@ -151,15 +191,9 @@ BoundedValueKnowledge BoundedValueKnowledge::getKnownValue(Attribute lower,
   return bv;
 }
 
-Attribute BoundedValueKnowledge::lower() const {
-  assert(isKnown());
-  return (*boundedValue).lower;
-}
+Attribute BoundedValueKnowledge::lower() const { return (*boundedValue).lower; }
 
-Attribute BoundedValueKnowledge::upper() const {
-  assert(isKnown());
-  return (*boundedValue).upper;
-}
+Attribute BoundedValueKnowledge::upper() const { return (*boundedValue).upper; }
 
 BoundedValueKnowledge
 BoundedValueKnowledge::join(const BoundedValueKnowledge &lhs,
@@ -206,17 +240,17 @@ BoundedValueKnowledge::meet(const BoundedValueKnowledge &lhs,
 
 void BoundedValueKnowledge::print(raw_ostream &os) const {
   if (isUninitialized()) {
-    os << "Uninitialized\n";
+    os << "None\n";
   } else if (isUnknown()) {
     if ((*boundedValue).lower) {
       os << "lower: " << (*boundedValue).lower << "\n";
     } else {
-      os << "lower: Unknwon\n";
+      os << "lower: Unknown\n";
     }
     if ((*boundedValue).upper) {
       os << "upper: " << (*boundedValue).upper << "\n";
     } else {
-      os << "upper: Unknwon\n";
+      os << "upper: Unknown\n";
     }
   } else {
     os << "lower: " << (*boundedValue).lower << "\n";
@@ -237,15 +271,17 @@ LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
       newKnowledge.dtype = nullptr;
       knowledge = ValueKnowledge::meet(knowledge, newKnowledge);
     }
-    for (auto &&resultType : op->getResultTypes()) {
-      if (auto shapedType = resultType.dyn_cast_or_null<ShapedType>()) {
-        knowledge.dtype = shapedType.getElementType();
-        results.push_back(knowledge.getType().cast<ShapedType>());
-      } else {
-        results.push_back(ShapedTypeComponents{});
+    if (knowledge) {
+      for (auto &&resultType : op->getResultTypes()) {
+        if (auto shapedType = resultType.dyn_cast_or_null<ShapedType>()) {
+          knowledge.dtype = shapedType.getElementType();
+          results.push_back(knowledge.getType().cast<ShapedType>());
+        } else {
+          results.push_back(ShapedTypeComponents{});
+        }
       }
+      return success();
     }
-    return success();
   }
 
   if (auto shapeInterface = dyn_cast<InferShapedTypeOpInterface>(op)) {
@@ -303,35 +339,31 @@ void ShapeAnalysis::visitOperation(Operation *op,
   llvm::DenseMap<Value, Attribute> valueProvider;
   bool missingValue = false;
   for (auto &&pi : llvm::zip(op->getOperands(), operands)) {
-    auto operand = std::get<0>(pi);
-    auto *shapeLattice = std::get<1>(pi);
-    auto *valueLattice = getOrCreate<Lattice<ConstantValue>>(operand);
-    auto *boundedValueLattice = getOrCreate<BoundedValueLattice>(operand);
+    auto &&operand = std::get<0>(pi);
+    auto &&shapeLattice = std::get<1>(pi);
+    auto &&valueLattice = getOrCreate<ShapeValueLattice>(operand);
+    valueLattice->useDefSubscribe(this);
 
-    auto shapeKnowledge = shapeLattice->getValue();
-    if (!shapeKnowledge.isUninitialized()) {
+    if (auto shapeKnowledge = shapeLattice->getValue()) {
+      if (shapeKnowledge.isUninitialized()) {
+        missingValue = true;
+        continue;
+      }
+    }
+
+    if (valueLattice->getValue().isUninitialized()) {
+      missingValue = true;
+      continue;
+    }
+
+    if (auto shapeKnowledge = shapeLattice->getValue()) {
       if (*shapeKnowledge.dtype) {
         shapeProvider[operand] = shapeKnowledge.getType();
       }
-    } else {
-      missingValue = true;
     }
 
-    valueLattice->useDefSubscribe(this);
-    if (!valueLattice->getValue().isUninitialized()) {
-      if (auto constant = valueLattice->getValue().getConstantValue()) {
-        valueProvider[operand] = constant;
-      }
-    } else {
-      missingValue = true;
-    }
-
-    boundedValueLattice->useDefSubscribe(this);
-    if (!boundedValueLattice->getValue().isUninitialized() &&
-        !boundedValueLattice->getValue().isUnknown()) {
-      if (!valueProvider[operand]) {
-        valueProvider[operand] = boundedValueLattice->getValue().upper();
-      }
+    if (valueLattice->getValue().getConstantValue()) {
+      valueProvider[operand] = valueLattice->getValue().getConstantValue();
     }
   }
 
@@ -405,7 +437,7 @@ void ShapeValueAnalysis::visitOperation(
 
       if (!shapeLattice->getValue().isUninitialized()) {
         auto shapeKnowledge = shapeLattice->getValue();
-        if (shapeKnowledge.getType()) {
+        if (shapeKnowledge && shapeKnowledge.dtype) {
           valueTypeModification.Push(std::get<0>(pi), shapeKnowledge.getType());
           continue;
         }
@@ -428,18 +460,16 @@ void ShapeValueAnalysis::visitOperation(
       .Case<shape::ShapeOfOp>([&](Operation *op) {
         auto *shapeLattice = getOrCreate<ShapeLattice>(op->getOperand(0));
         shapeLattice->useDefSubscribe(this);
-        if (shapeLattice->getValue().isUninitialized() ||
-            !shapeLattice->getValue().getType()) {
+        if (shapeLattice->getValue().isUninitialized()) {
           return;
         }
-        auto type =
+        auto inputType =
             shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
-        if (!type || !type.hasStaticShape())
-          return;
-        auto shape = type.getShape();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+        auto shape = inputType.getShape();
         auto outType = op->getResult(0).getType().dyn_cast<RankedTensorType>();
-        if (!outType || !outType.hasStaticShape())
-          return;
         auto resultAttr = DenseIntElementsAttr::get(outType, shape);
         auto lattice = results[0];
         propagateIfChanged(lattice, lattice->join(ConstantValue(
@@ -453,8 +483,7 @@ void ShapeValueAnalysis::visitOperation(
       })
       .Case<arith::IndexCastOp>([&](Operation *op) {
         const ShapeValueLattice *index = operands[0];
-        if (index->getValue().isUninitialized() ||
-            !index->getValue().getConstantValue()) {
+        if (index->getValue().isUninitialized()) {
           return;
         }
         Attribute constAttr = index->getValue().getConstantValue();

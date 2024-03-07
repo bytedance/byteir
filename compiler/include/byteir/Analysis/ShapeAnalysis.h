@@ -38,14 +38,17 @@ namespace shape_analysis {
 ///
 /// This class could also be called "dataflow facts", "lattice value", etc.
 struct ValueKnowledge {
-  ValueKnowledge() : hasRank(false), dtype(std::nullopt) {}
+  ValueKnowledge() : hasError(false), hasRank(false), dtype(std::nullopt) {}
 
-  ValueKnowledge(bool hasRank, llvm::ArrayRef<int64_t> newSizes, Type dtype)
-      : hasRank(hasRank), dtype(dtype) {
+  ValueKnowledge(bool hasRank, llvm::ArrayRef<int64_t> newSizes,
+                 std::optional<Type> dtype)
+      : hasError(false), hasRank(hasRank), dtype(dtype) {
     sizes.reserve(newSizes.size());
     for (auto size : newSizes)
       sizes.push_back(size);
   }
+
+  operator bool() const { return !hasError; }
 
   // Get the static knowledge intrinsic to `type`.
   static ValueKnowledge getKnowledgeFromType(Type type);
@@ -59,27 +62,18 @@ struct ValueKnowledge {
   /// Whether the state is uninitialized.
   bool isUninitialized() const { return !dtype.has_value(); }
 
+  ShapedTypeComponents getShapedTypeComponents() const {
+    return hasRank ? ShapedTypeComponents(sizes) : ShapedTypeComponents();
+  }
+
   Type getType() const {
-    if (isUninitialized() || !(*dtype)) {
-      return Type();
-    }
-    if (hasRank) {
+    if (hasRank)
       return RankedTensorType::get(llvm::ArrayRef(sizes), *dtype);
-    }
-    return *dtype;
+    return UnrankedTensorType::get(*dtype);
   }
 
   bool operator==(const ValueKnowledge &rhs) const {
-    if (hasRank != rhs.hasRank || sizes.size() != rhs.sizes.size() ||
-        dtype != rhs.dtype) {
-      return false;
-    }
-    for (int i = 0; i < sizes.size(); ++i) {
-      if (sizes[i] != rhs.sizes[i]) {
-        return false;
-      }
-    }
-    return true;
+    return hasRank == rhs.hasRank && sizes == rhs.sizes && dtype == rhs.dtype;
   }
 
   static ValueKnowledge join(const ValueKnowledge &lhs,
@@ -90,6 +84,8 @@ struct ValueKnowledge {
 
   void print(raw_ostream &os) const;
 
+  // Whether the value information has an error.
+  bool hasError;
   // Whether the value has known rank.
   bool hasRank;
   // If `hasRank`, the sizes along each rank. Unknown sizes are represented as

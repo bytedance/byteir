@@ -47,6 +47,8 @@ class MhloBoundedShapeAnalysis : public MhloShapeAnalysis {
 public:
   using MhloShapeAnalysis::MhloShapeAnalysis;
 
+  void visitOperation(Operation *op, ArrayRef<const ShapeLattice *> operands,
+                      ArrayRef<ShapeLattice *> results) override;
   LogicalResult inferResultShapesWithKnowledges(
       Operation *op, ShapeKnowledges shapeKnowledges,
       ShapeValueKnowledges shapeValueKnowledges,
@@ -62,6 +64,11 @@ public:
                       ArrayRef<BoundedValueLattice *> results) override;
 
 protected:
+  void visitOperation(Operation *op,
+                      ArrayRef<const BoundedValueLattice *> operands,
+                      // ArrayRef<ShapeLattice *> shapeLattices,
+                      ArrayRef<ShapeValueLattice *> shapeValueLattices,
+                      ArrayRef<BoundedValueLattice *> results);
   void foldOp(Operation *op, ArrayRef<Attribute> lowerAttrs,
               ArrayRef<Attribute> upperAttrs,
               ArrayRef<BoundedValueLattice *> results);

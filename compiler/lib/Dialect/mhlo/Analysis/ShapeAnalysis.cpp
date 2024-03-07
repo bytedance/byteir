@@ -132,6 +132,111 @@ LogicalResult MhloBoundedShapeAnalysis::inferResultShapesWithKnowledges(
                    op->getAttrDictionary(), op->getRegions(), results);
 }
 
+void MhloBoundedShapeAnalysis::visitOperation(
+    Operation *op, ArrayRef<const ShapeLattice *> operands,
+    ArrayRef<ShapeLattice *> results) {
+
+  LLVM_DEBUG(llvm::dbgs() << "shape analysis on " << *op << "\n");
+
+  llvm::DenseMap<Value, Type> shapeProvider;
+  llvm::DenseMap<Value, Attribute> valueProvider;
+  bool missingValue = false;
+  for (auto &&pi : llvm::zip(op->getOperands(), operands)) {
+    auto &&operand = std::get<0>(pi);
+    auto &&shapeLattice = std::get<1>(pi);
+    auto &&valueLattice = getOrCreate<ShapeValueLattice>(operand);
+    auto &&boundedValueLattice = getOrCreate<BoundedValueLattice>(operand);
+    valueLattice->useDefSubscribe(this);
+    boundedValueLattice->useDefSubscribe(this);
+
+    if (auto shapeKnowledge = shapeLattice->getValue()) {
+      if (shapeKnowledge.isUninitialized()) {
+        missingValue = true;
+        continue;
+      }
+    }
+
+    if (valueLattice->getValue().isUninitialized()) {
+      missingValue = true;
+      continue;
+    }
+    if (boundedValueLattice->getValue().isUninitialized()) {
+      missingValue = true;
+      continue;
+    }
+
+    if (auto shapeKnowledge = shapeLattice->getValue()) {
+      if (*shapeKnowledge.dtype) {
+        shapeProvider[operand] = shapeKnowledge.getType();
+      }
+    }
+
+    if (valueLattice->getValue().getConstantValue() ||
+        !boundedValueLattice->getValue().isUnknown()) {
+      Attribute constAttr = valueLattice->getValue().getConstantValue();
+      Attribute lowerAttr = boundedValueLattice->getValue().lower();
+      Attribute upperAttr = boundedValueLattice->getValue().upper();
+      if (constAttr) {
+        assert(!lowerAttr);
+        assert(!upperAttr);
+      } else {
+        assert(lowerAttr);
+        assert(upperAttr);
+        constAttr = upperAttr;
+      }
+      valueProvider[operand] = constAttr;
+    }
+  }
+
+  if (missingValue) {
+    return;
+  }
+
+  auto shapeKnowledges = [&](Value val) -> Type {
+    auto it = shapeProvider.find(val);
+    if (it == shapeProvider.end())
+      return nullptr;
+    return it->second;
+  };
+  auto shapeValueKnowledges = [&](Value val) -> Attribute {
+    auto it = valueProvider.find(val);
+    if (it == valueProvider.end())
+      return nullptr;
+    return it->second;
+  };
+
+  SmallVector<ShapedTypeComponents> inferredShapes;
+  if (inferResultShapesWithKnowledges(op, shapeKnowledges, shapeValueKnowledges,
+                                      inferredShapes)
+          .succeeded()) {
+    for (auto it : llvm::zip(op->getResults(), inferredShapes, results)) {
+      Value result = std::get<0>(it);
+      ShapedTypeComponents predictedShape = std::get<1>(it);
+      ShapeLattice *resultLattice = std::get<2>(it);
+
+      Type resultTy = result.getType();
+      if (!resultTy.isa<ShapedType>()) {
+        setToEntryState(resultLattice);
+        continue;
+      }
+
+      // Compute the knowledge based on the inferred type.
+      auto inferredKnowledge = ValueKnowledge::getPessimisticValueState();
+      inferredKnowledge.dtype = resultTy.cast<ShapedType>().getElementType();
+      inferredKnowledge.hasRank = predictedShape.hasRank();
+      if (predictedShape.hasRank()) {
+        for (auto dim : predictedShape.getDims()) {
+          inferredKnowledge.sizes.push_back(dim);
+        }
+      }
+
+      propagateIfChanged(resultLattice, resultLattice->join(inferredKnowledge));
+    }
+  } else {
+    return setAllToEntryStates(results);
+  }
+}
+
 template <typename T>
 DenseElementsAttr PadOpFold(DenseElementsAttr input, T padValue,
                             RankedTensorType returnType,
@@ -296,38 +401,52 @@ void MhloShapeValueAnalysis::visitOperation(
         mhlo::ReduceOp reduceOp = dyn_cast<mhlo::ReduceOp>(op);
         auto num = op->getNumResults();
         assert(num == 1);
-        assert(reduceOp.getInputs().size() == num);
-        assert(results.size() == num);
         Operation &innerOp = *reduceOp.getBody().front().begin();
         if (!dyn_cast<mhlo::MulOp>(&innerOp)) {
-          return SparseConstantPropagation::visitOperation(op, operands,
-                                                           results);
+          return setAllToEntryStates(results);
         }
         Value input = reduceOp.getInputs()[0];
-        RankedTensorType inputType =
-            input.getType().dyn_cast<RankedTensorType>();
-        if (!inputType || !inputType.hasStaticShape()) {
+        Value output = op->getResult(0);
+
+        auto *operand = operands[0];
+        auto *inputShapeLattice = getOrCreate<ShapeLattice>(input);
+        inputShapeLattice->useDefSubscribe(this);
+        auto *outputShapeLattice = getOrCreate<ShapeLattice>(output);
+        outputShapeLattice->useDefSubscribe(this);
+
+        if (operand->getValue().isUninitialized()) {
           return;
         }
-        auto inputShape = inputType.getShape();
-        Value output = op->getResults()[0];
-        RankedTensorType outputType =
-            output.getType().dyn_cast<RankedTensorType>();
-        if (!outputType || !outputType.hasStaticShape()) {
+        if (inputShapeLattice->getValue().isUninitialized()) {
+          return;
+        }
+        if (outputShapeLattice->getValue().isUninitialized()) {
           return;
         }
 
+        if (!operand->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType inputType = inputShapeLattice->getValue()
+                                         .getType()
+                                         .dyn_cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType outputType = outputShapeLattice->getValue()
+                                          .getType()
+                                          .dyn_cast<RankedTensorType>();
+        if (!outputType || !outputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+
+        auto inputShape = inputType.getShape();
         auto dimensions = reduceOp.getDimensions().getValues<int64_t>();
         llvm::SmallVector<int64_t> windowDimensions(inputShape.size(), 1);
         for (auto dim : dimensions) {
           windowDimensions[dim] = inputShape[dim];
         }
         llvm::SmallVector<int64_t> windowStrides(inputShape.size(), 1);
-        auto *operand = operands[0];
-        if (operand->getValue().isUninitialized() ||
-            !operand->getValue().getConstantValue()) {
-          return;
-        }
         DenseElementsAttr inputAttr = operand->getValue()
                                           .getConstantValue()
                                           .dyn_cast<DenseElementsAttr>();
@@ -337,10 +456,7 @@ void MhloShapeValueAnalysis::visitOperation(
           APFloat initValue(outputType.getElementType()
                                 .cast<FloatType>()
                                 .getFloatSemantics());
-          if (!getFloat(outputType.getElementType(), 1.0, initValue)) {
-            llvm::outs() << "float type conversion failed";
-            return;
-          }
+          assert(getFloat(outputType.getElementType(), 1.0, initValue));
           std::function<APFloat(APFloat, APFloat)> mulFunctor =
               [](APFloat l, APFloat r) { return l * r; };
           outAttr = ReduceWindowOpFold(inputAttr, outputType, windowDimensions,
@@ -364,44 +480,47 @@ void MhloShapeValueAnalysis::visitOperation(
       .Case<mhlo::ComputeReshapeShapeOp>([&](Operation *op) {
         mhlo::ComputeReshapeShapeOp computeReshapeShapeOp =
             dyn_cast<mhlo::ComputeReshapeShapeOp>(op);
-        if (!computeReshapeShapeOp)
-          return;
         Value dynamicShapeV = computeReshapeShapeOp.getDynamicShape();
         auto *boundedShapeValue =
             getOrCreate<BoundedValueLattice>(dynamicShapeV);
         boundedShapeValue->useDefSubscribe(this);
 
         const ShapeValueLattice *product = operands[0];
-        if (product->getValue().isUninitialized() ||
-            !product->getValue().getConstantValue()) {
-          return SparseConstantPropagation::visitOperation(op, operands,
-                                                           results);
-        }
         const ShapeValueLattice *shapeValue = operands[1];
-        if ((shapeValue->getValue().isUninitialized() ||
-             !shapeValue->getValue().getConstantValue()) &&
-            (boundedShapeValue->getValue().isUninitialized() ||
-             boundedShapeValue->getValue().isUnknown())) {
-          return SparseConstantPropagation::visitOperation(op, operands,
-                                                           results);
+        if (product->getValue().isUninitialized()) {
+          return;
         }
-        Attribute attr;
-        if (!shapeValue->getValue().isUninitialized() &&
-            shapeValue->getValue().getConstantValue()) {
-          attr = shapeValue->getValue().getConstantValue();
-        } else {
-          attr = boundedShapeValue->getValue().upper();
+        if (shapeValue->getValue().isUninitialized()) {
+          return;
         }
-        if (!attr) {
-          return SparseConstantPropagation::visitOperation(op, operands,
-                                                           results);
+        if (boundedShapeValue->getValue().isUninitialized()) {
+          return;
         }
 
+        if (!product->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
+        }
+        if (!shapeValue->getValue().getConstantValue() &&
+            boundedShapeValue->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
+        }
+        Attribute productAttr = product->getValue().getConstantValue();
+        Attribute constShapeAttr = shapeValue->getValue().getConstantValue();
+        Attribute upperShapeAttr = boundedShapeValue->getValue().upper();
+        if (constShapeAttr) {
+          assert(!upperShapeAttr);
+        } else {
+          assert(upperShapeAttr);
+          constShapeAttr = upperShapeAttr;
+        }
+
+        Attribute resAttr = constShapeAttr;
         ShapeValueLattice *lattice = results[0];
         // in some cases, the shape in computeReshapeShapeOp is dense<[-1, x,
         // ....]>, we need calculate firstly
         do {
-          auto denseInt = attr.dyn_cast_or_null<DenseIntElementsAttr>();
+          auto denseInt =
+              constShapeAttr.dyn_cast_or_null<DenseIntElementsAttr>();
           if (denseInt == nullptr) {
             break;
           }
@@ -419,7 +538,6 @@ void MhloShapeValueAnalysis::visitOperation(
               shape, [](int32_t dimSize) { return dimSize < 0; });
 
           if (cntDynamic == 1) {
-            Attribute productAttr = product->getValue().getConstantValue();
             if (auto num = productAttr.dyn_cast_or_null<IntegerAttr>()) {
               int64_t number = num.getInt();
               if (number < 0) {
@@ -436,14 +554,14 @@ void MhloShapeValueAnalysis::visitOperation(
               }
               assert(index != K_INITIAL);
               shape[index] = number;
-              attr = DenseIntElementsAttr::get(denseInt.getType(), shape);
+              resAttr = DenseIntElementsAttr::get(denseInt.getType(), shape);
             }
           }
         } while (0);
 
-        LLVM_DEBUG(llvm::dbgs() << "Folded to constant: " << attr << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "Folded to constant: " << resAttr << "\n");
         propagateIfChanged(lattice, lattice->join(mlir::dataflow::ConstantValue(
-                                        attr, op->getDialect())));
+                                        resAttr, op->getDialect())));
       })
       .Default([&](Operation *op) {
         ShapeValueAnalysis::visitOperation(op, operands, results);
@@ -452,99 +570,111 @@ void MhloShapeValueAnalysis::visitOperation(
 
 void MhloBoundedValueAnalysis::visitOperation(
     Operation *op, ArrayRef<const BoundedValueLattice *> operands,
+    // ArrayRef<ShapeLattice *> shapeLattices,
+    ArrayRef<ShapeValueLattice *> shapeValueLattices,
     ArrayRef<BoundedValueLattice *> results) {
-  LLVM_DEBUG(llvm::dbgs() << "shape value analysis on " << *op << "\n");
   TypeSwitch<Operation *>(op)
       .Case<mhlo::SignOp>([&](Operation *op) {
         Value input = op->getOperand(0);
+        auto *shapeValueLattice = shapeValueLattices[0];
+
         RankedTensorType inputType =
             input.getType().dyn_cast<RankedTensorType>();
-        if (!inputType || !inputType.hasStaticShape())
-          return;
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
 
         auto eleType = inputType.getElementType();
         Attribute lowerAttr;
         Attribute upperAttr;
         if (eleType.isa<FloatType>()) {
           APFloat lowerFloat(eleType.cast<FloatType>().getFloatSemantics());
-          if (!getFloat(eleType, -1.0, lowerFloat)) {
-            llvm::outs() << "float type conversion failed";
-            return;
-          }
+          assert(getFloat(eleType, -1.0, lowerFloat));
           APFloat upperFloat(eleType.cast<FloatType>().getFloatSemantics());
-          if (!getFloat(eleType, +1.0, upperFloat)) {
-            llvm::outs() << "float type conversion failed";
-            return;
-          }
+          assert(getFloat(eleType, +1.0, upperFloat));
+
           lowerAttr = DenseFPElementsAttr::get(inputType, lowerFloat);
           upperAttr = DenseFPElementsAttr::get(inputType, upperFloat);
         } else if (eleType.isa<IntegerType>()) {
           lowerAttr = DenseIntElementsAttr::get(inputType, -1);
           upperAttr = DenseIntElementsAttr::get(inputType, +1);
         } else {
-          return;
+          return setAllToEntryStates(results);
         }
         auto lattice = results[0];
-        if (lowerAttr && upperAttr) {
-          propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
-                                          lowerAttr, upperAttr)));
-        }
+        propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
+                                        lowerAttr, upperAttr)));
       })
       .Case<mhlo::CompareOp>([&](Operation *op) {
-        Value res = op->getResult(0);
-        RankedTensorType resType = res.getType().dyn_cast<RankedTensorType>();
-        if (!resType || !resType.hasStaticShape())
-          return;
+        Value lhs = op->getOperand(0);
+        Value rhs = op->getOperand(1);
+        Value output = op->getResult(0);
+        auto *lhsShapeValueLattice = shapeValueLattices[0];
+        auto *rhsShapeValueLattice = shapeValueLattices[1];
+
+        RankedTensorType inputType = lhs.getType().dyn_cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
 
         Attribute lowerAttr;
         Attribute upperAttr;
+        RankedTensorType resType =
+            output.getType().dyn_cast<RankedTensorType>().clone(
+                inputType.getShape());
         lowerAttr = DenseElementsAttr::get(resType, false);
         upperAttr = DenseElementsAttr::get(resType, true);
         auto lattice = results[0];
-        if (lowerAttr && upperAttr) {
-          propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
-                                          lowerAttr, upperAttr)));
-        }
+        propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
+                                        lowerAttr, upperAttr)));
       })
       .Case<mhlo::ReduceWindowOp>([&](Operation *op) {
         mhlo::ReduceWindowOp reduceOp = dyn_cast<mhlo::ReduceWindowOp>(op);
-        if (!reduceOp)
-          return;
         auto num = op->getNumResults();
-        if (num != 1)
-          return;
+        assert(num == 1);
         mhlo::AddOp addOp = dyn_cast<mhlo::AddOp>(reduceOp.getReductionOp(0));
-        if (!addOp)
-          return;
-        assert(reduceOp.getInputs().size() == num);
-        assert(results.size() == num);
+        if (!addOp) {
+          return setAllToEntryStates(results);
+        }
+        auto input = op->getOperand(0);
+        auto output = op->getResult(0);
+
         auto *operand = operands[0];
-        if (operand->getValue().isUninitialized() ||
-            operand->getValue().isUnknown()) {
+        auto *resShapeLattice = getOrCreate<ShapeLattice>(output);
+        resShapeLattice->useDefSubscribe(this);
+        auto *initShapeValueLattice = shapeValueLattices[1];
+
+        if (resShapeLattice->getValue().isUninitialized()) {
           return;
         }
+
+        if (operand->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
+        }
+        if (!initShapeValueLattice->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
+        }
+        auto initAttr = initShapeValueLattice->getValue()
+                            .getConstantValue()
+                            .dyn_cast_or_null<SplatElementsAttr>();
+        if (!initAttr) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType outputType =
+            resShapeLattice->getValue().getType().cast<RankedTensorType>();
+        if (!outputType || !outputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+
         DenseElementsAttr lowerAttr =
             operand->getValue().lower().dyn_cast<DenseElementsAttr>();
         DenseElementsAttr upperAttr =
             operand->getValue().upper().dyn_cast<DenseElementsAttr>();
-        if (!lowerAttr || !upperAttr)
-          return;
-        auto input = op->getOperand(0);
-        auto output = op->getResult(0);
-        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
-        if (!inputType || !inputType.hasStaticShape())
-          return;
-        auto inputShape = inputType.getShape();
-        RankedTensorType outputType = output.getType().cast<RankedTensorType>();
-        if (!outputType || !outputType.hasStaticShape())
-          return;
-        auto outputShape = outputType.getShape();
-        Attribute attr;
-        if (!matchPattern(op->getOperand(1), m_Constant(&attr)))
-          return;
-        auto initValueAttr = attr.dyn_cast_or_null<SplatElementsAttr>();
-        if (!initValueAttr)
-          return;
+        assert(lowerAttr && upperAttr);
         DenseIntElementsAttr windowDimensions = reduceOp.getWindowDimensions();
         std::optional<DenseIntElementsAttr> windowStrides =
             reduceOp.getWindowStrides();
@@ -556,11 +686,11 @@ void MhloBoundedValueAnalysis::visitOperation(
         if (windowDilations &&
             (!windowDilations->isSplat() ||
              windowDilations->getSplatValue<int64_t>() != 1)) {
-          return;
+          return setAllToEntryStates(results);
         }
         if (baseDilations && (!baseDilations->isSplat() ||
                               baseDilations->getSplatValue<int64_t>() != 1)) {
-          return;
+          return setAllToEntryStates(results);
         }
         llvm::SmallVector<int64_t> dimensions(inputType.getRank(), 1);
         llvm::SmallVector<int64_t> strides(inputType.getRank(), 1);
@@ -586,6 +716,7 @@ void MhloBoundedValueAnalysis::visitOperation(
         DenseIntElementsAttr interiorPadding =
             DenseIntElementsAttr::get(type, interiorPad);
         llvm::SmallVector<int64_t> padShape;
+        auto inputShape = inputType.getShape();
         for (int i = 0; i < inputShape.size(); ++i) {
           padShape.push_back(inputShape[i] + lowPad[i] + highPad[i]);
         }
@@ -615,13 +746,12 @@ void MhloBoundedValueAnalysis::visitOperation(
             upperAttr = PadOpFold(upperAttr, padValue, padType, edgePaddingLow,
                                   edgePaddingHigh, interiorPadding);
           } else {
-            return;
+            return setAllToEntryStates(results);
           }
-          if (!lowerAttr || !upperAttr)
-            return;
+          assert(lowerAttr && upperAttr);
         }
         if (inputType.getElementType().isa<FloatType>()) {
-          APFloat initValue = initValueAttr.getSplatValue<APFloat>();
+          APFloat initValue = initAttr.getSplatValue<APFloat>();
           std::function<APFloat(APFloat, APFloat)> addFunctor =
               [](APFloat l, APFloat r) { return l + r; };
           lowerAttr = ReduceWindowOpFold(lowerAttr, outputType, dimensions,
@@ -629,7 +759,7 @@ void MhloBoundedValueAnalysis::visitOperation(
           upperAttr = ReduceWindowOpFold(upperAttr, outputType, dimensions,
                                          strides, initValue, addFunctor);
         } else if (inputType.getElementType().isa<IntegerType>()) {
-          APInt initValue = initValueAttr.getSplatValue<APInt>();
+          APInt initValue = initAttr.getSplatValue<APInt>();
           std::function<APInt(APInt, APInt)> addFunctor = [](APInt l, APInt r) {
             return l + r;
           };
@@ -638,43 +768,54 @@ void MhloBoundedValueAnalysis::visitOperation(
           upperAttr = ReduceWindowOpFold(upperAttr, outputType, dimensions,
                                          strides, initValue, addFunctor);
         } else {
-          return;
+          return setAllToEntryStates(results);
         }
+        assert(lowerAttr && upperAttr);
         auto *lattice = results[0];
         propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
                                         lowerAttr, upperAttr)));
       })
       .Case<mhlo::PadOp>([&](Operation *op) {
         mhlo::PadOp padOp = dyn_cast<mhlo::PadOp>(op);
-        if (!padOp)
-          return;
+        auto input = op->getOperand(0);
+        auto output = op->getResult(0);
+
         auto *operand = operands[0];
-        if (operand->getValue().isUninitialized() ||
-            operand->getValue().isUnknown()) {
+        auto *initShapeValueLattice = shapeValueLattices[1];
+        auto *outputShapeLattice = getOrCreate<ShapeLattice>(output);
+        outputShapeLattice->useDefSubscribe(this);
+
+        if (outputShapeLattice->getValue().isUninitialized()) {
           return;
+        }
+
+        if (operand->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
+        }
+        if (!initShapeValueLattice->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType outputType =
+            outputShapeLattice->getValue().getType().cast<RankedTensorType>();
+        if (!outputType || !outputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
         }
         DenseElementsAttr lowerAttr =
             operand->getValue().lower().dyn_cast<DenseElementsAttr>();
         DenseElementsAttr upperAttr =
             operand->getValue().upper().dyn_cast<DenseElementsAttr>();
-        if (!lowerAttr || !upperAttr)
-          return;
+        assert(lowerAttr && upperAttr);
 
-        auto input = op->getOperand(0);
-        auto output = op->getResult(0);
-        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
-        if (!inputType || !inputType.hasStaticShape())
-          return;
-        auto inputShape = inputType.getShape();
-        RankedTensorType outputType = output.getType().cast<RankedTensorType>();
-        if (!outputType || !outputType.hasStaticShape())
-          return;
-        Attribute attr;
-        if (!matchPattern(op->getOperand(1), m_Constant(&attr)))
-          return;
-        auto padValueAttr = attr.dyn_cast_or_null<SplatElementsAttr>();
-        if (!padValueAttr)
-          return;
+        auto padValueAttr = initShapeValueLattice->getValue()
+                                .getConstantValue()
+                                .dyn_cast_or_null<SplatElementsAttr>();
+        if (!padValueAttr) {
+          return setAllToEntryStates(results);
+        }
 
         DenseIntElementsAttr edgePaddingLow = padOp.getEdgePaddingLow();
         DenseIntElementsAttr edgePaddingHigh = padOp.getEdgePaddingHigh();
@@ -692,117 +833,121 @@ void MhloBoundedValueAnalysis::visitOperation(
           upperAttr = PadOpFold(upperAttr, padValue, outputType, edgePaddingLow,
                                 edgePaddingHigh, interiorPadding);
         } else {
-          return;
+          return setAllToEntryStates(results);
         }
+        assert(lowerAttr && upperAttr);
         auto *lattice = results[0];
-        if (lowerAttr && upperAttr) {
-          propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
-                                          lowerAttr, upperAttr)));
-        }
+        propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
+                                        lowerAttr, upperAttr)));
       })
       .Case<mhlo::ReduceOp>([&](Operation *op) {
         mhlo::ReduceOp reduceOp = dyn_cast<mhlo::ReduceOp>(op);
-        if (!reduceOp)
-          return;
-
         auto num = op->getNumResults();
         assert(num == 1);
-        assert(reduceOp.getInputs().size() == num);
-        assert(results.size() == num);
+
+        Operation &innerOp = *reduceOp.getBody().front().begin();
+        if (!dyn_cast<mhlo::MaxOp>(&innerOp)) {
+          return setAllToEntryStates(results);
+        }
 
         auto input = op->getOperand(0);
         auto output = op->getResult(0);
-        auto *shapeLattice = getOrCreate<ShapeLattice>(input);
-        if (shapeLattice->getValue().isUninitialized() ||
-            !shapeLattice->getValue().getType()) {
+
+        auto *operand = operands[0];
+        auto *outputShapeLattice = getOrCreate<ShapeLattice>(output);
+        outputShapeLattice->useDefSubscribe(this);
+        auto *initShapeValueLattice = shapeValueLattices[1];
+
+        if (outputShapeLattice->getValue().isUninitialized()) {
           return;
         }
-        RankedTensorType inputType =
-            shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
-        if (!inputType || !inputType.hasStaticShape())
-          return;
-        auto inputShape = inputType.getShape();
-        RankedTensorType outputType =
-            output.getType().dyn_cast<RankedTensorType>();
-        if (!outputType || !outputType.hasStaticShape())
-          return;
 
-        Attribute attr;
-        if (!matchPattern(reduceOp.getInitValues()[0], m_Constant(&attr)))
-          return;
-        auto initValueAttr = attr.dyn_cast_or_null<SplatElementsAttr>();
-        if (!initValueAttr)
-          return;
+        if (operand->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
+        }
+        if (!initShapeValueLattice->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType inputType =
+            input.getType().dyn_cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+        RankedTensorType outputType = outputShapeLattice->getValue()
+                                          .getType()
+                                          .dyn_cast<RankedTensorType>();
+        if (!outputType || !outputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+
+        auto initValueAttr = initShapeValueLattice->getValue()
+                                 .getConstantValue()
+                                 .dyn_cast_or_null<SplatElementsAttr>();
+        if (!initValueAttr) {
+          return setAllToEntryStates(results);
+        }
 
         auto dimensions = reduceOp.getDimensions().getValues<int64_t>();
+        auto inputShape = inputType.getShape();
         llvm::SmallVector<int64_t> windowDimensions(inputShape.size(), 1);
         for (auto dim : dimensions) {
           windowDimensions[dim] = inputShape[dim];
         }
         llvm::SmallVector<int64_t> windowStrides(inputShape.size(), 1);
 
-        Operation &innerOp = *reduceOp.getBody().front().begin();
-        if (auto maxOp = dyn_cast<mhlo::MaxOp>(&innerOp)) {
-          auto *operand = operands[0];
-          if (operand->getValue().isUninitialized() ||
-              operand->getValue().isUnknown()) {
-            return;
-          }
-          DenseElementsAttr lowerAttr =
-              operand->getValue().lower().dyn_cast<DenseElementsAttr>();
-          DenseElementsAttr upperAttr =
-              operand->getValue().upper().dyn_cast<DenseElementsAttr>();
-          if (!lowerAttr || !upperAttr)
-            return;
-          if (inputType.getElementType().isa<FloatType>()) {
-            APFloat initValue = initValueAttr.getSplatValue<APFloat>();
-            std::function<APFloat(APFloat, APFloat)> maxFunctor =
-                [](APFloat l, APFloat r) { return (l >= r) ? l : r; };
-            lowerAttr =
-                ReduceWindowOpFold(lowerAttr, outputType, windowDimensions,
-                                   windowStrides, initValue, maxFunctor);
-            upperAttr =
-                ReduceWindowOpFold(upperAttr, outputType, windowDimensions,
-                                   windowStrides, initValue, maxFunctor);
-          } else if (inputType.getElementType().isa<IntegerType>()) {
-            APInt initValue = initValueAttr.getSplatValue<APInt>();
-            std::function<APInt(APInt, APInt)> maxFunctor =
-                [](APInt l, APInt r) { return l.sge(r) ? l : r; };
-            lowerAttr =
-                ReduceWindowOpFold(lowerAttr, outputType, windowDimensions,
-                                   windowStrides, initValue, maxFunctor);
-            upperAttr =
-                ReduceWindowOpFold(upperAttr, outputType, windowDimensions,
-                                   windowStrides, initValue, maxFunctor);
-          } else {
-            return;
-          }
-          auto lattice = results[0];
-          if (lowerAttr && upperAttr) {
-            propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
-                                            lowerAttr, upperAttr)));
-          }
+        DenseElementsAttr lowerAttr =
+            operand->getValue().lower().dyn_cast<DenseElementsAttr>();
+        DenseElementsAttr upperAttr =
+            operand->getValue().upper().dyn_cast<DenseElementsAttr>();
+        assert(lowerAttr && upperAttr);
+
+        if (inputType.getElementType().isa<FloatType>()) {
+          APFloat initValue = initValueAttr.getSplatValue<APFloat>();
+          std::function<APFloat(APFloat, APFloat)> maxFunctor =
+              [](APFloat l, APFloat r) { return (l >= r) ? l : r; };
+          lowerAttr =
+              ReduceWindowOpFold(lowerAttr, outputType, windowDimensions,
+                                 windowStrides, initValue, maxFunctor);
+          upperAttr =
+              ReduceWindowOpFold(upperAttr, outputType, windowDimensions,
+                                 windowStrides, initValue, maxFunctor);
+        } else if (inputType.getElementType().isa<IntegerType>()) {
+          APInt initValue = initValueAttr.getSplatValue<APInt>();
+          std::function<APInt(APInt, APInt)> maxFunctor = [](APInt l, APInt r) {
+            return l.sge(r) ? l : r;
+          };
+          lowerAttr =
+              ReduceWindowOpFold(lowerAttr, outputType, windowDimensions,
+                                 windowStrides, initValue, maxFunctor);
+          upperAttr =
+              ReduceWindowOpFold(upperAttr, outputType, windowDimensions,
+                                 windowStrides, initValue, maxFunctor);
+        } else {
+          return setAllToEntryStates(results);
         }
+        assert(lowerAttr && upperAttr);
+        auto lattice = results[0];
+        propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
+                                        lowerAttr, upperAttr)));
       })
       .Case<mhlo::TorchIndexSelectOp>([&](Operation *op) {
         auto input = op->getOperand(0);
         auto index = op->getOperand(1);
-        auto *shapeLattice = getOrCreate<ShapeLattice>(index);
-        shapeLattice->useDefSubscribe(this);
-        if (shapeLattice->getValue().isUninitialized() ||
-            !shapeLattice->getValue().getType()) {
-          return;
-        }
-        auto indexType =
-            shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
-        if (!indexType || !indexType.hasStaticShape())
-          return;
 
-        const BoundedValueLattice *boundedValueLattice = operands[0];
-        if (boundedValueLattice->getValue().isUninitialized() ||
-            boundedValueLattice->getValue().isUnknown()) {
-          return;
+        auto *operand = operands[0];
+
+        if (operand->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
         }
+        auto inputType = input.getType().dyn_cast<RankedTensorType>();
+        if (!inputType || !inputType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+        auto indexType = index.getType().dyn_cast<RankedTensorType>();
+        if (!indexType || !indexType.hasStaticShape()) {
+          return setAllToEntryStates(results);
+        }
+
         auto shapeEqual = [](ArrayRef<int64_t> l, ArrayRef<int64_t> r) {
           if (l.size() != r.size())
             return false;
@@ -812,76 +957,66 @@ void MhloBoundedValueAnalysis::visitOperation(
           }
           return true;
         };
-        auto inputType = input.getType().dyn_cast<RankedTensorType>();
-        if (!inputType || !inputType.hasStaticShape()) {
-          return;
-        }
         // TODO: support when shape of input and index not equal
         if (!shapeEqual(inputType.getShape(), indexType.getShape())) {
-          return;
+          return setAllToEntryStates(results);
         }
 
         auto lattice = results[0];
-        propagateIfChanged(lattice, lattice->join(*boundedValueLattice));
+        propagateIfChanged(lattice, lattice->join(*operand));
       })
       .Case<mhlo::SelectOp>([&](Operation *op) {
         mhlo::SelectOp selectOp = dyn_cast<mhlo::SelectOp>(op);
-        if (!selectOp)
-          return;
-        mhlo::CompareOp compareOp =
-            dyn_cast<mhlo::CompareOp>(selectOp.getPred().getDefiningOp());
-        if (!compareOp)
-          return;
         Value onTrueV = selectOp.getOnTrue();
         Value onFalseV = selectOp.getOnFalse();
+
+        auto *lhs = operands[1];
+        auto *rhs = operands[2];
+        auto *lhsShapeValueLattice = shapeValueLattices[1];
+        auto *rhsShapeValueLattice = shapeValueLattices[2];
+
+        mhlo::CompareOp compareOp =
+            dyn_cast<mhlo::CompareOp>(selectOp.getPred().getDefiningOp());
+        if (!compareOp) {
+          return setAllToEntryStates(results);
+        }
         Value lhsV = compareOp.getLhs();
         Value rhsV = compareOp.getRhs();
         if (onTrueV != rhsV || onFalseV != lhsV) {
-          return;
+          return setAllToEntryStates(results);
         }
-        const BoundedValueLattice *lhs = operands[1];
-        const BoundedValueLattice *rhs = operands[2];
-        if ((lhs->getValue().isUninitialized() ||
-             lhs->getValue().isUnknown()) &&
-            (rhs->getValue().isUninitialized() ||
-             rhs->getValue().isUnknown())) {
-          return;
+        if (lhs->getValue().isUnknown() &&
+            !lhsShapeValueLattice->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
         }
-        Attribute lhsLowerAttr;
-        Attribute lhsUpperAttr;
-        Attribute lhsAttr;
-        Attribute rhsLowerAttr;
-        Attribute rhsUpperAttr;
-        Attribute rhsAttr;
-        if ((lhs->getValue().isUninitialized() ||
-             lhs->getValue().isUnknown()) &&
-            !matchPattern(op->getOperand(1), m_Constant(&lhsAttr))) {
-          return;
+        if (rhs->getValue().isUnknown() &&
+            !rhsShapeValueLattice->getValue().getConstantValue()) {
+          return setAllToEntryStates(results);
+        }
+
+        Attribute lhsAttr = lhsShapeValueLattice->getValue().getConstantValue();
+        Attribute rhsAttr = rhsShapeValueLattice->getValue().getConstantValue();
+        Attribute lhsLowerAttr = lhs->getValue().lower();
+        Attribute lhsUpperAttr = lhs->getValue().upper();
+        Attribute rhsLowerAttr = rhs->getValue().lower();
+        Attribute rhsUpperAttr = rhs->getValue().upper();
+        if (lhsAttr) {
+          assert(!lhsLowerAttr);
+          assert(!lhsUpperAttr);
+          lhsLowerAttr = lhsAttr;
+          lhsUpperAttr = lhsAttr;
         } else {
-          if (!lhs->getValue().isUninitialized() &&
-              !lhs->getValue().isUnknown()) {
-            lhsLowerAttr = lhs->getValue().lower();
-            lhsUpperAttr = lhs->getValue().upper();
-          } else {
-            assert(lhsAttr);
-            lhsLowerAttr = lhsAttr;
-            lhsUpperAttr = lhsAttr;
-          }
+          assert(lhsLowerAttr);
+          assert(lhsUpperAttr);
         }
-        if ((rhs->getValue().isUninitialized() ||
-             rhs->getValue().isUnknown()) &&
-            !matchPattern(op->getOperand(2), m_Constant(&rhsAttr))) {
-          return;
+        if (rhsAttr) {
+          assert(!rhsLowerAttr);
+          assert(!rhsUpperAttr);
+          rhsLowerAttr = rhsAttr;
+          rhsUpperAttr = rhsAttr;
         } else {
-          if (!rhs->getValue().isUninitialized() &&
-              !rhs->getValue().isUnknown()) {
-            rhsLowerAttr = rhs->getValue().lower();
-            rhsUpperAttr = rhs->getValue().upper();
-          } else {
-            assert(rhsAttr);
-            rhsLowerAttr = rhsAttr;
-            rhsUpperAttr = rhsAttr;
-          }
+          assert(rhsLowerAttr);
+          assert(rhsUpperAttr);
         }
 
         DenseElementsAttr lhsDenseLowerAttr;
@@ -896,7 +1031,7 @@ void MhloBoundedValueAnalysis::visitOperation(
         rhsDenseUpperAttr = dyn_cast<DenseElementsAttr>(rhsUpperAttr);
         if (!lhsDenseLowerAttr || !lhsDenseUpperAttr || !rhsDenseLowerAttr ||
             !rhsDenseUpperAttr) {
-          return;
+          return setAllToEntryStates(results);
         }
         auto onTrueVType = onTrueV.getType().dyn_cast<RankedTensorType>();
         assert(onTrueVType);
@@ -916,69 +1051,70 @@ void MhloBoundedValueAnalysis::visitOperation(
           outputUpperAttr =
               Maximum<APInt>(lhsDenseUpperAttr, rhsDenseUpperAttr, maxFunctor);
         } else {
-          return;
+          return setAllToEntryStates(results);
         }
 
+        assert(outputLowerAttr && outputUpperAttr);
         auto lattice = results[0];
-        if (outputLowerAttr && outputUpperAttr) {
-          propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
-                                          outputLowerAttr, outputUpperAttr)));
-        }
+        propagateIfChanged(lattice, lattice->join(BoundedValueKnowledge(
+                                        outputLowerAttr, outputUpperAttr)));
       })
       .Case<mhlo::ReshapeOp>([&](Operation *op) {
-        const BoundedValueLattice *boundedValue = operands[0];
-        if (boundedValue->getValue().isUninitialized() ||
-            boundedValue->getValue().isUnknown()) {
-          return;
-        }
-        RankedTensorType type =
-            op->getResult(0).getType().dyn_cast<RankedTensorType>();
-        if (!type || !type.hasStaticShape())
-          return;
+        auto output = op->getResult(0);
+        auto *operand = operands[0];
 
-        Attribute lowerAttr = boundedValue->getValue().lower();
-        Attribute upperAttr = boundedValue->getValue().upper();
+        if (operand->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
+        }
+
+        Attribute lowerAttr = operand->getValue().lower();
+        Attribute upperAttr = operand->getValue().upper();
         SmallVector<mlir::Attribute> lowerAttrs = {lowerAttr};
         SmallVector<mlir::Attribute> upperAttrs = {upperAttr};
         foldOp(op, lowerAttrs, upperAttrs, results);
       })
       .Case<mhlo::ConcatenateOp>([&](Operation *op) {
+        auto inputs = op->getOperands();
         bool boundeValueEmpty =
             std::all_of(operands.begin(), operands.end(),
-                        [](const BoundedValueLattice *lattice) {
-                          return !lattice ||
-                                 lattice->getValue().isUninitialized() ||
-                                 lattice->getValue().isUnknown();
+                        [](const BoundedValueLattice *operand) {
+                          return operand->getValue().isUnknown();
                         });
-        if (boundeValueEmpty)
-          return;
-        auto concatOp = dyn_cast<mhlo::ConcatenateOp>(op);
-        assert(concatOp);
-        auto values = concatOp.getVal();
+        if (boundeValueEmpty) {
+          return setAllToEntryStates(results);
+        }
         SmallVector<mlir::Attribute> lowerAttrs;
         SmallVector<mlir::Attribute> upperAttrs;
-        for (int i = 0; i < values.size(); ++i) {
-          auto *lattice = operands[i];
-          if (!lattice || lattice->getValue().isUninitialized() ||
-              lattice->getValue().isUnknown()) {
-            Attribute attr;
-            if (!matchPattern(op->getOperand(i), m_Constant(&attr))) {
-              return;
-            }
-            lowerAttrs.push_back(attr);
-            upperAttrs.push_back(attr);
-          } else {
-            lowerAttrs.push_back(lattice->getValue().lower());
-            upperAttrs.push_back(lattice->getValue().upper());
+        for (int i = 0; i < inputs.size(); ++i) {
+          auto *operand = operands[i];
+          auto *shapeValueLattice = shapeValueLattices[i];
+          if (operand->getValue().isUnknown() &&
+              !shapeValueLattice->getValue().getConstantValue()) {
+            return setAllToEntryStates(results);
           }
+          Attribute constAttr =
+              shapeValueLattice->getValue().getConstantValue();
+          Attribute lowerAttr = operand->getValue().lower();
+          Attribute upperAttr = operand->getValue().upper();
+          if (constAttr) {
+            assert(!lowerAttr);
+            assert(!upperAttr);
+            lowerAttr = constAttr;
+            upperAttr = constAttr;
+          } else {
+            assert(lowerAttr);
+            assert(upperAttr);
+          }
+          assert(lowerAttr && upperAttr);
+          lowerAttrs.push_back(lowerAttr);
+          upperAttrs.push_back(upperAttr);
         }
         foldOp(op, lowerAttrs, upperAttrs, results);
       })
       .Case<mhlo::ConvertOp>([&](Operation *op) {
-        const BoundedValueLattice *operand = operands[0];
-        if (operand->getValue().isUninitialized() ||
-            operand->getValue().isUnknown()) {
-          return;
+        auto *operand = operands[0];
+        if (operand->getValue().isUnknown()) {
+          return setAllToEntryStates(results);
         }
         Attribute lowerAttr = operand->getValue().lower();
         Attribute upperAttr = operand->getValue().upper();
@@ -987,56 +1123,102 @@ void MhloBoundedValueAnalysis::visitOperation(
         foldOp(op, lowerAttrs, upperAttrs, results);
       })
       .Case<mhlo::AddOp>([&](Operation *op) {
-        const BoundedValueLattice *lhs = operands[0];
-        const BoundedValueLattice *rhs = operands[1];
-        if ((lhs->getValue().isUninitialized() ||
-             lhs->getValue().isUnknown()) &&
-            (rhs->getValue().isUninitialized() ||
-             rhs->getValue().isUnknown())) {
-          return;
+        auto inputs = op->getOperands();
+        bool boundeValueEmpty =
+            std::all_of(operands.begin(), operands.end(),
+                        [](const BoundedValueLattice *operand) {
+                          return operand->getValue().isUnknown();
+                        });
+        if (boundeValueEmpty) {
+          return setAllToEntryStates(results);
         }
-        Attribute lhsLowerAttr;
-        Attribute lhsUpperAttr;
-        Attribute lhsAttr;
-        Attribute rhsLowerAttr;
-        Attribute rhsUpperAttr;
-        Attribute rhsAttr;
-        if ((lhs->getValue().isUninitialized() ||
-             lhs->getValue().isUnknown()) &&
-            !matchPattern(op->getOperand(0), m_Constant(&lhsAttr))) {
-          return;
-        } else {
-          if (!lhs->getValue().isUninitialized() &&
-              !lhs->getValue().isUnknown()) {
-            lhsLowerAttr = lhs->getValue().lower();
-            lhsUpperAttr = lhs->getValue().upper();
-          } else {
-            assert(lhsAttr);
-            lhsLowerAttr = lhsAttr;
-            lhsUpperAttr = lhsAttr;
+        SmallVector<mlir::Attribute> lowerAttrs;
+        SmallVector<mlir::Attribute> upperAttrs;
+        for (int i = 0; i < inputs.size(); ++i) {
+          auto *operand = operands[i];
+          auto *shapeValueLattice = shapeValueLattices[i];
+          if (operand->getValue().isUnknown() &&
+              !shapeValueLattice->getValue().getConstantValue()) {
+            return setAllToEntryStates(results);
           }
-        }
-        if ((rhs->getValue().isUninitialized() ||
-             rhs->getValue().isUnknown()) &&
-            !matchPattern(op->getOperand(1), m_Constant(&rhsAttr))) {
-          return;
-        } else {
-          if (!rhs->getValue().isUninitialized() &&
-              !rhs->getValue().isUnknown()) {
-            rhsLowerAttr = rhs->getValue().lower();
-            rhsUpperAttr = rhs->getValue().upper();
+          Attribute constAttr =
+              shapeValueLattice->getValue().getConstantValue();
+          Attribute lowerAttr = operand->getValue().lower();
+          Attribute upperAttr = operand->getValue().upper();
+          if (constAttr) {
+            assert(!lowerAttr);
+            assert(!upperAttr);
+            lowerAttr = constAttr;
+            upperAttr = constAttr;
           } else {
-            assert(rhsAttr);
-            rhsLowerAttr = rhsAttr;
-            rhsUpperAttr = rhsAttr;
+            assert(lowerAttr);
+            assert(upperAttr);
           }
+          assert(lowerAttr && upperAttr);
+          lowerAttrs.push_back(lowerAttr);
+          upperAttrs.push_back(upperAttr);
         }
-        SmallVector<mlir::Attribute> lowerAttrs = {lhsLowerAttr, rhsLowerAttr};
-        SmallVector<mlir::Attribute> upperAttrs = {lhsUpperAttr, rhsUpperAttr};
+
         foldOp(op, lowerAttrs, upperAttrs, results);
       })
       .Default([&](Operation *op) { setAllToEntryStates(results); });
 }
+
+void MhloBoundedValueAnalysis::visitOperation(
+    Operation *op, ArrayRef<const BoundedValueLattice *> operands,
+    ArrayRef<BoundedValueLattice *> results) {
+  LLVM_DEBUG(llvm::dbgs() << "shape value analysis on " << *op << "\n");
+
+  SmallVector<ShapeLattice *> shapeLattices;
+  SmallVector<ShapeValueLattice *> shapeValueLattices;
+  ValueTypeModificatoinRAII valueTypeModification;
+  auto inputs = op->getOperands();
+  bool missingValue = false;
+
+  for (int i = 0; i < inputs.size(); ++i) {
+    auto input = inputs[i];
+    auto *boundedValueLattice = operands[i];
+    auto *shapeLattice = getOrCreate<ShapeLattice>(input);
+    shapeLattice->useDefSubscribe(this);
+    auto *shapeValueLattice = getOrCreate<ShapeValueLattice>(input);
+    shapeValueLattice->useDefSubscribe(this);
+    shapeLattices.push_back(shapeLattice);
+    shapeValueLattices.push_back(shapeValueLattice);
+
+    if (operands[i]->getValue().isUninitialized()) {
+      missingValue = true;
+    }
+
+    if (shapeLattice->getValue().isUninitialized()) {
+      missingValue = true;
+    } else {
+      if (input.getType().dyn_cast<ShapedType>()) {
+        auto shapeKnowledge = shapeLattice->getValue();
+        if (shapeKnowledge && *shapeKnowledge.dtype) {
+          valueTypeModification.Push(input, shapeKnowledge.getType());
+        }
+      }
+    }
+
+    if (shapeValueLattice->getValue().isUninitialized()) {
+      missingValue = true;
+    }
+  }
+  if (missingValue)
+    return;
+  bool shapeValueReady =
+      std::all_of(shapeValueLattices.begin(), shapeValueLattices.end(),
+                  [](const ShapeValueLattice *shapeValueLattice) {
+                    return shapeValueLattice->getValue().getConstantValue();
+                  });
+  if (shapeValueReady) {
+    return setAllToEntryStates(results);
+  }
+
+  return visitOperation(op, operands, /*shapeLattices,*/
+                        shapeValueLattices, results);
+}
+
 void MhloBoundedValueAnalysis::foldOp(Operation *op,
                                       ArrayRef<Attribute> lowerAttrs,
                                       ArrayRef<Attribute> upperAttrs,
@@ -1060,10 +1242,10 @@ void MhloBoundedValueAnalysis::foldOp(Operation *op,
     OpFoldResult upperFoldResult = std::get<2>(it);
     Attribute lowerAttr = llvm::dyn_cast_if_present<Attribute>(lowerFoldResult);
     Attribute upperAttr = llvm::dyn_cast_if_present<Attribute>(upperFoldResult);
-    if (lowerAttr && upperAttr) {
-      propagateIfChanged(
-          lattice, lattice->join(BoundedValueKnowledge(lowerAttr, upperAttr)));
-    }
+    assert(lowerAttr);
+    assert(upperAttr);
+    propagateIfChanged(
+        lattice, lattice->join(BoundedValueKnowledge(lowerAttr, upperAttr)));
   }
 }
 } // namespace mlir
