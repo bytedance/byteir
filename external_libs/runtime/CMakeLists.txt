@@ -14,4 +14,6 @@ set(BYTEIR_ROOT ${REPO_ROOT}/../..)
 set(CUTLASS_ROOT ${BYTEIR_ROOT}/external/cutlass)
 message("CUTLASS_ROOT = ${CUTLASS_ROOT}")
 
+#set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose build type: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+
 add_subdirectory(flash_attn)
