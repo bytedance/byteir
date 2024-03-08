@@ -202,30 +202,39 @@ def Ccl_SendOp : Ccl_Op<"send", [
     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Send operator";
   let description = [{
-    Send `src` tensor to `target_index` device.
+    Send `src` tensor to `target_index` or `dynamic_target_index` device.
   }];
 
   let arguments = (ins
     AnyTensor:$src,
+    Optional<I64>:$dynamic_target_index,
     BoolAttr:$synchronous,
-    I64Attr:$target_index
+    OptionalAttr<I64Attr>:$target_index
   );
   let results = (outs AnyTensor:$result);
+
+  let hasVerifier = 1;
 }
 
-def Ccl_RecvOp : Ccl_Op<"recv"> {
+def Ccl_RecvOp : Ccl_Op<"recv", [
+    SameOperandsAndResultElementType,
+    SameOperandsAndResultShape,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Recv operator";
   let description = [{
-    Recv tensor from `source_index`.
-    if dynmaic shape, `shape` should be given.
+    Recv tensor from `source_index` or `dynamic_source_index`.
+    `result` must have the same shape with `src`.
   }];
 
   let arguments = (ins
-    Optional<1DTensorOf<[Index, I64]>>:$shape,
+    AnyTensor:$src,
+    Optional<I64>:$dynamic_source_index,
     BoolAttr:$synchronous,
-    I64Attr:$source_index
+    OptionalAttr<I64Attr>:$source_index
   );
   let results = (outs AnyTensor:$result);
-} 
+
+  let hasVerifier = 1;
+}
 
 #endif // BYTEIR_DIALECT_CCL_CCL_OPS
