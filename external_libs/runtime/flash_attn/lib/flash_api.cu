@@ -504,6 +504,7 @@ void run_mha_fwd_with_kvcache(
   params.p_ptr = nullptr; // used for `return_softmax`.
   params.rng_state = nullptr;
   params.alibi_slopes_ptr = nullptr;
+  params.page_block_size = 1;
   params.is_causal = window_size_left < 0 && window_size_right == 0;
 
   if (window_size_left < 0 && window_size_right >= 0) {
