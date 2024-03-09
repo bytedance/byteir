@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/backends/nccl/providers/op_registration.h"
+#include "byteir/Dialect/Byre/ByreDialect.h"
 
 #include "./recv.h"
 #include "./send.h"
@@ -26,16 +27,23 @@ namespace cuda {
 
 void RegisterNCCLOps(KernelRegistry *registry) {
   registry->Register(
-      "NCCLRecv_f32",
+      "nccl.Recv",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto kernel = std::shared_ptr<OpKernel>(new cuda::Recv<float>(info));
+        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        std::shared_ptr<brt::OpKernel> kernel;
+        llvm::TypeSwitchs
+        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext())) 
+          kernel = std::shared_ptr<OpKernel>(new cuda::Recv<float>(info));
         return kernel;
       });
 
   registry->Register(
-      "NCCLSend_f32",
+      "nccl.Send",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto kernel = std::shared_ptr<OpKernel>(new cuda::Send<float>(info));
+        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        std::shared_ptr<brt::OpKernel> kernel;
+        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
+          kernel = std::shared_ptr<OpKernel>(new cuda::Send<float>(info));
         return kernel;
       });
 }
