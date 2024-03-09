@@ -32,4 +32,10 @@ Status DistributedBackend::send(const void *sendbuff, size_t len,
   return _send(sendbuff, len * type_size, rank, ctx);
 }
 
+Status DistributedBackend::all_reduce(const void *sendbuff, void *recvbuff,
+                                      size_t len, DTypeEnum dtype, ReduceOp op,
+                                      std::shared_ptr<DContext> ctx) {
+  return all_reduce(sendbuff, recvbuff, len, dtype, op, ctx);
+}
+
 } // namespace brt
