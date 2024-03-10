@@ -21,6 +21,7 @@
 #include "./recv.h"
 #include "./send.h"
 #include "./all_reduce.h"
+#include "./all_gather.h"
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
@@ -54,6 +55,16 @@ void RegisterNCCLOps(KernelRegistry *registry) {
         std::shared_ptr<brt::OpKernel> kernel;
         if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
           kernel = std::shared_ptr<OpKernel>(new cuda::AllReduce<float>(info));
+        return kernel;
+      });
+  
+  registry->Register(
+      "nccl.All_Gather",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        std::shared_ptr<brt::OpKernel> kernel;
+        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
+          kernel = std::shared_ptr<OpKernel>(new cuda::AllGather<float>(info));
         return kernel;
       });
 }
