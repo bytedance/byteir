@@ -1,7 +1,7 @@
 module attributes {byre.container_module} {
   func.func @test_all_reduce(%arg0 : memref<4xf32, "cuda"> {byre.argname = "in0", byre.argtype = 1: i32},
                              %arg1 : memref<4xf32, "cuda"> {byre.argname = "out", byre.argtype = 2: i32}) attributes {byre.entry_point} {
-    byre.compute @nccl.All_Reduce(%arg0, %arg1) {rank = 1 : i64, reduce_op = "sum"} : memref<4xf32, "cuda">, memref<4xf32, "cuda">
+    byre.compute @nccl.All_Reduce(%arg0, %arg1) { reduce_op = "sum" } : memref<4xf32, "cuda">, memref<4xf32, "cuda">
     return
   }
 }

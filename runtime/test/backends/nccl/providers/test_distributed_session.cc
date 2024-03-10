@@ -281,7 +281,6 @@ TEST(TestDistributedSession, NCCLAllGather) {
     float *d_target = (float*)request->GetArg(1);
     auto src_shape = d_session.GetStaticShape(0);
     auto target_shape = d_session.GetStaticShape(1);
-    std::cout << std::endl;
     int64_t src_linearized_shape = LinearizedShape(src_shape);
     int64_t target_linearized_shape = LinearizedShape(target_shape); 
     EXPECT_GT(src_linearized_shape, 0);
@@ -308,3 +307,65 @@ TEST(TestDistributedSession, NCCLAllGather) {
   }
 }
 
+TEST(TestDistributedSession, NCCLBroadcast) {
+  const int nranks = 2;
+  const std::string host = "localhost";
+  int port = brt::GetFreePort();
+  auto ret = brt::CreateServer(nranks, port);
+  ASSERT_EQ(Status::OK(), ret);
+
+  auto run = [nranks, host, port](int rank) {
+    int local_rank = rank;
+    DistributedSession d_session(rank, nranks, host, port);
+    auto status_allocator = CUDAAllocatorFactory(&d_session, local_rank);
+    BRT_TEST_CHECK_STATUS(status_allocator);
+    auto status_cuda =
+        DefaultNCCLExecutionProviderFactory(&d_session, local_rank);
+    BRT_TEST_CHECK_STATUS(status_cuda);
+
+    std::vector<std::string> config = {
+        "test/test_files/Distributed/broadcast.mlir",
+        "test/test_files/Distributed/broadcast.mlir"};
+    std::string ir_url;
+    d_session.LoadConfig(config, ir_url);
+    auto status_load = d_session.Load(ir_url, "byre");
+    BRT_TEST_CHECK_STATUS(status_load);
+
+    std::unique_ptr<RequestContext> request;
+    auto status_request = d_session.NewRequestContext(&request);
+    BRT_TEST_CHECK_STATUS(status_request);
+
+    auto src_shape = d_session.GetStaticShape(0);
+    auto target_shape = d_session.GetStaticShape(1);
+    int64_t src_linearized_shape = LinearizedShape(src_shape);
+    int64_t target_linearized_shape = LinearizedShape(target_shape);
+    EXPECT_GT(src_linearized_shape, 0);
+    EXPECT_GT(target_linearized_shape, 0);
+    size_t src_len = static_cast<size_t>(src_linearized_shape);
+    size_t target_len = static_cast<size_t>(target_linearized_shape);
+    float *src = (float *)request->GetArg(0);  
+
+    float *target = (float *)request->GetArg(1);
+    if (rank == 0) {
+      AssignCUDABuffer(src, src_len, 1.0f);
+    } else if (rank == 1) {
+      AssignCUDABuffer(src, src_len, 2.0f);
+    }
+    
+    request->FinishIOBinding();
+    auto status_run = d_session.Run(*request);
+    BRT_TEST_CHECK_STATUS(status_run);
+    auto status_sync = request->Sync();
+    BRT_TEST_CHECK_STATUS(status_sync);
+    CheckResult(target, target_len, 1.0f);
+  };
+
+  std::vector<std::thread> threads;
+  for (size_t i = 0; i < nranks; i++) {
+    threads.push_back(std::thread(run, i));
+  }
+
+  for (size_t i = 0; i < nranks; i++) {
+    threads[i].join();
+  }
+}
