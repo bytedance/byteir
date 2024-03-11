@@ -209,8 +209,9 @@ TEST(TestDistributedSession, NCCLAllReduce) {
         DefaultNCCLExecutionProviderFactory(&d_session, local_rank);
     BRT_TEST_CHECK_STATUS(status_cuda);
 
-    std::vector<std::string> config = {"test/test_files/Distributed/all_reduce.mlir",
-                                       "test/test_files/Distributed/all_reduce.mlir"};
+    std::vector<std::string> config = {
+        "test/test_files/Distributed/all_reduce.mlir",
+        "test/test_files/Distributed/all_reduce.mlir"};
     std::string ir_url;
     d_session.LoadConfig(config, ir_url);
     auto status_load = d_session.Load(ir_url, "byre");
@@ -221,7 +222,7 @@ TEST(TestDistributedSession, NCCLAllReduce) {
     BRT_TEST_CHECK_STATUS(status_request);
 
     float *d_src = (float *)request->GetArg(0);
-    float *d_target = (float*)request->GetArg(1);
+    float *d_target = (float *)request->GetArg(1);
     auto shape = d_session.GetStaticShape(0);
     int64_t linearized_shape = LinearizedShape(shape);
     EXPECT_GT(linearized_shape, 0);
@@ -266,8 +267,9 @@ TEST(TestDistributedSession, NCCLAllGather) {
         DefaultNCCLExecutionProviderFactory(&d_session, local_rank);
     BRT_TEST_CHECK_STATUS(status_cuda);
 
-    std::vector<std::string> config = {"test/test_files/Distributed/all_gather.mlir",
-                                       "test/test_files/Distributed/all_gather.mlir"};
+    std::vector<std::string> config = {
+        "test/test_files/Distributed/all_gather.mlir",
+        "test/test_files/Distributed/all_gather.mlir"};
     std::string ir_url;
     d_session.LoadConfig(config, ir_url);
     auto status_load = d_session.Load(ir_url, "byre");
@@ -278,11 +280,11 @@ TEST(TestDistributedSession, NCCLAllGather) {
     BRT_TEST_CHECK_STATUS(status_request);
 
     float *d_src = (float *)request->GetArg(0);
-    float *d_target = (float*)request->GetArg(1);
+    float *d_target = (float *)request->GetArg(1);
     auto src_shape = d_session.GetStaticShape(0);
     auto target_shape = d_session.GetStaticShape(1);
     int64_t src_linearized_shape = LinearizedShape(src_shape);
-    int64_t target_linearized_shape = LinearizedShape(target_shape); 
+    int64_t target_linearized_shape = LinearizedShape(target_shape);
     EXPECT_GT(src_linearized_shape, 0);
     EXPECT_GT(target_linearized_shape, 0);
     size_t src_len = static_cast<size_t>(src_linearized_shape);
@@ -343,7 +345,7 @@ TEST(TestDistributedSession, NCCLBroadcast) {
     EXPECT_GT(target_linearized_shape, 0);
     size_t src_len = static_cast<size_t>(src_linearized_shape);
     size_t target_len = static_cast<size_t>(target_linearized_shape);
-    float *src = (float *)request->GetArg(0);  
+    float *src = (float *)request->GetArg(0);
 
     float *target = (float *)request->GetArg(1);
     if (rank == 0) {
@@ -351,7 +353,7 @@ TEST(TestDistributedSession, NCCLBroadcast) {
     } else if (rank == 1) {
       AssignCUDABuffer(src, src_len, 2.0f);
     }
-    
+
     request->FinishIOBinding();
     auto status_run = d_session.Run(*request);
     BRT_TEST_CHECK_STATUS(status_run);

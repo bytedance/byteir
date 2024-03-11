@@ -47,22 +47,25 @@ common::Status AllReduce<T>::RunImpl(const ExecutionContext &ctx) {
   assert(backend != nullptr);
   DistributedBackendNCCL *nccl_backend =
       static_cast<DistributedBackendNCCL *>(backend);
-  
+
   OpAccessor accessor(info_, ctx.exec_frame);
   const auto src_shape = accessor.GetArgShape(0);
   auto elem_num = std::accumulate(src_shape.begin(), src_shape.end(), 1,
                                   std::multiplies<int64_t>());
   T *src = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(0));
   T *target = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(1));
-  std::string&& reduce_op = accessor.GetAttrAsString("reduce_op");
+  std::string &&reduce_op = accessor.GetAttrAsString("reduce_op");
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  DTypeEnum dtype;
+  DTypeEnum dtype = DTypeEnum::Invalid;
   if (std::is_same_v<T, float>)
     dtype = DTypeEnum::Float32;
-  if (reduce_op == "sum")
-    nccl_backend->all_reduce(src, target, elem_num, dtype, BRT_SUM, d_context);
+  if (dtype != DTypeEnum::Invalid) {
+    if (reduce_op == "sum")
+      nccl_backend->all_reduce(src, target, elem_num, dtype, BRT_SUM,
+                               d_context);
+  }
   return Status::OK();
 }
 

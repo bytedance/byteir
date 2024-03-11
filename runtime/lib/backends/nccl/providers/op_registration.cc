@@ -18,11 +18,11 @@
 #include "brt/backends/nccl/providers/op_registration.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 
+#include "./all_gather.h"
+#include "./all_reduce.h"
+#include "./broadcast.h"
 #include "./recv.h"
 #include "./send.h"
-#include "./all_reduce.h"
-#include "./all_gather.h"
-#include "./broadcast.h"
 #include "brt/core/framework/kernel_registry.h"
 
 namespace brt {
@@ -32,9 +32,13 @@ void RegisterNCCLOps(KernelRegistry *registry) {
   registry->Register(
       "nccl.Recv",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        auto memrefType = info.GetOperation()
+                              ->getOperand(0)
+                              .getType()
+                              .cast<mlir::MemRefType>();
         std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext())) 
+        if (memrefType.getElementType() ==
+            mlir::Float32Type::get(info.GetOperation()->getContext()))
           kernel = std::shared_ptr<OpKernel>(new cuda::Recv<float>(info));
         return kernel;
       });
@@ -42,9 +46,13 @@ void RegisterNCCLOps(KernelRegistry *registry) {
   registry->Register(
       "nccl.Send",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        auto memrefType = info.GetOperation()
+                              ->getOperand(0)
+                              .getType()
+                              .cast<mlir::MemRefType>();
         std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
+        if (memrefType.getElementType() ==
+            mlir::Float32Type::get(info.GetOperation()->getContext()))
           kernel = std::shared_ptr<OpKernel>(new cuda::Send<float>(info));
         return kernel;
       });
@@ -52,29 +60,41 @@ void RegisterNCCLOps(KernelRegistry *registry) {
   registry->Register(
       "nccl.All_Reduce",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        auto memrefType = info.GetOperation()
+                              ->getOperand(0)
+                              .getType()
+                              .cast<mlir::MemRefType>();
         std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
+        if (memrefType.getElementType() ==
+            mlir::Float32Type::get(info.GetOperation()->getContext()))
           kernel = std::shared_ptr<OpKernel>(new cuda::AllReduce<float>(info));
         return kernel;
       });
-  
+
   registry->Register(
       "nccl.All_Gather",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        auto memrefType = info.GetOperation()
+                              ->getOperand(0)
+                              .getType()
+                              .cast<mlir::MemRefType>();
         std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
+        if (memrefType.getElementType() ==
+            mlir::Float32Type::get(info.GetOperation()->getContext()))
           kernel = std::shared_ptr<OpKernel>(new cuda::AllGather<float>(info));
         return kernel;
       });
-  
+
   registry->Register(
       "nccl.Broadcast",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+        auto memrefType = info.GetOperation()
+                              ->getOperand(0)
+                              .getType()
+                              .cast<mlir::MemRefType>();
         std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() == mlir::Float32Type::get(info.GetOperation()->getContext()))
+        if (memrefType.getElementType() ==
+            mlir::Float32Type::get(info.GetOperation()->getContext()))
           kernel = std::shared_ptr<OpKernel>(new cuda::Broadcast<float>(info));
         return kernel;
       });
