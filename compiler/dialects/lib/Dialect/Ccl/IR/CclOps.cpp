@@ -61,6 +61,21 @@ verifyReplicaGroups(std::optional<Location> location,
   return success();
 }
 
+// Verify source/target index in p2p communication operations.
+LogicalResult verifyP2PIndex(std::optional<Location> location,
+                             std::optional<IntegerAttr> index,
+                             Value dynamicIndex) {
+  if (dynamicIndex != nullptr && index.has_value()) {
+    return emitOptionalError(
+        location, "dynamic_index and index can't exist simultaneously");
+  }
+  if (dynamicIndex == nullptr && !index.has_value()) {
+    return emitOptionalError(
+        location, "dynamic_index and index can't absent simultaneously");
+  }
+  return success();
+}
+
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -174,8 +189,31 @@ LogicalResult BroadcastOp::verify() {
 // ccl.send
 //===----------------------------------------------------------------------===//
 
+LogicalResult SendOp::verify() {
+  return verifyP2PIndex(getLoc(), getTargetIndexAttr(),
+                        getDynamicTargetIndex());
+}
+
 LogicalResult
 SendOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
+                         ValueRange operands, DictionaryAttr, OpaqueProperties,
+                         RegionRange,
+                         SmallVectorImpl<Type> &inferredReturnTypes) {
+  inferredReturnTypes.push_back(operands[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.recv
+//===----------------------------------------------------------------------===//
+
+LogicalResult RecvOp::verify() {
+  return verifyP2PIndex(getLoc(), getSourceIndexAttr(),
+                        getDynamicSourceIndex());
+}
+
+LogicalResult
+RecvOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
                          ValueRange operands, DictionaryAttr, OpaqueProperties,
                          RegionRange,
                          SmallVectorImpl<Type> &inferredReturnTypes) {

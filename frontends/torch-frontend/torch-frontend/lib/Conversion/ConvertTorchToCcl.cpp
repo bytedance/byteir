@@ -245,7 +245,7 @@ public:
     }
 
     auto cclSendOp = rewriter.create<ccl::SendOp>(
-        op->getLoc(), outType, input,
+        op->getLoc(), outType, input, Value(),
         /*synchronous=*/rewriter.getBoolAttr(SYNC),
         /*target_index=*/rewriter.getI64IntegerAttr(dst));
     rewriter.replaceOp(op, cclSendOp.getResult());
@@ -262,29 +262,19 @@ public:
   matchAndRewrite(OP op, typename OP::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto outType = llvm::cast<RankedTensorType>(
-        OpConversionPattern<OP>::getTypeConverter()->convertType(
-            op.getResult().getType()));
+    auto outType = OpConversionPattern<OP>::getTypeConverter()->convertType(
+        op.getResult().getType());
 
     int64_t src;
     if (!matchPattern(op.getSrc(), m_TorchConstantInt(&src))) {
       return rewriter.notifyMatchFailure(op, "unsupported value of src");
     }
 
-    if (outType.hasStaticShape()) {
-      auto cclRecvOp = rewriter.create<ccl::RecvOp>(
-          op->getLoc(), outType, Value(),
-          /*synchronous=*/rewriter.getBoolAttr(SYNC),
-          /*target_index=*/rewriter.getI64IntegerAttr(src));
-      rewriter.replaceOp(op, cclRecvOp.getResult());
-    } else {
-      Value shape = rewriter.create<shape::ShapeOfOp>(op->getLoc(), input);
-      auto cclRecvOp = rewriter.create<ccl::RecvOp>(
-          op->getLoc(), outType, shape,
-          /*synchronous=*/rewriter.getBoolAttr(SYNC),
-          /*target_index=*/rewriter.getI64IntegerAttr(src));
-      rewriter.replaceOp(op, cclRecvOp.getResult());
-    }
+    auto cclRecvOp = rewriter.create<ccl::RecvOp>(
+        op->getLoc(), outType, input, Value(),
+        /*synchronous=*/rewriter.getBoolAttr(SYNC),
+        /*target_index=*/rewriter.getI64IntegerAttr(src));
+    rewriter.replaceOp(op, cclRecvOp.getResult());
     return success();
   }
 };

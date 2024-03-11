@@ -134,7 +134,6 @@ func.func @torch.c10d_functional.irecv.dynamic_shape(%arg0: !torch.vtensor<[?],f
   return %2 : !torch.vtensor<[?],f32>
 }
 // CHECK-LABEL: func.func @torch.c10d_functional.irecv.dynamic_shape
-// CHECK: shape.shape_of
 // CHECK: ccl.recv
 // CHECK-SAME{LITERAL}: {source_index = 0 : i64, synchronous = false}
 // CHECK: ccl.wait
