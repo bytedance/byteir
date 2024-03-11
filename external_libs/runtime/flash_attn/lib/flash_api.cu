@@ -1,21 +1,8 @@
 #include "flash.h"
-#include "flash_fwd_launch_template.h"
+#include "flash_api.h"
+#include "static_switch.h"
 #include <iostream>
-
-// TODO: Switch back to handling bf16.
-// void run_mha_fwd(Flash_fwd_params &params, cudaStream_t stream) {
-//   FWD_HEADDIM_SWITCH(params.d, [&] {
-//     run_mha_fwd_<cutlass::half_t, kHeadDim>(params, stream);
-//   });
-// }
-
-// void run_mha_fwd(Flash_fwd_params &params, cudaStream_t stream) {
-//     FP16_SWITCH(!params.is_bf16, [&] {
-//         FWD_HEADDIM_SWITCH(params.d, [&] {
-//             run_mha_fwd_<elem_type, kHeadDim>(params, stream);
-//         });
-//     });
-// }
+#include <algorithm>
 
 // for debug
 void print_Qkv_params(Qkv_params &params) {
@@ -168,6 +155,72 @@ inline int num_splits_heuristic(int batch_nheads_mblocks, int num_SMs,
   return 1;
 }
 
+void run_fwd(Flash_fwd_params params, cudaStream_t stream) {
+  auto head_dim = params.d;
+
+  if (head_dim <= 32) {
+    run_mha_fwd_<cutlass::half_t, 32>(params, stream);
+  } else if (head_dim <= 64) {
+    run_mha_fwd_<cutlass::half_t, 64>(params, stream);
+  } else if (head_dim <= 96) {
+    run_mha_fwd_<cutlass::half_t, 96>(params, stream);
+  } else  if (head_dim <= 128) {
+    run_mha_fwd_<cutlass::half_t, 128>(params, stream);
+  } else  if (head_dim <= 160) {
+    run_mha_fwd_<cutlass::half_t, 160>(params, stream);
+  } else  if (head_dim <= 192) {
+    run_mha_fwd_<cutlass::half_t, 192>(params, stream);
+  } else  if (head_dim <= 224) {
+    run_mha_fwd_<cutlass::half_t, 224>(params, stream);
+  } else {
+    run_mha_fwd_<cutlass::half_t, 256>(params, stream);
+  }
+}
+
+void run_fwd_kvcache(Flash_fwd_params params, cudaStream_t stream) {
+  auto head_dim = params.d;
+
+  if (head_dim <= 32) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 32>(params, stream);
+  } else if (head_dim <= 64) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 64>(params, stream);
+  } else if (head_dim <= 96) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 96>(params, stream);
+  } else  if (head_dim <= 128) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 128>(params, stream);
+  } else  if (head_dim <= 160) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 160>(params, stream);
+  } else  if (head_dim <= 192) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 192>(params, stream);
+  } else  if (head_dim <= 224) {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 224>(params, stream);
+  } else {
+    run_mha_fwd_splitkv_dispatch<cutlass::half_t, 256>(params, stream);
+  }
+}
+
+void run_bwd(Flash_bwd_params params, cudaStream_t stream) {
+  auto head_dim = params.d;
+
+  if (head_dim <= 32) {
+    run_mha_bwd_<cutlass::half_t, 32>(params, stream);
+  } else if (head_dim <= 64) {
+    run_mha_bwd_<cutlass::half_t, 64>(params, stream);
+  } else if (head_dim <= 96) {
+    run_mha_bwd_<cutlass::half_t, 96>(params, stream);
+  } else  if (head_dim <= 128) {
+    run_mha_bwd_<cutlass::half_t, 128>(params, stream);
+  } else  if (head_dim <= 160) {
+    run_mha_bwd_<cutlass::half_t, 160>(params, stream);
+  } else  if (head_dim <= 192) {
+    run_mha_bwd_<cutlass::half_t, 192>(params, stream);
+  } else  if (head_dim <= 224) {
+    run_mha_bwd_<cutlass::half_t, 224>(params, stream);
+  } else {
+    run_mha_bwd_<cutlass::half_t, 256>(params, stream);
+  }
+}
+
 void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
              void *softmax_lse_ptr, void *softmax_ptr, void *rng_state_ptr,
 
@@ -255,10 +308,7 @@ void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
   params.alibi_slopes_ptr = nullptr;
   // print_Flash_fwd_params(params);
 
-  FP16_SWITCH(!params.is_bf16, [&] {
-    FWD_HEADDIM_SWITCH(
-        params.d, [&] { run_mha_fwd_<elem_type, kHeadDim>(params, stream); });
-  });
+  run_fwd(params, stream);
 }
 
 void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
@@ -374,26 +424,7 @@ void run_mha_bwd(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
   params.alibi_slopes_ptr = nullptr;
   // print_Flash_bwd_params(params);
 
-  bool configure = false;
-  FP16_SWITCH(!params.is_bf16, [&] {
-    if (params.d <= 32) {
-      run_mha_bwd_<elem_type, 32>(params, stream, configure);
-    } else if (params.d <= 64) {
-      run_mha_bwd_<elem_type, 64>(params, stream, configure);
-    } else if (params.d <= 96) {
-      run_mha_bwd_<elem_type, 96>(params, stream, configure);
-    } else if (params.d <= 128) {
-      run_mha_bwd_<elem_type, 128>(params, stream, configure);
-    } else if (params.d <= 160) {
-      run_mha_bwd_<elem_type, 160>(params, stream, configure);
-    } else if (params.d <= 192) {
-      run_mha_bwd_<elem_type, 192>(params, stream, configure);
-    } else if (params.d <= 224) {
-      run_mha_bwd_<elem_type, 224>(params, stream, configure);
-    } else if (params.d <= 256) {
-      run_mha_bwd_<elem_type, 256>(params, stream, configure);
-    }
-  });
+  run_bwd(params, stream);
 }
 
 void run_mha_fwd_with_kvcache(
@@ -473,6 +504,7 @@ void run_mha_fwd_with_kvcache(
   params.p_ptr = nullptr; // used for `return_softmax`.
   params.rng_state = nullptr;
   params.alibi_slopes_ptr = nullptr;
+  params.page_block_size = 1;
   params.is_causal = window_size_left < 0 && window_size_right == 0;
 
   if (window_size_left < 0 && window_size_right >= 0) {
@@ -526,13 +558,8 @@ void run_mha_fwd_with_kvcache(
   //   params.softmax_lseaccum_ptr = softmax_lse_accum.data_ptr();
   //   params.oaccum_ptr = out_accum.data_ptr();
   // }
-  // print_Flash_fwd_params(params);
 
-  FP16_SWITCH(!params.is_bf16, [&] {
-    FWD_HEADDIM_SWITCH(params.d, [&] {
-      run_mha_fwd_splitkv_dispatch<elem_type, kHeadDim>(params, stream);
-    });
-  });
+  run_fwd_kvcache(params, stream);
 }
 
 int64_t getIntFromVoidPtr(void *data, size_t &pos) {

@@ -48,11 +48,11 @@ module {
 // CHECK-NEXT:    %alloc_5 = memref.alloc() : memref<1x97xf32, "test">
 // CHECK-NEXT:    memref.copy %0, %alloc_5 : memref<1x97xf32, "cpu"> to memref<1x97xf32, "test">
 // CHECK-NEXT:    %1 = call @mlp_device(%alloc, %alloc_1, %alloc_3, %alloc_5) : (memref<128x64xf16, "test">, memref<64x32xf16, "test">, memref<32xf16, "test">, memref<1x97xf32, "test">) -> memref<128x32xf16, "test">
-// CHECK-NEXT:    %alloc_6 = memref.alloc() : memref<128x32xf32, "cpu">
-// CHECK-NEXT:    %alloc_7 = memref.alloc() : memref<128x32xf16, "cpu">
-// CHECK-NEXT:    memref.copy %1, %alloc_7 : memref<128x32xf16, "test"> to memref<128x32xf16, "cpu">
-// CHECK-NEXT:    "lmhlo.convert"(%alloc_7, %alloc_6) {device = "cpu"} : (memref<128x32xf16, "cpu">, memref<128x32xf32, "cpu">) -> ()
-// CHECK-NEXT:    return %alloc_6 : memref<128x32xf32, "cpu">
+// CHECK-NEXT:    %alloc_6 = memref.alloc() : memref<128x32xf16, "cpu">
+// CHECK-NEXT:    memref.copy %1, %alloc_6 : memref<128x32xf16, "test"> to memref<128x32xf16, "cpu">
+// CHECK-NEXT:    %alloc_7 = memref.alloc() : memref<128x32xf32, "cpu">
+// CHECK-NEXT:    "lmhlo.convert"(%alloc_6, %alloc_7) {device = "cpu"} : (memref<128x32xf16, "cpu">, memref<128x32xf32, "cpu">) -> ()
+// CHECK-NEXT:    return %alloc_7 : memref<128x32xf32, "cpu">
 // CHECK-NEXT:  }
 
 // CHECK-LABEL: func.func private @mlp_device(memref<128x64xf16, "test">, memref<64x32xf16, "test">, memref<32xf16, "test">, memref<1x97xf32, "test">) -> memref<128x32xf16, "test"> attributes {device = "test"}

@@ -23,6 +23,7 @@ cmake -S . \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=gcc \
       -DCMAKE_CXX_COMPILER=g++ \
+      -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable" \
       -DPython3_EXECUTABLE=$(which python3)
 
 cmake --build ./build --target all

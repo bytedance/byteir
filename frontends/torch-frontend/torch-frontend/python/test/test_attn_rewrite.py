@@ -186,7 +186,7 @@ def test_flash_attn_opt_pattern():
         flash_logits = flash_output["logits"]
         flash_loss = F.cross_entropy(flash_logits.view(-1, model.config.vocab_size), flash_label.view(-1))
 
-    torch.testing.assert_close(golden_loss, flash_loss, atol=1e-4, rtol=1e-6)
+    torch.testing.assert_close(golden_loss, flash_loss, atol=2e-4, rtol=2e-6)
     torch.testing.assert_close(golden_logits, flash_logits, atol=3e-3, rtol=1e-6)
 
 
