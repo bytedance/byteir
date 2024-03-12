@@ -58,14 +58,9 @@ common::Status AllReduce<T>::RunImpl(const ExecutionContext &ctx) {
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  DTypeEnum dtype = DTypeEnum::Invalid;
-  if (std::is_same_v<T, float>)
-    dtype = DTypeEnum::Float32;
-  if (dtype != DTypeEnum::Invalid) {
-    if (reduce_op == "sum")
-      nccl_backend->all_reduce(src, target, elem_num, dtype, BRT_SUM,
-                               d_context);
-  }
+  if (reduce_op == "sum")
+    nccl_backend->all_reduce(src, target, elem_num, dtype_enum_v<T>, BRT_SUM,
+                             d_context);
   return Status::OK();
 }
 

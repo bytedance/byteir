@@ -57,12 +57,8 @@ common::Status AllGather<T>::RunImpl(const ExecutionContext &ctx) {
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  DTypeEnum dtype = DTypeEnum::Invalid;
-  if (std::is_same_v<T, float>)
-    dtype = DTypeEnum::Float32;
-  if (dtype != DTypeEnum::Invalid)
-    nccl_backend->all_gather(src, target, elem_num / nccl_backend->nranks(),
-                             dtype, d_context);
+  nccl_backend->all_gather(src, target, elem_num / nccl_backend->nranks(),
+                           dtype_enum_v<T>, d_context);
   return Status::OK();
 }
 

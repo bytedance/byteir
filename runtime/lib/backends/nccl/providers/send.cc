@@ -59,13 +59,7 @@ common::Status Send<T>::RunImpl(const ExecutionContext &ctx) {
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-
-  DTypeEnum dtype = DTypeEnum::Invalid;
-  if (std::is_same_v<T, float>)
-    dtype = DTypeEnum::Float32;
-  if (dtype != DTypeEnum::Invalid)
-    nccl_backend->send(src, elem_num, DTypeEnum::Float32, rank, d_context);
-
+  nccl_backend->send(src, elem_num, dtype_enum_v<T>, rank, d_context);
   return Status::OK();
 }
 
