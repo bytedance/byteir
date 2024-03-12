@@ -61,18 +61,18 @@ bool anyIncompatibleUseExceptReshapeOp(Value oldValue, Value newValue) {
          (oldValue.getType() != newValue.getType());
 }
 
-bool allAliasesFromReshapeOp(ArrayRef<Value> aliases) {
-  if (aliases.size() > 1) {
-    if (!isa<memref::AllocOp>(aliases[0].getDefiningOp()))
-      return false;
-    for (size_t idx = 1; idx != aliases.size(); ++idx) {
-      if (!isa<memref::CollapseShapeOp, memref::ExpandShapeOp>(
-              aliases[idx].getDefiningOp()))
-        return false;
-      return true;
-    }
+SmallVector<Operation *> getReshapeOp(Value value) {
+  SmallVector<Operation *> reshapeOps;
+  auto operation = value.getDefiningOp();
+  while (operation &&
+         isa<memref::CollapseShapeOp, memref::ExpandShapeOp>(operation)) {
+    reshapeOps.push_back(operation);
+    value = operation->getOperand(0);
+    operation = value.getDefiningOp();
   }
-  return false;
+  if (operation && isa<memref::AllocOp>(operation))
+    return reshapeOps;
+  return {};
 }
 
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
@@ -209,8 +209,8 @@ public:
       }
     }
 
-    if (allAliasesFromReshapeOp(aliases[0])) {
-      auto srcAllocOp = aliases[0][0].getDefiningOp<memref::AllocOp>();
+    if (auto &&reshapeOps = getReshapeOp(src); reshapeOps.size()) {
+      auto &&srcAllocOp = aliases[0][0].getDefiningOp<memref::AllocOp>();
       if (auto targetDef = target.getDefiningOp()) {
         if (isa<memref::AllocOp, memref::SubViewOp>(targetDef))
           hoistUpOpInBlock(targetDef, domInfo);
@@ -221,17 +221,17 @@ public:
                                 << " not dominated by " << srcAllocOp << "\n");
         return failure();
       }
+
       rewriter.setInsertionPoint(srcAllocOp);
       Value reshapeTarget = target;
-      for (auto pos = aliases[0].size() - 1; pos > 0; --pos) {
-        auto shapeOp = aliases[0][pos];
-        if (auto collapseShapeOp =
-                shapeOp.getDefiningOp<memref::CollapseShapeOp>()) {
+      for (size_t pos = 0; pos < reshapeOps.size(); ++pos) {
+        auto shapeOp = reshapeOps[pos];
+        if (auto collapseShapeOp = dyn_cast<memref::CollapseShapeOp>(shapeOp)) {
           reshapeTarget = rewriter.create<memref::ExpandShapeOp>(
               srcAllocOp.getLoc(), collapseShapeOp.getSrcType(), reshapeTarget,
               collapseShapeOp.getReassociationIndices());
         } else if (auto expandShapeOp =
-                       shapeOp.getDefiningOp<memref::ExpandShapeOp>()) {
+                       dyn_cast<memref::ExpandShapeOp>(shapeOp)) {
           reshapeTarget = rewriter.create<memref::CollapseShapeOp>(
               srcAllocOp.getLoc(), expandShapeOp.getSrcType(), reshapeTarget,
               expandShapeOp.getReassociationIndices());
