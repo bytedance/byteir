@@ -28,6 +28,8 @@ namespace {
 
 /// ByteIR custom call target names
 #define CALL_TARGET_NAME_PREFIX "byteir."
+/// ONNX custom call target names
+#define ONNX_CALL_TARGET_PREFIX "onnx."
 
 // clang-format off
 // get custom call target name
@@ -86,16 +88,15 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
 // Custom
 //===----------------------------------------------------------------------===//
 
-struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
+struct ONNXCustomOpLowering : public RewritePattern {
   ONNXCustomOpLowering(MLIRContext *ctx)
-      : OpConversionPattern(ctx) {}
+      : RewritePattern("onnx.Custom", 1, ctx, {}) {}
 
-  LogicalResult matchAndRewrite(ONNXCustomOp customOp,
-      ConversionPatternRewriter &rewriter) const final {
-    Operation *op = customOp.getOperation();
+  LogicalResult matchAndRewrite(::mlir::Operation *op,
+      ::mlir::PatternRewriter &rewriter) const override {
+    ONNXCustomOp customOp = dyn_cast_or_null<::mlir::ONNXCustomOp>(op);
     Location loc = op->getLoc();
-    ValueRange operands = customOp.getODSOperands(0);
-
+    ValueRange operands = op->getOperands();
     // Prepare outputs
     SmallVector<Type, 4> outputTypes;
     for (size_t idx = 0; idx < op->getResultTypes().size(); idx++) {
@@ -120,7 +121,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
       }
     }
 
-    std::string call_target_name = std::string(CALL_TARGET_NAME_PREFIX) + func_name;
+    std::string call_target_name = std::string(ONNX_CALL_TARGET_PREFIX) + func_name;
     stablehlo::CustomCallOp customCallOp = rewriter.create<mlir::stablehlo::CustomCallOp>(
         loc, outputTypes,
         operands, call_target_name, false,
@@ -130,7 +131,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
         nullptr, nullptr,
         rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
 
-    customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+    customCallOp->setAttr(ONNX_ATTRS, getCleanAttr(attrs));
 
     rewriter.replaceOp(op, customCallOp);
     return success();
