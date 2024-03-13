@@ -77,6 +77,21 @@ LogicalResult verifyP2PIndex(std::optional<Location> location,
   return success();
 }
 
+// A BroadcastOp with a synchronous of false plus a WaitOp equals a BroadcastOp
+// with a synchronous of true.
+template <typename T> struct CombineCclOpAndWait : public OpRewritePattern<T> {
+  using OpRewritePattern<T>::OpRewritePattern;
+  LogicalResult matchAndRewrite(T op,
+                                PatternRewriter &rewriter) const override {
+    for (auto user : op.getResult().getUsers()) {
+      if (isa<ccl::WaitOp>(user)) {
+        op.setSynchronous(true);
+        return success();
+      }
+    }
+    return failure();
+  }
+};
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -93,6 +108,33 @@ void CclDialect::initialize() {
 //===----------------------------------------------------------------------===//
 // ccl.wait
 //===----------------------------------------------------------------------===//
+
+namespace {
+
+// Eliminate the WaitOp after a BroadcastOp which synchronous is true.
+struct EliminateUnnecessaryWait : public OpRewritePattern<WaitOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(WaitOp op,
+                                PatternRewriter &rewriter) const override {
+    auto cclOp = op.getSrc().getDefiningOp();
+    auto synchronousAttr = cclOp->getAttr("synchronous").cast<mlir::BoolAttr>();
+    if (synchronousAttr.getValue() == true) {
+      rewriter.replaceOp(op, cclOp);
+      return success();
+    }
+    return failure();
+  }
+};
+} // namespace
+
+void WaitOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                         MLIRContext *context) {
+  // clang-format off
+  results.add<
+  EliminateUnnecessaryWait
+  >(context);
+  // clamg-format on
+}
 
 LogicalResult
 WaitOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
@@ -119,6 +161,14 @@ void mlir::ccl::AllReduceOp::build(::mlir::OpBuilder &builder,
   result.addAttribute(getUniqueIdAttrName(result.name), unique_id);
   result.addAttributes(attributes);
   result.addTypes(src.getType());
+}
+
+void AllReduceOp::getCanonicalizationPatterns(RewritePatternSet &results, MLIRContext *context) {
+  // clang-format off
+  results.add<
+  CombineCclOpAndWait<AllReduceOp>
+  >(context);
+  // clamg-format on
 }
 
 LogicalResult
@@ -148,6 +198,14 @@ LogicalResult AllReduceOp::verify() {
 // ccl.all_gather
 //===----------------------------------------------------------------------===//
 
+void AllGatherOp::getCanonicalizationPatterns(RewritePatternSet &results, MLIRContext *context) {
+  // clang-format off
+  results.add<
+  CombineCclOpAndWait<AllGatherOp>
+  >(context);
+  // clamg-format on
+}
+
 LogicalResult AllGatherOp::verify() {
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
@@ -156,6 +214,14 @@ LogicalResult AllGatherOp::verify() {
 //===----------------------------------------------------------------------===//
 // ccl.reduce_scatter
 //===----------------------------------------------------------------------===//
+
+void ReduceScatterOp::getCanonicalizationPatterns(RewritePatternSet &results, MLIRContext *context) {
+  // clang-format off
+  results.add<
+  CombineCclOpAndWait<ReduceScatterOp>
+  >(context);
+  // clamg-format on
+}
 
 LogicalResult ReduceScatterOp::verify() {
   auto reduction = getReduction();
@@ -172,6 +238,14 @@ LogicalResult ReduceScatterOp::verify() {
 // ccl.all_to_all
 //===----------------------------------------------------------------------===//
 
+void AllToAllOp::getCanonicalizationPatterns(RewritePatternSet &results, MLIRContext *context) {
+  // clang-format off
+  results.add<
+  CombineCclOpAndWait<AllToAllOp>
+  >(context);
+  // clamg-format on
+}
+
 LogicalResult AllToAllOp::verify() {
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
@@ -186,63 +260,11 @@ LogicalResult BroadcastOp::verify() {
                              getDynamicReplicaGroups());
 }
 
-namespace {
-// If two and more WaitOp's follow a BroadcastOp, the excess WaitOp's are
-// eliminated and only one WaitOp is retained.
-struct EliminateDuplicateWait : public OpRewritePattern<BroadcastOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(BroadcastOp op,
-                                PatternRewriter &rewriter) const override {
-    auto nextOp = op.getOperation()->getNextNode();
-    if (nextOp && isa<WaitOp>(nextOp)) {
-      auto nextNextOp = nextOp->getNextNode();
-      if (nextNextOp && isa<WaitOp>(nextNextOp)) {
-        rewriter.replaceOp(nextNextOp, nextOp);
-        return success();
-      }
-    }
-    return failure();
-  }
-};
-
-// A BroadcastOp with a synchronous of false plus a WaitOp equals a BroadcastOp
-// with a synchronous of true.
-struct CombineBroadcastAndWait : public OpRewritePattern<BroadcastOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(BroadcastOp op,
-                                PatternRewriter &rewriter) const override {
-    auto nextOp = op.getOperation()->getNextNode();
-    if (nextOp && isa<WaitOp>(nextOp) && op.getSynchronous() == false) {
-      op.setSynchronous(true);
-      rewriter.replaceOp(nextOp, op);
-      return success();
-    }
-    return failure();
-  }
-};
-
-// Eliminate the WaitOp after a BroadcastOp which synchronous is true.
-struct EliminateUnnecessaryWait : public OpRewritePattern<BroadcastOp> {
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(BroadcastOp op,
-                                PatternRewriter &rewriter) const override {
-    auto nextOp = op.getOperation()->getNextNode();
-    if (nextOp && isa<WaitOp>(nextOp) && op.getSynchronous() == true) {
-      rewriter.replaceOp(nextOp, op);
-      return success();
-    }
-    return failure();
-  }
-};
-} // namespace
-
 void BroadcastOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                               MLIRContext *context) {
   // clang-format off
   results.add<
-  EliminateDuplicateWait,
-  EliminateUnnecessaryWait,
-  CombineBroadcastAndWait
+  CombineCclOpAndWait<BroadcastOp>
   >(context);
   // clamg-format on
 }
@@ -250,6 +272,14 @@ void BroadcastOp::getCanonicalizationPatterns(RewritePatternSet &results,
 //===----------------------------------------------------------------------===//
 // ccl.send
 //===----------------------------------------------------------------------===//
+
+void SendOp::getCanonicalizationPatterns(RewritePatternSet &results, MLIRContext *context) {
+  // clang-format off
+  results.add<
+  CombineCclOpAndWait<SendOp>
+  >(context);
+  // clamg-format on
+}
 
 LogicalResult SendOp::verify() {
   return verifyP2PIndex(getLoc(), getTargetIndexAttr(),
@@ -268,6 +298,14 @@ SendOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
 //===----------------------------------------------------------------------===//
 // ccl.recv
 //===----------------------------------------------------------------------===//
+
+void RecvOp::getCanonicalizationPatterns(RewritePatternSet &results, MLIRContext *context) {
+  // clang-format off
+  results.add<
+  CombineCclOpAndWait<RecvOp>
+  >(context);
+  // clamg-format on
+}
 
 LogicalResult RecvOp::verify() {
   return verifyP2PIndex(getLoc(), getSourceIndexAttr(),

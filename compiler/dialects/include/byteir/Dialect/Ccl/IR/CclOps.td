@@ -43,6 +43,7 @@ def Ccl_WaitOp : Ccl_Op<"wait", [
 
   let arguments = (ins AnyTensor:$src);
   let results = (outs AnyTensor:$result);
+  let hasCanonicalizer = 1;
 }
 
 class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
@@ -97,6 +98,7 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
 
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather"> {
@@ -121,6 +123,7 @@ def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather"> {
 
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter"> {
@@ -146,6 +149,7 @@ def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter"> {
 
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all"> {
@@ -171,6 +175,7 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all"> {
 
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast"> {
@@ -191,6 +196,7 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast"> {
     OptionalAttr<I64Attr>:$unique_id
   );
   let results = (outs AnyTensor:$result);
+
   let assemblyFormat = [{
     $src (`,` $dynamic_replica_groups^)? attr-dict `:` functional-type(operands, results)
   }];
@@ -217,6 +223,7 @@ def Ccl_SendOp : Ccl_Op<"send", [
   let results = (outs AnyTensor:$result);
 
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 def Ccl_RecvOp : Ccl_Op<"recv", [
@@ -238,6 +245,7 @@ def Ccl_RecvOp : Ccl_Op<"recv", [
   let results = (outs AnyTensor:$result);
 
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
 }
 
 #endif // BYTEIR_DIALECT_CCL_CCL_OPS
