@@ -100,16 +100,17 @@ struct EliminateWait : public OpRewritePattern<WaitOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(WaitOp op,
                                 PatternRewriter &rewriter) const override {
-    auto preNode = op.getOperation()->getPrevNode();
-    if (!preNode)
-      return failure();
-    auto synchronousAttr = preNode->getAttr("synchronous").dyn_cast<BoolAttr>();
-    if (!synchronousAttr)
-      return failure();
-    if (synchronousAttr.getValue() == false)
-      preNode->setAttr("synchronous", BoolAttr::get(op.getContext(), true));
-    rewriter.replaceOp(op, preNode);
-    return success();
+    auto cclOp = op.getSrc().getDefiningOp();
+    if (cclOp && cclOp->hasOneUse()) {
+      auto synchronousAttr = cclOp->getAttr("synchronous").dyn_cast<BoolAttr>();
+      if (!synchronousAttr)
+        return failure();
+      if (synchronousAttr.getValue() == false)
+        cclOp->setAttr("synchronous", BoolAttr::get(op.getContext(), true));
+      rewriter.replaceOp(op, cclOp);
+      return success();
+    }
+    return failure();
   }
 };
 } // namespace
