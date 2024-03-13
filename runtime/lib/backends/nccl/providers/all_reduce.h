@@ -1,4 +1,4 @@
-//===- all_reudce.h -------------------------------------------*--- C++ -*-===//
+//===- all_reduce.h -------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,7 @@
 namespace brt {
 namespace cuda {
 
-// send synchronously
+// all_reduce synchronously
 template <typename T> class AllReduce final : public OpKernel {
 public:
   explicit AllReduce(const OpKernelInfo &info) : OpKernel(info) {}
