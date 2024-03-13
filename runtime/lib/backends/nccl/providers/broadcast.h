@@ -23,7 +23,7 @@ namespace brt {
 namespace cuda {
 
 // broadcast synchronously
-template <typename T> class Broadcast final : public OpKernel {
+class Broadcast final : public OpKernel {
 public:
   explicit Broadcast(const OpKernelInfo &info) : OpKernel(info) {}
 

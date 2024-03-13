@@ -41,8 +41,7 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-template <typename T>
-common::Status AllGather<T>::RunImpl(const ExecutionContext &ctx) {
+common::Status AllGather::RunImpl(const ExecutionContext &ctx) {
   DistributedBackend *backend = ctx.distributed_backend;
   assert(backend != nullptr);
   DistributedBackendNCCL *nccl_backend =
@@ -52,18 +51,17 @@ common::Status AllGather<T>::RunImpl(const ExecutionContext &ctx) {
   const auto target_shape = accessor.GetArgShape(1);
   auto elem_num = std::accumulate(target_shape.begin(), target_shape.end(), 1,
                                   std::multiplies<int64_t>());
-  T *src = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(0));
-  T *target = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(1));
+  void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
+  void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
+  auto memref_type =
+      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
   nccl_backend->all_gather(src, target, elem_num / nccl_backend->nranks(),
-                           dtype_enum_v<T>, d_context);
+                           ConvertMLIRTypeToDType(memref_type.getElementType()),
+                           d_context);
   return Status::OK();
 }
-
-// instantiate
-template class AllGather<float>;
-
 } // namespace cuda
 } // namespace brt

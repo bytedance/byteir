@@ -41,28 +41,26 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-template <typename T>
-common::Status Broadcast<T>::RunImpl(const ExecutionContext &ctx) {
+common::Status Broadcast::RunImpl(const ExecutionContext &ctx) {
   DistributedBackend *backend = ctx.distributed_backend;
   assert(backend != nullptr);
   DistributedBackendNCCL *nccl_backend =
       static_cast<DistributedBackendNCCL *>(backend);
 
   OpAccessor accessor(info_, ctx.exec_frame);
-  T *src = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(0));
-  T *target = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(1));
+  void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
+  void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
   int64_t len = accessor.GetAttrAsInt("len");
   int64_t root = accessor.GetAttrAsInt("root");
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  DTypeEnum dtype = DTypeEnum::Invalid;
-  nccl_backend->broadcast(src, target, len, dtype_enum_v<T>, root, d_context);
+  auto memref_type =
+      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+  nccl_backend->broadcast(src, target, len,
+                          ConvertMLIRTypeToDType(memref_type.getElementType()),
+                          root, d_context);
   return Status::OK();
 }
-
-// instantiate
-template class Broadcast<float>;
-
 } // namespace cuda
 } // namespace brt

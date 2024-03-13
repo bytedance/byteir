@@ -42,8 +42,7 @@ namespace brt {
 namespace cuda {
 
 // TODO: refine code and support various dtypes
-template <typename T>
-common::Status Recv<T>::RunImpl(const ExecutionContext &ctx) {
+common::Status Recv::RunImpl(const ExecutionContext &ctx) {
   DistributedBackend *backend = ctx.distributed_backend;
   assert(backend != nullptr);
   DistributedBackendNCCL *nccl_backend =
@@ -53,18 +52,18 @@ common::Status Recv<T>::RunImpl(const ExecutionContext &ctx) {
   const auto src_shape = accessor.GetArgShape(0);
   auto elem_num = std::accumulate(src_shape.begin(), src_shape.end(), 1,
                                   std::multiplies<int64_t>());
-  T *src = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(0));
+  void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
   int64_t rank = accessor.GetAttrAsInt("rank");
 
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  nccl_backend->recv(src, elem_num, dtype_enum_v<T>, rank, d_context);
+  auto memrefType =
+      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+  nccl_backend->recv(src, elem_num,
+                     ConvertMLIRTypeToDType(memrefType.getElementType()), rank,
+                     d_context);
   return Status::OK();
 }
-
-// instantiate
-template class Recv<float>;
-
 } // namespace cuda
 } // namespace brt

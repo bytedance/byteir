@@ -23,7 +23,7 @@ namespace brt {
 namespace cuda {
 
 // all_gather synchronously
-template <typename T> class AllGather final : public OpKernel {
+class AllGather final : public OpKernel {
 public:
   explicit AllGather(const OpKernelInfo &info) : OpKernel(info) {}
 

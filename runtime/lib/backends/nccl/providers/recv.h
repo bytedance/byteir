@@ -23,7 +23,7 @@ namespace brt {
 namespace cuda {
 
 // recv synchronously
-template <typename T> class Recv final : public OpKernel {
+class Recv final : public OpKernel {
 public:
   explicit Recv(const OpKernelInfo &info) : OpKernel(info) {}
 

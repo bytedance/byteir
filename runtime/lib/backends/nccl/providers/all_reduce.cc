@@ -41,8 +41,7 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-template <typename T>
-common::Status AllReduce<T>::RunImpl(const ExecutionContext &ctx) {
+common::Status AllReduce::RunImpl(const ExecutionContext &ctx) {
   DistributedBackend *backend = ctx.distributed_backend;
   assert(backend != nullptr);
   DistributedBackendNCCL *nccl_backend =
@@ -52,20 +51,18 @@ common::Status AllReduce<T>::RunImpl(const ExecutionContext &ctx) {
   const auto src_shape = accessor.GetArgShape(0);
   auto elem_num = std::accumulate(src_shape.begin(), src_shape.end(), 1,
                                   std::multiplies<int64_t>());
-  T *src = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(0));
-  T *target = reinterpret_cast<T *>(accessor.GetArgAsyncValueRef(1));
+  void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
+  void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
   std::string &&reduce_op = accessor.GetAttrAsString("reduce_op");
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  if (reduce_op == "sum")
-    nccl_backend->all_reduce(src, target, elem_num, dtype_enum_v<T>, BRT_SUM,
-                             d_context);
+  auto memref_type =
+      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+  nccl_backend->all_reduce(src, target, elem_num,
+                           ConvertMLIRTypeToDType(memref_type.getElementType()),
+                           GetReduceOp(reduce_op), d_context);
   return Status::OK();
 }
-
-// instantiate
-template class AllReduce<float>;
-
 } // namespace cuda
 } // namespace brt

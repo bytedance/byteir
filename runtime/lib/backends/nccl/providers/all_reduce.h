@@ -23,7 +23,7 @@ namespace brt {
 namespace cuda {
 
 // all_reduce synchronously
-template <typename T> class AllReduce final : public OpKernel {
+class AllReduce final : public OpKernel {
 public:
   explicit AllReduce(const OpKernelInfo &info) : OpKernel(info) {}
 

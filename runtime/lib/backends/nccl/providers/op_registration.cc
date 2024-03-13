@@ -32,71 +32,31 @@ void RegisterNCCLOps(KernelRegistry *registry) {
   registry->Register(
       "nccl.Recv",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()
-                              ->getOperand(0)
-                              .getType()
-                              .cast<mlir::MemRefType>();
-        std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() ==
-            mlir::Float32Type::get(info.GetOperation()->getContext()))
-          kernel = std::shared_ptr<OpKernel>(new cuda::Recv<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::Recv(info));
       });
 
   registry->Register(
       "nccl.Send",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()
-                              ->getOperand(0)
-                              .getType()
-                              .cast<mlir::MemRefType>();
-        std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() ==
-            mlir::Float32Type::get(info.GetOperation()->getContext()))
-          kernel = std::shared_ptr<OpKernel>(new cuda::Send<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::Send(info));
       });
 
   registry->Register(
-      "nccl.All_Reduce",
+      "nccl.AllReduce",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()
-                              ->getOperand(0)
-                              .getType()
-                              .cast<mlir::MemRefType>();
-        std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() ==
-            mlir::Float32Type::get(info.GetOperation()->getContext()))
-          kernel = std::shared_ptr<OpKernel>(new cuda::AllReduce<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::AllReduce(info));
       });
 
   registry->Register(
-      "nccl.All_Gather",
+      "nccl.AllGather",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()
-                              ->getOperand(0)
-                              .getType()
-                              .cast<mlir::MemRefType>();
-        std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() ==
-            mlir::Float32Type::get(info.GetOperation()->getContext()))
-          kernel = std::shared_ptr<OpKernel>(new cuda::AllGather<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::AllGather(info));
       });
 
   registry->Register(
       "nccl.Broadcast",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto memrefType = info.GetOperation()
-                              ->getOperand(0)
-                              .getType()
-                              .cast<mlir::MemRefType>();
-        std::shared_ptr<brt::OpKernel> kernel;
-        if (memrefType.getElementType() ==
-            mlir::Float32Type::get(info.GetOperation()->getContext()))
-          kernel = std::shared_ptr<OpKernel>(new cuda::Broadcast<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::Broadcast(info));
       });
 }
 } // namespace cuda

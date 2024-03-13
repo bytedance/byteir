@@ -23,7 +23,7 @@ namespace brt {
 namespace cuda {
 
 // send synchronously
-template <typename T> class Send final : public OpKernel {
+class Send final : public OpKernel {
 public:
   explicit Send(const OpKernelInfo &info) : OpKernel(info) {}
 
