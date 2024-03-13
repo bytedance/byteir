@@ -61,6 +61,31 @@ void ParseStrToVectorIntMaps(
   }
 }
 
+void UpdateDimValue(onnx::ValueInfoProto &valueInfo,
+                    const std::string &dimParam, int64_t value) {
+  auto *type = valueInfo.mutable_type();
+  LLVM_DEBUG(llvm::dbgs() << "value info name" << valueInfo.name() << "\n");
+  if (type->value_case() != onnx::TypeProto::kTensorType)
+    return;
+  onnx::TensorShapeProto *shape = type->mutable_tensor_type()->mutable_shape();
+  if (shape->dim_size() == 0)
+    return;
+  for (auto &dim : *(shape->mutable_dim())) {
+    if (dim.has_dim_param() && dim.dim_param() == dimParam) {
+      LLVM_DEBUG(llvm::dbgs() << "replace dynamic bs \n");
+      dim.set_dim_value(value);
+    }
+  }
+}
+
+void ReplaceSymbolicDimValue(onnx::GraphProto *graph,
+                             const std::string &dimParam, int64_t value) {
+  for (onnx::ValueInfoProto &valueInfo : *(graph->mutable_value_info()))
+    UpdateDimValue(valueInfo, dimParam, value);
+  for (onnx::ValueInfoProto &valueInfo : *(graph->mutable_output()))
+    UpdateDimValue(valueInfo, dimParam, value);
+}
+
 void SetBatchSize(onnx::ModelProto &model) {
   if (batchSize <= 0) {
     LLVM_DEBUG(llvm::dbgs() << "SetBatchSize() skipped for onnx pb\n");
@@ -68,6 +93,8 @@ void SetBatchSize(onnx::ModelProto &model) {
   }
 
   onnx::GraphProto *graph = model.mutable_graph();
+  std::string batchDimParam;
+  bool hasDynamicBatchSize = false;
 
   std::set<std::string> initializerNames;
   for (const auto &initializer : graph->initializer()) {
@@ -90,10 +117,19 @@ void SetBatchSize(onnx::ModelProto &model) {
       continue;
     }
     auto *dim = shape->mutable_dim(0);
-    bool isDynamic = !dim->has_dim_value() || dim->dim_value() <= 0;
+    bool isDynamic = (!dim->has_dim_value() || dim->dim_value() <= 0);
+    if (isDynamic)
+      hasDynamicBatchSize = true;
     if (isDynamic || forceSetBatchSize) {
+      if (dim->has_dim_param()) {
+        if (!batchDimParam.empty())
+          assert(batchDimParam == dim->dim_param() &&
+                 "mismatched batchsize dimparam among different inputs!");
+        batchDimParam = dim->dim_param();
+        LLVM_DEBUG(llvm::dbgs()
+                   << "dynamic bs symbol: " << batchDimParam << "\n");
+      }
       dim->set_dim_value(batchSize);
-      dim->clear_dim_param();
       LLVM_DEBUG(llvm::dbgs() << "bs of " << input.name() << " set to "
                               << batchSize << "\n");
     } else {
@@ -101,14 +137,21 @@ void SetBatchSize(onnx::ModelProto &model) {
                               << dim->dim_value() << "\n");
     }
   }
-  graph->clear_value_info();
-  for (auto &output : *(graph->mutable_output())) {
-    auto *type = output.mutable_type();
-    if (type->value_case() != onnx::TypeProto::kTensorType) {
-      continue;
+  // replace dynamic batch size
+  if (hasDynamicBatchSize && !batchDimParam.empty()) {
+    LLVM_DEBUG(llvm::dbgs() << "replace dynamic bs \n");
+    ReplaceSymbolicDimValue(graph, batchDimParam, batchSize);
+  } else { // else clear value info and output shape
+    LLVM_DEBUG(llvm::dbgs() << "clear value info \n");
+    graph->clear_value_info();
+    for (auto &output : *(graph->mutable_output())) {
+      auto *type = output.mutable_type();
+      if (type->value_case() != onnx::TypeProto::kTensorType) {
+        continue;
+      }
+      auto *tensorType = type->mutable_tensor_type();
+      tensorType->clear_shape();
     }
-    auto *tensorType = type->mutable_tensor_type();
-    tensorType->clear_shape();
   }
 }
 
