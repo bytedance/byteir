@@ -22,6 +22,7 @@
 using namespace mlir;
 using namespace mlir::ccl;
 
+#include "byteir/Dialect/Ccl/IR/CclOpInterface.cpp.inc"
 #include "byteir/Dialect/Ccl/IR/CclOpsDialect.cpp.inc"
 
 namespace {
@@ -101,12 +102,12 @@ struct EliminateWait : public OpRewritePattern<WaitOp> {
   LogicalResult matchAndRewrite(WaitOp op,
                                 PatternRewriter &rewriter) const override {
     auto cclOp = op.getSrc().getDefiningOp();
-    if (cclOp && cclOp->hasOneUse()) {
-      auto synchronousAttr = cclOp->getAttr("synchronous").dyn_cast<BoolAttr>();
-      if (!synchronousAttr)
-        return failure();
-      if (synchronousAttr.getValue() == false)
-        cclOp->setAttr("synchronous", BoolAttr::get(op.getContext(), true));
+    auto interface = dyn_cast<CclSynchronousOpInterface>(cclOp);
+    if (interface && cclOp->hasOneUse()) {
+      auto synchronous = interface.getSynchronous();
+      if (synchronous == false)
+        cclOp->setAttr(interface.getSynchronousName(),
+                       BoolAttr::get(op.getContext(), true));
       rewriter.replaceOp(op, cclOp);
       return success();
     }
