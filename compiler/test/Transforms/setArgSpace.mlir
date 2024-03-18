@@ -206,3 +206,22 @@ func.func @main(%arg0 : memref<?x4xf32>) -> (memref<2x4xf32>, memref<2x4xf32>) {
 // CHECK-NEXT: %[[ALLOC1:.+]] = memref.alloc() : memref<2x4xf32, "cpu">
 // CHECK-NEXT: memref.copy %[[V1]], %[[ALLOC1]] : memref<2x4xf32, "device0"> to memref<2x4xf32, "cpu">
 // CHECK-NEXT: return %[[ALLOC0]], %[[ALLOC1]] : memref<2x4xf32, "cpu">, memref<2x4xf32, "cpu">
+
+
+// -----
+
+
+func.func @main(%arg0: memref<512x128xf16>) -> memref<512xf16> attributes {__placeholder__byre.entry_point} {
+    %alloc = memref.alloc() : memref<512xf16>
+    byre.compute @PTXOp(%arg0, %alloc) {device = "gpu", kernel_name = "add", memory_effects = [1 : i32, 2 : i32]} : memref<512x128xf16>, memref<512xf16>
+    return %alloc : memref<512xf16>
+}
+
+// CHECK-LABEL: func.func @main
+// CHECK-NEXT: %[[ALLOC:.*]] = memref.alloc() : memref<512xf16, "gpu">
+// CHECK-NEXT: %[[ALLOC0:.*]] = memref.alloc() : memref<512x128xf16, "gpu">
+// CHECK-NEXT: memref.copy %arg0, %[[ALLOC0]] : memref<512x128xf16, "cpu"> to memref<512x128xf16, "gpu">
+// CHECK-NEXT: byre.compute @PTXOp(%[[ALLOC0]], %[[ALLOC]]) {device = "gpu", kernel_name = "add", memory_effects = [1 : i32, 2 : i32]} : memref<512x128xf16, "gpu">, memref<512xf16, "gpu">
+// CHECK-NEXT: %[[ALLOC1:.*]] = memref.alloc() : memref<512xf16, "cpu">
+// CHECK-NEXT: memref.copy %[[ALLOC]], %[[ALLOC1]] : memref<512xf16, "gpu"> to memref<512xf16, "cpu">
+// CHECK-NEXT: return %[[ALLOC1]] : memref<512xf16, "cpu">
