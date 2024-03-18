@@ -133,14 +133,6 @@ Value createCopyInputArg(Operation *op, Value oldArg, MemRefType dstMemrefTy,
                          Attribute desiredSpaceAttr,
                          DenseMap<CopyType_t, Value> &copyPairToCopyTargets) {
   OpBuilder b(op);
-  if (auto defOp = oldArg.getDefiningOp()) {
-    // create Op after defOp
-    b.setInsertionPointAfter(defOp);
-  } else {
-    // create Op in blockStart.
-    auto curBlock = oldArg.cast<BlockArgument>().getOwner();
-    b.setInsertionPoint(&(*(curBlock->begin())));
-  }
   auto loc = op->getLoc();
   auto newAlloc = createNewAllocWithDstMemrefTy(b, loc, oldArg, dstMemrefTy);
   auto newArg = newAlloc.getResult();
@@ -269,7 +261,17 @@ void updateFuncArgTypes(
     arg.setType(argType);
 
     // handle users
-    for (auto user : arg.getUsers()) {
+    llvm::DenseMap<Operation *, size_t> opOrder;
+    size_t idx = 0;
+    // Get the order of all operations
+    func.walk([&](Operation *op) { opOrder[op] = idx++; });
+    llvm::SmallVector<Operation *> argUsers = llvm::to_vector(arg.getUsers());
+    // Sort the users of this arg according to order
+    llvm::sort(argUsers, [&](Operation *lhs, Operation *rhs) {
+      return opOrder[lhs] < opOrder[rhs];
+    });
+
+    for (auto user : argUsers) {
 
       // handle call
       if (auto callOp = dyn_cast<CallOp>(user)) {
