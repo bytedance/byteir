@@ -16,11 +16,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
+#include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;
 using namespace mlir::ccl;
 
+#include "byteir/Dialect/Ccl/IR/CclOpInterface.cpp.inc"
 #include "byteir/Dialect/Ccl/IR/CclOpsDialect.cpp.inc"
 
 namespace {
@@ -75,7 +77,6 @@ LogicalResult verifyP2PIndex(std::optional<Location> location,
   }
   return success();
 }
-
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -92,6 +93,33 @@ void CclDialect::initialize() {
 //===----------------------------------------------------------------------===//
 // ccl.wait
 //===----------------------------------------------------------------------===//
+
+namespace {
+
+// CclOp plus a waitOp equals a CclOp with `synchronous` true.
+struct EliminateWait : public OpRewritePattern<WaitOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(WaitOp op,
+                                PatternRewriter &rewriter) const override {
+    auto cclOp = op.getSrc().getDefiningOp();
+    auto interface = dyn_cast<CclSynchronousOpInterface>(cclOp);
+    if (interface && cclOp->hasOneUse()) {
+      auto synchronous = interface.getSynchronous();
+      if (synchronous == false)
+        cclOp->setAttr(interface.getSynchronousName(),
+                       BoolAttr::get(op.getContext(), true));
+      rewriter.replaceOp(op, cclOp);
+      return success();
+    }
+    return failure();
+  }
+};
+} // namespace
+
+void WaitOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                         MLIRContext *context) {
+  results.add<EliminateWait>(context);
+}
 
 LogicalResult
 WaitOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
