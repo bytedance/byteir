@@ -118,11 +118,7 @@ struct EliminateWait : public OpRewritePattern<WaitOp> {
 
 void WaitOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                          MLIRContext *context) {
-  // clang-format off
-  results.add<
-  EliminateWait
-  >(context);
-  // clamg-format on
+  results.add<EliminateWait>(context);
 }
 
 LogicalResult
