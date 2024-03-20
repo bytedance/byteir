@@ -31,6 +31,9 @@ MLIR_CAPI_EXPORTED void byteirTranslateToPTX(MlirOperation op,
                                              MlirStringRef ptxFilePrefixName,
                                              MlirStringRef gpuArch);
 
+MLIR_CAPI_EXPORTED bool byteirTranslateToLLVMBC(MlirOperation op,
+                                                MlirStringRef outputFile);
+
 #ifdef __cplusplus
 }
 #endif
