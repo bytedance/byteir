@@ -25,6 +25,11 @@
 #include "mlir/Target/LLVMIR/Dialect/GPU/GPUToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"
+#include "mlir/Target/LLVMIR/Export.h"
+#include "mlir/Tools/mlir-translate/Translation.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include <string>
 
 using namespace mlir;
@@ -43,4 +48,20 @@ void byteirTranslateToPTX(MlirOperation op, MlirStringRef ptxFilePrefixName,
                           MlirStringRef gpuArch) {
   (void)translateToPTX(unwrap(op), std::string(unwrap(ptxFilePrefixName)),
                        OptLevel::O3, std::string(unwrap(gpuArch)));
+}
+
+bool byteirTranslateToLLVMBC(MlirOperation op, MlirStringRef outputFile) {
+  llvm::LLVMContext llvmContext;
+  auto llvmModule = mlir::translateModuleToLLVMIR(unwrap(op), llvmContext);
+  if (!llvmModule) {
+    return false;
+  }
+  std::error_code ec;
+  llvm::raw_fd_ostream fout(std::string(unwrap(outputFile)), ec);
+  if (ec) {
+    llvm::errs() << "failed to create output file: " << unwrap(outputFile);
+    return false;
+  }
+  llvm::WriteBitcodeToFile(*llvmModule, fout);
+  return true;
 }

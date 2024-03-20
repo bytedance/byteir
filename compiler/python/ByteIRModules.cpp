@@ -75,9 +75,21 @@ PYBIND11_MODULE(_byteir, m) {
         }
       },
       py::arg("context"), py::arg("load") = true);
+  m.def(
+      "register_byre_serial_dialect",
+      [](MlirContext context, bool load) {
+        MlirDialectHandle handle = mlirGetDialectHandle__byre_serial__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (load) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context"), py::arg("load") = true);
 
-  m.def("register_dialect_extensions", &byteirRegisterDialectExtensions,
-        py::arg("context"));
+  m.def(
+      "register_dialect_extensions",
+      [](MlirContext context) { byteirRegisterDialectExtensions(context); },
+      py::arg("context"));
 
   m.def(
       "register_translation_dialects",
@@ -93,4 +105,10 @@ PYBIND11_MODULE(_byteir, m) {
       },
       py::arg("module"), py::arg("ptx_prefix_file_name"),
       py::arg("gpu_arch") = "sm_70");
+  m.def(
+      "translate_to_llvmbc",
+      [](MlirOperation module, const std::string &outputFile) -> bool {
+        return byteirTranslateToLLVMBC(module, toMlirStringRef(outputFile));
+      },
+      py::arg("module"), py::arg("output_file"));
 }

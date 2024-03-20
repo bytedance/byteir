@@ -26,6 +26,7 @@ cmake "-H$PROJ_DIR/cmake" \
       -DLLVM_INSTALL_PATH="$LLVM_INSTALL_DIR" \
       -DLLVM_EXTERNAL_LIT=$(which lit) \
       -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+      -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-maybe-uninitialized" \
       -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
 cmake --build "$BUILD_DIR" --target all check-byteir install
