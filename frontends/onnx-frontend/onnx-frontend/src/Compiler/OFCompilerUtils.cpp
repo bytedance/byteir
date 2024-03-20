@@ -220,6 +220,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
 
   onnx_mlir::ImportOptions options;
   options.useOnnxModelTypes = onnx_mlir::useOnnxModelTypes;
+  options.keepCustomOpTypes = onnx_mlir::keepCustomOpTypes;
   options.invokeOnnxVersionConverter = onnx_mlir::invokeOnnxVersionConverter;
   options.shapeInformation = onnx_mlir::shapeInformation;
   options.externalDataDir = dirName(inputFilename);
