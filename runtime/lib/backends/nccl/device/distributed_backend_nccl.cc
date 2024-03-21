@@ -159,11 +159,13 @@ Status DistributedBackendNCCL::all_gather(const void *sendbuff, void *recvbuff,
   // check context type and get cuda stream
   assert(ctx->type() == "BRT_CTX_CUDA" && "only cuda context supported");
   cudaStream_t stream = static_cast<CudaContext *>(ctx.get())->get_stream();
-  int color = replica_group.find(rank()) == replica_group.end() ? 0 : 1;
+  int color = replica_group.find(rank()) == replica_group.end()
+                  ? NCCL_SPLIT_NOCOLOR
+                  : 0;
   ncclComm_t m_comm;
   NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
   // perform all gather synchronously
-  if (replica_group.find(rank()) != replica_group.end())
+  if (m_comm != NULL)
     NCCL_ASSERT(ncclAllGather(sendbuff, recvbuff, sendlen,
                               get_nccl_dtype(dtype), m_comm, stream));
   NCCL_ASSERT(ncclCommDestroy(m_comm));
@@ -178,11 +180,13 @@ Status DistributedBackendNCCL::all_reduce(const void *sendbuff, void *recvbuff,
   // check context type and get cuda stream
   assert(ctx->type() == "BRT_CTX_CUDA" && "only cuda context supported");
   cudaStream_t stream = static_cast<CudaContext *>(ctx.get())->get_stream();
-  int color = replica_group.find(rank()) == replica_group.end() ? 0 : 1;
+  int color = replica_group.find(rank()) == replica_group.end()
+                  ? NCCL_SPLIT_NOCOLOR
+                  : 0;
   ncclComm_t m_comm;
   NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
   // perform all reduce synchronously
-  if (replica_group.find(rank()) != replica_group.end())
+  if (m_comm != NULL)
     NCCL_ASSERT(ncclAllReduce(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
                               get_nccl_reduce_op(op), m_comm, stream));
   NCCL_ASSERT(ncclCommDestroy(m_comm));
@@ -211,11 +215,13 @@ Status DistributedBackendNCCL::broadcast(const void *sendbuff, void *recvbuff,
   // check context type and get cuda stream
   assert(ctx->type() == "BRT_CTX_CUDA" && "only cuda context supported");
   cudaStream_t stream = static_cast<CudaContext *>(ctx.get())->get_stream();
-  int color = replica_group.find(rank()) == replica_group.end() ? 0 : 1;
+  int color = replica_group.find(rank()) == replica_group.end()
+                  ? NCCL_SPLIT_NOCOLOR
+                  : 0;
   ncclComm_t m_comm;
   NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
   // perform broadcast synchronously
-  if (replica_group.find(rank()) != replica_group.end())
+  if (m_comm != NULL)
     NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
                               root, m_comm, stream));
   NCCL_ASSERT(ncclCommDestroy(m_comm));
