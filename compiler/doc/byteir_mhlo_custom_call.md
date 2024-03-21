@@ -2,15 +2,15 @@
 
 ByteIR compiler introduces several coarse-grained ops to improve pattern-matching rewriting during compilation.
 
-ByteIR implements in the way of re-using mhlo custom call op definition with a ByteIR prefix in `call_target_name`, 
+ByteIR implements in the way of re-using mhlo custom call op definition with a ByteIR prefix in `call_target_name`,
 instead of defining another new dialect.
 
 ByteIR implements this conversion in frontends, instead of puting it to ByteIR compiler.
 
-## Rationales 
+## Rationales
 ### Need of coarse-grained ops
 
-Introduction of coarse-grained ops can provide several benefits as follows, 
+Introduction of coarse-grained ops can provide several benefits as follows,
 * it simplifies pattern-matching processes during rewriting regardless of optimization or lowering;
 * it allows high-level information to be encoded with coase-grained ops, helping optimization;
 * it provides intuitive mapping from frontends to IR, helping debuggability;
@@ -33,14 +33,14 @@ Implementing coarse-grained op conversion in frontends can provide several benef
 
 ## Addtional op definition
 
-A coarse-grained op kind is defined through with a prefix. 
+A coarse-grained op kind is defined through with a prefix.
 
 ```call_target_name = "byteir.softmax" or "tf.DynamicPartition"```
 
 If an op is generic across frontends, which happen mostly, it uses a `byteir` prefix.
 If an op is frontend-specific, it uses a frontend-specific prefix, such as `tf` or `pytorch`.
 
-Further needed infomation for a given coarse-grained op are encoded in a dictionary attribute, called `byteir_attrs`, which includes all named attributes. 
+Further needed infomation for a given coarse-grained op are encoded in a dictionary attribute, called `byteir_attrs`, which includes all named attributes.
 
 **Op Attribute**:
   * ```byteir_attrs = {approximate = "none"}``` or ```byteir_attrs = {}``` if no attribute
@@ -56,7 +56,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - axis: I64ArrayAttr
   - eps_outside_sqrt: Optional\<BoolAttr>
 - Results(1 or 3):
-  - output: Tensor 
+  - output: Tensor
   - mean: Optional\<Tensor>
   - inv_std_dev: Optional\<Tensor>
 
@@ -65,6 +65,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - input: Tensor
 - Attrs
   - epsilon: F64Attr
+  - eps_outside_sqrt: F64Attr
   - axis: I64ArrayAttr
 - Results:
   - output: Tensor
@@ -116,10 +117,10 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - select_last_index: BoolAttr
 - Results:
   - output: Optional\<Tensor>
-  - indices: IntTensor 
+  - indices: IntTensor
 
 
-### byteir.top_k 
+### byteir.top_k
 - Operands:
   - input: Tensor
 - Attrs
@@ -130,7 +131,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - output: Tensor
   - indices: IntTensor
 
-### byteir.erf 
+### byteir.erf
 - Operands:
   - input: Tensor
 - Results:

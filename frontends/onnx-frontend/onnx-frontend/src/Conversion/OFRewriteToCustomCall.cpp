@@ -157,6 +157,40 @@ Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
   return customCallOp.getResults()[0];
 }
 
+Value createL2NormWithOutsideSqrtEps(PatternRewriter &rewriter, Location loc,
+                                     Value input, Value axes, Value epsValue) {
+  RankedTensorType inputType =
+      input.getType().dyn_cast_or_null<RankedTensorType>();
+  assert(inputType != nullptr && "L2Norm input type must be ranked");
+
+  ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
+  int64_t axis = axis_attr.getValues<APInt>()[0].getSExtValue();
+  // canonicalize axis to be positive
+  if (axis < 0) {
+    axis = inputType.getRank() + axis;
+  }
+  ElementsAttr epsilon_attr =
+      onnx_mlir::getElementAttributeFromONNXValue(epsValue);
+  double epsilon =
+      (*epsilon_attr.getValues<APFloat>().begin()).convertToDouble();
+  assert(0 < epsilon && epsilon < 1e-7 && "epsilon out of range for L2Norm");
+
+  std::string call_target_name = getL2NormNameWithPrefix();
+  stablehlo::CustomCallOp customCallOp =
+      rewriter.create<mlir::stablehlo::CustomCallOp>(
+          loc, llvm::ArrayRef<Type>{inputType}, llvm::ArrayRef<Value>{input},
+          call_target_name, false, rewriter.getStringAttr(""),
+          stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+          rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}), nullptr,
+          nullptr, rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("eps_outside_sqrt", rewriter.getF64FloatAttr(epsilon));
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+
+  return customCallOp.getResults()[0];
+}
+
 //===----------------------------------------------------------------------===//
 // Quantize/Dequantize
 //===----------------------------------------------------------------------===//
@@ -646,6 +680,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteL2NormPat1>(context));
     validOpSet[getL2NormName()].emplace_back(
         std::make_unique<RewriteL2NormPat2>(context));
+    validOpSet[getL2NormName()].emplace_back(
+        std::make_unique<RewriteL2NormPat3>(context));
     validOpSet[getQuantizeName()].emplace_back(
         std::make_unique<RewriteQuantize>(context));
     validOpSet[getDequantizeName()].emplace_back(
