@@ -27,11 +27,11 @@ extern "C" {
 
 MLIR_CAPI_EXPORTED void byteirRegisterTranslationDialects(MlirContext context);
 
-MLIR_CAPI_EXPORTED void byteirTranslateToPTX(MlirOperation op,
+MLIR_CAPI_EXPORTED void byteirTranslateToPTX(MlirModule module,
                                              MlirStringRef ptxFilePrefixName,
                                              MlirStringRef gpuArch);
 
-MLIR_CAPI_EXPORTED bool byteirTranslateToLLVMBC(MlirOperation op,
+MLIR_CAPI_EXPORTED bool byteirTranslateToLLVMBC(MlirModule module,
                                                 MlirStringRef outputFile);
 
 #ifdef __cplusplus

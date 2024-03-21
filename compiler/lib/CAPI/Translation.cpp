@@ -44,15 +44,16 @@ void byteirRegisterTranslationDialects(MlirContext context) {
   unwrap(context)->appendDialectRegistry(registry);
 }
 
-void byteirTranslateToPTX(MlirOperation op, MlirStringRef ptxFilePrefixName,
+void byteirTranslateToPTX(MlirModule op, MlirStringRef ptxFilePrefixName,
                           MlirStringRef gpuArch) {
   (void)translateToPTX(unwrap(op), std::string(unwrap(ptxFilePrefixName)),
                        OptLevel::O3, std::string(unwrap(gpuArch)));
 }
 
-bool byteirTranslateToLLVMBC(MlirOperation op, MlirStringRef outputFile) {
+bool byteirTranslateToLLVMBC(MlirModule op, MlirStringRef outputFile) {
   llvm::LLVMContext llvmContext;
-  auto llvmModule = mlir::translateModuleToLLVMIR(unwrap(op), llvmContext);
+  auto llvmModule =
+      mlir::translateModuleToLLVMIR(unwrap(op).getOperation(), llvmContext);
   if (!llvmModule) {
     return false;
   }
