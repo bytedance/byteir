@@ -65,7 +65,7 @@ verifyReplicaGroups(std::optional<Location> location,
 
 // Verify source/target index in p2p communication operations.
 LogicalResult verifyP2PIndex(std::optional<Location> location,
-                             std::optional<IntegerAttr> index,
+                             std::optional<uint64_t> index,
                              Value dynamicIndex) {
   if (dynamicIndex != nullptr && index.has_value()) {
     return emitOptionalError(
@@ -153,9 +153,6 @@ AllReduceOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
                               ValueRange operands, DictionaryAttr,
                               OpaqueProperties, RegionRange,
                               SmallVectorImpl<Type> &inferredReturnTypes) {
-  if (operands.size() != 1)
-    return emitOptionalError(
-        location, "Expected operands' number equal to 1 for ccl.all_reduce");
   inferredReturnTypes.push_back(operands[0].getType());
   return success();
 }
@@ -218,8 +215,7 @@ LogicalResult BroadcastOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult SendOp::verify() {
-  return verifyP2PIndex(getLoc(), getTargetIndexAttr(),
-                        getDynamicTargetIndex());
+  return verifyP2PIndex(getLoc(), getTargetIndex(), getDynamicTargetIndex());
 }
 
 LogicalResult
@@ -236,8 +232,7 @@ SendOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
 //===----------------------------------------------------------------------===//
 
 LogicalResult RecvOp::verify() {
-  return verifyP2PIndex(getLoc(), getSourceIndexAttr(),
-                        getDynamicSourceIndex());
+  return verifyP2PIndex(getLoc(), getSourceIndex(), getDynamicSourceIndex());
 }
 
 LogicalResult

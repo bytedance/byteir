@@ -207,10 +207,7 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
 }
 
 def Ccl_SendOp : Ccl_Op<"send", [
-    SameOperandsAndResultElementType,
-    SameOperandsAndResultShape,
-    DeclareOpInterfaceMethods<InferTypeOpInterface>, 
-    CclSynchronousOpInterface]> {
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Send operator";
   let description = [{
     Send `src` tensor to `target_index` or `dynamic_target_index` device.
@@ -228,10 +225,7 @@ def Ccl_SendOp : Ccl_Op<"send", [
 }
 
 def Ccl_RecvOp : Ccl_Op<"recv", [
-    SameOperandsAndResultElementType,
-    SameOperandsAndResultShape,
-    DeclareOpInterfaceMethods<InferTypeOpInterface>, 
-    CclSynchronousOpInterface]> {
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Recv operator";
   let description = [{
     Recv tensor from `source_index` or `dynamic_source_index`.
