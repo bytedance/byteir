@@ -81,56 +81,55 @@ bool byteirTranslateToLLVMBC(MlirModule module, MlirStringRef outputFile) {
 
 bool byteirSerializeByre(MlirModule module, MlirStringRef targetVersion,
                          MlirStringRef outputFile) {
-    mlir::ModuleOp m = unwrap(module);
+  mlir::ModuleOp m = unwrap(module);
 
-    // convert to serializable byre dialect
-    OwningOpRef<Operation *> newModule = byre::convertToSerializableByre(m);
-    if (!newModule) {
-      m->emitOpError() << "failed to convert to byre serial\n";
-      return false;
-    }
+  // convert to serializable byre dialect
+  OwningOpRef<Operation *> newModule = byre::convertToSerializableByre(m);
+  if (!newModule) {
+    m->emitOpError() << "failed to convert to byre serial\n";
+    return false;
+  }
 
-    // parse version and convert to target version
-    llvm::StringRef version(unwrap(targetVersion));
-    SmallVector<llvm::StringRef> versions;
-    version.split(versions, ".");
-    if (versions.size() != 3) {
-      llvm::errs() << "unknown version: " << version << "\n";
-      return false;
-    }
-    byre::serialization::Version serialVersion(std::atoi(versions[0].data()),
-                                               std::atoi(versions[1].data()),
-                                               std::atoi(versions[2].data()));
-    if (failed(convertToVersion(*newModule, serialVersion))) {
-      newModule->emitOpError() << "failed to convert to version "
-                               << serialVersion.toString() << "\n";
-      return false;
-    }
+  // parse version and convert to target version
+  llvm::StringRef version(unwrap(targetVersion));
+  SmallVector<llvm::StringRef> versions;
+  version.split(versions, ".");
+  if (versions.size() != 3) {
+    llvm::errs() << "unknown version: " << version << "\n";
+    return false;
+  }
+  byre::serialization::Version serialVersion(std::atoi(versions[0].data()),
+                                             std::atoi(versions[1].data()),
+                                             std::atoi(versions[2].data()));
+  if (failed(convertToVersion(*newModule, serialVersion))) {
+    newModule->emitOpError()
+        << "failed to convert to version " << serialVersion.toString() << "\n";
+    return false;
+  }
 
-    // check ir sericalizable
-    if (failed(byre::verifySerializableIR(*newModule))) {
-      newModule->emitOpError() << "failed to verify serializable IR\n";
-      return false;
-    }
+  // check ir sericalizable
+  if (failed(byre::verifySerializableIR(*newModule))) {
+    newModule->emitOpError() << "failed to verify serializable IR\n";
+    return false;
+  }
 
-    // write bytecode to output file
-    std::string errorMessage;
-    auto resultMLIRBCFile =
-        mlir::openOutputFile(unwrap(outputFile), &errorMessage);
-    if (!resultMLIRBCFile) {
-      llvm::errs() << errorMessage << "\n";
-      return false;
-    }
-    BytecodeWriterConfig config;
-    config.setDesiredBytecodeVersion(serialVersion.getBytecodeVersion());
-    if (failed(
-            writeBytecodeToFile(*newModule, resultMLIRBCFile->os(), config))) {
-      newModule->emitOpError() << "failed to write bytecode\n";
-      return false;
-    }
+  // write bytecode to output file
+  std::string errorMessage;
+  auto resultMLIRBCFile =
+      mlir::openOutputFile(unwrap(outputFile), &errorMessage);
+  if (!resultMLIRBCFile) {
+    llvm::errs() << errorMessage << "\n";
+    return false;
+  }
+  BytecodeWriterConfig config;
+  config.setDesiredBytecodeVersion(serialVersion.getBytecodeVersion());
+  if (failed(writeBytecodeToFile(*newModule, resultMLIRBCFile->os(), config))) {
+    newModule->emitOpError() << "failed to write bytecode\n";
+    return false;
+  }
 
-    resultMLIRBCFile->keep();
-    return true;
+  resultMLIRBCFile->keep();
+  return true;
 }
 
 MlirModule byteirDeserializeByre(MlirStringRef artifactStr,
