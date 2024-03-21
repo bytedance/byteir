@@ -131,7 +131,7 @@ struct ONNXCustomOpLowering : public RewritePattern {
         nullptr, nullptr,
         rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
 
-    customCallOp->setAttr(ONNX_ATTRS, getCleanAttr(attrs));
+    customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
 
     rewriter.replaceOp(op, customCallOp);
     return success();
