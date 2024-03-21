@@ -98,10 +98,10 @@ PYBIND11_MODULE(_byteir, m) {
 
   m.def(
       "translate_to_ptx",
-      [](MlirModule module, const std::string &ptx_prefix_file_name,
-         const std::string &gpu_arch) {
-        byteirTranslateToPTX(module, toMlirStringRef(ptx_prefix_file_name),
-                             toMlirStringRef(gpu_arch));
+      [](MlirModule module, const std::string &ptxPrefixFileName,
+         const std::string &gpuArch) -> bool {
+        return byteirTranslateToPTX(module, toMlirStringRef(ptxPrefixFileName),
+                                    toMlirStringRef(gpuArch));
       },
       py::arg("module"), py::arg("ptx_prefix_file_name"),
       py::arg("gpu_arch") = "sm_70");
@@ -111,4 +111,17 @@ PYBIND11_MODULE(_byteir, m) {
         return byteirTranslateToLLVMBC(module, toMlirStringRef(outputFile));
       },
       py::arg("module"), py::arg("output_file"));
+
+  m.def(
+      "serialize_byre",
+      [](MlirModule module, const std::string &targetVersion,
+         const std::string &outputFile) -> bool {
+        return byteirSerializeByre(module, toMlirStringRef(targetVersion),
+                                   toMlirStringRef(outputFile));
+      },
+      py::arg("module"), py::arg("target_version"), py::arg("output_file"));
+  m.def("deserialize_byre",
+        [](const std::string &artifactStr, MlirContext context) -> MlirModule {
+          return byteirDeserializeByre(toMlirStringRef(artifactStr), context);
+        });
 }
