@@ -154,26 +154,38 @@ Status DistributedBackendNCCL::all_to_all(const void *sendbuff, void *recvbuff,
 
 Status DistributedBackendNCCL::all_gather(const void *sendbuff, void *recvbuff,
                                           size_t sendlen, DTypeEnum dtype,
+                                          std::set<int64_t> replica_group,
                                           std::shared_ptr<DContext> ctx) {
   // check context type and get cuda stream
   assert(ctx->type() == "BRT_CTX_CUDA" && "only cuda context supported");
   cudaStream_t stream = static_cast<CudaContext *>(ctx.get())->get_stream();
+  int color = replica_group.find(rank()) == replica_group.end() ? 0 : 1;
+  ncclComm_t m_comm;
+  NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
   // perform all gather synchronously
-  NCCL_ASSERT(ncclAllGather(sendbuff, recvbuff, sendlen, get_nccl_dtype(dtype),
-                            m_nccl->m_comm, stream));
+  if (replica_group.find(rank()) != replica_group.end())
+    NCCL_ASSERT(ncclAllGather(sendbuff, recvbuff, sendlen,
+                              get_nccl_dtype(dtype), m_comm, stream));
+  NCCL_ASSERT(ncclCommDestroy(m_comm));
   return Status::OK();
 }
 
 Status DistributedBackendNCCL::all_reduce(const void *sendbuff, void *recvbuff,
                                           size_t len, DTypeEnum dtype,
                                           ReduceOp op,
+                                          std::set<int64_t> replica_group,
                                           std::shared_ptr<DContext> ctx) {
   // check context type and get cuda stream
   assert(ctx->type() == "BRT_CTX_CUDA" && "only cuda context supported");
   cudaStream_t stream = static_cast<CudaContext *>(ctx.get())->get_stream();
+  int color = replica_group.find(rank()) == replica_group.end() ? 0 : 1;
+  ncclComm_t m_comm;
+  NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
   // perform all reduce synchronously
-  NCCL_ASSERT(ncclAllReduce(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
-                            get_nccl_reduce_op(op), m_nccl->m_comm, stream));
+  if (replica_group.find(rank()) != replica_group.end())
+    NCCL_ASSERT(ncclAllReduce(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
+                              get_nccl_reduce_op(op), m_comm, stream));
+  NCCL_ASSERT(ncclCommDestroy(m_comm));
   return Status::OK();
 }
 
@@ -194,13 +206,19 @@ Status DistributedBackendNCCL::reduce_scatter(const void *sendbuff,
 Status DistributedBackendNCCL::broadcast(const void *sendbuff, void *recvbuff,
                                          size_t len, DTypeEnum dtype,
                                          uint32_t root,
+                                         std::set<int64_t> replica_group,
                                          std::shared_ptr<DContext> ctx) {
   // check context type and get cuda stream
   assert(ctx->type() == "BRT_CTX_CUDA" && "only cuda context supported");
   cudaStream_t stream = static_cast<CudaContext *>(ctx.get())->get_stream();
+  int color = replica_group.find(rank()) == replica_group.end() ? 0 : 1;
+  ncclComm_t m_comm;
+  NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
   // perform broadcast synchronously
-  NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
-                            root, m_nccl->m_comm, stream));
+  if (replica_group.find(rank()) != replica_group.end())
+    NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
+                              root, m_comm, stream));
+  NCCL_ASSERT(ncclCommDestroy(m_comm));
   return Status::OK();
 }
 

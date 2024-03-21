@@ -53,6 +53,9 @@ common::Status AllGather::RunImpl(const ExecutionContext &ctx) {
                                   std::multiplies<int64_t>());
   void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
   void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
+  auto replica_group = accessor.GetAttrAsIntArray("replica_group");
+  std::set<int64_t> replica_group_set(replica_group.begin(),
+                                      replica_group.end());
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
@@ -60,7 +63,7 @@ common::Status AllGather::RunImpl(const ExecutionContext &ctx) {
       info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
   nccl_backend->all_gather(src, target, elem_num / nccl_backend->nranks(),
                            ConvertMLIRTypeToDType(memref_type.getElementType()),
-                           d_context);
+                           replica_group_set, d_context);
   return Status::OK();
 }
 } // namespace cuda

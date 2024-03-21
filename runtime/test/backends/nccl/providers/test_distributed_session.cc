@@ -194,7 +194,7 @@ TEST(TestDistributedSession, NCCLAddSendRecvAdd) {
 }
 
 TEST(TestDistributedSession, NCCLAllReduce) {
-  const int nranks = 2;
+  const int nranks = 4;
   const std::string host = "localhost";
   int port = brt::GetFreePort();
   auto ret = brt::CreateServer(nranks, port);
@@ -210,6 +210,8 @@ TEST(TestDistributedSession, NCCLAllReduce) {
     BRT_TEST_CHECK_STATUS(status_cuda);
 
     std::vector<std::string> config = {
+        "test/test_files/Distributed/all_reduce.mlir",
+        "test/test_files/Distributed/all_reduce.mlir",
         "test/test_files/Distributed/all_reduce.mlir",
         "test/test_files/Distributed/all_reduce.mlir"};
     std::string ir_url;
@@ -227,18 +229,15 @@ TEST(TestDistributedSession, NCCLAllReduce) {
     int64_t linearized_shape = LinearizedShape(shape);
     EXPECT_GT(linearized_shape, 0);
     size_t len = static_cast<size_t>(linearized_shape);
-    if (rank == 0)
-      AssignCUDABuffer(d_src, len, 1.0f);
-    if (rank == 1)
-      AssignCUDABuffer(d_src, len, 2.0f);
+    AssignCUDABuffer(d_src, len, 1.0f);
     request->FinishIOBinding();
 
     auto status_run = d_session.Run(*request);
     BRT_TEST_CHECK_STATUS(status_run);
     auto status_sync = request->Sync();
     BRT_TEST_CHECK_STATUS(status_sync);
-
-    CheckResult(d_target, len, 3.0f);
+    if (rank != 0)
+      CheckResult(d_target, len, 3.0f);
   };
 
   std::vector<std::thread> threads;
@@ -269,6 +268,8 @@ TEST(TestDistributedSession, NCCLAllGather) {
 
     std::vector<std::string> config = {
         "test/test_files/Distributed/all_gather.mlir",
+        "test/test_files/Distributed/all_gather.mlir",
+        "test/test_files/Distributed/all_gather.mlir",
         "test/test_files/Distributed/all_gather.mlir"};
     std::string ir_url;
     d_session.LoadConfig(config, ir_url);
@@ -296,7 +297,8 @@ TEST(TestDistributedSession, NCCLAllGather) {
     BRT_TEST_CHECK_STATUS(status_run);
     auto status_sync = request->Sync();
     BRT_TEST_CHECK_STATUS(status_sync);
-    CheckResult(d_target, target_len, 1.0f);
+    if (rank == 2 || rank == 3)
+      CheckResult(d_target, target_len, 1.0f);
   };
 
   std::vector<std::thread> threads;
@@ -310,7 +312,7 @@ TEST(TestDistributedSession, NCCLAllGather) {
 }
 
 TEST(TestDistributedSession, NCCLBroadcast) {
-  const int nranks = 2;
+  const int nranks = 4;
   const std::string host = "localhost";
   int port = brt::GetFreePort();
   auto ret = brt::CreateServer(nranks, port);
@@ -327,6 +329,8 @@ TEST(TestDistributedSession, NCCLBroadcast) {
 
     std::vector<std::string> config = {
         "test/test_files/Distributed/broadcast.mlir",
+        "test/test_files/Distributed/broadcast.mlir",
+        "test/test_files/Distributed/broadcast.mlir",
         "test/test_files/Distributed/broadcast.mlir"};
     std::string ir_url;
     d_session.LoadConfig(config, ir_url);
@@ -338,28 +342,29 @@ TEST(TestDistributedSession, NCCLBroadcast) {
     BRT_TEST_CHECK_STATUS(status_request);
 
     auto src_shape = d_session.GetStaticShape(0);
-    auto target_shape = d_session.GetStaticShape(1);
     int64_t src_linearized_shape = LinearizedShape(src_shape);
-    int64_t target_linearized_shape = LinearizedShape(target_shape);
     EXPECT_GT(src_linearized_shape, 0);
-    EXPECT_GT(target_linearized_shape, 0);
     size_t src_len = static_cast<size_t>(src_linearized_shape);
-    size_t target_len = static_cast<size_t>(target_linearized_shape);
     float *src = (float *)request->GetArg(0);
-
-    float *target = (float *)request->GetArg(1);
     if (rank == 0) {
-      AssignCUDABuffer(src, src_len, 1.0f);
+      AssignCUDABuffer(src, src_len, 0.0f);
     } else if (rank == 1) {
+      AssignCUDABuffer(src, src_len, 1.0f);
+    } else if (rank == 2) {
       AssignCUDABuffer(src, src_len, 2.0f);
+    } else if (rank == 3) {
+      AssignCUDABuffer(src, src_len, 3.0f);
     }
-
     request->FinishIOBinding();
     auto status_run = d_session.Run(*request);
     BRT_TEST_CHECK_STATUS(status_run);
     auto status_sync = request->Sync();
     BRT_TEST_CHECK_STATUS(status_sync);
-    CheckResult(target, target_len, 1.0f);
+    if (rank == 3) {
+      CheckResult(src, src_len, 3.0f);
+    } else {
+      CheckResult(src, src_len, 1.0f);
+    }
   };
 
   std::vector<std::thread> threads;

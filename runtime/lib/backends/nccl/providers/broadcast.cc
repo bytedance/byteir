@@ -49,17 +49,21 @@ common::Status Broadcast::RunImpl(const ExecutionContext &ctx) {
 
   OpAccessor accessor(info_, ctx.exec_frame);
   void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
-  void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
-  int64_t len = accessor.GetAttrAsInt("len");
-  int64_t root = accessor.GetAttrAsInt("root");
+  const auto src_shape = accessor.GetArgShape(0);
+  int64_t len = std::accumulate(src_shape.begin(), src_shape.end(), 1,
+                                std::multiplies<int64_t>());
+  auto replica_group = accessor.GetAttrAsIntArray("replica_group");
+  std::set<int64_t> replica_group_set(replica_group.begin(),
+                                      replica_group.end());
+  int64_t root = replica_group[0];
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
   auto memref_type =
       info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
-  nccl_backend->broadcast(src, target, len,
+  nccl_backend->broadcast(src, src, len,
                           ConvertMLIRTypeToDType(memref_type.getElementType()),
-                          root, d_context);
+                          root, replica_group_set, d_context);
   return Status::OK();
 }
 } // namespace cuda
