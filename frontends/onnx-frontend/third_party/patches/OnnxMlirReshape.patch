@@ -1,0 +1,98 @@
+diff --git a/src/Conversion/ONNXToStablehlo/Tensor/Reshape.cpp b/src/Conversion/ONNXToStablehlo/Tensor/Reshape.cpp
+index ce73e9bd..2a9d9d8a 100644
+--- a/src/Conversion/ONNXToStablehlo/Tensor/Reshape.cpp
++++ b/src/Conversion/ONNXToStablehlo/Tensor/Reshape.cpp
+@@ -40,13 +40,22 @@ struct ONNXReshapeOpLoweringToStablehlo : public ConversionPattern {
+     SmallVector<Value> dims;
+     IndexExpr::getValues(outputDims, dims);
+ 
+-    Type outputShapeType =
+-        RankedTensorType::get({(int64_t)dims.size()}, rewriter.getIndexType());
+-    Value shape = rewriter.create<shape::FromExtentsOp>(loc, dims);
+-    shape =
+-        rewriter.create<shape::ToExtentTensorOp>(loc, outputShapeType, shape);
+-    Value result = rewriter.create<stablehlo::DynamicReshapeOp>(
+-        loc, outputType, data, shape);
++    ShapedType inputType = data.getType().cast<ShapedType>();
++    ShapedType outputShapedType = outputType.dyn_cast<ShapedType>();
++    Value result;
++
++    MultiDialectBuilder<StablehloBuilder, ShapeBuilder> create(rewriter, loc);
++    if (inputType.hasStaticShape() && outputShapedType != nullptr &&
++        outputShapedType.hasStaticShape()) {
++      result = create.stablehlo.reshape(outputShapedType, data);
++    } else {
++      Type outputShapeType = RankedTensorType::get(
++          {(int64_t)dims.size()}, rewriter.getIndexType());
++      Value shape = create.shape.fromExtents(dims);
++      shape = create.shape.toExtentTensor(outputShapeType, shape);
++      result = create.stablehlo.dynamic_reshape(outputType, data, shape);
++    }
++
+     rewriter.replaceOp(op, result);
+     return success();
+   }
+diff --git a/test/mlir/conversion/onnx_to_stablehlo/Tensor/DepthToSpace.mlir b/test/mlir/conversion/onnx_to_stablehlo/Tensor/DepthToSpace.mlir
+index 954e6f5c..65ad1446 100644
+--- a/test/mlir/conversion/onnx_to_stablehlo/Tensor/DepthToSpace.mlir
++++ b/test/mlir/conversion/onnx_to_stablehlo/Tensor/DepthToSpace.mlir
+@@ -3,15 +3,15 @@
+ func.func @test_depth_to_space(%arg0 : tensor<2x16x20x20xf32>) -> tensor<2x4x40x40xf32> {
+   %0 = "onnx.DepthToSpace"(%arg0) {blocksize = 2 : si64, mode = "CRD"} : (tensor<2x16x20x20xf32>) -> tensor<2x4x40x40xf32>
+   "func.return"(%0) : (tensor<2x4x40x40xf32>) -> ()
++
+ // CHECK-LABEL:  func.func @test_depth_to_space
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x16x20x20xf32>) -> tensor<2x4x40x40xf32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = shape.const_shape [2, 4, 40, 40] : tensor<4xindex>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = shape.const_shape [2, 4, 2, 2, 20, 20] : tensor<6xindex>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_1_]] : (tensor<2x16x20x20xf32>, tensor<6xindex>) -> tensor<2x4x2x2x20x20xf32>
+-// CHECK:           [[VAR_3_:%.+]] = stablehlo.transpose [[VAR_2_]], dims = [0, 1, 4, 2, 5, 3] : (tensor<2x4x2x2x20x20xf32>) -> tensor<2x4x20x2x20x2xf32>
+-// CHECK:           [[VAR_4_:%.+]] = stablehlo.dynamic_reshape [[VAR_3_]], [[VAR_0_]] : (tensor<2x4x20x2x20x2xf32>, tensor<4xindex>) -> tensor<2x4x40x40xf32>
+-// CHECK:           return [[VAR_4_]] : tensor<2x4x40x40xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.reshape [[PARAM_0_]] : (tensor<2x16x20x20xf32>) -> tensor<2x4x2x2x20x20xf32>
++// CHECK:           [[VAR_1_:%.+]] = stablehlo.transpose [[VAR_0_]], dims = [0, 1, 4, 2, 5, 3] : (tensor<2x4x2x2x20x20xf32>) -> tensor<2x4x20x2x20x2xf32>
++// CHECK:           [[VAR_2_:%.+]] = stablehlo.reshape [[VAR_1_]] : (tensor<2x4x20x2x20x2xf32>) -> tensor<2x4x40x40xf32>
++// CHECK:           return [[VAR_2_]] : tensor<2x4x40x40xf32>
+ // CHECK:         }
++
+ }
+ 
+ // -----
+diff --git a/test/mlir/conversion/onnx_to_stablehlo/Tensor/Reshape.mlir b/test/mlir/conversion/onnx_to_stablehlo/Tensor/Reshape.mlir
+index 73445b71..e9955f70 100644
+--- a/test/mlir/conversion/onnx_to_stablehlo/Tensor/Reshape.mlir
++++ b/test/mlir/conversion/onnx_to_stablehlo/Tensor/Reshape.mlir
+@@ -69,9 +69,8 @@ func.func @test_reshape_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+ 
+ // CHECK-LABEL:  func.func @test_reshape_1
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<5x5x16x2xf32> {
+-// CHECK:           [[VAR_0_:%.+]] = shape.const_shape [5, 5, 16, 2] : tensor<4xindex>
+-// CHECK:           [[VAR_1_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, tensor<4xindex>) -> tensor<5x5x16x2xf32>
+-// CHECK:           return [[VAR_1_]] : tensor<5x5x16x2xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.reshape [[PARAM_0_]] : (tensor<5x5x1x32xf32>) -> tensor<5x5x16x2xf32>
++// CHECK:           return [[VAR_0_]] : tensor<5x5x16x2xf32>
+ // CHECK:         }
+ 
+ // -----
+@@ -84,9 +83,8 @@ func.func @test_reshape_2(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+ 
+ // CHECK-LABEL:  func.func @test_reshape_2
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<25x16x2xf32> {
+-// CHECK:           [[VAR_0_:%.+]] = shape.const_shape [25, 16, 2] : tensor<3xindex>
+-// CHECK:           [[VAR_1_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, tensor<3xindex>) -> tensor<25x16x2xf32>
+-// CHECK:           return [[VAR_1_]] : tensor<25x16x2xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.reshape [[PARAM_0_]] : (tensor<5x5x1x32xf32>) -> tensor<25x16x2xf32>
++// CHECK:           return [[VAR_0_]] : tensor<25x16x2xf32>
+ // CHECK:         }
+ 
+ // -----
+@@ -99,7 +97,6 @@ func.func @test_reshape_3(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+ 
+ // CHECK-LABEL:  func.func @test_reshape_3
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<80x5x2xf32> {
+-// CHECK:           [[VAR_0_:%.+]] = shape.const_shape [80, 5, 2] : tensor<3xindex>
+-// CHECK:           [[VAR_1_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, tensor<3xindex>) -> tensor<80x5x2xf32>
+-// CHECK:           return [[VAR_1_]] : tensor<80x5x2xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.reshape [[PARAM_0_]] : (tensor<5x5x1x32xf32>) -> tensor<80x5x2xf32>
++// CHECK:           return [[VAR_0_]] : tensor<80x5x2xf32>
+ // CHECK:         }

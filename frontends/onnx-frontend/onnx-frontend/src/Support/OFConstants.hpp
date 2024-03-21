@@ -26,4 +26,5 @@ static const std::string ONNX_NODE_NAME_ATTR = "onnx_node_name";
 
 /// attribute names
 const std::string BYTEIR_ATTRS = "byteir_attrs";
+
 } // namespace onnx_frontend

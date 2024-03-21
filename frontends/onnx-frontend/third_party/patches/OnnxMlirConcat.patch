@@ -1,0 +1,30 @@
+diff --git a/src/Conversion/ONNXToStablehlo/Tensor/Concat.cpp b/src/Conversion/ONNXToStablehlo/Tensor/Concat.cpp
+index b387b446..938f6447 100644
+--- a/src/Conversion/ONNXToStablehlo/Tensor/Concat.cpp
++++ b/src/Conversion/ONNXToStablehlo/Tensor/Concat.cpp
+@@ -38,14 +38,21 @@ struct ONNXConcatOpLoweringToStablehlo : public ConversionPattern {
+ 
+     assert(op->getNumResults() == 1 && "ONNXConcatOp shoule have 1 result");
+     Type resultType = op->getResult(0).getType();
++    bool hasRank = true;
+     if (!onnx_mlir::isRankedShapedType(resultType)) {
++      hasRank = false;
+       LLVM_DEBUG(llvm::dbgs() << "Concat Output Is Not Ranked\n");
+-      return failure();
++      // return failure();
+     }
+-    int64_t rank = onnx_mlir::getRank(resultType);
+     int64_t axis = concatOp.getAxis();
+-    axis = axis >= 0 ? axis : rank + axis;
+-    assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
++
++    if (!hasRank) {
++      assert(axis >= 0 && "Axis shouldn't be negative when output is not ranked");
++    } else {
++      int64_t rank = onnx_mlir::getRank(resultType);
++      axis = axis >= 0 ? axis : rank + axis;
++      assert(axis >= -rank && axis <= rank - 1 && "Axis out of rank range");
++    }
+ 
+     ValueRange inputs = operandAdaptor.getInputs();
+     Value result = rewriter.create<stablehlo::ConcatenateOp>(
