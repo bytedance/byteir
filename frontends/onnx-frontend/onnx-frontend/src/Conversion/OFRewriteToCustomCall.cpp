@@ -184,7 +184,8 @@ Value createL2NormWithOutsideSqrtEps(PatternRewriter &rewriter, Location loc,
           rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}), nullptr,
           nullptr, rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
   DictionaryAttrWrapper attrs(rewriter.getContext());
-  attrs.setAttr("eps_outside_sqrt", rewriter.getF64FloatAttr(epsilon));
+  attrs.setAttr("epsilon", rewriter.getF64FloatAttr(epsilon));
+  attrs.setAttr("eps_outside_sqrt", rewriter.getBoolAttr(true));
   attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
 

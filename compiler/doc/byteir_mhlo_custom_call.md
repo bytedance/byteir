@@ -65,7 +65,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - input: Tensor
 - Attrs
   - epsilon: F64Attr
-  - eps_outside_sqrt: F64Attr
+  - eps_outside_sqrt: Optional\<BoolAttr>
   - axis: I64ArrayAttr
 - Results:
   - output: Tensor

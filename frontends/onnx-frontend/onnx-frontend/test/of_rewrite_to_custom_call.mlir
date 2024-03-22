@@ -253,7 +253,7 @@ func.func @test_l2_norm_pat3(%arg0: tensor<16x128xf32>) -> tensor<16x128xf32> {
   return %7 : tensor<16x128xf32>
 // CHECK-LABEL: @test_l2_norm_pat3
 // CHECK-SAME:    (%arg0: tensor<16x128xf32>) -> tensor<16x128xf32> {
-// CHECK:         %0 = stablehlo.custom_call @byteir.l2_norm(%arg0) {byteir_attrs = {axis = [1], eps_outside_sqrt = 9.999999960041972E-13 : f64}} : (tensor<16x128xf32>) -> tensor<16x128xf32>
+// CHECK:         %0 = stablehlo.custom_call @byteir.l2_norm(%arg0) {byteir_attrs = {axis = [1], eps_outside_sqrt = true, epsilon = 9.999999960041972E-13 : f64}} : (tensor<16x128xf32>) -> tensor<16x128xf32>
 // CHECK:         return %0 : tensor<16x128xf32>
 }
 
