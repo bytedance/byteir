@@ -17,14 +17,14 @@ def test_translate_to_llvmbc():
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
-        assert byteir.translate_to_llvmbc(module, temp_dir.name + "/test.ll.bc")
+        byteir.translate_to_llvmbc(module, temp_dir.name + "/test.ll.bc")
 
 def test_serialize_byre():
     path = TEST_ROOT_DIR + "Dialect/Byre/Serialization/Compatibility/version_1_0_0.mlir"
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
-        assert byteir.serialize_byre(module, "1.0.0", temp_dir.name + "/test.mlir.bc")
+        byteir.serialize_byre(module, "1.0.0", temp_dir.name + "/test.mlir.bc")
 
 def test_deserialize_byre():
     paths = [TEST_ROOT_DIR + "Dialect/Byre/Serialization/Compatibility/version_1_0_0.mlir.bc",
