@@ -79,9 +79,9 @@ func.func @recv_dynamic(%arg0: tensor<3xf32>) -> tensor<3xf32> {
 
 // -----
 
-func.func @all_gather_0(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-    %0 = "ccl.all_gather"(%arg0) { replica_groups = [[0, 1] ,[2, 3]], axis = 0 : i64 , synchronous = true }: (tensor<4x4xf32>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @all_gather_0(%arg0: tensor<4x4xf32>) -> tensor<8x4xf32> {
+    %0 = "ccl.all_gather"(%arg0) { replica_groups = [[0, 1] ,[2, 3]], axis = 0 : i64 , synchronous = true }: (tensor<4x4xf32>) -> tensor<8x4xf32>
+    return %0 : tensor<8x4xf32>
 }
 // CHECK-LABEL:   func.func @all_gather_0(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<4x4xf32>) -> memref<8x4xf32> {
@@ -92,9 +92,9 @@ func.func @all_gather_0(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
 
 // -----
 
-func.func @all_gather_1(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-    %0 = "ccl.all_gather"(%arg0) { replica_groups = [[0, 1] ,[2, 3]], axis = 1 : i64 , synchronous = true }: (tensor<4x4xf32>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @all_gather_1(%arg0: tensor<4x4xf32>) -> tensor<4x8xf32> {
+    %0 = "ccl.all_gather"(%arg0) { replica_groups = [[0, 1] ,[2, 3]], axis = 1 : i64 , synchronous = true }: (tensor<4x4xf32>) -> tensor<4x8xf32>
+    return %0 : tensor<4x8xf32>
 }
 // CHECK-LABEL:   func.func @all_gather_1(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<4x4xf32>) -> memref<4x8xf32> {
@@ -105,9 +105,9 @@ func.func @all_gather_1(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
 
 // -----
 
-func.func @all_gather_dynamic_0(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<4x4xf32> {
-    %0 = "ccl.all_gather"(%arg0, %arg1) {axis=0 : i64, synchronous=true}: (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @all_gather_dynamic_0(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<8x4xf32> {
+    %0 = "ccl.all_gather"(%arg0, %arg1) {axis=0 : i64, synchronous=true}: (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<8x4xf32>
+    return %0 : tensor<8x4xf32>
 }
 // CHECK-LABEL:   func.func @all_gather_dynamic_0(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<4x4xf32>,
@@ -119,9 +119,9 @@ func.func @all_gather_dynamic_0(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>
 
 // -----
 
-func.func @all_gather_dynamic_1(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<4x4xf32> {
-    %0 = "ccl.all_gather"(%arg0, %arg1) {axis=1 : i64, synchronous=true}: (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @all_gather_dynamic_1(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<4x8xf32> {
+    %0 = "ccl.all_gather"(%arg0, %arg1) {axis=1 : i64, synchronous=true}: (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<4x8xf32>
+    return %0 : tensor<4x8xf32>
 }
 // CHECK-LABEL:   func.func @all_gather_dynamic_1(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<4x4xf32>,
@@ -160,9 +160,9 @@ func.func @all_reduce_dynamic(%arg0: tensor<4xf32>, %arg1:tensor<1x4xi64>) -> te
 
 // -----
 
-func.func @reduce_scatter_0(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-    %0 = "ccl.reduce_scatter"(%arg0) { reduction="sum", replica_groups = [[0, 1, 2, 3]], axis = 0 : i64 , synchronous=true } : (tensor<4x4xf32>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @reduce_scatter_0(%arg0: tensor<4x4xf32>) -> tensor<1x4xf32> {
+    %0 = "ccl.reduce_scatter"(%arg0) { reduction="sum", replica_groups = [[0, 1, 2, 3]], axis = 0 : i64 , synchronous=true } : (tensor<4x4xf32>) -> tensor<1x4xf32>
+    return %0 : tensor<1x4xf32>
 }
 
 // CHECK-LABEL:   func.func @reduce_scatter_0(
@@ -174,9 +174,9 @@ func.func @reduce_scatter_0(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
 
 // -----
 
-func.func @reduce_scatter_1(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
-    %0 = "ccl.reduce_scatter"(%arg0) { reduction="sum", replica_groups = [[0, 1, 2, 3]], axis = 1 : i64 , synchronous=true } : (tensor<4x4xf32>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @reduce_scatter_1(%arg0: tensor<4x4xf32>) -> tensor<4x1xf32> {
+    %0 = "ccl.reduce_scatter"(%arg0) { reduction="sum", replica_groups = [[0, 1, 2, 3]], axis = 1 : i64 , synchronous=true } : (tensor<4x4xf32>) -> tensor<4x1xf32>
+    return %0 : tensor<4x1xf32>
 }
 
 // CHECK-LABEL:   func.func @reduce_scatter_1(
@@ -188,9 +188,9 @@ func.func @reduce_scatter_1(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
 
 // -----
 
-func.func @reduce_scatter_dynamic_0(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<4x4xf32> {
-    %0 = "ccl.reduce_scatter"(%arg0, %arg1) { axis = 0 : i64, synchronous = true, reduction = "sum" }: (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @reduce_scatter_dynamic_0(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<2x4xf32> {
+    %0 = "ccl.reduce_scatter"(%arg0, %arg1) { axis = 0 : i64, synchronous = true, reduction = "sum" }: (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<2x4xf32>
+    return %0 : tensor<2x4xf32>
 }
 // CHECK-LABEL:   func.func @reduce_scatter_dynamic_0(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<4x4xf32>,
@@ -202,9 +202,9 @@ func.func @reduce_scatter_dynamic_0(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xin
 
 // -----
 
-func.func @reduce_scatter_dynamic_1(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<4x4xf32> {
-    %0 = "ccl.reduce_scatter"(%arg0, %arg1) { axis=1 : i64, synchronous=true, reduction= "sum" } : (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<4x4xf32>
-    return %0 : tensor<4x4xf32>
+func.func @reduce_scatter_dynamic_1(%arg0: tensor<4x4xf32>, %arg1: tensor<2x2xindex>) -> tensor<4x2xf32> {
+    %0 = "ccl.reduce_scatter"(%arg0, %arg1) { axis=1 : i64, synchronous=true, reduction= "sum" } : (tensor<4x4xf32>, tensor<2x2xindex>) -> tensor<4x2xf32>
+    return %0 : tensor<4x2xf32>
 }
 // CHECK-LABEL:   func.func @reduce_scatter_dynamic_1(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<4x4xf32>,

@@ -109,9 +109,11 @@ LogicalResult RecvOp::verify() {
 
 LogicalResult AllReduceOp::verify() {
   auto reduction = getReduction();
-  if (reduction != getRedOpSumName() && reduction != getRedOpProdName() &&
-      reduction != getRedOpMinName() && reduction != getRedOpMaxName() &&
-      reduction != getRedOpAvgName()) {
+  if (reduction != ccl::getRedOpSumName() &&
+      reduction != ccl::getRedOpProdName() &&
+      reduction != ccl::getRedOpMinName() &&
+      reduction != ccl::getRedOpMaxName() &&
+      reduction != ccl::getRedOpAvgName()) {
     return this->emitError("unknown reduction str: ") << reduction;
   }
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
@@ -133,9 +135,11 @@ LogicalResult AllGatherOp::verify() {
 
 LogicalResult ReduceScatterOp::verify() {
   auto reduction = getReduction();
-  if (reduction != getRedOpSumName() && reduction != getRedOpProdName() &&
-      reduction != getRedOpMinName() && reduction != getRedOpMaxName() &&
-      reduction != getRedOpAvgName()) {
+  if (reduction != ccl::getRedOpSumName() &&
+      reduction != ccl::getRedOpProdName() &&
+      reduction != ccl::getRedOpMinName() &&
+      reduction != ccl::getRedOpMaxName() &&
+      reduction != ccl::getRedOpAvgName()) {
     return this->emitError("unknown reduction str: ") << reduction;
   }
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),

@@ -177,6 +177,33 @@ LogicalResult AllGatherOp::verify() {
                              getDynamicReplicaGroups());
 }
 
+LogicalResult AllGatherOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  AllGatherOp::Adaptor adaptor(operands, attributes, properties, regions);
+  auto srcTensorType = cast<RankedTensorType>(adaptor.getSrc().getType());
+  SmallVector<int64_t> targetShape(srcTensorType.getShape());
+  auto axis = adaptor.getAxis();
+  int64_t size;
+  if (operands.size() == 1) {
+    auto replica_groups = adaptor.getReplicaGroupsAttr()[0];
+    size = cast<ArrayAttr>(replica_groups).size();
+  } else {
+    auto dynamicGroupType = cast<RankedTensorType>(operands[1].getType());
+    auto dynamicGroupShape = dynamicGroupType.getShape();
+    if (dynamicGroupType.hasStaticShape() == false)
+      return failure();
+    size = dynamicGroupShape[1];
+  }
+  targetShape[axis] *= size;
+  auto resultType =
+      RankedTensorType::get(targetShape, srcTensorType.getElementType());
+  inferredReturnTypes.push_back(resultType);
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // ccl.reduce_scatter
 //===----------------------------------------------------------------------===//
@@ -190,6 +217,33 @@ LogicalResult ReduceScatterOp::verify() {
   }
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
+}
+
+LogicalResult ReduceScatterOp::inferReturnTypes(
+    ::mlir::MLIRContext *context, ::std::optional<::mlir::Location> location,
+    ::mlir::ValueRange operands, ::mlir::DictionaryAttr attributes,
+    ::mlir::OpaqueProperties properties, ::mlir::RegionRange regions,
+    ::llvm::SmallVectorImpl<::mlir::Type> &inferredReturnTypes) {
+  ReduceScatterOp::Adaptor adaptor(operands, attributes, properties, regions);
+  auto srcTensorType = cast<RankedTensorType>(adaptor.getSrc().getType());
+  SmallVector<int64_t> targetShape(srcTensorType.getShape());
+  auto axis = adaptor.getAxis();
+  int64_t size;
+  if (operands.size() == 1) {
+    auto replica_groups = adaptor.getReplicaGroupsAttr()[0];
+    size = cast<ArrayAttr>(replica_groups).size();
+  } else {
+    auto dynamicGroupType = cast<RankedTensorType>(operands[1].getType());
+    auto dynamicGroupShape = dynamicGroupType.getShape();
+    if (dynamicGroupType.hasStaticShape() == false)
+      return failure();
+    size = dynamicGroupShape[1];
+  }
+  targetShape[axis] /= size;
+  auto resultType =
+      RankedTensorType::get(targetShape, srcTensorType.getElementType());
+  inferredReturnTypes.push_back(resultType);
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -208,6 +262,15 @@ LogicalResult AllToAllOp::verify() {
 LogicalResult BroadcastOp::verify() {
   return verifyReplicaGroups(getLoc(), getReplicaGroupsIndices(),
                              getDynamicReplicaGroups());
+}
+
+LogicalResult
+BroadcastOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
+                              ValueRange operands, DictionaryAttr,
+                              OpaqueProperties, RegionRange,
+                              SmallVectorImpl<Type> &inferredReturnTypes) {
+  inferredReturnTypes.push_back(operands[0].getType());
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

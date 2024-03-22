@@ -80,12 +80,13 @@ namespace {
 struct OneShotBufferizePass
     : public impl::OneShotBufferizeBase<OneShotBufferizePass> {
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry
-        .insert<ace::AceDialect, bufferization::BufferizationDialect,
-                byre::ByreDialect, linalg::LinalgDialect,
-                linalg_ext::LinalgExtDialect, memref::MemRefDialect,
-                mhlo::MhloDialect, scf::SCFDialect, shape::ShapeDialect,
-                vector::VectorDialect, ccl::CclDialect, lccl::LcclDialect>();
+    // clang-format off
+    registry.insert<ace::AceDialect, bufferization::BufferizationDialect,
+                    byre::ByreDialect, linalg::LinalgDialect,
+                    linalg_ext::LinalgExtDialect, memref::MemRefDialect,
+                    mhlo::MhloDialect, scf::SCFDialect, shape::ShapeDialect,
+                    vector::VectorDialect, ccl::CclDialect, lccl::LcclDialect>();
+    // clang-format on
     byre::registerBufferizableOpInterfaceExternalModels(registry);
     arith::registerBufferizableOpInterfaceExternalModels(registry);
     bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(

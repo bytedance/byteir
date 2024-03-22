@@ -23,22 +23,10 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpImplementation.h"
 
-using ReplicaGroupsIndices = llvm::SmallVector<int64_t>;
-using ReplicaGroupsIndicesRef = llvm::ArrayRef<int64_t>;
-
+#include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Lccl/LcclOpsDialect.h.inc"
 
 #define GET_OP_CLASSES
 #include "byteir/Dialect/Lccl/LcclOps.h.inc"
-
-namespace mlir {
-namespace lccl {
-constexpr StringRef getRedOpSumName() { return "sum"; }
-constexpr StringRef getRedOpProdName() { return "prod"; }
-constexpr StringRef getRedOpMinName() { return "min"; }
-constexpr StringRef getRedOpMaxName() { return "max"; }
-constexpr StringRef getRedOpAvgName() { return "avg"; }
-} // namespace lccl
-} // namespace mlir
 
 #endif // BYTEIR_DIALECT_LCCL_LCCLOPS_H

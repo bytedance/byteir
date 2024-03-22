@@ -59,7 +59,9 @@ struct BroadcastOpInterface
         getBuffer(rewriter, broadcastOp.getSrc(), options);
     if (failed(srcBuffer))
       return failure();
-
+    auto srcType = cast<MemRefType>(srcBuffer.value().getType());
+    if (srcType.hasStaticShape() == false)
+      return failure();
     // Since the `getBuffer` later sets the `dynamicReplicaGroupsBuffer`, the
     // type here is `FailureOr<Value>`.It must be ensured that
     // dynamicReplicaGroupsBuffer has a value, as dynamicReplicaGroupsBuffer
@@ -179,6 +181,8 @@ struct AllReduceOpInterface
           getBuffer(rewriter, allReduceOp.getDynamicReplicaGroups(), options);
     rewriter.setInsertionPoint(allReduceOp);
     auto memrefType = cast<MemRefType>(srcBuffer.value().getType());
+    if (memrefType.hasStaticShape() == false)
+      return failure();
     auto allocOp =
         rewriter.create<memref::AllocOp>(allReduceOp.getLoc(), memrefType);
     rewriter.create<lccl::AllReduceOp>(
@@ -221,21 +225,9 @@ struct AllGatherOpInterface
     if (allGatherOp.getDynamicReplicaGroups())
       dynamicReplicaGroupsBuffer =
           getBuffer(rewriter, allGatherOp.getDynamicReplicaGroups(), options);
-    auto srcMemrefType = cast<MemRefType>(srcBuffer.value().getType());
-    SmallVector<int64_t> targetShape(srcMemrefType.getShape());
-    auto axis = allGatherOp.getAxis();
-    int64_t size;
-    if (auto groupValue = dynamicReplicaGroupsBuffer.value()) {
-      auto groupMemreyType = cast<MemRefType>(groupValue.getType());
-      size = groupMemreyType.getShape()[1];
-    } else {
-      if (allGatherOp.getReplicaGroups().has_value() == false)
-        return failure();
-      size = cast<ArrayAttr>((*allGatherOp.getReplicaGroups())[0]).size();
-    }
-    targetShape[axis] *= size;
+    auto resultType = allGatherOp.getResult().getType();
     auto allocType =
-        MemRefType::get(targetShape, srcMemrefType.getElementType());
+        MemRefType::get(resultType.getShape(), resultType.getElementType());
     rewriter.setInsertionPoint(allGatherOp);
     auto allocOp =
         rewriter.create<memref::AllocOp>(allGatherOp.getLoc(), allocType);
@@ -278,23 +270,11 @@ struct ReduceScatterOpInterface
     if (reduceScatterOp.getDynamicReplicaGroups())
       dynamicReplicaGroupsBuffer = getBuffer(
           rewriter, reduceScatterOp.getDynamicReplicaGroups(), options);
-    int64_t size;
-    if (auto groupValue = dynamicReplicaGroupsBuffer.value()) {
-      auto groupMemreyType = cast<MemRefType>(groupValue.getType());
-      size = groupMemreyType.getShape()[1];
-    } else {
-      if (reduceScatterOp.getReplicaGroups().has_value() == false)
-        return failure();
-      size = cast<ArrayAttr>((*reduceScatterOp.getReplicaGroups())[0]).size();
-    }
-    auto srcMemrefType = cast<MemRefType>(srcBuffer.value().getType());
-    SmallVector<int64_t> allocMemrefShape(srcMemrefType.getShape());
-    auto axis = reduceScatterOp.getAxis();
-    allocMemrefShape[axis] /= size;
+    auto resultType = cast<TensorType>(reduceScatterOp.getType());
     rewriter.setInsertionPoint(reduceScatterOp);
     auto allocOp = rewriter.create<memref::AllocOp>(
         reduceScatterOp.getLoc(),
-        MemRefType::get(allocMemrefShape, srcMemrefType.getElementType()));
+        MemRefType::get(resultType.getShape(), resultType.getElementType()));
     rewriter.create<lccl::ReduceScatterOp>(
         op->getLoc(), srcBuffer.value(), allocOp,
         dynamicReplicaGroupsBuffer.value(),

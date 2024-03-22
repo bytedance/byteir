@@ -102,8 +102,9 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
   let hasVerifier = 1;
 }
 
-def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather", 
-    [CclSynchronousOpInterface]> {
+def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather",
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
   let summary = "AllGather operator";
   let description = [{
     Performs concatenation across replicas and the concatenation dim is
@@ -128,7 +129,8 @@ def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather",
 }
 
 def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter", 
-    [CclSynchronousOpInterface]> {
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
   let summary = "AllGather operator";
   let description = [{
     Perform reductions using type of `reduction` attribute. And then split the
@@ -180,7 +182,8 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all",
 }
 
 def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", 
-    [CclSynchronousOpInterface]> {
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
   let summary = "Broadcast operator";
   let description = [{
     Broadcast `src` tensor of the first rank to the other ranks within 
