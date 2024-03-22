@@ -241,6 +241,24 @@ func.func @test_l2_norm_pat2(%1146: tensor<12x128xf32>) -> tensor<12x128xf32> {
 
 // -----
 
+func.func @test_l2_norm_pat3(%arg0: tensor<16x128xf32>) -> tensor<16x128xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = onnx.Constant dense<9.99999996E-13> : tensor<f32>
+  %2 = "onnx.ReduceL2"(%arg0, %0) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<16x128xf32>, tensor<1xi64>) -> tensor<16x1xf32>
+  %3 = "onnx.NoValue"() {value} : () -> none
+  %4 = "onnx.Clip"(%2, %1, %3) : (tensor<16x1xf32>, tensor<f32>, none) -> tensor<16x1xf32>
+  %5 = onnx.Constant dense<[16, 128]> : tensor<2xi64>
+  %6 = "onnx.Expand"(%4, %5) : (tensor<16x1xf32>, tensor<2xi64>) -> tensor<16x128xf32>
+  %7 = "onnx.Div"(%arg0, %6) : (tensor<16x128xf32>, tensor<16x128xf32>) -> tensor<16x128xf32>
+  return %7 : tensor<16x128xf32>
+// CHECK-LABEL: @test_l2_norm_pat3
+// CHECK-SAME:    (%arg0: tensor<16x128xf32>) -> tensor<16x128xf32> {
+// CHECK:         %0 = stablehlo.custom_call @byteir.l2_norm(%arg0) {byteir_attrs = {axis = [1], eps_outside_sqrt = true, epsilon = 9.999999960041972E-13 : f64}} : (tensor<16x128xf32>) -> tensor<16x128xf32>
+// CHECK:         return %0 : tensor<16x128xf32>
+}
+
+// -----
+
 func.func @test_quantize_per_tensor(%arg0: tensor<16x3x256x256xf32>) -> tensor<16x3x256x256xi8> {
   %291 = stablehlo.constant dense<0.0207054354> : tensor<f32>
   %292 = stablehlo.constant dense<0> : tensor<i8>

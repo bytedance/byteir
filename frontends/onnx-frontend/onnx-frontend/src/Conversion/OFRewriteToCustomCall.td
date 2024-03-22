@@ -32,6 +32,9 @@ def HasOneUse : Constraint<CPred<"$0.hasOneUse()">, "value has exactly one use">
 def isScalarConstantTensor :
     Constraint<CPred<"onnx_mlir::isScalarConstantTensor($_self)">,
   "Value is produced by a dense ONNXConstantOp and has size one">;
+def isNoneValue :
+    Constraint<CPred<"onnx_mlir::isNoneValue($_self)">,
+  "Value is None Value">;
 def SameTwoIntegerScalarConstantValues :
     Constraint<CPred<"onnx_mlir::getElementAttributeFromONNXValue($0).getValues<APInt>()[0].getSExtValue() == onnx_mlir::getElementAttributeFromONNXValue($1).getValues<APInt>()[0].getSExtValue()">,
   "Two integer scalar constant Value have the same integer scalar">;
@@ -60,6 +63,19 @@ def RewriteL2NormPat2 : Pat<
   ),
   (NativeCodeCall<"createL2NormWithoutEps($_builder, $_loc, $0, $1)"> $input, $axes),
   [(isScalarConstantTensor:$axes), (TrueBoolAttr $keep_dims)]>;
+
+def RewriteL2NormPat3 : Pat<
+  (ONNXDivOp
+    $input,
+    (ONNXExpandOp
+      (ONNXClipOp
+        (ONNXReduceL2Op $input, $axes, $keep_dims, $noop_with_empty_axes), $min, $max
+      ),
+      (ONNXConstantOp $_, $_, $_, $_, $_, $_, $_, $_)  // should be the shape of $input
+    )
+  ),
+  (NativeCodeCall<"createL2NormWithOutsideSqrtEps($_builder, $_loc, $0, $1, $2)"> $input, $axes, $min),
+  [(isScalarConstantTensor:$axes), (TrueBoolAttr $keep_dims), (isNoneValue:$max)]>;
 
 //===----------------------------------------------------------------------===//
 // Quantize/Dequantize Pattern
