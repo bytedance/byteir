@@ -147,7 +147,14 @@ TEST(SM80CUDATestFlashAttnFwd, Basic) {
           }
         }
         std::cout << "max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
+
+  cudaFree(d_o);
+  cudaFree(d_q);
+  cudaFree(d_k);
+  cudaFree(d_v);
+  cudaFree(d_softmax_lse);
 }
 
 static std::string test_file_flash_attn_kvcache =
@@ -280,6 +287,7 @@ TEST(SM80CUDATestFlashAttnKVCache, Basic) {
           }
         }
         std::cout << "max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
 
   // check kvcache update
@@ -314,6 +322,7 @@ TEST(SM80CUDATestFlashAttnKVCache, Basic) {
           }
         }
         std::cout << "max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
 
   CheckCUDABuffer<__half>(
@@ -347,5 +356,15 @@ TEST(SM80CUDATestFlashAttnKVCache, Basic) {
           }
         }
         std::cout << "max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
+
+  cudaFree(d_o);
+  cudaFree(d_q);
+  cudaFree(d_k);
+  cudaFree(d_v);
+  cudaFree(d_kcache);
+  cudaFree(d_vcache);
+  cudaFree(d_seqlen);
+  cudaFree(d_softmax_lse);
 }
