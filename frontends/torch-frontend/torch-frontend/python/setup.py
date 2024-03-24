@@ -86,7 +86,7 @@ setup(
     name=name,
     packages=["torch_frontend", "torch_mlir"],
     package_data={"torch_mlir": ["extras/*.py"]},
-    package_dir={"torch_frontend": setup_path+" /torch_frontend", "torch_mlir": root_path+"/third_party/torch-mlir/python/torch_mlir"},
+    package_dir={"torch_frontend": setup_path+"/torch_frontend", "torch_mlir": root_path+"/third_party/torch-mlir/python/torch_mlir"},
     include_package_data=False,
     ext_modules=[TorchFrontendExtension("torch_frontend")],
     cmdclass={
