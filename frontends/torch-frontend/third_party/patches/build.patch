@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index f821d600..dac8e802 100644
+index 376aea80..91b6bcab 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -43,6 +43,7 @@ if(TORCH_MLIR_ENABLE_STABLEHLO)
@@ -10,7 +10,7 @@ index f821d600..dac8e802 100644
  option(TORCH_MLIR_OUT_OF_TREE_BUILD "Specifies an out of tree build" OFF)
  
  # PyTorch native extension gate. If OFF, then no features which depend on
-@@ -94,7 +95,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR TORCH_MLIR_OUT_OF_TREE_
+@@ -96,7 +97,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR OR TORCH_MLIR_OUT_OF_TREE_
  
    set(TORCH-MLIR_BUILT_STANDALONE ON)
    set(BACKEND_PACKAGE_STRING "LLVM ${LLVM_PACKAGE_VERSION}")
@@ -19,7 +19,7 @@ index f821d600..dac8e802 100644
    message(STATUS "Torch-MLIR in-tree build.")
    # In-tree build with LLVM_EXTERNAL_PROJECTS=torch-mlir
  
-@@ -105,6 +106,8 @@ else()
+@@ -107,6 +108,8 @@ else()
    set(MLIR_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/../mlir/include)
    set(MLIR_GENERATED_INCLUDE_DIR ${LLVM_BINARY_DIR}/tools/mlir/include)
    set(MLIR_INCLUDE_DIRS "${MLIR_INCLUDE_DIR};${MLIR_GENERATED_INCLUDE_DIR}")
@@ -28,3 +28,16 @@ index f821d600..dac8e802 100644
  endif()
  
  if (TORCH_MLIR_ENABLE_STABLEHLO)
+diff --git a/python/CMakeLists.txt b/python/CMakeLists.txt
+index b8f83944..d19a00ef 100644
+--- a/python/CMakeLists.txt
++++ b/python/CMakeLists.txt
+@@ -93,6 +93,8 @@ add_mlir_python_common_capi_library(TorchMLIRAggregateCAPI
+   DECLARED_SOURCES ${_source_components}
+ )
+ 
++target_link_options(TorchMLIRAggregateCAPI PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--exclude-libs,ALL>)
++
+ add_mlir_python_modules(TorchMLIRPythonModules
+   ROOT_PREFIX "${TORCH_MLIR_PYTHON_PACKAGES_DIR}/torch_mlir/torch_mlir"
+   INSTALL_PREFIX "python_packages/torch_mlir/torch_mlir"

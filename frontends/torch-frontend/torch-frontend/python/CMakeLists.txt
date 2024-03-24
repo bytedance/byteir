@@ -30,7 +30,7 @@ declare_mlir_python_sources(TorchFrontendMLIRPythonExtensions)
 declare_mlir_python_extension(TorchFrontendMLIRPythonExtensions.Main
   MODULE_NAME _torchFrontend
   ADD_TO_PARENT TorchFrontendMLIRPythonExtensions
-  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/csrc"
+  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
   SOURCES
     TorchFrontendModule.cpp
   EMBED_CAPI_LINK_LIBS
