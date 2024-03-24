@@ -45,6 +45,9 @@ def Ccl_WaitOp : Ccl_Op<"wait", [
   let arguments = (ins AnyTensor:$src);
   let results = (outs AnyTensor:$result);
   let hasCanonicalizer = 1;
+  let assemblyFormat = [{
+    $src attr-dict `:` functional-type(operands, results)
+  }];
 }
 
 class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
@@ -63,6 +66,10 @@ class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
             })));
       return replicaGroupsIndices;
     };
+  }];
+
+  let assemblyFormat = [{
+    $src (`,` $dynamic_replica_groups^)? attr-dict `:` functional-type(operands, results)
   }];
 }
 
@@ -97,7 +104,6 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
                   "ArrayAttr":$replica_groups, "IntegerAttr":$unique_id,
                   CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
   ];
-
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
 }
@@ -199,9 +205,6 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
   );
   let results = (outs AnyTensor:$result);
 
-  let assemblyFormat = [{
-    $src (`,` $dynamic_replica_groups^)? attr-dict `:` functional-type(operands, results)
-  }];
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
 }
@@ -224,6 +227,9 @@ def Ccl_SendOp : Ccl_Op<"send", [
   );
   let results = (outs AnyTensor:$result);
 
+  let assemblyFormat = [{
+    $src (`,` $dynamic_target_index^)? attr-dict `:` functional-type(operands, results)
+  }];
   let hasVerifier = 1;
 }
 
@@ -246,6 +252,9 @@ def Ccl_RecvOp : Ccl_Op<"recv", [
   );
   let results = (outs AnyTensor:$result);
 
+  let assemblyFormat = [{
+    $src (`,` $dynamic_source_index^)? attr-dict `:` functional-type(operands, results)
+  }];
   let hasVerifier = 1;
 }
 
