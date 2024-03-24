@@ -3,12 +3,11 @@ import torch
 import torch.export
 import sys
 
-from torch_frontend import torch_mlir
-from torch_mlir import ir
-from torch_mlir.passmanager import PassManager
-from torch_mlir.dialects import torch as torch_d
-from torch_mlir.dialects.builtin import ModuleOp
+import torch_mlir
 from torch_mlir.extras.fx_importer import FxImporter
+from torch_frontend import ir
+from torch_frontend.passmanager import PassManager
+from torch_frontend.dialects.builtin import ModuleOp
 
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
@@ -111,6 +110,10 @@ def compile(
         use_tracing=False,
         verbose=False,
     )
+    module_str = module.operation.get_asm(enable_debug_info=True)
+
+    context = ir.Context()
+    module = ir.Module.parse(module_str, context)
     if output_type == "raw":
         return module
 
@@ -199,9 +202,10 @@ def compile_dynamo_model(
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
-    context = ir.Context()
-    torch_d.register_dialect(context)
-    fx_importer = FxImporter(context=context)
+    torch_mlir_context = torch_mlir.ir.Context()
+    from torch_mlir.dialects.torch import register_dialect as register_torch_dialect
+    register_torch_dialect(torch_mlir_context)
+    fx_importer = FxImporter(context=torch_mlir_context)
     # for torch.export
     if isinstance(model, torch.export.ExportedProgram):
         fx_importer.import_frozen_exported_program(model)
@@ -210,8 +214,10 @@ def compile_dynamo_model(
         fx_importer.import_graph_module(model)
     else:
         raise RuntimeError("unsupported model type")
-    module = fx_importer.module_op
+    module_str = fx_importer.module_op.operation.get_asm(enable_debug_info=True)
 
+    context = ir.Context()
+    module = ir.Module.parse(module_str, context)
     if output_type == "raw":
         return module
     if debug == 2:
@@ -291,7 +297,10 @@ def convert_to_mhlo_via_torch_mlir(
         use_tracing=use_tracing,
         verbose=False,
     )
+    module_str = module.operation.get_asm(enable_debug_info=True)
 
+    context = ir.Context()
+    module = ir.Module.parse(module_str, context)
     with module.context:
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
         PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})").run(module.operation)

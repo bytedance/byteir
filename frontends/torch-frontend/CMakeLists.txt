@@ -11,6 +11,7 @@ set(TORCH_FRONTEND_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_CXX_STANDARD 17)
 
 include(MLIR.cmake)
+include(TorchMLIR.cmake)
 
 #-------------------------------------------------------------------------------
 # Third Parties
@@ -19,8 +20,9 @@ include(MLIR.cmake)
 set(TORCH_MLIR_BUILD_EMBEDDED ON)
 set(TORCH_MLIR_ENABLE_STABLEHLO ON)
 add_definitions(-DTORCH_MLIR_ENABLE_STABLEHLO)
-set(TORCH_MLIR_ENABLE_JIT_IR_IMPORTER ON)
-set(TORCH_MLIR_ENABLE_LTC OFF)
+set(STABLEHLO_ENABLE_BINDINGS_PYTHON ON)
+set(TORCH_MLIR_ENABLE_PYTORCH_EXTENSIONS OFF)
+
 add_subdirectory(third_party/torch-mlir ${TORCH_FRONTEND_BIN_ROOT}/torch-mlir EXCLUDE_FROM_ALL)
 # add torch-mlir header files
 include_directories(${TORCH_FRONTEND_SRC_ROOT}/third_party/torch-mlir/include)
