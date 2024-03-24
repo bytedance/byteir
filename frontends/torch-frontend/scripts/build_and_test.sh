@@ -28,6 +28,6 @@ cmake -S . \
 
 cmake --build ./build --target all
 
-PYTHONPATH=./build/python_packages/ python3 -m pytest torch-frontend/python/test
+PYTHONPATH=build/python_packages/:build/torch_mlir_build/python_packages/torch_mlir python3 -m pytest torch-frontend/python/test
 
 popd
