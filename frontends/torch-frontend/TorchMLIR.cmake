@@ -24,9 +24,9 @@ function(build_torch_mlir)
     -DCMAKE_CXX_VISIBILITY_PRESET=hidden
     -DTORCH_MLIR_ENABLE_LTC=OFF
     -DTORCH_MLIR_ENABLE_PYTORCH_EXTENSIONS=ON
-    -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable"
-    -DPython3_EXECUTABLE="$(which python3)"
-    -DLLVM_EXTERNAL_LIT="$(which lit)"
+    -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+    -DPython3_EXECUTABLE=${Python3_EXECUTABLE}
+    -DLLVM_EXTERNAL_LIT=${LLVM_EXTERNAL_LIT}
 
     RESULT_VARIABLE result
     WORKING_DIRECTORY ${TORCH_MLIR_SRC_PATH}
