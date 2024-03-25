@@ -25,18 +25,29 @@ function apply_patches() {
   popd
 }
 
-function prepare_for_build() {
+function prepare_for_build_with_prebuilt() {
   pushd ${PROJ_DIR}
   # install requirements
   python3 -m pip install -r requirements.txt -r torch-requirements.txt
   # python3 -m pip install torch==2.1.0+cpu torchvision==0.16.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
-  # init submodule
+  # initialize submodule
   git submodule update --init -f $TORCH_MLIR_ROOT
   pushd $TORCH_MLIR_ROOT
   git submodule update --init -f externals/stablehlo
   popd
 
-  # apply patches
+  apply_patches
+  load_pytorch_llvm_prebuilt
+}
+
+function prepare_for_build() {
+  pushd ${PROJ_DIR}
+  # install requirements
+  python3 -m pip install -r requirements.txt -r torch-requirements.txt
+
+  # initialize submodule
+  git submodule update --init --recursive -f $TORCH_MLIR_ROOT
+
   apply_patches
 }
