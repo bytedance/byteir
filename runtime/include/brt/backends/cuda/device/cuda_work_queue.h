@@ -115,7 +115,7 @@ private:
  * that uses mutliple CUDA Stream's as a WorkQueue.
  *
  * A typical usage is using 3 streams: one for compute, two for bidirectional
- * data transfer.
+ * data transfer, one for host.
  */
 class CUDAMultiStreamWorkQueue final : public CUDAWorkQueue {
 public:

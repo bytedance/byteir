@@ -49,8 +49,8 @@ TEST(CUDAWorkQueueTest, CUDAMultiStreamWorkQueueAdd) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(
-      &request, new CUDAMultiStreamWorkQueue(0));
+  auto status_request =
+      session.NewRequestContext(&request, new CUDAMultiStreamWorkQueue(0));
   BRT_TEST_CHECK_STATUS(status_request);
 
   request->FinishIOBinding();

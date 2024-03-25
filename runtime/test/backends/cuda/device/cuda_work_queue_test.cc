@@ -20,12 +20,9 @@
 #include "brt/test/common/cuda/util.h"
 #include "test_kernels.h"
 #include "gtest/gtest.h"
-#include <chrono>
 #include <cuda_runtime.h>
-#include <iostream>
 #include <stdlib.h>
 #include <string>
-#include <thread>
 
 using namespace brt;
 using namespace brt::cuda;
@@ -248,7 +245,6 @@ void CUDART_CB host_memset(void *args) {
   auto host_args = reinterpret_cast<HostArgs *>(args);
   AssignCPUBuffer<float>(reinterpret_cast<float *>(std::get<0>(*host_args)),
                          std::get<1>(*host_args) / sizeof(float), 1.0);
-  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 }
 } // namespace
 
@@ -287,9 +283,9 @@ TEST(CUDAWorkQueueTest, CUDAMultiStreamWithHostWorkQueue) {
 
   cudaDeviceSynchronize();
 
-  void *host_args =
-      reinterpret_cast<void *>(new HostArgs((void *)host1, count));
-  wq.AddTask(7 /*Host*/, (void *)host_memset, &host_args);
+  HostArgs *host_args = new HostArgs((void *)host1, count);
+  void *host_args_ptr = reinterpret_cast<void *>(host_args);
+  wq.AddTask(7 /*Host*/, (void *)host_memset, &host_args_ptr);
 
   size_t streamIdHost = 3;
   void *host_record_args[] = {&streamIdHost, nullptr /*placeholder for event*/};
@@ -321,6 +317,7 @@ TEST(CUDAWorkQueueTest, CUDAMultiStreamWithHostWorkQueue) {
   CheckResult(arr3, n, 4.0f);
 
   cudaFreeHost(host1);
+  delete (host_args);
   BRT_CUDA_CHECK(cudaFree(arr1));
   BRT_CUDA_CHECK(cudaFree(arr2));
   BRT_CUDA_CHECK(cudaFree(arr3));
