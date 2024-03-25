@@ -24,6 +24,7 @@
 #include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
+#include "byteir/Dialect/Lccl/LcclOps.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
@@ -152,6 +153,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::cat::CatDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::lace::LaceDialect>();
+  registry.insert<mlir::lccl::LcclDialect>();
   registry.insert<mlir::lmhlo::LmhloDialect>();
   registry.insert<mlir::shape_ext::ShapeExtDialect>();
   registry.insert<mlir::linalg_ext::LinalgExtDialect>();

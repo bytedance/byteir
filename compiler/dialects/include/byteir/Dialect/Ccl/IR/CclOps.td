@@ -45,6 +45,9 @@ def Ccl_WaitOp : Ccl_Op<"wait", [
   let arguments = (ins AnyTensor:$src);
   let results = (outs AnyTensor:$result);
   let hasCanonicalizer = 1;
+  let assemblyFormat = [{
+    $src attr-dict `:` functional-type(operands, results)
+  }];
 }
 
 class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
@@ -63,6 +66,10 @@ class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
             })));
       return replicaGroupsIndices;
     };
+  }];
+
+  let assemblyFormat = [{
+    $src (`,` $dynamic_replica_groups^)? attr-dict `:` functional-type(operands, results)
   }];
 }
 
@@ -97,13 +104,13 @@ def Ccl_AllReduceOp : Ccl_ReplicaGroupsOp<"all_reduce",
                   "ArrayAttr":$replica_groups, "IntegerAttr":$unique_id,
                   CArg<"ArrayRef<NamedAttribute>", "{}">:$attributes)>,
   ];
-
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
 }
 
-def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather", 
-    [CclSynchronousOpInterface]> {
+def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather",
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
   let summary = "AllGather operator";
   let description = [{
     Performs concatenation across replicas and the concatenation dim is
@@ -128,7 +135,8 @@ def Ccl_AllGatherOp : Ccl_ReplicaGroupsOp<"all_gather",
 }
 
 def Ccl_ReduceScatterOp : Ccl_ReplicaGroupsOp<"reduce_scatter", 
-    [CclSynchronousOpInterface]> {
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
   let summary = "AllGather operator";
   let description = [{
     Perform reductions using type of `reduction` attribute. And then split the
@@ -180,7 +188,8 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all",
 }
 
 def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", 
-    [CclSynchronousOpInterface]> {
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
   let summary = "Broadcast operator";
   let description = [{
     Broadcast `src` tensor of the first rank to the other ranks within 
@@ -199,18 +208,12 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
   );
   let results = (outs AnyTensor:$result);
 
-  let assemblyFormat = [{
-    $src (`,` $dynamic_replica_groups^)? attr-dict `:` functional-type(operands, results)
-  }];
   let extraClassDeclaration = commonExtraClassDeclaration;
   let hasVerifier = 1;
 }
 
 def Ccl_SendOp : Ccl_Op<"send", [
-    SameOperandsAndResultElementType,
-    SameOperandsAndResultShape,
-    DeclareOpInterfaceMethods<InferTypeOpInterface>, 
-    CclSynchronousOpInterface]> {
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Send operator";
   let description = [{
     Send `src` tensor to `target_index` or `dynamic_target_index` device.
@@ -224,14 +227,14 @@ def Ccl_SendOp : Ccl_Op<"send", [
   );
   let results = (outs AnyTensor:$result);
 
+  let assemblyFormat = [{
+    $src (`,` $dynamic_target_index^)? attr-dict `:` functional-type(operands, results)
+  }];
   let hasVerifier = 1;
 }
 
 def Ccl_RecvOp : Ccl_Op<"recv", [
-    SameOperandsAndResultElementType,
-    SameOperandsAndResultShape,
-    DeclareOpInterfaceMethods<InferTypeOpInterface>, 
-    CclSynchronousOpInterface]> {
+    DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Recv operator";
   let description = [{
     Recv tensor from `source_index` or `dynamic_source_index`.
@@ -246,6 +249,9 @@ def Ccl_RecvOp : Ccl_Op<"recv", [
   );
   let results = (outs AnyTensor:$result);
 
+  let assemblyFormat = [{
+    $src (`,` $dynamic_source_index^)? attr-dict `:` functional-type(operands, results)
+  }];
   let hasVerifier = 1;
 }
 

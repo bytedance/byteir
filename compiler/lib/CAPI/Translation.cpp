@@ -20,6 +20,7 @@
 #include "byteir/Dialect/Byre/Serialization.h"
 #include "byteir/Dialect/Byre/Serialization/Versioning.h"
 #include "byteir/Target/PTX/ToPTX.h"
+#include "byteir/Utils/ModuleUtils.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Support.h"
 #include "mlir/CAPI/Utils.h"
@@ -146,5 +147,10 @@ MlirModule byteirDeserializeByre(MlirStringRef artifactStr,
     llvm::errs() << "failed to convert from serializable byre IR\n";
     return {};
   }
+  return {m.release()};
+}
+
+MlirModule byteirMergeTwoModules(MlirModule module0, MlirModule module1) {
+  auto m = mergeTwoModulesByNameOrOrder(unwrap(module0), unwrap(module1));
   return {m.release()};
 }

@@ -40,6 +40,10 @@ MLIR_CAPI_EXPORTED bool byteirSerializeByre(MlirModule module,
 
 MLIR_CAPI_EXPORTED MlirModule byteirDeserializeByre(MlirStringRef artifactStr,
                                                     MlirContext context);
+
+MLIR_CAPI_EXPORTED MlirModule byteirMergeTwoModules(MlirModule module0,
+                                                    MlirModule module1);
+
 #ifdef __cplusplus
 }
 #endif

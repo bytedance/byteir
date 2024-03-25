@@ -11,13 +11,12 @@ ROOT_PROJ_DIR="$CUR_DIR/../../.."
 PROJ_DIR="$ROOT_PROJ_DIR/frontends/torch-frontend"
 
 source $CUR_DIR/envsetup.sh
-prepare_for_build_with_prebuilt
+prepare_for_build
 
 pushd $PROJ_DIR
 cmake -S . \
       -B ./build \
       -GNinja \
-      -DMLIR_DIR="$TORCH_FRONTEND_LLVM_INSTALL_DIR/lib/cmake/mlir" \
       -DLLVM_EXTERNAL_LIT=$(which lit) \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=gcc \

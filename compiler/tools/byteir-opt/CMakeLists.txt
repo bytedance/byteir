@@ -5,6 +5,7 @@ set(BYTEIR_LIBS
   MLIRByreSerialization
   MLIRCclDialect
   MLIRLaceDialect
+  MLIRLcclDialect
   MLIRTransformExtDialect
   MLIRCclTransformOps
   ByteIRAffinePasses
