@@ -78,7 +78,7 @@ def Lccl_SendOp : Lccl_Op<"send"> {
 
   let arguments = (ins
     Arg<AnyMemRef, "", [MemRead]>:$src,
-    Arg<Optional<I64>, "", [MemRead]>:$dynamic_target_index,
+    Optional<I64> :$dynamic_target_index,
     BoolAttr:$synchronous,
     OptionalAttr<I64Attr>:$target_index
   );
@@ -94,7 +94,7 @@ def Lccl_RecvOp : Lccl_Op<"recv"> {
 
   let arguments = (ins
     Arg<AnyMemRef, "", [MemWrite]>:$src,
-    Arg<Optional<I64>, "", [MemRead]>:$dynamic_source_index,
+    Optional<I64> :$dynamic_source_index,
     BoolAttr:$synchronous,
     OptionalAttr<I64Attr>:$source_index
   );
