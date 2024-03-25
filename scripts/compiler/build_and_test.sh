@@ -16,6 +16,7 @@ INSTALL_DIR="$BUILD_DIR/byre_install"
 
 source $CUR_DIR/../prepare.sh
 prepare_for_compiler
+install_mhlo_tools
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
