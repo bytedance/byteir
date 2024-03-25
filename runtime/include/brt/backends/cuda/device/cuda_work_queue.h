@@ -37,6 +37,7 @@ enum CUDATaskType : int {
   kWaitEvent = 4,
   kComputeDrv = 5,
   kD2D = 6,
+  kHost = 7,
 };
 
 /**
@@ -110,18 +111,18 @@ private:
 };
 
 /**
- * CUDAOneComputeTwoTransferWorkQueue is a derived class of WorkQueue
+ * CUDAMultiStreamWorkQueue is a derived class of WorkQueue
  * that uses mutliple CUDA Stream's as a WorkQueue.
  *
  * A typical usage is using 3 streams: one for compute, two for bidirectional
  * data transfer.
  */
-class CUDAOneComputeTwoTransferWorkQueue final : public CUDAWorkQueue {
+class CUDAMultiStreamWorkQueue final : public CUDAWorkQueue {
 public:
-  CUDAOneComputeTwoTransferWorkQueue(int device_id);
+  CUDAMultiStreamWorkQueue(int device_id);
 
   // Undefined what happens to pending work when destructor is called.
-  virtual ~CUDAOneComputeTwoTransferWorkQueue();
+  virtual ~CUDAMultiStreamWorkQueue();
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
@@ -136,16 +137,19 @@ public:
                               std::vector<mlir::Operation *>) override;
 
   CUstream_st *GetComputeStream() override { return streams_[0]; }
+  CUstream_st *GetH2DStream() { return streams_[1]; }
+  CUstream_st *GetD2HStream() { return streams_[2]; }
+  CUstream_st *GetHostStream() { return streams_[3]; }
 
 private:
-  CUstream_st *streams_[3]; // 0 for compute, 1 for h2d, 2 for d2h
+  // 0 for compute, 1 for h2d, 2 for d2h, 3 for host
+  CUstream_st *streams_[4];
 
   std::vector<CUevent_st *> events_;
 
-  CUDAOneComputeTwoTransferWorkQueue(
-      const CUDAOneComputeTwoTransferWorkQueue &) = delete;
-  CUDAOneComputeTwoTransferWorkQueue &
-  operator=(const CUDAOneComputeTwoTransferWorkQueue &) = delete;
+  CUDAMultiStreamWorkQueue(const CUDAMultiStreamWorkQueue &) = delete;
+  CUDAMultiStreamWorkQueue &
+  operator=(const CUDAMultiStreamWorkQueue &) = delete;
 };
 
 /**
@@ -178,5 +182,4 @@ private:
   CUDAExternalStreamWorkQueue &
   operator=(const CUDAExternalStreamWorkQueue &) = delete;
 };
-
 } // namespace brt
