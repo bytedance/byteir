@@ -377,4 +377,17 @@ def MemrefCopyToLinalgPass :
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// LcclToByre
+//===----------------------------------------------------------------------===//
+
+def ConvertLcclToByre : Pass<"lccl-to-byre", "func::FuncOp"> {
+  let summary = "Convert lccl op to byre op.";
+  let constructor = "mlir::createConvertLcclToByrePass()";
+  let dependentDialects = [
+    "mlir::byre::ByreDialect",
+    "mlir::lccl::LcclDialect"
+  ];
+}
+
 #endif // BYTEIR_CONVERSION_PASSES
