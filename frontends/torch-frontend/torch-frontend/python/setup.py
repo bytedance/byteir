@@ -37,8 +37,8 @@ version_txt = os.path.join(setup_path, "version.txt")
 version_file = os.path.join(setup_path, "torch_frontend", "version.py")
 version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=False)
 
-maintainer = ""
-maintainer_email = ""
+maintainer = "ByteIR Team"
+maintainer_email = "byteir@bytedance.com"
 author = maintainer
 author_email = maintainer_email
 description = "use torch_frontend python interface"
@@ -46,6 +46,7 @@ long_description = """
 torch_frontend
 usage:
 >>> import torch_frontend
+>>> import torch_mlir
 """
 install_requires = []
 license = "LICENSE"
