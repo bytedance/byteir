@@ -214,6 +214,7 @@ TEST(SM80CUDATestFlashAttnBwd, Basic) {
           }
         }
         std::cout << "dq max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
 
   CheckCUDABuffer<__half>(
@@ -249,6 +250,7 @@ TEST(SM80CUDATestFlashAttnBwd, Basic) {
           }
         }
         std::cout << "dk max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
 
   CheckCUDABuffer<__half>(
@@ -284,5 +286,18 @@ TEST(SM80CUDATestFlashAttnBwd, Basic) {
           }
         }
         std::cout << "dv max_diff (ratio):" << max_diff << std::endl;
+        delete[] ground_truth;
       });
+
+  cudaFree(d_o);
+  cudaFree(d_q);
+  cudaFree(d_k);
+  cudaFree(d_v);
+  cudaFree(d_do);
+  cudaFree(d_dq);
+  cudaFree(d_dk);
+  cudaFree(d_dv);
+  cudaFree(d_softmax_lse);
+  cudaFree(d_dsoftmax);
+  cudaFree(d_dq_accum);
 }
