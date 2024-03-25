@@ -68,6 +68,24 @@ template <typename T> MatmulImpl<T>::MatmulImpl(const OpAccessor &accessor) {
   }
 }
 
+template <typename T>
+void MatmulImpl<T>::ProloguePerExecute(const OpAccessor &accessor) {
+  auto shape_a = accessor.GetArgShape(0);
+  auto shape_b = accessor.GetArgShape(1);
+  if (!lhs_transpose) {
+    m = shape_a[0];
+    k = shape_a[1];
+  } else {
+    m = shape_a[1];
+    k = shape_a[0];
+  }
+  if (!rhs_transpose) {
+    n = shape_b[1];
+  } else {
+    n = shape_b[0];
+  }
+}
+
 template <>
 void MatmulImpl<float>::Execute(const float *a_val, const float *b_val,
                                 float *c_val, cublasHandle_t handle,

@@ -337,16 +337,20 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             return WalkResult::interrupt();
           }
 
-          auto maybeSpace = brt::ir::GetSpace(op_arg);
-          if (!maybeSpace.has_value()) {
-            status_internal = Status(BRT, FAIL, "non-memref Arg of Op " + key);
-            return WalkResult::interrupt();
+          std::string space;
+          IAllocator *cur_allocator;
+          if (op_arg.getType().dyn_cast<MemRefType>()) {
+            auto maybeSpace = brt::ir::GetSpace(op_arg);
+            if (!maybeSpace.has_value()) {
+              status_internal =
+                  Status(BRT, FAIL, "non-memref Arg of Op " + key);
+              return WalkResult::interrupt();
+            }
+
+            space = maybeSpace.value();
+            cur_allocator = GetAllocator(allocators, space);
+            last_alloc = cur_allocator;
           }
-
-          auto space = maybeSpace.value();
-          IAllocator *cur_allocator = GetAllocator(allocators, space);
-          last_alloc = cur_allocator;
-
           // skip if visited
           if (visited_ptrs.count(arg_ptr) != 0) {
             continue;
@@ -366,6 +370,10 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             graph_info_.tensor_to_id.emplace(arg_ptr,
                                              graph_info_.tensors.size());
             graph_info_.tensors.push_back(arg_ptr);
+          } else if (op_arg.getType().isa<IndexType>()) {
+            int64_t scalar_index = graph_info_.scalars.size();
+            graph_info_.scalar_to_id.emplace(arg_ptr, scalar_index);
+            graph_info_.scalars.push_back(arg_ptr);
           } else {
             status_internal =
                 Status(BRT, FAIL, " non-supported Arg Type of Op " + key);
@@ -471,6 +479,11 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
         if (arg_ptr == nullptr) {
           status_internal = Status(BRT, FAIL, "nullptr Arg of Op " + key);
           return WalkResult::interrupt();
+        }
+
+        // PTXOp launch config?
+        if (op_arg.getType().isa<IndexType>()) {
+          continue;
         }
 
         auto found_arg = graph_info_.tensor_to_id.find(arg_ptr);
