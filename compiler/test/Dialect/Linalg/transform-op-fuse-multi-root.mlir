@@ -111,7 +111,7 @@ func.func @all_reduce(%arg0: tensor<64x128xf32>, %arg1: tensor<64x128xf32>, %arg
 // CHECK:  {{.*}} scf.for
 // CHECK-DAG: %[[V0:.*]] = linalg.elemwise_unary
 // CHECK-DAG: %[[V1:.*]] = linalg.reduce { arith.addf } ins(%[[V0]] : tensor<64x4xf32>)
-// CHECK-DAG: %[[V2:.*]] = "ccl.all_reduce"(%[[V1]])
+// CHECK-DAG: %[[V2:.*]] = ccl.all_reduce %[[V1]]
 // CHECK: scf.yield %[[V2]] : tensor<64xf32>
 
 transform.sequence  failures(propagate) {
