@@ -6,6 +6,9 @@ import os
 import shutil
 import subprocess
 
+def check_env_flag(name: str, default=None) -> bool:
+    return str(os.getenv(name, default)).upper() in ["ON", "1", "YES", "TRUE", "Y"]
+
 def get_git_commit(src_dir):
     try:
         return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=src_dir).decode('ascii').strip()
@@ -30,12 +33,14 @@ def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path,
 
     return torch_frontend_ver
 
+TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER = check_env_flag("TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER", False)
+
 setup_path = os.path.abspath(os.path.dirname(__file__))
 root_path = os.path.abspath(setup_path + "/../../")
 
 version_txt = os.path.join(setup_path, "version.txt")
 version_file = os.path.join(setup_path, "torch_frontend", "version.py")
-version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=False)
+version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER)
 
 maintainer = "ByteIR Team"
 maintainer_email = "byteir@bytedance.com"
