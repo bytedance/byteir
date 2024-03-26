@@ -1,15 +1,12 @@
 diff --git a/lib/Dialect/Torch/Transforms/AdjustCallingConventions.cpp b/lib/Dialect/Torch/Transforms/AdjustCallingConventions.cpp
-index 30cc4db4..96d04fd1 100644
+index 2891a22e..096635c2 100644
 --- a/lib/Dialect/Torch/Transforms/AdjustCallingConventions.cpp
 +++ b/lib/Dialect/Torch/Transforms/AdjustCallingConventions.cpp
-@@ -194,9 +194,8 @@ static LogicalResult adjustCallingConventions(func::FuncOp func,
-   TypeConverter typeConverter;
+@@ -195,7 +195,7 @@ static LogicalResult adjustCallingConventions(func::FuncOp func,
    typeConverter.addConversion([](Type type) { return type; });
    typeConverter.addConversion(
--      [](Torch::TupleType type,
--         SmallVectorImpl<Type> &types) -> LogicalResult {
+       [](Torch::TupleType type, SmallVectorImpl<Type> &types) -> LogicalResult {
 -        llvm::append_range(types, type.getContainedTypes());
-+      [](Torch::TupleType type, SmallVectorImpl<Type> &types) -> LogicalResult {
 +        // llvm::append_range(types, type.getContainedTypes());
          return success();
        });

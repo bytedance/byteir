@@ -18,6 +18,7 @@
 #include "torch-frontend/Pipelines/Pipelines.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
+#include "stablehlo/transforms/Passes.h"
 #include "torch-frontend/Conversion/Passes.h"
 #include "torch-frontend/Transforms/Passes.h"
 #include "torch-mlir/Conversion/TorchToArith/TorchToArith.h"
@@ -33,6 +34,8 @@ void mlir::torch_frontend::createTorchToMhloPipeline(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloExt());
   pm.addNestedPass<func::FuncOp>(
       createConvertTorchToStablehloPass(false, false));
+  pm.addNestedPass<func::FuncOp>(
+      stablehlo::createChloLegalizeToStablehloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 
   // Clean up any non-canonical code introduced above..

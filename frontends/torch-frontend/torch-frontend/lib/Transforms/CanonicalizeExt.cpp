@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "torch-frontend/Transforms/CanonicalizeExt.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -61,6 +62,18 @@ LogicalResult foldConstantConvertOp(stablehlo::ConvertOp op,
   return success();
 }
 
+LogicalResult replaceArithConstantOpWithMhlo(arith::ConstantOp op,
+                                             PatternRewriter &rewriter) {
+  if (llvm::isa<ElementsAttr>(op.getValue())) {
+    stablehlo::ConstantOp newConstantOp =
+        rewriter.create<stablehlo::ConstantOp>(
+            op->getLoc(), op.getValue().cast<ElementsAttr>());
+    rewriter.replaceOp(op, newConstantOp.getOutput());
+    return success();
+  }
+  return failure();
+}
+
 namespace {
 
 struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
@@ -85,6 +98,8 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
 
     // Add conditional canonicalizer too
     owningPatterns.add(foldConstantConvertOp);
+    // remove it if torch-to-stablehlo doesn't involve arith dialect
+    owningPatterns.add(replaceArithConstantOpWithMhlo);
 
     patterns = FrozenRewritePatternSet(std::move(owningPatterns),
                                        disabledPatterns, enabledPatterns);

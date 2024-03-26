@@ -212,15 +212,10 @@ struct ConvertAtenMaxPool2dWithIndicesBackwardOp
     stablehloPadding[stablehloPadding.size() - 2] = padding[1];
     stablehloPadding[stablehloPadding.size() - 1] = padding[1];
 
-    DenseIntElementsAttr windowDimensions = DenseIntElementsAttr::get(
-        RankedTensorType::get(
-            {static_cast<int64_t>(stablehloKernelSize.size())},
-            rewriter.getI64Type()),
-        stablehloKernelSize);
-    DenseIntElementsAttr windowStrides = DenseIntElementsAttr::get(
-        RankedTensorType::get({static_cast<int64_t>(stablehloStride.size())},
-                              rewriter.getI64Type()),
-        stablehloStride);
+    DenseI64ArrayAttr windowDimensions =
+        rewriter.getDenseI64ArrayAttr(stablehloKernelSize);
+    DenseI64ArrayAttr windowStrides =
+        rewriter.getDenseI64ArrayAttr(stablehloStride);
     DenseIntElementsAttr pad = DenseIntElementsAttr::get(
         RankedTensorType::get(
             {static_cast<int64_t>(inputRank), static_cast<int64_t>(2)},
@@ -315,7 +310,7 @@ struct ConvertAtenPowScalarOp : public OpConversionPattern<AtenPowScalarOp> {
     if (!lhsType) {
       lhs = hlo::scalarToStablehloTensor(rewriter, op, lhs, outElemTy);
     }
-    DenseIntElementsAttr bcastDimensions;
+    DenseI64ArrayAttr bcastDimensions;
     lhs = hlo::promoteType(rewriter, op.getLoc(), lhs, outType);
     rhs = hlo::promoteType(rewriter, op.getLoc(), rhs, outType);
     auto loc = op.getLoc();
