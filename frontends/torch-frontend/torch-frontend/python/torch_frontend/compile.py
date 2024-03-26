@@ -8,6 +8,7 @@ from torch_mlir.extras.fx_importer import FxImporter
 from torch_frontend import ir
 from torch_frontend.passmanager import PassManager
 from torch_frontend.dialects.builtin import ModuleOp
+from torch_frontend._mlir_libs._stablehlo import serialize_portable_artifact
 
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
@@ -91,22 +92,28 @@ def compile(
 ) -> ModuleOp:
     """
     Args:
+        output_type: str type
+            `raw`
+            `torch`
+            `stablehlo`
+            `stablehlo+0.16.2`(stablehlo version)
         debug: int type, one of
             `0: no debug message`,
             `1: print after failure`,
             `2: print after pass only on change`
     """
-    if output_type not in ["raw", "torch", "stablehlo"]:
+    if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
     if debug not in [0, 1, 2]:
         raise NotImplementedError(f"unsupported debug option {debug}")
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
-    module = torch_mlir.compile(
+    from torch_mlir import torchscript
+    module = torchscript.compile(
         model,
         example_inputs,
-        output_type=torch_mlir.OutputType.RAW,
+        output_type=torchscript.OutputType.RAW,
         use_tracing=False,
         verbose=False,
     )
@@ -126,7 +133,7 @@ def compile(
     if debug:
         module.context.enable_multithreading(False)
 
-    extra_library_file_name = torch_mlir._canon_extra_library(extra_library)
+    extra_library_file_name = torchscript._canon_extra_library(extra_library)
     if verbose:
         cmdline_option_string = (
             "backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name
@@ -178,7 +185,9 @@ def compile(
                 large_elements_limit=10,
             )
         pm.run(module.operation)
-    return module
+    if output_type == "stablehlo":
+        return module
+    return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
 
 
 def compile_dynamo_model(
@@ -208,7 +217,7 @@ def compile_dynamo_model(
     fx_importer = FxImporter(context=torch_mlir_context)
     # for torch.export
     if isinstance(model, torch.export.ExportedProgram):
-        fx_importer.import_frozen_exported_program(model)
+        fx_importer.import_frozen_program(model)
     # for torch.compile
     elif isinstance(model, torch.fx.GraphModule):
         fx_importer.import_graph_module(model)
@@ -290,10 +299,11 @@ def convert_to_mhlo_via_torch_mlir(
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
     # torch_mlir.BACKEND_LEGAL_OPS[torch_mlir.OutputType.TORCH] = backend_legal_ops
-    module = torch_mlir.compile(
+    from torch_mlir import torchscript
+    module = torchscript.compile(
         model,
         example_inputs,
-        output_type=torch_mlir.OutputType.RAW,
+        output_type=torchscript.OutputType.RAW,
         use_tracing=use_tracing,
         verbose=False,
     )
