@@ -20,6 +20,7 @@
 #define BYTEIR_DIALECT_LCCL_LCCL_OPS
 
 include "byteir/Dialect/Lccl/LcclBase.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
 //===----------------------------------------------------------------------===//
 // Lccl Dialect operations.
@@ -59,8 +60,8 @@ def Lccl_BroadcastOp : Lccl_ReplicaGroupsOp<"broadcast"> {
   }];
 
   let arguments = (ins
-    AnyMemRef:$src,
-    Optional<AnyMemRef>:$dynamic_replica_groups,
+    Arg<AnyMemRef, "", [MemWrite, MemRead]>:$src,
+    Arg<Optional<AnyMemRef>, "", [MemRead]>:$dynamic_replica_groups,
     BoolAttr:$synchronous,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
     OptionalAttr<I64Attr>:$unique_id
@@ -76,8 +77,8 @@ def Lccl_SendOp : Lccl_Op<"send"> {
   }];
 
   let arguments = (ins
-    AnyMemRef:$src,
-    Optional<I64>:$dynamic_target_index,
+    Arg<AnyMemRef, "", [MemRead]>:$src,
+    Optional<I64> :$dynamic_target_index,
     BoolAttr:$synchronous,
     OptionalAttr<I64Attr>:$target_index
   );
@@ -92,8 +93,8 @@ def Lccl_RecvOp : Lccl_Op<"recv"> {
   }];
 
   let arguments = (ins
-    AnyMemRef:$src,
-    Optional<I64>:$dynamic_source_index,
+    Arg<AnyMemRef, "", [MemWrite]>:$src,
+    Optional<I64> :$dynamic_source_index,
     BoolAttr:$synchronous,
     OptionalAttr<I64Attr>:$source_index
   );
@@ -115,9 +116,9 @@ def Lccl_AllReduceOp : Lccl_ReplicaGroupsOp<"all_reduce"> {
   }];
 
   let arguments = (ins
-    AnyMemRef:$src,
-    AnyMemRef:$target,
-    Optional<AnyMemRef>:$dynamic_replica_groups,
+    Arg<AnyMemRef, "", [MemRead]>:$src,
+    Arg<AnyMemRef, "", [MemWrite]>:$target,
+    Arg<Optional<AnyMemRef>, "", [MemRead]>:$dynamic_replica_groups,
     BoolAttr:$synchronous,
     StrAttr:$reduction,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
@@ -139,9 +140,9 @@ def Lccl_AllGatherOp : Lccl_ReplicaGroupsOp<"all_gather"> {
   }];
 
   let arguments = (ins
-    AnyMemRef:$src,
-    AnyMemRef:$target,
-    Optional<AnyMemRef>:$dynamic_replica_groups,
+    Arg<AnyMemRef, "", [MemRead]>:$src,
+    Arg<AnyMemRef, "", [MemWrite]>:$target,
+    Arg<Optional<AnyMemRef>, "", [MemRead]>:$dynamic_replica_groups,
     BoolAttr:$synchronous,
     I64Attr:$axis,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
@@ -162,9 +163,9 @@ def Lccl_ReduceScatterOp : Lccl_ReplicaGroupsOp<"reduce_scatter"> {
   }];
 
   let arguments = (ins
-    AnyMemRef:$src,
-    AnyMemRef:$target,
-    Optional<AnyMemRef>:$dynamic_replica_groups,
+    Arg<AnyMemRef, "", [MemRead]>:$src,
+    Arg<AnyMemRef, "", [MemWrite]>:$target,
+    Arg<Optional<AnyMemRef>, "", [MemRead]>:$dynamic_replica_groups,
     BoolAttr:$synchronous,
     StrAttr:$reduction,
     I64Attr:$axis,
