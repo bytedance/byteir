@@ -16,6 +16,8 @@ jobs:
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout
         uses: actions/checkout@v3
+      - name: install format check
+        run: python3 -m pip install /data00/mhlo_libraries/formatCheck-1.0-py3-none-any.whl
       - name: Run clang-format check
         run: ./scripts/clang_format_check.sh
         shell: bash
