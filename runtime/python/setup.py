@@ -36,8 +36,8 @@ version_file = os.path.join(setup_path, "brt", "version.py")
 
 version = get_version_and_generate_version_file(version_txt, version_file)
 
-maintainer = ""
-maintainer_email = ""
+maintainer = "ByteIR Team"
+maintainer_email = "byteir@bytedance.com"
 author = maintainer
 author_email = maintainer_email
 description = "brt python interface"

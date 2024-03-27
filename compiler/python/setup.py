@@ -14,8 +14,8 @@ version_txt = os.path.join(setup_path, "version.txt")
 version_file = os.path.join(setup_path, "byteir", "version.py")
 version = get_byteir_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=False)
 
-maintainer = ""
-maintainer_email = ""
+maintainer = "ByteIR Team"
+maintainer_email = "byteir@bytedance.com"
 author = maintainer
 author_email = maintainer_email
 description = "use byteir python interface"
