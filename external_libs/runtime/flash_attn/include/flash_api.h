@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cuda_runtime.h>
-#include "cutlass/numeric_types.h"
 #include "cutlass/half.h"
+#include "cutlass/numeric_types.h"
+#include <cuda_runtime.h>
 #include <cutlass/cutlass.h>
 
 void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
@@ -72,17 +72,11 @@ void run_mha_fwd_with_kvcache(
 
     int window_size_left, int window_size_right, cudaStream_t stream);
 
-#ifdef __cplusplus
 extern "C" {
-#endif
-void run_flash_attn_fwd(void **tensors, void *extra_args,
-                                   cudaStream_t stream);
+void run_flash_attn_fwd(void **tensors, void *extra_args, cudaStream_t stream);
 
-void run_flash_attn_bwd(void **tensors, void *extra_args,
-                                   cudaStream_t stream);
+void run_flash_attn_bwd(void **tensors, void *extra_args, cudaStream_t stream);
 
 void run_flash_attn_kvcache(void **tensors, void *extra_args,
-                                       cudaStream_t stream);
-#ifdef __cplusplus
+                            cudaStream_t stream);
 }
-#endif

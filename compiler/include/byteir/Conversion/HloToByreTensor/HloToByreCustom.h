@@ -34,6 +34,7 @@ class Operation;
 
 struct ByreCustomConfig {
   std::function<llvm::StringRef(llvm::StringRef)> getCustomLibPath;
+  std::function<llvm::StringRef(llvm::StringRef)> getCustomLibVersion;
   std::function<llvm::StringRef(llvm::StringRef)> getApiName;
   std::function<ArrayAttr(mhlo::CustomCallOp)> getExtraArgs;
 };

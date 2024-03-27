@@ -4,6 +4,10 @@
 #include <iostream>
 #include <algorithm>
 
+extern "C" {
+const char *VERSION = "2.5.3";
+}
+
 // for debug
 void print_Qkv_params(Qkv_params &params) {
   std::cout << "q_batch_stride: " << params.q_batch_stride << std::endl;
