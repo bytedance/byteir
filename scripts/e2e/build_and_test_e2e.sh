@@ -9,7 +9,7 @@ ROOT_PROJ_DIR="$CUR_DIR/../.."
 
 pushd $ROOT_PROJ_DIR
 # build compiler
-bash scripts/compiler/build_and_lit_test.sh
+bash scripts/compiler/build_and_test.sh
 # build runtime
 bash scripts/runtime/build_and_test.sh --cuda --python --no-test
 # build torch_frontend

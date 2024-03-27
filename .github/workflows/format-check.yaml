@@ -5,11 +5,19 @@ on: [pull_request, workflow_dispatch]
 jobs:
   clang-format-check:
     runs-on: self-hosted
+    container:
+      image: localhost:5000/byteir-ci
+      volumes:
+        - /data00/llvm_libraries:/data00/llvm_libraries
+        - /data00/mhlo_libraries:/data00/mhlo_libraries
+      options: --runtime=nvidia --gpus all
     steps:
       - name: Clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
       - name: Checkout
         uses: actions/checkout@v3
+      - name: install format check
+        run: python3 -m pip install /data00/mhlo_libraries/formatCheck-1.0-py3-none-any.whl
       - name: Run clang-format check
         run: ./scripts/clang_format_check.sh
         shell: bash
