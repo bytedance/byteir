@@ -1,4 +1,4 @@
-//===- recv.cc ------------------------------------------------*--- C++ -*-===//
+//===- all_gather.cc ------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "./recv.h"
+#include "./all_gather.h"
 #include "brt/backends/cuda/device/common/util.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #include "brt/backends/nccl/device/d_context_nccl.h"
@@ -41,28 +41,29 @@ using namespace mlir;
 namespace brt {
 namespace cuda {
 
-// TODO: refine code and support various dtypes
-common::Status Recv::RunImpl(const ExecutionContext &ctx) {
+common::Status AllGather::RunImpl(const ExecutionContext &ctx) {
   DistributedBackend *backend = ctx.distributed_backend;
   assert(backend != nullptr);
   DistributedBackendNCCL *nccl_backend =
       static_cast<DistributedBackendNCCL *>(backend);
 
   OpAccessor accessor(info_, ctx.exec_frame);
-  const auto src_shape = accessor.GetArgShape(0);
-  auto elem_num = std::accumulate(src_shape.begin(), src_shape.end(), 1,
+  const auto target_shape = accessor.GetArgShape(1);
+  auto elem_num = std::accumulate(target_shape.begin(), target_shape.end(), 1,
                                   std::multiplies<int64_t>());
   void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
-  int64_t rank = accessor.GetAttrAsInt("rank");
-
+  void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
+  auto replica_group = accessor.GetAttrAsIntArray("replica_group");
+  std::set<int64_t> replica_group_set(replica_group.begin(),
+                                      replica_group.end());
   cudaStream_t stream =
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
-  auto memrefType =
+  auto memref_type =
       info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
-  nccl_backend->recv(src, elem_num,
-                     ConvertMLIRTypeToDType(memrefType.getElementType()), rank,
-                     d_context);
+  nccl_backend->all_gather(src, target, elem_num / nccl_backend->nranks(),
+                           ConvertMLIRTypeToDType(memref_type.getElementType()),
+                           replica_group_set, d_context);
   return Status::OK();
 }
 } // namespace cuda
