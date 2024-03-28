@@ -27,6 +27,7 @@ include "byteir/Dialect/Byre/ByreBase.td"
 include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/DataLayoutInterfaces.td"
+include "mlir/Interfaces/DestinationStyleOpInterface.td"
 include "mlir/Interfaces/CopyOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
@@ -38,6 +39,54 @@ include "mlir/Interfaces/ViewLikeInterface.td"
 // Base class
 class Byre_Op<string mnemonic, list<Trait> traits = []> :
     Op<Byre_Dialect, mnemonic, traits>;
+
+def Byre_ComputeTensorOp : Byre_Op<"compute_tensor",
+    [HasParent<"func::FuncOp">, ByreInterface, MemRefsNormalizable, AttrSizedOperandSegments,
+     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>, DestinationStyleOpInterface]> {
+  let summary = "compute operation with DestinationStyle in tensor level";
+  let description = [{
+    Example:
+    ```mlir
+    %0 = tensor.empty() : tensor<2x4xf32>
+    %1 = byre.compute @MatmulOp
+    {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64}
+    ins(%arg0, %arg1 : tensor<2x10xf32>, tensor<10x4xf32>)
+    outs(%0 : tensor<2x4xf32>) : tensor<2x4xf32>
+    ```
+  }];
+
+  let arguments = (ins
+    FlatSymbolRefAttr:$callee,
+    Variadic<AnyType>:$inputs,
+    Variadic<AnyType>:$outputs,
+    OptionalAttr<ArrayAttr>:$memory_effects
+  );
+
+  let results = (outs
+    Variadic<AnyType>:$results
+  );
+
+  let builders = [
+     OpBuilder<(ins "TypeRange":$resultType,
+                    "StringRef":$callee,
+                    "ValueRange":$inputs,
+                    "ValueRange":$outputs)>,
+  ];
+
+  let extraClassDeclaration = [{
+    MutableOperandRange getDpsInitsMutable() { return getOutputsMutable(); }
+  }];
+
+  let assemblyFormat = [{
+    $callee
+    attr-dict
+    (`ins` `(` $inputs^ `:` type($inputs) `)`)?
+    (`outs` `(` $outputs^ `:` type($outputs) `)`)?
+    (`:` type($results)^)?
+  }];
+
+  let hasVerifier = 1;
+}
 
 def Byre_ComputeOp : Byre_Op<"compute",
     [HasParent<"func::FuncOp">, ByreInterface, MemRefsNormalizable,

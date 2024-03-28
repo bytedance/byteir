@@ -19,6 +19,7 @@
 
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
+#include "byteir/Utils/ShapeUtils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -35,46 +36,6 @@ using namespace mlir;
 using namespace llvm;
 
 namespace {
-
-LogicalResult reifyShapes(OpBuilder &builder, Operation *op,
-                          SmallVectorImpl<Value> &reifications) {
-  if (!op)
-    return failure();
-
-  if (op->hasTrait<hlo::OpTrait::CompatibleOperandsAndResultType>()) {
-    // CompatibleOperandsAndResultType does not implement reify
-    reifications.push_back(
-        builder.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0)));
-    return success();
-  }
-
-  // TODO: support nested function call
-  if (auto origin = dyn_cast<InferShapedTypeOpInterface>(op)) {
-    if (failed(origin.reifyReturnTypeShapes(builder, origin->getOperands(),
-                                            reifications))) {
-      return failure();
-    }
-  } else if (auto reifyFunc =
-                 reifyReturnTypeShapes(op->getName().getStringRef())) {
-    if (failed(reifyFunc(op, builder, op->getOperands(), reifications))) {
-      return failure();
-    }
-  } else if (auto customCall = dyn_cast<mhlo::CustomCallOp>(op)) {
-    auto inferFunc = reifyReturnTypeShapes(customCall.getCallTargetName());
-    if (!inferFunc) {
-      return failure();
-    }
-    if (failed(inferFunc(op, builder, op->getOperands(), reifications)))
-      return failure();
-  } else {
-    // Return failure if op doesn't have InferShapedTypeOpInterface and not
-    // registered.
-    return failure();
-  }
-
-  return success();
-}
-
 struct ShapeReificationOnTensorDimPattern
     : public OpRewritePattern<tensor::DimOp> {
   explicit ShapeReificationOnTensorDimPattern(MLIRContext *ctx)
