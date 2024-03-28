@@ -1,17 +1,10 @@
-#include "flash.h"
+#pragma once
+
 #include <cuda_runtime.h>
+#include "cutlass/numeric_types.h"
+#include "cutlass/half.h"
+#include <cutlass/cutlass.h>
 
-#if defined(_WIN32)
-
-#ifndef EXPORT_API
-#define EXPORT_API __declspec(dllexport)
-#else
-#define EXPORT_API __attribute__((visibility("default")))
-#endif
-
-void print_Qkv_params(Qkv_params &params);
-void print_Flash_fwd_params(Flash_fwd_params &params);
-void print_Flash_bwd_params(Flash_bwd_params &params);
 void run_mha(void *q_ptr, void *k_ptr, void *v_ptr, void *o_ptr,
              void *softmax_lse_ptr, void *softmax_ptr, void *rng_state_ptr,
 
@@ -82,13 +75,13 @@ void run_mha_fwd_with_kvcache(
 #ifdef __cplusplus
 extern "C" {
 #endif
-EXPORT_API void run_flash_attn_fwd(void **tensors, void *extra_args,
+void run_flash_attn_fwd(void **tensors, void *extra_args,
                                    cudaStream_t stream);
 
-EXPORT_API void run_flash_attn_bwd(void **tensors, void *extra_args,
+void run_flash_attn_bwd(void **tensors, void *extra_args,
                                    cudaStream_t stream);
 
-EXPORT_API void run_flash_attn_kvcache(void **tensors, void *extra_args,
+void run_flash_attn_kvcache(void **tensors, void *extra_args,
                                        cudaStream_t stream);
 #ifdef __cplusplus
 }

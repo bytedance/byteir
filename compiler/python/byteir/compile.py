@@ -78,7 +78,7 @@ def compile_cuda(
             PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx file
-    byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name)
 
     # create host mlir
     with context:
@@ -183,7 +183,7 @@ def compile_cuda_with_ait(
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx
     assert detect_cuda_with_nvidia_smi() != None
-    byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name, detect_cuda_with_nvidia_smi())
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, detect_cuda_with_nvidia_smi())
 
     with context:
         PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)

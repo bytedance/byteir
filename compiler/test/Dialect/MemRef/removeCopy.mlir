@@ -564,3 +564,38 @@ module attributes {byre.container_module} {
 // CHECK:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2x1x1001xf16, "gpu"> to memref<2x1x1001xf16, "gpuhost">
 // CHECK:           return
 // CHECK:         }
+
+// -----
+
+func.func @src_alloc_shape_transform_3(%arg0: memref<2x1x1001xf16>, %arg1: memref<2x1001xf32>) {
+  %c1 = arith.constant 1 : index
+  %c2002 = arith.constant 2002 : index
+  %c0 = arith.constant 0 : index
+  %alloc = memref.alloc() : memref<2x1x1001xf32>
+  %collapse_shape = memref.collapse_shape %arg0 [[0, 1, 2]] : memref<2x1x1001xf16> into memref<2002xf16>
+  %collapse_shape_0 = memref.collapse_shape %alloc [[0, 1, 2]] : memref<2x1x1001xf32> into memref<2002xf32>
+  scf.for %arg2 = %c0 to %c2002 step %c1 {
+    %0 = memref.load %collapse_shape[%arg2] : memref<2002xf16>
+    %1 = arith.extf %0 : f16 to f32
+    memref.store %1, %collapse_shape_0[%arg2] : memref<2002xf32>
+  }
+  %collapse_shape_1 = memref.collapse_shape %alloc [[0], [1, 2]] : memref<2x1x1001xf32> into memref<2x1001xf32>
+  memref.copy %collapse_shape_1, %arg1 : memref<2x1001xf32> to memref<2x1001xf32>
+  return
+}
+
+// CHECK-LABEL:   func.func @src_alloc_shape_transform_3(
+// CHECK-SAME:      %[[VAL_0:.*]]: memref<2x1x1001xf16>,
+// CHECK-SAME:      %[[VAL_1:.*]]: memref<2x1001xf32>) {
+// CHECK:           %[[VAL_2:.*]] = arith.constant 1 : index
+// CHECK:           %[[VAL_3:.*]] = arith.constant 2002 : index
+// CHECK:           %[[VAL_4:.*]] = arith.constant 0 : index
+// CHECK:           %[[VAL_5:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2]] : memref<2x1x1001xf16> into memref<2002xf16>
+// CHECK:           %[[VAL_6:.*]] = memref.collapse_shape %[[VAL_1]] {{\[\[}}0, 1]] : memref<2x1001xf32> into memref<2002xf32>
+// CHECK:           scf.for %[[VAL_7:.*]] = %[[VAL_4]] to %[[VAL_3]] step %[[VAL_2]] {
+// CHECK:             %[[VAL_8:.*]] = memref.load %[[VAL_5]]{{\[}}%[[VAL_7]]] : memref<2002xf16>
+// CHECK:             %[[VAL_9:.*]] = arith.extf %[[VAL_8]] : f16 to f32
+// CHECK:             memref.store %[[VAL_9]], %[[VAL_6]]{{\[}}%[[VAL_7]]] : memref<2002xf32>
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }

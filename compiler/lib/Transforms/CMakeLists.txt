@@ -36,6 +36,7 @@ add_mlir_library(ByteIRTransforms
   ByteIRTensorPasses
   ByteIRVectorPasses
   ByteIRUtils
+  ByteIRCclPasses
   MLIRIR
   MLIRAffineDialect
   MLIRMemRefDialect

@@ -1,5 +1,6 @@
 add_mlir_dialect_library(ByteIRCclPasses
   CclMoveDown.cpp
+  CclBufferizeOpInterfaceImpl.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/Ccl
@@ -9,6 +10,7 @@ add_mlir_dialect_library(ByteIRCclPasses
   ByteIRCclPassIncGen
 
   LINK_LIBS PUBLIC
+  MLIRLcclDialect
   MLIRIR
   MhloDialect
   MLIRSupport

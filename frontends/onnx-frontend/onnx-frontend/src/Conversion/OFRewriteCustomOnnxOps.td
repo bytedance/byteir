@@ -29,13 +29,13 @@ def IsDequantize: Constraint<CPred<"$0.str() == \"dequantize\"">, "is a dequanti
 def RewriteQuantize : Pat<
   (ONNXCustomOp:$value $inputs, $function_name, $_, $_, $_),
   (NativeCodeCall<"createQuantizeDequantize($_builder, $_loc, $0, $1, $2)"> $inputs, $function_name, $value),
-  [(IsQuantize $function_name)]
+  [(IsQuantize $function_name)], [], (addBenefit 5)
 >;
 
 def RewriteDequantize : Pat<
   (ONNXCustomOp:$value $inputs, $function_name, $_, $_, $_),
   (NativeCodeCall<"createQuantizeDequantize($_builder, $_loc, $0, $1, $2)"> $inputs, $function_name, $value),
-  [(IsDequantize $function_name)]
+  [(IsDequantize $function_name)], [], (addBenefit 5)
 >;
 
 #endif // ONNX_FRONTEND_SRC_CONVERSION_OF_CUSTOM_ONNX_OPS_TD

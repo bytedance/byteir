@@ -3,6 +3,21 @@
 set -e
 set -x
 
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --disable-jit-ir)
+      TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER=ON
+      shift
+      ;;
+    *)
+      echo "Invalid option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER:-OFF}
+
 # path to script
 CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # path to byteir root
@@ -11,8 +26,7 @@ ROOT_PROJ_DIR="$CUR_DIR/../../.."
 PROJ_DIR="$ROOT_PROJ_DIR/frontends/torch-frontend"
 
 source $CUR_DIR/envsetup.sh
-prepare_for_build
-load_pytorch_llvm_prebuilt
+prepare_for_build_with_prebuilt
 
 pushd $PROJ_DIR
 cmake -S . \
@@ -23,10 +37,12 @@ cmake -S . \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=gcc \
       -DCMAKE_CXX_COMPILER=g++ \
+      -DTORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER} \
+      -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable" \
       -DPython3_EXECUTABLE=$(which python3)
 
 cmake --build ./build --target all
 
-PYTHONPATH=./build/python_packages/ python3 -m pytest torch-frontend/python/test
+PYTHONPATH=build/python_packages/:build/torch_mlir_build/python_packages/torch_mlir python3 -m pytest torch-frontend/python/test
 
 popd

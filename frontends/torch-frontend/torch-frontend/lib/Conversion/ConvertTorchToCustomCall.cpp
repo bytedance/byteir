@@ -33,6 +33,8 @@
 
 #include "./PassDetail.h"
 
+#include <unordered_set>
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -109,8 +111,17 @@ stablehlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter,
   auto inputType = input.getType().cast<RankedTensorType>();
   stablehlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
       rewriter, loc, inputType.getElementType());
+
+  std::unordered_set<int64_t> dimsSet(dims.begin(), dims.end());
+  SmallVector<int64_t> outputShape;
+  for (int64_t i = 0; i < inputType.getRank(); i++) {
+    if (dimsSet.find(i) == dimsSet.end()) {
+      outputShape.push_back(inputType.getDimSize(i));
+    }
+  }
   stablehlo::ReduceOp reduceOp = rewriter.create<stablehlo::ReduceOp>(
-      loc, input, initValue.getOutput(), rewriter.getI64TensorAttr(dims));
+      loc, RankedTensorType::get(outputShape, inputType.getElementType()),
+      input, initValue.getOutput(), rewriter.getDenseI64ArrayAttr(dims));
 
   Block &block = reduceOp.getBody().emplaceBlock();
   auto blockArgumentTy = RankedTensorType::get({}, inputType.getElementType());
@@ -329,13 +340,13 @@ public:
     // group_norm weight/bias
     if (!weight.getType().template isa<Torch::NoneType>()) {
       Value bcastWeight = rewriter.create<stablehlo::BroadcastInDimOp>(
-          op->getLoc(), outType, weight, rewriter.getI64TensorAttr({1}));
+          op->getLoc(), outType, weight, rewriter.getDenseI64ArrayAttr({1}));
       result =
           rewriter.create<stablehlo::MulOp>(op->getLoc(), result, bcastWeight);
     }
     if (!bias.getType().template isa<Torch::NoneType>()) {
       Value bcastBias = rewriter.create<stablehlo::BroadcastInDimOp>(
-          op->getLoc(), outType, bias, rewriter.getI64TensorAttr({1}));
+          op->getLoc(), outType, bias, rewriter.getDenseI64ArrayAttr({1}));
       result =
           rewriter.create<stablehlo::AddOp>(op->getLoc(), result, bcastBias);
     }

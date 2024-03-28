@@ -21,6 +21,9 @@
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Transforms/BufferizableOpInterfaceImpl.h"
 #include "byteir/Dialect/Cat/IR/CatDialect.h"
+#include "byteir/Dialect/Ccl/IR/CclOps.h"
+#include "byteir/Dialect/Ccl/Transforms/CclBufferizeOpInterfaceImpl.h"
+#include "byteir/Dialect/Lccl/LcclOps.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
 #include "byteir/Utils/OpInterfaceUtils.h"
@@ -77,11 +80,13 @@ namespace {
 struct OneShotBufferizePass
     : public impl::OneShotBufferizeBase<OneShotBufferizePass> {
   void getDependentDialects(DialectRegistry &registry) const override {
+    // clang-format off
     registry.insert<ace::AceDialect, bufferization::BufferizationDialect,
                     byre::ByreDialect, linalg::LinalgDialect,
                     linalg_ext::LinalgExtDialect, memref::MemRefDialect,
                     mhlo::MhloDialect, scf::SCFDialect, shape::ShapeDialect,
-                    vector::VectorDialect>();
+                    vector::VectorDialect, ccl::CclDialect, lccl::LcclDialect>();
+    // clang-format on
     byre::registerBufferizableOpInterfaceExternalModels(registry);
     arith::registerBufferizableOpInterfaceExternalModels(registry);
     bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
@@ -93,6 +98,7 @@ struct OneShotBufferizePass
     shape::registerBufferizableOpInterfaceExternalModels(registry);
     tensor::registerBufferizableOpInterfaceExternalModels(registry);
     vector::registerBufferizableOpInterfaceExternalModels(registry);
+    ccl::registerBufferizableOpInterfaceExternalModels(registry);
   }
 
   static bool isGPUSharedMem(MemRefType type) {
