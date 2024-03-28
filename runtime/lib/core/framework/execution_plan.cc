@@ -311,6 +311,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
   if (!status_internal.IsOK())
     return status_internal;
 
+  std::unordered_map<Operation *, int> op_to_id_map;
   // create op kernel, generate tensor id and mapping IR value to it
   graph_.IterateNode([&](Operation *op) {
     if (auto byre_op = dyn_cast<byre::ByreOp>(op)) {
@@ -385,11 +386,23 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
           frame_construct_info_.dependency_graph[op] = {};
         }
         // creat an OpKerenl based on the hitting provider
+        int op_id = op_kernels_.size();
+        op_to_id_map[op] = op_id;
+        std::vector<int> dependency_list;
+        for (Operation *dep_op : frame_construct_info_.dependency_graph[op]) {
+          if (op_to_id_map.find(dep_op) != op_to_id_map.end()) {
+            dependency_list.push_back(op_to_id_map[dep_op]);
+          } else {
+            status_internal = Status(BRT, FAIL, " op_to_id_map op not found ");
+            return WalkResult::interrupt();
+          }
+        }
+
         OpKernelInfo op_kernel_info(
-            *provider, graph_, op, allocators, last_alloc,
+            *provider, graph_, op, op_id, allocators, last_alloc,
             graph_info_.tensor_to_id, graph_info_.scalar_to_id,
             frame_construct_info_.weights, intermediate_begin,
-            graph_.GetIRPath(), frame_construct_info_.dependency_graph[op]);
+            graph_.GetIRPath(), dependency_list);
 
         auto op_ptr = (*registry)(key, op_kernel_info);
 

@@ -54,22 +54,21 @@ class OpKernelInfo {
 public:
   OpKernelInfo(
       const ExecutionProvider &provider, const ir::IRHandle &handle,
-      mlir::Operation *op,
+      mlir::Operation *op, int op_id,
       const std::unordered_map<std::string, std::unique_ptr<IAllocator>> &alloc,
       IAllocator *last_allc,
       const std::unordered_map<void *, size_t> &tensor_to_idx,
       const std::unordered_map<void *, size_t> &scalar_to_idx,
       const std::vector<AsyncValue> &weights, size_t intermediate_begin,
-      const std::string &ir_path,
-      const std::vector<mlir::Operation *> &dependency)
-      : provider_(provider), handle_(handle), op_(op), allocators_(alloc),
-        last_allocator_(last_allc), tensor_to_idx_(tensor_to_idx),
-        scalar_to_idx_(scalar_to_idx), weights_(weights),
-        intermediate_begin_(intermediate_begin), ir_path_(ir_path),
-        dependency_(dependency) {}
+      const std::string &ir_path, const std::vector<int> &dependency)
+      : provider_(provider), handle_(handle), op_(op), op_id_(op_id),
+        allocators_(alloc), last_allocator_(last_allc),
+        tensor_to_idx_(tensor_to_idx), scalar_to_idx_(scalar_to_idx),
+        weights_(weights), intermediate_begin_(intermediate_begin),
+        ir_path_(ir_path), dependency_(dependency) {}
 
   OpKernelInfo(const OpKernelInfo &other)
-      : OpKernelInfo(other.provider_, other.handle_, other.op_,
+      : OpKernelInfo(other.provider_, other.handle_, other.op_, other.op_id_,
                      other.allocators_, other.last_allocator_,
                      other.tensor_to_idx_, other.scalar_to_idx_, other.weights_,
                      other.intermediate_begin_, other.ir_path_,
@@ -81,6 +80,8 @@ public:
 
   mlir::Operation *GetOperation() const { return op_; }
 
+  int GetOpId() const { return op_id_; }
+
   const std::unordered_map<void *, size_t> &GetTensorToIndex() const {
     return tensor_to_idx_;
   }
@@ -91,9 +92,7 @@ public:
 
   const std::vector<AsyncValue> &GetWeights() const { return weights_; }
 
-  const std::vector<mlir::Operation *> &GetDependency() const {
-    return dependency_;
-  }
+  const std::vector<int> &GetDependency() const { return dependency_; }
 
   // const BrtMemoryInfo& GetMemoryInfo(int device_id, BrtMemType mem_type)
   // const;
@@ -119,6 +118,7 @@ private:
   const brt::ir::IRHandle &handle_;
 
   mlir::Operation *op_;
+  int op_id_;
 
   const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
       &allocators_;
@@ -134,7 +134,7 @@ private:
 
   const std::string &ir_path_;
 
-  const std::vector<mlir::Operation *> &dependency_;
+  const std::vector<int> &dependency_;
 
   OpKernelInfo(OpKernelInfo &&) = delete;
   OpKernelInfo &operator=(OpKernelInfo &&) = delete;

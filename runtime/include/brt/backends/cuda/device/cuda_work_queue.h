@@ -37,7 +37,6 @@ enum CUDATaskType : int {
   kWaitEvent = 4,
   kComputeDrv = 5,
   kD2D = 6,
-  kHost = 7,
 };
 
 /**
@@ -57,18 +56,18 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  virtual common::Status AddTask(int task_type, const void *func,
-                                 void **args) override;
-
-  virtual common::Status AddEventWait(mlir::Operation *,
-                                      std::vector<mlir::Operation *>) override;
+  virtual common::Status AddTask(int task_type, const void *func, void **args,
+                                 int op_id,
+                                 const std::vector<int> &dependency) override;
   // Barrier
   virtual common::Status Sync() override;
 
   virtual CUstream_st *GetComputeStream() { return nullptr; }
 
-  common::Status AddHostTask(std::function<void(void)> &&task) override {
-    task();
+  common::Status AddHostTask(const void *task, void **args, int op_id,
+                             const std::vector<int> &dependency) override {
+    auto func = reinterpret_cast<const std::function<void(void)> *>(task);
+    (*func)();
     return common::Status::OK();
   }
 
@@ -94,10 +93,10 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  common::Status AddTask(int task_type, const void *func, void **args) override;
+  common::Status AddTask(int task_type, const void *func, void **args,
+                         int op_id,
+                         const std::vector<int> &dependency) override;
 
-  common::Status AddEventWait(mlir::Operation *,
-                              std::vector<mlir::Operation *>) override;
   // Barrier
   common::Status Sync() override;
 
@@ -126,15 +125,17 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  common::Status AddTask(int task_type, const void *func, void **args) override;
+  common::Status AddTask(int task_type, const void *func, void **args,
+                         int op_id,
+                         const std::vector<int> &dependency) override;
+
+  common::Status AddHostTask(const void *task, void **args, int op_id,
+                             const std::vector<int> &dependency) override;
 
   // Barrier
   common::Status Sync() override;
 
-  size_t GetStreamIdx(mlir::Operation *op);
-
-  common::Status AddEventWait(mlir::Operation *,
-                              std::vector<mlir::Operation *>) override;
+  common::Status AddEventWait(int, std::vector<int>);
 
   CUstream_st *GetComputeStream() override { return streams_[0]; }
   CUstream_st *GetH2DStream() { return streams_[1]; }
@@ -169,7 +170,9 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  common::Status AddTask(int task_type, const void *func, void **args) override;
+  common::Status AddTask(int task_type, const void *func, void **args,
+                         int op_id,
+                         const std::vector<int> &dependency) override;
 
   // Barrier
   common::Status Sync() override;

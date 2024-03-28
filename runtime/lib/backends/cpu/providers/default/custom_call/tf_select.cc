@@ -71,7 +71,7 @@ common::Status TFSelect::RunImpl(const ExecutionContext &ctx) {
                *ss1 = reinterpret_cast<StringView *>(src1),
                *ds = reinterpret_cast<StringView *>(dest);
     auto length = accessor.GetNumElementsOfShape(arg1_shape);
-    DispatchHostTask(ctx.work_queue, {
+    DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), {
       (TFSelectImpl(cond_shape, arg1_shape, length, cond, ss0, ss1, ds));
     });
     return common::Status::OK();

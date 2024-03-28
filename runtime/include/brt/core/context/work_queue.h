@@ -61,15 +61,13 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  virtual common::Status AddTask(int task_type, const void *func,
-                                 void **args) = 0;
+  virtual common::Status AddTask(int task_type, const void *func, void **args,
+                                 int op_id,
+                                 const std::vector<int> &dependency) = 0;
 
   // Enqueue a task on host side
-  virtual common::Status AddHostTask(std::function<void(void)> &&task) = 0;
-
-  // Add wait event if any
-  virtual common::Status AddEventWait(mlir::Operation *,
-                                      std::vector<mlir::Operation *>) = 0;
+  virtual common::Status AddHostTask(const void *task, void **args, int op_id,
+                                     const std::vector<int> &dependency) = 0;
 
   // Enqueue through a functor
   // Note, the functor is called immediately.
@@ -81,6 +79,9 @@ public:
   // Barrier
   virtual common::Status Sync() = 0;
 
+protected:
+  std::unordered_map<int, int> id_to_stream_map_;
+
 private:
   const std::string name_;
   WorkQueue(const WorkQueue &) = delete;
@@ -89,9 +90,10 @@ private:
 
 } // namespace brt
 
-#define DispatchHostTask(wq, stmt)                                             \
+#define DispatchHostTask(wq, op_id, dependency, stmt)                          \
   if (wq) {                                                                    \
-    wq->AddHostTask([=] { stmt });                                             \
+    std::function<void(void)> func = [=]() { stmt };                           \
+    wq->AddHostTask(&func, nullptr, op_id, dependency);                        \
   } else {                                                                     \
     do {                                                                       \
       stmt                                                                     \

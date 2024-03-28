@@ -93,7 +93,7 @@ common::Status LLVMJITOpKernel::RunImpl(const ExecutionContext &ctx) {
   } else {
     BRT_ENFORCE(jit->LookupPacked(symbol_name, &symbol).IsOK());
   }
-  DispatchHostTask(ctx.work_queue, {
+  DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), {
     std::vector<void *> args;
     args.reserve(nr_args);
     for (size_t i = 0; i < nr_args; ++i) {

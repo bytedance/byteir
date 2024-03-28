@@ -65,10 +65,10 @@ TEST(CUDAWorkQueueTest, CUDAWorkQueue) {
   cudaDeviceSynchronize();
 
   void *args1[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args1);
+  wq.AddTask(0, (void *)test_kernel, args1, 0, {});
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args2);
+  wq.AddTask(0, (void *)test_kernel, args2, 0, {});
 
   wq.Sync();
 
@@ -112,13 +112,13 @@ TEST(CUDAWorkQueueTest, CUDASingleStreamWorkQueue) {
   cudaDeviceSynchronize();
 
   void *args0[] = {&arr1, &host1, &count};
-  wq.AddTask(1 /*h2d*/, nullptr, args0);
+  wq.AddTask(1 /*h2d*/, nullptr, args0, 0, {});
 
   void *args1[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args1);
+  wq.AddTask(0, (void *)test_kernel, args1, 0, {});
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args2);
+  wq.AddTask(0, (void *)test_kernel, args2, 0, {});
 
   wq.Sync();
 
@@ -161,21 +161,21 @@ TEST(CUDAWorkQueueTest, CUDAMultiStreamWorkQueue) {
   cudaDeviceSynchronize();
 
   void *args0[] = {&arr1, &host1, &count};
-  wq.AddTask(1 /*H2D*/, nullptr, args0);
+  wq.AddTask(1 /*H2D*/, nullptr, args0, 0, {});
 
   size_t streamId1 = 1;
   void *args1[] = {&streamId1, nullptr /*placeholder for event*/};
-  wq.AddTask(3 /*RecordEvent*/, nullptr, args1);
+  wq.AddTask(3 /*RecordEvent*/, nullptr, args1, 0, {});
 
   size_t streamId2 = 0;
   void *args2[] = {&streamId2, args1[1]};
-  wq.AddTask(4 /*WaitEvent*/, nullptr, args2);
+  wq.AddTask(4 /*WaitEvent*/, nullptr, args2, 0, {});
 
   void *args3[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args3);
+  wq.AddTask(0, (void *)test_kernel, args3, 0, {});
 
   void *args4[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args4);
+  wq.AddTask(0, (void *)test_kernel, args4, 0, {});
 
   wq.Sync();
 
@@ -225,7 +225,7 @@ TEST(CUDAWorkQueueTest, CUDAExternalStreamWorkQueue) {
                    stream_external);
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args2);
+  wq.AddTask(0, (void *)test_kernel, args2, 0, {});
 
   wq.Sync();
 
@@ -285,32 +285,16 @@ TEST(CUDAWorkQueueTest, CUDAMultiStreamWithHostWorkQueue) {
 
   HostArgs *host_args = new HostArgs((void *)host1, count);
   void *host_args_ptr = reinterpret_cast<void *>(host_args);
-  wq.AddTask(7 /*Host*/, (void *)host_memset, &host_args_ptr);
-
-  size_t streamIdHost = 3;
-  void *host_record_args[] = {&streamIdHost, nullptr /*placeholder for event*/};
-  wq.AddTask(3 /*RecordEvent*/, nullptr, host_record_args);
-
-  size_t streamId0 = 1;
-  void *host_wait_args[] = {&streamId0, host_record_args[1]};
-  wq.AddTask(4 /*WaitEvent*/, nullptr, host_wait_args);
+  wq.AddHostTask((void *)host_memset, &host_args_ptr, 0, {});
 
   void *args0[] = {&arr1, &host1, &count};
-  wq.AddTask(1 /*H2D*/, nullptr, args0);
-
-  size_t streamId1 = 1;
-  void *args1[] = {&streamId1, nullptr /*placeholder for event*/};
-  wq.AddTask(3 /*RecordEvent*/, nullptr, args1);
-
-  size_t streamId2 = 0;
-  void *args2[] = {&streamId2, args1[1]};
-  wq.AddTask(4 /*WaitEvent*/, nullptr, args2);
+  wq.AddTask(1 /*H2D*/, nullptr, args0, 1, {0}); // depend on Host
 
   void *args3[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args3);
+  wq.AddTask(0, (void *)test_kernel, args3, 2, {1}); // depend on H2D
 
   void *args4[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args4);
+  wq.AddTask(0, (void *)test_kernel, args4, 3, {2});
 
   wq.Sync();
 
@@ -355,11 +339,11 @@ void check_work_queue_multi_gpus(
     dim3 block(bx, 1, 1);
     void *args1[] = {&grid,    &block, &shared_size, &arr1[i],
                      &arr2[i], &n,     &val1};
-    wq->AddTask(0, (void *)test_kernel, args1);
+    wq->AddTask(0, (void *)test_kernel, args1, 0, {});
 
     void *args2[] = {&grid,    &block, &shared_size, &arr2[i],
                      &arr3[i], &n,     &val2};
-    wq->AddTask(0, (void *)test_kernel, args2);
+    wq->AddTask(0, (void *)test_kernel, args2, 0, {});
 
     wq->Sync();
 

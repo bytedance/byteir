@@ -270,8 +270,8 @@ static void FindTopKElements(const Tdata *input_data, const Shape &input_shape,
 }
 
 template <typename Tdata, typename Tidx>
-void TopKImpl(const OpAccessor &accessor, WorkQueue *work_queue,
-              int brt_omp_num_threads) {
+void TopKImpl(const OpAccessor &accessor, WorkQueue *work_queue, int op_id,
+              const std::vector<int> &dependency, int brt_omp_num_threads) {
   const auto &shape = accessor.GetArgShape(0);
   const int64_t num_elements = accessor.GetNumElementsOfShape(shape);
   // get input data
@@ -298,7 +298,7 @@ void TopKImpl(const OpAccessor &accessor, WorkQueue *work_queue,
   BRT_ENFORCE(output_values_size == output_size);
   const auto &output_shape = accessor.GetArgShape(1);
   // TODO: add support for thread pool
-  DispatchHostTask(work_queue, {
+  DispatchHostTask(work_queue, op_id, dependency, {
     (FindTopKElements<Tdata, Tidx, GreaterValueCmp<Tdata, Tidx>>(
         data, shape, values, indices, output_shape, k, sort_top_k, axis_value,
         brt_omp_num_threads));
@@ -316,8 +316,9 @@ common::Status TopK::RunImpl(const ExecutionContext &ctx) {
 #define HANDLE_DTYPE(DType, IType)                                             \
   if (data_dtype == DType && index_dtype == IType) {                           \
     TopKImpl<typename DTypeTraits<DType>::type_t,                              \
-             typename DTypeTraits<IType>::type_t>(accessor, ctx.work_queue,    \
-                                                  GetNumThreads());            \
+             typename DTypeTraits<IType>::type_t>(                             \
+        accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency(),      \
+        GetNumThreads());                                                      \
     return common::Status::OK();                                               \
   }
   HANDLE_DTYPE(DTypeEnum::Float16, DTypeEnum::Int32)

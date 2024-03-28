@@ -31,7 +31,7 @@ common::Status Fill::RunImpl(const ExecutionContext &ctx) {
     // TODO: take the ownership of the underlying data of the
     // string_view which belongs to IRHandle
     auto value = accessor.GetAttrAsSplatValue<StringView>("value");
-    DispatchHostTask(ctx.work_queue, {
+    DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), {
       std::fill_n(reinterpret_cast<StringView *>(p), length, value);
     });
     return common::Status::OK();

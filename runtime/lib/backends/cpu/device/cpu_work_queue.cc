@@ -23,31 +23,30 @@ namespace cpu {
 CPUNaiveWorkQueue::CPUNaiveWorkQueue(const std::string &name)
     : WorkQueue(name) {}
 
-common::Status CPUNaiveWorkQueue::AddTask(int /*task_type*/,
-                                          const void * /*func*/,
-                                          void ** /*args*/) {
+common::Status
+CPUNaiveWorkQueue::AddTask(int /*task_type*/, const void * /*func*/,
+                           void ** /*args*/, int op_id,
+                           const std::vector<int> & /*dependency*/) {
   return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
                         "Use AddHostTask for cpu work queue");
-}
-
-common::Status CPUNaiveWorkQueue::AddEventWait(mlir::Operation *,
-                                               std::vector<mlir::Operation *>) {
-  return common::Status::OK();
 }
 
 common::Status CPUNaiveWorkQueue::Sync() { return common::Status::OK(); }
 
 common::Status
-CPUNaiveWorkQueue::AddHostTask(std::function<void(void)> &&task) {
-  task();
+CPUNaiveWorkQueue::AddHostTask(const void *task, void **args, int op_id,
+                               const std::vector<int> &dependency) {
+  auto func = reinterpret_cast<const std::function<void(void)> *>(task);
+  (*func)();
   return common::Status::OK();
 }
 
 CPULazyWorkQueue::CPULazyWorkQueue(const std::string &name) : WorkQueue(name) {}
 
-common::Status CPULazyWorkQueue::AddTask(int /*task_type*/,
-                                         const void * /*func*/,
-                                         void ** /*args*/) {
+common::Status
+CPULazyWorkQueue::AddTask(int /*task_type*/, const void * /*func*/,
+                          void ** /*args*/, int op_id,
+                          const std::vector<int> & /*dependency*/) {
   return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
                         "Use AddHostTask for cpu work queue");
 }
@@ -59,13 +58,11 @@ common::Status CPULazyWorkQueue::Sync() {
   return common::Status::OK();
 }
 
-common::Status CPULazyWorkQueue::AddEventWait(mlir::Operation *,
-                                              std::vector<mlir::Operation *>) {
-  return common::Status::OK();
-}
-
-common::Status CPULazyWorkQueue::AddHostTask(std::function<void(void)> &&task) {
-  tasks.push_back(std::move(task));
+common::Status
+CPULazyWorkQueue::AddHostTask(const void *task, void **args, int op_id,
+                              const std::vector<int> &dependency) {
+  auto func = reinterpret_cast<const std::function<void(void)> *>(task);
+  tasks.push_back(std::move(*func));
   return common::Status::OK();
 }
 

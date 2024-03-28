@@ -97,7 +97,8 @@ inline common::Status WaitEvent(CUevent_st *event, CUstream_st *stream) {
 } // namespace
 
 common::Status CUDAWorkQueue::AddTask(int task_type, const void *func,
-                                      void **args) {
+                                      void **args, int op_id,
+                                      const std::vector<int> &dependency) {
   GetCudaEnv().Activate();
   switch (task_type) {
   case CUDATaskType::kCompute:
@@ -117,12 +118,6 @@ common::Status CUDAWorkQueue::AddTask(int task_type, const void *func,
                 "unsupported task type " + std::to_string(task_type));
 }
 
-common::Status
-CUDAWorkQueue::AddEventWait(mlir::Operation *op,
-                            std::vector<mlir::Operation *> dependency_list) {
-  return Status::OK();
-}
-
 common::Status CUDAWorkQueue::Sync() {
   GetCudaEnv().Activate();
   return BRT_CUDA_CALL(cudaDeviceSynchronize());
@@ -139,9 +134,10 @@ CUDASingleStreamWorkQueue::~CUDASingleStreamWorkQueue() {
   BRT_CUDA_CHECK(cudaStreamDestroy(stream_));
 }
 
-common::Status CUDASingleStreamWorkQueue::AddTask(int task_type,
-                                                  const void *func,
-                                                  void **args) {
+common::Status
+CUDASingleStreamWorkQueue::AddTask(int task_type, const void *func, void **args,
+                                   int op_id,
+                                   const std::vector<int> &dependency) {
   GetCudaEnv().Activate();
 
   switch (task_type) {
@@ -160,12 +156,6 @@ common::Status CUDASingleStreamWorkQueue::AddTask(int task_type,
 
   return Status(BRT, FAIL,
                 "unsupported task type " + std::to_string(task_type));
-}
-
-common::Status CUDASingleStreamWorkQueue::AddEventWait(
-    mlir::Operation *op, std::vector<mlir::Operation *> dependency_list) {
-  // single stream, no need to wait
-  return Status::OK();
 }
 
 common::Status CUDASingleStreamWorkQueue::Sync() {
@@ -218,28 +208,33 @@ inline CUstream_st *GetStream(void **args, CUstream_st **streams) {
 }
 } // namespace
 
-common::Status CUDAMultiStreamWorkQueue::AddTask(int task_type,
-                                                 const void *func,
-                                                 void **args) {
+common::Status
+CUDAMultiStreamWorkQueue::AddTask(int task_type, const void *func, void **args,
+                                  int op_id,
+                                  const std::vector<int> &dependency) {
   GetCudaEnv().Activate();
 
   switch (task_type) {
   case CUDATaskType::kCompute:
+    id_to_stream_map_[op_id] = 0;
+    AddEventWait(0, dependency);
     return Compute(func, args, streams_[0]);
   case CUDATaskType::kComputeDrv:
+    id_to_stream_map_[op_id] = 0;
+    AddEventWait(0, dependency);
     return ComputeDrv(func, args, streams_[0]);
   case CUDATaskType::kH2D:
+    id_to_stream_map_[op_id] = 1;
+    AddEventWait(1, dependency);
     return CopyH2D(args, streams_[1]);
   case CUDATaskType::kD2H:
+    id_to_stream_map_[op_id] = 2;
+    AddEventWait(2, dependency);
     return CopyD2H(args, streams_[2]);
-  case CUDATaskType::kRecordEvent:
-    return RecordEvent(GetEvent(args, events_), GetStream(args, streams_));
-  case CUDATaskType::kWaitEvent:
-    return WaitEvent(GetEvent(args), GetStream(args, streams_));
   case CUDATaskType::kD2D:
+    id_to_stream_map_[op_id] = 0;
+    AddEventWait(0, dependency);
     return CopyD2D(args, streams_[0]);
-  case CUDATaskType::kHost:
-    return ComputeHost(func, args, streams_[3]);
   default:;
   }
 
@@ -247,17 +242,25 @@ common::Status CUDAMultiStreamWorkQueue::AddTask(int task_type,
                 "unsupported task type " + std::to_string(task_type));
 }
 
-common::Status CUDAMultiStreamWorkQueue::AddEventWait(
-    mlir::Operation *op, std::vector<mlir::Operation *> dependency_list) {
-  for (auto dep_op : dependency_list) {
-    size_t wait_stream = GetStreamIdx(dep_op);
-    size_t curr_stream = GetStreamIdx(op);
-    if (curr_stream == wait_stream)
+common::Status
+CUDAMultiStreamWorkQueue::AddHostTask(const void *func, void **args, int op_id,
+                                      const std::vector<int> &dependency) {
+  id_to_stream_map_[op_id] = 3;
+  AddEventWait(3, dependency);
+  return ComputeHost(func, args, streams_[3]);
+}
+
+common::Status
+CUDAMultiStreamWorkQueue::AddEventWait(int stream, std::vector<int> wait_ids) {
+  for (auto wait_id : wait_ids) {
+    int wait_stream = id_to_stream_map_[wait_id];
+    if (stream == wait_stream)
       continue;
     void *record_args[] = {&wait_stream, nullptr /*placeholder for event*/};
-    this->AddTask(CUDATaskType::kRecordEvent, nullptr, record_args);
-    void *wait_args[] = {&curr_stream, record_args[1]};
-    this->AddTask(CUDATaskType::kWaitEvent, nullptr, wait_args);
+    RecordEvent(GetEvent(record_args, events_),
+                GetStream(record_args, streams_));
+    void *wait_args[] = {&stream, record_args[1]};
+    WaitEvent(GetEvent(wait_args), GetStream(wait_args, streams_));
   }
   return Status::OK();
 }
@@ -267,23 +270,13 @@ common::Status CUDAMultiStreamWorkQueue::Sync() {
   return BRT_CUDA_CALL(cudaDeviceSynchronize());
 }
 
-size_t CUDAMultiStreamWorkQueue::GetStreamIdx(mlir::Operation *op) {
-  auto byre_op = static_cast<mlir::byre::ByreOp>(op);
-  const std::string &key = ir::ByREHandle::GetKey(byre_op);
-  if (key == "cpu2cuda") {
-    return 1;
-  } else if (key == "cuda2cpu") {
-    return 2;
-  }
-  return 0;
-}
-
 CUDAExternalStreamWorkQueue::CUDAExternalStreamWorkQueue(CUstream_st *stream)
     : CUDAWorkQueue(stream, "cuda_external_stream"), stream_(stream) {}
 
-common::Status CUDAExternalStreamWorkQueue::AddTask(int task_type,
-                                                    const void *func,
-                                                    void **args) {
+common::Status
+CUDAExternalStreamWorkQueue::AddTask(int task_type, const void *func,
+                                     void **args, int op_id,
+                                     const std::vector<int> &dependency) {
   GetCudaEnv().Activate();
 
   switch (task_type) {
