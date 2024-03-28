@@ -80,6 +80,12 @@ inline common::Status ComputeDrv(const void *func, void **args,
                      (*block).z, *shared_size, stream, kernel_args, 0));
 }
 
+inline common::Status ComputeHost(const void *func, void **args,
+                                  CUstream_st *stream) {
+  return BRT_CUDA_CALL(cudaLaunchHostFunc(
+      stream, reinterpret_cast<CUhostFn>(const_cast<void *>(func)), *args));
+}
+
 inline common::Status RecordEvent(CUevent_st *event, CUstream_st *stream) {
   return BRT_CUDA_CALL(cudaEventRecord(event, stream));
 }
@@ -167,21 +173,22 @@ common::Status CUDASingleStreamWorkQueue::Sync() {
   return BRT_CUDA_CALL(cudaStreamSynchronize(stream_));
 }
 
-CUDAOneComputeTwoTransferWorkQueue::CUDAOneComputeTwoTransferWorkQueue(
-    int device_id)
-    : CUDAWorkQueue(device_id, "cuda_1_compute_2_copy_stream") {
+CUDAMultiStreamWorkQueue::CUDAMultiStreamWorkQueue(int device_id)
+    : CUDAWorkQueue(device_id, "cuda_1_compute_2_copy_1_host_stream") {
 
   GetCudaEnv().Activate();
   BRT_CUDA_CHECK(cudaStreamCreate(&streams_[0]));
   BRT_CUDA_CHECK(cudaStreamCreate(&streams_[1]));
   BRT_CUDA_CHECK(cudaStreamCreate(&streams_[2]));
+  BRT_CUDA_CHECK(cudaStreamCreate(&streams_[3]));
 }
 
-CUDAOneComputeTwoTransferWorkQueue::~CUDAOneComputeTwoTransferWorkQueue() {
+CUDAMultiStreamWorkQueue::~CUDAMultiStreamWorkQueue() {
   GetCudaEnv().Activate();
   BRT_CUDA_CHECK(cudaStreamDestroy(streams_[0]));
   BRT_CUDA_CHECK(cudaStreamDestroy(streams_[1]));
   BRT_CUDA_CHECK(cudaStreamDestroy(streams_[2]));
+  BRT_CUDA_CHECK(cudaStreamDestroy(streams_[3]));
 
   // destroy all events
   for (auto event : events_) {
@@ -211,9 +218,9 @@ inline CUstream_st *GetStream(void **args, CUstream_st **streams) {
 }
 } // namespace
 
-common::Status CUDAOneComputeTwoTransferWorkQueue::AddTask(int task_type,
-                                                           const void *func,
-                                                           void **args) {
+common::Status CUDAMultiStreamWorkQueue::AddTask(int task_type,
+                                                 const void *func,
+                                                 void **args) {
   GetCudaEnv().Activate();
 
   switch (task_type) {
@@ -231,6 +238,8 @@ common::Status CUDAOneComputeTwoTransferWorkQueue::AddTask(int task_type,
     return WaitEvent(GetEvent(args), GetStream(args, streams_));
   case CUDATaskType::kD2D:
     return CopyD2D(args, streams_[0]);
+  case CUDATaskType::kHost:
+    return ComputeHost(func, args, streams_[3]);
   default:;
   }
 
@@ -238,7 +247,7 @@ common::Status CUDAOneComputeTwoTransferWorkQueue::AddTask(int task_type,
                 "unsupported task type " + std::to_string(task_type));
 }
 
-common::Status CUDAOneComputeTwoTransferWorkQueue::AddEventWait(
+common::Status CUDAMultiStreamWorkQueue::AddEventWait(
     mlir::Operation *op, std::vector<mlir::Operation *> dependency_list) {
   for (auto dep_op : dependency_list) {
     size_t wait_stream = GetStreamIdx(dep_op);
@@ -253,12 +262,12 @@ common::Status CUDAOneComputeTwoTransferWorkQueue::AddEventWait(
   return Status::OK();
 }
 
-common::Status CUDAOneComputeTwoTransferWorkQueue::Sync() {
+common::Status CUDAMultiStreamWorkQueue::Sync() {
   GetCudaEnv().Activate();
   return BRT_CUDA_CALL(cudaDeviceSynchronize());
 }
 
-size_t CUDAOneComputeTwoTransferWorkQueue::GetStreamIdx(mlir::Operation *op) {
+size_t CUDAMultiStreamWorkQueue::GetStreamIdx(mlir::Operation *op) {
   auto byre_op = static_cast<mlir::byre::ByreOp>(op);
   const std::string &key = ir::ByREHandle::GetKey(byre_op);
   if (key == "cpu2cuda") {
@@ -298,5 +307,4 @@ common::Status CUDAExternalStreamWorkQueue::Sync() {
   GetCudaEnv().Activate();
   return BRT_CUDA_CALL(cudaStreamSynchronize(stream_));
 }
-
 } // namespace brt

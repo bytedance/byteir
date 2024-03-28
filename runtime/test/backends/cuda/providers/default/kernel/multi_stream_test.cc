@@ -33,7 +33,7 @@ using namespace brt::test;
 
 static std::string test_file = "test/test_files/custom_add_cpu2cuda.mlir";
 
-TEST(CUDAWorkQueueTest, CUDAOneComputeTwoTransferWorkQueueAdd) {
+TEST(CUDAWorkQueueTest, CUDAMultiStreamWorkQueueAdd) {
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);
@@ -49,8 +49,8 @@ TEST(CUDAWorkQueueTest, CUDAOneComputeTwoTransferWorkQueueAdd) {
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
-  auto status_request = session.NewRequestContext(
-      &request, new CUDAOneComputeTwoTransferWorkQueue(0));
+  auto status_request =
+      session.NewRequestContext(&request, new CUDAMultiStreamWorkQueue(0));
   BRT_TEST_CHECK_STATUS(status_request);
 
   request->FinishIOBinding();
