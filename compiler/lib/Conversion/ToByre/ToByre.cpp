@@ -153,6 +153,7 @@ public:
     auto key = getByreKey(nameAttr.getValue(), argTypes, resTypes,
                           effectiveAppendArgTypes);
 
+    // memref level, so convert to ComputeOp
     mlir::byre::ComputeOp computeOp =
         rewriter.replaceOpWithNewOp<byre::ComputeOp>(
             op, TypeRange{}, key, operands, memoryEffectsAttr);
