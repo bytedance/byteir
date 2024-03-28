@@ -186,6 +186,11 @@ void BRTInferenceExecutionFrame::BindArg(size_t idx, const void *ptr) {
 }
 
 void *BRTInferenceExecutionFrame::GetArg(size_t idx) {
+  // this only for debug : get weight ptr
+  if (idx >= info_.graph_info.io_count) {
+    return ctx_.weights_and_ios[idx - info_.graph_info.io_count];
+  }
+
   BRT_ENFORCE(idx < info_.graph_info.io_count);
   int i = info_.weights.size() + idx;
 

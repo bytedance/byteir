@@ -38,11 +38,28 @@ inline size_t GetTensorIndexFromOpArgIndexImpl(const OpKernelInfo &info,
               "at arg_idx " + std::to_string(arg_idx));
   return found->second;
 }
+
+inline size_t GetScalarIndexFromOpArgIndexImpl(const OpKernelInfo &info,
+                                               unsigned int arg_idx) {
+  const std::unordered_map<void *, size_t> &arg_to_idx =
+      info.GetScalarToIndex();
+  byre::ByreOp byre_op = cast<byre::ByreOp>(info.GetOperation());
+  auto op_arg = byre_op->getOperand(arg_idx);
+  auto found = arg_to_idx.find(op_arg.getAsOpaquePointer());
+  BRT_ENFORCE(found != arg_to_idx.end(),
+              "at arg_idx " + std::to_string(arg_idx));
+  return found->second;
+}
 } // namespace
 
 size_t GetTensorIndexFromOpArgIndex(const OpKernelInfo &info,
                                     unsigned int arg_idx) {
   return GetTensorIndexFromOpArgIndexImpl(info, arg_idx);
+}
+
+size_t GetScalarIndexFromOpArgIndex(const OpKernelInfo &info,
+                                    unsigned int arg_idx) {
+  return GetScalarIndexFromOpArgIndexImpl(info, arg_idx);
 }
 
 size_t GetTensorIndexFromMLIRValue(const OpKernelInfo &info, mlir::Value val) {

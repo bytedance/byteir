@@ -45,6 +45,8 @@ using namespace mlir;
 #define BLOCK_SIZE_Z_ATTR "BlockSize.z"
 #define ARG_RANKS_ATTR "arg_ranks"
 #define CALL_CONVENTION_ATTR "call_convention"
+#define DYNAMIC_CONFIG "__byteir_dynamic_config__"
+#define KERNEL_LAUNCH_CONFIG_NUM 6
 
 namespace brt {
 namespace cuda {
@@ -123,42 +125,50 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
     impl_->call_convention = "all";
   // static assignment for config
   // TODO extend to support dynamic
-  if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)) {
-    BRT_THROW_EX(std::runtime_error, "no GridSize.x attr");
+  bool dynamic_config_flag = false;
+  if (info.GetOperation()->hasAttr(DYNAMIC_CONFIG)) {
+    dynamic_config_flag = true;
   }
+  int gx, gy, gz, bx, by, bz;
+  gx = gy = gz = bx = by = bz = 1;
+  if (!dynamic_config_flag) {
+    if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)) {
+      BRT_THROW_EX(std::runtime_error, "no GridSize.x attr");
+    }
 
-  if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_X_ATTR)) {
-    BRT_THROW_EX(std::runtime_error, "no BlockSize.x attr");
-  }
+    if (!info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_X_ATTR)) {
+      BRT_THROW_EX(std::runtime_error, "no BlockSize.x attr");
+    }
 
-  int gx = static_cast<int>(info.GetOperation()
-                                ->getAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)
-                                .getInt()),
-      gy = 1, gz = 1;
-  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_Y_ATTR)) {
-    gy = static_cast<int>(info.GetOperation()
-                              ->getAttrOfType<IntegerAttr>(GRID_SIZE_Y_ATTR)
-                              .getInt());
-  }
-  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_Z_ATTR)) {
-    gz = static_cast<int>(info.GetOperation()
-                              ->getAttrOfType<IntegerAttr>(GRID_SIZE_Z_ATTR)
-                              .getInt());
-  }
+    gx = static_cast<int>(info.GetOperation()
+                              ->getAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)
+                              .getInt()),
+    gy = 1, gz = 1;
+    if (info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_Y_ATTR)) {
+      gy = static_cast<int>(info.GetOperation()
+                                ->getAttrOfType<IntegerAttr>(GRID_SIZE_Y_ATTR)
+                                .getInt());
+    }
+    if (info.GetOperation()->hasAttrOfType<IntegerAttr>(GRID_SIZE_Z_ATTR)) {
+      gz = static_cast<int>(info.GetOperation()
+                                ->getAttrOfType<IntegerAttr>(GRID_SIZE_Z_ATTR)
+                                .getInt());
+    }
 
-  int bx = static_cast<int>(info.GetOperation()
-                                ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_X_ATTR)
-                                .getInt()),
-      by = 1, bz = 1;
-  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_Y_ATTR)) {
-    by = static_cast<int>(info.GetOperation()
-                              ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Y_ATTR)
-                              .getInt());
-  }
-  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)) {
-    bz = static_cast<int>(info.GetOperation()
-                              ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)
-                              .getInt());
+    bx = static_cast<int>(info.GetOperation()
+                              ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_X_ATTR)
+                              .getInt()),
+    by = 1, bz = 1;
+    if (info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_Y_ATTR)) {
+      by = static_cast<int>(info.GetOperation()
+                                ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Y_ATTR)
+                                .getInt());
+    }
+    if (info.GetOperation()->hasAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)) {
+      bz = static_cast<int>(info.GetOperation()
+                                ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)
+                                .getInt());
+    }
   }
 
   std::vector<int> ranks;
@@ -172,6 +182,10 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
   }
 
   auto num_arg = GetOpArgNum(info_);
+  // filter launch config in inputs
+  // TODO: make `shared_size` be a input operand in compiler.
+  if (dynamic_config_flag)
+    num_arg -= KERNEL_LAUNCH_CONFIG_NUM;
   impl_->grid = dim3(gx, gy, gz);
   impl_->block = dim3(bx, by, bz);
   impl_->shared_size = 0;
@@ -198,6 +212,20 @@ common::Status PTXOpKernel::RunImpl(const ExecutionContext &ctx) {
   std::vector<void *> args;
   std::vector<MLIREngineMemRefDescriptor> descs;
   args.reserve(impl_->arg_reserve_size);
+  bool dynamic_config_flag = false;
+  if (info_.GetOperation()->hasAttr(DYNAMIC_CONFIG)) {
+    dynamic_config_flag = true;
+    auto num_arg = GetOpArgNum(info_);
+    std::vector<int64_t> launch_config;
+    launch_config.reserve(KERNEL_LAUNCH_CONFIG_NUM);
+    for (size_t i = num_arg - KERNEL_LAUNCH_CONFIG_NUM; i < num_arg; ++i) {
+      size_t idx = GetScalarIndexFromOpArgIndex(info_, i);
+      launch_config.emplace_back(ctx.exec_frame->GetScalar<int64_t>(idx));
+    }
+    impl_->grid = dim3(launch_config[0], launch_config[1], launch_config[2]);
+    impl_->block = dim3(launch_config[3], launch_config[4], launch_config[5]);
+  }
+
   args.push_back(&(impl_->grid));
   args.push_back(&(impl_->block));
   args.push_back(&(impl_->shared_size));
@@ -205,13 +233,13 @@ common::Status PTXOpKernel::RunImpl(const ExecutionContext &ctx) {
   descs.reserve(impl_->tensor_ids.size());
   for (size_t i = 0; i < impl_->tensor_ids.size(); ++i) {
     descs.emplace_back(ctx.exec_frame->GetAsyncValueRef(impl_->tensor_ids[i]),
-                       impl_->tensor_ranks[i]);
+                       ctx.exec_frame->GetShapeRef(impl_->tensor_ids[i]));
     if (impl_->call_convention == "bare_ptr")
       args.push_back(&descs.back().data);
-    else
+    else {
       InsertMemDescToArgs(descs.back(), args);
+    }
   }
-
   auto work_queue = static_cast<CUDAWorkQueue *>(ctx.work_queue);
   auto cuda_env = work_queue->GetCudaEnv();
   BRT_ENFORCE(cuda_env.IsPrimaryContext(),

@@ -22,6 +22,7 @@
 #include "brt/core/context/work_queue.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/framework/op_kernel.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 
 namespace brt {
 
@@ -169,6 +170,10 @@ template <typename... Arguments> struct OpKernelIfaceTraitsBase {
 
   template <typename Impl>
   common::Status static inline Run(Impl *impl, const ExecutionContext &ctx) {
+    auto status = impl->ProloguePerExecute(ctx);
+    if (!status.IsOK()) {
+      return status;
+    }
     return impl->Execute(Arguments::Get(impl, ctx)...);
   }
 
@@ -187,10 +192,55 @@ template <typename... Arguments> struct OpKernelIfaceTraitsBase {
 
 template <typename... Arguments>
 struct NaiveOpKernelIfaceTraits : public OpKernelIfaceTraitsBase<Arguments...> {
+
+  template <typename T> struct TrueHelper : std::true_type {};
+
+  template <typename ClassType, typename... ArgType>
+  struct HasProloguePerExecuteTraits {
+    template <typename Impl, typename... Arg>
+    static auto CheckPrologurePerExecute(int)
+        -> TrueHelper<decltype(std::declval<Impl>().ProloguePerExecute(
+            std::declval<Arg>()...))>;
+
+    template <typename Impl, typename... Arg>
+    static auto CheckPrologurePerExecute(...) -> std::false_type;
+
+  public:
+    enum {
+      value =
+          decltype(CheckPrologurePerExecute<ClassType, ArgType...>(0))::value
+    };
+  };
+
   template <typename ImplBase> struct ImplMixin : public ImplBase {
   public:
-    explicit ImplMixin(const OpKernelInfo &info)
-        : ImplBase(info), info_(info) {}
+    explicit ImplMixin(const OpKernelInfo &info) : ImplBase(info), info_(info) {
+      // initialize `io_contain_dynamic_shape`
+      io_contain_dynamic_shape = false;
+      OpAccessor accessor(info);
+      size_t num_args = accessor.GetNumArgs();
+      for (size_t i = 0; i < accessor.GetNumArgs(); ++i) {
+        auto shape = accessor.GetArgShape(i);
+        if (mlir::ShapedType::isDynamicShape(shape)) {
+          io_contain_dynamic_shape = true;
+        }
+      }
+      for (size_t i = 0; i < accessor.GetNumResults(); ++i) {
+        auto shape = accessor.GetArgShape(i + num_args);
+        if (mlir::ShapedType::isDynamicShape(shape)) {
+          io_contain_dynamic_shape = true;
+        }
+      }
+    }
+
+    common::Status ProloguePerExecute(const ExecutionContext &ctx) {
+      if constexpr (HasProloguePerExecuteTraits<ImplBase, OpAccessor>::value) {
+        if (io_contain_dynamic_shape) {
+          ImplBase::ProloguePerExecute(GetOpAccessor(ctx));
+        }
+      }
+      return Status::OK();
+    }
 
     OpAccessor GetOpAccessor(const ExecutionContext &ctx) const {
       return OpAccessor(info_, ctx.exec_frame);
@@ -198,6 +248,7 @@ struct NaiveOpKernelIfaceTraits : public OpKernelIfaceTraitsBase<Arguments...> {
 
   private:
     const OpKernelInfo &info_;
+    bool io_contain_dynamic_shape;
   };
 };
 
