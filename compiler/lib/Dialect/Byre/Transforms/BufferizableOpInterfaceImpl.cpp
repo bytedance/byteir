@@ -91,6 +91,97 @@ FailureOr<Value> getBufferInValidLayout(RewriterBase &rewriter, Location loc,
   return buffer;
 }
 
+struct ByreComputeTensorOpBufferization
+    : public BufferizableOpInterface::ExternalModel<
+          ByreComputeTensorOpBufferization, byre::ComputeTensorOp> {
+  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
+                              const AnalysisState &state) const {
+    auto computeTensorOp = cast<byre::ComputeTensorOp>(op);
+    size_t idx = opOperand.getOperandNumber();
+    byre::MemoryEffect effect =
+        llvm::to_vector(computeTensorOp.getMemoryEffects()
+                            ->getAsValueRange<byre::MemoryEffectAttr>())[idx];
+    return bitEnumContainsAll(effect, byre::MemoryEffect::Read);
+  }
+
+  bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
+                               const AnalysisState &state) const {
+    auto computeTensorOp = cast<byre::ComputeTensorOp>(op);
+    size_t idx = opOperand.getOperandNumber();
+    byre::MemoryEffect effect =
+        llvm::to_vector(computeTensorOp.getMemoryEffects()
+                            ->getAsValueRange<byre::MemoryEffectAttr>())[idx];
+    return bitEnumContainsAll(effect, byre::MemoryEffect::Write);
+  }
+
+  AliasingValueList getAliasingValues(Operation *op, OpOperand &opOperand,
+                                      const AnalysisState & /*state*/) const {
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+    // The i-th "out" tensor may alias with the i-th OpResult.
+    if (genericOp.isDpsInit(&opOperand))
+      return {
+          {genericOp.getTiedOpResult(&opOperand), BufferRelation::Equivalent}};
+    return {};
+  }
+
+  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
+                          const BufferizationOptions &options) const {
+    auto DpsOp = cast<DestinationStyleOpInterface>(op);
+    OpBuilder::InsertionGuard g(rewriter);
+    rewriter.setInsertionPoint(op);
+
+    if (DpsOp.hasBufferSemantics())
+      return success();
+
+    if (!DpsOp.hasTensorSemantics())
+      return DpsOp->emitError() << "op does not have tensor semantics";
+
+    SmallVector<Value> newInputBuffers;
+    for (OpOperand *opOperand : DpsOp.getDpsInputOperands()) {
+      if (DpsOp.isScalar(opOperand)) {
+        newInputBuffers.push_back(opOperand->get());
+        continue;
+      }
+      FailureOr<Value> buffer = getBuffer(rewriter, opOperand->get(), options);
+      if (failed(buffer))
+        return failure();
+      newInputBuffers.push_back(*buffer);
+    }
+
+    SmallVector<Value> newOutputBuffers;
+    for (OpResult opResult : DpsOp->getOpResults()) {
+      OpOperand *opOperand =
+          DpsOp.getDpsInitOperand(opResult.getResultNumber());
+      FailureOr<Value> resultBuffer =
+          getBuffer(rewriter, opOperand->get(), options);
+      if (failed(resultBuffer))
+        return failure();
+      newOutputBuffers.push_back(*resultBuffer);
+    }
+
+    rewriter.setInsertionPoint(op);
+
+    // Convert ComputeTensorOp to ComputeOp
+    auto newOp = rewriter.create<byre::ComputeOp>(
+        op->getLoc(), cast<byre::ComputeTensorOp>(op).getCallee(),
+        newInputBuffers, newOutputBuffers);
+
+    for (auto &&namedAttr : op->getAttrs()) {
+      StringRef name = namedAttr.getName();
+      if ((!name.startswith("bufferization.") &&
+           name != "operandSegmentSizes") &&
+          !newOp->hasAttr(name)) {
+        newOp->setAttr(name, namedAttr.getValue());
+      }
+    }
+
+    bufferization::replaceOpWithBufferizedValues(rewriter, op,
+                                                 newOutputBuffers);
+
+    return success();
+  }
+};
+
 struct ByreComputeOpBufferization
     : public BufferizableOpInterface::ExternalModel<ByreComputeOpBufferization,
                                                     byre::ComputeOp> {
@@ -236,6 +327,8 @@ void mlir::byre::registerBufferizableOpInterfaceExternalModels(
     DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, byre::ByreDialect *) {
     byre::ComputeOp::attachInterface<ByreComputeOpBufferization>(*ctx);
+    byre::ComputeTensorOp::attachInterface<ByreComputeTensorOpBufferization>(
+        *ctx);
     byre::CustomOp::attachInterface<ByreCustomOpBufferization>(*ctx);
   });
 }

@@ -33,6 +33,7 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeRange.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/FunctionImplementation.h"
 #include "llvm/ADT/StringExtras.h"
@@ -255,6 +256,74 @@ LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
     if (funcOp.getNumResults() != 0) {
       return op->emitError("expected no return in ")
              << funcOp.getName() << '\'';
+    }
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ComputeTensorOp
+//===----------------------------------------------------------------------===/
+
+void ComputeTensorOp::build(OpBuilder &builder, OperationState &result,
+                            ::mlir::TypeRange resultType, StringRef callee,
+                            ValueRange inputs, ValueRange outputs) {
+  SmallVector<Attribute> memoryEffectAttrs;
+  memoryEffectAttrs.append(
+      inputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Read));
+  memoryEffectAttrs.append(
+      outputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Write));
+  build(builder, result, resultType, callee, llvm::to_vector(inputs),
+        llvm::to_vector(outputs), builder.getArrayAttr(memoryEffectAttrs));
+}
+
+void ComputeTensorOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  if (!this->getMemoryEffects()) {
+    // if memory effects was not set, init operands are write, others are read.
+    for (OpOperand &operand : this->getOperation()->getOpOperands()) {
+      if (this->isDpsInit(&operand)) {
+        effects.emplace_back(MemoryEffects::Write::get(), operand.get(),
+                             SideEffects::DefaultResource::get());
+      } else {
+        effects.emplace_back(MemoryEffects::Read::get(), operand.get(),
+                             SideEffects::DefaultResource::get());
+      }
+    }
+  } else {
+    auto memoryEffects = llvm::to_vector(
+        this->getMemoryEffects()->getAsValueRange<MemoryEffectAttr>());
+    for (auto &&pi : llvm::zip(this->getOperands(), memoryEffects)) {
+      auto value = std::get<0>(pi);
+      MemoryEffect effect = std::get<1>(pi);
+      if (bitEnumContainsAll(effect, MemoryEffect::Read)) {
+        effects.emplace_back(MemoryEffects::Read::get(), value,
+                             SideEffects::DefaultResource::get());
+      }
+      if (bitEnumContainsAll(effect, MemoryEffect::Write)) {
+        effects.emplace_back(MemoryEffects::Write::get(), value,
+                             SideEffects::DefaultResource::get());
+      }
+    }
+  }
+}
+
+// verify ComputeTensorOp
+LogicalResult ComputeTensorOp::verify() {
+  if (verifyOpInEntryPointFunc(this->getOperation()).failed()) {
+    return failure();
+  }
+
+  auto maybeMemoryEffects = this->getMemoryEffects();
+  if (maybeMemoryEffects) {
+    if (maybeMemoryEffects->size() != this->getNumOperands()) {
+      return emitError("size of memory effects mismatch");
+    }
+    if (llvm::any_of(maybeMemoryEffects->getValue(), [](Attribute attr) {
+          return !attr.isa<MemoryEffectAttr>();
+        })) {
+      return emitError("invalid memory effect attribute");
     }
   }
   return success();

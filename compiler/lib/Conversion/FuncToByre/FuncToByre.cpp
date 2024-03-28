@@ -18,6 +18,7 @@
 #include "byteir/Conversion/FuncToByre/FuncToByre.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
+#include "byteir/Utils/ShapeUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -66,9 +67,13 @@ public:
     auto key = byre::getByreKey(nameAttr.getValue(), op->getOperandTypes(),
                                 op->getResultTypes(), effectiveAppendArgTypes);
 
-    auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
+    auto failureOremptyTensors = createEmptyTensorForResult(rewriter, op);
+    if (failed(failureOremptyTensors)) {
+      return failure();
+    }
+    auto computeTensorOp = rewriter.replaceOpWithNewOp<byre::ComputeTensorOp>(
         op, op->getResultTypes(), key, op->getOperands(),
-        /*memEffects*/ ArrayAttr());
+        *failureOremptyTensors);
 
     // copy byre attr, and remove prefix
     SmallVector<NamedAttribute> attrs;
@@ -79,7 +84,7 @@ public:
       }
     }
 
-    addAttrs(computeOp.getOperation(), attrs);
+    addAttrs(computeTensorOp.getOperation(), attrs);
 
     return success();
   }
