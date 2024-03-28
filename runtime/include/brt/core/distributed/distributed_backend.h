@@ -73,11 +73,13 @@ public:
   // the length of recvbuff = sendlen * m_nranks
   virtual common::Status all_gather(const void *sendbuff, void *recvbuff,
                                     size_t sendlen, DTypeEnum dtype,
+                                    std::set<int64_t> replica_group,
                                     std::shared_ptr<DContext> ctx) = 0;
   // TODO: enhance api to support arbitary device groups
   // the length of sendbuff = the length of recvbuff = len
   virtual common::Status all_reduce(const void *sendbuff, void *recvbuff,
                                     size_t len, DTypeEnum dtype, ReduceOp op,
+                                    std::set<int64_t> replica_group,
                                     std::shared_ptr<DContext> ctx) = 0;
 
   // TODO: enhance api to support arbitary device groups
@@ -92,6 +94,7 @@ public:
   // the length of sendbuff = the length of recvbuff = len
   virtual common::Status broadcast(const void *sendbuff, void *recvbuff,
                                    size_t len, DTypeEnum dtype, uint32_t root,
+                                   std::set<int64_t> replica_grpup,
                                    std::shared_ptr<DContext> ctx) = 0;
 
   // TODO: enhance api to support arbitary device groups

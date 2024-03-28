@@ -1,4 +1,4 @@
-//===- enums.h ------------------------------------------------*--- C++ -*-===//
+//===- broadcast.h --------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,26 +17,18 @@
 
 #pragma once
 
-#include <errno.h>
+#include "brt/core/framework/op_kernel.h"
 
 namespace brt {
+namespace cuda {
 
-typedef enum {
-  BRT_SUM = 0,
-  BRT_MAX = 1,
-  BRT_MIN = 2,
-  BRT_REDUCEOP_COUNT = 3,
-} ReduceOp;
+// broadcast synchronously
+class Broadcast final : public OpKernel {
+public:
+  explicit Broadcast(const OpKernelInfo &info) : OpKernel(info) {}
 
-inline ReduceOp GetReduceOp(std::string reduceOp) {
-  if (reduceOp == "sum")
-    return BRT_SUM;
-  else if (reduceOp == "max")
-    return BRT_MAX;
-  else if (reduceOp == "min")
-    return BRT_MIN;
-  else
-    return BRT_REDUCEOP_COUNT;
-}
+  common::Status RunImpl(const ExecutionContext &) override;
+};
 
+} // namespace cuda
 } // namespace brt

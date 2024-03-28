@@ -9,6 +9,7 @@ function of_envsetup() {
 
   # install requirements
   python3 -m pip install -r $ONNX_FRONTEND_ROOT/requirements.txt
+  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl
 
   # init submodule
   ONNX_MLIR_ROOT=$ONNX_FRONTEND_ROOT/third_party/onnx-mlir

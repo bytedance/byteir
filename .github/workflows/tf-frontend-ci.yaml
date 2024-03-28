@@ -28,6 +28,12 @@ jobs:
   tf_frontend_build_and_test:
     name: tf-frontend CI
     runs-on: self-hosted
+    container:
+      image: localhost:5000/byteir-ci
+      volumes:
+        - /data00/llvm_libraries:/data00/llvm_libraries
+        - /data00/mhlo_libraries:/data00/mhlo_libraries
+      options: --runtime=nvidia --gpus all
     steps:
       - name: clear workspace
         run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE

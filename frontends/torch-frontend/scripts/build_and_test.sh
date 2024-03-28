@@ -3,6 +3,21 @@
 set -e
 set -x
 
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --disable-jit-ir)
+      TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER=ON
+      shift
+      ;;
+    *)
+      echo "Invalid option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER:-OFF}
+
 # path to script
 CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # path to byteir root
@@ -22,6 +37,7 @@ cmake -S . \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_C_COMPILER=gcc \
       -DCMAKE_CXX_COMPILER=g++ \
+      -DTORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER} \
       -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable" \
       -DPython3_EXECUTABLE=$(which python3)
 
