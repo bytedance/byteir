@@ -45,5 +45,6 @@ void byteirRegisterDialectExtensions(MlirContext context) {
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
   tensor_ext::registerTilingInterfaceExternalModels(registry);
+  vector_ext::registerTransformDialectExtension(registry);
   unwrap(context)->appendDialectRegistry(registry);
 }
