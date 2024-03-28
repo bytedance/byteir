@@ -24,7 +24,6 @@
 #include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
-#include "byteir/Dialect/Lccl/LcclOps.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
@@ -36,6 +35,7 @@
 #include "byteir/Dialect/Tensor/Passes.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Passes.h"
+#include "byteir/Dialect/Vector/TransformOps/VectorExtTransformOps.h"
 #include "byteir/Dialect/Vector/Transforms/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
@@ -153,7 +153,6 @@ int main(int argc, char **argv) {
   registry.insert<mlir::cat::CatDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::lace::LaceDialect>();
-  registry.insert<mlir::lccl::LcclDialect>();
   registry.insert<mlir::lmhlo::LmhloDialect>();
   registry.insert<mlir::shape_ext::ShapeExtDialect>();
   registry.insert<mlir::linalg_ext::LinalgExtDialect>();
@@ -163,6 +162,7 @@ int main(int argc, char **argv) {
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
   tensor_ext::registerTilingInterfaceExternalModels(registry);
+  vector_ext::registerTransformDialectExtension(registry);
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "ByteIR pass driver\n", registry));
