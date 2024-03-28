@@ -30,12 +30,14 @@ function load_llvm_prebuilt() {
 }
 
 function install_mhlo_tools() {
-  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl
+  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl --force-reinstall
 }
 
-function lfs_pull_external_libs() {
-  git lfs pull --include runtime/test/test_files/external_libs/libflash_attn.so
-  git lfs pull --include external_libs/libs/libflash_attn.so
+function copy_external_libs() {
+  PREBUILT_FLASH_ATTN="/data00/external_libraries/libflash_attn.so"
+  cp $PREBUILT_FLASH_ATTN $ROOT_PROJ_DIR/external_libs/libs
+  mkdir $ROOT_PROJ_DIR/runtime/test/test_files/external_libs/
+  cp $PREBUILT_FLASH_ATTN $ROOT_PROJ_DIR/runtime/test/test_files/external_libs/
 }
 
 function prepare_for_compiler() {
@@ -48,5 +50,5 @@ function prepare_for_compiler() {
 function prepare_for_runtime() {
   git submodule update --init --recursive -f external/mlir-hlo external/cutlass external/date external/googletest external/pybind11
   load_llvm_prebuilt
-  lfs_pull_external_libs
+  copy_external_libs
 }
