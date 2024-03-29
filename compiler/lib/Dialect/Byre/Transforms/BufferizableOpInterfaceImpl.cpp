@@ -215,7 +215,8 @@ struct ByreCustomOpBufferization
 
     auto newOp = rewriter.create<byre::CustomOp>(
         op->getLoc(), cast<byre::CustomOp>(op).getLibPath(),
-        cast<byre::CustomOp>(op).getApiName(), bufferOperands, bufferResults,
+        cast<byre::CustomOp>(op).getApiName(),
+        cast<byre::CustomOp>(op).getVersion(), bufferOperands, bufferResults,
         cast<byre::CustomOp>(op).getExtraArgs());
 
     for (auto &&namedAttr : op->getAttrs()) {
