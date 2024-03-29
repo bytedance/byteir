@@ -135,7 +135,7 @@ public:
   // Barrier
   common::Status Sync() override;
 
-  common::Status AddEventWait(int, std::vector<int>);
+  common::Status AddEventWait(size_t, std::vector<int>);
 
   CUstream_st *GetComputeStream() override { return streams_[0]; }
   CUstream_st *GetH2DStream() { return streams_[1]; }

@@ -251,9 +251,10 @@ CUDAMultiStreamWorkQueue::AddHostTask(const void *func, void **args, int op_id,
 }
 
 common::Status
-CUDAMultiStreamWorkQueue::AddEventWait(int stream, std::vector<int> wait_ids) {
+CUDAMultiStreamWorkQueue::AddEventWait(size_t stream,
+                                       std::vector<int> wait_ids) {
   for (auto wait_id : wait_ids) {
-    int wait_stream = id_to_stream_map_[wait_id];
+    size_t wait_stream = id_to_stream_map_[wait_id];
     if (stream == wait_stream)
       continue;
     void *record_args[] = {&wait_stream, nullptr /*placeholder for event*/};
