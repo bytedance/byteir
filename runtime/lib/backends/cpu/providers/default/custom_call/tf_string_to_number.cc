@@ -90,7 +90,8 @@ void convertNumberFromStringParallel(int64_t length, StringView *ss, T *ds) {
 
 template <typename T>
 common::Status TFStringToNumberImpl(const OpAccessor &accessor,
-                                    WorkQueue *work_queue) {
+                                    WorkQueue *work_queue, int op_id,
+                                    const std::vector<int> &dependency) {
   DTypeEnum dtype = accessor.GetArgDTypeEnum(0);
   const auto src_shape = accessor.GetArgShape(0);
   const auto dest_shape = accessor.GetArgShape(1);
@@ -103,7 +104,7 @@ common::Status TFStringToNumberImpl(const OpAccessor &accessor,
     StringView *ss = reinterpret_cast<StringView *>(src);
     T *ds = reinterpret_cast<T *>(dest);
     auto length = accessor.GetNumElementsOfShape(src_shape);
-    DispatchHostTask(work_queue,
+    DispatchHostTask(work_queue, op_id, dependency,
                      { convertNumberFromStringParallel<T>(length, ss, ds); });
     return common::Status::OK();
   }
@@ -119,13 +120,17 @@ common::Status TFStringToNumber::RunImpl(const ExecutionContext &ctx) {
   std::string out_type = accessor.GetAttrAsString("out_type");
 
   if (out_type == "i32")
-    return TFStringToNumberImpl<int32_t>(accessor, ctx.work_queue);
+    return TFStringToNumberImpl<int32_t>(
+        accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency());
   else if (out_type == "i64")
-    return TFStringToNumberImpl<int64_t>(accessor, ctx.work_queue);
+    return TFStringToNumberImpl<int64_t>(
+        accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency());
   else if (out_type == "f32")
-    return TFStringToNumberImpl<float>(accessor, ctx.work_queue);
+    return TFStringToNumberImpl<float>(accessor, ctx.work_queue,
+                                       info_.GetOpId(), info_.GetDependency());
   else if (out_type == "f64")
-    return TFStringToNumberImpl<double>(accessor, ctx.work_queue);
+    return TFStringToNumberImpl<double>(accessor, ctx.work_queue,
+                                        info_.GetOpId(), info_.GetDependency());
   else
     return common::Status(common::StatusCategory::BRT,
                           common::StatusCode::NOT_IMPLEMENTED,

@@ -65,10 +65,10 @@ TEST(CUDAWorkQueueTest, CUDAWorkQueue) {
   cudaDeviceSynchronize();
 
   void *args1[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args1);
+  wq.AddTask(0, (void *)test_kernel, args1, 0, {});
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args2);
+  wq.AddTask(0, (void *)test_kernel, args2, 0, {});
 
   wq.Sync();
 
@@ -112,13 +112,13 @@ TEST(CUDAWorkQueueTest, CUDASingleStreamWorkQueue) {
   cudaDeviceSynchronize();
 
   void *args0[] = {&arr1, &host1, &count};
-  wq.AddTask(1 /*h2d*/, nullptr, args0);
+  wq.AddTask(1 /*h2d*/, nullptr, args0, 0, {});
 
   void *args1[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args1);
+  wq.AddTask(0, (void *)test_kernel, args1, 0, {});
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args2);
+  wq.AddTask(0, (void *)test_kernel, args2, 0, {});
 
   wq.Sync();
 
@@ -130,8 +130,8 @@ TEST(CUDAWorkQueueTest, CUDASingleStreamWorkQueue) {
   BRT_CUDA_CHECK(cudaFree(arr3));
 }
 
-TEST(CUDAWorkQueueTest, CUDAOneComputeTwoTransferWorkQueue) {
-  CUDAOneComputeTwoTransferWorkQueue wq(0);
+TEST(CUDAWorkQueueTest, CUDAMultiStreamWorkQueue) {
+  CUDAMultiStreamWorkQueue wq(0);
 
   int gx = 4;
   int bx = 256;
@@ -161,21 +161,21 @@ TEST(CUDAWorkQueueTest, CUDAOneComputeTwoTransferWorkQueue) {
   cudaDeviceSynchronize();
 
   void *args0[] = {&arr1, &host1, &count};
-  wq.AddTask(1 /*H2D*/, nullptr, args0);
+  wq.AddTask(1 /*H2D*/, nullptr, args0, 0, {});
 
   size_t streamId1 = 1;
   void *args1[] = {&streamId1, nullptr /*placeholder for event*/};
-  wq.AddTask(3 /*RecordEvent*/, nullptr, args1);
+  wq.AddTask(3 /*RecordEvent*/, nullptr, args1, 0, {});
 
   size_t streamId2 = 0;
   void *args2[] = {&streamId2, args1[1]};
-  wq.AddTask(4 /*WaitEvent*/, nullptr, args2);
+  wq.AddTask(4 /*WaitEvent*/, nullptr, args2, 0, {});
 
   void *args3[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(0, (void *)test_kernel, args3);
+  wq.AddTask(0, (void *)test_kernel, args3, 0, {});
 
   void *args4[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args4);
+  wq.AddTask(0, (void *)test_kernel, args4, 0, {});
 
   wq.Sync();
 
@@ -225,7 +225,7 @@ TEST(CUDAWorkQueueTest, CUDAExternalStreamWorkQueue) {
                    stream_external);
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(0, (void *)test_kernel, args2);
+  wq.AddTask(0, (void *)test_kernel, args2, 0, {});
 
   wq.Sync();
 
@@ -236,6 +236,75 @@ TEST(CUDAWorkQueueTest, CUDAExternalStreamWorkQueue) {
   BRT_CUDA_CHECK(cudaFree(arr3));
 
   BRT_CUDA_CHECK(cudaStreamDestroy(stream_external));
+}
+
+namespace {
+using HostArgs = std::tuple<void *, size_t>;
+
+void CUDART_CB host_memset(void *args) {
+  auto host_args = reinterpret_cast<HostArgs *>(args);
+  AssignCPUBuffer<float>(reinterpret_cast<float *>(std::get<0>(*host_args)),
+                         std::get<1>(*host_args) / sizeof(float), 1.0);
+}
+} // namespace
+
+TEST(CUDAWorkQueueTest, CUDAMultiStreamWithHostWorkQueue) {
+  CUDAMultiStreamWorkQueue wq(0);
+
+  int gx = 4;
+  int bx = 256;
+
+  dim3 grid(gx, 1, 1);
+  dim3 block(bx, 1, 1);
+  size_t shared_size = 0;
+
+  float *host1;
+  float *arr1;
+  float *arr2;
+  float *arr3;
+  int n = gx * bx;
+  float val1 = 1.0f;
+  float val2 = 2.0f;
+
+  size_t count = n * sizeof(float);
+
+  // Using a regular pageable host allocation (malloc) is likely to fail because
+  // the host function may not fire immediately (given it's on another thread),
+  // and the copy H2D may start before the host function complete.
+  // More details:
+  // https://stackoverflow.com/questions/50901819/cudastreamaddcallback-doesnt-block-later-cudamemcpyasync
+  cudaHostAlloc((void **)&host1, count, cudaHostAllocDefault);
+  memset(host1, 0, count);
+
+  BRT_CUDA_CHECK(cudaMalloc(&arr1, count));
+  BRT_CUDA_CHECK(cudaMemset(arr1, -1, n * sizeof(float)));
+  BRT_CUDA_CHECK(cudaMalloc(&arr2, count));
+  BRT_CUDA_CHECK(cudaMalloc(&arr3, count));
+
+  cudaDeviceSynchronize();
+
+  HostArgs *host_args = new HostArgs((void *)host1, count);
+  void *host_args_ptr = reinterpret_cast<void *>(host_args);
+  wq.AddHostTask((void *)host_memset, &host_args_ptr, 0, {});
+
+  void *args0[] = {&arr1, &host1, &count};
+  wq.AddTask(1 /*H2D*/, nullptr, args0, 1, {0}); // depend on Host
+
+  void *args3[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
+  wq.AddTask(0, (void *)test_kernel, args3, 2, {1}); // depend on H2D
+
+  void *args4[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
+  wq.AddTask(0, (void *)test_kernel, args4, 3, {2});
+
+  wq.Sync();
+
+  CheckResult(arr3, n, 4.0f);
+
+  cudaFreeHost(host1);
+  delete (host_args);
+  BRT_CUDA_CHECK(cudaFree(arr1));
+  BRT_CUDA_CHECK(cudaFree(arr2));
+  BRT_CUDA_CHECK(cudaFree(arr3));
 }
 
 namespace {
@@ -270,11 +339,11 @@ void check_work_queue_multi_gpus(
     dim3 block(bx, 1, 1);
     void *args1[] = {&grid,    &block, &shared_size, &arr1[i],
                      &arr2[i], &n,     &val1};
-    wq->AddTask(0, (void *)test_kernel, args1);
+    wq->AddTask(0, (void *)test_kernel, args1, 0, {});
 
     void *args2[] = {&grid,    &block, &shared_size, &arr2[i],
                      &arr3[i], &n,     &val2};
-    wq->AddTask(0, (void *)test_kernel, args2);
+    wq->AddTask(0, (void *)test_kernel, args2, 0, {});
 
     wq->Sync();
 
@@ -315,7 +384,7 @@ TEST(CUDAWorkQueueTest, CUDASingleStreamWorkQueueMultiGPUs) {
   check_work_queue_multi_gpus(work_queues);
 }
 
-TEST(CUDAWorkQueueTest, CUDAOneComputeTwoTransferWorkQueueMultiGPUs) {
+TEST(CUDAWorkQueueTest, CUDAMultiStreamWorkQueueMultiGPUs) {
   int nr_device;
   BRT_CUDA_CHECK(cudaGetDeviceCount(&nr_device));
   if (nr_device == 1)
@@ -323,8 +392,7 @@ TEST(CUDAWorkQueueTest, CUDAOneComputeTwoTransferWorkQueueMultiGPUs) {
 
   std::vector<std::unique_ptr<CUDAWorkQueue>> work_queues;
   for (int i = 0; i < nr_device; ++i) {
-    work_queues.emplace_back(
-        std::make_unique<CUDAOneComputeTwoTransferWorkQueue>(i));
+    work_queues.emplace_back(std::make_unique<CUDAMultiStreamWorkQueue>(i));
   }
   check_work_queue_multi_gpus(work_queues);
 }

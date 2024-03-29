@@ -49,7 +49,7 @@ common::Status TFEqual::RunImpl(const ExecutionContext &ctx) {
   case DTypeEnum::StringView: {
     StringView *ss0 = reinterpret_cast<StringView *>(src0),
                *ss1 = reinterpret_cast<StringView *>(src1);
-    DispatchHostTask(ctx.work_queue, {
+    DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), {
       if (require_broadcast) {
         StringView scalar = arg0_length == 1 ? ss0[0] : ss1[0];
         StringView *ss = arg0_length == 1 ? ss1 : ss0;

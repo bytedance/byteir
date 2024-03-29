@@ -30,14 +30,13 @@ public:
   explicit CPUNaiveWorkQueue(const std::string &name = "cpu_naive");
 
   common::Status AddTask(int /*task_type*/, const void * /*func*/,
-                         void ** /*args*/) override;
-
-  common::Status AddEventWait(mlir::Operation *,
-                              std::vector<mlir::Operation *>) override;
+                         void ** /*args*/, int /*op_id*/,
+                         const std::vector<int> & /*dependency*/) override;
 
   common::Status Sync() override;
 
-  common::Status AddHostTask(std::function<void(void)> &&task) override;
+  common::Status AddHostTask(const void *task, void **args, int op_id,
+                             const std::vector<int> &dependency) override;
 };
 
 // WorkQueue which runs host task lazily
@@ -46,14 +45,13 @@ public:
   explicit CPULazyWorkQueue(const std::string &name = "cpu_lazy");
 
   common::Status AddTask(int /*task_type*/, const void * /*func*/,
-                         void ** /*args*/) override;
-
-  common::Status AddEventWait(mlir::Operation *,
-                              std::vector<mlir::Operation *>) override;
+                         void ** /*args*/, int /*op_id*/,
+                         const std::vector<int> & /*dependency*/) override;
 
   common::Status Sync() override;
 
-  common::Status AddHostTask(std::function<void(void)> &&task) override;
+  common::Status AddHostTask(const void *task, void **args, int op_id,
+                             const std::vector<int> &dependency) override;
 
 private:
   std::vector<std::function<void(void)>> tasks;

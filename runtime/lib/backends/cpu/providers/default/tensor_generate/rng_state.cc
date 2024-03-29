@@ -41,7 +41,7 @@ common::Status GetSeedOpKernel::RunImpl(const ExecutionContext &ctx) {
 #define CASE(D)                                                                \
   case DTypeEnum::D: {                                                         \
     using ctype = DTypeTraits<DTypeEnum::D>::type_t;                           \
-    DispatchHostTask(ctx.work_queue, {                                         \
+    DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), { \
       *reinterpret_cast<ctype *>(device_p) = static_cast<ctype>(rngSeed);      \
     });                                                                        \
     return common::Status::OK();                                               \
@@ -75,7 +75,7 @@ common::Status NextOffsetOpKernel::RunImpl(const ExecutionContext &ctx) {
 #define CASE(D)                                                                \
   case DTypeEnum::D: {                                                         \
     using ctype = DTypeTraits<DTypeEnum::D>::type_t;                           \
-    DispatchHostTask(ctx.work_queue, {                                         \
+    DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), { \
       *reinterpret_cast<ctype *>(device_p) = static_cast<ctype>(rngOffset);    \
     });                                                                        \
     return common::Status::OK();                                               \

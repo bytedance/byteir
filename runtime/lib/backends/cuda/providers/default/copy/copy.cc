@@ -64,8 +64,8 @@ common::Status CopyOpKernel::RunImpl(const ExecutionContext &ctx) {
   args[1] = &src_value;
   args[2] = &byte_size;
   auto work_queue = static_cast<CUDAWorkQueue *>(ctx.work_queue);
-  work_queue->AddEventWait(info_.GetOperation(), info_.GetDependency());
-  return work_queue->AddTask(task_type, nullptr, args.data());
+  return work_queue->AddTask(task_type, nullptr, args.data(), info_.GetOpId(),
+                             info_.GetDependency());
 }
 
 } // namespace cuda

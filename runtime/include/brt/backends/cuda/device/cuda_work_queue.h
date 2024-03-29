@@ -56,18 +56,18 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  virtual common::Status AddTask(int task_type, const void *func,
-                                 void **args) override;
-
-  virtual common::Status AddEventWait(mlir::Operation *,
-                                      std::vector<mlir::Operation *>) override;
+  virtual common::Status AddTask(int task_type, const void *func, void **args,
+                                 int op_id,
+                                 const std::vector<int> &dependency) override;
   // Barrier
   virtual common::Status Sync() override;
 
   virtual CUstream_st *GetComputeStream() { return nullptr; }
 
-  common::Status AddHostTask(std::function<void(void)> &&task) override {
-    task();
+  common::Status AddHostTask(const void *task, void **args, int op_id,
+                             const std::vector<int> &dependency) override {
+    auto func = reinterpret_cast<const std::function<void(void)> *>(task);
+    (*func)();
     return common::Status::OK();
   }
 
@@ -93,10 +93,10 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  common::Status AddTask(int task_type, const void *func, void **args) override;
+  common::Status AddTask(int task_type, const void *func, void **args,
+                         int op_id,
+                         const std::vector<int> &dependency) override;
 
-  common::Status AddEventWait(mlir::Operation *,
-                              std::vector<mlir::Operation *>) override;
   // Barrier
   common::Status Sync() override;
 
@@ -110,42 +110,47 @@ private:
 };
 
 /**
- * CUDAOneComputeTwoTransferWorkQueue is a derived class of WorkQueue
+ * CUDAMultiStreamWorkQueue is a derived class of WorkQueue
  * that uses mutliple CUDA Stream's as a WorkQueue.
  *
  * A typical usage is using 3 streams: one for compute, two for bidirectional
- * data transfer.
+ * data transfer, one for host.
  */
-class CUDAOneComputeTwoTransferWorkQueue final : public CUDAWorkQueue {
+class CUDAMultiStreamWorkQueue final : public CUDAWorkQueue {
 public:
-  CUDAOneComputeTwoTransferWorkQueue(int device_id);
+  CUDAMultiStreamWorkQueue(int device_id);
 
   // Undefined what happens to pending work when destructor is called.
-  virtual ~CUDAOneComputeTwoTransferWorkQueue();
+  virtual ~CUDAMultiStreamWorkQueue();
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  common::Status AddTask(int task_type, const void *func, void **args) override;
+  common::Status AddTask(int task_type, const void *func, void **args,
+                         int op_id,
+                         const std::vector<int> &dependency) override;
+
+  common::Status AddHostTask(const void *task, void **args, int op_id,
+                             const std::vector<int> &dependency) override;
 
   // Barrier
   common::Status Sync() override;
 
-  size_t GetStreamIdx(mlir::Operation *op);
-
-  common::Status AddEventWait(mlir::Operation *,
-                              std::vector<mlir::Operation *>) override;
+  common::Status AddEventWait(size_t, std::vector<int>);
 
   CUstream_st *GetComputeStream() override { return streams_[0]; }
+  CUstream_st *GetH2DStream() { return streams_[1]; }
+  CUstream_st *GetD2HStream() { return streams_[2]; }
+  CUstream_st *GetHostStream() { return streams_[3]; }
 
 private:
-  CUstream_st *streams_[3]; // 0 for compute, 1 for h2d, 2 for d2h
+  // 0 for compute, 1 for h2d, 2 for d2h, 3 for host
+  CUstream_st *streams_[4];
 
   std::vector<CUevent_st *> events_;
 
-  CUDAOneComputeTwoTransferWorkQueue(
-      const CUDAOneComputeTwoTransferWorkQueue &) = delete;
-  CUDAOneComputeTwoTransferWorkQueue &
-  operator=(const CUDAOneComputeTwoTransferWorkQueue &) = delete;
+  CUDAMultiStreamWorkQueue(const CUDAMultiStreamWorkQueue &) = delete;
+  CUDAMultiStreamWorkQueue &
+  operator=(const CUDAMultiStreamWorkQueue &) = delete;
 };
 
 /**
@@ -165,7 +170,9 @@ public:
 
   // Enqueue a func call, thread-safe.
   // func is a stateless function
-  common::Status AddTask(int task_type, const void *func, void **args) override;
+  common::Status AddTask(int task_type, const void *func, void **args,
+                         int op_id,
+                         const std::vector<int> &dependency) override;
 
   // Barrier
   common::Status Sync() override;
@@ -178,5 +185,4 @@ private:
   CUDAExternalStreamWorkQueue &
   operator=(const CUDAExternalStreamWorkQueue &) = delete;
 };
-
 } // namespace brt

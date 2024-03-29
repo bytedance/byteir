@@ -106,10 +106,10 @@ TEST(PTXTest, NVCCPTX) {
   cudaDeviceSynchronize();
 
   void* args1[] = { &grid, &block, &shared_size, &arr1, &arr2, &n, &val1 };
-  wq.AddTask(5, (void*)func, args1);
+  wq.AddTask(5, (void*)func, args1, 0, {});
 
   void* args2[] = { &grid, &block, &shared_size, &arr2, &arr3, &n, &val2 };
-  wq.AddTask(5, (void*)func, args2);
+  wq.AddTask(5, (void*)func, args2, 0, {});
 
   wq.Sync();
 
@@ -177,7 +177,7 @@ TEST(PTXTest, LLVMPTX) {
     InsertMemDescToArgs(desc2, args1);
 
     auto &wq = *work_queues[i];
-    wq.AddTask(5, (void *)funcs[i], args1.data());
+    wq.AddTask(5, (void *)funcs[i], args1.data(), 0, {});
 
     std::vector<void *> args2;
     args2.push_back(&grid);
@@ -187,7 +187,7 @@ TEST(PTXTest, LLVMPTX) {
     InsertMemDescToArgs(desc1, args2);
     InsertMemDescToArgs(desc3, args2);
 
-    wq.AddTask(5, (void *)funcs[i], args2.data());
+    wq.AddTask(5, (void *)funcs[i], args2.data(), 0, {});
 
     wq.Sync();
 
@@ -254,7 +254,7 @@ TEST(PTXTest, LLVMPTXBarePtr) {
     args1.push_back(&arr2[i]);
 
     auto &wq = *work_queues[i];
-    wq.AddTask(5, (void *)funcs[i], args1.data());
+    wq.AddTask(5, (void *)funcs[i], args1.data(), 0, {});
 
     std::vector<void *> args2;
     args2.push_back(&grid);
@@ -264,7 +264,7 @@ TEST(PTXTest, LLVMPTXBarePtr) {
     args2.push_back(&arr1[i]);
     args2.push_back(&arr3[i]);
 
-    wq.AddTask(5, (void *)funcs[i], args2.data());
+    wq.AddTask(5, (void *)funcs[i], args2.data(), 0, {});
 
     wq.Sync();
 

@@ -42,7 +42,7 @@ common::Status Add<T>::RunImpl(const ExecutionContext &ctx) {
   T *b = static_cast<T *>(accessor.GetArgAsyncValueRef(1));
   T *c = static_cast<T *>(accessor.GetArgAsyncValueRef(2));
 
-  DispatchHostTask(ctx.work_queue, {
+  DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), {
     for (unsigned int i = 0; i < N; ++i) {
       c[i] = a[i] + b[i];
     }

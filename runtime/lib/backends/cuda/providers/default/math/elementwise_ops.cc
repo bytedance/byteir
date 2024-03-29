@@ -67,8 +67,8 @@ common::Status Add<T>::RunImpl(const ExecutionContext &ctx) {
   }
 
   args.push_back(&n); // n
-  ctx.work_queue->AddEventWait(info_.GetOperation(), info_.GetDependency());
-  return ctx.work_queue->AddTask(0, (void *)add_kernel<T>, args.data());
+  return ctx.work_queue->AddTask(0, (void *)add_kernel<T>, args.data(),
+                                 info_.GetOpId(), info_.GetDependency());
 }
 
 // instantiate

@@ -71,7 +71,7 @@ common::Status CustomAdd<T>::RunImpl(const ExecutionContext &ctx) {
   args.push_back(&n); // n
 
   ctx.work_queue->AddTask(0, (void *)external_kernels::add_kernel<T>,
-                          args.data());
+                          args.data(), info_.GetOpId(), info_.GetDependency());
 
   return Status::OK();
 }
