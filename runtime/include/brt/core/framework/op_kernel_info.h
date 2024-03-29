@@ -134,7 +134,7 @@ private:
 
   const std::string &ir_path_;
 
-  const std::vector<int> &dependency_;
+  std::vector<int> dependency_;
 
   OpKernelInfo(OpKernelInfo &&) = delete;
   OpKernelInfo &operator=(OpKernelInfo &&) = delete;
