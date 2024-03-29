@@ -23,6 +23,7 @@ add_mlir_public_c_api_library(ByteIRCAPI
   ByteIRToLinalg
   ByteIRToLLVM
   ByteIRToPTX
+  ByteIRLcclToByre
 
   # transofrm passes
   ByteIRTransforms

@@ -16,7 +16,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/backends/nccl/providers/op_registration.h"
+#include "byteir/Dialect/Byre/ByreDialect.h"
 
+#include "./all_gather.h"
+#include "./all_reduce.h"
+#include "./broadcast.h"
 #include "./recv.h"
 #include "./send.h"
 #include "brt/core/framework/kernel_registry.h"
@@ -26,17 +30,33 @@ namespace cuda {
 
 void RegisterNCCLOps(KernelRegistry *registry) {
   registry->Register(
-      "NCCLRecv_f32",
+      "nccl.Recv",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto kernel = std::shared_ptr<OpKernel>(new cuda::Recv<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::Recv(info));
       });
 
   registry->Register(
-      "NCCLSend_f32",
+      "nccl.Send",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
-        auto kernel = std::shared_ptr<OpKernel>(new cuda::Send<float>(info));
-        return kernel;
+        return std::shared_ptr<OpKernel>(new cuda::Send(info));
+      });
+
+  registry->Register(
+      "nccl.AllReduce",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::shared_ptr<OpKernel>(new cuda::AllReduce(info));
+      });
+
+  registry->Register(
+      "nccl.AllGather",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::shared_ptr<OpKernel>(new cuda::AllGather(info));
+      });
+
+  registry->Register(
+      "nccl.Broadcast",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        return std::shared_ptr<OpKernel>(new cuda::Broadcast(info));
       });
 }
 } // namespace cuda

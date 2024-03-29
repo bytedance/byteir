@@ -36,6 +36,7 @@ jobs:
       volumes:
         - /data00/llvm_libraries:/data00/llvm_libraries
         - /data00/mhlo_libraries:/data00/mhlo_libraries
+        - /data00/external_libraries:/data00/external_libraries
       options: --runtime=nvidia --gpus all
     steps:
       - name: clear workspace
@@ -53,6 +54,7 @@ jobs:
       volumes:
         - /data00/llvm_libraries:/data00/llvm_libraries
         - /data00/mhlo_libraries:/data00/mhlo_libraries
+        - /data00/external_libraries:/data00/external_libraries
       options: --runtime=nvidia --gpus all
     steps:
     - name: clear workspace
@@ -73,6 +75,7 @@ jobs:
       volumes:
         - /data00/llvm_libraries:/data00/llvm_libraries
         - /data00/mhlo_libraries:/data00/mhlo_libraries
+        - /data00/external_libraries:/data00/external_libraries
       options: --runtime=nvidia --gpus all
     steps:
     - name: clear workspace
@@ -90,6 +93,7 @@ jobs:
       volumes:
         - /data00/llvm_libraries:/data00/llvm_libraries
         - /data00/mhlo_libraries:/data00/mhlo_libraries
+        - /data00/external_libraries:/data00/external_libraries
       options: --runtime=nvidia --gpus all
     steps:
     - name: clear workspace
