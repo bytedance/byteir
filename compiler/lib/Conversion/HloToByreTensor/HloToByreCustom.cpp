@@ -34,6 +34,7 @@ namespace {
 constexpr StringRef getFlashAttnLibPath() {
   return "external_libs/libs/libflash_attn.so";
 }
+constexpr StringRef getFlashAttnLibVersion() { return "2.5.3"; }
 constexpr StringRef getFlashAttnFwdAPI() { return "run_flash_attn_fwd"; }
 constexpr StringRef getFlashAttnBwdAPI() { return "run_flash_attn_bwd"; }
 constexpr StringRef getFlashAttnKVCacheAPI() {
@@ -46,6 +47,12 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
   config.getCustomLibPath = [=](StringRef callee) {
     if (callee == getFlashAttnFwdName() || callee == getFlashAttnBwdName()) {
       return getFlashAttnLibPath();
+    }
+    return StringRef("");
+  };
+  config.getCustomLibVersion = [=](StringRef callee) {
+    if (callee == getFlashAttnFwdName() || callee == getFlashAttnBwdName()) {
+      return getFlashAttnLibVersion();
     }
     return StringRef("");
   };
@@ -184,12 +191,14 @@ struct ConvertCustomCallOpToByreCustom : public RewritePattern {
     auto libPath = converter.getCustomLibPath(callee);
     if (libPath == "")
       return failure();
+    auto version = converter.getCustomLibVersion(callee);
     auto apiName = converter.getApiName(callee);
     auto extraArgs = converter.getExtraArgs(customCallOp);
 
     auto newOp = rewriter.create<byre::CustomOp>(
         customCallOp.getLoc(), customCallOp.getResultTypes(), libPath, apiName,
-        customCallOp.getOperands(), extraArgs, /*memEffects*/ ArrayAttr{});
+        version, customCallOp.getOperands(), extraArgs,
+        /*memEffects*/ ArrayAttr{});
     rewriter.replaceOp(op, newOp.getResults());
     return success();
   }
