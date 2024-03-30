@@ -1,13 +1,3 @@
-# note: need to apply mhlo patch with gcc8.3
-function apply_mhlo_patches() {
-  pushd $ROOT_PROJ_DIR/external/mlir-hlo
-  git clean -fd .
-  for patch in $ROOT_PROJ_DIR/external/patches/mlir-hlo/*; do
-    git apply $patch
-  done
-  popd
-}
-
 function apply_aitemplate_patches() {
   pushd $ROOT_PROJ_DIR/external/AITemplate
   git clean -fd .
