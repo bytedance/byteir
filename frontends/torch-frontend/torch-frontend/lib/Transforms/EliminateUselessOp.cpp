@@ -49,6 +49,17 @@ struct EliminateTorchOperatorOpByPrefix : public OpRewritePattern<OperatorOp> {
 } // namespace
 
 namespace {
+struct EliminateAtenWarnOp : public OpRewritePattern<AtenWarnOp> {
+  using OpRewritePattern<AtenWarnOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(AtenWarnOp op,
+                                PatternRewriter &rewriter) const override {
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+} // namespace
+
+namespace {
 struct EliminateUselessOpPass
     : public EliminateUselessOpBase<EliminateUselessOpPass> {
   void runOnOperation() override {
@@ -57,6 +68,9 @@ struct EliminateUselessOpPass
     RewritePatternSet patterns(context);
     // Eliminate torch.profiler.xxx ops
     patterns.add<EliminateTorchOperatorOpByPrefix>(context, "profiler.");
+    // Eliminate torch.aten.warn op
+    patterns.add<EliminateAtenWarnOp>(context);
+
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
     if (failed(applyPatternsAndFoldGreedily(getOperation(), frozenPatterns))) {

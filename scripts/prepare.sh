@@ -1,13 +1,3 @@
-# note: need to apply mhlo patch with gcc8.3
-function apply_mhlo_patches() {
-  pushd $ROOT_PROJ_DIR/external/mlir-hlo
-  git clean -fd .
-  for patch in $ROOT_PROJ_DIR/external/patches/mlir-hlo/*; do
-    git apply $patch
-  done
-  popd
-}
-
 function apply_aitemplate_patches() {
   pushd $ROOT_PROJ_DIR/external/AITemplate
   git clean -fd .
@@ -30,7 +20,7 @@ function load_llvm_prebuilt() {
 }
 
 function install_mhlo_tools() {
-  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl --force-reinstall
+  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl
 }
 
 function copy_external_libs() {
