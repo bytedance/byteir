@@ -1,7 +1,9 @@
 from typing import Optional, Sequence, Union, List, Tuple
+from enum import Enum
+import sys
+
 import torch
 import torch.export
-import sys
 
 import torch_mlir
 from torch_mlir.extras.fx_importer import FxImporter
@@ -28,6 +30,10 @@ _CUSTOM_OPS_IN_TORCH = [
     "byteir.flash_attn_bwd",
 ]
 
+class DebugType(Enum):
+    NO_DEBUG = 0
+    PRINT_AFTER_FALIURE = 1
+    PRINT_AFTER_ONLY_CHANGE = 2
 
 def byteir〇flash_attn_fwd〡shape(q: List[int], k: List[int], v: List[int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[int]]:
     batch_size = q[0]
@@ -87,8 +93,7 @@ def compile(
     example_inputs: Union[torch.Tensor, Sequence[torch.Tensor]],
     output_type: str,
     backend_legal_ops: Optional[Sequence[str]] = None,
-    verbose: bool = False,
-    debug: int = 0,
+    debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
     """
     Args:
@@ -96,19 +101,19 @@ def compile(
             `raw`
             `torch`
             `stablehlo`
-            `stablehlo+0.16.2`(stablehlo version)
-        debug: int type, one of
-            `0: no debug message`,
-            `1: print after failure`,
-            `2: print after pass only on change`
+            `stablehlo+0.16.2`(stablehlo version, could specify other version)
+        debug: DebugType, one of
+            `NO_DEBUG: no debug message`,
+            `PRINT_AFTER_FALIURE: print after failure`,
+            `PRINT_AFTER_ONLY_CHANGE: print after pass only on change`
     """
     if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
-    if debug not in [0, 1, 2]:
-        raise NotImplementedError(f"unsupported debug option {debug}")
+    assert isinstance(debug, DebugType), "unsupported debug type"
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
+    ### compile to raw by torch_mlir.torchscript
     from torch_mlir import torchscript
     module = torchscript.compile(
         model,
@@ -124,27 +129,22 @@ def compile(
     if output_type == "raw":
         return module
 
-    if debug == 2:
+    if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
         print("// IR Dump After RAW")
         print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
         print()
         sys.stdout.flush()
 
-    if debug:
+    if debug != DebugType.NO_DEBUG:
         module.context.enable_multithreading(False)
 
     extra_library_file_name = torchscript._canon_extra_library(extra_library)
-    if verbose:
-        cmdline_option_string = (
-            "backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name
-        )
-        print(f'[RUN] ./build/bin/torch-frontend-opt --torchscript-to-torch-pipeline="{cmdline_option_string}"')
     with module.context:
         option_string = (
             "{backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name + "}"
         )
         pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")
-        if debug == 1:
+        if debug == DebugType.PRINT_AFTER_FALIURE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -152,7 +152,7 @@ def compile(
                 print_after_only_on_failure=True,
                 large_elements_limit=10,
             )
-        if debug == 2:
+        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -164,11 +164,9 @@ def compile(
     if output_type == "torch":
         return module
 
-    if verbose:
-        print("[RUN] ./build/bin/torch-frontend-opt --torch-to-mhlo-pipeline")
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
-        if debug == 1:
+        if debug == DebugType.PRINT_AFTER_FALIURE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -176,7 +174,7 @@ def compile(
                 print_after_only_on_failure=True,
                 large_elements_limit=10,
             )
-        if debug == 2:
+        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -194,23 +192,27 @@ def compile_dynamo_model(
     model: Union[torch.export.ExportedProgram, torch.fx.GraphModule],
     output_type: str,
     backend_legal_ops: Optional[Sequence[str]] = None,
-    debug: int = 0,
+    debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
     """
     Args:
-        debug: int type, one of
-            `0: no debug message`,
-            `1: print after failure`,
-            `2: print after pass only on change`
+        output_type: str type
+            `raw`
+            `torch`
+            `stablehlo`
+            `stablehlo+0.16.2`(stablehlo version, could specify other version)
+        debug: DebugType, one of
+            `NO_DEBUG: no debug message`,
+            `PRINT_AFTER_FALIURE: print after failure`,
+            `PRINT_AFTER_ONLY_CHANGE: print after pass only on change`
     """
-
-    if output_type not in ["raw", "torch", "stablehlo"]:
+    if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
-    if debug not in [0, 1, 2]:
-        raise NotImplementedError(f"unsupported debug option {debug}")
+    assert isinstance(debug, DebugType), "unsupported debug type"
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
+    ### compile to raw by torch_mlir.extras.fx_importer
     torch_mlir_context = torch_mlir.ir.Context()
     from torch_mlir.dialects.torch import register_dialect as register_torch_dialect
     register_torch_dialect(torch_mlir_context)
@@ -229,13 +231,13 @@ def compile_dynamo_model(
     module = ir.Module.parse(module_str, context)
     if output_type == "raw":
         return module
-    if debug == 2:
+    if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
         print("// IR Dump After RAW")
         print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
         print()
         sys.stdout.flush()
 
-    if debug:
+    if debug != DebugType.NO_DEBUG:
         module.context.enable_multithreading(False)
 
     with module.context:
@@ -243,7 +245,7 @@ def compile_dynamo_model(
         # decompose ops, like aten.addmm, aten.t and so on.
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
         pm = PassManager.parse(f"builtin.module(torch-function-to-torch-pipeline{option_string})")
-        if debug == 1:
+        if debug == DebugType.PRINT_AFTER_FALIURE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -251,7 +253,7 @@ def compile_dynamo_model(
                 print_after_only_on_failure=True,
                 large_elements_limit=10,
             )
-        if debug == 2:
+        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -266,7 +268,7 @@ def compile_dynamo_model(
 
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
-        if debug == 1:
+        if debug == DebugType.PRINT_AFTER_FALIURE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -274,7 +276,7 @@ def compile_dynamo_model(
                 print_after_only_on_failure=True,
                 large_elements_limit=10,
             )
-        if debug == 2:
+        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
             pm.enable_ir_printing(
                 print_before_pass=False,
                 print_after_pass=True,
@@ -283,7 +285,10 @@ def compile_dynamo_model(
                 large_elements_limit=10,
             )
         pm.run(module.operation)
-    return module
+
+    if output_type == "stablehlo":
+        return module
+    return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
 
 
 def convert_to_mhlo_via_torch_mlir(
@@ -294,7 +299,7 @@ def convert_to_mhlo_via_torch_mlir(
     verbose: bool = False,
 ) -> ModuleOp:
     """
-    Deprecated, use torch_frontend.compile instead.
+    Deprecated, use torch_frontend.compile or torch_frontend.compile_dynamo_model instead.
     """
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
