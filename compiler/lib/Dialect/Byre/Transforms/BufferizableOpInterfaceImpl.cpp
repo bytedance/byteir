@@ -91,25 +91,25 @@ FailureOr<Value> getBufferInValidLayout(RewriterBase &rewriter, Location loc,
   return buffer;
 }
 
-struct ByreComputeTensorOpBufferization
+struct ByreComputeOnTensorOpBufferization
     : public BufferizableOpInterface::ExternalModel<
-          ByreComputeTensorOpBufferization, byre::ComputeTensorOp> {
+          ByreComputeOnTensorOpBufferization, byre::ComputeOnTensorOp> {
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const AnalysisState &state) const {
-    auto computeTensorOp = cast<byre::ComputeTensorOp>(op);
+    auto computeOnTensorOp = cast<byre::ComputeOnTensorOp>(op);
     size_t idx = opOperand.getOperandNumber();
     byre::MemoryEffect effect =
-        llvm::to_vector(computeTensorOp.getMemoryEffects()
+        llvm::to_vector(computeOnTensorOp.getMemoryEffects()
                             ->getAsValueRange<byre::MemoryEffectAttr>())[idx];
     return bitEnumContainsAll(effect, byre::MemoryEffect::Read);
   }
 
   bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
                                const AnalysisState &state) const {
-    auto computeTensorOp = cast<byre::ComputeTensorOp>(op);
+    auto computeOnTensorOp = cast<byre::ComputeOnTensorOp>(op);
     size_t idx = opOperand.getOperandNumber();
     byre::MemoryEffect effect =
-        llvm::to_vector(computeTensorOp.getMemoryEffects()
+        llvm::to_vector(computeOnTensorOp.getMemoryEffects()
                             ->getAsValueRange<byre::MemoryEffectAttr>())[idx];
     return bitEnumContainsAll(effect, byre::MemoryEffect::Write);
   }
@@ -161,9 +161,9 @@ struct ByreComputeTensorOpBufferization
 
     rewriter.setInsertionPoint(op);
 
-    // Convert ComputeTensorOp to ComputeOp
+    // Convert ComputeOnTensorOp to ComputeOp
     auto newOp = rewriter.create<byre::ComputeOp>(
-        op->getLoc(), cast<byre::ComputeTensorOp>(op).getCallee(),
+        op->getLoc(), cast<byre::ComputeOnTensorOp>(op).getCallee(),
         newInputBuffers, newOutputBuffers);
 
     for (auto &&namedAttr : op->getAttrs()) {
@@ -327,8 +327,8 @@ void mlir::byre::registerBufferizableOpInterfaceExternalModels(
     DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, byre::ByreDialect *) {
     byre::ComputeOp::attachInterface<ByreComputeOpBufferization>(*ctx);
-    byre::ComputeTensorOp::attachInterface<ByreComputeTensorOpBufferization>(
-        *ctx);
+    byre::ComputeOnTensorOp::attachInterface<
+        ByreComputeOnTensorOpBufferization>(*ctx);
     byre::CustomOp::attachInterface<ByreCustomOpBufferization>(*ctx);
   });
 }

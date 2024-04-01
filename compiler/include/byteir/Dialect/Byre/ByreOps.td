@@ -40,7 +40,7 @@ include "mlir/Interfaces/ViewLikeInterface.td"
 class Byre_Op<string mnemonic, list<Trait> traits = []> :
     Op<Byre_Dialect, mnemonic, traits>;
 
-def Byre_ComputeTensorOp : Byre_Op<"compute_tensor",
+def Byre_ComputeOnTensorOp : Byre_Op<"compute_on_tensor",
     [HasParent<"func::FuncOp">, ByreInterface, MemRefsNormalizable, AttrSizedOperandSegments,
      DeclareOpInterfaceMethods<MemoryEffectsOpInterface>, DestinationStyleOpInterface]> {
   let summary = "compute operation with DestinationStyle in tensor level";

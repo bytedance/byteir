@@ -71,9 +71,10 @@ public:
     if (failed(failureOremptyTensors)) {
       return failure();
     }
-    auto computeTensorOp = rewriter.replaceOpWithNewOp<byre::ComputeTensorOp>(
-        op, op->getResultTypes(), key, op->getOperands(),
-        *failureOremptyTensors);
+    auto computeOnTensorOp =
+        rewriter.replaceOpWithNewOp<byre::ComputeOnTensorOp>(
+            op, op->getResultTypes(), key, op->getOperands(),
+            *failureOremptyTensors);
 
     // copy byre attr, and remove prefix
     SmallVector<NamedAttribute> attrs;
@@ -84,7 +85,7 @@ public:
       }
     }
 
-    addAttrs(computeTensorOp.getOperation(), attrs);
+    addAttrs(computeOnTensorOp.getOperation(), attrs);
 
     return success();
   }

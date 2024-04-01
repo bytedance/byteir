@@ -262,12 +262,12 @@ LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
 }
 
 //===----------------------------------------------------------------------===//
-// ComputeTensorOp
+// ComputeOnTensorOp
 //===----------------------------------------------------------------------===/
 
-void ComputeTensorOp::build(OpBuilder &builder, OperationState &result,
-                            ::mlir::TypeRange resultType, StringRef callee,
-                            ValueRange inputs, ValueRange outputs) {
+void ComputeOnTensorOp::build(OpBuilder &builder, OperationState &result,
+                              ::mlir::TypeRange resultType, StringRef callee,
+                              ValueRange inputs, ValueRange outputs) {
   SmallVector<Attribute> memoryEffectAttrs;
   memoryEffectAttrs.append(
       inputs.size(), builder.getAttr<MemoryEffectAttr>(MemoryEffect::Read));
@@ -277,7 +277,7 @@ void ComputeTensorOp::build(OpBuilder &builder, OperationState &result,
         llvm::to_vector(outputs), builder.getArrayAttr(memoryEffectAttrs));
 }
 
-void ComputeTensorOp::getEffects(
+void ComputeOnTensorOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
   if (!this->getMemoryEffects()) {
@@ -309,8 +309,8 @@ void ComputeTensorOp::getEffects(
   }
 }
 
-// verify ComputeTensorOp
-LogicalResult ComputeTensorOp::verify() {
+// verify ComputeOnTensorOp
+LogicalResult ComputeOnTensorOp::verify() {
   if (verifyOpInEntryPointFunc(this->getOperation()).failed()) {
     return failure();
   }

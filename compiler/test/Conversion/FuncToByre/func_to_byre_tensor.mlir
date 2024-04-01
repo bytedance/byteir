@@ -7,7 +7,7 @@ func.func @test_function_call_to_byre_compute(%arg0 : tensor<4xf32>) -> tensor<4
   return %0 : tensor<4xf32>
 }
 // CHECK-LABEL: test_function_call_to_byre_compute
-//   CHECK: byre.compute_tensor @some_op
+//   CHECK: byre.compute_on_tensor @some_op
 //   CHECK-SAME: some_attr
 
 // -----
