@@ -97,21 +97,29 @@ struct ByreComputeOnTensorOpBufferization
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const AnalysisState &state) const {
     auto computeOnTensorOp = cast<byre::ComputeOnTensorOp>(op);
-    size_t idx = opOperand.getOperandNumber();
-    byre::MemoryEffect effect =
-        llvm::to_vector(computeOnTensorOp.getMemoryEffects()
-                            ->getAsValueRange<byre::MemoryEffectAttr>())[idx];
-    return bitEnumContainsAll(effect, byre::MemoryEffect::Read);
+    SmallVector<SideEffects::EffectInstance<MemoryEffects::Effect>> effects;
+    computeOnTensorOp.getEffects(effects);
+    for (auto &&sideEffect : effects) {
+      if (sideEffect.getValue() == opOperand.get() &&
+          sideEffect.getEffect() == MemoryEffects::Read::get()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
                                const AnalysisState &state) const {
     auto computeOnTensorOp = cast<byre::ComputeOnTensorOp>(op);
-    size_t idx = opOperand.getOperandNumber();
-    byre::MemoryEffect effect =
-        llvm::to_vector(computeOnTensorOp.getMemoryEffects()
-                            ->getAsValueRange<byre::MemoryEffectAttr>())[idx];
-    return bitEnumContainsAll(effect, byre::MemoryEffect::Write);
+    SmallVector<SideEffects::EffectInstance<MemoryEffects::Effect>> effects;
+    computeOnTensorOp.getEffects(effects);
+    for (auto &&sideEffect : effects) {
+      if (sideEffect.getValue() == opOperand.get() &&
+          sideEffect.getEffect() == MemoryEffects::Write::get()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   AliasingValueList getAliasingValues(Operation *op, OpOperand &opOperand,

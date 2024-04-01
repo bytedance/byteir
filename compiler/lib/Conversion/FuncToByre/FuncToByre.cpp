@@ -67,14 +67,14 @@ public:
     auto key = byre::getByreKey(nameAttr.getValue(), op->getOperandTypes(),
                                 op->getResultTypes(), effectiveAppendArgTypes);
 
-    auto failureOremptyTensors = createEmptyTensorForResult(rewriter, op);
-    if (failed(failureOremptyTensors)) {
+    auto failureOrEmptyTensors = createEmptyTensorForResult(rewriter, op);
+    if (failed(failureOrEmptyTensors)) {
       return failure();
     }
     auto computeOnTensorOp =
         rewriter.replaceOpWithNewOp<byre::ComputeOnTensorOp>(
             op, op->getResultTypes(), key, op->getOperands(),
-            *failureOremptyTensors);
+            *failureOrEmptyTensors);
 
     // copy byre attr, and remove prefix
     SmallVector<NamedAttribute> attrs;
