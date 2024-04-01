@@ -20,12 +20,12 @@ def get_torch_frontend_version(version_txt_path):
         version = f.readline()
     return version
 
-def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path, output_version_file_path, root_dir, *, dev=False):
+def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path, output_version_file_path, root_dir, *, enable_jitir=False):
     commit_id = get_git_commit(root_dir)
     torch_frontend_ver = get_torch_frontend_version(input_version_txt_path)
 
-    if dev:
-        torch_frontend_ver += ".dev0+{}".format(commit_id[:8])
+    if not enable_jitir:
+        torch_frontend_ver += "+nojit"
 
     with open(output_version_file_path, 'w') as f:
         f.write("__version__ = '{}'\n".format(torch_frontend_ver))
@@ -33,14 +33,14 @@ def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path,
 
     return torch_frontend_ver
 
-TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER = check_env_flag("TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER", False)
+TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER = check_env_flag("TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER", True)
 
 setup_path = os.path.abspath(os.path.dirname(__file__))
 root_path = os.path.abspath(setup_path + "/../../")
 
 version_txt = os.path.join(setup_path, "version.txt")
 version_file = os.path.join(setup_path, "torch_frontend", "version.py")
-version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=TORCH_FRONTEND_DISABLE_JIT_IR_IMPORTER)
+version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, enable_jitir=TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER)
 
 maintainer = "ByteIR Team"
 maintainer_email = "byteir@bytedance.com"

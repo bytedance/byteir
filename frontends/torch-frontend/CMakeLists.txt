@@ -14,7 +14,7 @@ set(TORCH_FRONTEND_BIN_ROOT ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_CXX_STANDARD 17)
 
 include(MLIR.cmake)
-include(TorchMLIR.cmake)
+include(TorchMLIR.cmake) # build singleton torch_mlir
 
 #-------------------------------------------------------------------------------
 # Third Parties
