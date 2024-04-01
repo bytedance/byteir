@@ -409,9 +409,11 @@ common::Status LLVMJITImpl::ParseIRFile(const std::string &path) {
   llvm::SMDiagnostic err;
   auto mod = llvm::parseIRFile(path, err, *ctx);
   if (!mod) {
-    // TODO: handle err message
+    std::string buf;
+    llvm::raw_string_ostream OS(buf);
+    err.print("parse-ir-file", OS);
     return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Parse LLVM module failed");
+                          "Parse LLVM module failed : " + buf);
   }
   mod->setModuleIdentifier(path);
 

@@ -112,7 +112,9 @@ common::Status LLVMJITOpKernel::ProloguePerFrame(const ExecutionContext &ctx) {
 
   auto jit = GetLLJIT(ctx);
   if (!jit->Lookup(symbol_name, nullptr).IsOK()) { // symbol not found
-    BRT_ENFORCE(jit->LoadFromFile(file_path).IsOK());
+    auto status = jit->LoadFromFile(file_path);
+    if (!status.IsOK())
+      BRT_THROW(status);
 #if BRT_LLJIT_DEBUG
     // enable this to print optimized llvm module and dump compiled object to
     // the disk
