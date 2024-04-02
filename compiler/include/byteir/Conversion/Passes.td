@@ -273,7 +273,8 @@ def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "func::FuncOp"> {
   let dependentDialects = [
     "mlir::arith::ArithDialect",
     "mlir::byre::ByreDialect",
-    "mlir::tensor::TensorDialect"
+    "mlir::tensor::TensorDialect",
+    "mlir::shape::ShapeDialect",
   ];
 
   let options = [
@@ -291,8 +292,10 @@ def ConvertFuncToByreTensor : Pass<"func-to-byre-tensor", "ModuleOp"> {
   let summary = "Convert func op to byre tensor compute op.";
   let constructor = "mlir::createConvertFuncToByreTensorPass()";
   let dependentDialects = [
+    "mlir::arith::ArithDialect",
     "mlir::byre::ByreDialect",
-    "mlir::tensor::TensorDialect"
+    "mlir::tensor::TensorDialect",
+    "mlir::shape::ShapeDialect",
   ];
 
   let options = [

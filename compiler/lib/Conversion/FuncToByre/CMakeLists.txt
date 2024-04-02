@@ -8,6 +8,7 @@ add_byteir_conversion_library(ByteIRFuncToByre
   MLIRByreDialect
   ByteIRConversionPassIncGen
   ByteIRConversionCommon
+  ByteIRMhloUtils
 
   LINK_LIBS PUBLIC
   MLIRArithDialect
@@ -17,4 +18,5 @@ add_byteir_conversion_library(ByteIRFuncToByre
   MLIRTensorDialect
   MLIRTransforms
   ByteIRConversionCommon
+  ByteIRMhloUtils
 )
