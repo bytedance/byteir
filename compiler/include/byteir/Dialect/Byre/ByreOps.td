@@ -48,7 +48,7 @@ def Byre_ComputeOnTensorOp : Byre_Op<"compute_on_tensor",
     Example:
     ```mlir
     %0 = tensor.empty() : tensor<2x4xf32>
-    %1 = byre.compute @MatmulOp
+    %1 = byre.compute_on_tensor @MatmulOp
     {lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64}
     ins(%arg0, %arg1 : tensor<2x10xf32>, tensor<10x4xf32>)
     outs(%0 : tensor<2x4xf32>) : tensor<2x4xf32>
@@ -97,7 +97,7 @@ def Byre_ComputeOp : Byre_Op<"compute",
   );
 
   let results = (outs
-    Variadic<AnyMemRef>:$results
+    Variadic<AnyType>:$results
   );
 
   let builders = [
