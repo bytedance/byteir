@@ -18,11 +18,13 @@
 #include "byteir/Conversion/FuncToByre/FuncToByre.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
+#include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -66,9 +68,14 @@ public:
     auto key = byre::getByreKey(nameAttr.getValue(), op->getOperandTypes(),
                                 op->getResultTypes(), effectiveAppendArgTypes);
 
-    auto computeOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
-        op, op->getResultTypes(), key, op->getOperands(),
-        /*memEffects*/ ArrayAttr());
+    auto failureOrEmptyTensors = createEmptyTensorForOpResult(rewriter, op);
+    if (failed(failureOrEmptyTensors)) {
+      return failure();
+    }
+    auto computeOnTensorOp =
+        rewriter.replaceOpWithNewOp<byre::ComputeOnTensorOp>(
+            op, op->getResultTypes(), key, op->getOperands(),
+            *failureOrEmptyTensors);
 
     // copy byre attr, and remove prefix
     SmallVector<NamedAttribute> attrs;
@@ -79,7 +86,7 @@ public:
       }
     }
 
-    addAttrs(computeOp.getOperation(), attrs);
+    addAttrs(computeOnTensorOp.getOperation(), attrs);
 
     return success();
   }

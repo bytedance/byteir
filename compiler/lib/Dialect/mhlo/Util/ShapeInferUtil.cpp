@@ -176,3 +176,42 @@ mlir::inferReturnTypeComponents(llvm::StringRef name) {
     return it->second;
   return nullptr;
 }
+
+LogicalResult mlir::reifyShapes(OpBuilder &builder, Operation *op,
+                                SmallVectorImpl<Value> &reifications) {
+  if (!op)
+    return failure();
+
+  if (op->hasTrait<hlo::OpTrait::CompatibleOperandsAndResultType>()) {
+    // CompatibleOperandsAndResultType does not implement reify
+    reifications.push_back(
+        builder.create<shape::ShapeOfOp>(op->getLoc(), op->getOperand(0)));
+    return success();
+  }
+
+  // TODO: support nested function call
+  if (auto origin = dyn_cast<InferShapedTypeOpInterface>(op)) {
+    if (failed(origin.reifyReturnTypeShapes(builder, origin->getOperands(),
+                                            reifications))) {
+      return failure();
+    }
+  } else if (auto reifyFunc =
+                 reifyReturnTypeShapes(op->getName().getStringRef())) {
+    if (failed(reifyFunc(op, builder, op->getOperands(), reifications))) {
+      return failure();
+    }
+  } else if (auto customCall = dyn_cast<mhlo::CustomCallOp>(op)) {
+    auto inferFunc = reifyReturnTypeShapes(customCall.getCallTargetName());
+    if (!inferFunc) {
+      return failure();
+    }
+    if (failed(inferFunc(op, builder, op->getOperands(), reifications)))
+      return failure();
+  } else {
+    // Return failure if op doesn't have InferShapedTypeOpInterface and not
+    // registered.
+    return failure();
+  }
+
+  return success();
+}
