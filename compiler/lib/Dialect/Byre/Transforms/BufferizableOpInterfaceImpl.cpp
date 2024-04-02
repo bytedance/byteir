@@ -96,30 +96,14 @@ struct ByreComputeOnTensorOpBufferization
           ByreComputeOnTensorOpBufferization, byre::ComputeOnTensorOp> {
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const AnalysisState &state) const {
-    auto computeOnTensorOp = cast<byre::ComputeOnTensorOp>(op);
-    SmallVector<SideEffects::EffectInstance<MemoryEffects::Effect>> effects;
-    computeOnTensorOp.getEffects(effects);
-    for (auto &&sideEffect : effects) {
-      if (sideEffect.getValue() == opOperand.get() &&
-          sideEffect.getEffect() == MemoryEffects::Read::get()) {
-        return true;
-      }
-    }
-    return false;
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+    return !genericOp.isDpsInit(&opOperand);
   }
 
   bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
                                const AnalysisState &state) const {
-    auto computeOnTensorOp = cast<byre::ComputeOnTensorOp>(op);
-    SmallVector<SideEffects::EffectInstance<MemoryEffects::Effect>> effects;
-    computeOnTensorOp.getEffects(effects);
-    for (auto &&sideEffect : effects) {
-      if (sideEffect.getValue() == opOperand.get() &&
-          sideEffect.getEffect() == MemoryEffects::Write::get()) {
-        return true;
-      }
-    }
-    return false;
+    auto genericOp = cast<DestinationStyleOpInterface>(op);
+    return genericOp.isDpsInit(&opOperand);
   }
 
   AliasingValueList getAliasingValues(Operation *op, OpOperand &opOperand,
@@ -186,75 +170,6 @@ struct ByreComputeOnTensorOpBufferization
     bufferization::replaceOpWithBufferizedValues(rewriter, op,
                                                  newOutputBuffers);
 
-    return success();
-  }
-};
-
-struct ByreComputeOpBufferization
-    : public BufferizableOpInterface::ExternalModel<ByreComputeOpBufferization,
-                                                    byre::ComputeOp> {
-  bool bufferizesToAllocation(Operation * /*op*/, Value /*value*/) const {
-    return true;
-  }
-
-  bool bufferizesToMemoryRead(Operation * /*op*/, OpOperand & /*opOperand*/,
-                              const AnalysisState & /*state*/) const {
-    return true;
-  }
-
-  bool bufferizesToMemoryWrite(Operation * /*op*/, OpOperand & /*opOperand*/,
-                               const AnalysisState & /*state*/) const {
-    return false;
-  }
-
-  AliasingValueList getAliasingValues(Operation * /*op*/,
-                                      OpOperand & /*opOperand*/,
-                                      const AnalysisState & /*state*/) const {
-    return {};
-  }
-
-  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
-                          const BufferizationOptions &options) const {
-    SmallVector<Value> bufferOperands, bufferResults;
-
-    for (auto &&opOperand : op->getOpOperands()) {
-      auto buffer =
-          getBufferInValidLayout(rewriter, op->getLoc(), opOperand, options);
-      if (failed(buffer))
-        return failure();
-
-      bufferOperands.push_back(*buffer);
-    }
-
-    for (auto &&opResult : op->getOpResults()) {
-      auto tensorType = opResult.getType().dyn_cast_or_null<RankedTensorType>();
-      if (!tensorType)
-        return failure();
-
-      auto tensorAlloc = allocateTensorForShapedValue(rewriter, op->getLoc(),
-                                                      opResult, options);
-      if (failed(tensorAlloc))
-        return failure();
-
-      auto memrefType =
-          MemRefType::get(tensorType.getShape(), tensorType.getElementType());
-      Value buffer = rewriter.create<bufferization::ToMemrefOp>(
-          op->getLoc(), memrefType, *tensorAlloc);
-      bufferResults.push_back(buffer);
-    }
-
-    auto newOp = rewriter.create<byre::ComputeOp>(
-        op->getLoc(), cast<byre::ComputeOp>(op).getCallee(), bufferOperands,
-        bufferResults);
-
-    for (auto &&namedAttr : op->getAttrs()) {
-      StringRef name = namedAttr.getName();
-      if (!name.startswith("bufferization.") && !newOp->hasAttr(name)) {
-        newOp->setAttr(name, namedAttr.getValue());
-      }
-    }
-
-    bufferization::replaceOpWithBufferizedValues(rewriter, op, bufferResults);
     return success();
   }
 };
@@ -334,7 +249,6 @@ struct ByreCustomOpBufferization
 void mlir::byre::registerBufferizableOpInterfaceExternalModels(
     DialectRegistry &registry) {
   registry.addExtension(+[](MLIRContext *ctx, byre::ByreDialect *) {
-    byre::ComputeOp::attachInterface<ByreComputeOpBufferization>(*ctx);
     byre::ComputeOnTensorOp::attachInterface<
         ByreComputeOnTensorOpBufferization>(*ctx);
     byre::CustomOp::attachInterface<ByreCustomOpBufferization>(*ctx);

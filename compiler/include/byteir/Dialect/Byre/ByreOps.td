@@ -41,15 +41,15 @@ class Byre_Op<string mnemonic, list<Trait> traits = []> :
     Op<Byre_Dialect, mnemonic, traits>;
 
 def Byre_ComputeOnTensorOp : Byre_Op<"compute_on_tensor",
-    [HasParent<"func::FuncOp">, ByreInterface, MemRefsNormalizable, AttrSizedOperandSegments,
-     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>, DestinationStyleOpInterface]> {
+    [HasParent<"func::FuncOp">, ByreInterface, AttrSizedOperandSegments,
+    DestinationStyleOpInterface]> {
   let summary = "compute operation with DestinationStyle in tensor level";
   let description = [{
     Example:
     ```mlir
     %0 = tensor.empty() : tensor<2x4xf32>
     %1 = byre.compute @MatmulOp
-    {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64}
+    {lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64}
     ins(%arg0, %arg1 : tensor<2x10xf32>, tensor<10x4xf32>)
     outs(%0 : tensor<2x4xf32>) : tensor<2x4xf32>
     ```
@@ -57,21 +57,13 @@ def Byre_ComputeOnTensorOp : Byre_Op<"compute_on_tensor",
 
   let arguments = (ins
     FlatSymbolRefAttr:$callee,
-    Variadic<AnyType>:$inputs,
-    Variadic<AnyType>:$outputs,
-    OptionalAttr<ArrayAttr>:$memory_effects
+    Variadic<AnyRankedTensor>:$inputs,
+    Variadic<AnyRankedTensor>:$outputs
   );
 
   let results = (outs
-    Variadic<AnyType>:$results
+    Variadic<AnyRankedTensor>:$results
   );
-
-  let builders = [
-     OpBuilder<(ins "TypeRange":$resultType,
-                    "StringRef":$callee,
-                    "ValueRange":$inputs,
-                    "ValueRange":$outputs)>,
-  ];
 
   let extraClassDeclaration = [{
     MutableOperandRange getDpsInitsMutable() { return getOutputsMutable(); }
@@ -85,7 +77,6 @@ def Byre_ComputeOnTensorOp : Byre_Op<"compute_on_tensor",
     (`:` type($results)^)?
   }];
 
-  let hasVerifier = 1;
 }
 
 def Byre_ComputeOp : Byre_Op<"compute",
@@ -101,12 +92,12 @@ def Byre_ComputeOp : Byre_Op<"compute",
 
   let arguments = (ins
     FlatSymbolRefAttr:$callee,
-    Variadic<AnyType>:$operands,
+    Variadic<AnyTypeOf<[AnyMemRef, AnyInteger, Index]>>:$operands,
     OptionalAttr<ArrayAttr>:$memory_effects
   );
 
   let results = (outs
-    Variadic<AnyType>:$results
+    Variadic<AnyMemRef>:$results
   );
 
   let builders = [
