@@ -95,7 +95,8 @@ struct PTXImpl {
         func, kernel_info.kernel_name, kernel_info.file_name);
     size_t max_shared_mem = 48 << 10;
     if (shared_size > max_shared_mem) {
-      cuFuncSetAttribute(func, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES, shared_size);
+      cuFuncSetAttribute(func, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES,
+                         shared_size);
     }
     BRT_ENFORCE(status_func.IsOK(), status_func.ErrorMessage());
     device2func.emplace(device_id, func);
@@ -176,9 +177,10 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
     }
   }
   int64_t dynamic_shm_size = 0;
-  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(SHARED_MEMORY_SIZE))
-  {
-    dynamic_shm_size = info.GetOperation()->getAttrOfType<IntegerAttr>(SHARED_MEMORY_SIZE).getInt();
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(SHARED_MEMORY_SIZE)) {
+    dynamic_shm_size = info.GetOperation()
+                           ->getAttrOfType<IntegerAttr>(SHARED_MEMORY_SIZE)
+                           .getInt();
   }
 
   auto num_arg = GetOpArgNum(info_);
