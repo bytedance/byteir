@@ -29,6 +29,7 @@
 using ReplicaGroupsIndices = llvm::SmallVector<int64_t>;
 using ReplicaGroupsIndicesRef = llvm::ArrayRef<int64_t>;
 
+#include "byteir/Dialect/Ccl/IR/CclOpInterface.h.inc"
 #include "byteir/Dialect/Ccl/IR/CclOpsDialect.h.inc"
 
 #define GET_OP_CLASSES

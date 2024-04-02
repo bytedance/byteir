@@ -28,4 +28,15 @@ typedef enum {
   BRT_REDUCEOP_COUNT = 3,
 } ReduceOp;
 
+inline ReduceOp GetReduceOp(std::string reduceOp) {
+  if (reduceOp == "sum")
+    return BRT_SUM;
+  else if (reduceOp == "max")
+    return BRT_MAX;
+  else if (reduceOp == "min")
+    return BRT_MIN;
+  else
+    return BRT_REDUCEOP_COUNT;
+}
+
 } // namespace brt

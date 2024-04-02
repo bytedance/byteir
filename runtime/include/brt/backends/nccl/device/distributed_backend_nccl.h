@@ -44,10 +44,12 @@ public:
 
   common::Status all_gather(const void *sendbuff, void *recvbuff,
                             size_t sendlen, DTypeEnum dtype,
+                            std::set<int64_t> replica_group,
                             std::shared_ptr<DContext> ctx) override;
 
   common::Status all_reduce(const void *sendbuff, void *recvbuff, size_t len,
                             DTypeEnum dtype, ReduceOp op,
+                            std::set<int64_t> replica_group,
                             std::shared_ptr<DContext> ctx) override;
 
   common::Status reduce_scatter(const void *sendbuff, void *recvbuff,
@@ -56,6 +58,7 @@ public:
 
   common::Status broadcast(const void *sendbuff, void *recvbuff, size_t len,
                            DTypeEnum dtype, uint32_t root,
+                           std::set<int64_t> replica_group,
                            std::shared_ptr<DContext> ctx) override;
 
   common::Status reduce(const void *sendbuff, void *recvbuff, size_t len,

@@ -23,6 +23,7 @@
 #include "byteir/Conversion/HloToByreTensor/HloToByreTensor.h"
 #include "byteir/Conversion/HloToCat/FuseHloToCat.h"
 #include "byteir/Conversion/HloToCat/HloToCat.h"
+#include "byteir/Conversion/LcclToByre/LcclToByre.h"
 #include "byteir/Conversion/MemrefToByre/MemrefToByre.h"
 #include "byteir/Conversion/ToAIT/ToAIT.h"
 #include "byteir/Conversion/ToAce/MhloToAce.h"

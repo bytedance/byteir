@@ -4,18 +4,46 @@ from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 import os
 import shutil
+import subprocess
 
-from gen_version import get_torch_frontend_version_and_generate_versoin_file
+def check_env_flag(name: str, default=None) -> bool:
+    return str(os.getenv(name, default)).upper() in ["ON", "1", "YES", "TRUE", "Y"]
+
+def get_git_commit(src_dir):
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=src_dir).decode('ascii').strip()
+    except Exception:
+        return 'unknown'
+
+def get_torch_frontend_version(version_txt_path):
+    with open(version_txt_path) as f:
+        version = f.readline()
+    return version
+
+def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path, output_version_file_path, root_dir, *, enable_jitir=False):
+    commit_id = get_git_commit(root_dir)
+    torch_frontend_ver = get_torch_frontend_version(input_version_txt_path)
+
+    if not enable_jitir:
+        torch_frontend_ver += "+nojit"
+
+    with open(output_version_file_path, 'w') as f:
+        f.write("__version__ = '{}'\n".format(torch_frontend_ver))
+        f.write("git_version = {}\n".format(repr(commit_id)))
+
+    return torch_frontend_ver
+
+TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER = check_env_flag("TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER", True)
 
 setup_path = os.path.abspath(os.path.dirname(__file__))
 root_path = os.path.abspath(setup_path + "/../../")
 
 version_txt = os.path.join(setup_path, "version.txt")
 version_file = os.path.join(setup_path, "torch_frontend", "version.py")
-version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, dev=False)
+version = get_torch_frontend_version_and_generate_versoin_file(version_txt, version_file, root_path, enable_jitir=TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER)
 
-maintainer = ""
-maintainer_email = ""
+maintainer = "ByteIR Team"
+maintainer_email = "byteir@bytedance.com"
 author = maintainer
 author_email = maintainer_email
 description = "use torch_frontend python interface"
@@ -23,6 +51,7 @@ long_description = """
 torch_frontend
 usage:
 >>> import torch_frontend
+>>> import torch_mlir
 """
 install_requires = []
 license = "LICENSE"
@@ -33,7 +62,7 @@ classifiers = [
     "Programming Language :: Python :: 3.6",
 ]
 
-class TorchMLIRExtension(Extension):
+class TorchFrontendExtension(Extension):
   def __init__(self, name):
     Extension.__init__(self, name, sources=[])
 
@@ -42,20 +71,35 @@ class CustomBuild(build_ext):
     super().run()
   
   def build_extension(self, ext):
-    if isinstance(ext, TorchMLIRExtension):
-      return self.build_torch_mlir()
+    if isinstance(ext, TorchFrontendExtension):
+      self.build_torch_mlir()
+      return self.build_torch_frontend()
     
     return super().build_extension(ext)
 
-  def build_torch_mlir(self):
+  def build_torch_frontend(self):
     python_package_dir = os.path.join(
       root_path,
       "build",
       "python_packages",
       "torch_frontend",
+    )
+    target_dir = os.path.join(self.build_lib, "torch_frontend")
+    if os.path.exists(target_dir):
+      shutil.rmtree(target_dir, ignore_errors=False, onerror=None)
+    shutil.copytree(python_package_dir, target_dir, symlinks=False)
+    shutil.copyfile(version_file, os.path.join(target_dir, "version.py"))
+
+  def build_torch_mlir(self):
+    python_package_dir = os.path.join(
+      root_path,
+      "build",
+      "torch_mlir_build",
+      "python_packages",
+      "torch_mlir",
       "torch_mlir",
     )
-    target_dir = os.path.join(self.build_lib, "torch_frontend", "torch_mlir")
+    target_dir = os.path.join(self.build_lib, "torch_mlir")
     if os.path.exists(target_dir):
       shutil.rmtree(target_dir, ignore_errors=False, onerror=None)
     shutil.copytree(python_package_dir, target_dir, symlinks=False)
@@ -69,10 +113,11 @@ setup(
     install_requires=install_requires,
     maintainer=maintainer,
     name=name,
-    packages=find_packages(where=setup_path, exclude=["build", "csrc", "test"]),
-    package_dir={"": os.path.dirname(__file__)},
+    packages=["torch_frontend", "torch_mlir"],
+    package_data={"torch_mlir": ["extras/*.py"]},
+    package_dir={"torch_frontend": setup_path+"/torch_frontend", "torch_mlir": root_path+"/third_party/torch-mlir/python/torch_mlir"},
     include_package_data=False,
-    ext_modules=[TorchMLIRExtension("torch_frontend.torch_mlir")],
+    ext_modules=[TorchFrontendExtension("torch_frontend")],
     cmdclass={
       "build_ext": CustomBuild,
     },

@@ -78,7 +78,7 @@ def compile_cuda(
             PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx file
-    byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name)
 
     # create host mlir
     with context:
@@ -183,7 +183,7 @@ def compile_cuda_with_ait(
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx
     assert detect_cuda_with_nvidia_smi() != None
-    byteir.translate_to_ptx(device_module.operation, output_file_dir + "/" + output_file_name, detect_cuda_with_nvidia_smi())
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, detect_cuda_with_nvidia_smi())
 
     with context:
         PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
@@ -203,12 +203,17 @@ def compile(
     disable_byteir_ait_cache: bool = False,
     **kwargs,
 ) -> None:
+    from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
     context = ir.Context()
-    with open(input_file_path, "r") as f:
-        module = ir.Module.parse(f.read(), context)
-        _print_verbose(module, "// IR Dump Input MLIR:") if verbose else ...
+    if input_file_path.endswith(".mlirbc"):
+        module_bytes = deserialize_portable_artifact(open(input_file_path, "rb").read())
+        module = ir.Module.parse(module_bytes, context)
+    else:
+        module = ir.Module.parse(open(input_file_path, "r").read(), context)
+    _print_verbose(module, "// IR Dump Input MLIR:") if verbose else ...
+
     with context:
-        PassManager.parse("builtin.module(func.func(chlo-legalize-to-hlo),stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
+        PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
         _print_verbose(module, "// IR Dump After Legalize to HLO:") if verbose else ...
 
     if target == "cuda":

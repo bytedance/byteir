@@ -273,6 +273,11 @@ extern "C" void memrefCopy(int64_t elemSize,
   }
 }
 
+extern "C" uint16_t __truncdfhf2(double v) {
+  return _cvtss_sh(static_cast<float>(v),
+                   _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+}
+
 void InitJITKernelRTSymbols(LLVMJIT *jit) {
 #define REG2(name, symbol)                                                     \
   if (!jit->Lookup(name, nullptr).IsOK()) {                                    \
@@ -282,6 +287,7 @@ void InitJITKernelRTSymbols(LLVMJIT *jit) {
 #define REG(symbol) REG2(#symbol, symbol)
 
   REG(memrefCopy);
+  REG(__truncdfhf2);
   // TODO: replace with the call of session host allocator's corresponding
   // method
   REG2("malloc", ::malloc);
@@ -403,9 +409,11 @@ common::Status LLVMJITImpl::ParseIRFile(const std::string &path) {
   llvm::SMDiagnostic err;
   auto mod = llvm::parseIRFile(path, err, *ctx);
   if (!mod) {
-    // TODO: handle err message
+    std::string buf;
+    llvm::raw_string_ostream OS(buf);
+    err.print("parse-ir-file", OS);
     return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "Parse LLVM module failed");
+                          "Parse LLVM module failed : " + buf);
   }
   mod->setModuleIdentifier(path);
 

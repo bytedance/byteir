@@ -81,10 +81,10 @@ TEST(NVRTCTest, Add) {
   cudaDeviceSynchronize();
 
   void *args1[] = {&grid, &block, &shared_size, &arr1, &arr2, &n, &val1};
-  wq.AddTask(5, (void *)func, args1);
+  wq.AddTask(5, (void *)func, args1, 0, {});
 
   void *args2[] = {&grid, &block, &shared_size, &arr2, &arr3, &n, &val2};
-  wq.AddTask(5, (void *)func, args2);
+  wq.AddTask(5, (void *)func, args2, 0, {});
 
   wq.Sync();
 

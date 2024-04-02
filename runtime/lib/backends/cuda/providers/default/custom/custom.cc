@@ -20,6 +20,7 @@
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
+#include <cstring>
 #include <dlfcn.h>
 #include <filesystem>
 #include <vector>
@@ -38,6 +39,7 @@ CustomOpKernel::CustomOpKernel(const OpKernelInfo &info) : OpKernel(info) {
   OpAccessor accessor(info_);
   std::string lib_path = accessor.GetAttrAsString("lib_path");
   std::string api_name = accessor.GetAttrAsString("api_name");
+  std::string version = accessor.GetAttrAsString("version");
   custom_lib_hdl = dlopen(lib_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
   std::string msg = std::string("Custom lib ") + lib_path + " load failed";
   BRT_ENFORCE(custom_lib_hdl != nullptr, msg);
@@ -45,6 +47,10 @@ CustomOpKernel::CustomOpKernel(const OpKernelInfo &info) : OpKernel(info) {
       dlsym(custom_lib_hdl, api_name.c_str()));
   std::string api_msg = std::string("Couldn't find function: ") + api_name;
   BRT_ENFORCE(run_func_ != NULL, api_msg);
+  void *lib_version = dlsym(custom_lib_hdl, "VERSION");
+  BRT_ENFORCE(lib_version != NULL, "Version doesn't exist in custom library!");
+  BRT_ENFORCE(strcmp((char *)lib_version, version.c_str()),
+              "Version doesn't match!");
 }
 
 int64_t getIntFromVoidPtr(void *data, size_t &pos) {
@@ -79,5 +85,9 @@ common::Status CustomOpKernel::RunImpl(const ExecutionContext &ctx) {
   return common::Status::OK();
 }
 
+common::Status CustomOpKernel::EpiloguePerFrame(const ExecutionContext &ctx) {
+  dlclose(custom_lib_hdl);
+  return common::Status::OK();
+}
 } // namespace cuda
 } // namespace brt

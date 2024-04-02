@@ -58,7 +58,7 @@ class DistributedCollectiveTest(DistributedTestBase):
             ir = module.operation.get_asm()
             FileCheck().check("@main").check("ccl.reduce_scatter").check("axis = 0").check('reduction = "sum"').check(
                 "replica_groups = [[0, 1, 2, 3]]"
-            ).check("-> tensor<1xf32>").check("ccl.wait").run(ir)
+            ).check("-> tensor<1xf32>").run(ir)
 
     @with_comms
     def test_all_reduce(self):
@@ -70,7 +70,7 @@ class DistributedCollectiveTest(DistributedTestBase):
             ir = module.operation.get_asm()
             FileCheck().check("@main").check("ccl.all_reduce").check('reduction = "sum"').check(
                 "replica_groups = [[0, 1, 2, 3]]"
-            ).check("-> tensor<4xf32>").check("ccl.wait").run(ir)
+            ).check("-> tensor<4xf32>").run(ir)
 
     @with_comms
     def test_all_gather(self):
@@ -82,7 +82,7 @@ class DistributedCollectiveTest(DistributedTestBase):
             ir = module.operation.get_asm()
             FileCheck().check("@main").check("ccl.all_gather").check("axis = 0").check(
                 "replica_groups = [[0, 1, 2, 3]]"
-            ).check("-> tensor<16xf32>").check("ccl.wait").run(ir)
+            ).check("-> tensor<16xf32>").run(ir)
 
     @with_comms
     @skip_unless_torch_version_bigger_than(torch_version="2.2")
@@ -95,7 +95,7 @@ class DistributedCollectiveTest(DistributedTestBase):
             ir = module.operation.get_asm()
             FileCheck().check("@main").check("ccl.broadcast").check("replica_groups = [[2, 0, 1, 3]]").check(
                 "-> tensor<4xf32>"
-            ).check("ccl.wait").run(ir)
+            ).run(ir)
 
     # TODO: add test for send/recv
 

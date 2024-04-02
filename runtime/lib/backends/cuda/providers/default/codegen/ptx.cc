@@ -231,7 +231,8 @@ common::Status PTXOpKernel::RunImpl(const ExecutionContext &ctx) {
   CUfunction func = impl_->GetOrCreateFunction(cuda_env.GetDeviceID());
 
   return work_queue->AddTask(5 /*CUDATaskType::kComputeDrv*/, (void *)func,
-                             args.data());
+                             args.data(), info_.GetOpId(),
+                             info_.GetDependency());
 }
 } // namespace cuda
 } // namespace brt

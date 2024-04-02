@@ -27,7 +27,8 @@ namespace brt {
 namespace cpu {
 
 template <typename T>
-void TFWhereImpl(const OpAccessor &accessor, WorkQueue *work_queue) {
+void TFWhereImpl(const OpAccessor &accessor, WorkQueue *work_queue, int op_id,
+                 const std::vector<int> &dependency) {
   const auto &shape = accessor.GetArgShape(0);
   const int64_t num_elements = accessor.GetNumElementsOfShape(shape);
   const int32_t rank = shape.size();
@@ -35,7 +36,7 @@ void TFWhereImpl(const OpAccessor &accessor, WorkQueue *work_queue) {
   T *data = static_cast<T *>(accessor.GetArgAsyncValueRef(0));
   int64_t *result = static_cast<int64_t *>(accessor.GetArgAsyncValueRef(1));
 
-  DispatchHostTask(work_queue, {
+  DispatchHostTask(work_queue, op_id, dependency, {
     for (int64_t i = 0, result_pos = 0; i < num_elements; ++i) {
       if (!data[i])
         continue;
@@ -60,8 +61,8 @@ common::Status TFWhere::RunImpl(const ExecutionContext &ctx) {
   auto data_dtype = accessor.GetArgDTypeEnum(0);
 #define HANDLE_DTYPE(DType)                                                    \
   if (data_dtype == DType) {                                                   \
-    TFWhereImpl<typename DTypeTraits<DType>::type_t>(accessor,                 \
-                                                     ctx.work_queue);          \
+    TFWhereImpl<typename DTypeTraits<DType>::type_t>(                          \
+        accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency());     \
     return common::Status::OK();                                               \
   }
   HANDLE_DTYPE(DTypeEnum::Float32)

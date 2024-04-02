@@ -96,6 +96,21 @@ struct WorkQueue {
   }
 };
 
+struct OpId {
+  template <typename Impl>
+  static inline int Get(Impl *impl, const ExecutionContext &ctx) {
+    return impl->GetOpId();
+  }
+};
+
+struct Dependency {
+  template <typename Impl>
+  static inline const std::vector<int> &Get(Impl *impl,
+                                            const ExecutionContext &ctx) {
+    return impl->GetDependency();
+  }
+};
+
 // op kernel which has temporary workspace as argument, should implement
 // GetWorkspaceSize() interface
 struct Workspace : public PerFrameHookTrait {
@@ -196,6 +211,12 @@ struct NaiveOpKernelIfaceTraits : public OpKernelIfaceTraitsBase<Arguments...> {
       return OpAccessor(info_, ctx.exec_frame);
     }
 
+    int GetOpId() const { return info_.GetOpId(); }
+
+    const std::vector<int> &GetDependency() const {
+      return info_.GetDependency();
+    }
+
   private:
     const OpKernelInfo &info_;
   };
@@ -226,8 +247,10 @@ struct OpKernelWithWorkspaceIfaceTraitsT
 
 template <template <typename...> class Base, typename... Arguments>
 struct HostOpKernelIfaceTraitsT
-    : public Base<argument_type::WorkQueue, Arguments...> {
-  using BaseTraits = Base<argument_type::WorkQueue, Arguments...>;
+    : public Base<argument_type::WorkQueue, argument_type::OpId,
+                  argument_type::Dependency, Arguments...> {
+  using BaseTraits = Base<argument_type::WorkQueue, argument_type::OpId,
+                          argument_type::Dependency, Arguments...>;
 
   template <typename T>
   using ImplMixinBase = typename BaseTraits::template ImplMixin<T>;
@@ -238,8 +261,10 @@ struct HostOpKernelIfaceTraitsT
     using ImplMixinBase<ImplBase>::ImplMixinBase;
 
     template <typename... Args>
-    common::Status Execute(WorkQueue *work_queue, Args &&...args) {
-      DispatchHostTask(work_queue, { ImplBase::Execute(args...); });
+    common::Status Execute(WorkQueue *work_queue, int op_id,
+                           const std::vector<int> &dependency, Args &&...args) {
+      DispatchHostTask(work_queue, op_id, dependency,
+                       { ImplBase::Execute(args...); });
       return common::Status::OK();
     }
   };

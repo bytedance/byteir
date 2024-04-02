@@ -19,6 +19,7 @@
 #define BYTEIR_TARGET_PTX_TOPTX_H
 
 #include "byteir/Target/Common/Common.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Value.h"
 #include "llvm/ADT/ScopedHashTable.h"
@@ -30,7 +31,8 @@ namespace mlir {
 
 void registerToPTXTranslation();
 
-LogicalResult translateToPTX(Operation *op, const std::string &prefix = "out",
+LogicalResult translateToPTX(mlir::ModuleOp module,
+                             const std::string &prefix = "out",
                              OptLevel level = OptLevel::O3,
                              const std::string &gpuArch = "sm_70",
                              bool dumpPtx = false, bool saveTemp = false,

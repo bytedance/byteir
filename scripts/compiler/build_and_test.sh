@@ -16,6 +16,7 @@ INSTALL_DIR="$BUILD_DIR/byre_install"
 
 source $CUR_DIR/../prepare.sh
 prepare_for_compiler
+install_mhlo_tools
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
@@ -26,6 +27,7 @@ cmake "-H$PROJ_DIR/cmake" \
       -DLLVM_INSTALL_PATH="$LLVM_INSTALL_DIR" \
       -DLLVM_EXTERNAL_LIT=$(which lit) \
       -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+      -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable -Wno-maybe-uninitialized" \
       -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
 cmake --build "$BUILD_DIR" --target all check-byteir install
@@ -35,10 +37,7 @@ cmake --build "$BUILD_DIR" --target byteir-python-pack
 # test cat
 cmake --build "$BUILD_DIR" --target check-byteir-python
 
-# TODO: make this test more robust
-# test byteir.compile
+# pytest
 pushd $ROOT_PROJ_DIR
-PYTHONPATH=./compiler/build/python_packages/byteir python3 -m byteir.tools.compiler ./compiler/test/E2E/MLPInference/input.mlir -o ./test.mlir --entry_func forward
-rm -f ./test.mlir
-rm -f ./test.mlir.ptx
+PYTHONPATH=./compiler/build/python_packages/byteir python3 -m pytest ./compiler/python/test/api
 popd

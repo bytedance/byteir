@@ -179,8 +179,8 @@ ModuleOp mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
 
 } // namespace
 
-ModuleOp mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
-                                            ModuleOp module1) {
+OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
+                                                         ModuleOp module1) {
   assert(module0.getContext() == module1.getContext() &&
          "module0 and module1 should have same context");
   MLIRContext *context = module0.getContext();

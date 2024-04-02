@@ -185,7 +185,7 @@ def Byre_CustomOp : Byre_Op<"custom",
   let description = [{ 
     Example:
     ```mlir
-    %2 = byre.custom(%0, %1) { lib_path = "xxx.so", api_name = "add", extra_args = [0 : i64, 1 : i64, 2.0 : f32] } : (f32, f32) -> f32
+    %2 = byre.custom(%0, %1) { lib_path = "xxx.so", api_name = "add", version = "1.0.0", extra_args = [0 : i64, 1 : i64, 2.0 : f32] } : (f32, f32) -> f32
     ```
     During execution, "xxx.so" will be loaded, and "add" function will be called.
   }];
@@ -193,6 +193,7 @@ def Byre_CustomOp : Byre_Op<"custom",
   let arguments = (ins
     StrAttr:$lib_path,
     StrAttr:$api_name,
+    StrAttr:$version,
     Variadic<AnyType>:$operands,
     ArrayAttr:$extra_args,
     OptionalAttr<ArrayAttr>:$memory_effects
@@ -205,6 +206,7 @@ def Byre_CustomOp : Byre_Op<"custom",
   let builders = [
      OpBuilder<(ins "StringRef":$lib_path,
                     "StringRef":$api_name,
+                    "StringRef":$version,
                     "ValueRange":$inputs,
                     "ValueRange":$outputs,
                     "ArrayAttr":$extra_args)>

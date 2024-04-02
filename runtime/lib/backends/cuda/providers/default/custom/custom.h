@@ -28,6 +28,7 @@ public:
   typedef void (*CustomLibApiRun)(void **, void *, cudaStream_t);
   explicit CustomOpKernel(const OpKernelInfo &info);
   common::Status RunImpl(const ExecutionContext &) override;
+  common::Status EpiloguePerFrame(const ExecutionContext &) override;
 
 private:
   void *custom_lib_hdl;

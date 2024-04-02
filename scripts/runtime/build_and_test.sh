@@ -1,8 +1,9 @@
 #!/bin/bash
 
 set -e
+set -x
 
-while [[ $# -gt 1 ]]; do
+while [[ $# -gt 0 ]]; do
   case $1 in
     --cuda)
       BRT_USE_CUDA=ON
@@ -65,7 +66,8 @@ cmake -GNinja \
   -Dbrt_USE_CUDA=${BRT_USE_CUDA} \
   -Dbrt_USE_NCCL=${BRT_USE_NCCL} \
   -Dbrt_ENABLE_ASAN=${BRT_ENABLE_ASAN} \
-  -Dbrt_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS}
+  -Dbrt_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS} \
+  -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter"
 
 cmake --build "$BUILD_DIR" --target all --target install
 

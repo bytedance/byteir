@@ -93,7 +93,7 @@ common::Status LLVMJITOpKernel::RunImpl(const ExecutionContext &ctx) {
   } else {
     BRT_ENFORCE(jit->LookupPacked(symbol_name, &symbol).IsOK());
   }
-  DispatchHostTask(ctx.work_queue, {
+  DispatchHostTask(ctx.work_queue, info_.GetOpId(), info_.GetDependency(), {
     std::vector<void *> args;
     args.reserve(nr_args);
     for (size_t i = 0; i < nr_args; ++i) {
@@ -112,7 +112,9 @@ common::Status LLVMJITOpKernel::ProloguePerFrame(const ExecutionContext &ctx) {
 
   auto jit = GetLLJIT(ctx);
   if (!jit->Lookup(symbol_name, nullptr).IsOK()) { // symbol not found
-    BRT_ENFORCE(jit->LoadFromFile(file_path).IsOK());
+    auto status = jit->LoadFromFile(file_path);
+    if (!status.IsOK())
+      BRT_THROW(status);
 #if BRT_LLJIT_DEBUG
     // enable this to print optimized llvm module and dump compiled object to
     // the disk

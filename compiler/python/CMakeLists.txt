@@ -72,8 +72,6 @@ add_mlir_python_common_capi_library(ByteIRCAPIAggregation
     MLIRPythonExtension.RegisterEverything
     MLIRHLOPythonSources
     MLIRHLOPythonExtensions
-    ChloPythonSources
-    ChloPythonExtensions
     StablehloPythonSources
     StablehloPythonExtensions
     ByteIRPythonSources
@@ -96,8 +94,6 @@ add_mlir_python_modules(ByteIRPythonModules
     MLIRPythonExtension.RegisterEverything
     MLIRHLOPythonSources
     MLIRHLOPythonExtensions
-    ChloPythonSources
-    ChloPythonExtensions
     StablehloPythonSources
     StablehloPythonExtensions
     ByteIRPythonSources
