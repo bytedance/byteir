@@ -91,9 +91,6 @@ struct InferReturnTypeComponentsRegistration {
 
 InferReturnTypeComponents inferReturnTypeComponents(llvm::StringRef name);
 
-FailureOr<SmallVector<Value>> createEmptyTensorForResult(OpBuilder &builder,
-                                                         Operation *op);
-
 LogicalResult reifyShapes(OpBuilder &builder, Operation *op,
                           SmallVectorImpl<Value> &reifications);
 } // namespace mlir

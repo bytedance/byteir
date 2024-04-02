@@ -18,7 +18,7 @@
 #include "byteir/Conversion/FuncToByre/FuncToByre.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
-#include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
+#include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -68,7 +68,7 @@ public:
     auto key = byre::getByreKey(nameAttr.getValue(), op->getOperandTypes(),
                                 op->getResultTypes(), effectiveAppendArgTypes);
 
-    auto failureOrEmptyTensors = createEmptyTensorForResult(rewriter, op);
+    auto failureOrEmptyTensors = createEmptyTensorForOpResult(rewriter, op);
     if (failed(failureOrEmptyTensors)) {
       return failure();
     }

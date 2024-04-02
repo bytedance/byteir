@@ -16,8 +16,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/mhlo/Util/Util.h"
+#include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
+#include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Operation.h"
 
 using namespace llvm;
@@ -623,4 +627,52 @@ mlir::computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp) {
     }
   }
   return reshapeOperandType.getRank();
+}
+
+FailureOr<SmallVector<Value>>
+mlir::createEmptyTensorForOpResult(OpBuilder &builder, Operation *op) {
+  SmallVector<Value> emptyTensors;
+  bool resultsHasDynamicShape = false;
+  for (auto &&result : op->getResults()) {
+    if (auto resType = result.getType().template dyn_cast<ShapedType>()) {
+      if (resType.hasStaticShape()) {
+        auto emptyOp = builder.create<tensor::EmptyOp>(
+            op->getLoc(), resType.getShape(), resType.getElementType());
+        emptyTensors.emplace_back(emptyOp);
+      } else {
+        resultsHasDynamicShape = true;
+        break;
+      }
+    }
+  }
+
+  if (resultsHasDynamicShape) {
+    emptyTensors.clear();
+    registerAllMhloReifyReturnTypeShapes();
+    SmallVector<Value, 1> reifications;
+
+    if (reifyShapes(builder, op, reifications).failed()) {
+      return failure();
+    }
+
+    for (auto &&resultAndShape : llvm::zip(op->getResults(), reifications)) {
+      SmallVector<Value, 1> dynamicSizes;
+      auto resType = std::get<0>(resultAndShape).getType().cast<ShapedType>();
+      for (size_t i = 0; i < resType.getRank(); ++i) {
+        if (resType.isDynamicDim(i)) {
+          auto dim = builder
+                         .create<tensor::ExtractOp>(
+                             op->getLoc(), std::get<1>(resultAndShape),
+                             ValueRange{builder.create<arith::ConstantIndexOp>(
+                                 op->getLoc(), static_cast<int64_t>(i))})
+                         .getResult();
+          dynamicSizes.emplace_back(dim);
+        }
+      }
+      auto emptyOp =
+          builder.create<tensor::EmptyOp>(op->getLoc(), resType, dynamicSizes);
+      emptyTensors.emplace_back(emptyOp);
+    }
+  }
+  return emptyTensors;
 }

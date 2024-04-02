@@ -22,7 +22,6 @@
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
-#include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
@@ -50,7 +49,7 @@ FailureOr<byre::ComputeOnTensorOp> replaceMhloOpWithByreComputeOnTensorOp(
                        llvm::to_vector(llvm::map_range(
                            newOperands, [](Value v) { return v.getType(); })),
                        op->getResultTypes(), appendArgTypes);
-  auto emptyTensors = createEmptyTensorForResult(rewriter, op);
+  auto emptyTensors = createEmptyTensorForOpResult(rewriter, op);
   if (failed(emptyTensors)) {
     return failure();
   }
