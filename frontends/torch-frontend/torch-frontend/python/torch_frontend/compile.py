@@ -113,7 +113,9 @@ def compile(
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
-    ### compile to raw by torch_mlir.torchscript
+    ############################################
+    # compile to raw by torch_mlir.torchscript
+    ############################################
     from torch_mlir import torchscript
     module = torchscript.compile(
         model,
@@ -129,6 +131,9 @@ def compile(
     if output_type == "raw":
         return module
 
+    ############################################
+    # compile raw to torch
+    ############################################
     if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
         print("// IR Dump After RAW")
         print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
@@ -164,8 +169,11 @@ def compile(
     if output_type == "torch":
         return module
 
+    ############################################
+    # lowering torch to stablehlo
+    ############################################
     with module.context:
-        pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
+        pm = PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)")
         if debug == DebugType.PRINT_AFTER_FALIURE:
             pm.enable_ir_printing(
                 print_before_pass=False,
@@ -185,6 +193,10 @@ def compile(
         pm.run(module.operation)
     if output_type == "stablehlo":
         return module
+
+    ############################################
+    # serialize stablehlo to target version
+    ############################################
     return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
 
 
@@ -212,7 +224,9 @@ def compile_dynamo_model(
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
 
-    ### compile to raw by torch_mlir.extras.fx_importer
+    ############################################
+    # compile to raw by torch_mlir.extras.fx_importer
+    ############################################
     torch_mlir_context = torch_mlir.ir.Context()
     from torch_mlir.dialects.torch import register_dialect as register_torch_dialect
     register_torch_dialect(torch_mlir_context)
@@ -231,6 +245,10 @@ def compile_dynamo_model(
     module = ir.Module.parse(module_str, context)
     if output_type == "raw":
         return module
+
+    ############################################
+    # compile raw to torch
+    ############################################
     if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
         print("// IR Dump After RAW")
         print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
@@ -262,12 +280,14 @@ def compile_dynamo_model(
                 large_elements_limit=10,
             )
         pm.run(module.operation)
-
     if output_type == "torch":
         return module
 
+    ############################################
+    # lowering torch to stablehlo
+    ############################################
     with module.context:
-        pm = PassManager.parse("builtin.module(torch-to-mhlo-pipeline)")
+        pm = PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)")
         if debug == DebugType.PRINT_AFTER_FALIURE:
             pm.enable_ir_printing(
                 print_before_pass=False,
@@ -285,9 +305,12 @@ def compile_dynamo_model(
                 large_elements_limit=10,
             )
         pm.run(module.operation)
-
     if output_type == "stablehlo":
         return module
+
+    ############################################
+    # serialize stablehlo to target version
+    ############################################
     return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
 
 
@@ -321,6 +344,6 @@ def convert_to_mhlo_via_torch_mlir(
         PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})").run(module.operation)
 
     with module.context:
-        PassManager.parse("builtin.module(torch-to-mhlo-pipeline)").run(module.operation)
+        PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)").run(module.operation)
 
     return module

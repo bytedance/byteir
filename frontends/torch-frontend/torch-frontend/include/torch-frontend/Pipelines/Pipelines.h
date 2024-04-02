@@ -35,8 +35,8 @@ void createTorchFunctionToTorchPipeline(
     const torch::Torch::TorchLoweringPipelineOptions &options);
 
 inline void registerTorchToMhloPipeline() {
-  PassPipelineRegistration<>("torch-to-mhlo-pipeline",
-                             "Torch frontend torch to mhlo pipeline.",
+  PassPipelineRegistration<>("torch-to-stablehlo-pipeline",
+                             "Torch frontend torch to stablehlo pipeline.",
                              createTorchToMhloPipeline);
 }
 
