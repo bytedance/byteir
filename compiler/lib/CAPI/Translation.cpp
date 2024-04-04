@@ -122,7 +122,7 @@ bool byteirSerializeByre(MlirModule module, MlirStringRef targetVersion,
     llvm::errs() << errorMessage << "\n";
     return false;
   }
-  BytecodeWriterConfig config;
+  BytecodeWriterConfig config(serialVersion.getBytecodeProducerString());
   config.setDesiredBytecodeVersion(serialVersion.getBytecodeVersion());
   if (failed(writeBytecodeToFile(*newModule, resultMLIRBCFile->os(), config))) {
     newModule->emitOpError() << "failed to write bytecode\n";
