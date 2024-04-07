@@ -209,7 +209,8 @@ struct TestByreSerialRoundtripPass
 
     std::string buffer;
     llvm::raw_string_ostream ostream(buffer);
-    BytecodeWriterConfig config(targetVersion.getBytecodeProducerString());
+    std::string producerString = targetVersion.getBytecodeProducerString();
+    BytecodeWriterConfig config(producerString);
     config.setDesiredBytecodeVersion(targetVersion.getBytecodeVersion());
     if (failed(writeBytecodeToFile(*newModule, ostream, config))) {
       newModule->emitOpError() << "failed to write bytecode\n";

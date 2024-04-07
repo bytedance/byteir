@@ -78,7 +78,8 @@ struct DumpByrePass : public DumpByreBase<DumpByrePass> {
       return signalPassFailure();
     }
 
-    BytecodeWriterConfig config(targetVersion->getBytecodeProducerString());
+    std::string producerString = targetVersion->getBytecodeProducerString();
+    BytecodeWriterConfig config(producerString);
     config.setDesiredBytecodeVersion(targetVersion->getBytecodeVersion());
     if (failed(writeBytecodeToFile(*newModule, ofile->os(), config))) {
       newModule->emitOpError() << "failed to write bytecode\n";
