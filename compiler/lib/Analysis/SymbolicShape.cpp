@@ -16,7 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Analysis/SymbolicShape.h"
-#include "byteir/Dialect/mhlo/Transforms/ShapeReification.h"
+#include "byteir/Transforms/ShapeReification.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/IRMapping.h"

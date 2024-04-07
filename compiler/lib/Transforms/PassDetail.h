@@ -51,6 +51,14 @@ namespace scf {
 class SCFDialect;
 } // namespace scf
 
+namespace shape {
+class ShapeDialect;
+} // namespace shape
+
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
+
 #define GEN_PASS_CLASSES
 #include "byteir/Transforms/Passes.h.inc"
 

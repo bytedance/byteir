@@ -36,7 +36,6 @@
 #include "byteir/Dialect/mhlo/Transforms/LayoutTransformation.h"
 #include "byteir/Dialect/mhlo/Transforms/MatmulLayoutTransform.h"
 #include "byteir/Dialect/mhlo/Transforms/RewriteWithConstraint.h"
-#include "byteir/Dialect/mhlo/Transforms/ShapeReification.h"
 #include "byteir/Dialect/mhlo/Transforms/StaticShapeInference.h"
 #include "byteir/Dialect/mhlo/Transforms/UnfuseBatchNorm.h"
 
