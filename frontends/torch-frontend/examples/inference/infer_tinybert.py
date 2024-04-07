@@ -26,7 +26,7 @@ fx_g.recompile()
 # print(fx_g.code)
 bert = torch.jit.trace(fx_g, sample_inputs)
 
-mlir_module = torch_frontend.convert_to_mhlo_via_torch_mlir(bert, sample_inputs)
-with open("./bert.mhlo.mlir", "w") as f:
+mlir_module = torch_frontend.compile(bert, sample_inputs, "stablehlo")
+with open("./bert.stablehlo.mlir", "w") as f:
   print(mlir_module.operation.get_asm(
     enable_debug_info=False, print_generic_op_form=True), file=f)
