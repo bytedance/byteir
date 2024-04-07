@@ -272,6 +272,14 @@ LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
     return failure();
   }
 
+  for (Value &&retTensor : retOp.getOperands()) {
+    auto retTy = retTensor.getType();
+    if (!retTy.isa<RankedTensorType>()) {
+      newFuncOp->erase();
+      return failure();
+    }
+  }
+
   SmallVector<Type> allResultTypes;
   SmallVector<Value> allResults;
 
