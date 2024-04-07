@@ -1,6 +1,6 @@
 //===- ShapeReification.cpp -----------------------------------*--- C++ -*-===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Dialect/mhlo/Transforms/ShapeReification.h"
+#include "byteir/Transforms/ShapeReification.h"
 
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"

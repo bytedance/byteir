@@ -47,6 +47,7 @@ void createByreTensorOptPipelineImpl(OpPassManager &pm, std::string entryFunc,
       createConvertHloToByreCustomPass(getCudaByreCustomConfig()));
   pm.addNestedPass<func::FuncOp>(
       createConvertHloToByreTensorPass(appendArgTypes));
+  pm.addNestedPass<func::FuncOp>(createByteIRShapeReificationPass());
   pm.addPass(createCanonicalizerPass());
 }
 } // namespace

@@ -17,6 +17,7 @@ add_mlir_library(ByteIRTransforms
   RewriteOpToStdCall.cpp
   SetArgShape.cpp
   SetSpace.cpp
+  ShapeReification.cpp
   Utils.cpp
 
   ADDITIONAL_HEADER_DIRS
