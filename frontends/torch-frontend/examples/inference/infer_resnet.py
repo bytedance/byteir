@@ -1,8 +1,8 @@
 import torch
 import torchvision.models as models
 
-from torch_frontend import convert_to_mhlo_via_torch_mlir, register_decomposition_in_torchscript
-from torch_frontend import torch_mlir
+from torch_frontend import compile
+import torch_mlir
 from torch_mlir.passmanager import PassManager
 
 model = models.resnet18(pretrained=True)
@@ -13,12 +13,12 @@ model.eval()
 # torch._C._jit_pass_run_decompositions(model.graph)
 data = torch.randn(2,3,200,200)
 
-module = convert_to_mhlo_via_torch_mlir(model, data, use_tracing=False)
+module = compile(model, data, "stablehlo", use_tracing=False)
 
-out_mhlo_mlir_path = "./resnet18.mhlo.mlir"
+out_mhlo_mlir_path = "./resnet18.stablehlo.mlir"
 
 with open(out_mhlo_mlir_path, "w", encoding="utf-8") as outf:
-    module_str = module.operation.get_asm(enable_debug_info=False, print_generic_op_form=True) # large_elements_limit=10
+    module_str = module.operation.get_asm(enable_debug_info=False, print_generic_op_form=False) # large_elements_limit=10
     print(module_str, file=outf)
 
-print(f"MHLO IR of resent18 successfully written into {out_mhlo_mlir_path}")
+print(f"Stablehlo IR of resent18 successfully written into {out_mhlo_mlir_path}")

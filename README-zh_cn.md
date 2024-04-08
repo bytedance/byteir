@@ -3,7 +3,7 @@
 [English](README.md) | 中文
 
 ByteIR项目是字节跳动的模型编译解决方案。ByteIR包括编译器、运行时和前端，并提供端到端的模型编译解决方案。
-尽管所有的ByteIR组件（编译器/runtime/前端）一起提供端到端的解决方案，并且都在同一个代码库下，但每个组件在技术上都可以独立运行。
+尽管所有的ByteIR组件（编译器/运行时/前端）一起提供端到端的解决方案，并且都在同一个代码库下，但每个组件在技术上都可以独立运行。
 
 ## ByteIR名字由来
 
@@ -11,7 +11,7 @@ ByteIR这个名称是个公司内部的历史遗留物。ByteIR项目并不是�
 
 ## 为何选择使用ByteIR
 * **最先进的模型:**
-ByteIR会负责维护前端模型转换到Mhlo，并且提供模型库（近期开放）方便科研和测试。
+ByteIR会负责维护前端模型转换到Stablehlo，并且提供模型库（近期开放）方便科研和测试。
 * **方便好用:**
 ByteIR直接使用上游MLIR方言和Google Mhlo，为编译器提供兼容的passes和基础设施。允许混合使用passes去建构编译器，这包括ByteIR，上游MLIR方言，Mhlo或是自己写的passes。  
 * **新硬件支持:**
@@ -37,13 +37,13 @@ ByteIR前端支持Tensorflow，PyTorch，和ONNX。
 
 每个ByteIR组件在技术上都可以独立运行。组件之间有预定义的交互接口。
 
-### 前端和编译器之间使用MHLO
+### 前端和编译器之间使用Stablehlo
 
-ByteIR前端和ByteIR编译器通过Mhlo方言进行交互（注意在开发过程中Mhlo的版本可能会更新）。这也意味着，任何生成兼容版本Mhlo的前端都可以与ByteIR编译器交互，并且任何使用兼容版本Mhlo的编译器都可以与ByteIR前端交互。
+ByteIR前端和ByteIR编译器通过Stablehlo方言进行交互（注意在开发过程中Stablehlo的版本可能会更新）。这也意味着，任何生成兼容版本Stablehlo的前端都可以与ByteIR编译器交互，并且任何使用兼容版本Stablehlo的编译器都可以与ByteIR前端交互。
 
 ### 编译器和runtime之间使用ByRE
 
-ByteIR编译器和ByteIR Runtime通过ByRE格式进行交互，其版本可能在开发过程中更新。ByRE方言在ByteIR编译器中被定义为一种ByRE格式，目前支持用于ByteIR编译器和Runtime的文本形式。带有版本控制的ByRE方言的字节码形式将很快推出。其他ByRE格式正在开发中。
+ByteIR编译器和ByteIR Runtime通过ByRE格式进行交互，其版本可能在开发过程中更新。ByRE方言在ByteIR编译器中被定义为一种ByRE格式，目前支持生成文本形式或者带有版本控制的字节码形式。其他ByRE格式正在开发中。
 
 ## 出版与引用
 
