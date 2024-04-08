@@ -43,6 +43,10 @@ namespace memref {
 class MemRefDialect;
 } // namespace memref
 
+namespace arith {
+class ArithDialect;
+} // namespace arith
+
 namespace mhlo {
 class MhloDialect;
 } // namespace mhlo

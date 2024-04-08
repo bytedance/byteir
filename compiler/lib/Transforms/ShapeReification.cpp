@@ -20,6 +20,7 @@
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -59,8 +60,8 @@ struct ShapeReificationOnTensorDimPattern
 
     // Insert cast, if needed.
     if (dimOfShape.getType() != op.getType()) {
-      dimOfShape = rewriter.create<tensor::CastOp>(op.getLoc(), op.getType(),
-                                                   dimOfShape);
+      dimOfShape = rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), op.getType(), dimOfShape);
     }
 
     rewriter.replaceOp(op, dimOfShape);
