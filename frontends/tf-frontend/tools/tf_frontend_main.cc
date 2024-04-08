@@ -109,6 +109,11 @@ static llvm::cl::opt<bool> staticalize_dynamic_shape(
                    "graph to a equivalent static graph"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> stop_after_convert_to_tf_dialect(
+    "stop-after-convert-to-tf-dialect",
+    llvm::cl::desc("pipeline stop after convert to tf dialect for debug"),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<bool> stop_after_rewrite_customcall(
     "stop-after-rewrite-customcall",
     llvm::cl::desc("pipeline stop after rewrite customcall ops for debug"),
@@ -258,8 +263,8 @@ int main(int argc, char **argv) {
   tf_frontend_manager.addPass(
       ::mlir::tfext::createCustomizedTfToMhloPipelinePass(
           customcall_ops_array, remove_control_flow, staticalize_dynamic_shape,
-          stop_after_rewrite_customcall, additional_main_func_attrs,
-          set_assuming_to_be_true));
+          stop_after_convert_to_tf_dialect, stop_after_rewrite_customcall,
+          additional_main_func_attrs, set_assuming_to_be_true));
   if (mlir::failed(tf_frontend_manager.run(*module))) {
     llvm::outs() << "tf frontend customized-tf-to-mhlo pipeline failed\n";
     return 1;
