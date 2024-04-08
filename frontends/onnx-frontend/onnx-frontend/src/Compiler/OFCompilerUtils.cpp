@@ -95,6 +95,7 @@ void SetBatchSize(onnx::ModelProto &model) {
   onnx::GraphProto *graph = model.mutable_graph();
   std::string batchDimParam;
   bool hasDynamicBatchSize = false;
+  bool sameStaticBatchSize = false;
 
   std::set<std::string> initializerNames;
   for (const auto &initializer : graph->initializer()) {
@@ -120,6 +121,8 @@ void SetBatchSize(onnx::ModelProto &model) {
     bool isDynamic = (!dim->has_dim_value() || dim->dim_value() <= 0);
     if (isDynamic)
       hasDynamicBatchSize = true;
+    else if (dim->dim_value() == batchSize)
+      sameStaticBatchSize = true;
     if (isDynamic || forceSetBatchSize) {
       if (dim->has_dim_param()) {
         if (!batchDimParam.empty())
@@ -137,12 +140,19 @@ void SetBatchSize(onnx::ModelProto &model) {
                               << dim->dim_value() << "\n");
     }
   }
-  // replace dynamic batch size
-  if (hasDynamicBatchSize && !batchDimParam.empty()) {
-    LLVM_DEBUG(llvm::dbgs() << "replace dynamic bs \n");
+
+  if (hasDynamicBatchSize &&
+      !batchDimParam.empty()) { // replace dynamic batch size with dim_param
+    LLVM_DEBUG(llvm::dbgs() << "replace dynamic bs\n");
     ReplaceSymbolicDimValue(graph, batchDimParam, batchSize);
-  } else { // else clear value info and output shape
-    LLVM_DEBUG(llvm::dbgs() << "clear value info \n");
+  } else if (sameStaticBatchSize ||
+             (!hasDynamicBatchSize &&
+              !forceSetBatchSize)) { // same static batch size, or static bs w/o
+                                     // forceSetBatchSize
+    LLVM_DEBUG(llvm::dbgs() << "keep original bs\n");
+  } else { // dynamic batch size without dim_param (?) or static bs with
+           // forceSetBatchSize
+    LLVM_DEBUG(llvm::dbgs() << "cannot keep value info, clear\n");
     graph->clear_value_info();
     for (auto &output : *(graph->mutable_output())) {
       auto *type = output.mutable_type();
