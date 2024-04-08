@@ -313,37 +313,3 @@ def compile_dynamo_model(
     ############################################
     return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
 
-
-def convert_to_mhlo_via_torch_mlir(
-    model: torch.nn.Module,
-    example_inputs: Union[torch.Tensor, Sequence[torch.Tensor]],
-    backend_legal_ops: Optional[Sequence[str]] = None,
-    use_tracing: bool = False,
-    verbose: bool = False,
-) -> ModuleOp:
-    """
-    Deprecated, use torch_frontend.compile or torch_frontend.compile_dynamo_model instead.
-    """
-    if backend_legal_ops is None:
-        backend_legal_ops = _CUSTOM_OPS_IN_TORCH
-    # torch_mlir.BACKEND_LEGAL_OPS[torch_mlir.OutputType.TORCH] = backend_legal_ops
-    from torch_mlir import torchscript
-    module = torchscript.compile(
-        model,
-        example_inputs,
-        output_type=torchscript.OutputType.RAW,
-        use_tracing=use_tracing,
-        verbose=False,
-    )
-    module_str = module.operation.get_asm(enable_debug_info=True)
-
-    context = ir.Context()
-    module = ir.Module.parse(module_str, context)
-    with module.context:
-        option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
-        PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})").run(module.operation)
-
-    with module.context:
-        PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)").run(module.operation)
-
-    return module

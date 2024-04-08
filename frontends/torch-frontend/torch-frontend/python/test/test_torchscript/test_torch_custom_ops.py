@@ -2,7 +2,7 @@ import torch
 import torch as tu
 
 import torch_frontend
-from torch_frontend import convert_to_mhlo_via_torch_mlir, replace_flash_attn 
+from torch_frontend import compile, replace_flash_attn 
 from functorch.compile import aot_module
 import functools
 from torch.testing import FileCheck
@@ -25,7 +25,7 @@ def test_dynamic_partition_stitch():
     indices = [torch.tensor([2, 3, 4]), torch.tensor([0, 1])]
     inputs = [data, partitions, indices[0], indices[1]]
     module = torch.jit.script(module)
-    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    module = compile(module, inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
 
 
@@ -54,7 +54,7 @@ def test_dynamic_partition_mask_stitch():
     partitions = torch.tensor([0, 1, 0, 1, 0])
     inputs = [data, partitions]
     module = torch.jit.script(module)
-    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    module = compile(module, inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
 
 
