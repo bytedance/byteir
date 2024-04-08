@@ -52,7 +52,9 @@ def RewriteToCustomCallOps: Pass<"rewrite-to-custom-call", "ModuleOp"> {
                "Operations to be wrapped",
                "llvm::cl::ZeroOrMore">,
     Option<"keepBody", "keep-body", "bool", /*default=*/"false",
-           "keep func body">,	
+           "keep func body">,
+    Option<"repeatOutBatchSize", "repeat-out-batch-size", "int64_t", /*default=*/"-1",
+           "batch size of repeat output tensor">,
   ];
   let dependentDialects = [
     "mlir::TF::TensorFlowDialect",
