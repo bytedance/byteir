@@ -86,3 +86,23 @@ class BatchMatmulAddF32Module(torch.nn.Module):
 @register_test_case(module_factory=lambda: BatchMatmulAddF32Module())
 def BatchMatmulAddF32Module_basic(module, tu: TestUtils):
     module.forward(tu.rand(2, 5, 6), tu.rand(2, 6, 10), tu.rand(2, 5, 10))
+
+
+class UniformStaticShapeModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        a = torch.ops.aten.uniform_(x, 1.0, 10.0)
+        std = torch.cat([
+            torch.flatten(torch.std(a,dim=(1,2))),
+        ])
+        mean = torch.cat([
+            torch.flatten(torch.mean(a,dim=(0,1))),
+        ])
+        return torch.cat([std, mean])
+
+@register_test_case(module_factory=lambda: UniformStaticShapeModule())
+def UniformStaticShapeModule_basic(module, tu: TestUtils):
+    module.forward(
+        tu.rand(32, 512, 256).float())
