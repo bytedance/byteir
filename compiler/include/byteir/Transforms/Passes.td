@@ -446,7 +446,8 @@ def ShapeReification : Pass<"byteir-shape-reification", "func::FuncOp"> {
   let constructor = "mlir::createByteIRShapeReificationPass()";
   let dependentDialects = [
     "mlir::shape::ShapeDialect",
-    "mlir::tensor::TensorDialect"
+    "mlir::tensor::TensorDialect",
+    "mlir::arith::ArithDialect",
   ];
 }
 
