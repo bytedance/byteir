@@ -55,13 +55,15 @@ struct CustomizedTfToMhloPipelinePass
     : public CustomizedTfToMhloPipelineBase<CustomizedTfToMhloPipelinePass> {
   CustomizedTfToMhloPipelinePass(
       const std::vector<std::string> &customcall_ops, bool remove_control_flow,
-      bool staticalize_dynamic_shape, bool stop_after_rewrite_custom_call,
+      bool staticalize_dynamic_shape, bool stop_after_convert_to_tf_dialect,
+      bool stop_after_rewrite_custom_call,
       const std::unordered_map<std::string, Attribute>
           &additional_main_func_attrs,
       bool set_assuming_to_be_true) {
     this->customCallOps = customcall_ops;
     this->removeControlFlow = remove_control_flow;
     this->staticalizeDynamicShape = staticalize_dynamic_shape;
+    this->stopAfterConvertToTfDialect = stop_after_convert_to_tf_dialect;
     this->stopAfterRewriteCustomCall = stop_after_rewrite_custom_call;
     this->additional_main_func_attrs = additional_main_func_attrs;
     this->setAssumingToBeTrue = set_assuming_to_be_true;
@@ -124,6 +126,17 @@ struct CustomizedTfToMhloPipelinePass
     //  inside PromoteResourcesToArgs.
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::CreateExecutorDialectToFunctionalConversionPass());
+    if (this->stopAfterConvertToTfDialect) {
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::tfext::createRewriteFuncAttrToByteIRPass(
+              additional_main_func_attrs));
+
+      if (mlir::failed(runPipeline(pm, m))) {
+        signalPassFailure();
+      }
+      return;
+    }
+
     if (staticalizeDynamicShape) {
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::tfext::createProcessDynamicStitchAsStaticPass());
@@ -147,6 +160,11 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
 
     if (this->stopAfterRewriteCustomCall) {
+      pm.addPass(mlir::TF::CreateTFShapeInferencePass());
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::tfext::createRewriteFuncAttrToByteIRPass(
+              additional_main_func_attrs));
+
       if (mlir::failed(runPipeline(pm, m))) {
         signalPassFailure();
       }
@@ -235,12 +253,13 @@ mlir::tfext::createCustomizedTfToMhloPipelinePass(
     const std::vector<std::string> &customcall_ops /*= {}*/,
     bool remove_control_flow /*= false*/,
     bool staticalize_dynamic_shape /*= false*/,
+    bool stop_after_convert_to_tf_dialect /*= false*/,
     bool stop_after_rewrite_custom_call /*= false*/,
     const std::unordered_map<std::string, Attribute>
         &additional_main_func_attrs /*= {}*/,
     bool set_assuming_to_be_true /*= true*/) {
   return std::make_unique<CustomizedTfToMhloPipelinePass>(
       customcall_ops, remove_control_flow, staticalize_dynamic_shape,
-      stop_after_rewrite_custom_call, additional_main_func_attrs,
-      set_assuming_to_be_true);
+      stop_after_convert_to_tf_dialect, stop_after_rewrite_custom_call,
+      additional_main_func_attrs, set_assuming_to_be_true);
 }
