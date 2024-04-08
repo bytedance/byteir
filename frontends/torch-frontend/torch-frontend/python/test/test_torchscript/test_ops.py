@@ -2,7 +2,7 @@ import torch
 import torch as tu
 
 import torch_frontend
-from torch_frontend import convert_to_mhlo_via_torch_mlir
+from torch_frontend import compile
 
 # ==============================================================================
 
@@ -17,7 +17,7 @@ def test_aten_cuda():
     module = AtenCudaModule()
     inputs = [tu.randn(3, 4)]
     module = torch.jit.script(module)
-    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    module = compile(module, inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
 
 # ==============================================================================
@@ -33,7 +33,7 @@ def test_aten_batch_norm_fp16():
     module = AtenBatchNormFp16Module()
     inputs = [tu.randn(1, 16, 28, 28).half().cuda(), tu.randn(16).cuda()]
     module = torch.jit.script(module)
-    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    module = compile(module, inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
 
 # ==============================================================================
@@ -50,7 +50,7 @@ def test_cat():
     module = CatModule()
     inputs = [tu.randint(0, 2, (10, 20)).long()]
     module = torch.jit.trace(module, inputs) # x.bool() can't be scripted
-    module = convert_to_mhlo_via_torch_mlir(module , inputs)
+    module = compile(module , inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
 
 # ==============================================================================
@@ -65,7 +65,7 @@ class LinalgVectorNormModule(torch.nn.Module):
 def test_linalg_vector_norm():
     module = LinalgVectorNormModule()
     inputs = [tu.randn(3, 4, 5).to(torch.float16)]
-    module = convert_to_mhlo_via_torch_mlir(module, inputs)
+    module = compile(module, inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
 
 # ==============================================================================
@@ -79,7 +79,7 @@ class MaxDimModule(torch.nn.Module):
 
 def test_max_dim():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(MaxDimModule(), inputs)
+    module = compile(MaxDimModule(), inputs, "stablehlo")
     print(module.operation.get_asm())
 
 class MaxDimKeepDimModule(torch.nn.Module):
@@ -91,7 +91,7 @@ class MaxDimKeepDimModule(torch.nn.Module):
 
 def test_max_dim_keepdim():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(MaxDimKeepDimModule(), inputs)
+    module = compile(MaxDimKeepDimModule(), inputs, "stablehlo")
     print(module.operation.get_asm())
 
 # ==============================================================================
@@ -104,7 +104,7 @@ class ListModule(torch.nn.Module):
 
 def test_return_list():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(ListModule(), inputs)
+    module = compile(ListModule(), inputs, "stablehlo")
     print(module.operation.get_asm())
 
 # ==============================================================================
@@ -119,7 +119,7 @@ class ArangeModule(torch.nn.Module):
 
 def test_arange_derefine():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(ArangeModule(), inputs)
+    module = compile(ArangeModule(), inputs, "stablehlo")
     print(module.operation.get_asm())
 
 class ClampDerefineModule(torch.nn.Module):
@@ -131,7 +131,7 @@ class ClampDerefineModule(torch.nn.Module):
 
 def test_clamp_derefine():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(ClampDerefineModule(), inputs)
+    module = compile(ClampDerefineModule(), inputs, "stablehlo")
     print(module.operation.get_asm())
 
 # ==============================================================================
@@ -145,7 +145,7 @@ class Tuple1Module(torch.nn.Module):
 
 def test_tuple_one_tensor():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(Tuple1Module(), inputs)
+    module = compile(Tuple1Module(), inputs, "stablehlo")
     print(module.operation.get_asm())
 
 class Tuple2Module(torch.nn.Module):
@@ -156,5 +156,5 @@ class Tuple2Module(torch.nn.Module):
 
 def test_tuple_one_tensor():
     inputs = [tu.randn(3, 4)]
-    module = convert_to_mhlo_via_torch_mlir(Tuple2Module(), inputs)
+    module = compile(Tuple2Module(), inputs, "stablehlo")
     print(module.operation.get_asm())

@@ -28,37 +28,14 @@
 using namespace mlir;
 using namespace mlir::torch;
 
-void mlir::torch_frontend::createTorchToMhloPipeline(OpPassManager &pm) {
+void mlir::torch_frontend::createTorchToStablehloPipeline(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createConvertTorchToCcl());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToCustomCall());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloExt());
-  pm.addNestedPass<func::FuncOp>(
-      createConvertTorchToStablehloPass(false, false));
-  pm.addNestedPass<func::FuncOp>(
-      stablehlo::createChloLegalizeToStablehloPass());
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 
-  // Clean up any non-canonical code introduced above..
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  // The resolution of `dim` ops tends to create identical ops. CSE them.
-  pm.addNestedPass<func::FuncOp>(createCSEPass());
+  TorchConversion::StablehloBackendPipelineOptions options;
+  TorchConversion::createTorchBackendToStablehloBackendPipeline(pm, options);
 
-  // Clean up any non-canonical code introduced above..
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  // The resolution of `dim` ops tends to create identical ops. CSE them.
-  pm.addNestedPass<func::FuncOp>(createCSEPass());
-
-  // Finish the type conversion from `torch` types to the types of the
-  // MHLO backend contract.
-  pm.addPass(TorchConversion::createFuncBackendTypeConversionPass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(
-      TorchConversion::createFinalizingBackendTypeConversionPass());
-
-  // Verify that we have lowered to the form that Stablehlo backends
-  // expect. This fails compilation (signalPassFailure) if the IR is not in the
-  // correct form.
-  pm.addPass(TorchConversion::createVerifyStablehloBackendContractPass());
   // Perform additional canonicalization, which is not suitable in byteir
   // pipeline.
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
