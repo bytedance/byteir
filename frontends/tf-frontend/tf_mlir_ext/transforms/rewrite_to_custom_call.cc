@@ -450,15 +450,31 @@ struct RewriteOneHot : public OpRewritePattern<TF::OneHotOp> {
 // Repeat Pattern
 //===----------------------------------------------------------------------===//
 struct RewriteRepeat : public RewritePattern {
-  RewriteRepeat(MLIRContext *context, PatternBenefit benefits = 1)
-      : RewritePattern("tf.Repeat", benefits, context) {}
+  RewriteRepeat(MLIRContext *context, PatternBenefit benefits = 1,
+                int64_t oBatchSize = -1)
+      : RewritePattern("tf.Repeat", benefits, context),
+        outBatchSize(oBatchSize) {}
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
     // llvm::outs() << op->getName().getStringRef();
     assert(op->getName().getStringRef() == "tf.Repeat");
+    RankedTensorType outType =
+        op->getResult(0).getType().dyn_cast<RankedTensorType>();
+    if (!outType)
+      return failure();
+    llvm::SmallVector<int64_t> outShape;
+    for (auto s : outType.getShape()) {
+      outShape.push_back(s);
+    }
+    assert(outShape.size() >= 1);
+    if (outShape[0] < 0 && outBatchSize > 0) {
+      outShape[0] = outBatchSize;
+    }
+    auto newOutType = outType.clone(outShape);
+    llvm::SmallVector<mlir::Type> outTypes{newOutType};
     mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
-        op->getLoc(), op->getResults().getTypes(), op->getOperands(),
-        getRepeatNameWithPrefix(), false, rewriter.getStringAttr(""),
+        op->getLoc(), outTypes, op->getOperands(), getRepeatNameWithPrefix(),
+        false, rewriter.getStringAttr(""),
         mhlo::CustomCallApiVersion{
             mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL},
         rewriter.getArrayAttr(ArrayRef<Attribute>{}),
@@ -468,6 +484,9 @@ struct RewriteRepeat : public RewritePattern {
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
+
+public:
+  int64_t outBatchSize;
 };
 
 //===----------------------------------------------------------------------===//
@@ -611,9 +630,11 @@ struct RewriteDynamicMaskStitch : public OpRewritePattern<TF::DynamicStitchOp> {
 struct RewriteToCustomCallOpsPass
     : public RewriteToCustomCallOpsBase<RewriteToCustomCallOpsPass> {
   RewriteToCustomCallOpsPass() = default;
-  RewriteToCustomCallOpsPass(ArrayRef<std::string> ops, bool keepBody) {
+  RewriteToCustomCallOpsPass(ArrayRef<std::string> ops, bool keepBody,
+                             int64_t repeatOutBatchSize) {
     this->ops = ops;
     this->keepBody = keepBody;
+    this->repeatOutBatchSize = repeatOutBatchSize;
   }
   void runOnOperation() override final {
     std::unordered_set<std::string> opsSet(this->ops.begin(), this->ops.end());
@@ -715,7 +736,7 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getDynamicStitchName()].emplace_back(
           std::make_unique<SimpleReplaceDynamicStitch>(context, 1));
       validCustomCallOpSet[getRepeatName()].emplace_back(
-          std::make_unique<RewriteRepeat>(context, 1));
+          std::make_unique<RewriteRepeat>(context, 1, repeatOutBatchSize));
 
       RewritePatternSet patterns(context);
       for (auto op : opsSet) {
@@ -796,6 +817,8 @@ struct RewriteToCustomCallOpsPass
 
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::tfext::createRewriteToCustomCallOpsPass(llvm::ArrayRef<std::string> ops,
-                                              bool keepBody) {
-  return std::make_unique<RewriteToCustomCallOpsPass>(ops, keepBody);
+                                              bool keepBody,
+                                              int64_t repeatOutBatchSize) {
+  return std::make_unique<RewriteToCustomCallOpsPass>(ops, keepBody,
+                                                      repeatOutBatchSize);
 }

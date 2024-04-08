@@ -36,7 +36,8 @@ constexpr StringRef getCustomCallBodyAnchorName() {
 
 std::unique_ptr<OperationPass<ModuleOp>>
 createRewriteToCustomCallOpsPass(llvm::ArrayRef<std::string> ops = {},
-                                 bool keepBody = false);
+                                 bool keepBody = false,
+                                 int64_t repeatOutBatchSize = -1);
 } // namespace tfext
 } // namespace mlir
 

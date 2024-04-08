@@ -35,7 +35,7 @@ std::unique_ptr<OperationPass<ModuleOp>> createCustomizedTfToMhloPipelinePass(
     bool stop_after_rewrite_custom_call = false,
     const std::unordered_map<std::string, Attribute>
         &additional_main_func_attrs = {},
-    bool set_assuming_to_be_true = true);
+    bool set_assuming_to_be_true = true, int64_t repeat_out_batch_size = -1);
 
 } // namespace tfext
 } // namespace mlir
