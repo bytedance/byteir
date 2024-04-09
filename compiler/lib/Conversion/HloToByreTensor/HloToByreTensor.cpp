@@ -232,9 +232,9 @@ public:
   matchAndRewrite(mhlo::ConcatenateOp concatOp,
                   typename mhlo::ConcatenateOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
+    // All input tensors must have the same shape, except in the cat
+    // dimension. And all tensor must have static size in the cat dimension.
     auto resultType = concatOp.getType();
-    if (!resultType.hasStaticShape())
-      return failure();
 
     uint64_t axis = concatOp.getDimension();
     if (llvm::any_of(adaptor.getOperands(), [&](auto &&value) {
@@ -242,24 +242,36 @@ public:
         }))
       return failure();
 
-    auto zeroAttr = rewriter.getI64IntegerAttr(0);
-    auto oneAttr = rewriter.getI64IntegerAttr(1);
-    SmallVector<OpFoldResult> offsets, sizes, strides;
+    auto firstOperand = adaptor.getOperands()[0];
+    SmallVector<Value> sizes;
+    SmallVector<int64_t> static_offsets(resultType.getRank(), 0), static_sizes,
+        static_strides(resultType.getRank(), 1);
     for (int64_t i = 0; i < resultType.getRank(); ++i) {
-      offsets.push_back(zeroAttr);
-      sizes.push_back(rewriter.getI64IntegerAttr(resultType.getDimSize(i)));
-      strides.push_back(oneAttr);
+      if (resultType.isDynamicDim(i)) {
+        static_sizes.push_back(ShapedType::kDynamic);
+        sizes.push_back(rewriter.create<tensor::DimOp>(concatOp->getLoc(),
+                                                       firstOperand, i));
+      } else {
+        static_sizes.push_back(resultType.getDimSize(i));
+      }
     }
 
+    SmallVector<Value> dynDims;
+    for (int64_t i = 0; i < resultType.getRank(); ++i)
+      if (resultType.isDynamicDim(i)) {
+        dynDims.push_back(rewriter.create<tensor::DimOp>(concatOp->getLoc(),
+                                                         firstOperand, i));
+      }
     Value value = rewriter.create<tensor::EmptyOp>(concatOp->getLoc(),
-                                                   resultType, ValueRange());
+                                                   resultType, dynDims);
     int64_t upperBound = 0;
     for (auto &&operand : adaptor.getOperands()) {
       auto operandType = operand.getType().cast<ShapedType>();
-      offsets[axis] = rewriter.getI64IntegerAttr(upperBound);
-      sizes[axis] = rewriter.getI64IntegerAttr(operandType.getDimSize(axis));
+      static_offsets[axis] = upperBound;
+      static_sizes[axis] = operandType.getDimSize(axis);
       value = rewriter.create<tensor::InsertSliceOp>(
-          concatOp->getLoc(), operand, value, offsets, sizes, strides);
+          concatOp->getLoc(), operand, value, ValueRange(), sizes, ValueRange(),
+          static_offsets, static_sizes, static_strides);
       upperBound += operandType.getDimSize(axis);
     }
     rewriter.replaceOp(concatOp, value);
