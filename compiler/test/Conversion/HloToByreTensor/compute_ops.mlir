@@ -464,3 +464,20 @@ func.func @mhlo_concatenate(%arg0: tensor<2x2xf32>, %arg1: tensor<2x3xf32>, %arg
 //   CHECK-DAG: [0, 2] [2, 3] [1, 1]
 // CHECK-NEXT: tensor.insert_slice
 //   CHECK-DAG: [0, 5] [2, 4] [1, 1]
+
+// -----
+
+func.func @dynamic_mhlo_concatenate(%arg0: tensor<?x3xf16>, %arg1: tensor<?x3xf16>, %arg2: tensor<?x3xf16>, %arg3: tensor<?x3xf16>, %arg4: tensor<?x3xf16>) -> tensor<?x15xf16> {
+  %0 = "mhlo.concatenate"(%arg0, %arg1, %arg2, %arg3, %arg4) {dimension = 1 : i64} : (tensor<?x3xf16>, tensor<?x3xf16>, tensor<?x3xf16>, tensor<?x3xf16>, tensor<?x3xf16>) -> tensor<?x15xf16>
+  return %0 : tensor<?x15xf16>
+}
+// CHECK-LABEL: func.func @dynamic_mhlo_concatenate
+// CHECK-NEXT: %[[C0:.*]] = arith.constant 0 : index
+// CHECK-DAG: %[[DIM:.*]] = tensor.dim %arg0, %[[C0]] : tensor<?x3xf16>
+// CHECK-DAG: %[[DIM0:.*]] = tensor.dim %arg0, %c0 : tensor<?x3xf16>
+// CHECK-NEXT: %[[V0:.*]] = tensor.empty(%[[DIM0]]) : tensor<?x15xf16>
+// CHECK-NEXT: %[[INSERT_SLICE:.*]] = tensor.insert_slice %arg0 into %[[V0]][0, 0] [%[[DIM]], 3] [1, 1] : tensor<?x3xf16> into tensor<?x15xf16>
+// CHECK-NEXT: %[[INSERT_SLICE1:.*]] = tensor.insert_slice %arg1 into %[[INSERT_SLICE]][0, 3] [%[[DIM]], 3] [1, 1] : tensor<?x3xf16> into tensor<?x15xf16>
+// CHECK-NEXT: %[[INSERT_SLICE2:.*]] = tensor.insert_slice %arg2 into %[[INSERT_SLICE1]][0, 6] [%[[DIM]], 3] [1, 1] : tensor<?x3xf16> into tensor<?x15xf16>
+// CHECK-NEXT: %[[INSERT_SLICE3:.*]] = tensor.insert_slice %arg3 into %[[INSERT_SLICE2]][0, 9] [%[[DIM]], 3] [1, 1] : tensor<?x3xf16> into tensor<?x15xf16>
+// CHECK-NEXT: %[[INSERT_SLICE4:.*]] = tensor.insert_slice %arg4 into %[[INSERT_SLICE3]][0, 12] [%[[DIM]], 3] [1, 1] : tensor<?x3xf16> into tensor<?x15xf16>
