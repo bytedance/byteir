@@ -35,6 +35,13 @@ void mlir::torch_frontend::createTorchToStablehloPipeline(OpPassManager &pm) {
 
   TorchConversion::StablehloBackendPipelineOptions options;
   TorchConversion::createTorchBackendToStablehloBackendPipeline(pm, options);
+  pm.addNestedPass<func::FuncOp>(
+      stablehlo::createStablehloCanonicalizeDynamismPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addPass(stablehlo::createStablehloRefineShapesPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(
+      stablehlo::createStablehloCanonicalizeDynamismPass());
 
   // Perform additional canonicalization, which is not suitable in byteir
   // pipeline.
