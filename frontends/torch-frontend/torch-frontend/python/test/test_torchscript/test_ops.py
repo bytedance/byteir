@@ -158,3 +158,22 @@ def test_tuple_one_tensor():
     inputs = [tu.randn(3, 4)]
     module = compile(Tuple2Module(), inputs, "stablehlo")
     print(module.operation.get_asm())
+
+class PrimListUnpackModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x):
+        eq = torch.eq(len(x.shape), 5)
+        if eq:
+            b0, t, c0, h0, w0 = x.shape
+            b, c, h, w = torch.mul(b0, t), c0, h0, w0
+        else:
+            b1, c1, h1, w1 = x.shape
+            b, c, h, w = b1, c1, h1, w1
+        res = torch.reshape(x, [b, c, h, w])
+        return res
+
+def test_list_unpack_num_mismatch():
+    inputs = [tu.randn(2, 3, 4, 5, 6)]
+    module = compile(PrimListUnpackModule(), inputs, "stablehlo")
+    print(module.operation.get_asm())
