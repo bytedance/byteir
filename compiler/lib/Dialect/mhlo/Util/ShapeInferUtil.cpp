@@ -19,15 +19,18 @@
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Transforms/ShapeReification.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Debug.h"
+
 #include <queue>
 #include <string>
 
@@ -184,32 +187,6 @@ mlir::inferReturnTypeComponents(llvm::StringRef name) {
 }
 
 namespace {
-
-SmallVector<Operation *> collectAllOpsForReturn(Operation *retOp) {
-  llvm::DenseSet<Operation *> visitedOp;
-  std::queue<Operation *> opQueue;
-
-  opQueue.push(retOp);
-  while (!opQueue.empty()) {
-    auto frontOp = opQueue.front();
-    opQueue.pop();
-    if (visitedOp.find(frontOp) != visitedOp.end()) {
-      continue;
-    }
-    visitedOp.insert(frontOp);
-    for (Value operand : frontOp->getOperands()) {
-      if (!operand.getDefiningOp()) {
-        continue;
-      }
-      if (Operation *defOp = operand.getDefiningOp()) {
-        opQueue.push(defOp);
-      }
-    }
-  }
-  visitedOp.erase(retOp);
-  return SmallVector<Operation *>(visitedOp.begin(), visitedOp.end());
-}
-
 bool deduceFromFuncArgShape(Value value) {
   if (value.isa<BlockArgument>()) {
     return false;
@@ -240,6 +217,77 @@ bool deduceFromFuncArgShape(Value value) {
   return true;
 }
 
+FailureOr<func::FuncOp> createCorrespondingShapeFunc(func::FuncOp funcOp) {
+  ModuleOp moduleOp = funcOp->getParentOfType<ModuleOp>();
+  // use auxiliary builder, create shape func in the start of moduleOp
+  OpBuilder builder = OpBuilder::atBlockBegin(moduleOp.getBody());
+
+  // clone funcOp, newFuncOp used for deduce function shape
+  Twine shapeFuncName = funcOp.getName() + "_Shape";
+  auto shapeFunc = builder.create<func::FuncOp>(
+      funcOp->getLoc(), shapeFuncName.str(), funcOp.getFunctionType());
+  shapeFunc.setPrivate();
+  IRMapping emptyBvm;
+  funcOp.cloneInto(shapeFunc, emptyBvm);
+
+  // replace the operands of returnOp with corresponding shape
+  func::ReturnOp retOp = *shapeFunc.getOps<func::ReturnOp>().begin();
+  if (!retOp) {
+    shapeFunc->erase();
+    return failure();
+  }
+
+  for (Value &&retTensor : retOp.getOperands()) {
+    auto retTy = retTensor.getType();
+    if (!retTy.isa<RankedTensorType>()) {
+      shapeFunc->erase();
+      return failure();
+    }
+  }
+
+  SmallVector<Type> allResultTypes;
+  SmallVector<Value> allResults;
+
+  builder.setInsertionPoint(retOp);
+  for (Value &&retTensor : retOp.getOperands()) {
+    auto retShape = builder.create<shape::ShapeOfOp>(retOp.getLoc(), retTensor);
+    allResultTypes.emplace_back(retShape.getType());
+    allResults.emplace_back(retShape);
+  }
+
+  // return the shape of original tensor returned by function
+  auto shapeFuncRetOp =
+      builder.create<func::ReturnOp>(retOp.getLoc(), allResults);
+  auto shapeFuncType =
+      builder.getFunctionType(shapeFunc.getArgumentTypes(), allResultTypes);
+  shapeFunc.setFunctionType(shapeFuncType);
+  retOp->erase();
+
+  // reify shapeFunc to get the shape computation.
+  {
+    PassManager pm(moduleOp->getContext(), moduleOp.getOperationName());
+    // only run pass on shapeFunc
+    pm.addPass(createByteIRShapeReificationPass(shapeFunc.getName()));
+    if (mlir::failed(pm.run(moduleOp))) {
+      shapeFunc->erase();
+      return failure();
+    }
+  }
+
+  // canonicalize shapeFunc
+  {
+    PassManager pm(shapeFunc->getContext(), shapeFunc.getOperationName());
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
+    // only run pass on shapeFunc, don't modify other ops.
+    if (mlir::failed(pm.run(shapeFunc))) {
+      shapeFunc->erase();
+      return failure();
+    }
+  }
+  return shapeFunc;
+}
+
 LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
                           SmallVectorImpl<Value> &reifications) {
   OpBuilder::InsertionGuard guard(builder);
@@ -248,79 +296,28 @@ LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
     return failure();
   }
 
-  ModuleOp moduleOp = op->getParentRegion()->getParentOfType<ModuleOp>();
-  // auxiliary builder used for create operations in shape func
-  // original builder maybe a rewriter, used for create operations in specific
-  // pattern.
-  OpBuilder auxiliaryBuilder(moduleOp);
+  ModuleOp moduleOp = op->getParentOfType<ModuleOp>();
   StringRef funcName = callOp.getCallee();
   auto funcOp = moduleOp.lookupSymbol<func::FuncOp>(funcName);
 
-  // clone funcOp, newFuncOp used for deduce function shape
-  std::string newFuncName = funcName.str() + "_Shape";
-  auxiliaryBuilder.setInsertionPointToStart(moduleOp.getBody());
-  auto newFuncOp = auxiliaryBuilder.create<func::FuncOp>(
-      funcOp->getLoc(), newFuncName, funcOp.getFunctionType());
-  newFuncOp.setPrivate();
-  IRMapping emptyBvm;
-  funcOp.cloneInto(newFuncOp, emptyBvm);
-
-  // replace the operands of returnOp with corresponding shape
-  func::ReturnOp retOp = *newFuncOp.getOps<func::ReturnOp>().begin();
-  if (!retOp) {
-    newFuncOp->erase();
+  // create corresponding shape function
+  auto maybeShapeFunc = createCorrespondingShapeFunc(funcOp);
+  if (failed(maybeShapeFunc)) {
     return failure();
   }
 
-  for (Value &&retTensor : retOp.getOperands()) {
-    auto retTy = retTensor.getType();
-    if (!retTy.isa<RankedTensorType>()) {
-      newFuncOp->erase();
-      return failure();
-    }
-  }
-
-  SmallVector<Type> allResultTypes;
-  SmallVector<Value> allResults;
-
-  auxiliaryBuilder.setInsertionPoint(retOp);
-  for (Value &&retTensor : retOp.getOperands()) {
-    auto retShape =
-        auxiliaryBuilder.create<shape::ShapeOfOp>(retOp.getLoc(), retTensor);
-    allResultTypes.emplace_back(retShape.getType());
-    allResults.emplace_back(retShape);
-  }
-
-  // return the shape of original tensor returned by function
-  auto newRetOp =
-      auxiliaryBuilder.create<func::ReturnOp>(retOp.getLoc(), allResults);
-  auto newFuncType = auxiliaryBuilder.getFunctionType(
-      newFuncOp.getArgumentTypes(), allResultTypes);
-  newFuncOp.setFunctionType(newFuncType);
-  retOp->erase();
-
-  // reify newFunc to get the shape computation for current callOp
-  {
-    PassManager pm(moduleOp->getContext(), func::FuncOp::getOperationName());
-    pm.addPass(createCanonicalizerPass());
-    pm.addPass(createCSEPass());
-    pm.addPass(createByteIRShapeReificationPass());
-    pm.addPass(createCanonicalizerPass());
-    pm.addPass(createCSEPass());
-
-    if (mlir::failed(pm.run(newFuncOp))) {
-      newFuncOp->erase();
-      return failure();
-    }
-  }
+  func::FuncOp shapeFunc = *maybeShapeFunc;
+  func::ReturnOp retOp = *shapeFunc.getOps<func::ReturnOp>().begin();
 
   // collect all shape computation ops
-  SmallVector<Operation *> reificationOps = collectAllOpsForReturn(newRetOp);
-
+  SetVector<Operation *> reificationOpSet;
+  getBackwardSlice(retOp.getOperation(), &reificationOpSet);
+  SmallVector<Operation *> reificationOps(reificationOpSet.begin(),
+                                          reificationOpSet.end());
   // value only depends on the shape of FuncArgs.
-  for (Value &&ret : newRetOp.getOperands()) {
+  for (Value &&ret : retOp.getOperands()) {
     if (!deduceFromFuncArgShape(ret)) {
-      newFuncOp->erase();
+      shapeFunc->erase();
       return failure();
     }
   }
@@ -330,9 +327,9 @@ LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
     mlir::computeTopologicalSorting(reificationOps);
 
     IRMapping bvm;
-    size_t numArg = newFuncOp.getNumArguments();
+    size_t numArg = shapeFunc.getNumArguments();
     for (size_t i = 0; i < numArg; ++i) {
-      bvm.map(newFuncOp.getArgument(i), callOp.getOperand(i));
+      bvm.map(shapeFunc.getArgument(i), callOp.getOperand(i));
     }
 
     builder.setInsertionPoint(callOp);
@@ -341,13 +338,13 @@ LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
       auto newOp = builder.clone(*oldOp, bvm);
     }
 
-    for (Value &&ret : newRetOp.getOperands()) {
+    for (Value &&ret : retOp.getOperands()) {
       reifications.push_back(bvm.lookup(ret));
     }
   }
 
   // remove newFuncOp
-  newFuncOp->erase();
+  shapeFunc->erase();
   return success();
 }
 
