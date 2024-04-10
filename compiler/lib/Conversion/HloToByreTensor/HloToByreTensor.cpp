@@ -768,7 +768,6 @@ public:
     MLIRContext &ctx = getContext();
     RewritePatternSet patterns(&ctx);
     ConversionTarget target(ctx);
-    auto funcOp = getOperation();
 
     populateHloToByreTensorPattern(patterns, supportMap, appendArgTypes);
     target.addIllegalDialect<mhlo::MhloDialect>();
@@ -776,7 +775,8 @@ public:
                            shape::ShapeDialect, arith::ArithDialect>();
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-    if (failed(applyPartialConversion(funcOp, target, frozenPatterns))) {
+    if (failed(
+            applyPartialConversion(getOperation(), target, frozenPatterns))) {
       signalPassFailure();
     }
   }
@@ -810,7 +810,7 @@ void mlir::populateHloToByreTensorPattern(
       ConvertSliceOp, ConvertConcatenateOp>(patterns.getContext());
 }
 
-std::unique_ptr<OperationPass<func::FuncOp>>
+std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createConvertHloToByreTensorPass(bool appendArgTypes) {
   return std::make_unique<ConvertHloToByreTensorPass>(appendArgTypes);
 }

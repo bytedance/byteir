@@ -24,16 +24,14 @@
 #include <memory>
 
 namespace mlir {
+class ModuleOp;
 // forward decl
-namespace func {
-class FuncOp;
-} // namespace func
 
 void populateHloToByreTensorPattern(
     RewritePatternSet &patterns,
     const llvm::StringMap<llvm::StringRef> &supportMap, bool appendArgTypes);
 
-std::unique_ptr<OperationPass<func::FuncOp>>
+std::unique_ptr<OperationPass<ModuleOp>>
 createConvertHloToByreTensorPass(bool appendArgTypes = false);
 
 } // namespace mlir

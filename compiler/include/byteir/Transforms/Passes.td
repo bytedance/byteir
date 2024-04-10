@@ -429,7 +429,7 @@ def SetOpSpace: Pass<"set-op-space", "func::FuncOp"> {
 // ShapeReification
 //===----------------------------------------------------------------------===//
 
-def ShapeReification : Pass<"byteir-shape-reification", "func::FuncOp"> {
+def ShapeReification : Pass<"byteir-shape-reification", "ModuleOp"> {
   let summary = "Iteratively reify all shape computations.";
   let description = [{
     If an operation has a shape reification implementation, that is to say, we 
@@ -442,6 +442,11 @@ def ShapeReification : Pass<"byteir-shape-reification", "func::FuncOp"> {
     "mlir::shape::ShapeDialect",
     "mlir::tensor::TensorDialect",
     "mlir::arith::ArithDialect",
+  ];
+  let options = [
+    Option<"anchorFunc", "anchor-func", "std::string",
+            /*default=*/"",
+            "An optional funcName used to specify the target function.">,
   ];
 }
 
