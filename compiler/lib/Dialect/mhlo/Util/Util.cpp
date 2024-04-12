@@ -102,6 +102,8 @@ bool mlir::isSplatMhloConstantValue(Value val, double splat_val) {
   return isSplatMhloConstantValue(val.getDefiningOp(), splat_val);
 }
 
+// Return true if op is a regular reduce/reduce_window op, like reduce
+// max/min/sum/any
 template <typename RegionOp, typename Op> bool mlir::isRegularReduceOp(Op op) {
   if (op.getInputs().size() != 1 || op.getInitValues().size() != 1 ||
       op.getResults().size() != 1) {
@@ -156,6 +158,40 @@ template bool mlir::isRegularReduceOp<mhlo::AddOp, mhlo::ReduceWindowOp>(
 template bool mlir::isRegularReduceOp<mhlo::MaxOp, mhlo::ReduceWindowOp>(
     mhlo::ReduceWindowOp);
 
+// Return true if slice region is continuous
+bool mlir::isSliceContinuousSubview(mhlo::SliceOp op) {
+  auto type = cast<RankedTensorType>(op.getOperand().getType());
+  if (!type.hasStaticShape()) {
+    return false;
+  }
+  if (!isSplatValue(op.getStrides(), 1)) {
+    return false;
+  }
+
+  // find highest non one dimension
+  std::optional<int64_t> leadingNonOneDimensionIndex;
+  for (int64_t i = 0; i < type.getRank(); i++) {
+    if (type.getDimSize(i) != 1) {
+      leadingNonOneDimensionIndex = i;
+      break;
+    }
+  }
+  if (!leadingNonOneDimensionIndex.has_value()) {
+    return false;
+  }
+
+  for (int64_t i = 0; i < type.getRank(); i++) {
+    if (i != leadingNonOneDimensionIndex.value()) {
+      if (op.getStartIndices().getValues<int64_t>()[i] != 0 ||
+          op.getLimitIndices().getValues<int64_t>()[i] != type.getDimSize(i)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// return cumsum's index, return nullopt if not a cumsum op
 std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
   auto base_dilations = op.getBaseDilationsAttr();
   if (base_dilations && !isSplatValue(base_dilations, 1)) {
@@ -184,7 +220,7 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
   if (!inputShape.hasRank()) {
     return std::nullopt;
   }
-  int64_t index = K_INITIAL;
+  std::optional<int64_t> index;
   for (int64_t i = 0; i < inputShape.getRank(); i++) {
     if (window_dimensions[i] == 1 && padding[i * 2] == 0 &&
         padding[i * 2 + 1] == 0) {
@@ -196,7 +232,7 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
     } else if (window_dimensions[i] == inputShape.getDimSize(i) &&
                padding[i * 2] == inputShape.getDimSize(i) - 1 &&
                padding[i * 2 + 1] == 0) {
-      if (index == K_INITIAL) {
+      if (!index.has_value()) {
         index = i;
       } else {
         // more than one dim to be cumsumed

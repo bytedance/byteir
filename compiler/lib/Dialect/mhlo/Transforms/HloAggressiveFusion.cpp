@@ -43,10 +43,23 @@ bool isCustomMhloRngUniformOp(Operation *op) {
   return false;
 }
 
+bool isAliasLikeOp(Operation *op) {
+  if (llvm::isa<mhlo::ReshapeOp>(op)) {
+    return true;
+  } else if (auto slice = llvm::dyn_cast_if_present<mhlo::SliceOp>(op)) {
+    return isSliceContinuousSubview(slice);
+  }
+  return false;
+}
+
 bool isFusibleCandidate(Operation *op) {
   if (isCustomMhloRngUniformOp(op))
     return true;
-  return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
+  if (isAliasLikeOp(op))
+    return false;
+  if (llvm::isa<mhlo::CustomCallOp>(op))
+    return false;
+  return isMhlo(op);
 }
 
 bool isFusibleStart(Operation *) { return true; }
@@ -55,12 +68,7 @@ bool isFusibleTrigger(Operation *) { return true; }
 
 bool isFusibleWith(Operation *, Operation *) { return true; }
 
-bool isValidSingleOp(Operation *op) {
-  if (llvm::isa<mhlo::ReshapeOp>(op))
-    return false;
-  else
-    return true;
-}
+bool isValidSingleOp(Operation *op) { return true; }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
 
