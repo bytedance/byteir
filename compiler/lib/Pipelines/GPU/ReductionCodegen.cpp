@@ -229,6 +229,9 @@ struct GridTileConfig {
   SmallVector<int64_t> tileSizes;
   SmallVector<gpu::MappingId> mapping;
   std::vector<ProducerSelector> fuseCandidates;
+  int64_t padDim;
+  SmallVector<Attribute> padValues;
+  int64_t warpSize;
 
   void apply(ImplicitLocOpBuilder &b, Value pdlV, bool usingForall);
 };
@@ -276,11 +279,11 @@ void processProducerSelectors(
   }
 }
 
-void tileToForallAndFuseImpl(
-    ImplicitLocOpBuilder &b, Value toTile,
-    const SmallVector<int64_t> &tileSizes,
-    const SmallVector<Attribute> &mapping,
-    const std::vector<ProducerSelector> &fuseCandidates) {
+transform::TileUsingForallOp
+tileToForallAndFuseImpl(ImplicitLocOpBuilder &b, Value toTile,
+                        const SmallVector<int64_t> &tileSizes,
+                        const SmallVector<Attribute> &mapping,
+                        const std::vector<ProducerSelector> &fuseCandidates) {
   SmallVector<Value> toBeFused;
   processProducerSelectors(b, fuseCandidates, toTile, toBeFused);
 
@@ -294,6 +297,7 @@ void tileToForallAndFuseImpl(
         /* producerOp */ producerOp,
         /* containingOp */ tileOp.getForallOp());
   }
+  return tileOp;
 }
 
 void tileToSCFForAndFuseImpl(ImplicitLocOpBuilder &b, Value toTile,
@@ -350,7 +354,21 @@ void GridTileConfig::apply(ImplicitLocOpBuilder &b, Value pdlV,
         llvm::map_range(mapping, [&](gpu::MappingId dim) -> Attribute {
           return gpu::GPUBlockMappingAttr::get(b.getContext(), dim);
         }));
-    tileToForallAndFuseImpl(b, pdlV, tileSizes, mappingAttrs, fuseCandidates);
+    auto tiledOp = tileToForallAndFuseImpl(b, pdlV, tileSizes, mappingAttrs,
+                                           fuseCandidates);
+    if (padDim >= 0) {
+      b.create<transform::PadOp>(
+          TypeRange{pdlV.getType(), pdlV.getType(), pdlV.getType()},
+          tiledOp.getTiledOp(),
+          /*padding_values=*/b.getArrayAttr(padValues),
+          /*padding_dimensions=*/
+          b.getI64ArrayAttr({padDim}),
+          /*padToMultipleOf=*/b.getArrayAttr({b.getI64IntegerAttr(warpSize)}),
+          /*pack_paddings=*/ArrayAttr{},
+          /*transpose_paddings=*/ArrayAttr{},
+          /*copyBack=*/transform::PadOp::kCopyOpNone);
+    }
+
   } else {
     static constexpr std::array<StringRef, 3> mappings{
         getBlockIdXName(), getBlockIdYName(), getBlockIdZName()};
@@ -581,10 +599,12 @@ std::optional<GridTileConfig> getGridTileConfig(linalg::GenericOp genericOp,
   auto loopSizes =
       cast<linalg::LinalgOp>(genericOp.getOperation()).computeStaticLoopSizes();
 
+  int64_t padDim = -1;
   for (auto &&affineMap : genericOp.getIndexingMapsArray()) {
     if (affineMap.isPermutation()) {
       auto dim = affineMap.getDimPosition(numLoops - 1);
-      if (loopSizes[dim] > warpSize) { // TODO: padding
+      padDim = dim;
+      if (loopSizes[dim] > warpSize) {
         tileSizes[dim] *= warpSize;
         break;
       }
@@ -600,6 +620,10 @@ std::optional<GridTileConfig> getGridTileConfig(linalg::GenericOp genericOp,
   }
 
   auto numTiledLoops = getNumTiledLoops(tileSizes);
+  if (!numTiledLoops) {
+    tileSizes[redDim] = loopSizes[redDim];
+    numTiledLoops = 1;
+  }
   if (numTiledLoops >= 1 && numTiledLoops <= 3) {
     SmallVector<int64_t> mapping(numLoops, -1);
     int64_t dimMapping = static_cast<int64_t>(gpu::MappingId::DimX);
@@ -619,11 +643,24 @@ std::optional<GridTileConfig> getGridTileConfig(linalg::GenericOp genericOp,
     if (mapping.size() != numTiledLoops)
       return std::nullopt;
 
+    SmallVector<Attribute> padValues;
+    mlir::Builder b(genericOp.getContext());
+    for (auto &&operand : genericOp->getOperands()) {
+      if (auto shapedType = llvm::dyn_cast<ShapedType>(operand.getType())) {
+        padValues.push_back(b.getZeroAttr(shapedType.getElementType()));
+      } else {
+        return std::nullopt;
+      }
+    }
+
     return GridTileConfig{
         tileSizes,
         llvm::to_vector(llvm::map_range(
             mapping, [](int64_t i) { return static_cast<gpu::MappingId>(i); })),
-        fuseCandidates};
+        fuseCandidates,
+        padDim,
+        padValues,
+        warpSize};
   }
   return std::nullopt;
 }

@@ -194,8 +194,20 @@ bool isValidSingleOp(Operation *op) { return isa<mhlo::ReduceOp>(op); }
 bool isValidFusionPattern(const MhloFusionPattern &pattern) {
   SmallVector<Value, 4> outputs = getOutputsOfCluster(pattern);
   if (outputs.size() == 1) {
-    if (outputs[0].getDefiningOp<mhlo::ReduceOp>())
-      return true;
+    if (auto reduceOp = outputs[0].getDefiningOp<mhlo::ReduceOp>()) {
+      ValueRange inputs = reduceOp.getInputs();
+      auto reduceDims = reduceOp.getDimensionsAttr();
+      for (Value in : inputs) {
+        auto inputShape = in.getType().cast<ShapedType>().getShape();
+        for (auto iter = reduceDims.begin(); iter != reduceDims.end(); iter++) {
+          APInt reDim = *iter;
+          if (inputShape[reDim.getSExtValue()] != 1) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
   }
   return false;
 }
