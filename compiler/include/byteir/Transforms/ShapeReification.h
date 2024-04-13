@@ -22,10 +22,11 @@
 #include <memory>
 
 namespace mlir {
-class ModuleOp;
+namespace func {
+class FuncOp;
+} // namespace func
 
-std::unique_ptr<OperationPass<ModuleOp>>
-createByteIRShapeReificationPass(llvm::StringRef anchorFunc = "");
+std::unique_ptr<OperationPass<func::FuncOp>> createByteIRShapeReificationPass();
 
 } // namespace mlir
 

@@ -107,16 +107,14 @@ void PopulateShapeReificationPatterns(MLIRContext *ctx,
 struct ShapeReificationPass
     : public ShapeReificationBase<ShapeReificationPass> {
 
-  ShapeReificationPass(const std::string &anchorFunc)
+  ShapeReificationPass()
       : ShapeReificationBase<ShapeReificationPass>::ShapeReificationBase() {
     // ReifyReturnType implementation could also be registered outside
     // ShapeReificationPass
     registerAllMhloReifyReturnTypeShapes();
-    this->anchorFunc = anchorFunc;
   }
 
   void runOnOperation() override {
-    ModuleOp moduleOp = getOperation();
     // Collect patterns.
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
@@ -128,22 +126,17 @@ struct ShapeReificationPass
     // iteration.
     GreedyRewriteConfig cfg;
     cfg.useTopDownTraversal = false;
+    func::FuncOp f = getOperation();
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-
-    // apply Patterns on target funcOp.
-    for (auto funcOp : moduleOp.getOps<func::FuncOp>()) {
-      if (this->anchorFunc == "" || funcOp.getName() == this->anchorFunc) {
-        if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns, cfg))) {
-          return signalPassFailure();
-        }
-      }
+    if (failed(applyPatternsAndFoldGreedily(f, frozenPatterns, cfg))) {
+      return signalPassFailure();
     }
   }
 };
 
 } // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createByteIRShapeReificationPass(llvm::StringRef anchorFunc /*=""*/) {
-  return std::make_unique<ShapeReificationPass>(anchorFunc.str());
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createByteIRShapeReificationPass() {
+  return std::make_unique<ShapeReificationPass>();
 }

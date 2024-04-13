@@ -112,11 +112,19 @@ func.func @outer_func(%arg0: tensor<?x4xf32>, %arg1: tensor<?x4xf32>) -> (!shape
 
 // -----
 
+func.func private @Unknown2(%arg0: tensor<?x10xf32>, %arg1: tensor<?x20xf32>) -> tensor<?x20xf32> attributes {__byteir_matmul_epilogue_fusion__} {
+    %0 = mhlo.constant dense_resource<__elided__> : tensor<10x20xf32>
+    %1 = "mhlo.dot"(%arg0, %0) : (tensor<?x10xf32>, tensor<10x20xf32>) -> tensor<?x20xf32>
+    %2 = mhlo.add %1, %arg1 : tensor<?x20xf32>
+    return %2 : tensor<?x20xf32>
+}
+
 func.func private @Unknown1(%arg0: tensor<?x10xf32>, %arg1: tensor<?x20xf32>) -> tensor<?x20xf32> attributes {__byteir_matmul_epilogue_fusion__} {
   %0 = mhlo.constant dense_resource<__elided__> : tensor<10x20xf32>
-  %1 = "mhlo.dot"(%arg0, %0) : (tensor<?x10xf32>, tensor<10x20xf32>) -> tensor<?x20xf32>
-  %2 = mhlo.add %1, %arg1 : tensor<?x20xf32>
-  return %2 : tensor<?x20xf32>
+  %1 = call @Unknown2(%arg0, %arg1) : (tensor<?x10xf32>, tensor<?x20xf32>) -> tensor<?x20xf32>
+  %2 = "mhlo.dot"(%arg0, %0) : (tensor<?x10xf32>, tensor<10x20xf32>) -> tensor<?x20xf32>
+  %3 = mhlo.add %2, %1 : tensor<?x20xf32>
+  return %3 : tensor<?x20xf32>
 }
 
 func.func private @Unknown0(%arg0: tensor<?x10xf32>, %arg1: tensor<20xf32>, %arg2: tensor<?x20xf32>, %arg3: tensor<?x20xf32>) -> (tensor<?x20xf32>, tensor<?x20xf32>) {
@@ -146,6 +154,6 @@ func.func @forward(%arg0: tensor<?x10xf32>, %arg1: tensor<?x20xf32>, %arg2: tens
 
 // CHECK-LABEL: func.func @forward
 // CHECK: %[[DIM:.*]] = tensor.dim %arg0, %c0 : tensor<?x10xf32>
-// CHECK: %[[DIM0:.*]] = tensor.dim %arg2, %c1 : tensor<20x?xf32>
-// CHECK: %[[SHAPE:.*]] = tensor.from_elements %[[DIM:.*]], %[[DIM0:.*]] : tensor<2xindex>
-// CHECK: return %[[SHAPE:.*]] : tensor<2xindex>
+// CHECK-NEXT: %[[DIM0:.*]] = tensor.dim %arg2, %c1 : tensor<20x?xf32>
+// CHECK-NEXT: %[[SHAPE:.*]] = tensor.from_elements %[[DIM:.*]], %[[DIM0:.*]] : tensor<2xindex>
+// CHECK-NEXT: return %[[SHAPE:.*]] : tensor<2xindex>

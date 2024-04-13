@@ -24,6 +24,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/OwningOpRef.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -217,10 +218,12 @@ bool deduceFromFuncArgShape(Value value) {
   return true;
 }
 
-FailureOr<func::FuncOp> createCorrespondingShapeFunc(func::FuncOp funcOp) {
-  ModuleOp moduleOp = funcOp->getParentOfType<ModuleOp>();
-  // use auxiliary builder, create shape func in the start of moduleOp
-  OpBuilder builder = OpBuilder::atBlockBegin(moduleOp.getBody());
+// the auxiliaryModuleOp must be a empty module, only used for save shapeFunc
+FailureOr<func::FuncOp>
+createCorrespondingShapeFunc(func::FuncOp funcOp, ModuleOp auxiliaryModuleOp) {
+  // use auxiliary builder, create shape func in the start of auxiliaryModuleOp
+  ModuleOp oriModuleOp = funcOp->getParentOfType<ModuleOp>();
+  OpBuilder builder = OpBuilder::atBlockBegin(auxiliaryModuleOp.getBody());
 
   // clone funcOp, newFuncOp used for deduce function shape
   Twine shapeFuncName = funcOp.getName() + "_Shape";
@@ -229,6 +232,41 @@ FailureOr<func::FuncOp> createCorrespondingShapeFunc(func::FuncOp funcOp) {
   shapeFunc.setPrivate();
   IRMapping emptyBvm;
   funcOp.cloneInto(shapeFunc, emptyBvm);
+  llvm::DenseSet<func::CallOp> callOpSet;
+  shapeFunc.walk([&](func::CallOp callOp) { callOpSet.insert(callOp); });
+
+  while (!callOpSet.empty()) {
+    auto callOp = *callOpSet.begin();
+    callOpSet.erase(callOpSet.begin());
+    auto callFunc = oriModuleOp.lookupSymbol<func::FuncOp>(callOp.getCallee());
+    // inline this func.
+    builder.setInsertionPoint(callOp);
+    IRMapping bvm;
+    for (auto inputAndArg :
+         llvm::zip(callFunc.getArguments(), callOp.getOperands())) {
+      bvm.map(std::get<0>(inputAndArg), std::get<1>(inputAndArg));
+    }
+    Block &entryBlock = callFunc.getBlocks().front();
+    ValueRange funcOuts;
+    for (Operation &op : entryBlock) {
+      auto retOp = mlir::dyn_cast<func::ReturnOp>(op);
+      if (!retOp) {
+        auto newOp = builder.clone(op, bvm);
+        if (auto nestedCall = dyn_cast<func::CallOp>(newOp)) {
+          callOpSet.insert(nestedCall);
+        }
+      } else {
+        funcOuts = retOp.getOperands();
+      }
+    }
+
+    for (auto callResultAndFuncOuts :
+         llvm::zip(callOp.getResults(), funcOuts)) {
+      auto mappedOut = bvm.lookup(std::get<1>(callResultAndFuncOuts));
+      std::get<0>(callResultAndFuncOuts).replaceAllUsesWith(mappedOut);
+    }
+    callOp->erase();
+  }
 
   // replace the operands of returnOp with corresponding shape
   func::ReturnOp retOp = *shapeFunc.getOps<func::ReturnOp>().begin();
@@ -265,21 +303,13 @@ FailureOr<func::FuncOp> createCorrespondingShapeFunc(func::FuncOp funcOp) {
 
   // reify shapeFunc to get the shape computation.
   {
-    PassManager pm(moduleOp->getContext(), moduleOp.getOperationName());
+    PassManager pm(oriModuleOp->getContext(), func::FuncOp::getOperationName());
     // only run pass on shapeFunc
-    pm.addPass(createByteIRShapeReificationPass(shapeFunc.getName()));
-    if (mlir::failed(pm.run(moduleOp))) {
-      shapeFunc->erase();
-      return failure();
-    }
-  }
-
-  // canonicalize shapeFunc
-  {
-    PassManager pm(shapeFunc->getContext(), shapeFunc.getOperationName());
     pm.addPass(createCanonicalizerPass());
     pm.addPass(createCSEPass());
-    // only run pass on shapeFunc, don't modify other ops.
+    pm.addPass(createByteIRShapeReificationPass());
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
     if (mlir::failed(pm.run(shapeFunc))) {
       shapeFunc->erase();
       return failure();
@@ -300,8 +330,12 @@ LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
   StringRef funcName = callOp.getCallee();
   auto funcOp = moduleOp.lookupSymbol<func::FuncOp>(funcName);
 
-  // create corresponding shape function
-  auto maybeShapeFunc = createCorrespondingShapeFunc(funcOp);
+  // create a temp module, then insert corresponding shape function to this
+  // module
+  OwningOpRef<ModuleOp> auxiliaryModuleOp(
+      ModuleOp::create(UnknownLoc::get(moduleOp->getContext())));
+  auto maybeShapeFunc =
+      createCorrespondingShapeFunc(funcOp, auxiliaryModuleOp.get());
   if (failed(maybeShapeFunc)) {
     return failure();
   }

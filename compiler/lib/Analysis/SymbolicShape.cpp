@@ -118,20 +118,12 @@ SymbolicShapeAnalysis::SymbolicShapeAnalysis(ModuleOp moduleOp)
   }
 
   // run shape reification pass on all the auxiliary functions
+  PassManager pm(moduleOp->getContext(), func::FuncOp::getOperationName());
+  pm.addPass(createByteIRShapeReificationPass());
+  pm.addPass(createCSEPass());
   for (auto funcOp : shpFuncOps) {
-    {
-      PassManager pm(moduleOp->getContext(), moduleOp.getOperationName());
-      pm.addPass(createByteIRShapeReificationPass(funcOp.getName()));
-      if (mlir::failed(pm.run(moduleOp))) {
-        llvm::errs() << "Pass pipeline inside symbolic shape analysis failed.";
-      }
-    }
-    {
-      PassManager pm(moduleOp->getContext(), func::FuncOp::getOperationName());
-      pm.addPass(createCSEPass());
-      if (mlir::failed(pm.run(funcOp))) {
-        llvm::errs() << "Pass pipeline inside symbolic shape analysis failed.";
-      }
+    if (mlir::failed(pm.run(funcOp))) {
+      llvm::errs() << "Pass pipeline inside symbolic shape analysis failed.";
     }
   }
 }

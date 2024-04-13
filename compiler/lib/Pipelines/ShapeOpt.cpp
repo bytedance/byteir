@@ -27,13 +27,17 @@
 using namespace mlir;
 
 void mlir::createShapeOptPipeline(OpPassManager &pm) {
-  pm.addNestedPass<func::FuncOp>(createSetAssumingAlwaysTruePass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
-  pm.addNestedPass<func::FuncOp>(createInsertTieShapePass());
-  pm.addNestedPass<func::FuncOp>(createInsertShapeConstraintPass());
-  pm.addPass(createByteIRShapeReificationPass());
-  addCleanUpExtPassPipeline(pm, /*topHasSymTable*/ false);
-  pm.addNestedPass<func::FuncOp>(createResolveShapeConstraintPass());
-  pm.addNestedPass<func::FuncOp>(createBoundedShapeInferencePass());
-  pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
+  invokeOpPassPipelineBuilder<func::FuncOp>(
+      [](OpPassManager &pm) {
+        pm.addPass(createSetAssumingAlwaysTruePass());
+        pm.addPass(createCanonicalizeExtPass());
+        pm.addPass(createInsertTieShapePass());
+        pm.addPass(createInsertShapeConstraintPass());
+        pm.addPass(createByteIRShapeReificationPass());
+        addCleanUpExtPassPipeline(pm, /*topHasSymTable*/ false);
+        pm.addPass(createResolveShapeConstraintPass());
+        pm.addPass(createBoundedShapeInferencePass());
+        pm.addPass(createCanonicalizeExtPass());
+      },
+      pm);
 }
