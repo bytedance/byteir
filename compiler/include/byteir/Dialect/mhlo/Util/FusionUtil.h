@@ -102,8 +102,8 @@ public:
   const MhloFusionPlan &getFusionPlan() { return fusionPlan; }
 
 private:
-  // OpDependenceInfo analysis
-  std::unique_ptr<OpDependenceInfo> dependence;
+  // ClusterDependenceInfo analysis
+  std::unique_ptr<ClusterDependenceInfo> clusterDependence;
 
   // Fusible criteria functions
 
