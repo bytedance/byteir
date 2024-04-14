@@ -2090,11 +2090,14 @@ struct SimplifyReduceToReshape : public OpRewritePattern<mhlo::ReduceOp> {
   using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::ReduceOp op,
                                 PatternRewriter &rewriter) const override {
-    if (op.getInputs().size() != 1 || op.getInitValues().size() != 1 ||
-        op.getResults().size() != 1) {
+    bool isRegular = isRegularReduceOp<mhlo::AddOp>(op) ||
+                     isRegularReduceOp<mhlo::MaxOp>(op) ||
+                     isRegularReduceOp<mhlo::MinOp>(op) ||
+                     isRegularReduceOp<mhlo::OrOp>(op) ||
+                     isRegularReduceOp<mhlo::MulOp>(op);
+    if (!isRegular) {
       return failure();
     }
-    // TODO: check init_values
 
     Value input = op.getInputs()[0];
     Value output = op.getResults()[0];

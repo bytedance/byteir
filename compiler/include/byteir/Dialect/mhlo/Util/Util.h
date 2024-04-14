@@ -81,7 +81,7 @@ bool isSplatMhloConstant(Operation *op);
 // like iota
 bool isSplatMhloConstantLike(Operation *op);
 
-// Return true if op is a constant or r another constant-like op like iota
+// Return true if op is a constant or another constant-like op like iota
 bool isMhloConstantLike(Operation *op);
 
 bool isDeepMhloFoldable(Operation *op);
@@ -97,6 +97,12 @@ bool isSplatMhloConstantValue(Value val, int64_t splat_val);
 bool isSplatMhloConstantValue(Value val, double splat_val);
 
 bool isDenseMhloConstantValue(Value val);
+
+// Return true if op is a regular reduce/reduce_window op, like reduce
+// max/min/sum/any
+template <typename RegionOp, typename Op = mhlo::ReduceOp>
+bool isRegularReduceOp(Op op);
+
 // return cumsum's index, return nullopt if not a cumsum op
 std::optional<int64_t> getCumsumIndex(mhlo::ReduceWindowOp op);
 
