@@ -1414,7 +1414,9 @@ DenseElementsAttr foldTransposeHelper(mhlo::TransposeOp op,
 } // namespace
 
 struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
-  using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
+  FoldTransposeNonSplat(MLIRContext *ctx, int64_t foldLimit)
+      : OpRewritePattern<mhlo::TransposeOp>(ctx), kFoldLimit(foldLimit) {}
+
   LogicalResult matchAndRewrite(mhlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
     if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
@@ -1426,6 +1428,10 @@ struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
                                       .getValue()
                                       .cast<DenseElementsAttr>();
     if (valueAttr.isSplat()) {
+      return failure();
+    }
+
+    if (valueAttr.getType().getNumElements() > kFoldLimit) {
       return failure();
     }
 
@@ -1444,6 +1450,8 @@ struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
     rewriter.replaceOp(op, newConstOp.getOutput());
     return success();
   }
+
+  int64_t kFoldLimit;
 };
 
 struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
@@ -2147,6 +2155,7 @@ void mlir::mhlo::populateFoldBeneficialConstantConvertOpPattern(
 // TODO: split more patterns to populate function
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
+                                                 int64_t foldLimit,
                                                  bool blindFold) {
   patterns.add<FoldBroadcastInDimConstWithBinary>(ctx);
   patterns.add<FoldBroadcastInDimReshape>(ctx);
@@ -2154,7 +2163,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<SimplifyDynamicConvToConv>(ctx);
   populateFoldLargeBinaryOpPatterns(patterns);
   patterns.add<FoldLargeSliceOp>(ctx);
-  patterns.add<FoldTransposeNonSplat>(ctx);
+  patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
   populateFoldBeneficialConstantConvertOpPattern(patterns);
   patterns.add<CanonicalizeBroadcastInDimConst>(ctx);
   patterns.add<SimplifyByteIRAddNToAdd>(ctx);
@@ -2174,8 +2183,9 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
 }
 
 void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
-    RewritePatternSet &patterns, MLIRContext *context, bool blindFold) {
-  populateCanonicalizeExtPatterns(patterns, context, blindFold);
+    RewritePatternSet &patterns, MLIRContext *context, int64_t foldLimit,
+    bool blindFold) {
+  populateCanonicalizeExtPatterns(patterns, context, foldLimit, blindFold);
   // Only add simplifyFullInsertSlicesToConcat here since it is for
   // mhlo-level only
   // We don't want generally apply after lowering mhlo to tensor dialect
@@ -2184,6 +2194,7 @@ void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
 
 void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
                                                 MLIRContext *ctx,
+                                                int64_t foldLimit,
                                                 bool blindFold) {
   // add dialect level getCanonicalizationPatterns
   auto mhloDailect = ctx->getLoadedDialect<mhlo::MhloDialect>();
@@ -2200,11 +2211,12 @@ void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
   }
 
   // add our extension
-  populateCanonicalizeExtPatterns(patterns, ctx, blindFold);
+  populateCanonicalizeExtPatterns(patterns, ctx, foldLimit, blindFold);
 }
 
 void mlir::mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
-    RewritePatternSet &patterns, MLIRContext *ctx, bool blindFold) {
+    RewritePatternSet &patterns, MLIRContext *ctx, int64_t foldLimit,
+    bool blindFold) {
   // add dialect level getCanonicalizationPatterns
   auto mhloDailect = ctx->getLoadedDialect<mhlo::MhloDialect>();
   if (mhloDailect) {
@@ -2220,5 +2232,6 @@ void mlir::mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
   }
 
   // add our extension for the dialect (mhlo) only
-  populateCanonicalizeExtPatternsForTheDialectOnly(patterns, ctx, blindFold);
+  populateCanonicalizeExtPatternsForTheDialectOnly(patterns, ctx, foldLimit,
+                                                   blindFold);
 }

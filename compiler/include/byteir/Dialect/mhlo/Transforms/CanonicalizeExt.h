@@ -42,19 +42,22 @@ void populateFoldBeneficialConstantConvertOpPattern(
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                      MLIRContext *context,
+                                     int64_t foldLimit = 0,
                                      bool blindFold = false);
 
 // populate canonicalizeExt patterns
 void populateCanonicalizeExtPatternsForTheDialectOnly(
-    RewritePatternSet &patterns, MLIRContext *context, bool blindFold = false);
+    RewritePatternSet &patterns, MLIRContext *context, int64_t foldLimit = 0,
+    bool blindFold = false);
 
 // Get all canonicalizationExt on top of canoncialization
 void getCanonicalizationExtPatterns(RewritePatternSet &results,
-                                    MLIRContext *context,
+                                    MLIRContext *context, int64_t foldLimit = 0,
                                     bool blindFold = false);
 
 void getCanonicalizationExtPatternsForTheDialectOnly(RewritePatternSet &results,
                                                      MLIRContext *context,
+                                                     int64_t foldLimit = 0,
                                                      bool blindFold = false);
 
 } // namespace mhlo
