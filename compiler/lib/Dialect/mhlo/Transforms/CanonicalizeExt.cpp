@@ -1431,7 +1431,7 @@ struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
       return failure();
     }
 
-    if (valueAttr.getType().getNumElements() > kFoldLimit) {
+    if (kFoldLimit >= 0 && valueAttr.getType().getNumElements() > kFoldLimit) {
       return failure();
     }
 

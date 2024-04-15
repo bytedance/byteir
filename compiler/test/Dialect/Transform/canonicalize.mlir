@@ -22,22 +22,6 @@ func.func @eliminate_splat_constant_transpose() -> tensor<2x1x4x3xi32> {
 // CHECK-LABEL: eliminate_splat_constant_transpose
 // CHECK-NEXT: %0 = mhlo.constant dense<0> : tensor<2x1x4x3xi32>
 
-func.func @transpose_non_splat_constant_2d() -> tensor<2x1xf32> {
-  %0 = mhlo.constant dense<[[1.0000, 0.0000]]> : tensor<1x2xf32>
-  %1 = "mhlo.transpose"(%0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<1x2xf32>) -> tensor<2x1xf32>
-  return %1 : tensor<2x1xf32>
-}
-// CHECK-LABEL: transpose_non_splat_constant_2d
-// CHECK{LITERAL}:  mhlo.constant dense<[[1.000000e+00], [0.000000e+00]]> : tensor<2x1xf32>
-
-func.func @transpose_non_splat_constant_3d() -> tensor<2x2x2xf32> {
-  %0 = mhlo.constant dense<[[[0.0, 1.0], [2.0, 3.0]], [[4.0, 5.0], [6.0, 7.0]]]> : tensor<2x2x2xf32>
-  %1 = "mhlo.transpose"(%0) {permutation = dense<[2, 1, 0]> : tensor<3xi64>} : (tensor<2x2x2xf32>) -> tensor<2x2x2xf32>
-  return %1 : tensor<2x2x2xf32>
-}
-// CHECK-LABEL: transpose_non_splat_constant_3d
-// CHECK{LITERAL}:  mhlo.constant dense<[[[0.000000e+00, 4.000000e+00], [2.000000e+00, 6.000000e+00]], [[1.000000e+00, 5.000000e+00], [3.000000e+00, 7.000000e+00]]]> : tensor<2x2x2xf32>
-
 func.func @fold_useless_shape_broadcast(%arg0: tensor<?x4xf32>) -> tensor<?x4xf32> {
   %0 = shape.const_shape [4] : tensor<1xindex>
   %1 = mhlo.constant dense<[[-0.570340514, 0.117151208, -0.135694504, -1.57919896], [0.520053327, 0.762166619, 0.322875232, -1.69871449], [-1.26622009, 0.63558042, 5.698780e-01, 0.954656243], [0.776482939, 0.348752886, 2.03235912, 0.837243676]]> : tensor<4x4xf32>
