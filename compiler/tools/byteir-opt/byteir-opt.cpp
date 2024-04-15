@@ -70,7 +70,6 @@ using namespace mlir;
 
 namespace byteir {
 namespace test {
-void registerTestMhloCanonicalizeExtPass();
 void registerTestByreSerialRoundtripPass();
 void registerTestConvertFuncToCustomCallPass();
 void registerTestConvertInsertionPass();
@@ -90,7 +89,6 @@ void registerTestMergeTwoModulesPass();
 
 #ifdef BYTEIR_INCLUDE_TESTS
 void registerTestPasses() {
-  byteir::test::registerTestMhloCanonicalizeExtPass();
   byteir::test::registerTestByreSerialRoundtripPass();
   byteir::test::registerTestConvertFuncToCustomCallPass();
   byteir::test::registerTestConvertInsertionPass();
