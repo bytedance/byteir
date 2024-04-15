@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -hlo-move-down -o %t
+// RUN: byteir-opt %s -hlo-move-down --canonicalize-ext="fold-limit=-1" -o %t
 // RUN: FileCheck %s < %t
 // RUN: python3 %S/numerical_test.py %s %t
 
