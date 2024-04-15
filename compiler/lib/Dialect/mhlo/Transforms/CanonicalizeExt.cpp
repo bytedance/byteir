@@ -1458,14 +1458,12 @@ struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
   using OpRewritePattern<mhlo::ConvertOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::ConvertOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
-            op.getOperand().getDefiningOp())) {
+    auto cst = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    if (!cst) {
       return failure();
     }
-    DenseElementsAttr valueAttr = op.getOperand()
-                                      .getDefiningOp<mhlo::ConstantOp>()
-                                      .getValue()
-                                      .cast<DenseElementsAttr>();
+
+    DenseElementsAttr valueAttr = cst.getValue().cast<DenseElementsAttr>();
     Type inputElementType = valueAttr.getType().getElementType();
     Type outputElementType =
         op.getResult().getType().cast<ShapedType>().getElementType();
@@ -1495,6 +1493,38 @@ struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
     rewriter.replaceOp(op, newConstantOp.getOutput());
     return success();
   }
+};
+
+// note: do not use template, so that user could disable it by name
+struct FoldConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
+  FoldConstantConvertOp(MLIRContext *ctx, int64_t foldLimit)
+      : OpRewritePattern<mhlo::ConvertOp>(ctx), kFoldLimit(foldLimit) {}
+  LogicalResult matchAndRewrite(mhlo::ConvertOp op,
+                                PatternRewriter &rewriter) const override {
+    auto cst = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    if (!cst) {
+      return failure();
+    }
+
+    DenseElementsAttr valueAttr = cst.getValue().cast<DenseElementsAttr>();
+    if (kFoldLimit >= 0 && valueAttr.getType().getNumElements() > kFoldLimit) {
+      return failure();
+    }
+
+    Type outputElementType =
+        op.getResult().getType().cast<ShapedType>().getElementType();
+    ElementsAttr newValueAttr =
+        hlo::convertElementsAttr(valueAttr, outputElementType);
+    if (!newValueAttr) {
+      return failure();
+    }
+    mhlo::ConstantOp newConstantOp =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
+    rewriter.replaceOp(op, newConstantOp.getOutput());
+    return success();
+  }
+
+  int64_t kFoldLimit;
 };
 
 namespace {
@@ -2163,8 +2193,6 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<SimplifyDynamicConvToConv>(ctx);
   populateFoldLargeBinaryOpPatterns(patterns);
   patterns.add<FoldLargeSliceOp>(ctx);
-  patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
-  populateFoldBeneficialConstantConvertOpPattern(patterns);
   patterns.add<CanonicalizeBroadcastInDimConst>(ctx);
   patterns.add<SimplifyByteIRAddNToAdd>(ctx);
   patterns.add<CanonicalizeConcatWithBroadcast>(ctx);
@@ -2177,8 +2205,12 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<FoldReverseWithConstant>(ctx);
   patterns.add<FoldGatherWithInput>(ctx);
   patterns.add<FoldScatterWithInputAndUpdate>(ctx);
+  patterns.add<FoldLargeConcatenate>(ctx);
+
+  patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
+  populateFoldBeneficialConstantConvertOpPattern(patterns);
   if (blindFold) {
-    patterns.add<FoldLargeConcatenate>(ctx);
+    patterns.add<FoldConstantConvertOp>(ctx, foldLimit);
   }
 }
 
