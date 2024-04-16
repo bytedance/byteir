@@ -29,7 +29,8 @@ template <typename T> class BatchMatmulImpl {
 public:
   explicit BatchMatmulImpl(const OpAccessor &accessor);
 
-  void Execute(const T *a_val, const T *b_val, T *c_val, cudaStream_t stream);
+  void Execute(const T *a_val, const T *b_val, T *c_val, cublasHandle_t handle,
+               cudaStream_t stream);
 
 private:
   int m, n, k, batch_count;
@@ -39,8 +40,8 @@ private:
 
 template <typename T>
 using BatchMatmul =
-    CudaOpKernel<BatchMatmulImpl<T>, TypedOperand<const T *, 0>,
-                 TypedOperand<const T *, 1>, TypedOperand<T *, 2>>;
+    CublasOpKernel<BatchMatmulImpl<T>, TypedOperand<const T *, 0>,
+                   TypedOperand<const T *, 1>, TypedOperand<T *, 2>>;
 
 } // namespace cuda
 } // namespace brt
