@@ -23,8 +23,6 @@
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 
-#include <iostream>
-
 using namespace mlir;
 using namespace brt::ir;
 
