@@ -823,7 +823,7 @@ struct HloMoveDownPass : public HloMoveDownBase<HloMoveDownPass> {
     populateHloMoveDownPattern(patterns, {}, allMultiUser, multiUser);
 
     // also add canoncializationExt pattern
-    mhlo::getCanonicalizationExtPatterns(patterns, ctx);
+    mhlo::getCanonicalizationExtPatterns(patterns, ctx, /*foldLimit=*/4096);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
       funcOp.emitError(

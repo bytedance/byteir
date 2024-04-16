@@ -198,6 +198,7 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     this->topDownProcessingEnabled = config.useTopDownTraversal;
     this->enableRegionSimplification = config.enableRegionSimplification;
     this->maxIterations = config.maxIterations;
+    this->foldLimit = foldLimit;
     this->blindFold = blindFold;
     this->disabledPatterns = disabledPatterns;
     this->enabledPatterns = enabledPatterns;
@@ -211,7 +212,8 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(owningPatterns, context);
 
-    mhlo::getCanonicalizationExtPatterns(owningPatterns, context, blindFold);
+    mhlo::getCanonicalizationExtPatterns(owningPatterns, context, foldLimit,
+                                         blindFold);
     // put conditional canonicalizer too
     populateCondCanonicalizePatterns(owningPatterns);
     // put func canonicalizerExt too
@@ -270,7 +272,8 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createCanonicalizeExtPass(bool blindFold) {
+std::unique_ptr<Pass> mlir::createCanonicalizeExtPass(int64_t foldLimit,
+                                                      bool blindFold) {
   GreedyRewriteConfig config;
   return std::make_unique<CanonicalizeExtPass>(config, blindFold, std::nullopt,
                                                std::nullopt);
@@ -278,7 +281,7 @@ std::unique_ptr<Pass> mlir::createCanonicalizeExtPass(bool blindFold) {
 
 std::unique_ptr<Pass>
 mlir::createCanonicalizeExtPass(const GreedyRewriteConfig &config,
-                                bool blindFold,
+                                int64_t foldLimit, bool blindFold,
                                 ArrayRef<std::string> disabledPatterns,
                                 ArrayRef<std::string> enabledPatterns) {
   return std::make_unique<CanonicalizeExtPass>(
@@ -296,6 +299,7 @@ struct GraphCanonicalizePass
     this->topDownProcessingEnabled = config.useTopDownTraversal;
     this->enableRegionSimplification = config.enableRegionSimplification;
     this->maxIterations = config.maxIterations;
+    this->foldLimit = foldLimit;
     this->blindFold = blindFold;
     this->disabledPatterns = disabledPatterns;
     this->enabledPatterns = enabledPatterns;
@@ -310,8 +314,8 @@ struct GraphCanonicalizePass
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(owningPatterns, context);
 
-    mhlo::getCanonicalizationExtPatternsForTheDialectOnly(owningPatterns,
-                                                          context, blindFold);
+    mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
+        owningPatterns, context, foldLimit, blindFold);
     // put func canonicalizerExt too
     func::populateCanonicalizeExtPatterns(owningPatterns);
     // put shape canonicalizerExt too
@@ -366,7 +370,8 @@ struct GraphCanonicalizePass
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createGraphCanonicalizePass(bool blindFold) {
+std::unique_ptr<Pass> mlir::createGraphCanonicalizePass(int64_t foldLimit,
+                                                        bool blindFold) {
   GreedyRewriteConfig config;
   return std::make_unique<GraphCanonicalizePass>(config, blindFold,
                                                  std::nullopt, std::nullopt);
@@ -374,7 +379,7 @@ std::unique_ptr<Pass> mlir::createGraphCanonicalizePass(bool blindFold) {
 
 std::unique_ptr<Pass>
 mlir::createGraphCanonicalizePass(const GreedyRewriteConfig &config,
-                                  bool blindFold,
+                                  int64_t foldLimit, bool blindFold,
                                   ArrayRef<std::string> disabledPatterns,
                                   ArrayRef<std::string> enabledPatterns) {
   return std::make_unique<GraphCanonicalizePass>(

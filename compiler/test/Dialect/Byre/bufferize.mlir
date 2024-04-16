@@ -33,3 +33,20 @@ func.func @forward(%arg0: tensor<?x20xf32>, %arg1: tensor<20x?xf32>) -> tensor<?
 // CHECK-NEXT: %[[ALLOC:.*]] = memref.alloc(%[[DIM]], %[[DIM0]]) : memref<?x?xf32>
 // CHECK-NEXT: byre.compute @MatmulOp(%arg0, %arg1, %[[ALLOC]])
 // CHECK-SAME: {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<?x20xf32>, memref<20x?xf32>, memref<?x?xf32>
+
+// -----
+
+func.func @slice_gemm(%arg0: tensor<768x1024xf32>) -> tensor<256x512xf32> attributes {__placeholder__byre.entry_point} {
+  %cst = arith.constant dense_resource<__elided__> : tensor<512x512xf32>
+  %extracted_slice = tensor.extract_slice %arg0[0, 0] [256, 512] [1, 2] : tensor<768x1024xf32> to tensor<256x512xf32>
+  %0 = tensor.empty() : tensor<256x512xf32>
+  %1 = byre.compute_on_tensor @MatmulOp {lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64} ins(%extracted_slice, %cst : tensor<256x512xf32>, tensor<512x512xf32>) outs(%0 : tensor<256x512xf32>) : tensor<256x512xf32>
+  return %1 : tensor<256x512xf32>
+}
+
+// CHECK-LABEL: func.func @slice_gemm
+// CHECK: %[[SUBVIEW:.*]] = memref.subview
+// CHECK-NEXT: %[[ALLOC:.*]] = memref.alloc() : memref<256x512xf32>
+// CHECK-NEXT: %[[ALLOC0:.*]] = memref.alloc() : memref<256x512xf32>
+// CHECK-NEXT: memref.copy %[[SUBVIEW]], %[[ALLOC0]] : memref<256x512xf32, strided<[1024, 2]>> to memref<256x512xf32>
+// CHECK-NEXT: byre.compute @MatmulOp(%[[ALLOC0]], %0, %[[ALLOC]])
