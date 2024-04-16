@@ -22,7 +22,7 @@
 #include "brt/core/context/execution_frame.h"
 #include "brt/core/ir/ir.h"
 #include "brt/core/ir/util.h"
-#include "kernels/cutlass_blas.h"
+#include <cublas_v2.h>
 #include <cuda_runtime.h>
 
 using namespace brt::common;
@@ -52,10 +52,16 @@ BatchMatmulImpl<T>::BatchMatmulImpl(const OpAccessor &accessor) {
 
 template <typename T>
 void BatchMatmulImpl<T>::Execute(const T *a_val, const T *b_val, T *c_val,
-                                 cudaStream_t stream) {
-  BRT_CUTLASS_CHECK(cutlass_batch_matmul<T>(
-      a_val, k, batch_stride_A, b_val, n, batch_stride_B, c_val, n,
-      batch_stride_C, batch_count, m, n, k, alpha, beta, stream));
+                                 cublasHandle_t handle, cudaStream_t stream) {
+  const float alpha = 1.0f;
+  const float beta = 0.0f;
+  const int lda = k;
+  const int ldb = n;
+  const int ldc = n;
+  BRT_CUBLAS_CHECK(cublasSgemmStridedBatched(
+      handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val, ldb,
+      batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
+      batch_stride_C, batch_count));
 }
 
 // instantiate
