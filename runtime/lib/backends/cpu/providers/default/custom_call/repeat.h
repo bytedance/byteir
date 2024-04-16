@@ -1,6 +1,6 @@
 //===- repeat.h -----------------------------------------------*--- C++ -*-===//
 //
-// Copyright 2023 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,19 +25,9 @@ namespace cpu {
 
 class Repeat final : public OpKernel {
 public:
-  explicit Repeat(const OpKernelInfo &info) : OpKernel(info) {
-    const CPUExecutionProviderOptions &options =
-        static_cast<const CPUExecutionProvider &>(info.GetExecutionProvider())
-            .GetProviderOptions();
-    this->brt_omp_num_threads = options.brt_omp_num_threads;
-  }
-
-  int GetNumThreads() { return brt_omp_num_threads; }
+  explicit Repeat(const OpKernelInfo &info) : OpKernel(info) {}
 
   common::Status RunImpl(const ExecutionContext &ctx) override;
-
-private:
-  int brt_omp_num_threads;
 };
 
 } // namespace cpu

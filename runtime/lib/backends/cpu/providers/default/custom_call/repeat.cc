@@ -1,31 +1,22 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-// Portions Copyright (c) Microsoft Corporation
-// Licensed under the MIT License.
-// ===========================================================================
-// Modification Copyright 2023 ByteDance Ltd. and/or its affiliates.
-
+//===- repeat.cc ----------------------------------------------*--- C++ -*-===//
+//
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//===----------------------------------------------------------------------===//
 #include "./repeat.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/util.h"
-
-#include <cstring>
-#include <iostream>
-#include <numeric>
-#include <omp.h>
 
 namespace brt {
 namespace cpu {
