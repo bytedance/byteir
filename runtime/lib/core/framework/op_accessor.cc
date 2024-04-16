@@ -23,6 +23,8 @@
 #include "brt/core/ir/util.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 
+#include <iostream>
+
 using namespace mlir;
 using namespace brt::ir;
 
@@ -145,7 +147,13 @@ T OpAccessor::GetAttrAsSplatValue(const std::string &name) const {
     if (auto attr =
             info_.GetOperation()->getAttrOfType<DenseIntElementsAttr>(name)) {
       if (attr.isSplat()) {
-        return attr.getSplatValue<IntegerAttr>().getInt();
+        mlir::IntegerAttr splatValue = attr.getSplatValue<IntegerAttr>();
+        mlir::Type type = splatValue.getType();
+        if (type.getIntOrFloatBitWidth() == 1 || type.isUnsignedInteger()) {
+          return splatValue.getValue().getZExtValue();
+        } else {
+          return splatValue.getValue().getSExtValue();
+        }
       }
     }
   } else if constexpr (std::is_floating_point<T>::value) {
@@ -259,11 +267,7 @@ common::Status OpAccessor::SetResultScalar(size_t result_idx, const T &scalar) {
 #define INST_ATTR_METH(T)                                                      \
   template bool OpAccessor::HasAttrOfSplatValue<T>(const std::string &) const; \
   template T OpAccessor::GetAttrAsSplatValue<T>(const std::string &) const;
-INST_ATTR_METH(float)
-INST_ATTR_METH(int32_t)
 INST_ATTR_METH(int64_t)
-INST_ATTR_METH(uint8_t)
-INST_ATTR_METH(uint32_t)
 INST_ATTR_METH(double)
 INST_ATTR_METH(StringView)
 #undef INST_ATTR_METH
