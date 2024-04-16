@@ -611,11 +611,6 @@ struct RewriteMathArg : public OpRewritePattern<Op> {
              << " with axis < 0 cannot be converted to CustomCallOp";
     }
     bool keepDims = operandAdaptor.getKeepdims();
-    if (keepDims) {
-      return op->emitError()
-             << Op::getOperationName()
-             << " with keepdims=true cannot be converted to CustomCallOp";
-    }
     bool selectLastIndex = operandAdaptor.getSelectLastIndex();
 
     std::string call_target_name = WrapName<Op>::call_target_name;
