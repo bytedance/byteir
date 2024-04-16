@@ -27,7 +27,6 @@
 
 using namespace brt::common;
 using namespace brt::cuda;
-using namespace brt::cuda::kernel;
 using namespace brt::ir;
 
 namespace brt {
@@ -37,7 +36,15 @@ template <typename T>
 BatchMatmulImpl<T>::BatchMatmulImpl(const OpAccessor &accessor) {
   auto shape_a = accessor.GetArgShape(0);
   auto shape_b = accessor.GetArgShape(1);
+  BRT_ENFORCE(shape_a.size() >= 3 && shape_b.size() >= 3 &&
+              shape_a.size() == shape_b.size());
   int rank = shape_a.size();
+  int64_t lhs_contracting_dimension =
+      accessor.GetAttrAsInt("lhs_contracting_dimension");
+  int64_t rhs_contracting_dimension =
+      accessor.GetAttrAsInt("rhs_contracting_dimension");
+  BRT_ENFORCE(lhs_contracting_dimension == rank - 1);
+  BRT_ENFORCE(rhs_contracting_dimension == rank - 2);
   m = shape_a[rank - 2];
   n = shape_b[rank - 1];
   k = shape_a[rank - 1];
