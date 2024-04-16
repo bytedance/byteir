@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -canonicalize-ext="blind-fold=true" | FileCheck %s
+// RUN: byteir-opt %s -canonicalize-ext | FileCheck %s
 
 // FIXME: make constant really large or trigger canonicalize-ext anywhy.
 func.func @fold_large_constant_binary_op() -> tensor<2xf32> {
@@ -19,6 +19,14 @@ func.func @eliminate_redundant_convert(%arg0: tensor<12xi1>) -> (tensor<12xi4>) 
 // CHECK-LABEL: eliminate_redundant_convert
 // CHECK: mhlo.convert
 // CHECK-NEXT: return
+
+func.func @fold_convert_scalar() -> tensor<f64> {
+  %cst = mhlo.constant dense<1.500000> : tensor<f32>
+  %0 = mhlo.convert %cst : (tensor<f32>) -> tensor<f64>
+  return %0 : tensor<f64>
+}
+// CHECK-LABEL: fold_convert_scalar
+// CHECK-NOT: mhlo.convert
 
 func.func @fold_clamp$case0() -> tensor<5xi64> {
   %1 = mhlo.constant dense<[-1, 100, 200, 0, 149]> : tensor<5xi64>
