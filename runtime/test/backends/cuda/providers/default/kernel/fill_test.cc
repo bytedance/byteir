@@ -57,6 +57,7 @@ TEST(CUDATestFillOp, Basic) {
   CheckCUDAValues<float>(static_cast<float *>(request->GetArg(1)), length, 1.f);
   CheckCUDAValues<__half>(static_cast<__half *>(request->GetArg(2)), length,
                           static_cast<__half>(1.f));
+
   length = 3;
   std::vector<half_float::half> results = {static_cast<half_float::half>(1.f),
                                            static_cast<half_float::half>(2.f),
@@ -64,4 +65,7 @@ TEST(CUDATestFillOp, Basic) {
   EXPECT_TRUE(CheckCUDAValuesWithCPUValues(
       static_cast<__half *>(request->GetArg(3)),
       reinterpret_cast<__half *>(results.data()), length));
+
+  length = 3;
+  CheckCUDAValues<int8_t>(static_cast<int8_t *>(request->GetArg(4)), length, 1);
 }

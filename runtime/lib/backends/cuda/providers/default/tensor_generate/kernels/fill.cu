@@ -53,6 +53,7 @@ INST(float)
 INST(int64_t)
 INST(double)
 INST(__half)
+INST(int8_t)
 
 #undef INST
 

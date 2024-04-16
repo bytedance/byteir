@@ -55,10 +55,11 @@ common::Status FillOpKernel::RunImpl(const ExecutionContext &ctx) {
   }
 
   switch (dtype) {
-    CASE(Float32, float, float);
+    CASE(Float32, float, double);
     CASE(Int64, int64_t, int64_t);
     CASE(Float64, double, double);
-    CASE(Float16, __half, float);
+    CASE(Float16, __half, double);
+    CASE(Bool, int8_t, int64_t);
 #undef CASE
   default:
     break;
