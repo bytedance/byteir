@@ -17,6 +17,7 @@
 
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 
+#include "./custom_call/repeat.h"
 #include "./custom_call/tf_equal.h"
 #include "./custom_call/tf_select.h"
 #include "./custom_call/tf_string_to_number.h"
@@ -103,6 +104,11 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "byteir.top_k",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::TopK>(info);
+          });
+      registry->Register(
+          "byteir.repeat",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::Repeat>(info);
           });
       registry->Register(
           "tf.Select",
