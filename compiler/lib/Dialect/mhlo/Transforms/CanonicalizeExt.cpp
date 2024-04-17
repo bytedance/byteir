@@ -1467,19 +1467,22 @@ struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
     Type inputElementType = valueAttr.getType().getElementType();
     Type outputElementType =
         op.getResult().getType().cast<ShapedType>().getElementType();
-    auto getWidth = [](Type type) -> int64_t {
+    auto getWidth = [](Type type) -> std::optional<int64_t> {
       if (type.isa<FloatType>()) {
         return type.cast<FloatType>().getWidth();
       } else if (type.isa<IntegerType>()) {
         return type.cast<IntegerType>().getWidth();
       } else {
-        return K_INITIAL;
+        return std::nullopt;
       }
     };
-    int64_t inputTypeWidth = getWidth(inputElementType);
-    int64_t outputTypeWidth = getWidth(outputElementType);
+    auto inputTypeWidth = getWidth(inputElementType);
+    auto outputTypeWidth = getWidth(outputElementType);
+    if (!inputTypeWidth.has_value() || !outputTypeWidth.has_value()) {
+      return failure();
+    }
     // only fold down convert
-    if (outputTypeWidth > inputTypeWidth) {
+    if (outputTypeWidth.value() > inputTypeWidth.value()) {
       return failure();
     }
 
@@ -2209,6 +2212,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
 
   patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
   populateFoldBeneficialConstantConvertOpPattern(patterns);
+  patterns.add<FoldConstantConvertOp>(ctx, /*foldLimit=*/1);
   if (blindFold) {
     patterns.add<FoldConstantConvertOp>(ctx, foldLimit);
   }
