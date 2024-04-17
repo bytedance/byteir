@@ -247,7 +247,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                  int device_id;
                  BRT_CUDA_CHECK(cudaGetDevice(&device_id));
                  session->SetExecDevice(DeviceType::CUDA, device_id);
-                 session->AddDeviceAPI(DeviceType::CUDA, GetCudaDeviceAPI());
+                 session->AddDeviceAPI(DeviceType::CUDA, GetCUDADeviceAPI());
                  session->AddAllocator(std::move(allocator));
                  session->AddExecutionProvider(std::move(provider));
                }

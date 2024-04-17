@@ -31,6 +31,12 @@ enum class BrtAllocatorType {
   CustomAllocator = 2
 };
 
+enum class BrtOwnershipType {
+  OwnedByExternal = 0,
+  CopiedByRuntime = 1,
+  OwnedByRuntime = 2
+};
+
 struct BrtMemoryInfo {
   BrtMemoryInfo() = default; // to allow default construction of Tensor
 

@@ -21,7 +21,7 @@
 
 namespace brt {
 
-enum class DeviceType { CPU = 1, CUDA };
+enum class DeviceType { UNKNOW = 0, CPU = 1, CUDA };
 
 struct Device {
   DeviceType device_type_;
