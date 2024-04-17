@@ -76,6 +76,8 @@ set(brt_test_cpu_provider_src_patterns
   "${TEST_SRC_DIR}/backends/cpu/providers/default/kernel/*.h"
   "${TEST_SRC_DIR}/backends/cpu/providers/default/e2e/*.cc"
   "${TEST_SRC_DIR}/backends/cpu/providers/default/e2e/*.h"
+  "${TEST_SRC_DIR}/backends/cpu/providers/default/*.cc"
+  "${TEST_SRC_DIR}/backends/cpu/providers/default/*.h"
 )
 file(GLOB brt_test_cpu_provider_src CONFIGURE_DEPENDS
   ${brt_test_cpu_provider_src_patterns}
