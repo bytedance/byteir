@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "brt/backends/device_api.h"
+#include "brt/core/framework/device_api.h"
 
 namespace brt {
 

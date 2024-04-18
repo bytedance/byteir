@@ -16,11 +16,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/core/context/execution_frame.h"
-
-#include "brt/backends/cpu/device/cpu_device_api.h"
-#include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/core/common/common.h"
 #include "brt/core/framework/allocator.h"
+#include "brt/core/framework/device_api.h"
 #include "brt/core/ir/util.h"
 #include "mlir/IR/Types.h"
 
@@ -31,50 +29,34 @@ using namespace mlir;
 
 namespace brt {
 namespace {
-Device GetDevice(const BrtMemoryInfo &info) {
-  static std::unordered_map<std::string, DeviceType> str_to_dev_type = {
-      {"cpu", DeviceType::CPU}, {"cuda", DeviceType::CUDA}};
+void CopyBufferData(const BrtMemoryInfo &info, void *src, void *dst,
+                    size_t nbytes) {
+  auto device_api = GetDeviceAPI(info.key);
+  auto dev_type = GetDeviceType(info.key);
+  Device dev{dev_type, info.id};
 
-  DeviceType dev_type;
-  if (str_to_dev_type.count(info.key) > 0) {
-    dev_type = str_to_dev_type[info.key];
-  } else {
-    dev_type = DeviceType::UNKNOW;
-  }
-  return Device{dev_type, info.id};
-}
-
-DeviceAPI *GetDeviceAPI(const DeviceType dev_type) {
-  static std::unordered_map<DeviceType, DeviceAPI *> device_api = {
-    {DeviceType::CPU, GetCPUDeviceAPI()},
-#if BRT_USE_CUDA
-    {DeviceType::CUDA, GetCUDADeviceAPI()},
-#endif
-  };
-
-  if (device_api.count(dev_type) > 0) {
-    return device_api[dev_type];
-  }
-  return nullptr;
-}
-
-void DeviceMemCopy(const BrtMemoryInfo &info, void *src, void *dst,
-                   size_t nbytes) {
-  auto dev = GetDevice(info);
-  DeviceAPI *device_api = GetDeviceAPI(dev.device_type_);
-  switch (dev.device_type_) {
+  switch (dev_type) {
   case DeviceType::CPU:
-    device_api->MemcpyH2H(dev, dst, src, nbytes);
+    if (device_api != nullptr) {
+      device_api->MemcpyH2H(dev, dst, src, nbytes);
+    } else {
+      std::memcpy(dst, src, nbytes);
+    }
     break;
 
   case DeviceType::CUDA:
+    BRT_ENFORCE(device_api != nullptr);
     device_api->MemcpyD2D(dev, dst, src, nbytes);
     break;
 
   case DeviceType::UNKNOW:
-    // for unknow device, the default is host memcpy
-    std::memcpy(dst, src, nbytes);
-
+    // if unknow device has specific d2d api, user must register it.
+    // Otherwise host memcy will be used.
+    if (device_api != nullptr) {
+      device_api->MemcpyD2D(dev, dst, src, nbytes);
+    } else {
+      std::memcpy(dst, src, nbytes);
+    }
   default:
     BRT_THROW("invalid device type");
     break;
@@ -252,7 +234,7 @@ void BRTInferenceExecutionFrame::BindArg(size_t idx, const void *ptr,
     uint64_t buffer_size = GetBytes(i);
     auto allocator = info_.weight_and_ios_allocators[idx];
     const BrtMemoryInfo &info = allocator->Info();
-    DeviceMemCopy(info, const_cast<void *>(ptr), brt_buffer_ptr, buffer_size);
+    CopyBufferData(info, const_cast<void *>(ptr), brt_buffer_ptr, buffer_size);
   } else {
     ctx_.weights_and_ios[idx] = const_cast<void *>(ptr);
   }

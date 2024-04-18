@@ -16,8 +16,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "brt/backends/cuda/device/cuda_allocator.h"
+#include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
 #include "brt/core/common/status.h"
+#include "brt/core/framework/device_api.h"
 #include "brt/core/framework/memory_info.h"
 #include "brt/core/session/request_context.h"
 #include "brt/core/session/session.h"
@@ -179,6 +181,9 @@ TEST(CUDARequestContextTest, BindArgWithCopy) {
   auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
   BRT_TEST_CHECK_STATUS(status_cuda);
 
+  // register cuda api
+  RegisterDeviceAPI("cuda", GetCUDADeviceAPI());
+
   auto status_load =
       session.LoadFromMemory(CreateAddOp2(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
@@ -231,6 +236,9 @@ TEST(CUDARequestContextTest, BindArgWithOwnedByRuntime) {
   auto status_load =
       session.LoadFromMemory(CreateAddOp2(byre_builder, "cuda"), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
+
+  // register cuda api
+  RegisterDeviceAPI("cuda", GetCUDADeviceAPI());
 
   std::unique_ptr<RequestContext> request;
   auto status_request = session.NewRequestContext(&request);

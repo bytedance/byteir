@@ -16,9 +16,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/device/cpu_device_api.h"
 #include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 #include "brt/core/common/status.h"
+#include "brt/core/framework/device_api.h"
 #include "brt/core/framework/memory_info.h"
 #include "brt/core/session/request_context.h"
 #include "brt/core/session/session.h"
@@ -103,6 +105,8 @@ TEST(CPURequestContextTest, BindArgWithCopy) {
   auto status_load = session.Load(test_file_string_equal, "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
+  // register cpu api
+  RegisterDeviceAPI("cpu", GetCPUDeviceAPI());
   std::unique_ptr<RequestContext> request;
   auto status_request =
       session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());

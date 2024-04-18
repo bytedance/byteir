@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "brt/backends/device_api.h"
 #include "brt/core/common/status.h"
+#include "brt/core/framework/device_api.h"
 #include "brt/core/framework/dtype.h"
 #include <memory>
 #include <string>
