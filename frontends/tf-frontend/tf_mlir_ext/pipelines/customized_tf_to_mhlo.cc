@@ -67,7 +67,6 @@ struct CustomizedTfToMhloPipelinePass
     this->stopAfterRewriteCustomCall = stop_after_rewrite_custom_call;
     this->additional_main_func_attrs = additional_main_func_attrs;
     this->setAssumingToBeTrue = set_assuming_to_be_true;
-    this->setAssumingToBeTrue = set_assuming_to_be_true;
     this->repeatOutBatchSize = repeat_out_batch_size;
   }
 
