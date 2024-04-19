@@ -66,6 +66,12 @@ static llvm::cl::opt<bool> force_set_batch_size(
                    "even if it is already set."),
     llvm::cl::init(false));
 
+static llvm::cl::opt<int64_t> tfext_repeat_out_batch_size(
+    "repeat-out-batch-size",
+    llvm::cl::desc("Specify batch size of repeat output tensor, remains not "
+                   "specified it is equal to -1."),
+    llvm::cl::init(-1));
+
 static llvm::cl::opt<bool> only_translate(
     "only-translate",
     llvm::cl::desc("Only translate tf graph to tf dialect, will not run the "
@@ -264,7 +270,8 @@ int main(int argc, char **argv) {
       ::mlir::tfext::createCustomizedTfToMhloPipelinePass(
           customcall_ops_array, remove_control_flow, staticalize_dynamic_shape,
           stop_after_convert_to_tf_dialect, stop_after_rewrite_customcall,
-          additional_main_func_attrs, set_assuming_to_be_true));
+          additional_main_func_attrs, set_assuming_to_be_true,
+          tfext_repeat_out_batch_size));
   if (mlir::failed(tf_frontend_manager.run(*module))) {
     llvm::outs() << "tf frontend customized-tf-to-mhlo pipeline failed\n";
     return 1;
