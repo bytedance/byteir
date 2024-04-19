@@ -1,7 +1,7 @@
-//===- cuda_device_api.cc ---------------------------------------------*--- C++
+//===- cpu_device_api.cc ---------------------------------------------*--- C++
 //-*-===//
 //
-// Copyright 2023 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,21 +16,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
-
-#include "brt/backends/cuda/device/cuda_device_api.h"
-#include "brt/backends/cuda/device/common/cuda_call.h"
+#include "brt/backends/cpu/device/cpu_device_api.h"
+#include "brt/core/common/common.h"
 #include <cstring>
-#include <cuda.h>
-#include <cuda_runtime.h>
 
 namespace brt {
 namespace {
-void SetDevice(Device dev) { BRT_CUDA_CALL(cudaSetDevice(dev.device_id_)); }
+void SetDevice(Device dev) {}
 
 void MemcpyH2D(Device dev, void *dst_ptr, void *src_ptr, size_t nbytes) {
-  SetDevice(dev);
-  BRT_CUDA_CALL(cudaMemcpy(dst_ptr, src_ptr, nbytes, cudaMemcpyHostToDevice));
+  BRT_THROW("MemcpyH2D for CPU is not implemented");
 }
 
 void MemcpyH2H(Device dev, void *dst_ptr, void *src_ptr, size_t nbytes) {
@@ -38,19 +33,17 @@ void MemcpyH2H(Device dev, void *dst_ptr, void *src_ptr, size_t nbytes) {
 }
 
 void MemcpyD2H(Device dev, void *dst_ptr, void *src_ptr, size_t nbytes) {
-  SetDevice(dev);
-  BRT_CUDA_CALL(cudaMemcpy(dst_ptr, src_ptr, nbytes, cudaMemcpyDeviceToHost));
+  BRT_THROW("MemcpyD2H for CPU is not implemented");
 }
 
 void MemcpyD2D(Device dev, void *dst_ptr, void *src_ptr, size_t nbytes) {
-  SetDevice(dev);
-  BRT_CUDA_CALL(cudaMemcpy(dst_ptr, src_ptr, nbytes, cudaMemcpyDeviceToDevice));
+  BRT_THROW("MemcpyD2D for CPU is not implemented");
 }
 } // namespace
 
-DeviceAPI *GetCUDADeviceAPI() {
-  static DeviceAPI cuda_device_api = {MemcpyH2D, MemcpyH2H, MemcpyD2H,
-                                      MemcpyD2D, SetDevice};
-  return &cuda_device_api;
+DeviceAPI *GetCPUDeviceAPI() {
+  static DeviceAPI cpu_device_api = {MemcpyH2D, MemcpyH2H, MemcpyD2H, MemcpyD2D,
+                                     SetDevice};
+  return &cpu_device_api;
 }
 } // namespace brt

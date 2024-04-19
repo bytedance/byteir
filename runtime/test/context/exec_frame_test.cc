@@ -83,7 +83,8 @@ private:
 
   [[noreturn]] void FinishIOBinding() override { BRT_NOT_IMPLEMENTED(); }
   [[noreturn]] void AllocIntermediate() override { BRT_NOT_IMPLEMENTED(); }
-  [[noreturn]] void BindArg(size_t, const void *) override {
+  [[noreturn]] void BindArg(size_t, const void *,
+                            BrtOwnershipType ownership) override {
     BRT_NOT_IMPLEMENTED();
   }
   [[noreturn]] void *GetArg(size_t) override { BRT_NOT_IMPLEMENTED(); }
