@@ -12,6 +12,12 @@ from torch_frontend.passmanager import PassManager
 from torch_frontend.dialects.builtin import ModuleOp
 from torch_frontend._mlir_libs._stablehlo import serialize_portable_artifact
 
+class DebugType(Enum):
+    NO_DEBUG = 0
+    PRINT_AFTER_FALIURE = 1
+    PRINT_AFTER_ONLY_CHANGE = 2
+
+
 _CUSTOM_OPS_IN_TORCH = [
     "aten._softmax",
     "aten.softmax.int",
@@ -30,10 +36,6 @@ _CUSTOM_OPS_IN_TORCH = [
     "byteir.flash_attn_bwd",
 ]
 
-class DebugType(Enum):
-    NO_DEBUG = 0
-    PRINT_AFTER_FALIURE = 1
-    PRINT_AFTER_ONLY_CHANGE = 2
 
 def byteir〇flash_attn_fwd〡shape(q: List[int], k: List[int], v: List[int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[int]]:
     batch_size = q[0]
@@ -87,6 +89,27 @@ extra_library = [
     byteir〇flash_attn_bwd〡has_value_semantics,
 ]
 
+def _get_debug_parameters(debug: DebugType):
+    assert isinstance(debug, DebugType), "unknown debug type"
+    # note: if you want to set `print_module_scope = True``,
+    # you should set `module.context.enable_multithreading(False)`
+    debug_parameters = {}
+    if debug == DebugType.PRINT_AFTER_FALIURE:
+        debug_parameters = {"print_before_pass":False,
+                            "print_after_pass":True,
+                            "print_after_only_on_change":False,
+                            "print_after_only_on_failure":True,
+                            "print_module_scope":False,
+                            "large_elements_limit":10}
+    elif debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
+        debug_parameters = {"print_before_pass":False,
+                            "print_after_pass":True,
+                            "print_after_only_on_change":True,
+                            "print_after_only_on_failure":False,
+                            "print_module_scope":False,
+                            "large_elements_limit":10}
+    return debug_parameters
+
 
 def compile(
     model: torch.nn.Module,
@@ -109,9 +132,9 @@ def compile(
     """
     if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
-    assert isinstance(debug, DebugType), "unsupported debug type"
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
+    debug_parameters = _get_debug_parameters(debug)
 
     ############################################
     # compile to raw by torch_mlir.torchscript
@@ -140,31 +163,14 @@ def compile(
         print()
         sys.stdout.flush()
 
-    if debug != DebugType.NO_DEBUG:
-        module.context.enable_multithreading(False)
-
     extra_library_file_name = torchscript._canon_extra_library(extra_library)
     with module.context:
         option_string = (
             "{backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name + "}"
         )
         pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")
-        if debug == DebugType.PRINT_AFTER_FALIURE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=False,
-                print_after_only_on_failure=True,
-                large_elements_limit=10,
-            )
-        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=True,
-                print_after_only_on_failure=False,
-                large_elements_limit=10,
-            )
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
     if output_type == "torch":
         return module
@@ -174,22 +180,8 @@ def compile(
     ############################################
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)")
-        if debug == DebugType.PRINT_AFTER_FALIURE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=False,
-                print_after_only_on_failure=True,
-                large_elements_limit=10,
-            )
-        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=True,
-                print_after_only_on_failure=False,
-                large_elements_limit=10,
-            )
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
     if output_type == "stablehlo":
         return module
@@ -220,13 +212,13 @@ def compile_dynamo_model(
     """
     if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
-    assert isinstance(debug, DebugType), "unsupported debug type"
     if backend_legal_ops is None:
         backend_legal_ops = _CUSTOM_OPS_IN_TORCH
+    debug_parameters = _get_debug_parameters(debug)
 
-    ############################################
+    ##################################################
     # compile to raw by torch_mlir.extras.fx_importer
-    ############################################
+    ##################################################
     torch_mlir_context = torch_mlir.ir.Context()
     from torch_mlir.dialects.torch import register_dialect as register_torch_dialect
     register_torch_dialect(torch_mlir_context)
@@ -255,30 +247,13 @@ def compile_dynamo_model(
         print()
         sys.stdout.flush()
 
-    if debug != DebugType.NO_DEBUG:
-        module.context.enable_multithreading(False)
-
     with module.context:
         # We still need torch-function-to-torch-pipeline help us do something, e.g.,
         # decompose ops, like aten.addmm, aten.t and so on.
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
         pm = PassManager.parse(f"builtin.module(torch-function-to-torch-pipeline{option_string})")
-        if debug == DebugType.PRINT_AFTER_FALIURE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=False,
-                print_after_only_on_failure=True,
-                large_elements_limit=10,
-            )
-        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=True,
-                print_after_only_on_failure=False,
-                large_elements_limit=10,
-            )
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
     if output_type == "torch":
         return module
@@ -288,22 +263,8 @@ def compile_dynamo_model(
     ############################################
     with module.context:
         pm = PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)")
-        if debug == DebugType.PRINT_AFTER_FALIURE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=False,
-                print_after_only_on_failure=True,
-                large_elements_limit=10,
-            )
-        if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-            pm.enable_ir_printing(
-                print_before_pass=False,
-                print_after_pass=True,
-                print_after_only_on_change=True,
-                print_after_only_on_failure=False,
-                large_elements_limit=10,
-            )
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
     if output_type == "stablehlo":
         return module

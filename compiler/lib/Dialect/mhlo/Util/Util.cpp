@@ -102,8 +102,7 @@ bool mlir::isSplatMhloConstantValue(Value val, double splat_val) {
   return isSplatMhloConstantValue(val.getDefiningOp(), splat_val);
 }
 
-template <typename RegionOp, typename Op = mhlo::ReduceOp>
-bool mlir::isRegularReduceOp(Op op) {
+template <typename RegionOp, typename Op> bool mlir::isRegularReduceOp(Op op) {
   if (op.getInputs().size() != 1 || op.getInitValues().size() != 1 ||
       op.getResults().size() != 1) {
     return false;
