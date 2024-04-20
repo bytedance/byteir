@@ -12,6 +12,32 @@ from .utils import detect_cuda_with_nvidia_smi
 
 import byteir
 
+class DebugType(Enum):
+    NO_DEBUG = 0
+    PRINT_AFTER_FALIURE = 1
+    PRINT_AFTER_ONLY_CHANGE = 2
+
+def _get_debug_parameters(debug: DebugType):
+    assert isinstance(debug, DebugType), "unknown debug type"
+    # note: if you want to set `print_module_scope = True``,
+    # you should set `module.context.enable_multithreading(False)`
+    debug_parameters = {}
+    if debug == DebugType.PRINT_AFTER_FALIURE:
+        debug_parameters = {"print_before_pass":False,
+                            "print_after_pass":True,
+                            "print_after_only_on_change":False,
+                            "print_after_only_on_failure":True,
+                            "print_module_scope":False,
+                            "large_elements_limit":10}
+    elif debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
+        debug_parameters = {"print_before_pass":False,
+                            "print_after_pass":True,
+                            "print_after_only_on_change":True,
+                            "print_after_only_on_failure":False,
+                            "print_module_scope":False,
+                            "large_elements_limit":10}
+    return debug_parameters
+
 def _print_verbose(module: ModuleOp, pipeline_msg: str):
     print(pipeline_msg)
     print(module.operation.get_asm(large_elements_limit=10))
@@ -67,7 +93,8 @@ def _compile_cuda(
     output_file_prefix = compile_options.output_file_prefix
     output_type = compile_options.output_type
     useBarePtrCallConv = True # all tensor must have static shapes if True
-
+    debug = DebugType.PRINT_AFTER_FALIURE
+    debug_parameters = _get_debug_parameters(debug)
     context = module.context
 
     entry_func_str = "entry-func={}".format(entry_func)
@@ -107,7 +134,10 @@ def _compile_cuda(
         PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Set Space Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(byre-opt{append-arg-types " + entry_func_str + "})").run(module.operation)
+        pm = PassManager.parse("builtin.module(byre-opt{append-arg-types " + entry_func_str + "})")
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
+        pm.run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Opt:") if verbose else ...
 
     # create device module
@@ -373,7 +403,7 @@ def compile(
 
     ### legalize stablehlo to mhlo
     with context:
-        PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
+        PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize-ext,hlo-simplify)").run(module.operation)
         _print_verbose(module, "// IR Dump After Legalize to HLO:") if verbose else ...
 
     ### parse output options from output_file_path
