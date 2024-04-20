@@ -23,8 +23,9 @@ def compile_cuda(
 ) -> None:
     target = "cuda"
     output_file_dir = os.path.dirname(output_file_path)
+    output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
     output_file_name = os.path.basename(output_file_path)
-    useBarePtrCallConv = False # all tensor must have static shapes if True
+    useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
 
@@ -102,6 +103,7 @@ def compile_cuda_with_ait(
 ) -> None:
     target = "cuda"
     output_file_dir = os.path.dirname(output_file_path)
+    output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
     output_file_name = os.path.basename(output_file_path)
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
