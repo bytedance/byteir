@@ -195,6 +195,7 @@ def compile(
 def compile_dynamo_model(
     model: Union[torch.export.ExportedProgram, torch.fx.GraphModule],
     output_type: str,
+    func_name: str = "main",
     backend_legal_ops: Optional[Sequence[str]] = None,
     debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
@@ -225,10 +226,10 @@ def compile_dynamo_model(
     fx_importer = FxImporter(context=torch_mlir_context)
     # for torch.export
     if isinstance(model, torch.export.ExportedProgram):
-        fx_importer.import_frozen_program(model)
+        fx_importer.import_frozen_program(model, func_name=func_name)
     # for torch.compile
     elif isinstance(model, torch.fx.GraphModule):
-        fx_importer.import_graph_module(model)
+        fx_importer.import_stateless_graph(model.graph, func_name=func_name)
     else:
         raise RuntimeError("unsupported model type")
     module_str = fx_importer.module_op.operation.get_asm(enable_debug_info=True)
