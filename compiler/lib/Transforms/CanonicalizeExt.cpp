@@ -192,8 +192,8 @@ namespace {
 
 struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
   CanonicalizeExtPass() = default;
-  CanonicalizeExtPass(const GreedyRewriteConfig &config, bool blindFold,
-                      ArrayRef<std::string> disabledPatterns,
+  CanonicalizeExtPass(const GreedyRewriteConfig &config, int64_t foldLimit,
+                      bool blindFold, ArrayRef<std::string> disabledPatterns,
                       ArrayRef<std::string> enabledPatterns) {
     this->topDownProcessingEnabled = config.useTopDownTraversal;
     this->enableRegionSimplification = config.enableRegionSimplification;
@@ -275,8 +275,8 @@ struct CanonicalizeExtPass : public CanonicalizeExtBase<CanonicalizeExtPass> {
 std::unique_ptr<Pass> mlir::createCanonicalizeExtPass(int64_t foldLimit,
                                                       bool blindFold) {
   GreedyRewriteConfig config;
-  return std::make_unique<CanonicalizeExtPass>(config, blindFold, std::nullopt,
-                                               std::nullopt);
+  return std::make_unique<CanonicalizeExtPass>(config, foldLimit, blindFold,
+                                               std::nullopt, std::nullopt);
 }
 
 std::unique_ptr<Pass>
@@ -285,7 +285,7 @@ mlir::createCanonicalizeExtPass(const GreedyRewriteConfig &config,
                                 ArrayRef<std::string> disabledPatterns,
                                 ArrayRef<std::string> enabledPatterns) {
   return std::make_unique<CanonicalizeExtPass>(
-      config, blindFold, disabledPatterns, enabledPatterns);
+      config, foldLimit, blindFold, disabledPatterns, enabledPatterns);
 }
 
 namespace {
@@ -293,8 +293,8 @@ namespace {
 struct GraphCanonicalizePass
     : public GraphCanonicalizeBase<GraphCanonicalizePass> {
   GraphCanonicalizePass() = default;
-  GraphCanonicalizePass(const GreedyRewriteConfig &config, bool blindFold,
-                        ArrayRef<std::string> disabledPatterns,
+  GraphCanonicalizePass(const GreedyRewriteConfig &config, int64_t foldLimit,
+                        bool blindFold, ArrayRef<std::string> disabledPatterns,
                         ArrayRef<std::string> enabledPatterns) {
     this->topDownProcessingEnabled = config.useTopDownTraversal;
     this->enableRegionSimplification = config.enableRegionSimplification;
@@ -373,7 +373,7 @@ struct GraphCanonicalizePass
 std::unique_ptr<Pass> mlir::createGraphCanonicalizePass(int64_t foldLimit,
                                                         bool blindFold) {
   GreedyRewriteConfig config;
-  return std::make_unique<GraphCanonicalizePass>(config, blindFold,
+  return std::make_unique<GraphCanonicalizePass>(config, foldLimit, blindFold,
                                                  std::nullopt, std::nullopt);
 }
 
@@ -383,5 +383,5 @@ mlir::createGraphCanonicalizePass(const GreedyRewriteConfig &config,
                                   ArrayRef<std::string> disabledPatterns,
                                   ArrayRef<std::string> enabledPatterns) {
   return std::make_unique<GraphCanonicalizePass>(
-      config, blindFold, disabledPatterns, enabledPatterns);
+      config, foldLimit, blindFold, disabledPatterns, enabledPatterns);
 }
