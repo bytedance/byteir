@@ -7,18 +7,15 @@ import torch.export
 
 import torch_mlir
 from torch_mlir.extras.fx_importer import FxImporter
-from torch_frontend import ir
-from torch_frontend.passmanager import PassManager
-from torch_frontend.dialects.builtin import ModuleOp
-from torch_frontend._mlir_libs._stablehlo import serialize_portable_artifact
 
-class DebugType(Enum):
-    NO_DEBUG = 0
-    PRINT_AFTER_FALIURE = 1
-    PRINT_AFTER_ONLY_CHANGE = 2
+from . import ir
+from .passmanager import PassManager
+from .dialects.builtin import ModuleOp
+from ._mlir_libs._stablehlo import serialize_portable_artifact
 
+from .extra_shape_fn import byteir_extra_library
 
-_CUSTOM_OPS_IN_TORCH = [
+GENERIC_CUSTOM_OPS = [
     "aten._softmax",
     "aten.softmax.int",
     "aten._log_softmax",
@@ -32,62 +29,17 @@ _CUSTOM_OPS_IN_TORCH = [
     "aten.max.dim",
     "aten.one_hot",
     "aten.topk",
+]
+
+BYTEIR_CUSTOM_OPS = [
     "byteir.flash_attn_fwd",
     "byteir.flash_attn_bwd",
 ]
 
-
-def byteir〇flash_attn_fwd〡shape(q: List[int], k: List[int], v: List[int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[int]]:
-    batch_size = q[0]
-    seqlen_q = q[1]
-    num_heads = q[2]
-    seqlen_k = k[1]
-    softmax_lse = [batch_size, num_heads, seqlen_q]
-    softmax_return = [batch_size, num_heads, seqlen_q, seqlen_k]
-    rng_shape = [2]
-    return q, q, k, v, q, softmax_lse, softmax_return, rng_shape
-
-
-def byteir〇flash_attn_fwd〡dtype(q_rank_dtype: Tuple[int, int], k_rank_dtype: Tuple[int, int], v_rank_dtype: Tuple[int, int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[int, int, int, int, int, int, int, int]:
-    q_rank, q_dtype = q_rank_dtype
-    return q_dtype, q_dtype, q_dtype, q_dtype, q_dtype, torch.float32, q_dtype, torch.int64
-
-
-def byteir〇flash_attn_fwd〡has_value_semantics() -> None:
-    return
-
-
-def byteir〇flash_attn_bwd〡shape(dout: List[int], q: List[int], k: List[int], v: List[int], out: List[int], softmax_lse: List[int], dropout_p: float, softmax_scale: float, casual: bool, rng: List[int]) -> Tuple[List[int], List[int], List[int], List[int], List[int]]:
-    batch_size = q[0]
-    seqlen_q = q[1]
-    num_heads = q[2]
-    seqlen_q_rounded = ((seqlen_q + 127) // 128) * 128
-    head_size = q[3]
-    head_size_rounded = ((head_size + 31) // 32) * 32
-    d_softmax = [batch_size, num_heads, seqlen_q_rounded]
-    dq_accum = [batch_size, num_heads, seqlen_q_rounded, head_size_rounded]
-    return q, k, v, d_softmax, dq_accum
-
-
-def byteir〇flash_attn_bwd〡dtype(dout_rank_dtype: Tuple[int, int], q_rank_dtype: Tuple[int, int], k_rank_dtype: Tuple[int, int], v_rank_dtype: Tuple[int, int], out_rank_dtype: Tuple[int, int], softmax_lse_rank_dtype: Tuple[int, int], dropout_p: float, softmax_scale: float, casual: bool, rng_rank_dtype: Tuple[int, int]) -> Tuple[int, int, int, int, int]:
-    dq_rank, dq_dtype = q_rank_dtype
-    dk_rank, dk_dtype = k_rank_dtype
-    dv_rank, dv_dtype = v_rank_dtype
-    return dq_dtype, dk_dtype, dv_dtype, torch.float32, torch.float32
-
-
-def byteir〇flash_attn_bwd〡has_value_semantics() -> None:
-    return
-
-
-extra_library = [
-    byteir〇flash_attn_fwd〡shape,
-    byteir〇flash_attn_fwd〡dtype,
-    byteir〇flash_attn_fwd〡has_value_semantics,
-    byteir〇flash_attn_bwd〡shape,
-    byteir〇flash_attn_bwd〡dtype,
-    byteir〇flash_attn_bwd〡has_value_semantics,
-]
+class DebugType(Enum):
+    NO_DEBUG = 0
+    PRINT_AFTER_FALIURE = 1
+    PRINT_AFTER_ONLY_CHANGE = 2
 
 def _get_debug_parameters(debug: DebugType):
     assert isinstance(debug, DebugType), "unknown debug type"
@@ -109,6 +61,15 @@ def _get_debug_parameters(debug: DebugType):
                             "print_module_scope":False,
                             "large_elements_limit":10}
     return debug_parameters
+
+# FIXME(lyq): how to support multi-threading or multi-process?
+def _get_extra_library_file(backend_legal_ops: Sequence[str]):
+    from torch_mlir import torchscript
+    extra_library = []
+    for op in backend_legal_ops:
+        if op in byteir_extra_library:
+            extra_library += byteir_extra_library[op]
+    return torchscript._canon_extra_library(extra_library)
 
 
 def compile(
@@ -133,7 +94,7 @@ def compile(
     if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
-        backend_legal_ops = _CUSTOM_OPS_IN_TORCH
+        backend_legal_ops = GENERIC_CUSTOM_OPS
     debug_parameters = _get_debug_parameters(debug)
 
     ############################################
@@ -163,7 +124,7 @@ def compile(
         print()
         sys.stdout.flush()
 
-    extra_library_file_name = torchscript._canon_extra_library(extra_library)
+    extra_library_file_name = _get_extra_library_file(backend_legal_ops)
     with module.context:
         option_string = (
             "{backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name + "}"
@@ -214,7 +175,7 @@ def compile_dynamo_model(
     if output_type not in ["raw", "torch"] and "stablehlo" not in output_type:
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
-        backend_legal_ops = _CUSTOM_OPS_IN_TORCH
+        backend_legal_ops = GENERIC_CUSTOM_OPS
     debug_parameters = _get_debug_parameters(debug)
 
     ##################################################

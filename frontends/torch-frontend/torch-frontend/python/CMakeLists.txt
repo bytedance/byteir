@@ -13,12 +13,13 @@ declare_mlir_python_sources(TorchFrontendPythonSources.TopLevel
   SOURCES
     _mlir_libs/_site_initialize_0.py
     __init__.py
-    ts_utils.py
+    compile.py
+    extra_shape_fn.py
     flash_attn_op.py
     fx_rewrite.py
     fx_tracer.py
     fx_utils.py
-    compile.py
+    ts_utils.py
 )
 
 ################################################################################
