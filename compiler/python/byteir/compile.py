@@ -6,7 +6,6 @@ from byteir.dialects.builtin import ModuleOp
 from byteir.utils import detect_cuda_with_nvidia_smi
 from pathlib import Path
 import os
-from subprocess import PIPE, Popen
 from shutil import copymode
 
 def _print_verbose(module: ModuleOp, pipeline_msg: str):
@@ -14,10 +13,11 @@ def _print_verbose(module: ModuleOp, pipeline_msg: str):
     print(module.operation.get_asm(large_elements_limit=10))
     print()
 
-def compile_cuda(
+def _compile_cuda(
     module: ModuleOp,
     output_file_path: str,
-    entry_func: str = "main",
+    entry_func: str,
+    gpu_type: str,
     verbose: bool = False,
     **kwargs,
 ) -> None:
@@ -79,7 +79,7 @@ def compile_cuda(
             PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx file
-    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, gpu_type)
 
     # create host mlir
     with context:
@@ -90,10 +90,11 @@ def compile_cuda(
         f.write(module.operation.get_asm())
 
 
-def compile_cuda_with_ait(
+def _compile_cuda_with_ait(
     module: ModuleOp,
     output_file_path: str,
-    entry_func: str = "main",
+    entry_func: str,
+    gpu_type: str,
     verbose: bool = False,
     name: str = "model",
     aggressive_mode: bool = False,
@@ -184,8 +185,7 @@ def compile_cuda_with_ait(
             PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx
-    assert detect_cuda_with_nvidia_smi() != None
-    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, detect_cuda_with_nvidia_smi())
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, gpu_type)
 
     with context:
         PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
@@ -200,11 +200,20 @@ def compile(
     output_file_path: str,
     entry_func: str = "main",
     target: str = "cuda",
+    gpu_type: str = "local",
     verbose: bool = False,
     parallelism: int = 1,
     disable_byteir_ait_cache: bool = False,
     **kwargs,
 ) -> None:
+    ### optional detecting gpu type from nvidia-smi
+    if gpu_type == "local":
+        local_gpu = detect_cuda_with_nvidia_smi()
+        assert local_gpu is not None
+        gpu_type = local_gpu
+    print(f"Compiling PTX to {gpu_type}")
+
+    ### load from .mlir or .mlirbc
     from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
     context = ir.Context()
     if input_file_path.endswith(".mlirbc"):
@@ -214,25 +223,29 @@ def compile(
         module = ir.Module.parse(open(input_file_path, "r").read(), context)
     _print_verbose(module, "// IR Dump Input MLIR:") if verbose else ...
 
+    ### legalize stablehlo to mhlo
     with context:
         PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
         _print_verbose(module, "// IR Dump After Legalize to HLO:") if verbose else ...
 
+    ### compiling
     if target == "cuda":
-        compile_cuda(module, output_file_path, entry_func, verbose)
+        _compile_cuda(module, output_file_path, entry_func, gpu_type, verbose)
     elif target == "cuda_with_ait":
-        compile_cuda_with_ait(module, 
-                              output_file_path, 
-                              entry_func, 
-                              verbose, 
-                              parallelism=parallelism, 
+        _compile_cuda_with_ait(module,
+                              output_file_path,
+                              entry_func,
+                              gpu_type,
+                              verbose,
+                              parallelism=parallelism,
                               disable_byteir_ait_cache=disable_byteir_ait_cache)
     elif target == "cuda_with_ait_aggressive":
-        compile_cuda_with_ait(module, 
-                              output_file_path, 
-                              entry_func, 
-                              verbose, 
-                              aggressive_mode=True, 
+        _compile_cuda_with_ait(module,
+                              output_file_path,
+                              entry_func,
+                              gpu_type,
+                              verbose,
+                              aggressive_mode=True,
                               parallelism=parallelism,
                               disable_byteir_ait_cache=disable_byteir_ait_cache)
     else:
