@@ -57,6 +57,8 @@ void CopyBufferData(const BrtMemoryInfo &info, void *src, void *dst,
     } else {
       std::memcpy(dst, src, nbytes);
     }
+    break;
+
   default:
     BRT_THROW("invalid device type");
     break;
