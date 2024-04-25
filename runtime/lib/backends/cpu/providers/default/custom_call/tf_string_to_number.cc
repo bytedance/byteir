@@ -117,24 +117,27 @@ common::Status TFStringToNumberImpl(const OpAccessor &accessor,
 
 common::Status TFStringToNumber::RunImpl(const ExecutionContext &ctx) {
   OpAccessor accessor(info_, ctx.exec_frame);
-  std::string out_type = accessor.GetAttrAsString("out_type");
+  DTypeEnum out_type = accessor.GetArgDTypeEnum(1);
 
-  if (out_type == "i32")
+  // TODO: use macro BRT_DISPATCH_NUMBER_TYPES
+  switch (out_type) {
+  case DTypeEnum::Int32:
     return TFStringToNumberImpl<int32_t>(
         accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency());
-  else if (out_type == "i64")
+  case DTypeEnum::Int64:
     return TFStringToNumberImpl<int64_t>(
         accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency());
-  else if (out_type == "f32")
+  case DTypeEnum::Float32:
     return TFStringToNumberImpl<float>(accessor, ctx.work_queue,
                                        info_.GetOpId(), info_.GetDependency());
-  else if (out_type == "f64")
+  case DTypeEnum::Float64:
     return TFStringToNumberImpl<double>(accessor, ctx.work_queue,
                                         info_.GetOpId(), info_.GetDependency());
-  else
+  default:
     return common::Status(common::StatusCategory::BRT,
                           common::StatusCode::NOT_IMPLEMENTED,
                           "not supported out_type");
+  }
 }
 
 } // namespace cpu
