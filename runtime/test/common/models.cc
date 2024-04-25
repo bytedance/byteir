@@ -1242,22 +1242,22 @@ const void *CreateTFStringToNumberOp(brt::ir::ByREBuilder &byre_builder,
       UnknownLoc::get(ctx), "tf.StringToNumber",
       ValueRange{entry_block->getArgument(0)},
       ValueRange{entry_block->getArgument(1)});
-  std::string converted_type_str;
+  Type outTypeType;
   switch (OutType) {
   case DTypeEnum::Int32: {
-    converted_type_str = "i32";
+    outTypeType = op_builder.getI32Type();
     break;
   }
   case DTypeEnum::Int64: {
-    converted_type_str = "i64";
+    outTypeType = op_builder.getI64Type();
     break;
   }
   case DTypeEnum::Float32: {
-    converted_type_str = "f32";
+    outTypeType = op_builder.getF32Type();
     break;
   }
   case DTypeEnum::Float64: {
-    converted_type_str = "f64";
+    outTypeType = op_builder.getF64Type();
     break;
   }
   default: {
@@ -1265,8 +1265,7 @@ const void *CreateTFStringToNumberOp(brt::ir::ByREBuilder &byre_builder,
     break;
   }
   }
-  stringToNumberOp->setAttr("out_type",
-                            op_builder.getStringAttr(converted_type_str));
+  stringToNumberOp->setAttr("out_type", TypeAttr::get(outTypeType));
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
   return m.getAsOpaquePointer();
 }
