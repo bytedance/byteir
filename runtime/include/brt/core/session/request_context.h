@@ -61,6 +61,10 @@ public:
 
   void SetWorkQueue(WorkQueue *wq);
 
+  const Session &GetSession(void) const { return session_; }
+
+  ExecutionFrame *GetExecutionFrame() { return frame_.get(); }
+
   template <typename T> void AddEventListener(Events::Listener<T> &&listener) {
     events_->AddEventListener<T>(std::move(listener));
   }
