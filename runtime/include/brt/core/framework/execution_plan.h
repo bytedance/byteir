@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "brt/backends/device_api.h"
 #include "brt/core/common/status.h"
 #include "brt/core/context/execution_context.h"
 #include "brt/core/context/execution_frame.h"
 #include "brt/core/framework/allocator.h"
+#include "brt/core/framework/device_api.h"
 #include "brt/core/framework/dtype.h"
 #include "brt/core/ir/graph_info.h"
 #include "brt/core/ir/ir.h"

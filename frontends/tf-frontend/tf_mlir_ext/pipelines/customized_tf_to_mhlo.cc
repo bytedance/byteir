@@ -59,7 +59,7 @@ struct CustomizedTfToMhloPipelinePass
       bool stop_after_rewrite_custom_call,
       const std::unordered_map<std::string, Attribute>
           &additional_main_func_attrs,
-      bool set_assuming_to_be_true) {
+      bool set_assuming_to_be_true, int64_t repeat_out_batch_size) {
     this->customCallOps = customcall_ops;
     this->removeControlFlow = remove_control_flow;
     this->staticalizeDynamicShape = staticalize_dynamic_shape;
@@ -67,6 +67,7 @@ struct CustomizedTfToMhloPipelinePass
     this->stopAfterRewriteCustomCall = stop_after_rewrite_custom_call;
     this->additional_main_func_attrs = additional_main_func_attrs;
     this->setAssumingToBeTrue = set_assuming_to_be_true;
+    this->repeatOutBatchSize = repeat_out_batch_size;
   }
 
   void runOnOperation() override {
@@ -157,7 +158,9 @@ struct CustomizedTfToMhloPipelinePass
         mlir::TFL::CreateIdentifyDilatedConvPass());
     pm.addNestedPass<mlir::func::FuncOp>(mlir::tfext::createFuseTFOpsPass());
 
-    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
+    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(
+        customCallOps,
+        /*keepBody*/ false, repeatOutBatchSize));
 
     if (this->stopAfterRewriteCustomCall) {
       pm.addPass(mlir::TF::CreateTFShapeInferencePass());
@@ -188,7 +191,9 @@ struct CustomizedTfToMhloPipelinePass
     // expose more graph pruning and canonicalization opportunities that are
     // necessary for the second LegalizeTFPass(allow_partial_conversion=false)
     // invocation.
-    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
+    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(
+        customCallOps,
+        /*keepBody*/ false, repeatOutBatchSize));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
     pm.addPass(mlir::mhlo::createLegalizeTFPass(
@@ -209,7 +214,9 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::createSCCPPass());
     pm.addPass(mlir::createCanonicalizerPass());
 
-    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps));
+    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(
+        customCallOps,
+        /*keepBody*/ false, repeatOutBatchSize));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
     pm.addPass(mlir::mhlo::createLegalizeTFPass(
@@ -257,9 +264,11 @@ mlir::tfext::createCustomizedTfToMhloPipelinePass(
     bool stop_after_rewrite_custom_call /*= false*/,
     const std::unordered_map<std::string, Attribute>
         &additional_main_func_attrs /*= {}*/,
-    bool set_assuming_to_be_true /*= true*/) {
+    bool set_assuming_to_be_true /*= true*/,
+    int64_t repeat_out_batch_size /*= -1*/) {
   return std::make_unique<CustomizedTfToMhloPipelinePass>(
       customcall_ops, remove_control_flow, staticalize_dynamic_shape,
       stop_after_convert_to_tf_dialect, stop_after_rewrite_custom_call,
-      additional_main_func_attrs, set_assuming_to_be_true);
+      additional_main_func_attrs, set_assuming_to_be_true,
+      repeat_out_batch_size);
 }

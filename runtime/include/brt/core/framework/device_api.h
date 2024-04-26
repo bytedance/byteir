@@ -18,10 +18,11 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 
 namespace brt {
 
-enum class DeviceType { CPU = 1, CUDA };
+enum class DeviceType { UNKNOW = 0, CPU = 1, CUDA };
 
 struct Device {
   DeviceType device_type_;
@@ -45,4 +46,9 @@ struct DeviceAPI {
   SetDeviceFunc SetDevice;
 };
 
+void RegisterDeviceAPI(const std::string &device_name, DeviceAPI *device_api);
+
+const DeviceAPI *GetDeviceAPI(const std::string &device_name);
+
+DeviceType GetDeviceType(const std::string &name);
 } // namespace brt

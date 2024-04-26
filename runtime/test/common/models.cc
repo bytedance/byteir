@@ -1084,6 +1084,37 @@ const void *CreateAliasThenIndexPut(brt::ir::ByREBuilder &byre_builder,
   return module_op.getAsOpaquePointer();
 }
 
+const void *CreateRepeat(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
+                         DTypeEnum timesType, std::vector<int64_t> data_shape,
+                         std::vector<int64_t> times_shape,
+                         std::vector<int64_t> output_shape) {
+  mlir::ModuleOp m = byre_builder.GetModuleOp();
+  auto ctx = byre_builder.GetMLIRContext();
+  auto op_builder = OpBuilder(ctx);
+
+  auto data_ele_type = ConvertDTypeToMLIRType(dataType, ctx);
+  auto times_ele_type = ConvertDTypeToMLIRType(timesType, ctx);
+  auto data_type = MemRefType::get(data_shape, data_ele_type);
+  auto times_type = MemRefType::get(times_shape, times_ele_type);
+  auto output_type = MemRefType::get(output_shape, data_ele_type);
+
+  // create an entry func
+  func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
+      "test", {{data_type, AT::Input, "A"},
+               {times_type, AT::Input, "B"},
+               {output_type, AT::Output, "C"}});
+
+  // add entry function body
+  mlir::Block *entry_block = func_op.addEntryBlock();
+  op_builder.setInsertionPointToStart(entry_block);
+  op_builder.create<byre::ComputeOp>(
+      UnknownLoc::get(ctx), "byteir.repeat",
+      ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
+      ValueRange{entry_block->getArgument(2)});
+  op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
+  return m.getAsOpaquePointer();
+}
+
 const void *CreatePTXAddOp(brt::ir::ByREBuilder &byre_builder) {
 
   mlir::ModuleOp m = byre_builder.GetModuleOp();
@@ -1211,22 +1242,22 @@ const void *CreateTFStringToNumberOp(brt::ir::ByREBuilder &byre_builder,
       UnknownLoc::get(ctx), "tf.StringToNumber",
       ValueRange{entry_block->getArgument(0)},
       ValueRange{entry_block->getArgument(1)});
-  std::string converted_type_str;
+  Type outTypeType;
   switch (OutType) {
   case DTypeEnum::Int32: {
-    converted_type_str = "i32";
+    outTypeType = op_builder.getI32Type();
     break;
   }
   case DTypeEnum::Int64: {
-    converted_type_str = "i64";
+    outTypeType = op_builder.getI64Type();
     break;
   }
   case DTypeEnum::Float32: {
-    converted_type_str = "f32";
+    outTypeType = op_builder.getF32Type();
     break;
   }
   case DTypeEnum::Float64: {
-    converted_type_str = "f64";
+    outTypeType = op_builder.getF64Type();
     break;
   }
   default: {
@@ -1234,8 +1265,7 @@ const void *CreateTFStringToNumberOp(brt::ir::ByREBuilder &byre_builder,
     break;
   }
   }
-  stringToNumberOp->setAttr("out_type",
-                            op_builder.getStringAttr(converted_type_str));
+  stringToNumberOp->setAttr("out_type", TypeAttr::get(outTypeType));
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
   return m.getAsOpaquePointer();
 }

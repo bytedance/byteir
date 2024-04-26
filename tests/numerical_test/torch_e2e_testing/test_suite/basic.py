@@ -86,3 +86,30 @@ class BatchMatmulAddF32Module(torch.nn.Module):
 @register_test_case(module_factory=lambda: BatchMatmulAddF32Module())
 def BatchMatmulAddF32Module_basic(module, tu: TestUtils):
     module.forward(tu.rand(2, 5, 6), tu.rand(2, 6, 10), tu.rand(2, 5, 10))
+
+
+class ReductionPaddingModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        return torch.ops.aten.mean(a)
+
+
+@register_test_case(module_factory=lambda: ReductionPaddingModule())
+def ReductionPaddingModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(1023))
+
+class ReductionOneSizeModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        return torch.ops.aten.mean(a,dim=(1))
+
+
+@register_test_case(module_factory=lambda: ReductionOneSizeModule())
+def ReductionOneSizeModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(1024,1))

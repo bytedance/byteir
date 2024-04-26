@@ -48,7 +48,7 @@ void MemcpyD2D(Device dev, void *dst_ptr, void *src_ptr, size_t nbytes) {
 }
 } // namespace
 
-DeviceAPI *GetCudaDeviceAPI() {
+DeviceAPI *GetCUDADeviceAPI() {
   static DeviceAPI cuda_device_api = {MemcpyH2D, MemcpyH2H, MemcpyD2H,
                                       MemcpyD2D, SetDevice};
   return &cuda_device_api;

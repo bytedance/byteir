@@ -91,6 +91,7 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     GPUTileGridReductionOptions tileGridRedOptions;
     tileGridRedOptions.funcAnchor = reductionAnchor;
     tileGridRedOptions.blockSize = 512;
+    pm.addPass(createLinalgFoldUnitExtentDimsPass());
     createGPUTileGridReductionTransform(pm, tileGridRedOptions);
     pm.addPass(createTransformDialectInterpreter(true));
     {

@@ -20,6 +20,7 @@
 #include "brt/core/common/status.h"
 #include "brt/core/distributed/distributed_session.h"
 #include "brt/core/framework/event.h"
+#include "brt/core/framework/memory_info.h"
 #include "brt/core/session/session.h"
 #include <memory>
 #include <string>
@@ -42,7 +43,9 @@ class WorkQueue;
 
 class RequestContext {
 public:
-  common::Status BindArg(size_t offset, const void *value);
+  common::Status
+  BindArg(size_t offset, const void *value,
+          BrtOwnershipType owership = BrtOwnershipType::OwnedByExternal);
 
   void *GetArg(size_t offset);
 
@@ -57,6 +60,10 @@ public:
   common::Status Sync();
 
   void SetWorkQueue(WorkQueue *wq);
+
+  const Session &GetSession(void) const { return session_; }
+
+  ExecutionFrame *GetExecutionFrame() { return frame_.get(); }
 
   template <typename T> void AddEventListener(Events::Listener<T> &&listener) {
     events_->AddEventListener<T>(std::move(listener));

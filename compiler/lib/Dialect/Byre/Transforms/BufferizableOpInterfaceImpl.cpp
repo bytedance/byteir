@@ -134,7 +134,8 @@ struct ByreComputeOnTensorOpBufferization
         newInputBuffers.push_back(opOperand->get());
         continue;
       }
-      FailureOr<Value> buffer = getBuffer(rewriter, opOperand->get(), options);
+      FailureOr<Value> buffer =
+          getBufferInValidLayout(rewriter, op->getLoc(), *opOperand, options);
       if (failed(buffer))
         return failure();
       newInputBuffers.push_back(*buffer);
@@ -145,7 +146,7 @@ struct ByreComputeOnTensorOpBufferization
       OpOperand *opOperand =
           DpsOp.getDpsInitOperand(opResult.getResultNumber());
       FailureOr<Value> resultBuffer =
-          getBuffer(rewriter, opOperand->get(), options);
+          getBufferInValidLayout(rewriter, op->getLoc(), *opOperand, options);
       if (failed(resultBuffer))
         return failure();
       newOutputBuffers.push_back(*resultBuffer);

@@ -151,6 +151,8 @@ public:
     return common::Status::OK();
   }
 
+  const OpKernelInfo &GetOpKernelInfo() const { return info_; }
+
   bool HasProloguePerSession() const { return has_prologue_per_session_; }
   bool HasEpiloguePerSession() const { return has_epilogue_per_session_; }
   bool HasProloguePerFrame() const { return has_prologue_per_frame_; }

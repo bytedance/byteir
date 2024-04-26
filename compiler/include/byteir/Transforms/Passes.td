@@ -76,6 +76,9 @@ def CanonicalizeExt : Pass<"canonicalize-ext"> {
     Option<"maxIterations", "max-iterations", "int64_t",
            /*default=*/"10",
            "Seed the worklist in general top-down order">,
+    Option<"foldLimit", "fold-limit", "int64_t",
+           /*default=*/"0",
+           "Fold constants which size less equal than foldLimit, -1 means no limit">,
     Option<"blindFold", "blind-fold", "bool",
            /*default=*/"false",
            "Fold constants even if it may finally bloat the compilation result">
@@ -158,6 +161,9 @@ def GraphCanonicalize : Pass<"graph-canonicalize"> {
     Option<"maxIterations", "max-iterations", "int64_t",
            /*default=*/"10",
            "Seed the worklist in general top-down order">,
+    Option<"foldLimit", "fold-limit", "int64_t",
+           /*default=*/"0",
+           "Fold constants which size less equal than foldLimit, -1 means no limit">,
     Option<"blindFold", "blind-fold", "bool",
            /*default=*/"false",
            "Fold constants even if it may finally bloat the compilation result">

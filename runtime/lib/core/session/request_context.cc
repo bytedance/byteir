@@ -35,8 +35,9 @@ RequestContext::~RequestContext() {
     const_cast<Session &>(session_).Cleanup(*this);
 }
 
-common::Status RequestContext::BindArg(size_t offset, const void *value) {
-  frame_->BindArg(offset, value);
+common::Status RequestContext::BindArg(size_t offset, const void *value,
+                                       BrtOwnershipType owership) {
+  frame_->BindArg(offset, value, owership);
   return Status::OK();
 }
 

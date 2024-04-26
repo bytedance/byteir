@@ -125,6 +125,11 @@ const void *CreateAliasThenIndexPut(brt::ir::ByREBuilder &byre_builder,
                                     int64_t idx_src_len, int64_t idx_dst_len,
                                     int32_t idx_offset);
 
+const void *CreateRepeat(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
+                         DTypeEnum timesType, std::vector<int64_t> data_shape,
+                         std::vector<int64_t> times_shape,
+                         std::vector<int64_t> output_shape);
+
 // always cuda
 const void *CreatePTXAddOp(brt::ir::ByREBuilder &byre_builder);
 

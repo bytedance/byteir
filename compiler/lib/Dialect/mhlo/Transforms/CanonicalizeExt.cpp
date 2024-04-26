@@ -1414,7 +1414,9 @@ DenseElementsAttr foldTransposeHelper(mhlo::TransposeOp op,
 } // namespace
 
 struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
-  using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
+  FoldTransposeNonSplat(MLIRContext *ctx, int64_t foldLimit)
+      : OpRewritePattern<mhlo::TransposeOp>(ctx), kFoldLimit(foldLimit) {}
+
   LogicalResult matchAndRewrite(mhlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
     if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
@@ -1426,6 +1428,10 @@ struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
                                       .getValue()
                                       .cast<DenseElementsAttr>();
     if (valueAttr.isSplat()) {
+      return failure();
+    }
+
+    if (kFoldLimit >= 0 && valueAttr.getType().getNumElements() > kFoldLimit) {
       return failure();
     }
 
@@ -1444,36 +1450,39 @@ struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
     rewriter.replaceOp(op, newConstOp.getOutput());
     return success();
   }
+
+  int64_t kFoldLimit;
 };
 
 struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
   using OpRewritePattern<mhlo::ConvertOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::ConvertOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!llvm::isa_and_nonnull<mhlo::ConstantOp>(
-            op.getOperand().getDefiningOp())) {
+    auto cst = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    if (!cst) {
       return failure();
     }
-    DenseElementsAttr valueAttr = op.getOperand()
-                                      .getDefiningOp<mhlo::ConstantOp>()
-                                      .getValue()
-                                      .cast<DenseElementsAttr>();
+
+    DenseElementsAttr valueAttr = cst.getValue().cast<DenseElementsAttr>();
     Type inputElementType = valueAttr.getType().getElementType();
     Type outputElementType =
         op.getResult().getType().cast<ShapedType>().getElementType();
-    auto getWidth = [](Type type) -> int64_t {
+    auto getWidth = [](Type type) -> std::optional<int64_t> {
       if (type.isa<FloatType>()) {
         return type.cast<FloatType>().getWidth();
       } else if (type.isa<IntegerType>()) {
         return type.cast<IntegerType>().getWidth();
       } else {
-        return K_INITIAL;
+        return std::nullopt;
       }
     };
-    int64_t inputTypeWidth = getWidth(inputElementType);
-    int64_t outputTypeWidth = getWidth(outputElementType);
+    auto inputTypeWidth = getWidth(inputElementType);
+    auto outputTypeWidth = getWidth(outputElementType);
+    if (!inputTypeWidth.has_value() || !outputTypeWidth.has_value()) {
+      return failure();
+    }
     // only fold down convert
-    if (outputTypeWidth > inputTypeWidth) {
+    if (outputTypeWidth.value() > inputTypeWidth.value()) {
       return failure();
     }
 
@@ -1487,6 +1496,38 @@ struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
     rewriter.replaceOp(op, newConstantOp.getOutput());
     return success();
   }
+};
+
+// note: do not use template, so that user could disable it by name
+struct FoldConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
+  FoldConstantConvertOp(MLIRContext *ctx, int64_t foldLimit)
+      : OpRewritePattern<mhlo::ConvertOp>(ctx), kFoldLimit(foldLimit) {}
+  LogicalResult matchAndRewrite(mhlo::ConvertOp op,
+                                PatternRewriter &rewriter) const override {
+    auto cst = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
+    if (!cst) {
+      return failure();
+    }
+
+    DenseElementsAttr valueAttr = cst.getValue().cast<DenseElementsAttr>();
+    if (kFoldLimit >= 0 && valueAttr.getType().getNumElements() > kFoldLimit) {
+      return failure();
+    }
+
+    Type outputElementType =
+        op.getResult().getType().cast<ShapedType>().getElementType();
+    ElementsAttr newValueAttr =
+        hlo::convertElementsAttr(valueAttr, outputElementType);
+    if (!newValueAttr) {
+      return failure();
+    }
+    mhlo::ConstantOp newConstantOp =
+        rewriter.create<mhlo::ConstantOp>(op->getLoc(), newValueAttr);
+    rewriter.replaceOp(op, newConstantOp.getOutput());
+    return success();
+  }
+
+  int64_t kFoldLimit;
 };
 
 namespace {
@@ -2086,6 +2127,40 @@ struct FoldGatherWithInput : public OpRewritePattern<mhlo::GatherOp> {
   }
 };
 
+struct SimplifyReduceToReshape : public OpRewritePattern<mhlo::ReduceOp> {
+  using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ReduceOp op,
+                                PatternRewriter &rewriter) const override {
+    bool isRegular = isRegularReduceOp<mhlo::AddOp>(op) ||
+                     isRegularReduceOp<mhlo::MaxOp>(op) ||
+                     isRegularReduceOp<mhlo::MinOp>(op) ||
+                     isRegularReduceOp<mhlo::OrOp>(op) ||
+                     isRegularReduceOp<mhlo::MulOp>(op);
+    if (!isRegular) {
+      return failure();
+    }
+
+    Value input = op.getInputs()[0];
+    Value output = op.getResults()[0];
+    auto inputType = dyn_cast<RankedTensorType>(input.getType());
+    auto outputType = dyn_cast<RankedTensorType>(output.getType());
+    if (!inputType || !inputType.hasStaticShape() ||
+        !outputType.hasStaticShape()) {
+      // TODO: support dynamic shape
+      return failure();
+    }
+    auto dimensions = op.getDimensions().getValues<int64_t>();
+    for (int64_t i : dimensions) {
+      if (inputType.getDimSize(i) != 1) {
+        return failure();
+      }
+    }
+
+    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outputType, input);
+    return success();
+  }
+};
+
 void mlir::mhlo::populateFoldMultiplyZeroPattern(RewritePatternSet &patterns) {
   patterns.add<FoldMultiplyZero>(patterns.getContext());
 }
@@ -2113,6 +2188,7 @@ void mlir::mhlo::populateFoldBeneficialConstantConvertOpPattern(
 // TODO: split more patterns to populate function
 void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
+                                                 int64_t foldLimit,
                                                  bool blindFold) {
   patterns.add<FoldBroadcastInDimConstWithBinary>(ctx);
   patterns.add<FoldBroadcastInDimReshape>(ctx);
@@ -2120,8 +2196,6 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<SimplifyDynamicConvToConv>(ctx);
   populateFoldLargeBinaryOpPatterns(patterns);
   patterns.add<FoldLargeSliceOp>(ctx);
-  patterns.add<FoldTransposeNonSplat>(ctx);
-  populateFoldBeneficialConstantConvertOpPattern(patterns);
   patterns.add<CanonicalizeBroadcastInDimConst>(ctx);
   patterns.add<SimplifyByteIRAddNToAdd>(ctx);
   patterns.add<CanonicalizeConcatWithBroadcast>(ctx);
@@ -2129,18 +2203,25 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<EliminateRedundantConvertFromI1>(ctx);
   patterns.add<FoldConcatWithSlicesAndRehape>(ctx);
   patterns.add<SimplifyCumsumToIota>(ctx);
+  patterns.add<SimplifyReduceToReshape>(ctx);
   patterns.add<SimplifyTransposeReshapeTranspose>(ctx);
   patterns.add<FoldReverseWithConstant>(ctx);
   patterns.add<FoldGatherWithInput>(ctx);
   patterns.add<FoldScatterWithInputAndUpdate>(ctx);
+  patterns.add<FoldLargeConcatenate>(ctx);
+
+  patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
+  populateFoldBeneficialConstantConvertOpPattern(patterns);
+  patterns.add<FoldConstantConvertOp>(ctx, /*foldLimit=*/1);
   if (blindFold) {
-    patterns.add<FoldLargeConcatenate>(ctx);
+    patterns.add<FoldConstantConvertOp>(ctx, foldLimit);
   }
 }
 
 void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
-    RewritePatternSet &patterns, MLIRContext *context, bool blindFold) {
-  populateCanonicalizeExtPatterns(patterns, context, blindFold);
+    RewritePatternSet &patterns, MLIRContext *context, int64_t foldLimit,
+    bool blindFold) {
+  populateCanonicalizeExtPatterns(patterns, context, foldLimit, blindFold);
   // Only add simplifyFullInsertSlicesToConcat here since it is for
   // mhlo-level only
   // We don't want generally apply after lowering mhlo to tensor dialect
@@ -2149,6 +2230,7 @@ void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
 
 void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
                                                 MLIRContext *ctx,
+                                                int64_t foldLimit,
                                                 bool blindFold) {
   // add dialect level getCanonicalizationPatterns
   auto mhloDailect = ctx->getLoadedDialect<mhlo::MhloDialect>();
@@ -2165,11 +2247,12 @@ void mlir::mhlo::getCanonicalizationExtPatterns(RewritePatternSet &patterns,
   }
 
   // add our extension
-  populateCanonicalizeExtPatterns(patterns, ctx, blindFold);
+  populateCanonicalizeExtPatterns(patterns, ctx, foldLimit, blindFold);
 }
 
 void mlir::mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
-    RewritePatternSet &patterns, MLIRContext *ctx, bool blindFold) {
+    RewritePatternSet &patterns, MLIRContext *ctx, int64_t foldLimit,
+    bool blindFold) {
   // add dialect level getCanonicalizationPatterns
   auto mhloDailect = ctx->getLoadedDialect<mhlo::MhloDialect>();
   if (mhloDailect) {
@@ -2185,5 +2268,6 @@ void mlir::mhlo::getCanonicalizationExtPatternsForTheDialectOnly(
   }
 
   // add our extension for the dialect (mhlo) only
-  populateCanonicalizeExtPatternsForTheDialectOnly(patterns, ctx, blindFold);
+  populateCanonicalizeExtPatternsForTheDialectOnly(patterns, ctx, foldLimit,
+                                                   blindFold);
 }
