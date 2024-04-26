@@ -144,6 +144,12 @@ struct CustomizedTfToMhloPipelinePass
     }
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createReshapeMovedownStringPass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::tfext::createConvertRepeatToTilePass());
+    if (repeatOutBatchSize > 0) {
+      pm.addNestedPass<mlir::func::FuncOp>(
+          mlir::tfext::createSetRepeatOutBatchSizePass(repeatOutBatchSize));
+    }
 
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createConstantFoldingPass());
@@ -158,9 +164,9 @@ struct CustomizedTfToMhloPipelinePass
         mlir::TFL::CreateIdentifyDilatedConvPass());
     pm.addNestedPass<mlir::func::FuncOp>(mlir::tfext::createFuseTFOpsPass());
 
-    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(
-        customCallOps,
-        /*keepBody*/ false, repeatOutBatchSize));
+    pm.addPass(
+        mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps,
+                                                      /*keepBody*/ false));
 
     if (this->stopAfterRewriteCustomCall) {
       pm.addPass(mlir::TF::CreateTFShapeInferencePass());
@@ -191,9 +197,9 @@ struct CustomizedTfToMhloPipelinePass
     // expose more graph pruning and canonicalization opportunities that are
     // necessary for the second LegalizeTFPass(allow_partial_conversion=false)
     // invocation.
-    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(
-        customCallOps,
-        /*keepBody*/ false, repeatOutBatchSize));
+    pm.addPass(
+        mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps,
+                                                      /*keepBody*/ false));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
     pm.addPass(mlir::mhlo::createLegalizeTFPass(
@@ -214,9 +220,9 @@ struct CustomizedTfToMhloPipelinePass
     pm.addPass(mlir::createSCCPPass());
     pm.addPass(mlir::createCanonicalizerPass());
 
-    pm.addPass(mlir::tfext::createRewriteToCustomCallOpsPass(
-        customCallOps,
-        /*keepBody*/ false, repeatOutBatchSize));
+    pm.addPass(
+        mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps,
+                                                      /*keepBody*/ false));
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createMhloLegalizeTfExtPass());
     pm.addPass(mlir::mhlo::createLegalizeTFPass(

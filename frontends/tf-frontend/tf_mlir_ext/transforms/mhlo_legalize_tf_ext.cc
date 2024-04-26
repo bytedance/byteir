@@ -522,10 +522,36 @@ public:
   }
 };
 
+class ConvertRoundOp : public OpRewritePattern<TF::RoundOp> {
+public:
+  using OpRewritePattern<TF::RoundOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::RoundOp tfRoundOp,
+                                PatternRewriter &rewriter) const override {
+    auto *op = tfRoundOp.getOperation();
+    auto inputType = tfRoundOp.getX().getType().dyn_cast<ShapedType>();
+    if (!inputType) {
+      return op->emitOpError("Round: input not tensor type");
+    }
+
+    if (inputType.getElementType().isa<FloatType>()) {
+      rewriter.replaceOpWithNewOp<mhlo::RoundNearestEvenOp>(
+          op, tfRoundOp.getY().getType(), tfRoundOp.getX());
+      return success();
+
+    } else if (inputType.getElementType().isa<IntegerType>()) {
+      rewriter.replaceAllUsesWith(tfRoundOp.getY(), tfRoundOp.getX());
+      return success();
+    }
+    return failure();
+  }
+};
+
 void PopulateMhloLegalizeTfExtPatterns(MLIRContext *context,
                                        RewritePatternSet *patterns) {
   patterns->add(std::make_unique<ConvertStridedSliceOp>(context));
   patterns->add(std::make_unique<ConvertBatchMatMulV2Op>(context));
+  patterns->add(std::make_unique<ConvertRoundOp>(context));
 }
 
 struct MhloLegalizeTfExtPass
