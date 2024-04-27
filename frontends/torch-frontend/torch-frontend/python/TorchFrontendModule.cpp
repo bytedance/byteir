@@ -24,6 +24,7 @@ namespace py = pybind11;
 PYBIND11_MODULE(_torchFrontend, m) {
   torchFrontendRegisterAllPipelines();
   torchFrontendRegisterConversionPasses();
+  torchFrontendRegisterTransformsPasses();
 
   m.doc() = "torch-frontend main python extension";
 }

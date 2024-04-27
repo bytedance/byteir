@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- RewriteEntryFuncName.h ---------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_TRANSFORMS_PASSES
-#define TORCH_FRONTEND_TRANSFORMS_PASSES
+#ifndef TORCH_FRONTEND_TRANSFORMS_REWRITEENTRYFUNCNAME_H
+#define TORCH_FRONTEND_TRANSFORMS_REWRITEENTRYFUNCNAME_H
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "torch-frontend/Transforms/CanonicalizeExt.h"
-#include "torch-frontend/Transforms/EliminateUselessOp.h"
-#include "torch-frontend/Transforms/FuseOpOnTorch.h"
-#include "torch-frontend/Transforms/RewriteCustomOp.h"
-#include "torch-frontend/Transforms/RewriteEntryFuncName.h"
-#include "torch-frontend/Transforms/UnpackPublicFunctionReturn.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
+#include <string>
 
 namespace mlir {
+class ModuleOp;
 
-// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "torch-frontend/Transforms/Passes.h.inc"
+std::unique_ptr<OperationPass<ModuleOp>>
+createRewriteEntryFuncNamePass(const std::string &targetName = "");
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_TRANSFORMS_PASSES
+#endif // TORCH_FRONTEND_TRANSFORMS_REWRITEENTRYFUNCNAME_H

@@ -26,6 +26,8 @@ MLIR_CAPI_EXPORTED void torchFrontendRegisterAllPipelines();
 
 MLIR_CAPI_EXPORTED void torchFrontendRegisterConversionPasses();
 
+MLIR_CAPI_EXPORTED void torchFrontendRegisterTransformsPasses();
+
 #ifdef __cplusplus
 }
 #endif
