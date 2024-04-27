@@ -76,6 +76,7 @@ def compile(
     model: torch.nn.Module,
     example_inputs: Union[torch.Tensor, Sequence[torch.Tensor]],
     output_type: str,
+    entry_func_name: str = "forward",
     backend_legal_ops: Optional[Sequence[str]] = None,
     debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
@@ -144,6 +145,12 @@ def compile(
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
+    with module.context:
+        option_string = "{target-name=" + entry_func_name + "}"
+        pm = PassManager.parse(f"builtin.module(rewrite-entry-func-name{option_string})")
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
+        pm.run(module.operation)
     if output_type == "stablehlo":
         return module
 
@@ -156,7 +163,7 @@ def compile(
 def compile_dynamo_model(
     model: Union[torch.export.ExportedProgram, torch.fx.GraphModule],
     output_type: str,
-    func_name: str = "main",
+    entry_func_name: str = "main",
     backend_legal_ops: Optional[Sequence[str]] = None,
     debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
@@ -187,10 +194,10 @@ def compile_dynamo_model(
     fx_importer = FxImporter(context=torch_mlir_context)
     # for torch.export
     if isinstance(model, torch.export.ExportedProgram):
-        fx_importer.import_frozen_program(model, func_name=func_name)
+        fx_importer.import_frozen_program(model, func_name=entry_func_name)
     # for torch.compile
     elif isinstance(model, torch.fx.GraphModule):
-        fx_importer.import_stateless_graph(model.graph, func_name=func_name)
+        fx_importer.import_stateless_graph(model.graph, func_name=entry_func_name)
     else:
         raise RuntimeError("unsupported model type")
     module_str = fx_importer.module_op.operation.get_asm(enable_debug_info=True)

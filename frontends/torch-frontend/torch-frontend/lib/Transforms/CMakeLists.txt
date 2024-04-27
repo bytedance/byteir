@@ -3,11 +3,12 @@ mlir_tablegen(FuseOpOnTorchPattern.inc -gen-rewriters)
 add_public_tablegen_target(FuseOpOnTorchPatternIncGen)
 
 add_mlir_library(TorchFrontendTransforms
-  RewriteCustomOp.cpp
   CanonicalizeExt.cpp
-  UnpackPublicFunctionReturn.cpp
   EliminateUselessOp.cpp
   FuseOpOnTorch.cpp
+  RewriteCustomOp.cpp
+  RewriteEntryFuncName.cpp
+  UnpackPublicFunctionReturn.cpp
 
   DEPENDS
   TorchFrontendTransformsPassIncGen
