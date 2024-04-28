@@ -12,6 +12,10 @@ def test_compile_mlp_inference():
     path = TEST_ROOT_DIR + "E2E/MLPInference/input.mlir"
     byteir.compile(path, temp_dir.name + "/test.mlir", entry_func="forward")
 
+def test_compile_mlp_inference_cpu():
+    path = TEST_ROOT_DIR + "E2E/MLPInference/input.mlir"
+    byteir.compile(path, temp_dir.name + "/test_cpu.mlir", entry_func="forward", target="cpu")
+
 def test_translate_to_llvmbc():
     path = TEST_ROOT_DIR + "Pipelines/Host/E2E/Case0/03b_ToLLVMIR.mlir"
     context = ir.Context()
