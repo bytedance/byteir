@@ -17,6 +17,7 @@
 #include "torch-frontend-c/Passes.h"
 #include "torch-frontend/Conversion/Passes.h"
 #include "torch-frontend/Pipelines/Pipelines.h"
+#include "torch-frontend/Transforms/Passes.h"
 
 void torchFrontendRegisterAllPipelines() {
   mlir::torch_frontend::registerTorchToMhloPipeline();
@@ -26,4 +27,8 @@ void torchFrontendRegisterAllPipelines() {
 
 void torchFrontendRegisterConversionPasses() {
   mlir::registerTorchFrontendConversionPasses();
+}
+
+void torchFrontendRegisterTransformsPasses() {
+  mlir::registerTorchFrontendTransformsPasses();
 }

@@ -50,4 +50,18 @@ def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
   let constructor = "mlir::createFuseOpOnTorch()";
 }
 
+//===----------------------------------------------------------------------===//
+// RewriteEntryFuncName
+//===----------------------------------------------------------------------===//
+
+def RewriteEntryFuncName : Pass<"rewrite-entry-func-name", "ModuleOp"> {
+  let summary = "rewrite entry function's name";
+  let constructor = "mlir::createRewriteEntryFuncNamePass()";
+  let options = [
+    Option<"targetName", "target-name", "std::string",
+           /*default*/"",
+           "Rewrite entry function's name with the target name.">
+  ];
+}
+
 #endif // TORCH_FRONTEND_TRANSFORMS_PASSES_TD

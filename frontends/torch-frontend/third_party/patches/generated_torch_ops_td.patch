@@ -2,15 +2,6 @@ diff --git a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td b/include/
 index c38d0dbb..05c4fd43 100644
 --- a/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
 +++ b/include/torch-mlir/Dialect/Torch/IR/GeneratedTorchOps.td
-@@ -277,6 +277,8 @@ def Torch_AtenLogOp : Torch_Op<"aten.log", [
-       printDefaultTorchOp(printer, *this, 1, 1);
-     }
-   }];
-+
-+  let hasFolder = 1;
- }
- 
- def Torch_AtenLog_Op : Torch_Op<"aten.log_", [
 @@ -16034,3 +16036,90 @@ def Torch_QuantizedLinearOp : Torch_Op<"quantized.linear", [
    }];
  }
