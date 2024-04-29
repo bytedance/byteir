@@ -19,7 +19,11 @@
 #define BYTEIR_ANALYSIS_OPDEPENDENCE_H
 
 #include "mlir/IR/Operation.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
+
 #include <memory>
 
 namespace mlir {
@@ -47,6 +51,36 @@ private:
   Block *block;
 
   std::unique_ptr<OpDependenceInfoImpl> impl;
+};
+
+class ClusterDependenceInfo {
+public:
+  explicit ClusterDependenceInfo(
+      Block *b, const llvm::DenseMap<Operation *, int> &opToNodeId,
+      const llvm::EquivalenceClasses<int> &leaderToNodes,
+      const llvm::SmallDenseMap<int, llvm::DenseMap<Value, int>>
+          &leaderToValueCount);
+
+  ~ClusterDependenceInfo();
+
+  // fromOp indirectly depends toOp means there is a connect path from
+  // cluster of fromOp to cluster of toOp, and at least a operation(in anthor
+  // cluster) in this path. e.g. fromCluster => anthorCluster => toCluster.
+  bool indirectlyDepends(Operation *fromOp, Operation *toOp,
+                         Operation *boundaryOp = nullptr);
+
+  // fromOp transitively depends toOp means there is a connect path from
+  // cluster of fromOp to toOp. Or cluster of fromOp directly depends cluster of
+  // toOp. e.g. fromCluster => toCluster.
+  bool transitivelyDepends(Operation *fromOp, Operation *toOp,
+                           Operation *boundaryOp = nullptr);
+
+private:
+  Block *block;
+  const llvm::DenseMap<Operation *, int> &opToNodeId;
+  const llvm::EquivalenceClasses<int> &leaderToNodes;
+  const llvm::SmallDenseMap<int, llvm::DenseMap<Value, int>>
+      &leaderToValueCount;
 };
 
 } // namespace mlir
