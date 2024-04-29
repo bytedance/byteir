@@ -194,6 +194,75 @@ def _compile_cuda_with_ait(
     with open(output_file_path, "w") as f:
         f.write(processor.module.operation.get_asm())
 
+def _compile_cpu(
+    module: ModuleOp,
+    output_file_path: str,
+    entry_func: str,
+    cpu_type: str, # differ cpu arch ?
+    verbose: bool = False,
+    **kwargs,
+) -> None:
+    target = "cpu"
+    output_file_dir = os.path.dirname(output_file_path)
+    output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
+    output_file_name = os.path.basename(output_file_path)
+    bc_file_name = output_file_name + ".bc"
+    useBarePtrCallConv = True # all tensor must have static shapes if True
+
+    context = module.context
+
+    entry_func_str = "entry-func={}".format(entry_func)
+    target_str = "target={}".format(target)
+    with context:
+        PassManager().parse("builtin.module(hlo-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(linalg-tensor-opt{" + "target={}".format(target.upper()) + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
+        _print_verbose(module, "// IR Dump After Byre Tensor Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(byteir-bufferize-opt)").run(module.operation)
+        _print_verbose(module, "// IR Dump After ByteIR Bufferize Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(linalg-memref-opt)").run(module.operation)
+        _print_verbose(module, "// IR Dump After Linalg Memref Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(scf-opt)").run(module.operation)
+        _print_verbose(module, "// IR Dump After SCF Opt:") if verbose else ...
+
+    with context:
+        PassManager.parse("builtin.module(host-opt{" + "file-name={}".format(bc_file_name) + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Host Opt:") if verbose else ...
+
+        PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(module.operation)
+        _print_verbose(module, "// IR Dump After Set Op Space Opt:") if verbose else ...
+        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + " auto-deduce=true" "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Set Space Opt:") if verbose else ...
+
+    with context:
+        PassManager.parse("builtin.module(byre-opt{append-arg-types " + entry_func_str + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Byre Opt:") if verbose else ...
+
+    module_str = module.operation.get_asm(print_generic_op_form=True)
+    llvm_module = ir.Module.parse(module_str, context)
+    with context:
+        PassManager.parse("builtin.module(to-llvm)").run(llvm_module.operation)
+        _print_verbose(llvm_module, "// IR Dump After To LLVM:") if verbose else ...
+
+    # write to output llvmbc file
+    output_bc_file_name = output_file_dir + "/" + bc_file_name
+    byteir.translate_to_llvmbc(llvm_module, output_bc_file_name)
+
+    # create host mlir
+    with context:
+        PassManager.parse("builtin.module(byre-host{device-file-name=" + bc_file_name + " " + target_str + " " + entry_func_str + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
+
+    # write to output host mlir file
+    with open(output_file_path, "w") as f:
+        f.write(module.operation.get_asm())
 
 def compile(
     input_file_path: str,
@@ -206,12 +275,16 @@ def compile(
     disable_byteir_ait_cache: bool = False,
     **kwargs,
 ) -> None:
+    _cuda_backends = ["cuda", "cuda_with_ait", "cuda_with_ait_aggressive"]
     ### optional detecting gpu type from nvidia-smi
-    if gpu_type == "local":
+    if target in _cuda_backends and gpu_type == "local":
         local_gpu = detect_cuda_with_nvidia_smi()
         assert local_gpu is not None
         gpu_type = local_gpu
-    print(f"Compiling PTX to {gpu_type}")
+    if target == "cuda":
+        print(f"Compiling PTX to {gpu_type}")
+    elif target == "cpu":
+        print(f"Compiling to cpu backend")
 
     ### load from .mlir or .mlirbc
     from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
@@ -248,5 +321,8 @@ def compile(
                               aggressive_mode=True,
                               parallelism=parallelism,
                               disable_byteir_ait_cache=disable_byteir_ait_cache)
+    elif target == "cpu":
+        cpu_type = ''
+        _compile_cpu(module, output_file_path, entry_func, cpu_type, verbose)
     else:
         raise NotImplemented("not implemented target: {}".format(target))

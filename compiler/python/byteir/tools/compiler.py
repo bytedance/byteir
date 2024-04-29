@@ -11,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--target",
                         type=str,
                         default="cuda",
-                        choices=["cuda", "cuda_with_ait", "cuda_with_ait_aggressive"],
+                        choices=["cuda", "cuda_with_ait", "cuda_with_ait_aggressive", "cpu"],
                         help="target device name")
     parser.add_argument("--gpu_type",
                         type=str,
