@@ -214,10 +214,10 @@ def _compile_cpu(
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
     with context:
-        PassManager().parse("builtin.module(hlo-opt{outline-single-elemwise-op})").run(module.operation)
+        PassManager().parse("builtin.module(hlo-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(linalg-tensor-opt)").run(module.operation)
+        PassManager.parse("builtin.module(linalg-tensor-opt{" + "target={}".format(target.upper()) + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
@@ -233,15 +233,12 @@ def _compile_cpu(
         _print_verbose(module, "// IR Dump After SCF Opt:") if verbose else ...
 
     with context:
-        PassManager.parse("builtin.module(insert-tile-and-vectorize-transpose-transform)").run(module.operation)
-        _print_verbose(module, "// IR Dump After Insert tile and vectorize:") if verbose else ...
-
-    with context:
         PassManager.parse("builtin.module(host-opt{" + "file-name={}".format(bc_file_name) + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Host Opt:") if verbose else ...
 
         PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(module.operation)
-        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Set Op Space Opt:") if verbose else ...
+        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + " auto-deduce=true" "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Set Space Opt:") if verbose else ...
 
     with context:
@@ -284,7 +281,7 @@ def compile(
         local_gpu = detect_cuda_with_nvidia_smi()
         assert local_gpu is not None
         gpu_type = local_gpu
-    if target in _cuda_backends:
+    if target == "cuda":
         print(f"Compiling PTX to {gpu_type}")
     elif target == "cpu":
         print(f"Compiling to cpu backend")
