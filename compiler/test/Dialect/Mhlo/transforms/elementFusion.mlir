@@ -111,3 +111,60 @@ func.func @mhlo_single_broadcast(%arg0 : tensor<1x128xi64>) -> tensor<2x128xi64>
 //     CHECK-SINGLE-NEXT: mhlo.return
 //   CHECK-SINGLE: {__byteir_elementwise_fusion__}
 //   CHECK-SINGLE: return
+
+
+func.func @mhlo_cluster_depend(%arg0: tensor<16x128xf32>, %arg1: tensor<16x128xf32>, %arg2: tensor<16x128xf32>, %arg3: tensor<16x128xf32>, %arg4: tensor<16x128xf32>) -> (tensor<16x128xf32>, tensor<f32>) {
+  %0 = mhlo.constant dense<0.000000e+00> : tensor<16x128xf32>
+  %1 = mhlo.constant dense<-1.000000e+04> : tensor<16x128xf32>
+  %2 = mhlo.constant dense<0.000000e+00> : tensor<f32>
+  %3 = mhlo.constant dense<1.024000e+03> : tensor<f32>
+  %4 = mhlo.constant dense<1.000000e+00> : tensor<16x128xf32>
+  %5 = mhlo.abs %arg0 : tensor<16x128xf32>
+  %6 = mhlo.reduce(%5 init: %2) applies mhlo.add across dimensions = [0, 1] : (tensor<16x128xf32>, tensor<f32>) -> tensor<f32>
+  %7 = mhlo.divide %6, %3 : tensor<f32>
+  %8 = mhlo.compare  GT, %arg2, %1,  FLOAT : (tensor<16x128xf32>, tensor<16x128xf32>) -> tensor<16x128xi1>
+  %9 = "mhlo.broadcast_in_dim"(%7) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>) -> tensor<16x128xf32>
+  %10 = mhlo.select %8, %9, %0 : tensor<16x128xi1>, tensor<16x128xf32>
+  %11 = mhlo.select %8, %4, %0 : tensor<16x128xi1>, tensor<16x128xf32>
+  %12 = mhlo.reduce(%10 init: %2) applies mhlo.add across dimensions = [0, 1] : (tensor<16x128xf32>, tensor<f32>) -> tensor<f32>
+  %13 = mhlo.reduce(%11 init: %3) applies mhlo.add across dimensions = [0, 1] : (tensor<16x128xf32>, tensor<f32>) -> tensor<f32>
+  %14 = mhlo.logistic %5 : tensor<16x128xf32>
+  %15 = mhlo.subtract %14, %arg2 : tensor<16x128xf32>
+  %16 = "mhlo.broadcast_in_dim"(%13) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>) -> tensor<16x128xf32>
+  %17 = mhlo.multiply %15, %16 : tensor<16x128xf32>
+  %18 = mhlo.divide %17, %0 : tensor<16x128xf32>
+  return %18, %12 : tensor<16x128xf32>, tensor<f32>
+}
+
+// CHECK-LABEL: func.func @mhlo_cluster_depend
+//   CHECK: mhlo.fusion
+//     CHECK-NEXT: mhlo.abs
+//     CHECK-NEXT: mhlo.logistic
+//     CHECK-NEXT: mhlo.subtract
+//     CHECK-NEXT: mhlo.return
+//   CHECK-NEXT: {__byteir_elementwise_fusion__}
+//   CHECK: mhlo.fusion
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.divide
+//     CHECK-NEXT: mhlo.return
+//   CHECK-NEXT: {__byteir_elementwise_fusion__}
+//   CHECK: mhlo.fusion
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.compare
+//     CHECK-NEXT: mhlo.broadcast_in_dim
+//     CHECK-NEXT: mhlo.select
+//     CHECK-NEXT: mhlo.select
+//     CHECK-NEXT: mhlo.return
+//   CHECK-NEXT: {__byteir_elementwise_fusion__}
+//   CHECK-NEXT:mhlo.reduce
+//   CHECK-NEXT:mhlo.reduce
+//   CHECK: mhlo.fusion
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.broadcast_in_dim
+//     CHECK-NEXT:mhlo.multiply
+//     CHECK-NEXT:mhlo.divide
+//     CHECK-NEXT: mhlo.return
+//   CHECK-NEXT: {__byteir_elementwise_fusion__}
