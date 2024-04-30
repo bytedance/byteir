@@ -75,6 +75,9 @@ getCollapsibleLoops(linalg::GenericOp genericOp,
 
   llvm::SmallDenseSet<unsigned> pLoops(pDims.begin(), pDims.end());
 
+  // There is no mechanism to tell the collapsed indexes to
+  // `tensor.expand_shape`. We only can collapse partial loops
+  // that contain at most one dynamic dims.
   auto hasAllMapsSameSequence = [&](AffineExpr preExpr, AffineExpr nextExpr) {
     for (AffineMap map : genericOp.getIndexingMapsArray()) {
       auto prePos = map.getResultPosition(preExpr);
@@ -86,30 +89,62 @@ getCollapsibleLoops(linalg::GenericOp genericOp,
         if (!nextPos.has_value())
           return false;
 
-        if (prePos.value() + 1 != nextPos.value())
+        if (prePos.value() != nextPos.value() + 1)
           return false;
       }
     }
     return true;
   };
 
+  auto hasMultipleDynamicDims =
+      [&](const SmallVector<AffineExpr, 4> &exprOfRange) {
+        for (auto [index, map] :
+             llvm::enumerate(genericOp.getIndexingMapsArray())) {
+          auto operandType = genericOp->getOperand(index)
+                                 .getType()
+                                 .template dyn_cast<ShapedType>();
+          if (operandType) {
+            int64_t dynamicDimCount = 0;
+            for (auto expr : exprOfRange) {
+              auto pos = map.getResultPosition(expr);
+              if (pos.has_value() &&
+                  operandType.getShape()[pos.value()] == ShapedType::kDynamic) {
+                dynamicDimCount += 1;
+              }
+            }
+            if (dynamicDimCount > 1)
+              return false;
+          }
+        }
+        return true;
+      };
+
   ReassociationIndices range;
   AffineExpr preExpr;
-  for (auto nextExpr : genericOp.getIndexingMapsArray().front().getResults()) {
+  SmallVector<AffineExpr, 4> exprOfRange;
+  // collapse loop greedily from the inside out
+  for (auto nextExpr :
+       llvm::reverse(genericOp.getIndexingMapsArray().front().getResults())) {
     unsigned pos = nextExpr.cast<AffineDimExpr>().getPosition();
     if (!range.empty()) {
-      if (!hasAllMapsSameSequence(preExpr, nextExpr) || !pLoops.count(pos)) {
+      auto exprOfRangeWithNext = exprOfRange;
+      exprOfRangeWithNext.push_back(nextExpr);
+      if (!hasAllMapsSameSequence(preExpr, nextExpr) || !pLoops.count(pos) ||
+          !hasMultipleDynamicDims(exprOfRangeWithNext)) {
         if (range.size() > 1)
-          contiguousLoops.push_back({range.begin(), range.end()});
+          contiguousLoops.push_back({range.rbegin(), range.rend()});
         range.clear();
+        exprOfRange.clear();
       }
     }
     preExpr = nextExpr;
-    if (pLoops.count(pos))
+    if (pLoops.count(pos)) {
       range.push_back(pos);
+      exprOfRange.push_back(nextExpr);
+    }
   }
   if (range.size() > 1)
-    contiguousLoops.push_back(range);
+    contiguousLoops.push_back({range.rbegin(), range.rend()});
 
   LLVM_DEBUG({
     llvm::dbgs() << "Collapsing dimensions if possible: ";
@@ -127,11 +162,6 @@ getCollapsibleLoops(linalg::GenericOp genericOp,
 
 /// Returns true if the given op is collapsable.
 static bool isEligibleForCollapse(linalg::GenericOp genericOp) {
-  // TODO(guray) There is no mechanism to tell the collapsed indexes to
-  // `tensor.expand_shape`. Once we have this support in MLIR, we can enable
-  // dynamic tensor shapes.
-  if (genericOp.hasDynamicShape())
-    return false;
 
   // TODO(guray) Currently we can only collapse when result of all the
   // AffineMaps are dimensions. Possible to collapse cases like

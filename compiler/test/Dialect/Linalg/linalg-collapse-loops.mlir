@@ -60,3 +60,37 @@ func.func @memref_non_identity(%arg0: memref<1x328xf16>) -> (memref<1x128xf16>, 
 }
 // CHECK-LABEL: memref_non_identity
 //   CHECK-NO: memref.collapse_shape
+
+// -----
+
+#map = affine_map<(d0, d1, d2, d3, d4, d5) -> (d0, d1, d2, d3, d4, d5)>
+#map1 = affine_map<(d0, d1, d2, d3, d4, d5) -> (d1, d2, d3)>
+#map2 = affine_map<(d0, d1, d2, d3, d4, d5) -> (d3, d4, d5)>
+module {
+  func.func @tensor_collapse_with_dynamic_shape(%arg0: tensor<?x32x64x?x16x?xf16>, %arg1: tensor<32x64x?xf16>, %arg2: tensor<?x16x?xf16>) -> tensor<?x32x64x?x16x?xf16> {
+    %c0 = arith.constant 0 : index
+    %c3 = arith.constant 3 : index
+    %c5 = arith.constant 5 : index
+    %dim = tensor.dim %arg0, %c0 : tensor<?x32x64x?x16x?xf16>
+    %dim_0 = tensor.dim %arg0, %c3 : tensor<?x32x64x?x16x?xf16>
+    %dim_1 = tensor.dim %arg0, %c5 : tensor<?x32x64x?x16x?xf16>
+    %0 = tensor.empty(%dim, %dim_0, %dim_1) : tensor<?x32x64x?x16x?xf16>
+    %1 = linalg.generic {indexing_maps = [#map, #map1, #map2, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1, %arg2 : tensor<?x32x64x?x16x?xf16>, tensor<32x64x?xf16>, tensor<?x16x?xf16>) outs(%0 : tensor<?x32x64x?x16x?xf16>) {
+    ^bb0(%in: f16, %in_2: f16, %in_3: f16, %out: f16):
+      %2 = arith.addf %in_2, %in_3 : f16
+      %3 = arith.cmpf une, %in, %in : f16
+      %4 = arith.uitofp %3 : i1 to f16
+      %5 = arith.addf %4, %2 : f16
+      linalg.yield %5 : f16
+    } -> tensor<?x32x64x?x16x?xf16>
+    return %1 : tensor<?x32x64x?x16x?xf16>
+  }
+}
+
+// CHECK-LABEL: func.func @tensor_collapse_with_dynamic_shape
+// CHECK-DAG: %[[EMPTY:.*]] = tensor.empty
+// CHECK-DAG: %[[COLLAPSED0:.*]] = tensor.collapse_shape %arg0 {{\[}}[0], [1, 2], [3], [4, 5]] : tensor<?x32x64x?x16x?xf16> into tensor<?x2048x?x?xf16>
+// CHECK-DAG: %[[COLLAPSED1:.*]] = tensor.collapse_shape %arg1 {{\[}}[0, 1], [2]] : tensor<32x64x?xf16> into tensor<2048x?xf16>
+// CHECK-DAG: %[[COLLAPSED2:.*]] = tensor.collapse_shape %arg2 {{\[}}[0], [1, 2]] : tensor<?x16x?xf16> into tensor<?x?xf16>
+// CHECK-DAG: %[[COLLAPSED3:.*]] = tensor.collapse_shape %[[EMPTY]] {{\[}}[0], [1, 2], [3], [4, 5]] : tensor<?x32x64x?x16x?xf16> into tensor<?x2048x?x?xf16>
+// CHECK-DAG: %expanded = tensor.expand_shape %{{.*}} {{\[}}[0], [1, 2], [3], [4, 5]] : tensor<?x2048x?x?xf16> into tensor<?x32x64x?x16x?xf16>
