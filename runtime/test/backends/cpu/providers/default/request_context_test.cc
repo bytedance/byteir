@@ -169,13 +169,10 @@ TEST(CPURequestContextTest, BindArgWithOwnedByRuntime) {
     new (&src_view[i]) CustomStringView(src[i].data(), src[i].size());
   }
 
-  request->BindArg(0, src_view, brt::BrtOwnershipType::OwnedByRuntime);
-
-  bool *dest = reinterpret_cast<bool *>(request->GetArg(1));
-
-  request->FinishIOBinding();
-
   for (size_t i = 0; i < 2; ++i) {
+    request->BindArg(0, src_view, brt::BrtOwnershipType::OwnedByRuntime);
+    bool *dest = reinterpret_cast<bool *>(request->GetArg(1));
+    request->FinishIOBinding();
     auto status_run = session.Run(*request);
     BRT_TEST_CHECK_STATUS(status_run);
     auto status_sync = request->Sync();
@@ -186,5 +183,98 @@ TEST(CPURequestContextTest, BindArgWithOwnedByRuntime) {
     ASSERT_TRUE(dest[1]);
     ASSERT_FALSE(dest[2]);
     ASSERT_TRUE(dest[3]);
+  }
+}
+
+TEST(CPURequestContextTest, HybridBindArg) {
+  Session session;
+
+  auto status_allocator = CPUAllocatorFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_allocator);
+
+  auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cpu);
+  auto host_allocator = session.GetAllocator("cpu");
+
+  auto status_load = session.Load(test_file_string_equal, "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  // register cpu api
+  RegisterDeviceAPI("cpu", GetCPUDeviceAPI());
+  std::unique_ptr<RequestContext> request;
+  auto status_request =
+      session.NewRequestContext(&request, new cpu::CPULazyWorkQueue());
+  BRT_TEST_CHECK_STATUS(status_request);
+
+  std::vector<std::string> src = {"aa", "aaa", "abc", "aaa"};
+  brt::BrtOwnershipType type[14] = {
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByExternal,
+  };
+  auto runAndCheck = [&]() {
+    bool *dest = reinterpret_cast<bool *>(request->GetArg(1));
+    for (size_t i = 0; i < 10; ++i) {
+      auto status_run = session.Run(*request);
+      BRT_TEST_CHECK_STATUS(status_run);
+      auto status_sync = request->Sync();
+      BRT_TEST_CHECK_STATUS(status_sync);
+
+      // check results
+      for (size_t j = 0; j < src.size(); ++j) {
+        if (src[j] == "aaa")
+          ASSERT_TRUE(dest[j]);
+        else
+          ASSERT_FALSE(dest[j]);
+      }
+    }
+  };
+
+  for (size_t t = 0; t < 14; ++t) {
+    if (type[t] == brt::BrtOwnershipType::OwnedByExternal) {
+      // alloc by external
+      CustomStringView *src_view = reinterpret_cast<CustomStringView *>(
+          std::malloc(src.size() * sizeof(CustomStringView)));
+      for (size_t i = 0; i < src.size(); ++i) {
+        new (&src_view[i]) CustomStringView(src[i].data(), src[i].size());
+      }
+
+      request->BindArg(0, src_view, brt::BrtOwnershipType::OwnedByExternal);
+      request->FinishIOBinding();
+      runAndCheck();
+      // free by external
+      free(src_view);
+    } else if (type[t] == brt::BrtOwnershipType::OwnedByRuntime) {
+      // alloc and free by runtime
+      CustomStringView *src_view = reinterpret_cast<CustomStringView *>(
+          host_allocator->Alloc(src.size() * sizeof(CustomStringView)));
+      for (size_t i = 0; i < src.size(); ++i) {
+        new (&src_view[i]) CustomStringView(src[i].data(), src[i].size());
+      }
+      request->BindArg(0, src_view, brt::BrtOwnershipType::OwnedByRuntime);
+      request->FinishIOBinding();
+      runAndCheck();
+    } else if (type[t] == brt::BrtOwnershipType::CopiedByRuntime) {
+      CustomStringView *src_view = reinterpret_cast<CustomStringView *>(
+          std::malloc(src.size() * sizeof(CustomStringView)));
+      for (size_t i = 0; i < src.size(); ++i) {
+        new (&src_view[i]) CustomStringView(src[i].data(), src[i].size());
+      }
+      request->BindArg(0, src_view, brt::BrtOwnershipType::CopiedByRuntime);
+      free(src_view);
+      request->FinishIOBinding();
+      runAndCheck();
+    }
   }
 }

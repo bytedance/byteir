@@ -224,20 +224,24 @@ void BRTInferenceExecutionFrame::BindArg(size_t idx, const void *ptr,
     return;
   }
 
-  // if allocated, free it
-  if (ctx_.is_io_allocated[i]) {
-    ctx_.is_io_allocated[i] = false;
-    auto allocator = info_.weight_and_ios_allocators[idx];
-    allocator->Free(ctx_.weights_and_ios[idx]);
-  }
-
   if (owership == BrtOwnershipType::CopiedByRuntime) {
-    void *brt_buffer_ptr = GetArg(idx);
-    uint64_t buffer_size = GetBytes(i);
+    uint64_t buffer_size = GetBytes(idx);
     auto allocator = info_.weight_and_ios_allocators[idx];
+    BRT_ENFORCE(allocator != nullptr);
+    if (!ctx_.is_io_allocated[i]) {
+      ctx_.is_io_allocated[i] = true;
+      ctx_.weights_and_ios[idx] = allocator->Alloc(buffer_size);
+    }
+    void *brt_buffer_ptr = ctx_.weights_and_ios[idx];
     const BrtMemoryInfo &info = allocator->Info();
     CopyBufferData(info, const_cast<void *>(ptr), brt_buffer_ptr, buffer_size);
   } else {
+    // if allocated, free it
+    if (ctx_.is_io_allocated[i]) {
+      ctx_.is_io_allocated[i] = false;
+      auto allocator = info_.weight_and_ios_allocators[idx];
+      allocator->Free(ctx_.weights_and_ios[idx]);
+    }
     ctx_.weights_and_ios[idx] = const_cast<void *>(ptr);
   }
 }

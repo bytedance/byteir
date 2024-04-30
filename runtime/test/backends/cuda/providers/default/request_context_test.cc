@@ -277,6 +277,118 @@ TEST(CUDARequestContextTest, BindArgWithOwnedByRuntime) {
   CheckResult(d_arg_3, len, 7.0f);
 }
 
+TEST(CUDARequestContextTest, HybridBindArg) {
+  ByREBuilder byre_builder;
+  Session session;
+  auto status_allocator = CUDAAllocatorFactory(&session);
+  auto cuda_allocator = session.GetAllocator("cuda");
+  BRT_TEST_CHECK_STATUS(status_allocator);
+  auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cuda);
+
+  auto status_load =
+      session.LoadFromMemory(CreateAddOp2(byre_builder, "cuda"), "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  brt::BrtOwnershipType type[14] = {
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::CopiedByRuntime,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::OwnedByRuntime,
+      brt::BrtOwnershipType::OwnedByExternal,
+      brt::BrtOwnershipType::OwnedByExternal,
+  };
+
+  // register cuda api
+  RegisterDeviceAPI("cuda", GetCUDADeviceAPI());
+
+  std::unique_ptr<RequestContext> request;
+  auto status_request = session.NewRequestContext(&request);
+  BRT_TEST_CHECK_STATUS(status_request);
+
+  auto shape = session.GetStaticShape(0);
+  int64_t linearized_shape = LinearizedShape(shape);
+  EXPECT_GT(linearized_shape, 0);
+  size_t len = static_cast<size_t>(linearized_shape);
+
+  float *d_arg_0, *d_arg_1;
+  for (size_t t = 0; t < 14; ++t) {
+    if (type[t] == brt::BrtOwnershipType::OwnedByExternal) {
+      cudaMalloc(&d_arg_0, len * sizeof(float));
+      cudaMalloc(&d_arg_1, len * sizeof(float));
+      AssignCUDABuffer(d_arg_0, len, 1.f);
+      AssignCUDABuffer(d_arg_1, len, 3.f);
+
+      // I/O binding
+      request->BindArg(0, d_arg_0, brt::BrtOwnershipType::OwnedByExternal);
+      request->BindArg(1, d_arg_1, brt::BrtOwnershipType::OwnedByExternal);
+      request->FinishIOBinding();
+      auto status_run = session.Run(*request);
+      BRT_TEST_CHECK_STATUS(status_run);
+
+      auto status_sync = request->Sync();
+      BRT_TEST_CHECK_STATUS(status_sync);
+
+      float *d_arg_3 = (float *)request->GetArg(3);
+      CheckResult(d_arg_3, len, 7.0f);
+
+      // dealloc
+      cudaFree(d_arg_0);
+      cudaFree(d_arg_1);
+    } else if (type[t] == brt::BrtOwnershipType::OwnedByRuntime) {
+      // this buffer is alloc by allocator of brt
+      d_arg_0 = (float *)cuda_allocator->Alloc(len * sizeof(float));
+      d_arg_1 = (float *)cuda_allocator->Alloc(len * sizeof(float));
+      AssignCUDABuffer(d_arg_0, len, 2.f);
+      AssignCUDABuffer(d_arg_1, len, 1.f);
+      // I/O binding
+      request->BindArg(0, d_arg_0, brt::BrtOwnershipType::OwnedByRuntime);
+      request->BindArg(1, d_arg_1, brt::BrtOwnershipType::OwnedByRuntime);
+      request->FinishIOBinding();
+      auto status_run = session.Run(*request);
+      BRT_TEST_CHECK_STATUS(status_run);
+
+      auto status_sync = request->Sync();
+      BRT_TEST_CHECK_STATUS(status_sync);
+
+      float *d_arg_3 = (float *)request->GetArg(3);
+      CheckResult(d_arg_3, len, 4.0f);
+    } else if (type[t] == brt::BrtOwnershipType::CopiedByRuntime) {
+      cudaMalloc(&d_arg_0, len * sizeof(float));
+      cudaMalloc(&d_arg_1, len * sizeof(float));
+      AssignCUDABuffer(d_arg_0, len, 2.f);
+      AssignCUDABuffer(d_arg_1, len, 3.f);
+
+      // I/O binding
+      request->BindArg(0, d_arg_0, brt::BrtOwnershipType::CopiedByRuntime);
+      request->BindArg(1, d_arg_1, brt::BrtOwnershipType::CopiedByRuntime);
+
+      // runtime alloc the corresponding buffer and copy data
+      // these buffer can be dealloc
+      cudaFree(d_arg_0);
+      cudaFree(d_arg_1);
+
+      request->FinishIOBinding();
+      auto status_run = session.Run(*request);
+      BRT_TEST_CHECK_STATUS(status_run);
+
+      auto status_sync = request->Sync();
+      BRT_TEST_CHECK_STATUS(status_sync);
+
+      float *d_arg_3 = (float *)request->GetArg(3);
+      CheckResult(d_arg_3, len, 8.0f);
+    }
+  }
+}
+
 TEST(CUDARequestContextTest, WeightSetting) {
   ByREBuilder byre_builder;
   Session session;
