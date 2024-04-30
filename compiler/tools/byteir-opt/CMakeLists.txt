@@ -24,6 +24,7 @@ set(BYTEIR_LIBS
   ByteIRVectorPasses
   ${byteir_conversion_libs}
   MLIRLinalgTransformOps
+  MLIRGPUExtTransformOps
 )
 
 if(BYTEIR_INCLUDE_TESTS)

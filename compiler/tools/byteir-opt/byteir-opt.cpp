@@ -23,11 +23,13 @@
 #include "byteir/Dialect/Ccl/Passes.h"
 #include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
 #include "byteir/Dialect/GPU/Passes.h"
+#include "byteir/Dialect/GPU/TransformOps/GPUExtTransformOps.h"
 #include "byteir/Dialect/Lace/LaceDialect.h"
 #include "byteir/Dialect/Lccl/LcclOps.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
+
 #include "byteir/Dialect/MemRef/Passes.h"
 #include "byteir/Dialect/SCF/Passes.h"
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
@@ -161,6 +163,7 @@ int main(int argc, char **argv) {
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
   tensor_ext::registerTilingInterfaceExternalModels(registry);
+  gpu_ext::registerTransformDialectExtension(registry);
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "ByteIR pass driver\n", registry));
