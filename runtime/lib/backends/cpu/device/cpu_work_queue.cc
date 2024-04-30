@@ -55,6 +55,7 @@ common::Status CPULazyWorkQueue::Sync() {
   for (auto &&task : tasks) {
     task();
   }
+  tasks.clear();
   return common::Status::OK();
 }
 
