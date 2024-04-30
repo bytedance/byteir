@@ -32,6 +32,8 @@ include "mlir/Dialect/Transform/IR/TransformInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/BuiltinAttributes.td"
+include "mlir/Dialect/Transform/IR/TransformTypes.td"
+
 
 def MapNestedForallToThreadsExtOp :
   Op<Transform_Dialect, "gpu.map_nested_forall_to_threads_ext",
@@ -40,6 +42,9 @@ def MapNestedForallToThreadsExtOp :
      TransformEachOpTrait,
      TransformOpInterface]> {
   let description = [{
+      This operation is extended from gpu.map_nested_forall_to_threads to
+      support `scf.forall` with dynamic trip counts.
+
       Target the `gpu.launch op` and rewrite all `scf.forall` nested in it to 
       distributed `gpu.thread_id` attribute.
 
@@ -93,44 +98,10 @@ def MapNestedForallToThreadsExtOp :
       The returned handle points to the same LaunchOp operand, consuming it and
       producing a new SSA value to satisfy chaining and linearity of the IR
       properties.
-
-      #### Example:
-
-      ```
-      gpu.launch blocks(%bx, %by, %bz) in (%x = %0, %y = %1, %z = %2)
-                 threads(%tx, %ty, %tz) in (%tx = %3, %ty = %4, %tz = %5) {
-        scf.forall (%i, %j) in (7, 9) {
-          ... // body 1
-        } {mapping = [#gpu.thread<x>, #gpu.thread<y>, #gpu.thread<z>]}
-        scf.forall (%i) in (12) {
-          ... // body 2
-        } {mapping = [#gpu.thread<x>]}
-        gpu.terminator
-      }
-      ```
-
-      is translated to:
-
-      ```
-      %bdimX = arith.constant 12 : index
-      %bdimY = arith.constant 9 : index
-      gpu.launch blocks(%bx, %by, %bz) in (%x = %0, %y = %1, %z = %2)
-             threads(%tx, %ty, %tz) in (%tx = %bdimX, %ty = %bdimY, %tz = %5) {
-        if (threadIdx.x < 9 && threadIdx.y < 7) {
-          ... // body 1
-        }
-        gpu.barrier
-        if (threadIdx.y < 1) {
-          ... // body 2
-        }
-        gpu.barrier
-        gpu.terminator
-      }
-      ```
     }];
 
   let arguments = (ins TransformHandleTypeInterface:$target,
-                   DefaultValuedAttr<DenseI64ArrayAttr, "{}">:$block_dims,
+                   DenseI64ArrayAttr: $block_dims,
                    DefaultValuedAttr<BoolAttr, "true">:$sync_after_distribute,
                    DefaultValuedAttr<I64Attr, "32">:$warp_size);
   let results = (outs TransformHandleTypeInterface:$result);
@@ -150,6 +121,80 @@ def MapNestedForallToThreadsExtOp :
         ::mlir::transform::ApplyToEachResultList &results,
         ::mlir::transform::TransformState &state);
   }];
+
+  let hasVerifier = 1;
+}
+
+def MapForallToBlocksExtOp :
+  Op<Transform_Dialect, "gpu.map_forall_to_blocks_ext",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    This operation is extended from gpu.map_forall_to_blocks to
+    support `scf.forall` with dynamic trip counts.
+
+    The grid dims are expected to be provided in the `grid_dims` attribute.
+    When the dims are not known statically, the corresponding entry in
+    the `grid_dims` attribute must be set to ShapedType::kDynamic and will
+    infered from `scf.forall` automatically. For common 3D mapping, the entry
+    will be set to the corresponding trip count in `scf.forall`. For linear mapping,
+    grid_dims will be set to (total_trip_count, 1, 1).
+
+    Target the gpu_launch op and rewrite the top level `scf.forall`
+    to distributed gpu.block_id attribute. If `generate_gpu_launch` attribute
+    is set, then first generates `gpu_launch` and moves the top level
+    `scf.forall` inside.
+
+    The operation searches top level `scf.forall` ops under
+    `gpu_launch` and maps each such op to GPU blocks. Mapping is
+    one-to-one and the induction variables of `scf.forall` are
+    rewritten to gpu.block_id according to the `thread_dim_mapping` attribute.
+
+    Dynamic `scf.forall` trip counts are currently supported.
+    Dynamic grid dim sizes are currently supported.
+
+    Only **bufferized** scf.forall are currently supported.
+    Only scf.forall distributed to **at most 3 dimensions** are
+    currently supported.
+
+    The operation alters the grid size of the given gpu_launch using the
+    grid_dims argument.
+
+    #### Return modes:
+
+    This operation ignores non-gpu_launch ops and drops them in the return.
+
+    If any scf.forall with tensors is found, the transform definitely
+    fails.
+
+    If all the scf.forall operations contained within the LaunchOp
+    referred to by the `target` PDLOperation lower to GPU properly, the
+    transform succeeds. Otherwise the transform definitely fails.
+
+    The returned handle points to the same LaunchOp operand, consuming it and
+    producing a new SSA value to satisfy chaining and linearity of the IR
+    properties.
+  }];
+
+  let arguments = (ins TransformHandleTypeInterface:$target,
+                   DefaultValuedOptionalAttr<DenseI64ArrayAttr, "{}">:$grid_dims,
+                   UnitAttr:$generate_gpu_launch);
+  let results = (outs TransformHandleTypeInterface:$result);
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::transform::TransformRewriter &rewriter,
+        ::mlir::Operation *target,
+        ::mlir::transform::ApplyToEachResultList &results,
+        ::mlir::transform::TransformState &state);
+  }];
+
+  let hasCustomAssemblyFormat = 1;
+
 }
 
 #endif // BYTEIR_DIALECT_GPU_TRANSFORMOPS_GPU_EXT_TRANSFORMOPS

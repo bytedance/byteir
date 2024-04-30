@@ -25,6 +25,7 @@
 
 #include "byteir/Dialect/GPU/TransformOps/GPUExtTransformOps.h"
 #include "byteir/Dialect/GPU/TransformOps/Utils.h"
+#include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
@@ -81,6 +82,47 @@ namespace {
 struct MappingKind {};
 struct BlockMappingKind : MappingKind {};
 struct ThreadMappingKind : MappingKind {};
+
+ParseResult parseI64ArrayWithDynamic(OpAsmParser &parser,
+                                     DenseI64ArrayAttr &integers) {
+  SmallVector<int64_t, 4> integerVals;
+  auto parseInteger = [&]() {
+    int64_t integer;
+    if (succeeded(parser.parseOptionalKeyword("kDynamic"))) {
+      integer = ShapedType::kDynamic;
+    } else {
+      if (failed(parser.parseInteger<int64_t>(integer)))
+        return failure();
+    }
+    integerVals.push_back(integer);
+    return success();
+  };
+
+  if (parser.parseCommaSeparatedList(OpAsmParser::Delimiter::Square,
+                                     parseInteger))
+    return failure();
+  integers = parser.getBuilder().getDenseI64ArrayAttr(integerVals);
+  return success();
+}
+
+void printI64ArrayWithDynamic(OpAsmPrinter &printer,
+                              ArrayRef<int64_t> integers) {
+  printer << '[';
+  if (integers.empty()) {
+    printer << "]";
+    return;
+  }
+
+  llvm::interleaveComma(integers, printer, [&](int64_t integer) {
+    if (integer == ShapedType::kDynamic) {
+      printer << "kDynamic";
+    } else {
+      printer << integer;
+    }
+  });
+  printer << ']';
+}
+
 } // namespace
 
 static DiagnosedSilenceableFailure
@@ -203,6 +245,7 @@ verifyGpuMapping(std::optional<TransformOpInterface> transformOp,
 struct ForallRewriteResultExt {
   SmallVector<Value> mappingSizes;
   SmallVector<Value> mappingIds;
+  OpFoldResult totalMappingSize;
 };
 
 /// Helper to replace ids of dimensions known to be 1 by 0 to simplify the IR.
@@ -419,9 +462,15 @@ static DiagnosedSilenceableFailure rewriteOneForallCommonImpl(
     rewriter.replaceAllUsesWith(loopIndex, threadIdx);
   }
 
-  result = ForallRewriteResultExt{
-      getValueOrCreateConstantIndexOp(rewriter, loc, forallMappingSizes),
-      mappingIdOps};
+  rewriter.setInsertionPoint(forallOp);
+  auto forallMappingSizesValue =
+      getValueOrCreateConstantIndexOp(rewriter, loc, forallMappingSizes);
+
+  auto totalMappingSize =
+      getIndexProduct(rewriter, loc, forallMappingSizesValue).value();
+
+  result = ForallRewriteResultExt{forallMappingSizesValue, mappingIdOps,
+                                  totalMappingSize};
 
   // Step 8. Erase old op.
   rewriter.eraseOp(forallOp);
@@ -626,6 +675,364 @@ transform::MapNestedForallToThreadsExtOp::applyToOne(
 
   results.push_back(gpuLaunch.getOperation());
   return diag;
+}
+
+LogicalResult transform::MapNestedForallToThreadsExtOp::verify() {
+  if (getBlockDims().size() != 3) {
+    return emitOpError() << "transform requires size-3 block_dims";
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// MapForallToBlocksExt
+//===----------------------------------------------------------------------===//
+static DiagnosedSilenceableFailure
+inferGridDim(RewriterBase &rewriter, SmallVectorImpl<OpFoldResult> &gridDims,
+             ForallRewriteResultExt result, bool useLinearMapping) {
+
+  auto isDynamic = [](OpFoldResult &val) -> bool {
+    auto maybeInt = getConstantIntValue(val);
+    if (maybeInt.has_value() && maybeInt.value() != ShapedType::kDynamic) {
+      return false;
+    }
+    return true;
+  };
+
+  bool hasDynamic = llvm::any_of(gridDims, isDynamic);
+
+  if (useLinearMapping) {
+    if (hasDynamic || gridDims.empty())
+      gridDims = SmallVector<OpFoldResult>{result.totalMappingSize};
+  } else {
+    if (gridDims.empty()) {
+      gridDims = getAsOpFoldResult(result.mappingSizes);
+    } else {
+      for (auto en : llvm::enumerate(gridDims)) {
+        if (isDynamic(en.value())) {
+          assert(en.index() < result.mappingSizes.size() &&
+                 "Can't infer dynamic grid dim.");
+          gridDims[en.index()] = result.mappingSizes[en.index()];
+        }
+      }
+    }
+  }
+
+  while (gridDims.size() < 3) {
+    gridDims.emplace_back(getAsIndexOpFoldResult(rewriter.getContext(), 1));
+  }
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+static DiagnosedSilenceableFailure mapForallToBlocksExtOpImpl(
+    RewriterBase &rewriter, TransformOpInterface transformOp,
+    scf::ForallOp forallOp, SmallVectorImpl<OpFoldResult> &gridDims,
+    const GpuIdBuilderExt &gpuIdBuilder) {
+
+  {
+    // GPU-specific verifications. There is no better place to anchor
+    // those right now: the ForallOp is target-independent and the transform
+    // op does not apply to individual ForallOp.
+    DiagnosedSilenceableFailure diag =
+        verifyGpuMapping<BlockMappingKind>(transformOp, forallOp);
+    if (!diag.succeeded())
+      return diag;
+  }
+
+  Location loc = forallOp.getLoc();
+  Block *parentBlock = forallOp->getBlock();
+  Value zero;
+  {
+    // Create an early zero index value for replacements and immediately reset
+    // the insertion point.
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(parentBlock);
+    zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+  }
+
+  ForallRewriteResultExt rewriteResult;
+  DiagnosedSilenceableFailure diag = rewriteOneForallCommonImpl(
+      rewriter, transformOp, forallOp,
+      /*availableMappingSizes=*/gridDims, rewriteResult, gpuIdBuilder);
+
+  // Return if anything goes wrong, use silenceable failure as a match
+  // failure.
+  if (!diag.succeeded())
+    return diag;
+
+  bool useLinearMapping = false;
+  if (forallOp.getMapping()) {
+    auto mappingAttr = cast<DeviceMappingAttrInterface>(
+        forallOp.getMapping()->getValue().front());
+    useLinearMapping = mappingAttr.isLinearMapping();
+  }
+
+  // If gridDims is dynamic, infer it from the mappingSizes.
+  {
+    diag = inferGridDim(rewriter, gridDims, rewriteResult, useLinearMapping);
+    if (!diag.succeeded())
+      return diag;
+  }
+
+  assert(gridDims.size() == 3 && "Need 3-D gridDims");
+
+  // Replace ids of dimensions known to be 1 by 0 to simplify the IR.
+  // Here, the result of mapping determines the available mapping sizes.
+  SmallVector<int64_t> staticMappingSizes;
+  for (auto sz : rewriteResult.mappingSizes) {
+    auto maybeIndex = getAsIndex(sz);
+    if (maybeIndex.has_value()) {
+      staticMappingSizes.emplace_back(maybeIndex.value());
+    } else {
+      staticMappingSizes.emplace_back(ShapedType::kDynamic);
+    }
+  }
+  while (staticMappingSizes.size() < 3)
+    staticMappingSizes.emplace_back(1);
+
+  replaceUnitMappingIdsHelper<BlockDimOp>(rewriter, loc, parentBlock, zero,
+                                          staticMappingSizes);
+
+  return DiagnosedSilenceableFailure::success();
+}
+
+static DiagnosedSilenceableFailure
+setGridDimsForGpuLaunch(RewriterBase &rewriter, LaunchOp gpuLaunch,
+                        TransformOpInterface transformOp, Value gridDimX,
+                        Value gridDimY, Value gridDimZ) {
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(gpuLaunch);
+  std::optional<int64_t> maybeCstGridDimX = getAsIndex(gridDimX);
+  std::optional<int64_t> maybeCstGridDimY = getAsIndex(gridDimY);
+  std::optional<int64_t> maybeCstGridDimZ = getAsIndex(gridDimZ);
+
+  DiagnosedSilenceableFailure diag = mlir::transform::gpu::checkGpuLimits(
+      transformOp, maybeCstGridDimX, maybeCstGridDimY, maybeCstGridDimZ,
+      std::nullopt, std::nullopt, std::nullopt);
+  if (!diag.succeeded())
+    return diag;
+
+  auto copyDimComputation = [&](Value dim) -> Value {
+    llvm::SetVector<Operation *> backwardSlice;
+    getBackwardSlice(dim, &backwardSlice);
+    IRMapping bvm;
+    for (auto &&op : backwardSlice) {
+      Operation *newOp = rewriter.clone(*op, bvm);
+    }
+    if (auto defOp = dim.getDefiningOp()) {
+      SmallPtrSet<Operation *, 4> excepts;
+      Operation *newDefOp = rewriter.clone(*defOp, bvm);
+      return newDefOp->getResult(0);
+    } else {
+      return dim;
+    }
+  };
+
+  gpuLaunch.getGridSizeXMutable().assign(copyDimComputation(gridDimX));
+  gpuLaunch.getGridSizeYMutable().assign(copyDimComputation(gridDimY));
+  gpuLaunch.getGridSizeZMutable().assign(copyDimComputation(gridDimZ));
+  return DiagnosedSilenceableFailure::success();
+}
+
+DiagnosedSilenceableFailure mlir::transform::MapForallToBlocksExtOp::applyToOne(
+    transform::TransformRewriter &rewriter, Operation *target,
+    ApplyToEachResultList &results, TransformState &state) {
+  LaunchOp gpuLaunch = dyn_cast<LaunchOp>(target);
+  auto transformOp = cast<TransformOpInterface>(getOperation());
+
+  if (!getGenerateGpuLaunch() && !gpuLaunch) {
+    DiagnosedSilenceableFailure diag =
+        emitSilenceableError()
+        << "Given target is not gpu.launch, set `generate_gpu_launch` "
+           "attribute";
+    diag.attachNote(target->getLoc()) << "when applied to this payload op";
+    return diag;
+  }
+
+  scf::ForallOp topLevelForallOp;
+  DiagnosedSilenceableFailure diag = mlir::transform::gpu::findTopLevelForallOp(
+      target, topLevelForallOp, transformOp);
+  if (!diag.succeeded()) {
+    diag.attachNote(target->getLoc()) << "when applied to this payload op";
+    return diag;
+  }
+  assert(topLevelForallOp && "expect an scf.forall");
+
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPoint(topLevelForallOp);
+
+  // Generate gpu launch here and move the forall inside
+  if (getGenerateGpuLaunch()) {
+    DiagnosedSilenceableFailure diag = mlir::transform::gpu::createGpuLaunch(
+        rewriter, target->getLoc(), transformOp, gpuLaunch);
+    if (!diag.succeeded())
+      return diag;
+
+    rewriter.setInsertionPointToStart(&gpuLaunch.getBody().front());
+    Operation *newForallOp = rewriter.clone(*topLevelForallOp);
+    rewriter.eraseOp(topLevelForallOp);
+    topLevelForallOp = cast<scf::ForallOp>(newForallOp);
+  }
+
+  // The BlockIdBuilder adapts to whatever is thrown at it.
+  bool useLinearMapping = false;
+  if (topLevelForallOp.getMapping()) {
+    auto mappingAttr = cast<DeviceMappingAttrInterface>(
+        topLevelForallOp.getMapping()->getValue().front());
+    useLinearMapping = mappingAttr.isLinearMapping();
+  }
+
+  SmallVector<OpFoldResult> gridDims;
+  int64_t dynamicDimsCount = 0;
+  for (auto en : llvm::enumerate(getGridDims())) {
+    if (en.value() == ShapedType::kDynamic) {
+      dynamicDimsCount += 1;
+      auto dim = rewriter.create<BlockDimOp>(
+          target->getLoc(), rewriter.getIndexType(),
+          static_cast<mlir::gpu::Dimension>(en.index()));
+      gridDims.emplace_back(dim);
+    } else {
+      gridDims.emplace_back(
+          getAsIndexOpFoldResult(rewriter.getContext(), en.value()));
+    }
+  }
+
+  if (useLinearMapping && dynamicDimsCount > 0 && dynamicDimsCount < 3) {
+    DiagnosedSilenceableFailure diag = emitSilenceableError()
+                                       << "if forall use linear mapping under "
+                                          "dynamic, grid dims must be set to "
+                                          "empty or all dynamic";
+    return diag;
+  }
+
+  // use mapping size of forall as gridDims.
+  if (dynamicDimsCount == 3) {
+    gridDims.clear();
+  }
+
+  GpuBlockIdBuilderExt gpuBlockIdBuilder(getContext(), useLinearMapping);
+
+  diag = mapForallToBlocksExtOpImpl(rewriter, transformOp, topLevelForallOp,
+                                    gridDims, gpuBlockIdBuilder);
+  if (!diag.succeeded())
+    return diag;
+
+  rewriter.setInsertionPoint(gpuLaunch);
+
+  auto gridDimsValue =
+      getValueOrCreateConstantIndexOp(rewriter, gpuLaunch->getLoc(), gridDims);
+
+  // Set the GPU launch configuration for the grid dims late, this is
+  // subject to IR inspection.
+  diag = setGridDimsForGpuLaunch(
+      rewriter, gpuLaunch, cast<TransformOpInterface>(getOperation()),
+      gridDimsValue[0], gridDimsValue[1], gridDimsValue[2]);
+
+  results.push_back(gpuLaunch);
+  return diag;
+}
+
+LogicalResult transform::MapForallToBlocksExtOp::verify() {
+  if (!getGridDims().empty() && getGridDims().size() != 3) {
+    return emitOpError() << "transform requires empty or size-3 grid_dims";
+  }
+  return success();
+}
+
+ParseResult MapForallToBlocksExtOp::parse(OpAsmParser &parser,
+                                          OperationState &result) {
+  OpAsmParser::UnresolvedOperand targetRawOperands[1];
+  llvm::ArrayRef<OpAsmParser::UnresolvedOperand> targetOperands(
+      targetRawOperands);
+  llvm::SMLoc targetOperandsLoc;
+  (void)targetOperandsLoc;
+  DenseI64ArrayAttr grid_dimsAttr;
+  llvm::ArrayRef<Type> targetTypes;
+  llvm::ArrayRef<Type> resultTypes;
+  DenseI64ArrayAttr gridDims;
+
+  targetOperandsLoc = parser.getCurrentLocation();
+  if (parser.parseOperand(targetRawOperands[0]))
+    return failure();
+
+  if (succeeded(parser.parseOptionalKeyword("generate_gpu_launch"))) {
+    result.getOrAddProperties<MapForallToBlocksExtOp::Properties>()
+        .generate_gpu_launch = parser.getBuilder().getUnitAttr();
+  }
+
+  if (succeeded(parser.parseOptionalKeyword("grid_dims"))) {
+    if (parser.parseEqual())
+      return failure();
+    parseI64ArrayWithDynamic(parser, gridDims);
+    result.addAttribute(getGridDimsAttrName(result.name), gridDims);
+  }
+
+  {
+    auto loc = parser.getCurrentLocation();
+    (void)loc;
+    if (parser.parseOptionalAttrDict(result.attributes))
+      return failure();
+    if (failed(verifyInherentAttrs(result.name, result.attributes, [&]() {
+          return parser.emitError(loc)
+                 << "'" << result.name.getStringRef() << "' op ";
+        })))
+      return failure();
+  }
+
+  if (parser.parseColon())
+    return failure();
+
+  FunctionType functionType;
+  if (parser.parseType(functionType))
+    return failure();
+  targetTypes = functionType.getInputs();
+  resultTypes = functionType.getResults();
+  result.addTypes(resultTypes);
+  if (parser.resolveOperands(targetOperands, targetTypes, targetOperandsLoc,
+                             result.operands))
+    return failure();
+  return success();
+}
+
+void MapForallToBlocksExtOp::print(OpAsmPrinter &printer) {
+  printer << ' ';
+  printer << getTarget();
+
+  if (getGenerateGpuLaunchAttr()) {
+    printer << ' ' << "generate_gpu_launch";
+  }
+
+  if (getGridDimsAttr()) {
+    printer << ' ' << "grid_dims";
+    printer << ' ' << "=";
+    printer << ' ';
+    printI64ArrayWithDynamic(printer, getGridDims());
+  }
+
+  llvm::SmallVector<llvm::StringRef, 2> elidedAttrs;
+  elidedAttrs.push_back("generate_gpu_launch");
+  elidedAttrs.push_back("grid_dims");
+
+  {
+    Builder odsBuilder(getContext());
+    Attribute attr = getGridDimsAttr();
+    if (attr && (attr == odsBuilder.getDenseI64ArrayAttr({})))
+      elidedAttrs.push_back("grid_dims");
+  }
+
+  {
+    Builder odsBuilder(getContext());
+    Attribute attr = getGenerateGpuLaunchAttr();
+    if (attr && (attr == ((false) ? odsBuilder.getUnitAttr() : nullptr)))
+      elidedAttrs.push_back("generate_gpu_launch");
+  }
+
+  printer.printOptionalAttrDict((*this)->getAttrs(), elidedAttrs);
+  printer << ' ' << ":";
+  printer << ' ';
+  printer.printFunctionalType(llvm::ArrayRef<Type>(getTarget().getType()),
+                              llvm::ArrayRef<Type>(getResult().getType()));
 }
 
 //===----------------------------------------------------------------------===//

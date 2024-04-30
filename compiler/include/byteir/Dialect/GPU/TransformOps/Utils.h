@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// Some code comes from Utils.h in LLVM project
+// Some code comes from Utils.h for GPU transform ops in LLVM project
 // Original license:
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -43,6 +43,10 @@ class ForallOp;
 } // namespace scf
 namespace transform {
 namespace gpu_ext {
+
+/// Create IR that computes the product of all elements in the set.
+FailureOr<OpFoldResult> getIndexProduct(OpBuilder &b, Location loc,
+                                        ArrayRef<Value> set);
 
 /// Helper type for functions that generate ids for the mapping of a scf.forall.
 /// Operates on both 1) an "original" basis that represents the individual

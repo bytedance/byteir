@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// Some code comes from Utils.cpp in LLVM project
+// Some code comes from Utils.cpp for GPU transform ops in LLVM project
 // Original license:
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -58,12 +58,6 @@ using namespace mlir::gpu;
 using namespace mlir::transform;
 using namespace mlir::transform::gpu_ext;
 
-#define DEBUG_TYPE "gpu-transforms"
-
-#define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
-#define LDBG(X) LLVM_DEBUG(DBGS() << (X) << "\n")
-#define DBGS_ALIAS() (llvm::dbgs() << '[' << DEBUG_TYPE_ALIAS << "] ")
-
 /// Return a flattened thread id for the workgroup with given sizes.
 template <typename ThreadOrBlockIdOp>
 static Value buildLinearId(RewriterBase &rewriter, Location loc,
@@ -84,20 +78,6 @@ static Value buildLinearId(RewriterBase &rewriter, Location loc,
   OpFoldResult ofr = affine::makeComposedFoldedAffineApply(
       rewriter, loc, tx + ty * bdx + tz * bdx * bdy, vals);
   return getValueOrCreateConstantIndexOp(rewriter, loc, ofr);
-}
-
-/// Create IR that computes the product of all elements in the set.
-static FailureOr<OpFoldResult> getIndexProduct(OpBuilder &b, Location loc,
-                                               ArrayRef<Value> set) {
-  if (set.empty())
-    return failure();
-  OpFoldResult result = set[0];
-  AffineExpr s0, s1;
-  bindSymbols(b.getContext(), s0, s1);
-  for (unsigned i = 1, e = set.size(); i < e; i++)
-    result = affine::makeComposedFoldedAffineApply(b, loc, s0 * s1,
-                                                   {result, set[i]});
-  return result;
 }
 
 /// Create a linear id builder that takes the `originalBasisOfr` and decompose
@@ -202,6 +182,19 @@ static GpuIdBuilderExtFnType common3DIdBuilderFn(int64_t multiplicity = 1) {
 namespace mlir {
 namespace transform {
 namespace gpu_ext {
+
+FailureOr<OpFoldResult> getIndexProduct(OpBuilder &b, Location loc,
+                                        ArrayRef<Value> set) {
+  if (set.empty())
+    return failure();
+  OpFoldResult result = set[0];
+  AffineExpr s0, s1;
+  bindSymbols(b.getContext(), s0, s1);
+  for (unsigned i = 1, e = set.size(); i < e; i++)
+    result = affine::makeComposedFoldedAffineApply(b, loc, s0 * s1,
+                                                   {result, set[i]});
+  return result;
+}
 
 GpuIdBuilderExt::GpuIdBuilderExt(MLIRContext *ctx, bool useLinearMapping,
                                  MappingIdBuilderExtFnType fn)
