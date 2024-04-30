@@ -1,4 +1,4 @@
-//===- rewrite_to_custom_call.h -------------------------------*--- C++ -*-===//
+//===- set_repeat_out_batch_size.h ----------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,29 +15,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TFEXT_TRANSFORMS_REWRITE_TO_CUSTOM_CALL_OPS
-#define TFEXT_TRANSFORMS_REWRITE_TO_CUSTOM_CALL_OPS
+#ifndef TFEXT_TRANSFORMS_SET_REPEAT_OUT_BATCH_SIZE
+#define TFEXT_TRANSFORMS_SET_REPEAT_OUT_BATCH_SIZE
 
 #include <memory>
 
-#include "mlir/IR/MLIRContext.h"  // from @llvm-project
-#include "mlir/IR/PatternMatch.h" // from @llvm-project
-#include "mlir/Pass/Pass.h"       // from @llvm-project
-#include "llvm/ADT/StringRef.h"   // from @llvm-project
+#include "mlir/Pass/Pass.h" // from @llvm-project
 
 namespace mlir {
-class ModuleOp;
+namespace func {
+class FuncOp;
+} // namespace func
 
 namespace tfext {
 
-constexpr StringRef getCustomCallBodyAnchorName() {
-  return "__custom_call_body__";
-};
+std::unique_ptr<OperationPass<func::FuncOp>>
+createSetRepeatOutBatchSizePass(int64_t repeatOutBatchSize = -1);
 
-std::unique_ptr<OperationPass<ModuleOp>>
-createRewriteToCustomCallOpsPass(llvm::ArrayRef<std::string> ops = {},
-                                 bool keepBody = false);
 } // namespace tfext
 } // namespace mlir
 
-#endif // TFEXT_TRANSFORMS_REWRITE_TO_CUSTOM_CALL_OPS
+#endif // TFEXT_TRANSFORMS_SET_REPEAT_OUT_BATCH_SIZE
