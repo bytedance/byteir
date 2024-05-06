@@ -28,6 +28,10 @@
 
 #include "brt/core/context/work_queue.h"
 
+#include "brt/backends/cpu/device/cpu_device_api.h"
+#include "brt/backends/cpu/device/cpu_work_queue.h"
+#include "brt/backends/cpu/providers/default/cpu_provider.h"
+
 #ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_device_api.h"
@@ -232,11 +236,15 @@ PYBIND11_MODULE(MODULE_NAME, m) {
       .def(py::init([](const std::string &device, py::object alloc_f,
                        py::object free_f) {
              auto session = std::make_shared<Session>();
-             if (device != "CUDA") {
-               throw std::runtime_error("unsupported device type " + device);
+             if (device == "CPU") {
+               // TODO Support customize cpu provider options.
+               THROW_ON_FAIL(NaiveCPUExecutionProviderFactory(session.get()));
+               THROW_ON_FAIL(CPUAllocatorFactory(session.get()));
+               session->SetExecDevice(DeviceType::CPU, /*device_id*/ 0);
+               session->AddDeviceAPI(DeviceType::CPU, GetCPUDeviceAPI());
              }
 #ifdef BRT_USE_CUDA
-             else {
+             else if (device == "CUDA") {
                if (!alloc_f || !free_f) {
                  THROW_ON_FAIL(
                      DefaultCUDAExecutionProviderFactory(session.get()));
@@ -253,6 +261,10 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                }
              }
 #endif
+             else {
+               throw std::runtime_error("unsupported device type " + device);
+             }
+
              return session;
            }),
            py::arg("device") = "CUDA", py::arg("alloc_func") = py::none(),
@@ -268,14 +280,19 @@ PYBIND11_MODULE(MODULE_NAME, m) {
           "new_request_context",
           [](std::shared_ptr<Session> session, std::optional<size_t> stream) {
             std::unique_ptr<WorkQueue> work_queue;
+            if (session->GetDeviceType() == DeviceType::CPU) {
+              work_queue.reset(new cpu::CPUNaiveWorkQueue());
+            }
 #ifdef BRT_USE_CUDA
-            if (stream.has_value()) {
-              work_queue.reset(new CUDAExternalStreamWorkQueue(
-                  reinterpret_cast<CUstream_st *>(stream.value())));
-            } else { // use cuda default stream
-              int device_id;
-              BRT_CUDA_CHECK(cudaGetDevice(&device_id));
-              work_queue.reset(new CUDAWorkQueue(device_id));
+            else if (session->GetDeviceType() == DeviceType::CUDA) {
+              if (stream.has_value()) {
+                work_queue.reset(new CUDAExternalStreamWorkQueue(
+                    reinterpret_cast<CUstream_st *>(stream.value())));
+              } else { // use cuda default stream
+                int device_id;
+                BRT_CUDA_CHECK(cudaGetDevice(&device_id));
+                work_queue.reset(new CUDAWorkQueue(device_id));
+              }
             }
 #endif
             return std::make_unique<ReqeustContextWithSession>(

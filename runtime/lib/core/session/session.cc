@@ -268,4 +268,6 @@ void Session::SetExecDevice(DeviceType device_type, int device_id) {
   exec_device_ = {device_type, device_id};
 }
 
+DeviceType Session::GetDeviceType() const { return exec_device_.device_type_; }
+
 } // namespace brt

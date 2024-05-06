@@ -15,6 +15,7 @@
 from torch_e2e_testing.framework import generate_golden_trace
 import brt
 import byteir
+from byteir._backend_registry import get_target_device
 from mhlo_tools.ir_executor import Interpreter
 from mhlo_tools.mlir import ir
 import torch
@@ -63,7 +64,7 @@ def generate_np_inputs(interp):
     return ret
 
 
-def generate_torch_outputs(interp):
+def generate_torch_outputs(interp, device: str = "cuda"):
     module = interp._mod
     entry_func = module.body.operations[0]
     torch_outputs = []
@@ -75,7 +76,7 @@ def generate_torch_outputs(interp):
                 dtype = np_type_to_torch_type(
                     mlir_type_to_dtype(shaped_type.element_type))
                 torch_outputs.append(torch.empty(
-                    shape, dtype=dtype, device="cuda"))
+                    shape, dtype=dtype, device=device))
     return torch_outputs
 
 
@@ -92,6 +93,7 @@ def compile_and_run_mlir(mhlo_file, target):
         np_inputs = generate_np_inputs(interp)
         func_name = get_entry_func_name(interp)
         unique_name = os.path.basename(mhlo_file).split('.')[0]
+        unique_name = unique_name + "." + target
 
         # run golden
         golden_outputs = interp.call_function(func_name, np_inputs)
@@ -112,19 +114,28 @@ def compile_and_run_mlir(mhlo_file, target):
                           numerical_error=None)
     # brt runtime
     try:
-        session = brt.Session(alloc_func=caching_allocator_alloc,
-                               free_func=caching_allocator_delete)
+        cur_device = get_target_device(target)
+        _allocator_alloc = None
+        _allocator_delete = None
+        _stream = None
+        if "cuda" == cur_device:
+            _allocator_alloc = caching_allocator_alloc
+            _allocator_delete = caching_allocator_delete
+            _stream = torch.cuda.current_stream()._as_parameter_.value
+
+        session = brt.Session(device=cur_device.upper(),
+                              alloc_func=_allocator_alloc,
+                              free_func=_allocator_delete)
         session.load(output_mlir_file_name)
-        req = session.new_request_context(
-            torch.cuda.current_stream()._as_parameter_.value)
+        req = session.new_request_context(_stream)
         torch_inputs = []
         torch_outputs = []
         for np_input in np_inputs:
-            data = torch.from_numpy(np_input).contiguous().cuda()
+            data = torch.from_numpy(np_input).contiguous().to(cur_device)
             data = data.to(np_type_to_torch_type(np_input.dtype))
             torch_inputs.append(data)
 
-        torch_outputs = generate_torch_outputs(interp)
+        torch_outputs = generate_torch_outputs(interp, cur_device)
         for offset, arg in zip(session.get_input_arg_offsets(), torch_inputs):
             assert list(session.get_static_shape(offset)) == list(arg.shape)
         for offset, ret in zip(session.get_output_arg_offsets(), torch_outputs):
@@ -150,7 +161,7 @@ def compile_and_run_mlir(mhlo_file, target):
         for golden_output, output in zip(golden_outputs, torch_outputs):
             # print("golden output: ", golden_output)
             # print("actual output: ", output.detach().cpu().numpy())
-            data = torch.from_numpy(golden_output).contiguous().cuda()
+            data = torch.from_numpy(golden_output).contiguous().to(cur_device)
             data = data.to(np_type_to_torch_type(golden_output.dtype))
             torch.testing.assert_close(data, output)
         # assert(np.allclose(golden_output, output.detach().cpu().numpy()))

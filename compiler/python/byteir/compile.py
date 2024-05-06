@@ -3,6 +3,7 @@ from byteir import ir
 from byteir.passmanager import PassManager
 from byteir.dialects.cat import IRProcessor
 from byteir.dialects.builtin import ModuleOp
+from byteir._backend_registry import register_byteir_compiler_backend, get_target_device, look_up_backend
 from byteir.utils import detect_cuda_with_nvidia_smi
 from pathlib import Path
 import os
@@ -13,15 +14,44 @@ def _print_verbose(module: ModuleOp, pipeline_msg: str):
     print(module.operation.get_asm(large_elements_limit=10))
     print()
 
+class CompileOptions:
+
+    def __init__(self,
+                 target: str,
+                 module: ModuleOp,
+                 output_file_path: str,
+                 entry_func: str = "main",
+                 gpu_type: str = "local",
+                 cpu_type: str = '', # cpu arch ?
+                 verbose: bool = False,
+                 name: str = "model",
+                 aggressive_mode: bool = False,
+                 parallelism: int = 1,
+                 disable_byteir_ait_cache: bool = False,
+                 **kwargs):
+        self.target = target
+        self.module = module
+        self.output_file_path = output_file_path
+        self.entry_func = entry_func
+        self.gpu_type = gpu_type
+        self.cpu_type = cpu_type
+        self.verbose = verbose
+        self.name = name
+        self.parallelism = parallelism
+        self.disable_byteir_ait_cache = disable_byteir_ait_cache
+        self.kwargs = kwargs
+
+@register_byteir_compiler_backend(target="cuda", device="cuda")
 def _compile_cuda(
-    module: ModuleOp,
-    output_file_path: str,
-    entry_func: str,
-    gpu_type: str,
-    verbose: bool = False,
-    **kwargs,
+    compile_options: CompileOptions,
 ) -> None:
-    target = "cuda"
+    target = compile_options.target
+    module = compile_options.module
+    output_file_path = compile_options.output_file_path
+    entry_func = compile_options.entry_func
+    gpu_type = compile_options.gpu_type
+    verbose = compile_options.verbose
+
     output_file_dir = os.path.dirname(output_file_path)
     output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
     output_file_name = os.path.basename(output_file_path)
@@ -89,8 +119,7 @@ def _compile_cuda(
     with open(output_file_path, "w") as f:
         f.write(module.operation.get_asm())
 
-
-def _compile_cuda_with_ait(
+def _compile_cuda_with_ait_impl(
     module: ModuleOp,
     output_file_path: str,
     entry_func: str,
@@ -100,7 +129,6 @@ def _compile_cuda_with_ait(
     aggressive_mode: bool = False,
     parallelism: int = 1,
     disable_byteir_ait_cache: bool = False,
-    **kwargs,
 ) -> None:
     target = "cuda"
     output_file_dir = os.path.dirname(output_file_path)
@@ -194,15 +222,48 @@ def _compile_cuda_with_ait(
     with open(output_file_path, "w") as f:
         f.write(processor.module.operation.get_asm())
 
-def _compile_cpu(
-    module: ModuleOp,
-    output_file_path: str,
-    entry_func: str,
-    cpu_type: str, # differ cpu arch ?
-    verbose: bool = False,
-    **kwargs,
+@register_byteir_compiler_backend(target="cuda_with_ait", device="cuda")
+def _compile_cuda_with_ait(
+    compile_options: CompileOptions,
 ) -> None:
-    target = "cpu"
+    return _compile_cuda_with_ait_impl(
+            module=compile_options.module,
+            output_file_path=compile_options.output_file_path,
+            entry_func=compile_options.entry_func,
+            gpu_type=compile_options.gpu_type,
+            verbose=compile_options.verbose,
+            name=compile_options.name,
+            aggressive_mode=False,
+            parallelism=compile_options.parallelism,
+            disable_byteir_ait_cache=compile_options.disable_byteir_ait_cache,)
+
+@register_byteir_compiler_backend(target="cuda_with_ait_aggressive", device="cuda")
+def _compile_cuda_with_ait_aggressive(
+    compile_options: CompileOptions,
+) -> None:
+    return _compile_cuda_with_ait_impl(
+            module=compile_options.module,
+            output_file_path=compile_options.output_file_path,
+            entry_func=compile_options.entry_func,
+            gpu_type=compile_options.gpu_type,
+            verbose=compile_options.verbose,
+            name=compile_options.name,
+            aggressive_mode=True,
+            parallelism=compile_options.parallelism,
+            disable_byteir_ait_cache=compile_options.disable_byteir_ait_cache,)
+
+
+@register_byteir_compiler_backend(target="cpu", device="cpu")
+def _compile_cpu(
+    compile_options: CompileOptions,
+) -> None:
+    target = compile_options.target
+    module = compile_options.module
+    output_file_path = compile_options.output_file_path
+    entry_func = compile_options.entry_func
+    cpu_type = compile_options.cpu_type
+    verbose = compile_options.verbose
+
     output_file_dir = os.path.dirname(output_file_path)
     output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
     output_file_name = os.path.basename(output_file_path)
@@ -275,15 +336,15 @@ def compile(
     disable_byteir_ait_cache: bool = False,
     **kwargs,
 ) -> None:
-    _cuda_backends = ["cuda", "cuda_with_ait", "cuda_with_ait_aggressive"]
+    _device = get_target_device(target)
     ### optional detecting gpu type from nvidia-smi
-    if target in _cuda_backends and gpu_type == "local":
+    if _device == "cuda" and gpu_type == "local":
         local_gpu = detect_cuda_with_nvidia_smi()
         assert local_gpu is not None
         gpu_type = local_gpu
-    if target == "cuda":
+    if _device == "cuda":
         print(f"Compiling PTX to {gpu_type}")
-    elif target == "cpu":
+    elif _device  == "cpu":
         print(f"Compiling to cpu backend")
 
     ### load from .mlir or .mlirbc
@@ -302,27 +363,20 @@ def compile(
         _print_verbose(module, "// IR Dump After Legalize to HLO:") if verbose else ...
 
     ### compiling
-    if target == "cuda":
-        _compile_cuda(module, output_file_path, entry_func, gpu_type, verbose)
-    elif target == "cuda_with_ait":
-        _compile_cuda_with_ait(module,
-                              output_file_path,
-                              entry_func,
-                              gpu_type,
-                              verbose,
-                              parallelism=parallelism,
-                              disable_byteir_ait_cache=disable_byteir_ait_cache)
-    elif target == "cuda_with_ait_aggressive":
-        _compile_cuda_with_ait(module,
-                              output_file_path,
-                              entry_func,
-                              gpu_type,
-                              verbose,
-                              aggressive_mode=True,
-                              parallelism=parallelism,
-                              disable_byteir_ait_cache=disable_byteir_ait_cache)
-    elif target == "cpu":
-        cpu_type = ''
-        _compile_cpu(module, output_file_path, entry_func, cpu_type, verbose)
+    compile_options = CompileOptions(
+        target,
+        module,
+        output_file_path,
+        entry_func=entry_func,
+        gpu_type=gpu_type,
+        cpu_type='',
+        verbose=verbose,
+        parallelism=parallelism,
+        disable_byteir_ait_cache=disable_byteir_ait_cache,
+        kwargs=kwargs)
+
+    _compile_fn = look_up_backend(compile_options.target)
+    if _compile_fn is not None:
+        _compile_fn(compile_options)
     else:
         raise NotImplemented("not implemented target: {}".format(target))
