@@ -28,10 +28,11 @@
 
 #include "brt/core/context/work_queue.h"
 
-#ifdef BRT_USE_CUDA
 #include "brt/backends/cpu/device/cpu_device_api.h"
 #include "brt/backends/cpu/device/cpu_work_queue.h"
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
+
+#ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
