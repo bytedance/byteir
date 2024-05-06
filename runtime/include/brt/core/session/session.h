@@ -141,6 +141,9 @@ public:
   // Set device
   void SetExecDevice(DeviceType device_type, int device_id = 0);
 
+  // Returns device type
+  DeviceType GetDeviceType() const;
+
 protected:
   // hold a set of execution providers
   std::vector<std::unique_ptr<ExecutionProvider>> exec_providers_;

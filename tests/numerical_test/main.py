@@ -29,12 +29,14 @@ parser.add_argument("-f", "--filter", default=".*", help="""
 Regular expression specifying which tests to include in this run.
 """)
 parser.add_argument("--target", type=str, default="cuda_with_ait",
-                    choices=["ait", "cuda", "cuda_with_ait_aggressive"], help="target device name")
+                    choices=["ait", "cuda_with_ait", "cuda", "cuda_with_ait_aggressive", "cpu"], help="target device name")
 parser.add_argument("-c", "--config", default="all",
                     choices=["all", "mlir", "torch", "dynamo"], help="test sets to run.")
 args = parser.parse_args()
 
 EXCLUDE_MLIR_TESTS = []
+
+EXCLUDE_MLIR_CPU_TESTS = []
 
 EXCLUDE_TORCH_TESTS = []
 
@@ -95,6 +97,23 @@ def run_mlir_test(arch):
         results.append(compile_and_run_mlir(test, args.target))
     return results
 
+def run_mlir_cpu_test():
+    directory = os.path.dirname(os.path.realpath(__file__))
+    directory = directory + "/mlir_tests/cpu_ops"
+    cpu_target = "cpu"
+    mlir_tests = []
+
+    for filename in os.listdir(directory):
+        f = os.path.join(directory, filename)
+        # checking if it is a file
+        if os.path.isfile(f) and re.match(args.filter, filename):
+            if filename not in EXCLUDE_MLIR_CPU_TESTS:
+                mlir_tests.append(f)
+
+    results = []
+    for test in mlir_tests:
+        results.append(compile_and_run_mlir(test, cpu_target))
+    return results
 
 def run_torch_test(arch):
     tests = [
@@ -115,10 +134,13 @@ def main():
     assert (arch != None)
     if args.config == 'all':
         results = run_mlir_test(arch)
+        results = results + run_mlir_cpu_test()
         results = results + run_torch_test(arch)
         run_torch_dynamo_tests(arch)
-    elif args.config == 'mlir':
+    elif args.config == 'mlir' and args.target != "cpu":
         results = run_mlir_test(arch)
+    elif args.config == 'mlir' and args.target == "cpu":
+        results = run_mlir_cpu_test()
     elif args.config == 'torch':
         results = run_torch_test(arch)
     elif args.config == 'dynamo':

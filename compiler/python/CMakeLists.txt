@@ -17,6 +17,7 @@ declare_mlir_python_sources(ByteIRPythonSources.Common
   SOURCES
     __init__.py
     _byteir_registry.py
+    registry.py
     utils.py
     compile.py
     tools/compiler.py

@@ -3,6 +3,7 @@ from byteir import ir
 from byteir.passmanager import PassManager
 from byteir.dialects.cat import IRProcessor
 from byteir.dialects.builtin import ModuleOp
+from byteir.registry import register_byteir_compiler_backend, get_target_device, look_up_backend
 from byteir.utils import detect_cuda_with_nvidia_smi
 from pathlib import Path
 import os
@@ -88,7 +89,6 @@ def _compile_cuda(
     # write to output host mlir file
     with open(output_file_path, "w") as f:
         f.write(module.operation.get_asm())
-
 
 def _compile_cuda_with_ait(
     module: ModuleOp,
@@ -264,6 +264,11 @@ def _compile_cpu(
     with open(output_file_path, "w") as f:
         f.write(module.operation.get_asm())
 
+register_byteir_compiler_backend(compiler_fn=_compile_cuda, target="cuda", device="cuda")
+register_byteir_compiler_backend(compiler_fn=_compile_cuda_with_ait, target="cuda_with_ait", device="cuda")
+register_byteir_compiler_backend(compiler_fn=_compile_cuda_with_ait, target="cuda_with_ait_aggressive", device="cuda")
+register_byteir_compiler_backend(compiler_fn=_compile_cpu, target="cpu", device="cpu")
+
 def compile(
     input_file_path: str,
     output_file_path: str,
@@ -275,15 +280,15 @@ def compile(
     disable_byteir_ait_cache: bool = False,
     **kwargs,
 ) -> None:
-    _cuda_backends = ["cuda", "cuda_with_ait", "cuda_with_ait_aggressive"]
+    _device = get_target_device(target)
     ### optional detecting gpu type from nvidia-smi
-    if target in _cuda_backends and gpu_type == "local":
+    if _device == "cuda" and gpu_type == "local":
         local_gpu = detect_cuda_with_nvidia_smi()
         assert local_gpu is not None
         gpu_type = local_gpu
-    if target == "cuda":
+    if _device == "cuda":
         print(f"Compiling PTX to {gpu_type}")
-    elif target == "cpu":
+    elif _device  == "cpu":
         print(f"Compiling to cpu backend")
 
     ### load from .mlir or .mlirbc
