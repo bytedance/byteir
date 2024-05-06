@@ -15,7 +15,7 @@
 from torch_e2e_testing.framework import generate_golden_trace
 import brt
 import byteir
-from byteir.registry import get_target_device
+from byteir._backend_registry import get_target_device
 from mhlo_tools.ir_executor import Interpreter
 from mhlo_tools.mlir import ir
 import torch

@@ -4,17 +4,21 @@ _BYTEIR_BACKENDS: Dict[str, Callable] = dict()
 _BYTEIR_DEVICES: Dict[str, str] = dict()
 
 def register_byteir_compiler_backend(
-    compiler_fn: Optional[Callable] = None,
     target: Optional[str] = None,
     device: Optional[str] = None
 ):
-    if compiler_fn is None or target is None:
-        return None
-    assert callable(compiler_fn), f"compiler_fn should be callable object"
-    assert target not in _BYTEIR_BACKENDS, f"duplicate target name: {target}"
-    compiler_fn.device = device
-    _BYTEIR_DEVICES[target] = device
-    _BYTEIR_BACKENDS[target] = compiler_fn
+    def decorator(compiler_fn: Optional[Callable] = None):
+        if compiler_fn is None or target is None:
+            print(f"err: compiler_fn={compiler_fn} target={target}")
+            return None
+        assert callable(compiler_fn), f"compiler_fn should be callable object"
+        assert target not in _BYTEIR_BACKENDS, f"duplicate target name: {target}"
+        compiler_fn.device = device
+        _BYTEIR_DEVICES[target] = device
+        _BYTEIR_BACKENDS[target] = compiler_fn
+        return compiler_fn
+
+    return decorator
 
 def list_backend_names():
     return list(_BYTEIR_BACKENDS.keys())
