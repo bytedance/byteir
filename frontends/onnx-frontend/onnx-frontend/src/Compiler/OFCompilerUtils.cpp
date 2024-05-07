@@ -205,6 +205,54 @@ void SetInputShapes(onnx::ModelProto &model) {
 }
 
 namespace {
+void traverse_onnx_graph_preorder(
+    onnx::GraphProto &g, std::function<void(onnx::GraphProto &g)> callback) {
+  callback(g);
+
+  for (auto &node : *(g.mutable_node())) {
+    for (auto &attr : *(node.mutable_attribute())) {
+      if (attr.has_g()) {
+        callback(*(attr.mutable_g()));
+      }
+    }
+  }
+}
+
+void remove_invalid_dim_val_impl(onnx::GraphProto &g) {
+  // remove invalid dim value in current `ValueInfoProto`.
+  auto _remove_invalid_val = [](::onnx::ValueInfoProto &vi) {
+    if (vi.has_type() && vi.type().has_tensor_type() &&
+        vi.type().tensor_type().has_shape()) {
+      onnx::TensorShapeProto *shape =
+          vi.mutable_type()->mutable_tensor_type()->mutable_shape();
+      for (int i = 0; i < shape->dim_size(); ++i) {
+        auto dim = shape->mutable_dim(i);
+        if (dim->has_dim_value() && dim->dim_value() < 1) {
+          LLVM_DEBUG(llvm::dbgs() << "remove invalid dim val: " << vi.name()
+                                  << "=" << dim->dim_value() << "\n");
+          dim->Clear();
+        }
+      }
+    }
+  };
+
+  for (auto &input : *(g.mutable_input()))
+    _remove_invalid_val(input);
+
+  for (auto &output : *(g.mutable_output()))
+    _remove_invalid_val(output);
+
+  for (auto &vi : *(g.mutable_value_info()))
+    _remove_invalid_val(vi);
+}
+} // namespace
+
+void RemoveInvalidDimValues(onnx::ModelProto &model) {
+  onnx::GraphProto *graph = model.mutable_graph();
+  traverse_onnx_graph_preorder(*graph, remove_invalid_dim_val_impl);
+}
+
+namespace {
 std::string dirName(llvm::StringRef inputFilename) {
   llvm::SmallVector<char> path(inputFilename.begin(), inputFilename.end());
   llvm::sys::path::remove_filename(path);
@@ -248,6 +296,7 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     *errorMessage = "Onnx Model Parsing Failed on " + inputFilename;
     return onnx_mlir::InvalidOnnxFormat;
   }
+  RemoveInvalidDimValues(model);
   SetBatchSize(model);
   if (!inputShapes.empty()) {
     SetInputShapes(model);
