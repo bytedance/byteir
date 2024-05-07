@@ -22,6 +22,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/Operation.h"
 
 using namespace llvm;
@@ -111,11 +112,8 @@ template <typename RegionOp, typename Op> bool mlir::isRegularReduceOp(Op op) {
     return false;
   }
 
-  auto initValue = dyn_cast<SplatElementsAttr>(
-      op.getInitValues()[0]
-          .template getDefiningOp<mhlo::ConstantOp>()
-          .getValue());
-  if (!initValue) {
+  SplatElementsAttr initValue;
+  if (!matchPattern(op.getInitValues()[0], m_Constant(&initValue))) {
     return false;
   }
 
