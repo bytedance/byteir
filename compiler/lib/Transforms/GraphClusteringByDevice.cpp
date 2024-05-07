@@ -729,6 +729,8 @@ void GraphClusteringByDevicePass::runOnOperation() {
     }
 
     if (!metadatas) {
+      funcOp->emitError()
+          << "[ByteIR Transform]: GraphClusteringByDevice error.";
       signalPassFailure();
       return;
     }
