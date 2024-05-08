@@ -9,7 +9,11 @@ include "mlir/Pass/PassBase.td"
 
 def ConvertTorchToCustomCall : Pass<"convert-torch-to-custom-call", "func::FuncOp"> {
   let summary = "convert torch ops to byteir custom call.";
-  let constructor = "mlir::createConvertTorchToCustomCall()";
+  let constructor = "mlir::createConvertTorchToCustomCall(/*validCustomCallOps=*/{})";
+  let options = [
+    ListOption<"validCustomCallOps", "valid-custom-call-ops", "std::string",
+               "List of ops to be lowered to byteir custom call">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//

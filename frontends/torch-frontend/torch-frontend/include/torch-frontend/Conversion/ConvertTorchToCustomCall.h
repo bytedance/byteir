@@ -20,13 +20,15 @@
 
 #include "mlir/Pass/Pass.h"
 #include <memory>
+#include <string>
 
 namespace mlir {
 namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToCustomCall();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createConvertTorchToCustomCall(ArrayRef<std::string> validCustomCallOps);
 
 } // namespace mlir
 
