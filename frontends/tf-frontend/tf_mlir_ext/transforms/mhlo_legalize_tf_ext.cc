@@ -551,7 +551,7 @@ void PopulateMhloLegalizeTfExtPatterns(MLIRContext *context,
                                        RewritePatternSet *patterns) {
   patterns->add(std::make_unique<ConvertStridedSliceOp>(context));
   patterns->add(std::make_unique<ConvertBatchMatMulV2Op>(context));
-  patterns->add(std::make_unique<ConvertRoundOp>(context));
+  // patterns->add(std::make_unique<ConvertRoundOp>(context));
 }
 
 struct MhloLegalizeTfExtPass

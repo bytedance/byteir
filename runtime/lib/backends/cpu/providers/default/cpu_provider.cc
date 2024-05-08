@@ -105,11 +105,11 @@ BRT_STATIC_KERNEL_REGISTRATION(
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::TopK>(info);
           });
-      registry->Register(
-          "byteir.repeat",
-          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
-            return std::make_shared<cpu::Repeat>(info);
-          });
+      // registry->Register(
+      //     "byteir.repeat",
+      //     [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+      //       return std::make_shared<cpu::Repeat>(info);
+      //     });
       registry->Register(
           "tf.Select",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
