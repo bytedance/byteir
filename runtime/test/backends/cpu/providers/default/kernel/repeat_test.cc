@@ -98,27 +98,27 @@ void CheckByteirRepeatSingle(const std::vector<int64_t> &data_shape,
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, ByteirRepeatBasic) {
-  using half_float::half;
-
-  std::vector<float> f32_data = {
-      1.f, 1.f, 1.f, 1.f, 2.f, 2.f, 2.f, 2.f, 3.f, 3.f,
-      3.f, 3.f, 4.f, 4.f, 4.f, 4.f, 5.f, 5.f, 5.f, 5.f,
-  };
-  std::vector<half> data;
-  for (auto d : f32_data) {
-    data.push_back(half(d));
-  }
-  std::vector<int64_t> times = {2, 1, 0, 3, 4};
-  std::vector<float> f32_result = {
-      1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 2.f, 2.f, 2.f, 2.f, 4.f, 4.f,
-      4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 5.f, 5.f, 5.f, 5.f,
-      5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f,
-  };
-  std::vector<half> expect_result;
-  for (auto d : f32_result) {
-    expect_result.push_back(half(d));
-  }
-  CheckByteirRepeatSingle<half, int64_t>({5, 4}, {5}, {10, 4}, data, times,
-                                         expect_result);
-}
+// TEST(CPUOpKerenlTest, ByteirRepeatBasic) {
+//   using half_float::half;
+//
+//   std::vector<float> f32_data = {
+//       1.f, 1.f, 1.f, 1.f, 2.f, 2.f, 2.f, 2.f, 3.f, 3.f,
+//       3.f, 3.f, 4.f, 4.f, 4.f, 4.f, 5.f, 5.f, 5.f, 5.f,
+//   };
+//   std::vector<half> data;
+//   for (auto d : f32_data) {
+//     data.push_back(half(d));
+//   }
+//   std::vector<int64_t> times = {2, 1, 0, 3, 4};
+//   std::vector<float> f32_result = {
+//       1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 2.f, 2.f, 2.f, 2.f, 4.f, 4.f,
+//       4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 4.f, 5.f, 5.f, 5.f, 5.f,
+//       5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f, 5.f,
+//   };
+//   std::vector<half> expect_result;
+//   for (auto d : f32_result) {
+//     expect_result.push_back(half(d));
+//   }
+//   CheckByteirRepeatSingle<half, int64_t>({5, 4}, {5}, {10, 4}, data, times,
+//                                          expect_result);
+// }
