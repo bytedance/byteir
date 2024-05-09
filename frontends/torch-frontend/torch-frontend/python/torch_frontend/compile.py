@@ -141,7 +141,9 @@ def compile(
     # lowering torch to stablehlo
     ############################################
     with module.context:
-        pm = PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)")
+        # FIXME: change `backend-legal-ops` to another name?
+        option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
+        pm = PassManager.parse(f"builtin.module(torch-to-stablehlo-pipeline{option_string})")
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
@@ -231,7 +233,8 @@ def compile_dynamo_model(
     # lowering torch to stablehlo
     ############################################
     with module.context:
-        pm = PassManager.parse("builtin.module(torch-to-stablehlo-pipeline)")
+        option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
+        pm = PassManager.parse(f"builtin.module(torch-to-stablehlo-pipeline{option_string})")
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)

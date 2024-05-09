@@ -24,7 +24,9 @@
 namespace mlir {
 namespace torch_frontend {
 
-void createTorchToStablehloPipeline(OpPassManager &pm);
+void createTorchToStablehloPipeline(
+    OpPassManager &pm,
+    const torch::Torch::TorchLoweringPipelineOptions &options);
 
 void createTorchscriptToTorchPipeline(
     OpPassManager &pm,
@@ -34,10 +36,11 @@ void createTorchFunctionToTorchPipeline(
     OpPassManager &pm,
     const torch::Torch::TorchLoweringPipelineOptions &options);
 
-inline void registerTorchToMhloPipeline() {
-  PassPipelineRegistration<>("torch-to-stablehlo-pipeline",
-                             "Torch frontend torch to stablehlo pipeline.",
-                             createTorchToStablehloPipeline);
+inline void registerTorchToStablehloPipeline() {
+  PassPipelineRegistration<torch::Torch::TorchLoweringPipelineOptions>(
+      "torch-to-stablehlo-pipeline",
+      "Torch frontend torch to stablehlo pipeline.",
+      createTorchToStablehloPipeline);
 }
 
 inline void registerTorchscriptToTorchPipeline() {

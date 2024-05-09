@@ -1,4 +1,21 @@
-// RUN: torch-frontend-opt %s -convert-torch-to-custom-call --canonicalize-ext | FileCheck %s
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=aten.native_layer_norm,aten.layer_norm,aten.native_group_norm,aten.group_norm,aten._softmax,aten.softmax.int,aten._log_softmax,aten.log_softmax.int,aten.nll_loss_forward,aten.nll_loss_backward,aten.gelu,aten.argmax,aten.max.dim,aten.one_hot,aten.topk" --canonicalize-ext | FileCheck %s
+
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call --canonicalize-ext | FileCheck %s --check-prefix NONE
+
+func.func @torch.aten.gelu(%arg0: !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],f32> {
+  %str = torch.constant.str "tanh"
+  %0 = torch.aten.gelu %arg0, %str : !torch.vtensor<[?,?],f32>, !torch.str -> !torch.vtensor<[?,?],f32>
+  return %0 : !torch.vtensor<[?,?],f32>
+}
+// CHECK-LABEL: func.func @torch.aten.gelu
+// CHECK: stablehlo.custom_call
+// CHECK-SAME: @byteir.gelu
+// CHECK: byteir_attrs = {approximate = "tanh"}
+// CHECK-NOT: torch.aten.gelu
+
+// NONE-LABEL: func.func @torch.aten.gelu
+// NONE-NOT: stablehlo.custom_call
+// NONE: torch.aten.gelu
 
 func.func @torch.aten.native_layer_norm(%arg0: !torch.vtensor<[3,7,4,5],f32>) -> !torch.vtensor<[3,7,4,5],f32> {
   %0 = torch.vtensor.literal(dense<0.000000e+00> : tensor<4x5xf32>) : !torch.vtensor<[4,5],f32>
