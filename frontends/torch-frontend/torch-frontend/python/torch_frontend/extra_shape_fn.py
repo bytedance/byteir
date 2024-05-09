@@ -2,16 +2,7 @@ from typing import List, Tuple
 import torch
 
 
-def byteir〇flash_attn_fwd〡shape(q: List[int], k: List[int], v: List[int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[
-    List[int],
-    List[int],
-    List[int],
-    List[int],
-    List[int],
-    List[int],
-    List[int],
-    List[int],
-]:
+def byteir〇flash_attn_fwd〡shape(q: List[int], k: List[int], v: List[int], dropout_p: float, softmax_scale: float, casual: bool, return_softmax: bool) -> Tuple[List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[int]]:
     batch_size = q[0]
     seqlen_q = q[1]
     num_heads = q[2]
