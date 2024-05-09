@@ -28,13 +28,16 @@
 using namespace mlir;
 using namespace mlir::torch;
 
-void mlir::torch_frontend::createTorchToStablehloPipeline(OpPassManager &pm) {
+void mlir::torch_frontend::createTorchToStablehloPipeline(
+    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
   pm.addNestedPass<func::FuncOp>(createConvertTorchToCcl());
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToCustomCall());
+  pm.addNestedPass<func::FuncOp>(
+      createConvertTorchToCustomCall(options.backendLegalOps));
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloExt());
 
-  TorchConversion::StablehloBackendPipelineOptions options;
-  TorchConversion::createTorchBackendToStablehloBackendPipeline(pm, options);
+  TorchConversion::StablehloBackendPipelineOptions stablehloOptions;
+  TorchConversion::createTorchBackendToStablehloBackendPipeline(
+      pm, stablehloOptions);
   pm.addNestedPass<func::FuncOp>(
       stablehlo::createStablehloCanonicalizeDynamismPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());

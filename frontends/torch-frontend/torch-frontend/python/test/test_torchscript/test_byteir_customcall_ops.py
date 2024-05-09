@@ -174,4 +174,20 @@ def test_max_dim_keepdim_only_indices():
 
 # ==============================================================================
 
-#TODO(lyq): add more tests
+class GeluModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.nn.functional.gelu(x, approximate="tanh")
+
+def test_gelu():
+    inputs = [tu.randn(3, 4)]
+    custom_test_helper(GeluModule(), inputs, "byteir.gelu")
+
+def test_gelu_without_byteir_custom_op():
+    inputs = [tu.randn(3, 4)]
+    mlir_module = compile(GeluModule(), inputs, "stablehlo", backend_legal_ops=[])
+    mlir_str = mlir_module.operation.get_asm()
+    assert "stablehlo.custom_call" not in mlir_str
+    assert "byteir.gelu" not in mlir_str

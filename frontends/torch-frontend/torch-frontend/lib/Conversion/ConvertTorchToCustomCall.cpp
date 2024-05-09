@@ -30,6 +30,7 @@
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
+#include "llvm/ADT/StringSet.h"
 
 #include "./PassDetail.h"
 
@@ -1207,6 +1208,10 @@ namespace {
 class ConvertTorchToCustomCall
     : public ConvertTorchToCustomCallBase<ConvertTorchToCustomCall> {
 public:
+  ConvertTorchToCustomCall(ArrayRef<std::string> validCustomCallOps) {
+    this->validCustomCallOps = validCustomCallOps;
+  }
+
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
     registry.insert<arith::ArithDialect>();
@@ -1222,48 +1227,83 @@ public:
         .addLegalDialect<Torch::TorchDialect, arith::ArithDialect,
                          tensor::TensorDialect, stablehlo::StablehloDialect>();
 
+    validCustomCallOpsSet.clear();
+    validCustomCallOpsSet.insert(validCustomCallOps.begin(),
+                                 validCustomCallOps.end());
+
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
     TorchConversion::setupBackendTypeConversion(target, typeConverter);
 
     RewritePatternSet patterns(context);
-    target.addIllegalOp<AtenNativeLayerNormOp>();
-    patterns.add<ConvertAtenLayerNormOp<AtenNativeLayerNormOp>>(typeConverter,
-                                                                context);
-    target.addIllegalOp<AtenLayerNormOp>();
-    patterns.add<ConvertAtenLayerNormOp<AtenLayerNormOp>>(typeConverter,
-                                                          context);
-    target.addIllegalOp<AtenNativeGroupNormOp>();
-    patterns.add<ConvertAtenGroupNormOp<AtenNativeGroupNormOp>>(typeConverter,
-                                                                context);
-    target.addIllegalOp<AtenGroupNormOp>();
-    patterns.add<ConvertAtenGroupNormOp<AtenGroupNormOp>>(typeConverter,
-                                                          context);
-    target.addIllegalOp<Aten_SoftmaxOp>();
-    patterns.add<ConvertAtenSoftmaxOp<Aten_SoftmaxOp>>(typeConverter, context);
-    target.addIllegalOp<AtenSoftmaxIntOp>();
-    patterns.add<ConvertAtenSoftmaxOp<AtenSoftmaxIntOp>>(typeConverter,
+    if (validCustomCallOpsSet.contains("aten.native_layer_norm")) {
+      target.addIllegalOp<AtenNativeLayerNormOp>();
+      patterns.add<ConvertAtenLayerNormOp<AtenNativeLayerNormOp>>(typeConverter,
+                                                                  context);
+    }
+    if (validCustomCallOpsSet.contains("aten.layer_norm")) {
+      target.addIllegalOp<AtenLayerNormOp>();
+      patterns.add<ConvertAtenLayerNormOp<AtenLayerNormOp>>(typeConverter,
+                                                            context);
+    }
+    if (validCustomCallOpsSet.contains("aten.native_group_norm")) {
+      target.addIllegalOp<AtenNativeGroupNormOp>();
+      patterns.add<ConvertAtenGroupNormOp<AtenNativeGroupNormOp>>(typeConverter,
+                                                                  context);
+    }
+    if (validCustomCallOpsSet.contains("aten.group_norm")) {
+      target.addIllegalOp<AtenGroupNormOp>();
+      patterns.add<ConvertAtenGroupNormOp<AtenGroupNormOp>>(typeConverter,
+                                                            context);
+    }
+    if (validCustomCallOpsSet.contains("aten._softmax")) {
+      target.addIllegalOp<Aten_SoftmaxOp>();
+      patterns.add<ConvertAtenSoftmaxOp<Aten_SoftmaxOp>>(typeConverter,
                                                          context);
-    target.addIllegalOp<Aten_LogSoftmaxOp>();
-    patterns.add<ConvertAtenLogSoftmaxOp<Aten_LogSoftmaxOp>>(typeConverter,
-                                                             context);
-    target.addIllegalOp<AtenLogSoftmaxIntOp>();
-    patterns.add<ConvertAtenLogSoftmaxOp<AtenLogSoftmaxIntOp>>(typeConverter,
+    }
+    if (validCustomCallOpsSet.contains("aten.softmax.int")) {
+      target.addIllegalOp<AtenSoftmaxIntOp>();
+      patterns.add<ConvertAtenSoftmaxOp<AtenSoftmaxIntOp>>(typeConverter,
+                                                           context);
+    }
+    if (validCustomCallOpsSet.contains("aten._log_softmax")) {
+      target.addIllegalOp<Aten_LogSoftmaxOp>();
+      patterns.add<ConvertAtenLogSoftmaxOp<Aten_LogSoftmaxOp>>(typeConverter,
                                                                context);
-    target.addIllegalOp<AtenNllLossForwardOp>();
-    patterns.add<ConvertAtenNllLossForwardOp>(typeConverter, context);
-    target.addIllegalOp<AtenNllLossBackwardOp>();
-    patterns.add<ConvertAtenNllLossBackwardOp>(typeConverter, context);
-    target.addIllegalOp<AtenGeluOp>();
-    patterns.add<ConvertAtenGeluOp>(typeConverter, context);
-    target.addIllegalOp<AtenArgmaxOp>();
-    patterns.add<ConvertAtenArgmaxOp>(typeConverter, context);
-    target.addIllegalOp<AtenMaxDimOp>();
-    patterns.add<ConvertAtenMaxDimOp>(typeConverter, context);
-    target.addIllegalOp<AtenOneHotOp>();
-    patterns.add<ConvertAtenOneHotOp>(typeConverter, context);
-    target.addIllegalOp<AtenTopkOp>();
-    patterns.add<ConvertAtenTopkOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.log_softmax.int")) {
+      target.addIllegalOp<AtenLogSoftmaxIntOp>();
+      patterns.add<ConvertAtenLogSoftmaxOp<AtenLogSoftmaxIntOp>>(typeConverter,
+                                                                 context);
+    }
+    if (validCustomCallOpsSet.contains("aten.nll_loss_forward")) {
+      target.addIllegalOp<AtenNllLossForwardOp>();
+      patterns.add<ConvertAtenNllLossForwardOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.nll_loss_backward")) {
+      target.addIllegalOp<AtenNllLossBackwardOp>();
+      patterns.add<ConvertAtenNllLossBackwardOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.gelu")) {
+      target.addIllegalOp<AtenGeluOp>();
+      patterns.add<ConvertAtenGeluOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.argmax")) {
+      target.addIllegalOp<AtenArgmaxOp>();
+      patterns.add<ConvertAtenArgmaxOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.max.dim")) {
+      target.addIllegalOp<AtenMaxDimOp>();
+      patterns.add<ConvertAtenMaxDimOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.one_hot")) {
+      target.addIllegalOp<AtenOneHotOp>();
+      patterns.add<ConvertAtenOneHotOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("aten.topk")) {
+      target.addIllegalOp<AtenTopkOp>();
+      patterns.add<ConvertAtenTopkOp>(typeConverter, context);
+    }
 
     target.addIllegalOp<CustomOp>();
     patterns.add<ConvertDynamicPartitionCustomOp>(typeConverter, context);
@@ -1280,10 +1320,13 @@ public:
       return signalPassFailure();
     }
   }
+
+private:
+  llvm::StringSet<> validCustomCallOpsSet;
 };
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createConvertTorchToCustomCall() {
-  return std::make_unique<ConvertTorchToCustomCall>();
+mlir::createConvertTorchToCustomCall(ArrayRef<std::string> validCustomCallOps) {
+  return std::make_unique<ConvertTorchToCustomCall>(validCustomCallOps);
 }
