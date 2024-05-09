@@ -13,7 +13,7 @@ PROJ_DIR="$ROOT_PROJ_DIR/frontends/torch-frontend"
 TORCH_MLIR_ROOT="$PROJ_DIR/third_party/torch-mlir"
 
 function load_pytorch_llvm_prebuilt() {
-  TORCH_FRONTEND_LLVM_INSTALL_DIR="/data00/llvm_libraries/0030fc4ac74a9ce645adb9d59e108da4d4d11818/llvm_build"
+  TORCH_FRONTEND_LLVM_INSTALL_DIR="/data00/llvm_libraries/dabdec1001dc368373dd581cf72f37a440873ce3/llvm_build"
 }
 
 function apply_patches() {
