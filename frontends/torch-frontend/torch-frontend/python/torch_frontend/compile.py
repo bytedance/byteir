@@ -33,13 +33,16 @@ GENERIC_CUSTOM_OPS = [
 
 BYTEIR_CUSTOM_OPS = [
     "byteir.flash_attn_fwd",
+    "byteir.flash_attn_kvcache",
     "byteir.flash_attn_bwd",
 ]
+
 
 class DebugType(Enum):
     NO_DEBUG = 0
     PRINT_AFTER_FALIURE = 1
     PRINT_AFTER_ONLY_CHANGE = 2
+
 
 def _get_debug_parameters(debug: DebugType):
     assert isinstance(debug, DebugType), "unknown debug type"
@@ -47,24 +50,30 @@ def _get_debug_parameters(debug: DebugType):
     # you should set `module.context.enable_multithreading(False)`
     debug_parameters = {}
     if debug == DebugType.PRINT_AFTER_FALIURE:
-        debug_parameters = {"print_before_pass":False,
-                            "print_after_pass":True,
-                            "print_after_only_on_change":False,
-                            "print_after_only_on_failure":True,
-                            "print_module_scope":False,
-                            "large_elements_limit":10}
+        debug_parameters = {
+            "print_before_pass": False,
+            "print_after_pass": True,
+            "print_after_only_on_change": False,
+            "print_after_only_on_failure": True,
+            "print_module_scope": False,
+            "large_elements_limit": 10,
+        }
     elif debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-        debug_parameters = {"print_before_pass":False,
-                            "print_after_pass":True,
-                            "print_after_only_on_change":True,
-                            "print_after_only_on_failure":False,
-                            "print_module_scope":False,
-                            "large_elements_limit":10}
+        debug_parameters = {
+            "print_before_pass": False,
+            "print_after_pass": True,
+            "print_after_only_on_change": True,
+            "print_after_only_on_failure": False,
+            "print_module_scope": False,
+            "large_elements_limit": 10,
+        }
     return debug_parameters
+
 
 # FIXME(lyq): how to support multi-threading or multi-process?
 def _get_extra_library_file(backend_legal_ops: Sequence[str]):
     from torch_mlir import torchscript
+
     extra_library = []
     for op in backend_legal_ops:
         if op in byteir_extra_library:
@@ -102,6 +111,7 @@ def compile(
     # compile to raw by torch_mlir.torchscript
     ############################################
     from torch_mlir import torchscript
+
     module = torchscript.compile(
         model,
         example_inputs,
@@ -121,16 +131,24 @@ def compile(
     ############################################
     if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
         print("// IR Dump After RAW")
-        print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
+        print(
+            module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
+        )
         print()
         sys.stdout.flush()
 
     extra_library_file_name = _get_extra_library_file(backend_legal_ops)
     with module.context:
         option_string = (
-            "{backend-legal-ops=" + ",".join(backend_legal_ops) + " extra-library=" + extra_library_file_name + "}"
+            "{backend-legal-ops="
+            + ",".join(backend_legal_ops)
+            + " extra-library="
+            + extra_library_file_name
+            + "}"
         )
-        pm = PassManager.parse(f"builtin.module(torchscript-to-torch-pipeline{option_string})")
+        pm = PassManager.parse(
+            f"builtin.module(torchscript-to-torch-pipeline{option_string})"
+        )
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
@@ -147,7 +165,9 @@ def compile(
         pm.run(module.operation)
     with module.context:
         option_string = "{target-name=" + entry_func_name + "}"
-        pm = PassManager.parse(f"builtin.module(rewrite-entry-func-name{option_string})")
+        pm = PassManager.parse(
+            f"builtin.module(rewrite-entry-func-name{option_string})"
+        )
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
@@ -157,7 +177,9 @@ def compile(
     ############################################
     # serialize stablehlo to target version
     ############################################
-    return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
+    return serialize_portable_artifact(
+        module.operation.get_asm(), output_type.split("+")[1]
+    )
 
 
 def compile_dynamo_model(
@@ -190,6 +212,7 @@ def compile_dynamo_model(
     ##################################################
     torch_mlir_context = torch_mlir.ir.Context()
     from torch_mlir.dialects.torch import register_dialect as register_torch_dialect
+
     register_torch_dialect(torch_mlir_context)
     fx_importer = FxImporter(context=torch_mlir_context)
     # for torch.export
@@ -212,7 +235,9 @@ def compile_dynamo_model(
     ############################################
     if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
         print("// IR Dump After RAW")
-        print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
+        print(
+            module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
+        )
         print()
         sys.stdout.flush()
 
@@ -220,7 +245,9 @@ def compile_dynamo_model(
         # We still need torch-function-to-torch-pipeline help us do something, e.g.,
         # decompose ops, like aten.addmm, aten.t and so on.
         option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
-        pm = PassManager.parse(f"builtin.module(torch-function-to-torch-pipeline{option_string})")
+        pm = PassManager.parse(
+            f"builtin.module(torch-function-to-torch-pipeline{option_string})"
+        )
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
@@ -241,5 +268,6 @@ def compile_dynamo_model(
     ############################################
     # serialize stablehlo to target version
     ############################################
-    return serialize_portable_artifact(module.operation.get_asm(), output_type.split('+')[1])
-
+    return serialize_portable_artifact(
+        module.operation.get_asm(), output_type.split("+")[1]
+    )

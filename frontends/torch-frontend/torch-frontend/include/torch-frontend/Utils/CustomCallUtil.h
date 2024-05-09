@@ -97,6 +97,10 @@ constexpr llvm::StringRef getFlashAttnFwdName() {
   return CUSTOM_CALL_NAME_PREFIX "flash_attn_fwd";
 }
 
+constexpr llvm::StringRef getFlashAttnKVCacheName() {
+  return CUSTOM_CALL_NAME_PREFIX "flash_attn_kvcache";
+}
+
 constexpr llvm::StringRef getFlashAttnBwdName() {
   return CUSTOM_CALL_NAME_PREFIX "flash_attn_bwd";
 }

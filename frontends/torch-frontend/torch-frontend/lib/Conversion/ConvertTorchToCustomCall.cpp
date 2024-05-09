@@ -1142,6 +1142,65 @@ public:
     return success();
   }
 };
+
+class ConvertFlashAttnKVCacheOp : public OpConversionPattern<OperatorOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(OperatorOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto opName = adaptor.getName();
+    if (opName != getFlashAttnKVCacheName())
+      return rewriter.notifyMatchFailure(op, "op name not match");
+
+    auto operands = adaptor.getOperands();
+    Value q = operands[0];
+    Value k = operands[1];
+    Value v = operands[2];
+    Value kcache = operands[3];
+    Value vcache = operands[4];
+    Value seqlenK = operands[5];
+
+    double softmaxScale;
+    if (!matchPattern(op.getOperand(6), m_TorchConstantFloat(&softmaxScale)))
+      return rewriter.notifyMatchFailure(
+          op, "softmax scale must be constant float");
+    bool causal;
+    if (!matchPattern(op.getOperand(7), m_TorchConstantBool(&causal)))
+      return rewriter.notifyMatchFailure(op, "causal must be constant bool");
+
+    SmallVector<Value> bufferArgs({q, kcache, vcache, k, v, seqlenK});
+    Type outputPadTy = op.getResult(0).getType();
+    Type softmaxLseTy = op.getResult(1).getType();
+
+    SmallVector<Type> resultTypes;
+    if (failed(getTypeConverter()->convertTypes({outputPadTy, softmaxLseTy},
+                                                resultTypes))) {
+      return op.emitError("could not convert output types");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("softmax_scale"),
+                              rewriter.getF64FloatAttr(softmaxScale));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("causal"),
+                              rewriter.getBoolAttr(causal));
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getFlashAttnKVCacheName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+    Value out = customCallOp.getResult(0);
+    Value softmaxLse = customCallOp.getResult(1);
+    mlir::ValueRange results{out, softmaxLse};
+    rewriter.replaceOp(op, results);
+    return success();
+  }
+};
 } // namespace
 
 namespace {
@@ -1214,6 +1273,7 @@ public:
     target.addIllegalOp<OperatorOp>();
     patterns.add<ConvertFlashAttnFwdOp>(typeConverter, context);
     patterns.add<ConvertFlashAttnBwdOp>(typeConverter, context);
+    patterns.add<ConvertFlashAttnKVCacheOp>(typeConverter, context);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
