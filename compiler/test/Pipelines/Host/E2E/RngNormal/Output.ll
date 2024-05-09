@@ -5,9 +5,9 @@ define void @Unknown0(ptr %0, ptr %1, i64 %2, ptr %3, ptr %4, i64 %5, ptr %6, pt
   br label %14
 
 14:                                               ; preds = %17, %13
-  %15 = phi i64 [ %168, %17 ], [ 0, %13 ]
+  %15 = phi i64 [ %178, %17 ], [ 0, %13 ]
   %16 = icmp slt i64 %15, 97
-  br i1 %16, label %17, label %169
+  br i1 %16, label %17, label %179
 
 17:                                               ; preds = %14
   %18 = load i64, ptr %1, align 4
@@ -150,21 +150,31 @@ define void @Unknown0(ptr %0, ptr %1, i64 %2, ptr %3, ptr %4, i64 %5, ptr %6, pt
   %155 = add i32 %20, -1879881855
   %156 = zext i32 %154 to i64
   %157 = mul i64 %156, 3449720151
-  %158 = lshr i64 %157, 32
-  %159 = trunc i64 %158 to i32
-  %160 = xor i32 %159, %152
-  %161 = xor i32 %160, %155
-  %162 = uitofp i32 %161 to float
-  %163 = fmul float %162, 0x3DF0000000000000
-  %164 = fadd float %163, 0x3DE0000000000000
-  %165 = fadd float %164, 0.000000e+00
-  %166 = add i64 0, %15
-  %167 = getelementptr float, ptr %7, i64 %166
-  store float %165, ptr %167, align 4
-  %168 = add i64 %15, 1
+  %158 = trunc i64 %157 to i32
+  %159 = lshr i64 %157, 32
+  %160 = trunc i64 %159 to i32
+  %161 = xor i32 %160, %152
+  %162 = xor i32 %161, %155
+  %163 = uitofp i32 %162 to float
+  %164 = fmul float %163, 0x3DF0000000000000
+  %165 = fadd float %164, 0x3DE0000000000000
+  %166 = uitofp i32 %158 to float
+  %167 = fmul float %166, 0x3DF0000000000000
+  %168 = fadd float %167, 0x3DE0000000000000
+  %169 = call float @llvm.log.f32(float %165)
+  %170 = fmul float %169, -2.000000e+00
+  %171 = call float @llvm.sqrt.f32(float %170)
+  %172 = fmul float %168, 0x401921FB40000000
+  %173 = call float @llvm.cos.f32(float %172)
+  %174 = fmul float %171, %173
+  %175 = fadd float %174, 0.000000e+00
+  %176 = add i64 0, %15
+  %177 = getelementptr float, ptr %7, i64 %176
+  store float %175, ptr %177, align 4
+  %178 = add i64 %15, 1
   br label %14
 
-169:                                              ; preds = %14
+179:                                              ; preds = %14
   ret void
 }
 
@@ -188,6 +198,17 @@ define void @_mlir_ciface_Unknown0(ptr %0, ptr %1, ptr %2) {
   call void @Unknown0(ptr %5, ptr %6, i64 %7, ptr %9, ptr %10, i64 %11, ptr %13, ptr %14, i64 %15, i64 %16, i64 %17, i64 %18, i64 %19)
   ret void
 }
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare float @llvm.log.f32(float) #0
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare float @llvm.sqrt.f32(float) #0
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare float @llvm.cos.f32(float) #0
+
+attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !llvm.module.flags = !{!0}
 
