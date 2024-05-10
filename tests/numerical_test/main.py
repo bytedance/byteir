@@ -17,7 +17,7 @@ import argparse
 import os
 import re
 import numpy as np
-from execute import compile_and_run_mlir, compile_and_run_torch, gen_golden_mlir
+from execute import compile_and_run_mlir, compile_and_run_torch
 from torch_e2e_testing.registry import GLOBAL_TORCH_TEST_REGISTRY
 from torch_e2e_testing.test_suite import register_all_torch_tests
 from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
@@ -30,10 +30,9 @@ parser.add_argument("-f", "--filter", default=".*", help="""
 Regular expression specifying which tests to include in this run.
 """)
 parser.add_argument("--target", type=str, default="cuda_with_ait",
-                    choices=["ait", "cuda_with_ait", "cuda", "cuda_with_ait_aggressive", "cpu", "cpu_golden"], help="target device name")
+                    choices=["ait", "cuda_with_ait", "cuda", "cuda_with_ait_aggressive", "cpu"], help="target device name")
 parser.add_argument("-c", "--config", default="all",
                     choices=["all", "mlir", "torch", "dynamo"], help="test sets to run.")
-parser.add_argument("-g", "--golden", default="/tmp/mlir_cpu_golden", help="mlir test golden path")
 args = parser.parse_args()
 
 EXCLUDE_MLIR_TESTS = []
@@ -131,45 +130,6 @@ def run_mlir_cpu_test():
 
     return results
 
-def gen_mlir_cpu_golden():
-    directory = os.path.dirname(os.path.realpath(__file__))
-    directory = directory + "/mlir_tests/cpu_ops"
-    cpu_target = "cpu"
-    mlir_tests = []
-    os.makedirs(args.golden, exist_ok=True)
-
-    for filename in os.listdir(directory):
-        if filename.startswith('.'):
-            continue
-        f = os.path.join(directory, filename)
-        # checking if it is a file
-        if os.path.isfile(f) and re.match(args.filter, filename):
-            if filename not in EXCLUDE_MLIR_CPU_TESTS:
-                mlir_tests.append([
-                    f, MLIR_CPU_SPECIAL_INPUTS[filename]
-                    if filename in MLIR_CPU_SPECIAL_INPUTS else None
-                ])
-
-    results = []
-    for test in mlir_tests:
-        fpath = test[0]
-        cur_golden_dir = args.golden
-        if test[1] is None:
-            res = gen_golden_mlir(fpath, cpu_target, golden_dir=cur_golden_dir, num=5)
-        else:
-            res = gen_golden_mlir(fpath,
-                                  cpu_target,
-                                  golden_dir=cur_golden_dir,
-                                  num=5,
-                                  mode=test[1][0],
-                                  low=test[1][1],
-                                  high=test[1][2])
-
-        results.append(res)
-
-
-    return results
-
 def run_torch_test(arch):
     tests = [
         test for test in GLOBAL_TORCH_TEST_REGISTRY
@@ -194,8 +154,6 @@ def main():
         run_torch_dynamo_tests(arch)
     elif args.config == 'mlir' and args.target == "cpu":
         results = run_mlir_cpu_test()
-    elif args.config == 'mlir' and args.target == "cpu_golden":
-        results = gen_mlir_cpu_golden()
     elif args.config == 'mlir':
         results = run_mlir_test(arch)
     elif args.config == 'torch':

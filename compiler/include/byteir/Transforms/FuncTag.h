@@ -29,6 +29,10 @@ std::unique_ptr<OperationPass<ModuleOp>>
 createFuncTagPass(llvm::StringRef anchorTag = "", llvm::StringRef = "",
                   const std::string &funcName = "");
 
+std::unique_ptr<OperationPass<ModuleOp>>
+createRemoveFuncTagPass(llvm::StringRef attrName = "",
+                        llvm::StringRef funcName = "");
+
 } // namespace mlir
 
 #endif // BYTEIR_TRANSFORMS_FUNCTAG_H

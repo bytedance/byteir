@@ -368,7 +368,6 @@ def Byre_FuncOpV1 : Byre_SerializableOp<"func_v1", "1.0.0", "current"> {
                        OptionalAttr<AnyAttr>:$byre_arg_alias_indexs,
                        OptionalAttr<AnyAttr>:$byteir_entry_point,
                        OptionalAttr<AnyAttr>:$tf_original_input_names,
-                       OptionalAttr<AnyAttr>:$device_file_name,
                        OptionalAttr<AnyAttr>:$sym_visibility);
   let regions = (region AnyRegion:$body);
 }
