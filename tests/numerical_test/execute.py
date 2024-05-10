@@ -90,6 +90,14 @@ def get_entry_func_name(interp):
     return entry_func
 
 def gen_golden_mlir(mhlo_file, target, **kwargs):
+    """
+    Arguements:
+        @param mhlo_file: Source stablehlo/mhlo file.
+        @param target: Target name like `cpu`,`cuda`
+        @param num: Numbers of generated golden in/output, default to 5.
+        @param mode:  The data distribution of inputs.
+        @param low/hing: The range of generated inputs data.
+    """
     def save_np_data(fpath: str, data):
         np.save(fpath, data)
 
@@ -102,29 +110,37 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
         func_name = get_entry_func_name(interp)
         unique_name = os.path.basename(mhlo_file).split('.')[0]
         unique_name = unique_name + "." + target
-        if "mode" in kwargs:
-            input_mode = kwargs["mode"]
-            low = kwargs["low"] if "low" in kwargs else None
-            high = kwargs["high"] if "high" in kwargs else None
-            np_inputs = generate_np_inputs(interp, input_mode, low, high)
-        else:
-            np_inputs = generate_np_inputs(interp)
+        iter_number = kwargs["num"] if "num" in kwargs else 5
 
-        # run golden
-        golden_outputs = interp.call_function(func_name, np_inputs)
-
-        # byteir compile
         WORK_FOLDER = kwargs["golden_dir"] if "golden_dir" in kwargs else "./local_test"
         WORK_FOLDER = WORK_FOLDER + f"/{unique_name}"
         os.makedirs(WORK_FOLDER, exist_ok=True)
+
+        for idx in range(0, iter_number):
+            if "mode" in kwargs:
+                input_mode = kwargs["mode"]
+                low = kwargs["low"] if "low" in kwargs else None
+                high = kwargs["high"] if "high" in kwargs else None
+                np_inputs = generate_np_inputs(interp, input_mode, low, high)
+            else:
+                np_inputs = generate_np_inputs(interp)
+
+            # run golden
+            golden_outputs = interp.call_function(func_name, np_inputs)
+
+            # dump to local file
+            save_np_data(WORK_FOLDER + f"/input_{str(idx)}.npy", np_inputs)
+            save_np_data(WORK_FOLDER +  f"/output_{str(idx)}.npy", golden_outputs)
+
+            del np_inputs, golden_outputs
+
+        # byteir compile
         output_mlir_file_name = f'{WORK_FOLDER}/{unique_name}.rt.mlir'
         byteir.compile(mhlo_file, output_mlir_file_name,
                        entry_func=func_name, target=target)
 
-        # dump to local file
+        # cp orininal mlir file
         shutil.copy(mhlo_file, f"{WORK_FOLDER}/{os.path.basename(mhlo_file).split('.')[0]}.stablehlo.mlir")
-        save_np_data(WORK_FOLDER + f"/input.npy", np_inputs)
-        save_np_data(WORK_FOLDER +  f"/output.npy", golden_outputs)
 
         
     except Exception as e:

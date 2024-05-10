@@ -155,11 +155,12 @@ def gen_mlir_cpu_golden():
         fpath = test[0]
         cur_golden_dir = args.golden
         if test[1] is None:
-            res = gen_golden_mlir(fpath, cpu_target, golden_dir=cur_golden_dir)
+            res = gen_golden_mlir(fpath, cpu_target, golden_dir=cur_golden_dir, num=5)
         else:
             res = gen_golden_mlir(fpath,
                                   cpu_target,
                                   golden_dir=cur_golden_dir,
+                                  num=5,
                                   mode=test[1][0],
                                   low=test[1][1],
                                   high=test[1][2])
