@@ -80,6 +80,23 @@ bool byteirTranslateToLLVMBC(MlirModule module, MlirStringRef outputFile) {
   return true;
 }
 
+bool byteirTranslateToLLVMIR(MlirModule module, MlirStringRef outputFile) {
+  llvm::LLVMContext llvmContext;
+  auto llvmModule =
+      mlir::translateModuleToLLVMIR(unwrap(module).getOperation(), llvmContext);
+  if (!llvmModule) {
+    return false;
+  }
+  std::error_code ec;
+  llvm::raw_fd_ostream fout(std::string(unwrap(outputFile)), ec);
+  if (ec) {
+    llvm::errs() << "failed to create output file: " << unwrap(outputFile);
+    return false;
+  }
+  llvmModule->print(fout, nullptr);
+  return true;
+}
+
 bool byteirSerializeByre(MlirModule module, MlirStringRef targetVersion,
                          MlirStringRef outputFile) {
   mlir::ModuleOp m = unwrap(module);
