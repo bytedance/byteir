@@ -99,6 +99,9 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
             interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
         else:
             interp = Interpreter.load_from_file(mhlo_file)
+        func_name = get_entry_func_name(interp)
+        unique_name = os.path.basename(mhlo_file).split('.')[0]
+        unique_name = unique_name + "." + target
         if "mode" in kwargs:
             input_mode = kwargs["mode"]
             low = kwargs["low"] if "low" in kwargs else None
@@ -106,9 +109,6 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
             np_inputs = generate_np_inputs(interp, input_mode, low, high)
         else:
             np_inputs = generate_np_inputs(interp)
-        func_name = get_entry_func_name(interp)
-        unique_name = os.path.basename(mhlo_file).split('.')[0]
-        unique_name = unique_name + "." + target
 
         # run golden
         golden_outputs = interp.call_function(func_name, np_inputs)

@@ -267,7 +267,7 @@ def _compile_cpu(
     output_file_dir = os.path.dirname(output_file_path)
     output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
     output_file_name = os.path.basename(output_file_path)
-    bc_file_name = output_file_name + ".bc"
+    bc_file_name = os.path.splitext(output_file_name)[0] + "kernel.ll.bc"
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -324,6 +324,10 @@ def _compile_cpu(
     # write to output host mlir file
     with open(output_file_path, "w") as f:
         f.write(module.operation.get_asm())
+    output_bc_file_path = os.path.splitext(output_file_path)[0] + ".mlirbc"
+    # FIXME(chhuang) Pass target version info to compile options 
+    targetVersion = "1.0.0"
+    byteir.serialize_byre(module, targetVersion, output_bc_file_path)
 
 def compile(
     input_file_path: str,
