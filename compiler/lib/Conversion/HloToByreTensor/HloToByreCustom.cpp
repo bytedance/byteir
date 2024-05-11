@@ -45,13 +45,15 @@ constexpr StringRef getFlashAttnKVCacheAPI() {
 ByreCustomConfig mlir::getCudaByreCustomConfig() {
   ByreCustomConfig config;
   config.getCustomLibPath = [=](StringRef callee) {
-    if (callee == getFlashAttnFwdName() || callee == getFlashAttnBwdName()) {
+    if (callee == getFlashAttnFwdName() || callee == getFlashAttnBwdName() ||
+        callee == getFlashAttnKVCacheName()) {
       return getFlashAttnLibPath();
     }
     return StringRef("");
   };
   config.getCustomLibVersion = [=](StringRef callee) {
-    if (callee == getFlashAttnFwdName() || callee == getFlashAttnBwdName()) {
+    if (callee == getFlashAttnFwdName() || callee == getFlashAttnBwdName() ||
+        callee == getFlashAttnKVCacheName()) {
       return getFlashAttnLibVersion();
     }
     return StringRef("");
@@ -61,6 +63,8 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
       return getFlashAttnFwdAPI();
     } else if (callee == getFlashAttnBwdName()) {
       return getFlashAttnBwdAPI();
+    } else if (callee == getFlashAttnKVCacheName()) {
+      return getFlashAttnKVCacheAPI();
     }
     return StringRef("");
   };
@@ -169,6 +173,116 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
       extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenQRounded));
       extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenKRounded));
       extraArgs.push_back(rewriter.getF32FloatAttr(dropoutP));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(windowSizeLeft));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(windowSizeRight));
+      return ArrayAttr::get(rewriter.getContext(), extraArgs);
+    } else if (callee == getFlashAttnKVCacheName()) {
+      OpBuilder rewriter(op);
+      ShapedType qShapeTy = op.getOperand(0).getType().dyn_cast<ShapedType>();
+      ShapedType kcacheShapeTy =
+          op.getOperand(1).getType().dyn_cast<ShapedType>();
+      ShapedType vcacheShapeTy =
+          op.getOperand(2).getType().dyn_cast<ShapedType>();
+      ShapedType kShapeTy = op.getOperand(3).getType().dyn_cast<ShapedType>();
+      ShapedType vShapeTy = op.getOperand(4).getType().dyn_cast<ShapedType>();
+      ShapedType oShapeTy = op.getResult(0).getType().dyn_cast<ShapedType>();
+      if (!qShapeTy || !qShapeTy.hasStaticShape() || !kShapeTy ||
+          !kShapeTy.hasStaticShape() || !vShapeTy ||
+          !vShapeTy.hasStaticShape() || !kcacheShapeTy ||
+          !kcacheShapeTy.hasStaticShape() || !vcacheShapeTy ||
+          !vcacheShapeTy.hasStaticShape() || !oShapeTy ||
+          !oShapeTy.hasStaticShape())
+        assert(false && "unexpected flash attention shape!");
+
+      auto qShape = qShapeTy.getShape();
+      auto kShape = kShapeTy.getShape();
+      auto vShape = vShapeTy.getShape();
+      auto kcacheShape = kcacheShapeTy.getShape();
+      auto vcacheShape = vcacheShapeTy.getShape();
+      auto oShape = oShapeTy.getShape();
+      int64_t batchSizeQ = qShape[0];
+      int64_t seqlenQ = qShape[1];
+      int64_t numHeadsQ = qShape[2];
+      int64_t headSizeQ = qShape[3];
+      int64_t batchSizeK = kcacheShape[0];
+      int64_t seqlenK = kcacheShape[1];
+      int64_t numHeadsK = kcacheShape[2];
+      int64_t headSizeK = kcacheShape[3];
+      assert(headSizeQ == headSizeK && batchSizeQ == batchSizeK);
+      assert(headSizeQ % 8 == 0);
+
+      auto roundMultiple = [](int x, int m) { return (x + m - 1) / m * m; };
+      const int headSize = roundMultiple(headSizeQ, 8);
+      const int headSizeRounded = roundMultiple(headSize, 32);
+      const int seqlenQRounded = roundMultiple(seqlenQ, 128);
+      const int seqlenKRounded = roundMultiple(seqlenK, 128);
+
+      uint32_t qBatchStride = qShape[1] * qShape[2] * qShape[3];
+      uint32_t kBatchStride = kShape[1] * kShape[2] * kShape[3];
+      uint32_t vBatchStride = vShape[1] * vShape[2] * vShape[3];
+      uint32_t kcacheBatchStride =
+          kcacheShape[1] * kcacheShape[2] * kcacheShape[3];
+      uint32_t vcacheBatchStride =
+          vcacheShape[1] * vcacheShape[2] * vcacheShape[3];
+      uint32_t oBatchStride = oShape[1] * oShape[2] * oShape[3];
+      uint32_t qRowStride = qShape[2] * qShape[3];
+      uint32_t kRowStride = kShape[2] * kShape[3];
+      uint32_t vRowStride = vShape[2] * vShape[3];
+      uint32_t kcacheRowStride = kcacheShape[2] * kcacheShape[3];
+      uint32_t vcacheRowStride = vcacheShape[2] * vcacheShape[3];
+      uint32_t oRowStride = oShape[2] * oShape[3];
+      uint32_t qHeadStride = qShape[3];
+      uint32_t kHeadStride = kShape[3];
+      uint32_t vHeadStride = vShape[3];
+      uint32_t kcacheHeadStride = kcacheShape[3];
+      uint32_t vcacheHeadStride = vcacheShape[3];
+      uint32_t oHeadStride = oShape[3];
+
+      DictionaryAttr byteirAttrs =
+          op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+      if (!byteirAttrs)
+        assert(false && "byteir attribute not found!");
+      bool causal = byteirAttrs.get("causal").cast<BoolAttr>().getValue();
+      float softmaxScale = byteirAttrs.get("softmax_scale")
+                               .cast<FloatAttr>()
+                               .getValue()
+                               .convertToDouble();
+      int windowSizeLeft = -1;
+      int windowSizeRight = -1;
+      if (causal)
+        windowSizeRight = 0;
+
+      // extra args should match kernel api call
+      extraArgs.push_back(rewriter.getI64IntegerAttr(qBatchStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(kcacheBatchStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(vcacheBatchStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(kBatchStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(vBatchStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(oBatchStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(qRowStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(kcacheRowStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(vcacheRowStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(kRowStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(vRowStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(oRowStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(qHeadStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(kHeadStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(vHeadStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(kcacheHeadStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(vcacheHeadStride));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(oHeadStride));
+
+      extraArgs.push_back(rewriter.getI64IntegerAttr(batchSizeQ));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(numHeadsQ));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(numHeadsK));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(headSize));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(headSizeRounded));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenQ));
+      extraArgs.push_back(rewriter.getF32FloatAttr(softmaxScale));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenQ));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenK));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenQRounded));
+      extraArgs.push_back(rewriter.getI64IntegerAttr(seqlenKRounded));
       extraArgs.push_back(rewriter.getI64IntegerAttr(windowSizeLeft));
       extraArgs.push_back(rewriter.getI64IntegerAttr(windowSizeRight));
       return ArrayAttr::get(rewriter.getContext(), extraArgs);

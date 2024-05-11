@@ -34,6 +34,9 @@ MLIR_CAPI_EXPORTED bool byteirTranslateToPTX(MlirModule module,
 MLIR_CAPI_EXPORTED bool byteirTranslateToLLVMBC(MlirModule module,
                                                 MlirStringRef outputFile);
 
+MLIR_CAPI_EXPORTED bool byteirTranslateToLLVMIR(MlirModule module,
+                                                MlirStringRef outputFile);
+
 MLIR_CAPI_EXPORTED bool byteirSerializeByre(MlirModule module,
                                             MlirStringRef targetVersion,
                                             MlirStringRef outputFile);

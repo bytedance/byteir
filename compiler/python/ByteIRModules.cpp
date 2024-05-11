@@ -35,6 +35,7 @@ PYBIND11_MODULE(_byteir, m) {
 
   m.doc() = "byteir python extension";
 
+  //========== Register Dialects ============
   m.def(
       "register_cat_dialect",
       [](MlirContext context, bool load) {
@@ -96,6 +97,7 @@ PYBIND11_MODULE(_byteir, m) {
       [](MlirContext context) { byteirRegisterTranslationDialects(context); },
       py::arg("context"));
 
+  //============ Translate ==============
   m.def(
       "translate_to_ptx",
       [](MlirModule module, const std::string &ptxPrefixFileName,
@@ -120,7 +122,18 @@ PYBIND11_MODULE(_byteir, m) {
         return;
       },
       py::arg("module"), py::arg("output_file"));
+  m.def(
+      "translate_to_llvmir",
+      [](MlirModule module, const std::string &outputFile) {
+        if (!byteirTranslateToLLVMIR(module, toMlirStringRef(outputFile))) {
+          PyErr_SetString(PyExc_ValueError, "failed to translate to llvm ir");
+          return;
+        }
+        return;
+      },
+      py::arg("module"), py::arg("output_file"));
 
+  //============ Byre Serialization ==============
   m.def(
       "serialize_byre",
       [](MlirModule module, const std::string &targetVersion,
@@ -143,6 +156,7 @@ PYBIND11_MODULE(_byteir, m) {
           return module;
         });
 
+  //============ Module Utils ==============
   m.def(
       "merge_two_modules",
       [](MlirModule module0, MlirModule module1) -> MlirModule {
