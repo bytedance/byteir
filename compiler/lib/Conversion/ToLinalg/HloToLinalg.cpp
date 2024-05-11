@@ -933,6 +933,200 @@ public:
     return success();
   }
 };
+
+class ByteirRepeatCustomCallConverter
+    : public OpConversionPattern<mhlo::CustomCallOp> {
+public:
+  using OpConversionPattern<mhlo::CustomCallOp>::OpConversionPattern;
+
+  TypedAttr createInitialValueForReduceOp(Type elementTy,
+                                          PatternRewriter &rewriter) const {
+    if (isa<FloatType>(elementTy))
+      return rewriter.getFloatAttr(elementTy, 0.0);
+
+    if (isa<IntegerType>(elementTy))
+      return rewriter.getIntegerAttr(elementTy, 0);
+
+    return {};
+  }
+
+  LogicalResult
+  matchAndRewrite(mhlo::CustomCallOp op, mhlo::CustomCallOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    if (op.getCallTargetName() != getRepeatName())
+      return failure();
+
+    auto loc = op->getLoc();
+    auto data = op->getOperand(0);
+    auto time = op->getOperand(1);
+    auto rest = op->getResult(0);
+    auto dataType = data.getType().dyn_cast<ShapedType>();
+    auto timeType = time.getType().dyn_cast<ShapedType>();
+    auto restType = rest.getType().dyn_cast<ShapedType>();
+    if (!dataType || !timeType || !restType)
+      return failure();
+    if (dataType.getRank() == 0 || dataType.getRank() > 2 ||
+        timeType.getRank() != 1)
+      return failure();
+
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    Type indexTy = rewriter.getIndexType();
+    Value rankZero = rewriter.create<tensor::DimOp>(loc, indexTy, data, zero);
+
+    llvm::SmallVector<Value> dimSizeValues;
+    if (restType.isDynamicDim(0)) {
+      auto initAttr =
+          createInitialValueForReduceOp(timeType.getElementType(), rewriter);
+      if (!initAttr)
+        return rewriter.notifyMatchFailure(
+            op, "No initial value found for reduction operation");
+
+      auto fillValue = rewriter.create<arith::ConstantOp>(loc, initAttr);
+      auto filledTensor =
+          rewriter
+              .create<tensor::EmptyOp>(loc, llvm::ArrayRef<int64_t>({}),
+                                       timeType.getElementType(),
+                                       llvm::ArrayRef<Value>({}))
+              .getResult();
+      auto init = rewriter
+                      .create<linalg::FillOp>(loc, ValueRange{fillValue},
+                                              ValueRange{filledTensor})
+                      .result();
+      auto linalgReduceOp = rewriter.create<linalg::ReduceOp>(
+          loc, ValueRange({time}), ValueRange({init}), 0,
+          [&](OpBuilder &nestedBuilder, Location nestedLoc,
+              ValueRange blockArgs) {
+            Value result = nestedBuilder.create<arith::AddIOp>(loc, blockArgs)
+                               ->getResult(0);
+            nestedBuilder.create<linalg::YieldOp>(loc, result);
+          });
+      Value sum = linalgReduceOp.getResults()[0];
+      sum =
+          rewriter.create<tensor::ExtractOp>(loc, sum, llvm::ArrayRef<Value>());
+      sum = rewriter.create<arith::IndexCastOp>(loc, indexTy, sum);
+      dimSizeValues.push_back(sum);
+    } else {
+      dimSizeValues.push_back(nullptr);
+    }
+    for (int64_t i = 1; i < dataType.getRank(); ++i) {
+      if (dataType.isDynamicDim(i)) {
+        Value dim = rewriter.create<arith::ConstantIndexOp>(loc, i);
+        Value len = rewriter.create<tensor::DimOp>(loc, indexTy, data, dim);
+        dimSizeValues.push_back(len);
+      } else {
+        dimSizeValues.push_back(nullptr);
+      }
+    }
+    llvm::SmallVector<Value> dynDimSize;
+    for (auto v : dimSizeValues) {
+      if (v) {
+        dynDimSize.push_back(v);
+      }
+    }
+    Value output = getEmptyTensor(rewriter, loc, restType, dynDimSize);
+
+    auto loop = rewriter.create<scf::ForOp>(
+        loc, zero, rankZero, one, ValueRange({output, zero}),
+        [&](OpBuilder &b, Location loc, Value iv, ValueRange args) {
+          Value buffer = *(args.begin());
+          Value index = *(++args.begin());
+
+          llvm::SmallVector<Value> offset = {iv};
+          llvm::SmallVector<Value> size;
+          llvm::SmallVector<Value> stride;
+          llvm::SmallVector<int64_t> offsetStatic = {ShapedType::kDynamic};
+          llvm::SmallVector<int64_t> sizeStatic = {1};
+          llvm::SmallVector<int64_t> strideStatic = {1};
+
+          for (int64_t i = 1; i < dataType.getRank(); ++i) {
+            offsetStatic.push_back(0);
+            if (dataType.isDynamicDim(i)) {
+              size.push_back(dimSizeValues[i]);
+              sizeStatic.push_back(ShapedType::kDynamic);
+            } else {
+              sizeStatic.push_back(dataType.getShape()[i]);
+            }
+            strideStatic.push_back(1);
+          }
+          Value dataSlice =
+              b.create<tensor::ExtractSliceOp>(
+                   loc, dataType.clone(sizeStatic), data, ValueRange(offset),
+                   ValueRange(size), ValueRange(stride),
+                   rewriter.getDenseI64ArrayAttr(offsetStatic),
+                   rewriter.getDenseI64ArrayAttr(sizeStatic),
+                   rewriter.getDenseI64ArrayAttr(strideStatic))
+                  ->getResult(0);
+
+          Value multiply = b.create<tensor::ExtractOp>(loc, time, iv);
+          multiply = b.create<arith::IndexCastOp>(loc, indexTy, multiply);
+          llvm::SmallVector<Value> offsetBuffer = {index};
+          llvm::SmallVector<Value> sizeBuffer = {multiply};
+          llvm::SmallVector<Value> strideBuffer;
+          llvm::SmallVector<int64_t> offsetStaticBuffer = {
+              ShapedType::kDynamic};
+          llvm::SmallVector<int64_t> sizeStaticBuffer = {ShapedType::kDynamic};
+          llvm::SmallVector<int64_t> strideStaticBuffer = {1};
+          for (int64_t i = 1; i < dataType.getRank(); ++i) {
+            offsetStaticBuffer.push_back(0);
+            if (dataType.isDynamicDim(i)) {
+              sizeBuffer.push_back(dimSizeValues[i]);
+              sizeStaticBuffer.push_back(ShapedType::kDynamic);
+            } else {
+              sizeStaticBuffer.push_back(dataType.getShape()[i]);
+            }
+            strideStaticBuffer.push_back(1);
+          }
+          Value bufferSlice = getEmptyTensor(
+              b, loc, restType.clone(sizeStaticBuffer), sizeBuffer);
+
+          int64_t nLoops = dataType.getRank();
+          auto zeroExpr = b.getAffineConstantExpr(0);
+          auto zeroDimExpr = b.getAffineDimExpr(0);
+          llvm::SmallVector<AffineMap> affineMaps;
+          llvm::SmallVector<AffineExpr> inputExprs = {zeroExpr};
+          llvm::SmallVector<AffineExpr> outputExprs = {zeroDimExpr};
+          for (int64_t i = 1; i < dataType.getRank(); ++i) {
+            auto dimExpr = b.getAffineDimExpr(i);
+            inputExprs.push_back(dimExpr);
+            outputExprs.push_back(dimExpr);
+          }
+          affineMaps.push_back(AffineMap::get(/*dimCount*/ nLoops,
+                                              /*symbolCount*/ 0, inputExprs,
+                                              b.getContext()));
+          affineMaps.push_back(AffineMap::get(/*dimCount*/ nLoops,
+                                              /*symbolCount*/ 0, outputExprs,
+                                              b.getContext()));
+
+          auto linalgOp = rewriter.create<linalg::GenericOp>(
+              loc,
+              /*resultTensorTypes=*/
+              ArrayRef<Type>{bufferSlice.getType()},
+              /*inputs=*/ValueRange{dataSlice},
+              /*outputBuffers=*/ValueRange{bufferSlice}, affineMaps,
+              getNParallelLoopsAttrs(nLoops),
+              [&](OpBuilder &nestedBuilder, Location nestedLoc,
+                  ValueRange args) {
+                nestedBuilder.create<linalg::YieldOp>(nestedLoc, args[0]);
+              },
+              linalg::getPrunedAttributeList(op));
+          Value updated =
+              b.create<tensor::InsertSliceOp>(
+                   loc, linalgOp->getResult(0), buffer,
+                   ValueRange(offsetBuffer), ValueRange(sizeBuffer),
+                   ValueRange(strideBuffer),
+                   rewriter.getDenseI64ArrayAttr(offsetStaticBuffer),
+                   rewriter.getDenseI64ArrayAttr(sizeStaticBuffer),
+                   rewriter.getDenseI64ArrayAttr(strideStaticBuffer))
+                  ->getResult(0);
+          Value nextIndex = b.create<arith::AddIOp>(loc, index, multiply);
+          b.create<scf::YieldOp>(loc, ValueRange({updated, nextIndex}));
+        });
+    rewriter.replaceOp(op.getOperation(), loop->getResults()[0]);
+    return success();
+  }
+};
+
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
@@ -995,6 +1189,7 @@ void mlir::populateHloToLinalgExtConversionPattern(
   patterns.add<LayerNormCustomCallConverter>(ctx);
   patterns.add<GeLUCustomCallConverter>(ctx);
   patterns.add<RngUniformCustomCallConverter>(ctx);
+  patterns.add<ByteirRepeatCustomCallConverter>(ctx);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
