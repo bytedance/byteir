@@ -1,38 +1,36 @@
 diff --git a/lib/Dialect/Torch/Transforms/Passes.cpp b/lib/Dialect/Torch/Transforms/Passes.cpp
-index 407e9024..e6cc302a 100644
+index d01eac96..f0d50076 100644
 --- a/lib/Dialect/Torch/Transforms/Passes.cpp
 +++ b/lib/Dialect/Torch/Transforms/Passes.cpp
-@@ -106,6 +106,10 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
+@@ -104,6 +104,10 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
+   // Erase the module initializer if we have proven that all the global slots
+   // are gone.
    pm.addPass(createEraseModuleInitializerPass());
-   // Clean up again to avoid needing to to back around the fixed-point
-   // iteration.
 +
 +  // fully unroll prim.Loop
 +  pm.addNestedPass<func::FuncOp>(Torch::createSimplifyShapeCalculationsPass());
 +
+   // Clean up again to avoid needing to to back around the fixed-point
+   // iteration.
    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-   pm.addNestedPass<func::FuncOp>(createRecomposeComplexOpsPass());
-   // Reduce variants of ops to a smaller set of primitives.
-@@ -118,12 +122,16 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
-   pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
-   // Update the return op to return value tensors.
+@@ -120,11 +124,15 @@ void mlir::torch::Torch::createTorchSimplificationPipeline(
    pm.addPass(Torch::createRefinePublicReturnPass());
--  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
--  // Do shape and dtype refinement.
--  // Shape refinement should be run before dtype refinement because Torch type
--  // promotion rules actually depend on the shape of the operand.
--  createTorchShapeRefinementPipeline(pm, options);
--  createTorchDtypeRefinementPipeline(pm, options);
-+  for (int i = 0; i < 5; i++) {
-+    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-+    // Do shape and dtype refinement.
-+    // Shape refinement should be run before dtype refinement because Torch type
-+    // promotion rules actually depend on the shape of the operand.
-+    createTorchShapeRefinementPipeline(pm, options);
-+    createTorchDtypeRefinementPipeline(pm, options);
-+    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-+    pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
-+  }
+   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+   if (options.shapeDtypeRefine) {
+-    // Do shape and dtype refinement.
+-    // Shape refinement should be run before dtype refinement because Torch type
+-    // promotion rules actually depend on the shape of the operand.
+-    createTorchShapeRefinementPipeline(pm, options);
+-    createTorchDtypeRefinementPipeline(pm, options);
++    for (int i = 0; i < 5; i++) {
++      // Do shape and dtype refinement.
++      // Shape refinement should be run before dtype refinement because Torch
++      // type promotion rules actually depend on the shape of the operand.
++      createTorchShapeRefinementPipeline(pm, options);
++      createTorchDtypeRefinementPipeline(pm, options);
++      pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
++      pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
++    }
+   }
    // Propagate to ABI return types the shape/dtype information discovered by
    // the previous pass. Doing this is ABI-compatible for our backends.
-   pm.addPass(Torch::createRefinePublicReturnPass());

@@ -37,6 +37,12 @@ BYTEIR_CUSTOM_OPS = [
     "byteir.flash_attn_bwd",
 ]
 
+# ops which should not decomposed by torch-mlir 
+NOT_DECOMPOSE_OPS = [
+    "aten.randn.generator",
+    "aten.normal_functional",
+]
+
 
 class DebugType(Enum):
     NO_DEBUG = 0
@@ -105,6 +111,7 @@ def compile(
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
         backend_legal_ops = GENERIC_CUSTOM_OPS
+    backend_legal_ops += NOT_DECOMPOSE_OPS
     debug_parameters = _get_debug_parameters(debug)
 
     ############################################
@@ -207,6 +214,7 @@ def compile_dynamo_model(
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
         backend_legal_ops = GENERIC_CUSTOM_OPS
+    backend_legal_ops += NOT_DECOMPOSE_OPS
     debug_parameters = _get_debug_parameters(debug)
 
     ##################################################
