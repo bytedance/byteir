@@ -16,6 +16,7 @@
 import argparse
 import os
 import re
+import numpy as np
 from execute import compile_and_run_mlir, compile_and_run_torch
 from torch_e2e_testing.registry import GLOBAL_TORCH_TEST_REGISTRY
 from torch_e2e_testing.test_suite import register_all_torch_tests
@@ -36,9 +37,17 @@ args = parser.parse_args()
 
 EXCLUDE_MLIR_TESTS = []
 
-EXCLUDE_MLIR_CPU_TESTS = []
+# Unsupported ops
+EXCLUDE_MLIR_CPU_TESTS = [
+    "custom_call_tf_UpperBound.mlir",
+    "rng.mlir",
+]
 
 EXCLUDE_TORCH_TESTS = []
+
+MLIR_CPU_SPECIAL_INPUTS = {
+    "log_plus_one.mlir" : ["uniform", 0.5, 1.0],
+}
 
 SM80_PLUS_TESTS = [
     "dot_f32.mlir",
@@ -104,15 +113,21 @@ def run_mlir_cpu_test():
     mlir_tests = []
 
     for filename in os.listdir(directory):
+        if filename.startswith('.'):
+            continue
         f = os.path.join(directory, filename)
         # checking if it is a file
         if os.path.isfile(f) and re.match(args.filter, filename):
             if filename not in EXCLUDE_MLIR_CPU_TESTS:
-                mlir_tests.append(f)
+                mlir_tests.append([f, MLIR_CPU_SPECIAL_INPUTS[filename] if filename in MLIR_CPU_SPECIAL_INPUTS else None])
 
     results = []
     for test in mlir_tests:
-        results.append(compile_and_run_mlir(test, cpu_target))
+        if test[1] is None:
+            results.append(compile_and_run_mlir(test[0], cpu_target))
+        else:
+            results.append(compile_and_run_mlir(test[0], cpu_target, mode=test[1][0], low=test[1][1], high=test[1][2]))
+
     return results
 
 def run_torch_test(arch):
@@ -137,10 +152,10 @@ def main():
         results = results + run_mlir_cpu_test()
         results = results + run_torch_test(arch)
         run_torch_dynamo_tests(arch)
-    elif args.config == 'mlir' and args.target != "cpu":
-        results = run_mlir_test(arch)
     elif args.config == 'mlir' and args.target == "cpu":
         results = run_mlir_cpu_test()
+    elif args.config == 'mlir':
+        results = run_mlir_test(arch)
     elif args.config == 'torch':
         results = run_torch_test(arch)
     elif args.config == 'dynamo':

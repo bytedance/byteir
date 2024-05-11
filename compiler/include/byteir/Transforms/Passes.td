@@ -191,6 +191,23 @@ def FuncTag : Pass<"func-tag", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// RemoveFuncTag
+//===----------------------------------------------------------------------===//
+
+def RemoveFuncTag : Pass<"remove-func-tag", "ModuleOp"> {
+  let summary = "Remove Tag based on func name and attr";
+  let constructor = "mlir::createRemoveFuncTagPass()";
+  let options = [
+    Option<"attrName", "attr-name", "std::string",
+            /*default=*/"",
+            "An optional attribute removing from target functions:">,
+    Option<"funcName", "func-name", "std::string",
+            /*default=*/"",
+            "An optional name to specify target functions.">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // GraphClusteringByDevice
 //===----------------------------------------------------------------------===//
 // This pass is currently a naive one and only works correct on tensor level Dialects

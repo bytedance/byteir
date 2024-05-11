@@ -63,6 +63,12 @@ void mlir::setParsedConcatAttr(Operation *op, const std::string &attrName,
   }
 }
 
+void mlir::eraseAttr(Operation *op, const std::string &attrName) {
+  if (!op)
+    return;
+  op->removeAttr(llvm::StringRef(attrName));
+}
+
 std::optional<ElementsAttr>
 mlir::reshapeSplatElementsAttr(ElementsAttr attr,
                                llvm::ArrayRef<int64_t> newShape) {

@@ -20,8 +20,11 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
+#include "llvm/Support/Debug.h"
 
 #include "./PassDetail.h"
+
+#define DEBUG_TYPE "func-tag"
 
 using namespace mlir;
 
@@ -78,6 +81,26 @@ struct FuncTagPass : public FuncTagBase<FuncTagPass> {
   std::string attrValue;
 };
 
+struct RemoveFuncTagPass : public RemoveFuncTagBase<RemoveFuncTagPass> {
+  RemoveFuncTagPass(const std::string &attrName, const std::string &funcName)
+      : RemoveFuncTagBase<RemoveFuncTagPass>() {
+    this->attrName = attrName;
+    this->funcName = funcName;
+  }
+
+  void runOnOperation() override {
+    if (attrName.empty() || funcName.empty())
+      return;
+
+    for (auto funcOp : getOperation().getOps<func::FuncOp>()) {
+      if (funcOp.getName() == funcName) {
+        LLVM_DEBUG(llvm::dbgs() << "Before remove func tag [" << attrName
+                                << "] on [" << funcName << "], attrName:\n");
+        eraseAttr(funcOp, attrName);
+      }
+    }
+  }
+};
 } // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
@@ -85,4 +108,10 @@ mlir::createFuncTagPass(llvm::StringRef anchorTag, llvm::StringRef attachTag,
                         const std::string &funcName) {
   return std::make_unique<FuncTagPass>(anchorTag.str(), attachTag.str(),
                                        funcName);
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createRemoveFuncTagPass(llvm::StringRef attrName,
+                              llvm::StringRef funcName) {
+  return std::make_unique<RemoveFuncTagPass>(attrName.str(), funcName.str());
 }

@@ -25,6 +25,7 @@ from mhlo_tools.ir_executor.helper import (
     mlir_type_to_dtype
 )
 import os
+import shutil
 import torch_frontend
 import traceback
 from utils import TestResult
@@ -47,7 +48,7 @@ def np_type_to_torch_type(np_dtype):
     return _map.get(np_dtype, None)
 
 
-def generate_np_inputs(interp):
+def generate_np_inputs(interp, mode: str = "", low = 0.0, high = 1.0):
     module = interp._mod
     entry_func = module.body.operations[0]
     ret = []
@@ -60,7 +61,10 @@ def generate_np_inputs(interp):
         elif dtype in [np.uint8, np.int8, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]:
             ret.append(np.random.randint(50, size=shape).astype(dtype))
         else:
-            ret.append(np.random.random(size=shape).astype(dtype))
+            if mode == "uniform":
+                ret.append(np.random.uniform(low=low, high=high, size=shape).astype(dtype))
+            else:
+                ret.append(np.random.random(size=shape).astype(dtype))
     return ret
 
 
@@ -85,12 +89,91 @@ def get_entry_func_name(interp):
     entry_func = module.body.operations[0].name.value
     return entry_func
 
+def gen_golden_mlir(mhlo_file, target, **kwargs):
+    """
+    Arguements:
+        @param mhlo_file: Source stablehlo/mhlo file.
+        @param target: Target name like `cpu`,`cuda`
+        @param num: Numbers of generated golden in/output, default to 5.
+        @param mode:  The data distribution of inputs.
+        @param low/hing: The range of generated inputs data.
+    """
+    def save_np_data(fpath: str, data):
+        np.save(fpath, data)
 
-def compile_and_run_mlir(mhlo_file, target):
     np.random.seed(0)
     try:
-        interp = Interpreter.load_from_file(mhlo_file)
-        np_inputs = generate_np_inputs(interp)
+        if target.lower() == "cpu":
+            interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
+        else:
+            interp = Interpreter.load_from_file(mhlo_file)
+        func_name = get_entry_func_name(interp)
+        unique_name = os.path.basename(mhlo_file).split('.')[0]
+        unique_name = unique_name + "." + target
+        iter_number = kwargs["num"] if "num" in kwargs else 5
+
+        WORK_FOLDER = kwargs["golden_dir"] if "golden_dir" in kwargs else "./local_test"
+        WORK_FOLDER = WORK_FOLDER + f"/{unique_name}"
+        os.makedirs(WORK_FOLDER, exist_ok=True)
+
+        for idx in range(0, iter_number):
+            if "mode" in kwargs:
+                input_mode = kwargs["mode"]
+                low = kwargs["low"] if "low" in kwargs else None
+                high = kwargs["high"] if "high" in kwargs else None
+                np_inputs = generate_np_inputs(interp, input_mode, low, high)
+            else:
+                np_inputs = generate_np_inputs(interp)
+
+            # run golden
+            golden_outputs = interp.call_function(func_name, np_inputs)
+
+            # dump to local file
+            save_np_data(WORK_FOLDER + f"/input_{str(idx)}.npy", np_inputs)
+            save_np_data(WORK_FOLDER +  f"/output_{str(idx)}.npy", golden_outputs)
+
+            del np_inputs, golden_outputs
+
+        # byteir compile
+        output_mlir_file_name = f'{WORK_FOLDER}/{unique_name}.rt.mlir'
+        byteir.compile(mhlo_file, output_mlir_file_name,
+                       entry_func=func_name, target=target)
+
+        # cp orininal mlir file
+        shutil.copy(mhlo_file, f"{WORK_FOLDER}/{os.path.basename(mhlo_file).split('.')[0]}.stablehlo.mlir")
+
+        
+    except Exception as e:
+        return TestResult(unique_name=mhlo_file,
+                          compilation_error="".join(
+                              traceback.format_exception(
+                                  type(e), e, e.__traceback__)),
+                          runtime_error=None,
+                          numerical_error=None)
+
+    res = TestResult(unique_name=mhlo_file,
+                     compilation_error=None,
+                     runtime_error=None,
+                     numerical_error=None)
+
+    return res
+
+
+
+def compile_and_run_mlir(mhlo_file, target, **kwargs):
+    np.random.seed(0)
+    try:
+        if target.lower() == "cpu":
+            interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
+        else:
+            interp = Interpreter.load_from_file(mhlo_file)
+        if "mode" in kwargs:
+            input_mode = kwargs["mode"]
+            low = kwargs["low"] if "low" in kwargs else None
+            high = kwargs["high"] if "high" in kwargs else None
+            np_inputs = generate_np_inputs(interp, input_mode, low, high)
+        else:
+            np_inputs = generate_np_inputs(interp)
         func_name = get_entry_func_name(interp)
         unique_name = os.path.basename(mhlo_file).split('.')[0]
         unique_name = unique_name + "." + target
