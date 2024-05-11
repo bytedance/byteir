@@ -267,7 +267,7 @@ def _compile_cpu(
     output_file_dir = os.path.dirname(output_file_path)
     output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
     output_file_name = os.path.basename(output_file_path)
-    bc_file_name = output_file_name + ".bc"
+    bc_file_name = os.path.splitext(output_file_name)[0] + "kernel.ll.bc"
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -318,12 +318,24 @@ def _compile_cpu(
 
     # create host mlir
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + bc_file_name + " " + target_str + " " + entry_func_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(byre-host{" + target_str + " " + entry_func_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
+        '''
+        # NB. Remove `device_file_name` attr as byre v1.0.0 not support this attr.
+        target_attr_name = "device_file_name"
+        PassManager.parse("builtin.module(remove-func-tag{" + f"attr-name={target_attr_name} " + f" func-name={entry_func} " + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Remove func tag:") if verbose else ...
+        '''
 
     # write to output host mlir file
     with open(output_file_path, "w") as f:
         f.write(module.operation.get_asm())
+    '''
+    output_bc_file_path = os.path.splitext(output_file_path)[0] + ".mlirbc"
+    # FIXME(chhuang) Pass target version info to compile options 
+    targetVersion = "1.0.0"
+    byteir.serialize_byre(module, targetVersion, output_bc_file_path)
+    '''
 
 def compile(
     input_file_path: str,
