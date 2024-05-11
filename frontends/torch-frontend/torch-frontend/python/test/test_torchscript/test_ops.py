@@ -14,7 +14,6 @@ class AtenUniformModule(torch.nn.Module):
 def test_aten_uniform():
     module = compile(AtenUniformModule(), [tu.zeros(3, 4)], "stablehlo")
     mlir_str = module.operation.get_asm()
-    print(mlir_str)
     assert "stablehlo.rng" in mlir_str
     assert "UNIFORM" in mlir_str
 
@@ -23,9 +22,8 @@ class AtenRandnModule(torch.nn.Module):
         return torch.randn(size=x.shape)
 
 def test_aten_randn():
-    module = compile(AtenRandnModule(), [tu.zeros(3, 4)], "torch")
+    module = compile(AtenRandnModule(), [tu.zeros(3, 4)], "stablehlo")
     mlir_str = module.operation.get_asm()
-    print(mlir_str)
     assert "stablehlo.rng" in mlir_str
     assert "NORMAL" in mlir_str
 
@@ -36,14 +34,8 @@ class AtenNormalFunctionalModule(torch.nn.Module):
 def test_aten_normal_functional():
     module = compile(AtenNormalFunctionalModule(), [tu.zeros(3, 4)], "stablehlo")
     mlir_str = module.operation.get_asm()
-    print(mlir_str)
     assert "stablehlo.rng" in mlir_str
     assert "NORMAL" in mlir_str
-
-if __name__ == "__main__":
-    test_aten_uniform()
-    test_aten_randn()
-    test_aten_normal_functional()
 
 # ==============================================================================
 
