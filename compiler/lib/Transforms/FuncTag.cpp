@@ -95,8 +95,8 @@ struct RemoveFuncTagPass : public RemoveFuncTagBase<RemoveFuncTagPass> {
     for (auto funcOp : getOperation().getOps<func::FuncOp>()) {
       if (funcOp.getName() == funcName) {
         LLVM_DEBUG(llvm::dbgs() << "Before remove func tag [" << attrName
-                                << "] on [" << funcName << "], attrName:\n");
-        eraseAttr(funcOp, attrName);
+                                << "] on [" << funcOp.getName() << "]\n");
+        funcOp->removeAttr(llvm::StringRef(attrName));
       }
     }
   }

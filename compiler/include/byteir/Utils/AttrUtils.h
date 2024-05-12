@@ -37,8 +37,6 @@ void setParsedConcatAttr(Operation *op, const std::string &attrName,
                          const std::string &attrType,
                          const std::string &attrValue);
 
-void eraseAttr(Operation *op, const std::string &attrName);
-
 /// Return a new ElementsAttr that has the same data as the current
 /// attribute, but has been reshaped to 'newShape'.
 std::optional<ElementsAttr>
