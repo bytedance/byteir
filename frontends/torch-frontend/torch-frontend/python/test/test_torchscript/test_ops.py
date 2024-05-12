@@ -5,6 +5,39 @@ import torch_frontend
 from torch_frontend import compile
 
 # ==============================================================================
+# rng testcases
+
+class AtenUniformModule(torch.nn.Module):
+    def forward(self, x):
+        return x.uniform_(1.0, 10.0)
+
+def test_aten_uniform():
+    module = compile(AtenUniformModule(), [tu.zeros(3, 4)], "stablehlo")
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.rng" in mlir_str
+    assert "UNIFORM" in mlir_str
+
+class AtenRandnModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.randn(size=x.shape)
+
+def test_aten_randn():
+    module = compile(AtenRandnModule(), [tu.zeros(3, 4)], "stablehlo")
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.rng" in mlir_str
+    assert "NORMAL" in mlir_str
+
+class AtenNormalFunctionalModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.ops.aten.normal_functional(x, mean=-5.0, std=2.0)
+
+def test_aten_normal_functional():
+    module = compile(AtenNormalFunctionalModule(), [tu.zeros(3, 4)], "stablehlo")
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.rng" in mlir_str
+    assert "NORMAL" in mlir_str
+
+# ==============================================================================
 
 class AtenCudaModule(torch.nn.Module):
     def __init__(self):

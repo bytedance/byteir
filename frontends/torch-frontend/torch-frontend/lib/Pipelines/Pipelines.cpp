@@ -84,6 +84,6 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
   pm.addNestedPass<func::FuncOp>(createFuseOpOnTorch());
 
   pm.addPass(Torch::createLowerToBackendContractPass(
-      options.maxIterations, options.decompose, options.backendLegalOps,
-      options.extraLibrary));
+      options.maxIterations, options.decompose, options.shapeDtypeRefine,
+      options.backendLegalOps, options.extraLibrary));
 }
