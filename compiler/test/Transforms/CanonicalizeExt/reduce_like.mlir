@@ -31,16 +31,3 @@ func.func @cumsum_to_iota_case1() -> tensor<10x16xf32> {
 // CHECK-NEXT: mhlo.iota
 // CHECK-NEXT: mhlo.broadcast_in_dim
 // CHECK-NEXT: mhlo.add
-
-func.func @simplify_reduce_to_reshape(%arg0: tensor<1x8xf32>) -> tensor<8xf32> {
-  %cst = mhlo.constant dense<0.000> : tensor<f32>
-  %0 = "mhlo.reduce"(%arg0, %cst) ( {
-  ^bb0(%arg2: tensor<f32>, %arg3: tensor<f32>):  // no predecessors
-    %1 = mhlo.add %arg2, %arg3 : tensor<f32>
-    "mhlo.return"(%1) : (tensor<f32>) -> ()
-  }) {dimensions = dense<0> : tensor<1xi64>} : (tensor<1x8xf32>, tensor<f32>) -> tensor<8xf32>
-  return %0 : tensor<8xf32>
-}
-// CHECK-LABEL: @simplify_reduce_to_reshape
-// CHECK-NEXT: mhlo.reshape
-// CHECK-NEXT: return

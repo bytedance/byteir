@@ -1,4 +1,4 @@
-//===- ReshapeGather.cpp --------------------------------------*--- C++ -*-===//
+//===- HloSimplify.cpp ----------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,24 +15,57 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
+#include "byteir/Dialect/mhlo/Transforms/HloSimplify.h"
 
-#include "byteir/Dialect/mhlo/Util/FusionUtil.h"
+#include "PassDetail.h"
 #include "byteir/Dialect/mhlo/Util/Util.h"
-#include "byteir/Utils/IRRewrite.h"
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/Dialect.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
-#include "PassDetail.h"
-
-using namespace llvm;
 using namespace mlir;
-using namespace mlir::mhlo;
 
 namespace {
+
+struct SimplifyReduceToReshape : public OpRewritePattern<mhlo::ReduceOp> {
+  using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ReduceOp op,
+                                PatternRewriter &rewriter) const override {
+    bool isRegular = isRegularReduceOp<mhlo::AddOp>(op) ||
+                     isRegularReduceOp<mhlo::MaxOp>(op) ||
+                     isRegularReduceOp<mhlo::MinOp>(op) ||
+                     isRegularReduceOp<mhlo::OrOp>(op) ||
+                     isRegularReduceOp<mhlo::MulOp>(op);
+    if (!isRegular) {
+      return failure();
+    }
+
+    Value input = op.getInputs()[0];
+    Value output = op.getResults()[0];
+    auto inputType = dyn_cast<RankedTensorType>(input.getType());
+    auto outputType = dyn_cast<RankedTensorType>(output.getType());
+    if (!inputType || !inputType.hasStaticShape() ||
+        !outputType.hasStaticShape()) {
+      // TODO: support dynamic shape
+      return failure();
+    }
+    auto dimensions = op.getDimensions().getValues<int64_t>();
+    for (int64_t i : dimensions) {
+      if (inputType.getDimSize(i) != 1) {
+        return failure();
+      }
+    }
+
+    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outputType, input);
+    return success();
+  }
+};
 
 struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
   using OpRewritePattern<mhlo::GatherOp>::OpRewritePattern;
@@ -138,7 +171,7 @@ struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
         /*collapsedSliceDims=*/collapsedDims,
         /*startIndexMap=*/startIndexMap,
         /*indexVecDim=*/indexVecDim);
-    auto gatherOp = rewriter.create<GatherOp>(
+    auto gatherOp = rewriter.create<mhlo::GatherOp>(
         op.getLoc(), operand, indicesReshapeOp.getResult(), dimsAttr,
         op.getSliceSizes(), op.getIndicesAreSortedAttr());
     auto gatherReshapeOp =
@@ -148,29 +181,26 @@ struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
   }
 };
 
-struct ReshapeGatherPass : public ReshapeGatherBase<ReshapeGatherPass> {
+} // namespace
 
-  ReshapeGatherPass() : ReshapeGatherBase() {}
-
+namespace {
+struct HloSimplifyPass : public HloSimplifyBase<HloSimplifyPass> {
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
+    MLIRContext *context = &getContext();
 
-    RewritePatternSet patterns(funcOp.getContext());
-    populateReshapeGatherPatterns(patterns);
+    RewritePatternSet patterns(context);
+    patterns.add<SimplifyReduceToReshape>(context);
+    patterns.add<ReshapeGatherPattern>(context);
+
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
-      funcOp.emitError(
-          "ReshapeGatherPass applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();
     }
   }
 };
 } // namespace
 
-void mlir::populateReshapeGatherPatterns(RewritePatternSet &patterns) {
-  patterns.add<ReshapeGatherPattern>(patterns.getContext());
-}
-
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createReshapeGatherPass() {
-  return std::make_unique<ReshapeGatherPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createHloSimplifyPass() {
+  return std::make_unique<HloSimplifyPass>();
 }

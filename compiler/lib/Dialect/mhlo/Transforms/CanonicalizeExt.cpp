@@ -2127,40 +2127,6 @@ struct FoldGatherWithInput : public OpRewritePattern<mhlo::GatherOp> {
   }
 };
 
-struct SimplifyReduceToReshape : public OpRewritePattern<mhlo::ReduceOp> {
-  using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(mhlo::ReduceOp op,
-                                PatternRewriter &rewriter) const override {
-    bool isRegular = isRegularReduceOp<mhlo::AddOp>(op) ||
-                     isRegularReduceOp<mhlo::MaxOp>(op) ||
-                     isRegularReduceOp<mhlo::MinOp>(op) ||
-                     isRegularReduceOp<mhlo::OrOp>(op) ||
-                     isRegularReduceOp<mhlo::MulOp>(op);
-    if (!isRegular) {
-      return failure();
-    }
-
-    Value input = op.getInputs()[0];
-    Value output = op.getResults()[0];
-    auto inputType = dyn_cast<RankedTensorType>(input.getType());
-    auto outputType = dyn_cast<RankedTensorType>(output.getType());
-    if (!inputType || !inputType.hasStaticShape() ||
-        !outputType.hasStaticShape()) {
-      // TODO: support dynamic shape
-      return failure();
-    }
-    auto dimensions = op.getDimensions().getValues<int64_t>();
-    for (int64_t i : dimensions) {
-      if (inputType.getDimSize(i) != 1) {
-        return failure();
-      }
-    }
-
-    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outputType, input);
-    return success();
-  }
-};
-
 void mlir::mhlo::populateFoldMultiplyZeroPattern(RewritePatternSet &patterns) {
   patterns.add<FoldMultiplyZero>(patterns.getContext());
 }
@@ -2203,7 +2169,6 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<EliminateRedundantConvertFromI1>(ctx);
   patterns.add<FoldConcatWithSlicesAndRehape>(ctx);
   patterns.add<SimplifyCumsumToIota>(ctx);
-  patterns.add<SimplifyReduceToReshape>(ctx);
   patterns.add<SimplifyTransposeReshapeTranspose>(ctx);
   patterns.add<FoldReverseWithConstant>(ctx);
   patterns.add<FoldGatherWithInput>(ctx);
