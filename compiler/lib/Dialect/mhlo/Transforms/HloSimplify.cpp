@@ -67,6 +67,26 @@ struct SimplifyReduceToReshape : public OpRewritePattern<mhlo::ReduceOp> {
   }
 };
 
+// slice(broadcast_in_dim(x)) => broadcast_in_dim(x)
+struct SimplifySliceBroadcastToBroadcast
+    : public OpRewritePattern<mhlo::SliceOp> {
+  using OpRewritePattern<mhlo::SliceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::SliceOp op,
+                                PatternRewriter &rewriter) const override {
+    if (auto bcastOp =
+            op.getOperand().getDefiningOp<mhlo::BroadcastInDimOp>()) {
+      auto operandTy = cast<RankedTensorType>(bcastOp.getOperand().getType());
+      if (operandTy.getRank() == 0) {
+        rewriter.replaceOpWithNewOp<mhlo::BroadcastInDimOp>(
+            op, op.getType(), bcastOp.getOperand(),
+            bcastOp.getBroadcastDimensions());
+        return success();
+      }
+    }
+    return failure();
+  }
+};
+
 struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
   using OpRewritePattern<mhlo::GatherOp>::OpRewritePattern;
 
@@ -191,6 +211,7 @@ struct HloSimplifyPass : public HloSimplifyBase<HloSimplifyPass> {
 
     RewritePatternSet patterns(context);
     patterns.add<SimplifyReduceToReshape>(context);
+    patterns.add<SimplifySliceBroadcastToBroadcast>(context);
     patterns.add<ReshapeGatherPattern>(context);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
