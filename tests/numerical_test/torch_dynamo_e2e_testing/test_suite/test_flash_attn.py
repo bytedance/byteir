@@ -80,10 +80,6 @@ def test_flash_attn_functional_unit():
     torch.testing.assert_close(v.grad, v_clone.grad)
 
 
-import flash_attn
-from flash_attn.flash_attn_interface import flash_attn_with_kvcache
-
-
 class FlashAttnKVCacheModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -96,6 +92,8 @@ class FlashAttnKVCacheModel(torch.nn.Module):
 
 
 def test_flash_attn_kvcache():
+    import flash_attn
+    from flash_attn.flash_attn_interface import flash_attn_with_kvcache
     model = FlashAttnKVCacheModel().to("cuda")
     b = 2
     seq_len = 128
