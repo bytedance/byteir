@@ -16,7 +16,6 @@ declare_mlir_python_sources(ByteIRPythonSources.Common
   ADD_TO_PARENT ByteIRPythonSources
   SOURCES
     __init__.py
-    _byteir_registry.py
     _backend_registry.py
     utils.py
     compile.py
