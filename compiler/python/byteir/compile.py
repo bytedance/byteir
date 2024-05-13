@@ -1,45 +1,57 @@
-import byteir
-from byteir import ir
-from byteir.passmanager import PassManager
-from byteir.dialects.cat import IRProcessor
-from byteir.dialects.builtin import ModuleOp
-from byteir._backend_registry import register_byteir_compiler_backend, get_target_device, look_up_backend
-from byteir.utils import detect_cuda_with_nvidia_smi
+from enum import Enum
 from pathlib import Path
 import os
 from shutil import copymode
+
+from . import ir
+from .passmanager import PassManager
+from .dialects.cat import IRProcessor
+from .dialects.builtin import ModuleOp
+from ._backend_registry import register_byteir_compiler_backend, get_target_device, look_up_backend
+from .utils import detect_cuda_with_nvidia_smi
+
+import byteir
 
 def _print_verbose(module: ModuleOp, pipeline_msg: str):
     print(pipeline_msg)
     print(module.operation.get_asm(large_elements_limit=10))
     print()
 
-class CompileOptions:
+class OutputType(Enum):
+    MLIR = "mlir"
+    MLIRBC = "mlirbc"
 
+class CompileOptions:
     def __init__(self,
                  target: str,
                  module: ModuleOp,
-                 output_file_path: str,
+                 output_dir: str,
+                 output_file_prefix: str,
+                 output_type: OutputType = OutputType.MLIR,
                  entry_func: str = "main",
                  gpu_type: str = "local",
                  cpu_type: str = '', # cpu arch ?
+                 byre_serial_version: str = "1.0.0",
                  verbose: bool = False,
                  name: str = "model",
-                 aggressive_mode: bool = False,
                  parallelism: int = 1,
                  disable_byteir_ait_cache: bool = False,
                  **kwargs):
         self.target = target
         self.module = module
-        self.output_file_path = output_file_path
+        self.output_dir = output_dir
+        self.output_file_prefix = output_file_prefix
+        self.output_type = output_type
         self.entry_func = entry_func
         self.gpu_type = gpu_type
         self.cpu_type = cpu_type
+        self.byre_serial_version = byre_serial_version
         self.verbose = verbose
         self.name = name
         self.parallelism = parallelism
         self.disable_byteir_ait_cache = disable_byteir_ait_cache
         self.kwargs = kwargs
+
 
 @register_byteir_compiler_backend(target="cuda", device="cuda")
 def _compile_cuda(
@@ -47,14 +59,13 @@ def _compile_cuda(
 ) -> None:
     target = compile_options.target
     module = compile_options.module
-    output_file_path = compile_options.output_file_path
     entry_func = compile_options.entry_func
     gpu_type = compile_options.gpu_type
     verbose = compile_options.verbose
 
-    output_file_dir = os.path.dirname(output_file_path)
-    output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
-    output_file_name = os.path.basename(output_file_path)
+    output_file_dir = compile_options.output_dir
+    output_file_prefix = compile_options.output_file_prefix
+    output_type = compile_options.output_type
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -109,31 +120,34 @@ def _compile_cuda(
             PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx file
-    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, gpu_type)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_type)
 
     # create host mlir
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
     # write to output host mlir file
-    with open(output_file_path, "w") as f:
+    assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
+    with open(os.path.join(output_file_dir, output_file_prefix + "." + output_type.value), "w") as f:
         f.write(module.operation.get_asm())
 
+
 def _compile_cuda_with_ait_impl(
-    module: ModuleOp,
-    output_file_path: str,
-    entry_func: str,
-    gpu_type: str,
-    verbose: bool = False,
-    name: str = "model",
-    aggressive_mode: bool = False,
-    parallelism: int = 1,
-    disable_byteir_ait_cache: bool = False,
+    compile_options: CompileOptions,
+    aggressive_mode: bool,
 ) -> None:
     target = "cuda"
-    output_file_dir = os.path.dirname(output_file_path)
-    output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
-    output_file_name = os.path.basename(output_file_path)
+    module = compile_options.module
+    entry_func = compile_options.entry_func
+    gpu_type = compile_options.gpu_type
+    verbose = compile_options.verbose
+    name = compile_options.name
+    parallelism = compile_options.parallelism
+    disable_byteir_ait_cache = compile_options.disable_byteir_ait_cache
+
+    output_file_dir = compile_options.output_dir
+    output_file_prefix = compile_options.output_file_prefix
+    output_type = compile_options.output_type
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -162,11 +176,10 @@ def _compile_cuda_with_ait_impl(
     with context:
         _, dll_paths = processor.ait_opt_pass(anchor_only=True)
         _print_verbose(processor.module, "// IR Dump After AIT Opt:") if verbose else ...
-    # move .so to target
-    target_dir = Path(output_file_path)
+    # move .so to output dir
     for dll_path in dll_paths:
-        print("cp -p {} {}".format(dll_path, target_dir.parent.absolute()))
-        os.system("cp -p {} {}".format(dll_path, target_dir.parent.absolute()))
+        print("cp -p {} {}".format(dll_path, output_file_dir))
+        os.system("cp -p {} {}".format(dll_path, output_file_dir))
 
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(processor.module.operation)
@@ -213,44 +226,33 @@ def _compile_cuda_with_ait_impl(
             PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx
-    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_name, gpu_type)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_type)
 
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_name + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
+        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Byre Host:") if verbose else ...
     # write to output host mlir
-    with open(output_file_path, "w") as f:
+    assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
+    with open(os.path.join(output_file_dir, output_file_prefix + "." + output_type.value), "w") as f:
         f.write(processor.module.operation.get_asm())
+
 
 @register_byteir_compiler_backend(target="cuda_with_ait", device="cuda")
 def _compile_cuda_with_ait(
     compile_options: CompileOptions,
 ) -> None:
     return _compile_cuda_with_ait_impl(
-            module=compile_options.module,
-            output_file_path=compile_options.output_file_path,
-            entry_func=compile_options.entry_func,
-            gpu_type=compile_options.gpu_type,
-            verbose=compile_options.verbose,
-            name=compile_options.name,
-            aggressive_mode=False,
-            parallelism=compile_options.parallelism,
-            disable_byteir_ait_cache=compile_options.disable_byteir_ait_cache,)
+            compile_options=compile_options,
+            aggressive_mode=False,)
+
 
 @register_byteir_compiler_backend(target="cuda_with_ait_aggressive", device="cuda")
 def _compile_cuda_with_ait_aggressive(
     compile_options: CompileOptions,
 ) -> None:
     return _compile_cuda_with_ait_impl(
-            module=compile_options.module,
-            output_file_path=compile_options.output_file_path,
-            entry_func=compile_options.entry_func,
-            gpu_type=compile_options.gpu_type,
-            verbose=compile_options.verbose,
-            name=compile_options.name,
-            aggressive_mode=True,
-            parallelism=compile_options.parallelism,
-            disable_byteir_ait_cache=compile_options.disable_byteir_ait_cache,)
+            compile_options=compile_options,
+            aggressive_mode=True,)
 
 
 @register_byteir_compiler_backend(target="cpu", device="cpu")
@@ -259,15 +261,14 @@ def _compile_cpu(
 ) -> None:
     target = compile_options.target
     module = compile_options.module
-    output_file_path = compile_options.output_file_path
     entry_func = compile_options.entry_func
     cpu_type = compile_options.cpu_type
     verbose = compile_options.verbose
 
-    output_file_dir = os.path.dirname(output_file_path)
-    output_file_dir = "./" if len(output_file_dir) == 0 else output_file_dir
-    output_file_name = os.path.basename(output_file_path)
-    bc_file_name = os.path.splitext(output_file_name)[0] + "kernel.ll.bc"
+    output_file_dir = compile_options.output_dir
+    output_file_prefix = compile_options.output_file_prefix
+    output_type = compile_options.output_type
+    bc_file_name = output_file_prefix + ".kernel.ll.bc"
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -316,22 +317,26 @@ def _compile_cpu(
     output_bc_file_name = output_file_dir + "/" + bc_file_name
     byteir.translate_to_llvmbc(llvm_module, output_bc_file_name)
 
-    # create host mlir
+    # create host module
     with context:
         PassManager.parse("builtin.module(byre-host{" + target_str + " " + entry_func_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
-        # NB. Remove `device_file_name` attr as byre v1.0.0 not support this attr.
+        # FIXME: remove `device_file_name` attr as byre v1.0.0 not support this attr.
         target_attr_name = "device_file_name"
         PassManager.parse("builtin.module(remove-func-tag{" + f"attr-name={target_attr_name} " + f" func-name={entry_func} " + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Remove func tag:") if verbose else ...
 
-    # write to output host mlir file
-    with open(output_file_path, "w") as f:
-        f.write(module.operation.get_asm())
-    output_bc_file_path = os.path.splitext(output_file_path)[0] + ".mlirbc"
-    # FIXME(chhuang) Pass target version info to compile options 
-    targetVersion = "1.0.0"
-    byteir.serialize_byre(module, targetVersion, output_bc_file_path)
+    # write to output host file
+    output_file_path = os.path.join(output_file_dir, output_file_prefix + "." + output_type.value)
+    if output_type is OutputType.MLIR:
+        with open(output_file_path, "w") as f:
+            f.write(module.operation.get_asm())
+    elif output_type is OutputType.MLIRBC:
+        # note: save byre texture mlir for human reading
+        with open(os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value), "w") as f:
+            f.write(module.operation.get_asm())
+        byteir.serialize_byre(module, compile_options.byre_serial_version, output_file_path)
+    
 
 def compile(
     input_file_path: str,
@@ -339,6 +344,7 @@ def compile(
     entry_func: str = "main",
     target: str = "cuda",
     gpu_type: str = "local",
+    byre_serial_version: str = "1.0.0",
     verbose: bool = False,
     parallelism: int = 1,
     disable_byteir_ait_cache: bool = False,
@@ -348,7 +354,7 @@ def compile(
     ### optional detecting gpu type from nvidia-smi
     if _device == "cuda" and gpu_type == "local":
         local_gpu = detect_cuda_with_nvidia_smi()
-        assert local_gpu is not None
+        assert local_gpu is not None, "seems it doesn't have gpu on local"
         gpu_type = local_gpu
     if _device == "cuda":
         print(f"Compiling PTX to {gpu_type}")
@@ -370,19 +376,34 @@ def compile(
         PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
         _print_verbose(module, "// IR Dump After Legalize to HLO:") if verbose else ...
 
-    ### compiling
+    ### parse output options from output_file_path
+    output_dir = os.path.dirname(os.path.abspath(output_file_path))
+    os.makedirs(output_dir, exist_ok=True)
+    output_file_basename = os.path.basename(output_file_path)
+    output_type = OutputType.MLIR
+    if output_file_basename.endswith(".mlirbc"):
+        output_type = OutputType.MLIRBC
+    else:
+        assert output_file_basename.endswith(".mlir")
+    output_file_prefix = os.path.splitext(output_file_basename)[0]
+
+    ### compile options
     compile_options = CompileOptions(
         target,
         module,
-        output_file_path,
+        output_dir,
+        output_file_prefix,
+        output_type=output_type,
         entry_func=entry_func,
         gpu_type=gpu_type,
         cpu_type='',
+        byre_serial_version=byre_serial_version,
         verbose=verbose,
         parallelism=parallelism,
         disable_byteir_ait_cache=disable_byteir_ait_cache,
         kwargs=kwargs)
 
+    ### compiling
     _compile_fn = look_up_backend(compile_options.target)
     if _compile_fn is not None:
         _compile_fn(compile_options)

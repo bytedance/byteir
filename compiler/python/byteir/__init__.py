@@ -12,5 +12,5 @@
 # limitations under the License.
 # ==============================================================================
 
-from ._byteir_registry import *
+from ._mlir_libs._byteir import *
 from .compile import compile
