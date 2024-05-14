@@ -87,6 +87,72 @@ struct SimplifySliceBroadcastToBroadcast
   }
 };
 
+struct SimplifyDotGeneralToBroadcastMultiply
+    : public OpRewritePattern<mhlo::DotGeneralOp> {
+  using OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
+                                PatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    auto lhsType = cast<RankedTensorType>(op.getLhs().getType());
+    auto rhsType = cast<RankedTensorType>(op.getRhs().getType());
+
+    // TODO: support dynamic shape
+    if (!lhsType.hasStaticShape() || !rhsType.hasStaticShape()) {
+      return failure();
+    }
+
+    // only support [b, m, k] @ [b, k, n] or [m, k] @ [k, n]
+    auto dimensionNumbers = op.getDotDimensionNumbers();
+    if (dimensionNumbers.getLhsContractingDimensions().size() != 1 ||
+        dimensionNumbers.getRhsContractingDimensions().size() != 1) {
+      return failure();
+    }
+    if (dimensionNumbers.getLhsBatchingDimensions().size() == 0 &&
+        dimensionNumbers.getRhsBatchingDimensions().size() == 0) {
+      if (lhsType.getRank() != 2 || rhsType.getRank() != 2) {
+        return failure();
+      }
+    } else if (dimensionNumbers.getLhsBatchingDimensions().size() == 1 &&
+               dimensionNumbers.getRhsBatchingDimensions().size() == 1) {
+      if (lhsType.getRank() != 3 || rhsType.getRank() != 3) {
+        return failure();
+      }
+      if (dimensionNumbers.getLhsBatchingDimensions()[0] != 0 ||
+          dimensionNumbers.getRhsBatchingDimensions()[0] != 0) {
+        return failure();
+      }
+    } else {
+      return failure();
+    }
+
+    if (dimensionNumbers.getLhsContractingDimensions()[0] !=
+            lhsType.getRank() - 1 ||
+        dimensionNumbers.getRhsContractingDimensions()[0] !=
+            rhsType.getRank() - 2) {
+      return failure();
+    }
+
+    // k == 1
+    if (lhsType.getDimSize(dimensionNumbers.getLhsContractingDimensions()[0]) !=
+            1 ||
+        rhsType.getDimSize(dimensionNumbers.getRhsContractingDimensions()[0]) !=
+            1) {
+      return failure();
+    }
+
+    auto iota = llvm::iota_range<int64_t>(0, lhsType.getRank(), false);
+    llvm::SmallVector<int64_t> bcastDims(iota.begin(), iota.end());
+    Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
+        loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
+    Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
+        loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
+    rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
+                                             bcastRhs);
+    return success();
+  }
+};
+
+// reshape gather indices to 1D
 struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
   using OpRewritePattern<mhlo::GatherOp>::OpRewritePattern;
 
@@ -212,6 +278,7 @@ struct HloSimplifyPass : public HloSimplifyBase<HloSimplifyPass> {
     RewritePatternSet patterns(context);
     patterns.add<SimplifyReduceToReshape>(context);
     patterns.add<SimplifySliceBroadcastToBroadcast>(context);
+    patterns.add<SimplifyDotGeneralToBroadcastMultiply>(context);
     patterns.add<ReshapeGatherPattern>(context);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
