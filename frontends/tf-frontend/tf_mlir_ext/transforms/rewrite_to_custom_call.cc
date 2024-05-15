@@ -285,6 +285,50 @@ Value createL2NormV1(PatternRewriter &rewriter, Location loc, Value input,
   return createL2Norm(rewriter, loc, input, epsilonValue, axisValue);
 }
 
+Value createL2NormV1Multiplyer(PatternRewriter &rewriter, Location loc,
+                               Value input, Value constMultiplyer,
+                               ElementsAttr epsilon, ElementsAttr axis) {
+
+  double epsilonValue =
+      (*epsilon.getValues<APFloat>().begin()).convertToDouble();
+  int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
+  auto l2normOutput =
+      createL2Norm(rewriter, loc, input, epsilonValue, axisValue);
+
+  auto l2normType = l2normOutput.getType().dyn_cast<ShapedType>();
+  auto constType = constMultiplyer.getType().dyn_cast<ShapedType>();
+  assert(l2normType.hasStaticShape() && constType.hasStaticShape());
+  auto l2normShape = l2normType.getShape();
+  auto constShape = constType.getShape();
+  assert(constShape.size() <= l2normShape.size());
+
+  Value broadcastValue;
+  if (constShape.size() == l2normShape.size() &&
+      llvm::all_of(llvm::zip(l2normShape, constShape), [](const auto it) {
+        return std::get<0>(it) == std::get<1>(it);
+      })) {
+    broadcastValue = constMultiplyer;
+  } else {
+    auto dimsType = RankedTensorType::get({constType.getRank()},
+                                          rewriter.getIntegerType(64));
+    llvm::SmallVector<int64_t> dimsVec;
+    int64_t dim = l2normType.getRank() - constType.getRank();
+    for (int64_t i = 0; i < constType.getRank(); ++i) {
+      dimsVec.push_back(dim++);
+    }
+    auto dims = DenseIntElementsAttr::get(dimsType, dimsVec);
+    auto broadcastType = l2normType.clone(constType.getElementType());
+    broadcastValue = rewriter
+                         .create<mhlo::BroadcastInDimOp>(loc, broadcastType,
+                                                         constMultiplyer, dims)
+                         ->getResults()[0];
+  }
+
+  auto mulOp = rewriter.create<mlir::mhlo::MulOp>(loc, l2normType, l2normOutput,
+                                                  broadcastValue);
+  return mulOp->getResults()[0];
+}
+
 Value createL2NormV2(PatternRewriter &rewriter, Location loc, Value input,
                      ElementsAttr axis) {
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
@@ -664,6 +708,8 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithoutBeta>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormThreeDim>(context));
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapAdd>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapMul>(context));
@@ -689,6 +735,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<RewriteL2NormV1>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV1SwapMul>(context));
+      validCustomCallOpSet[getL2NormName()].emplace_back(
+          std::make_unique<RewriteL2NormV1Multiplyer>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV2>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(

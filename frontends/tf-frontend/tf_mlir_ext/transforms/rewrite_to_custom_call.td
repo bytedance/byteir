@@ -25,6 +25,7 @@ def OneSize : Constraint<CPred<"$0.size() == 1">, "one size">;
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are the same">;
 def OneRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 1">, "ElementsAttr type' rank should be 1">;
+def ThreeDimBatch : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 3 && $0.getType().cast<ShapedType>().getShape()[1] == 1">, "batch size should be 1">;
 
 //===----------------------------------------------------------------------===//
 // LayerNorm Pattern
@@ -102,6 +103,44 @@ def RewriteLayerNormWithoutBeta : Pat<
    (SameTwoValuesOrAttrs $mul_after_rsqrt, $mul_after_rsqrt_1),
    (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
    (OneRank $gama_attr)]>;
+
+def RewriteLayerNormThreeDim : Pat<
+  (TF_AddV2Op
+    (TF_MulOp
+      (TF_MulOp:$mul_after_rsqrt
+        (TF_RsqrtOp
+          (TF_AddV2Op
+            (TF_MeanOp
+              (TF_SquaredDifferenceOp
+                (TF_MeanOp:$mean_input
+                  $input,
+                  (TF_ConstOp:$axis $axis_attr),
+                  $keep_dims_0
+                ),
+                $input
+              ),
+              $axis_1,
+              $keep_dims_1
+            ),
+            (TF_ConstOp $epsilon_attr)
+          )
+        ),
+        (TF_ConstOp:$gama $gama_attr)
+      ),
+      $input
+    ),
+    (TF_SubOp
+      (TF_ConstOp:$beta $beta_attr),
+      (TF_MulOp $mul_after_rsqrt_1, $mean_input_1)
+    )
+  ),
+  (NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $gama, $beta, $epsilon_attr, $axis_attr),
+  [(OneSize $epsilon_attr), (OneSize $axis_attr),
+   (TrueBoolAttr $keep_dims_0), (TrueBoolAttr $keep_dims_1),
+   (SameTwoValuesOrAttrs $axis, $axis_1),
+   (SameTwoValuesOrAttrs $mul_after_rsqrt, $mul_after_rsqrt_1),
+   (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
+   (ThreeDimBatch $gama_attr), (ThreeDimBatch $beta_attr)]>;
 
 def RewriteLayerNormWithBody : Pat<
   (TF_AddV2Op:$add_outer
@@ -564,6 +603,29 @@ def RewriteL2NormV1 : Pat<
     )
   ),
   (NativeCodeCall<"createL2NormV1($_builder, $_loc, $0, $1, $2)"> $input, $epsilon_attr, $axis_attr),
+  [(OneSize $epsilon_attr), (OneSize $axis_attr),
+   (TrueBoolAttr $keep_dims)]>;
+
+def RewriteL2NormV1Multiplyer : Pat<
+  (TF_MulOp
+    $input,
+    (TF_MulOp
+      (TF_RsqrtOp
+        (TF_MaximumOp
+          (TF_SumOp
+            (TF_SquareOp
+              $input
+            ),
+            (TF_ConstOp:$axis $axis_attr),
+            $keep_dims
+          ),
+          (TF_ConstOp $epsilon_attr)
+        )
+      ),
+      (TF_ConstOp:$mulitplyer $mulitplyer_attr)
+    )
+  ),
+  (NativeCodeCall<"createL2NormV1Multiplyer($_builder, $_loc, $0, $1, $2, $3)"> $input, $mulitplyer, $epsilon_attr, $axis_attr),
   [(OneSize $epsilon_attr), (OneSize $axis_attr),
    (TrueBoolAttr $keep_dims)]>;
   
