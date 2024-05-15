@@ -113,7 +113,11 @@ class MaxDimModule(torch.nn.Module):
 def test_max_dim():
     inputs = [tu.randn(3, 4)]
     module = compile(MaxDimModule(), inputs, "stablehlo")
-    print(module.operation.get_asm())
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str
+    module_ = compile(MaxDimModule(), inputs, "stablehlo", backend_legal_ops=[])
+    mlir_str_ = module_.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str_
 
 class MaxDimKeepDimModule(torch.nn.Module):
     def __init__(self):
@@ -125,7 +129,38 @@ class MaxDimKeepDimModule(torch.nn.Module):
 def test_max_dim_keepdim():
     inputs = [tu.randn(3, 4)]
     module = compile(MaxDimKeepDimModule(), inputs, "stablehlo")
-    print(module.operation.get_asm())
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str
+    module_ = compile(MaxDimKeepDimModule(), inputs, "stablehlo", backend_legal_ops=[])
+    mlir_str_ = module_.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str_
+
+class AmaxModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.amax(x, dim=1)
+
+def test_amax():
+    inputs = [tu.randn(3, 4)]
+    module = compile(AmaxModule(), inputs, "stablehlo", backend_legal_ops=[])
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str
+
+class AmaxDimListModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.amax(x, dim=(0, 1))
+
+def test_amax_dim_list():
+    inputs = [tu.randn(3, 4, 5)]
+    module = compile(AmaxDimListModule(), inputs, "stablehlo", backend_legal_ops=[])
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str
+    assert "across dimensions = [0, 1]" in mlir_str
 
 # ==============================================================================
 

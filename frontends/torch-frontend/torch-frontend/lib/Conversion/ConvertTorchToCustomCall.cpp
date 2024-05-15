@@ -161,6 +161,7 @@ DenseFPElementsAttr getSplatFloatAttr(RankedTensorType type, double value) {
   assert(!losesInfo && "should not lose info");
   return DenseFPElementsAttr::get(type, {v});
 }
+
 } // namespace
 
 namespace {
@@ -567,32 +568,8 @@ public:
                                              "keepdim is not constant bool");
     }
 
-    if (op.getResults()[1].use_empty()) { // simplify to stablehlo.reduce
-      auto reduceOp = createSingleOpReduce<stablehlo::MaxOp>(
-          rewriter, op->getLoc(), input, {dimInt});
-      if (keepDim) {
-        auto inputShapeInfo = hlo::getDimSizesOfTensor(rewriter, op, input,
-                                                       /*dimSizeIndexBits=*/64);
-        if (failed(inputShapeInfo)) {
-          return rewriter.notifyMatchFailure(
-              op, "failed to get dimension sizes of the input");
-        }
-        auto outputShapeVec = *inputShapeInfo;
-        outputShapeVec[dimInt] = rewriter.create<mlir::arith::ConstantOp>(
-            op->getLoc(),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
-        auto outputShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
-            op->getLoc(), outputShapeVec);
-        Value reshapeResult = rewriter.create<stablehlo::DynamicReshapeOp>(
-            op->getLoc(), resultTypes[0], reduceOp.getResults()[0],
-            outputShapeTensor);
-        rewriter.replaceOp(op, ArrayRef<Value>{reshapeResult, Value()});
-        return success();
-      } else {
-        rewriter.replaceOp(op,
-                           ArrayRef<Value>{reduceOp.getResults()[0], Value()});
-        return success();
-      }
+    if (op.getResults()[1].use_empty()) { // should simplify to stablehlo.reduce
+      return failure();
     }
 
     std::vector<NamedAttribute> byteir_attrs;
@@ -1294,6 +1271,8 @@ public:
     }
     if (validCustomCallOpsSet.contains("aten.max.dim")) {
       target.addIllegalOp<AtenMaxDimOp>();
+      target.addDynamicallyLegalOp<AtenMaxDimOp>(
+          [](AtenMaxDimOp op) { return op.getIndices().use_empty(); });
       patterns.add<ConvertAtenMaxDimOp>(typeConverter, context);
     }
     if (validCustomCallOpsSet.contains("aten.one_hot")) {
