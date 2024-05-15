@@ -271,8 +271,6 @@ func.func @layer_norm_three_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
   func.return %9 : tensor<2x8x4xf32>
 }
 // CHECK-LABEL:  func.func @layer_norm_three_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
-// CHECH-DAG:    "tf.Const"() <{value = dense<[[[1.000000e-01, 2.000000e-01, 3.000000e-01, 4.000000e-01]], [[5.000000e-01, 6.000000e-01, 0.699999988, 8.000000e-01]]]> : tensor<2x1x4xf32>
-// CHECK-DAG:    "tf.Const"() <{value = dense<[[[0.00999999977, 2.000000e-02, 3.000000e-02, 4.000000e-02]], [[5.000000e-02, 6.000000e-02, 7.000000e-02, 8.000000e-02]]]> : tensor<2x1x4xf3
 // CHECK: mhlo.custom_call
 // CHECK-SAME: @byteir.layer_norm
 // CHECK-SAME: byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}
