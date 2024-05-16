@@ -28,16 +28,36 @@
 using namespace mlir;
 using namespace mlir::torch;
 
-void mlir::torch_frontend::createTorchToStablehloPipeline(
-    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToCcl());
+namespace {
+// populate passes from
+// torch-mlir/lib/Dialect/TorchConversion/Transforms/Passes.cpp
+void populateTorchMLIRToStablehloPipeline(OpPassManager &pm) {
+  // Generate Stablehlo & Chlo ops.
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloPass(
+      /*enableStaticShape=*/false, /*enableI32Index=*/false));
+  // Lowering Chlo ops to Stablehlo
   pm.addNestedPass<func::FuncOp>(
-      createConvertTorchToCustomCall(options.backendLegalOps));
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloExt());
+      stablehlo::createChloLegalizeToStablehloPass());
+  // Lowering remained ops to Arith
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 
-  TorchConversion::StablehloBackendPipelineOptions stablehloOptions;
-  TorchConversion::createTorchBackendToStablehloBackendPipeline(
-      pm, stablehloOptions);
+  // Clean up any non-canonical code introduced above..
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  // The resolution of `dim` ops tends to create identical ops. CSE them.
+  pm.addNestedPass<func::FuncOp>(createCSEPass());
+
+  // Finish the type conversion from `torch` types to the types of the
+  // StableHLO backend contract.
+  pm.addPass(TorchConversion::createFuncBackendTypeConversionPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(
+      TorchConversion::createFinalizingBackendTypeConversionPass());
+
+  // Verify that we have lowered to Stablehlo ops.
+  // FIXME(lyq): disable verify because torch-frontend support lowering to ccl
+  // pm.addPass(TorchConversion::createVerifyStablehloBackendContractPass());
+
+  // Canonicalize Stablehlo dynamic ops to static ops
   pm.addNestedPass<func::FuncOp>(
       stablehlo::createStablehloCanonicalizeDynamismPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
@@ -45,10 +65,21 @@ void mlir::torch_frontend::createTorchToStablehloPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
       stablehlo::createStablehloCanonicalizeDynamismPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+}
+} // namespace
+
+void mlir::torch_frontend::createTorchToStablehloPipeline(
+    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToCcl());
+  pm.addNestedPass<func::FuncOp>(
+      createConvertTorchToCustomCall(options.backendLegalOps));
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToStablehloExt());
+
+  populateTorchMLIRToStablehloPipeline(pm);
 
   // Perform additional canonicalization, which is not suitable in byteir
   // pipeline.
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
 }
 

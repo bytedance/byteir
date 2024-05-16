@@ -20,6 +20,8 @@ declare_mlir_python_sources(TorchFrontendPythonSources.TopLevel
     fx_tracer.py
     fx_utils.py
     ts_utils.py
+
+    tools/compiler.py
 )
 
 ################################################################################
