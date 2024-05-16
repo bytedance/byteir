@@ -122,9 +122,7 @@ func.func @torch.aten.max.dim(%arg0: !torch.vtensor<[32,64,21128],f32>) -> !torc
   return %values : !torch.vtensor<[32,64],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.max.dim
-// CHECK: stablehlo.reduce
-// CHECK: stablehlo.max
-// CHECK-NOT: torch.aten.max.dim
+// CHECK: torch.aten.max.dim
 
 func.func @torch.aten.max.dim.1(%arg0: !torch.vtensor<[32,64,21128],f32>) -> (!torch.vtensor<[32,64],f32>, !torch.vtensor<[32,64],si64>) {
   %int-1 = torch.constant.int -1

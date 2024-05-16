@@ -41,6 +41,7 @@ BYTEIR_CUSTOM_OPS = [
 NOT_DECOMPOSE_OPS = [
     "aten.randn.generator",
     "aten.normal_functional",
+    "aten.amax",
 ]
 
 
