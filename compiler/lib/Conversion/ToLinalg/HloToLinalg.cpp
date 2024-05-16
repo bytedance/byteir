@@ -1032,53 +1032,47 @@ public:
           Value buffer = *(args.begin());
           Value index = *(++args.begin());
 
-          llvm::SmallVector<Value> offset = {iv};
-          llvm::SmallVector<Value> size;
-          llvm::SmallVector<Value> stride;
-          llvm::SmallVector<int64_t> offsetStatic = {ShapedType::kDynamic};
-          llvm::SmallVector<int64_t> sizeStatic = {1};
-          llvm::SmallVector<int64_t> strideStatic = {1};
-
-          for (int64_t i = 1; i < dataType.getRank(); ++i) {
-            offsetStatic.push_back(0);
+          llvm::SmallVector<OpFoldResult> offsets = {iv};
+          llvm::SmallVector<OpFoldResult> sizes = {b.getI64IntegerAttr(1)};
+          llvm::SmallVector<OpFoldResult> strides = {b.getI64IntegerAttr(1)};
+          for (int i = 1, e = dataType.getRank(); i < e; ++i) {
+            offsets.push_back(b.getI64IntegerAttr(0));
             if (dataType.isDynamicDim(i)) {
-              size.push_back(dimSizeValues[i]);
-              sizeStatic.push_back(ShapedType::kDynamic);
+              sizes.push_back(dimSizeValues[i]);
             } else {
-              sizeStatic.push_back(dataType.getShape()[i]);
+              sizes.push_back(b.getI64IntegerAttr(dataType.getShape()[i]));
             }
-            strideStatic.push_back(1);
+            strides.push_back(b.getI64IntegerAttr(1));
           }
-          Value dataSlice =
-              b.create<tensor::ExtractSliceOp>(
-                   loc, dataType.clone(sizeStatic), data, ValueRange(offset),
-                   ValueRange(size), ValueRange(stride),
-                   rewriter.getDenseI64ArrayAttr(offsetStatic),
-                   rewriter.getDenseI64ArrayAttr(sizeStatic),
-                   rewriter.getDenseI64ArrayAttr(strideStatic))
-                  ->getResult(0);
+          Value dataSlice = b.create<tensor::ExtractSliceOp>(loc, data, offsets,
+                                                             sizes, strides)
+                                ->getResult(0);
 
           Value multiply = b.create<tensor::ExtractOp>(loc, time, iv);
           multiply = b.create<arith::IndexCastOp>(loc, indexTy, multiply);
-          llvm::SmallVector<Value> offsetBuffer = {index};
-          llvm::SmallVector<Value> sizeBuffer = {multiply};
-          llvm::SmallVector<Value> strideBuffer;
-          llvm::SmallVector<int64_t> offsetStaticBuffer = {
-              ShapedType::kDynamic};
-          llvm::SmallVector<int64_t> sizeStaticBuffer = {ShapedType::kDynamic};
-          llvm::SmallVector<int64_t> strideStaticBuffer = {1};
-          for (int64_t i = 1; i < dataType.getRank(); ++i) {
-            offsetStaticBuffer.push_back(0);
+
+          llvm::SmallVector<OpFoldResult> offsetsBuffer = {index};
+          llvm::SmallVector<OpFoldResult> sizesBuffer = {multiply};
+          llvm::SmallVector<OpFoldResult> stridesBuffer = {
+              b.getI64IntegerAttr(1)};
+          llvm::SmallVector<int64_t> sliceBufferShape = {ShapedType::kDynamic};
+          llvm::SmallVector<Value> sliceBufferDynamicDim = {multiply};
+
+          for (int i = 1, e = dataType.getRank(); i < e; ++i) {
+            offsetsBuffer.push_back(b.getI64IntegerAttr(0));
             if (dataType.isDynamicDim(i)) {
-              sizeBuffer.push_back(dimSizeValues[i]);
-              sizeStaticBuffer.push_back(ShapedType::kDynamic);
+              sizesBuffer.push_back(dimSizeValues[i]);
+              sliceBufferDynamicDim.push_back(dimSizeValues[i]);
+              sliceBufferShape.push_back(ShapedType::kDynamic);
             } else {
-              sizeStaticBuffer.push_back(dataType.getShape()[i]);
+              sizesBuffer.push_back(
+                  b.getI64IntegerAttr(dataType.getShape()[i]));
+              sliceBufferShape.push_back(dataType.getShape()[i]);
             }
-            strideStaticBuffer.push_back(1);
+            stridesBuffer.push_back(b.getI64IntegerAttr(1));
           }
           Value bufferSlice = getEmptyTensor(
-              b, loc, restType.clone(sizeStaticBuffer), sizeBuffer);
+              b, loc, restType.clone(sliceBufferShape), sliceBufferDynamicDim);
 
           int64_t nLoops = dataType.getRank();
           auto zeroExpr = b.getAffineConstantExpr(0);
@@ -1110,15 +1104,10 @@ public:
                 nestedBuilder.create<linalg::YieldOp>(nestedLoc, args[0]);
               },
               linalg::getPrunedAttributeList(op));
-          Value updated =
-              b.create<tensor::InsertSliceOp>(
-                   loc, linalgOp->getResult(0), buffer,
-                   ValueRange(offsetBuffer), ValueRange(sizeBuffer),
-                   ValueRange(strideBuffer),
-                   rewriter.getDenseI64ArrayAttr(offsetStaticBuffer),
-                   rewriter.getDenseI64ArrayAttr(sizeStaticBuffer),
-                   rewriter.getDenseI64ArrayAttr(strideStaticBuffer))
-                  ->getResult(0);
+          Value updated = b.create<tensor::InsertSliceOp>(
+                               loc, linalgOp->getResult(0), buffer,
+                               offsetsBuffer, sizesBuffer, stridesBuffer)
+                              ->getResult(0);
           Value nextIndex = b.create<arith::AddIOp>(loc, index, multiply);
           b.create<scf::YieldOp>(loc, ValueRange({updated, nextIndex}));
         });
