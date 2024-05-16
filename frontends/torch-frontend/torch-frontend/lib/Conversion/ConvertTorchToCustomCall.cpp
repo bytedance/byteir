@@ -1181,6 +1181,39 @@ public:
 };
 } // namespace
 
+// aten.nonzero
+namespace {
+class ConvertAtenNonzeroOp : public OpConversionPattern<AtenNonzeroOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenNonzeroOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getSelf();
+    auto inputType = input.getType().template cast<RankedTensorType>();
+    SmallVector<Value> bufferArgs({input});
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+    if (!resultType) {
+      return op.emitError("could not convert output types");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getNonZeroName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), TypeRange{resultType}, bufferArgs,
+        ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+} // namespace
+
 namespace {
 class ConvertTorchToCustomCall
     : public ConvertTorchToCustomCallBase<ConvertTorchToCustomCall> {
@@ -1283,6 +1316,9 @@ public:
       target.addIllegalOp<AtenTopkOp>();
       patterns.add<ConvertAtenTopkOp>(typeConverter, context);
     }
+
+    target.addIllegalOp<AtenNonzeroOp>();
+    patterns.add<ConvertAtenNonzeroOp>(typeConverter, context);
 
     target.addIllegalOp<CustomOp>();
     patterns.add<ConvertDynamicPartitionCustomOp>(typeConverter, context);
