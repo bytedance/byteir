@@ -176,6 +176,47 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
+                              Value inputMD, Value gammaMD, Value betaMD,
+                              ElementsAttr epsilon, ElementsAttr axis) {
+  auto inputMDType = inputMD.getType().cast<ShapedType>();
+  auto inputMDShape = inputMDType.getShape();
+  auto inputMDRank = inputMDType.getRank();
+  assert(inputMDRank >= 3);
+  int64_t cDim = inputMDShape[inputMDRank - 1];
+  auto gammaMDType = gammaMD.getType().cast<ShapedType>();
+  auto betaMDType = betaMD.getType().cast<ShapedType>();
+  assert(inputMDRank == gammaMDType.getRank());
+  assert(inputMDRank == betaMDType.getRank());
+
+  auto gammaAttr = DenseElementsAttr::get(
+      inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 1.0f);
+  Value gamma = rewriter.create<TF::ConstOp>(loc, gammaAttr);
+  auto betaAttr = DenseElementsAttr::get(
+      inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 0.0f);
+  Value beta = rewriter.create<TF::ConstOp>(loc, betaAttr);
+
+  llvm::SmallVector<int64_t> inputShape = {1, cDim};
+  for (int64_t i = 0; i < inputMDRank - 1; ++i) {
+    inputShape[0] *= inputMDShape[i];
+  }
+  auto inputType = inputMDType.clone(inputShape);
+  Value inputShapeV =
+      rewriter.create<TF::ConstOp>(loc, rewriter.getI64TensorAttr(inputShape));
+  Value input =
+      rewriter.create<TF::ReshapeOp>(loc, inputType, inputMD, inputShapeV);
+  Value output =
+      createLayerNorm(rewriter, loc, input, gamma, beta, epsilon, axis);
+  Value inputMDShapeV = rewriter.create<TF::ConstOp>(
+      loc, rewriter.getI64TensorAttr(inputMDShape));
+  Value originInputMD =
+      rewriter.create<TF::ReshapeOp>(loc, inputMDType, output, inputMDShapeV);
+  Value mul =
+      rewriter.create<TF::MulOp>(loc, inputMDType, originInputMD, gammaMD);
+  Value add = rewriter.create<TF::AddOp>(loc, inputMDType, mul, betaMD);
+  return add;
+}
+
 Value createLayerNormWithoutBeta(PatternRewriter &rewriter, Location loc,
                                  Value input, Value gama, ElementsAttr epsilon,
                                  ElementsAttr axis) {
@@ -283,6 +324,50 @@ Value createL2NormV1(PatternRewriter &rewriter, Location loc, Value input,
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
 
   return createL2Norm(rewriter, loc, input, epsilonValue, axisValue);
+}
+
+Value createL2NormV1Multiplyer(PatternRewriter &rewriter, Location loc,
+                               Value input, Value constMultiplyer,
+                               ElementsAttr epsilon, ElementsAttr axis) {
+
+  double epsilonValue =
+      (*epsilon.getValues<APFloat>().begin()).convertToDouble();
+  int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
+  auto l2normOutput =
+      createL2Norm(rewriter, loc, input, epsilonValue, axisValue);
+
+  auto l2normType = l2normOutput.getType().dyn_cast<ShapedType>();
+  auto constType = constMultiplyer.getType().dyn_cast<ShapedType>();
+  assert(l2normType.hasStaticShape() && constType.hasStaticShape());
+  auto l2normShape = l2normType.getShape();
+  auto constShape = constType.getShape();
+  assert(constShape.size() <= l2normShape.size());
+
+  Value broadcastValue;
+  if (constShape.size() == l2normShape.size() &&
+      llvm::all_of(llvm::zip(l2normShape, constShape), [](const auto it) {
+        return std::get<0>(it) == std::get<1>(it);
+      })) {
+    broadcastValue = constMultiplyer;
+  } else {
+    auto dimsType = RankedTensorType::get({constType.getRank()},
+                                          rewriter.getIntegerType(64));
+    llvm::SmallVector<int64_t> dimsVec;
+    int64_t dim = l2normType.getRank() - constType.getRank();
+    for (int64_t i = 0; i < constType.getRank(); ++i) {
+      dimsVec.push_back(dim++);
+    }
+    auto dims = DenseIntElementsAttr::get(dimsType, dimsVec);
+    auto broadcastType = l2normType.clone(constType.getElementType());
+    broadcastValue = rewriter
+                         .create<mhlo::BroadcastInDimOp>(loc, broadcastType,
+                                                         constMultiplyer, dims)
+                         ->getResults()[0];
+  }
+
+  auto mulOp = rewriter.create<mlir::mhlo::MulOp>(loc, l2normType, l2normOutput,
+                                                  broadcastValue);
+  return mulOp->getResults()[0];
 }
 
 Value createL2NormV2(PatternRewriter &rewriter, Location loc, Value input,
@@ -664,6 +749,8 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithoutBeta>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormMultiDim>(context));
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapAdd>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapMul>(context));
@@ -689,6 +776,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<RewriteL2NormV1>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV1SwapMul>(context));
+      validCustomCallOpSet[getL2NormName()].emplace_back(
+          std::make_unique<RewriteL2NormV1Multiplyer>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV2>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
