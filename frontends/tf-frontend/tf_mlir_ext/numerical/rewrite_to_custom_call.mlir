@@ -253,7 +253,7 @@ func.func @layer_norm_without_beta(%arg0: tensor<512x128xf16>) -> tensor<512x128
 // CHECK-SAME: @byteir.layer_norm
 // CHECK-SAME: byteir_attrs = {axis = [1], epsilon = 1.0001659393310547E-4 : f64}
 
-func.func @layer_norm_three_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
+func.func @layer_norm_multi_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
   %cst = "tf.Const"() <{value = dense<-1> : tensor<1xi32>}> : () -> tensor<1xi32>
   %cst_1 = "tf.Const"() <{value = dense<9.99999997E-7> : tensor<f32>}> : () -> tensor<f32>
   %cst_2 = "tf.Const"() <{value = dense<[[[0.1, 0.2, 0.3, 0.4]], [[0.5, 0.6, 0.7, 0.8]]]> : tensor<2x1x4xf32>}> : () -> tensor<2x1x4xf32>
@@ -270,10 +270,20 @@ func.func @layer_norm_three_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
   %9 = "tf.AddV2"(%6, %8) {device = ""} : (tensor<2x8x4xf32>, tensor<2x8x4xf32>) -> tensor<2x8x4xf32>
   func.return %9 : tensor<2x8x4xf32>
 }
-// CHECK-LABEL:  func.func @layer_norm_three_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
-// CHECK: mhlo.custom_call
-// CHECK-SAME: @byteir.layer_norm
-// CHECK-SAME: byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}
+// CHECK-LABLE: func.func @layer_norm_multi_dim(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
+// CHECK-LABLE:   %cst = "tf.Const"() <{value = dense<1.000000e+00> : tensor<4xf32>}> : () -> tensor<4xf32>
+// CHECK-LABLE:   %cst_0 = "tf.Const"() <{value = dense<0.000000e+00> : tensor<4xf32>}> : () -> tensor<4xf32>
+// CHECK-LABLE:   %cst_1 = "tf.Const"() <{value = dense<[16, 4]> : tensor<2xi64>}> : () -> tensor<2xi64>
+// CHECK-LABLE:   %cst_2 = "tf.Const"() <{value = dense<[2, 8, 4]> : tensor<3xi64>}> : () -> tensor<3xi64>
+// CHECK-LABLE:   %cst_3 = "tf.Const"() <{value = dense<[[[1.000000e-01, 2.000000e-01, 3.000000e-01, 4.000000e-01]], [[5.000000e-01, 6.000000e-01, 0.699999988, 8.000000e-01]]]> : tensor<
+// CHECK-LABLE:   %cst_4 = "tf.Const"() <{value = dense<[[[0.00999999977, 2.000000e-02, 3.000000e-02, 4.000000e-02]], [[5.000000e-02, 6.000000e-02, 7.000000e-02, 8.000000e-02]]]> : tenso
+// CHECK-LABLE:   %0 = "tf.Reshape"(%arg0, %cst_1) : (tensor<2x8x4xf32>, tensor<2xi64>) -> tensor<16x4xf32>
+// CHECK-LABLE:   %1 = mhlo.custom_call @byteir.layer_norm(%0, %cst, %cst_0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999999747524271E-7 : f64}} : (tensor<16x4xf32>
+// CHECK-LABLE:   %2 = "tf.Reshape"(%1, %cst_2) : (tensor<16x4xf32>, tensor<3xi64>) -> tensor<2x8x4xf32>
+// CHECK-LABLE:   %3 = "tf.Mul"(%2, %cst_3) : (tensor<2x8x4xf32>, tensor<2x1x4xf32>) -> tensor<2x8x4xf32>
+// CHECK-LABLE:   %4 = "tf.Add"(%3, %cst_4) : (tensor<2x8x4xf32>, tensor<2x1x4xf32>) -> tensor<2x8x4xf32>
+// CHECK-LABLE:   return %4 : tensor<2x8x4xf32>
+// CHECK-LABLE: }
 
 func.func @layer_norm_swap_add(%arg0: tensor<2x32x3xf32>) -> tensor<2x32x3xf32> {
   %cst_15 = "tf.Const"() {value = dense<9.99999997E-7> : tensor<f32>} : () -> tensor<f32>

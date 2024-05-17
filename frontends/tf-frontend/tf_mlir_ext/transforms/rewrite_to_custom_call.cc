@@ -176,6 +176,47 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
+                              Value inputMD, Value gammaMD, Value betaMD,
+                              ElementsAttr epsilon, ElementsAttr axis) {
+  auto inputMDType = inputMD.getType().cast<ShapedType>();
+  auto inputMDShape = inputMDType.getShape();
+  auto inputMDRank = inputMDType.getRank();
+  assert(inputMDRank >= 3);
+  int64_t cDim = inputMDShape[inputMDRank - 1];
+  auto gammaMDType = gammaMD.getType().cast<ShapedType>();
+  auto betaMDType = betaMD.getType().cast<ShapedType>();
+  assert(inputMDRank == gammaMDType.getRank());
+  assert(inputMDRank == betaMDType.getRank());
+
+  auto gammaAttr = DenseElementsAttr::get(
+      inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 1.0f);
+  Value gamma = rewriter.create<TF::ConstOp>(loc, gammaAttr);
+  auto betaAttr = DenseElementsAttr::get(
+      inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 0.0f);
+  Value beta = rewriter.create<TF::ConstOp>(loc, betaAttr);
+
+  llvm::SmallVector<int64_t> inputShape = {1, cDim};
+  for (int64_t i = 0; i < inputMDRank - 1; ++i) {
+    inputShape[0] *= inputMDShape[i];
+  }
+  auto inputType = inputMDType.clone(inputShape);
+  Value inputShapeV =
+      rewriter.create<TF::ConstOp>(loc, rewriter.getI64TensorAttr(inputShape));
+  Value input =
+      rewriter.create<TF::ReshapeOp>(loc, inputType, inputMD, inputShapeV);
+  Value output =
+      createLayerNorm(rewriter, loc, input, gamma, beta, epsilon, axis);
+  Value inputMDShapeV = rewriter.create<TF::ConstOp>(
+      loc, rewriter.getI64TensorAttr(inputMDShape));
+  Value originInputMD =
+      rewriter.create<TF::ReshapeOp>(loc, inputMDType, output, inputMDShapeV);
+  Value mul =
+      rewriter.create<TF::MulOp>(loc, inputMDType, originInputMD, gammaMD);
+  Value add = rewriter.create<TF::AddOp>(loc, inputMDType, mul, betaMD);
+  return add;
+}
+
 Value createLayerNormWithoutBeta(PatternRewriter &rewriter, Location loc,
                                  Value input, Value gama, ElementsAttr epsilon,
                                  ElementsAttr axis) {
@@ -708,7 +749,7 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithoutBeta>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
-          std::make_unique<RewriteLayerNormThreeDim>(context));
+          std::make_unique<RewriteLayerNormMultiDim>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapAdd>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(

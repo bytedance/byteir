@@ -25,7 +25,7 @@ def OneSize : Constraint<CPred<"$0.size() == 1">, "one size">;
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are the same">;
 def OneRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 1">, "ElementsAttr type' rank should be 1">;
-def ThreeDimBatch : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 3 && $0.getType().cast<ShapedType>().getShape()[1] == 1">, "batch size should be 1">;
+def MultiDim : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() >= 3">, "rank >= 3">;
 
 //===----------------------------------------------------------------------===//
 // LayerNorm Pattern
@@ -104,7 +104,7 @@ def RewriteLayerNormWithoutBeta : Pat<
    (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
    (OneRank $gama_attr)]>;
 
-def RewriteLayerNormThreeDim : Pat<
+def RewriteLayerNormMultiDim : Pat<
   (TF_AddV2Op
     (TF_MulOp
       (TF_MulOp:$mul_after_rsqrt
@@ -134,13 +134,13 @@ def RewriteLayerNormThreeDim : Pat<
       (TF_MulOp $mul_after_rsqrt_1, $mean_input_1)
     )
   ),
-  (NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $gama, $beta, $epsilon_attr, $axis_attr),
+  (NativeCodeCall<"createLayerNormMultiDim($_builder, $_loc, $0, $1, $2, $3, $4)"> $input, $gama, $beta, $epsilon_attr, $axis_attr),
   [(OneSize $epsilon_attr), (OneSize $axis_attr),
    (TrueBoolAttr $keep_dims_0), (TrueBoolAttr $keep_dims_1),
    (SameTwoValuesOrAttrs $axis, $axis_1),
    (SameTwoValuesOrAttrs $mul_after_rsqrt, $mul_after_rsqrt_1),
    (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
-   (ThreeDimBatch $gama_attr), (ThreeDimBatch $beta_attr)]>;
+   (MultiDim $input), (MultiDim $gama_attr), (MultiDim $beta_attr)]>;
 
 def RewriteLayerNormWithBody : Pat<
   (TF_AddV2Op:$add_outer
