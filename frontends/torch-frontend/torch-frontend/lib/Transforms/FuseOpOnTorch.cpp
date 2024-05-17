@@ -37,6 +37,13 @@ Value createGeluTanh(PatternRewriter &rewriter, Location loc, Value output,
                                             tanhStr);
 }
 
+Value createGeluErf(PatternRewriter &rewriter, Location loc, Value output,
+                    Value input) {
+  Value noneStr = rewriter.create<Torch::ConstantStrOp>(loc, "none");
+  return rewriter.create<Torch::AtenGeluOp>(loc, output.getType(), input,
+                                            noneStr);
+}
+
 Value createLayerNormEpsilon(PatternRewriter &rewriter, Location loc,
                              ElementsAttr epsilon) {
   return rewriter.create<Torch::ConstantFloatOp>(
@@ -53,6 +60,23 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value output,
 }
 
 // copied from compiler/lib/Utils/Utils.cpp
+bool isSplatValue(DenseIntElementsAttr attr, int64_t value) {
+  if (!attr) {
+    return false;
+  }
+  if (!attr.isSplat()) {
+    return false;
+  }
+  return attr.getSplatValue<APInt>() == value;
+}
+
+bool isSplatValue(DenseFPElementsAttr attr, double value) {
+  if (!attr)
+    return false;
+  return attr.isSplat() &&
+         attr.getSplatValue<FloatAttr>().getValueAsDouble() == value;
+}
+
 bool isSplatCloseToValue(DenseFPElementsAttr attr, double value,
                          double EPSILON = 0.00001) {
   if (!attr)
