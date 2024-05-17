@@ -31,7 +31,7 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
                                        mlir::Type newType) {
   auto oldType = getElementTypeOrSelf(elements);
   // TODO(kramerb): Add support when MLIR can represent const complex tensors.
-  if (oldType.isa<mlir::ComplexType>() || newType.isa<mlir::ComplexType>()) {
+  if (isa<mlir::ComplexType>(oldType) || isa<mlir::ComplexType>(newType)) {
     return {};
   }
 
@@ -43,7 +43,7 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
   if (oldType.isa<mlir::FloatType>()) {
     if (auto newFloatType = newType.dyn_cast<mlir::FloatType>()) {
       // Float -> Float
-      return elements.cast<DenseIntOrFPElementsAttr>().mapValues(
+      return cast<DenseIntOrFPElementsAttr>(elements).mapValues(
           newType, [&](const APFloat &floatVal) -> APInt {
             APFloat convertedFloat = floatVal;
             bool losesInfo = false;
@@ -53,7 +53,7 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
           });
     }
     // Float -> Int
-    return elements.cast<DenseIntOrFPElementsAttr>().mapValues(
+    return cast<DenseIntOrFPElementsAttr>(elements).mapValues(
         newType, [&](const APFloat &floatVal) -> APInt {
           bool ignored;
           APSInt intVal(bitWidth, isNewTypeUnsigned);
@@ -65,7 +65,7 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
   // old_type is Integer
   if (auto newFloatType = newType.dyn_cast<mlir::FloatType>()) {
     // Int -> Float
-    return elements.cast<DenseIntOrFPElementsAttr>().mapValues(
+    return cast<DenseIntOrFPElementsAttr>(elements).mapValues(
         newType, [&](const APInt &intVal) -> APInt {
           APFloat floatVal(newFloatType.getFloatSemantics(),
                            APInt::getZero(newFloatType.getWidth()));
@@ -77,7 +77,7 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
   }
   // new_type is Integer
   // Int -> Int
-  return elements.cast<DenseIntOrFPElementsAttr>().mapValues(
+  return cast<DenseIntOrFPElementsAttr>(elements).mapValues(
       newType, [&](const APInt &intVal) -> APInt {
         return APSInt(intVal, isOldTypeUnsigned).extOrTrunc(bitWidth);
       });

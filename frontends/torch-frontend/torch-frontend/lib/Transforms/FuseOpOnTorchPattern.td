@@ -42,10 +42,10 @@ def TorchGeluTanhPattern : Pat<
     ),
     (createGeluTanh $output, $input),
     [(OneIntegerAttr $int1), (OneIntegerAttr $int1_1), (ThreeIntegerAttr $int3),
-     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseIntElementsAttr>(), 1)">, ""> $const_1),
-     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseFPElementsAttr>(), 0.5)">, ""> $const_5),
-     (Constraint<CPred<"isSplatCloseToValue($0.dyn_cast<DenseFPElementsAttr>(), 4.471500e-02, 0.0001)">, ""> $const_4),
-     (Constraint<CPred<"isSplatCloseToValue($0.dyn_cast<DenseFPElementsAttr>(), 0.797884583, 0.0001)">, ""> $const_7)]
+     (Constraint<CPred<"isSplatValue(dyn_cast<DenseIntElementsAttr>($0), 1)">, ""> $const_1),
+     (Constraint<CPred<"isSplatValue(dyn_cast<DenseFPElementsAttr>($0), 0.5)">, ""> $const_5),
+     (Constraint<CPred<"isSplatCloseToValue(dyn_cast<DenseFPElementsAttr>($0), 4.471500e-02, 0.0001)">, ""> $const_4),
+     (Constraint<CPred<"isSplatCloseToValue(dyn_cast<DenseFPElementsAttr>($0), 0.797884583, 0.0001)">, ""> $const_7)]
 >;
 
 // ==============================================================================
@@ -71,9 +71,9 @@ def TorchGeluErfPattern : Pat<
     ),
     (createGeluErf $output, $input),
     [(OneIntegerAttr $int1),
-     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseFPElementsAttr>(), 0.5)">, ""> $const_5),
-     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseFPElementsAttr>(), 1.0)">, ""> $const_1),
-     (Constraint<CPred<"isSplatCloseToValue($0.dyn_cast<DenseFPElementsAttr>(), 1.4142135623730951, 0.0001)">, ""> $const_2)]
+     (Constraint<CPred<"isSplatValue(dyn_cast<DenseFPElementsAttr>($0), 0.5)">, ""> $const_5),
+     (Constraint<CPred<"isSplatValue(dyn_cast<DenseFPElementsAttr>($0), 1.0)">, ""> $const_1),
+     (Constraint<CPred<"isSplatCloseToValue(dyn_cast<DenseFPElementsAttr>($0), 1.4142135623730951, 0.0001)">, ""> $const_2)]
 >;
 
 // ==============================================================================
