@@ -27,3 +27,20 @@ func.func @static_batch_matmul_v2(%arg0: tensor<32x246x16xf16>, %arg1: tensor<32
 // CHECK-LABEL: @static_batch_matmul_v2
 // CHECK-NEXT: %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<32x246x16xf16>, tensor<32x16x16xf16>) -> tensor<32x246x16xf16>
 // CHECK-NEXT: return %0 : tensor<32x246x16xf16>
+
+func.func @round_fp32(%arg0: tensor<6xf32>) -> tensor<6xf32> {
+  %0 = "tf.Round"(%arg0) : (tensor<6xf32>) -> tensor<6xf32>
+  return %0 : tensor<6xf32>
+}
+// CHECK-LABEL: @round_fp32
+// CHECK-NEXT: %0 = mhlo.round_nearest_even %arg0 : tensor<6xf32>
+// CHECK-NEXT: return %0 : tensor<6xf32>
+
+func.func @round_int32(%arg0: tensor<6xi32>) -> tensor<6xi32> {
+  %0 = "tf.Abs"(%arg0) : (tensor<6xi32>) -> tensor<6xi32>
+  %1 = "tf.Round"(%0) : (tensor<6xi32>) -> tensor<6xi32>
+  return %1 : tensor<6xi32>
+}
+// CHECK-LABEL: @round_int32
+// CHECK-NEXT: %0 = "tf.Abs"(%arg0) : (tensor<6xi32>) -> tensor<6xi32>
+// CHECK-NEXT: return %0 : tensor<6xi32>
