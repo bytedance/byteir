@@ -18,6 +18,23 @@ func.func @torch.gelu.tanh(%785: !torch.tensor) -> (!torch.tensor) {
     return %793 : !torch.tensor
 }
 // CHECK-LABEL: @torch.gelu.tanh
+// CHECK:  torch.constant.str "tanh"
+// CHECK:  torch.aten.gelu
+
+func.func @torch.gelu.erf(%880: !torch.tensor) -> !torch.tensor {
+    %int1 = torch.constant.int 1
+    %876 = torch.tensor.literal(dense<1.000000e+00> : tensor<f64>) : !torch.tensor<[],f64>
+    %877 = torch.tensor.literal(dense<1.4142135623730951> : tensor<f64>) : !torch.tensor<[],f64>
+    %878 = torch.tensor.literal(dense<5.000000e-01> : tensor<f64>) : !torch.tensor<[],f64>
+    %881 = torch.aten.mul.Tensor %880, %878 : !torch.tensor, !torch.tensor<[],f64> -> !torch.tensor
+    %882 = torch.aten.div.Tensor %880, %877 : !torch.tensor, !torch.tensor<[],f64> -> !torch.tensor
+    %883 = torch.aten.erf %882 : !torch.tensor -> !torch.tensor
+    %884 = torch.aten.add.Tensor %883, %876, %int1 : !torch.tensor, !torch.tensor<[],f64>, !torch.int -> !torch.tensor
+    %885 = torch.aten.mul.Tensor %881, %884 : !torch.tensor, !torch.tensor -> !torch.tensor
+    return %885 : !torch.tensor
+}
+// CHECK-LABEL: @torch.gelu.erf
+// CHECK:  torch.constant.str "none"
 // CHECK:  torch.aten.gelu
 
 func.func @torch.layer_norm(%861: !torch.tensor) -> (!torch.tensor) {

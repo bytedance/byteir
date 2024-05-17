@@ -9,6 +9,8 @@ def ThreeIntegerAttr : Constraint<CPred<"$0.getValue() == 3">, "Integer 3">;
 def TrueAttr : Constraint<CPred<"$0.getValue() == 1">, "True">;
 def FalseAttr : Constraint<CPred<"$0.getValue() == 0">, "False">;
 
+// ==============================================================================
+
 def createGeluTanh : NativeCodeCall<"createGeluTanh($_builder, $_loc, $0, $1)">;
 
 def TorchGeluTanhPattern : Pat<
@@ -40,11 +42,41 @@ def TorchGeluTanhPattern : Pat<
     ),
     (createGeluTanh $output, $input),
     [(OneIntegerAttr $int1), (OneIntegerAttr $int1_1), (ThreeIntegerAttr $int3),
-     (Constraint<CPred<"$0.getSplatValue<APInt>() == 1">, ""> $const_1),
-     (Constraint<CPred<"isSplatCloseToValue($0.cast<DenseFPElementsAttr>(), 0.5)">, ""> $const_5),
-     (Constraint<CPred<"isSplatCloseToValue($0.cast<DenseFPElementsAttr>(), 4.471500e-02, 0.0001)">, ""> $const_4),
-     (Constraint<CPred<"isSplatCloseToValue($0.cast<DenseFPElementsAttr>(), 0.797884583, 0.0001)">, ""> $const_7)]
+     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseIntElementsAttr>(), 1)">, ""> $const_1),
+     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseFPElementsAttr>(), 0.5)">, ""> $const_5),
+     (Constraint<CPred<"isSplatCloseToValue($0.dyn_cast<DenseFPElementsAttr>(), 4.471500e-02, 0.0001)">, ""> $const_4),
+     (Constraint<CPred<"isSplatCloseToValue($0.dyn_cast<DenseFPElementsAttr>(), 0.797884583, 0.0001)">, ""> $const_7)]
 >;
+
+// ==============================================================================
+
+def createGeluErf : NativeCodeCall<"createGeluErf($_builder, $_loc, $0, $1)">;
+
+def TorchGeluErfPattern : Pat<
+    (Torch_AtenMulTensorOp:$output
+        (Torch_AtenMulTensorOp
+            $input,
+            (Torch_NonValueTensorLiteralOp $const_5)
+        ),
+        (Torch_AtenAddTensorOp
+            (Torch_AtenErfOp
+                (Torch_AtenDivTensorOp
+                    $input,
+                    (Torch_NonValueTensorLiteralOp $const_2)
+                )
+            ),
+            (Torch_NonValueTensorLiteralOp $const_1),
+            (Torch_ConstantIntOp $int1)
+        )
+    ),
+    (createGeluErf $output, $input),
+    [(OneIntegerAttr $int1),
+     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseFPElementsAttr>(), 0.5)">, ""> $const_5),
+     (Constraint<CPred<"isSplatValue($0.dyn_cast<DenseFPElementsAttr>(), 1.0)">, ""> $const_1),
+     (Constraint<CPred<"isSplatCloseToValue($0.dyn_cast<DenseFPElementsAttr>(), 1.4142135623730951, 0.0001)">, ""> $const_2)]
+>;
+
+// ==============================================================================
 
 def createLayerNorm : NativeCodeCall<"createLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4, $5, $6)">;
 
