@@ -1,0 +1,283 @@
+diff --git a/include/torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h b/include/torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h
+index 734ba81e..03edf5d9 100644
+--- a/include/torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h
++++ b/include/torch-mlir/Conversion/TorchToStablehlo/StablehloLegalizeUtils.h
+@@ -49,7 +49,7 @@ Value promoteType(PatternRewriter &rewriter, Location loc, Value input,
+                   TensorType outType);
+ 
+ Value promoteAndBroadcast(ConversionPatternRewriter &rewriter, Value input,
+-                          TensorType outType);
++                          TensorType outType, std::optional<Value> bcastSizeTensor);
+ 
+ SmallVector<int64_t> toPositiveDims(ArrayRef<int64_t> dims, int64_t rank);
+ 
+diff --git a/lib/Conversion/TorchToStablehlo/Basic.cpp b/lib/Conversion/TorchToStablehlo/Basic.cpp
+index d01f0daf..a5b1b28b 100644
+--- a/lib/Conversion/TorchToStablehlo/Basic.cpp
++++ b/lib/Conversion/TorchToStablehlo/Basic.cpp
+@@ -766,7 +766,7 @@ LogicalResult ConvertAtenOp<AtenBroadcastToOp>::matchAndRewrite(
+       getTypeConverter()->convertType(op->getResult(0).getType()));
+ 
+   if (options.enableStaticShape && selfTy.hasStaticShape()) {
+-    Value bcastOp = hlo::promoteAndBroadcast(rewriter, self, outType);
++    Value bcastOp = hlo::promoteAndBroadcast(rewriter, self, outType, std::nullopt);
+     rewriter.replaceOp(op, bcastOp);
+     return success();
+   }
+@@ -1457,8 +1457,8 @@ LogicalResult ConvertAtenOp<AtenNativeLayerNormOp>::matchAndRewrite(
+           .value());
+ 
+   // Apply affine transform: output x weight + bias [element-wise]
+-  auto bcastedWeight = hlo::promoteAndBroadcast(rewriter, weight, outputTy);
+-  auto bcastedBias = hlo::promoteAndBroadcast(rewriter, bias, outputTy);
++  auto bcastedWeight = hlo::promoteAndBroadcast(rewriter, weight, outputTy, std::nullopt);
++  auto bcastedBias = hlo::promoteAndBroadcast(rewriter, bias, outputTy, std::nullopt);
+   auto outputMulWeight =
+       rewriter.create<stablehlo::MulOp>(op->getLoc(), output, bcastedWeight);
+   auto finalOuput = rewriter.create<stablehlo::AddOp>(
+@@ -1603,8 +1603,8 @@ LogicalResult ConvertAtenOp<AtenClampTensorOp>::matchAndRewrite(
+     maxValue = *maxInfo;
+   }
+   if (inputType.hasStaticShape()) {
+-    minValue = hlo::promoteAndBroadcast(rewriter, minValue, inputType);
+-    maxValue = hlo::promoteAndBroadcast(rewriter, maxValue, inputType);
++    minValue = hlo::promoteAndBroadcast(rewriter, minValue, inputType, std::nullopt);
++    maxValue = hlo::promoteAndBroadcast(rewriter, maxValue, inputType, std::nullopt);
+   }
+   rewriter.replaceOpWithNewOp<stablehlo::ClampOp>(op, minValue, input,
+                                                   maxValue);
+@@ -2016,7 +2016,7 @@ LogicalResult ConvertAtenOp<AtenBitwiseLeftShiftTensorOp>::matchAndRewrite(
+ 
+   auto resultType =
+       cast<RankedTensorType>(getTypeConverter()->convertType(op.getType()));
+-  rhs = hlo::promoteAndBroadcast(rewriter, rhs, resultType);
++  rhs = hlo::promoteAndBroadcast(rewriter, rhs, resultType, std::nullopt);
+   rewriter.replaceOpWithNewOp<stablehlo::ShiftLeftOp>(op, lhs, rhs);
+   return success();
+ }
+@@ -2031,7 +2031,7 @@ LogicalResult ConvertAtenOp<AtenBitwiseRightShiftTensorOp>::matchAndRewrite(
+ 
+   auto resultType =
+       cast<RankedTensorType>(getTypeConverter()->convertType(op.getType()));
+-  rhs = hlo::promoteAndBroadcast(rewriter, rhs, resultType);
++  rhs = hlo::promoteAndBroadcast(rewriter, rhs, resultType, std::nullopt);
+   rewriter.replaceOpWithNewOp<stablehlo::ShiftRightArithmeticOp>(op, lhs, rhs);
+   return success();
+ }
+diff --git a/lib/Conversion/TorchToStablehlo/GatherScatter.cpp b/lib/Conversion/TorchToStablehlo/GatherScatter.cpp
+index 00c022cc..6f4a503a 100644
+--- a/lib/Conversion/TorchToStablehlo/GatherScatter.cpp
++++ b/lib/Conversion/TorchToStablehlo/GatherScatter.cpp
+@@ -194,6 +194,88 @@ LogicalResult prepareArgumentsForSlicingOp(OpTy op, OpAdaptor adaptor,
+ } // namespace
+ 
+ namespace {
++
++// A helper function to generate the final shape tensor if we broadcast
++// `tensors`.
++FailureOr<Value> getBroadcastSize(Operation *op,
++                                  ConversionPatternRewriter &rewriter,
++                                  SmallVector<Value> tensors,
++                                  size_t dimSizeIndexBits) {
++  SmallVector<ArrayRef<int64_t>> tensorSizes;
++
++  int maxRank = 0;
++  for (auto tensor : tensors) {
++    auto tensorType = cast<RankedTensorType>(tensor.getType());
++    auto tensorRank = tensorType.getRank();
++
++    tensorSizes.emplace_back(tensorType.getShape());
++    maxRank = std::max(maxRank, static_cast<int>(tensorRank));
++  }
++
++  SmallVector<Value> bcastSizeTensors;
++  for (int outDim = 0; outDim < maxRank; ++outDim) { // loop dimensions.
++    int dynamicDimCnt = 0;
++    int staticDimCnt = 0;
++    int64_t staticDimSize;
++    Value dimSizeTensor = rewriter.create<mlir::arith::ConstantOp>(
++        op->getLoc(),
++        rewriter.getIntegerAttr(rewriter.getIntegerType(dimSizeIndexBits), 1));
++
++    for (size_t i = 0; i < tensorSizes.size(); ++i) { // loop tensors.
++      int inDim = tensorSizes[i].size() - 1 - outDim;
++      if (inDim < 0)
++        continue;
++
++      // dim size 1
++      if (tensorSizes[i][inDim] == 1)
++        continue;
++      // dim size dynamic
++      if (tensorSizes[i][inDim] == ShapedType::kDynamic ||
++          tensorSizes[i][inDim] == kUnknownSize) {
++        dynamicDimCnt++;
++        auto dimSizeTensorInfo = hlo::getDimSizesOfTensor(
++            rewriter, op, tensors[i], {inDim}, dimSizeIndexBits);
++        if (failed(dimSizeTensorInfo)) {
++          llvm::outs() << "failed to generate tensor size\n";
++          return failure();
++        }
++        dimSizeTensor = (*dimSizeTensorInfo)[0];
++        continue;
++      }
++      // dim size static
++      // we already found dynamic dim size, fail.
++      if (dynamicDimCnt > 0) {
++        llvm::outs() << "multi dynamic\n";
++        return failure();
++      }
++      // we already found static dim size not equal with this, fail.
++      if (staticDimCnt > 0 && staticDimSize != tensorSizes[i][inDim]) {
++        llvm::outs() << "unsame static dim size\n";
++        return failure();
++      }
++
++      staticDimCnt++;
++      staticDimSize = tensorSizes[i][inDim];
++      auto dimSizeTensorInfo = hlo::getDimSizesOfTensor(
++          rewriter, op, tensors[i], {inDim}, dimSizeIndexBits);
++      if (failed(dimSizeTensorInfo)) {
++        llvm::outs() << "failed to generate tensor size 2\n";
++        return failure();
++      }
++      dimSizeTensor = (*dimSizeTensorInfo)[0];
++    }
++    // Relax this check, by assuming all dynamic shape is same.
++    // if (dynamicDimCnt > 1) {
++    //   return failure();
++    // }
++
++    bcastSizeTensors.push_back(dimSizeTensor);
++  }
++  std::reverse(bcastSizeTensors.begin(), bcastSizeTensors.end());
++  return rewriter.create<tensor::FromElementsOp>(op->getLoc(), bcastSizeTensors)
++      .getResult();
++}
++
+ // A helper function used to generate stablehlo's ScatterIndices or
+ // GatherIndices from torch's indices, usually appear in torch ops, like
+ // aten.index.Tensor or aten.input_put A usage example is as follow: Input: [[1,
+@@ -216,28 +298,38 @@ FailureOr<Value> broadcastAndConcatIndices(Operation *op,
+                                            ConversionPatternRewriter &rewriter,
+                                            SmallVector<Value> indexTensors,
+                                            llvm::ArrayRef<int64_t> inputShape,
++                                           size_t dimSizeIndexBits,
+                                            int &maxIndexRank) {
+   // Step 1: broadcast indices tensors
+   SmallVector<int64_t> indicesShape;
+   SmallVector<int64_t> expandShape;
+   SmallVector<int64_t> concatShape;
++
++  bool allIndexStaticShape = true;
++  Value bcastSizeTensor;
++
+   // concat index tensor into to indices tensor for concat
+   for (size_t i = 0; i < indexTensors.size(); i++) {
+     auto indexTensor = indexTensors[i];
+     auto indexTensorType = cast<RankedTensorType>(indexTensor.getType());
+     for (int64_t size : makeShapeTorchCompatible(indexTensorType.getShape())) {
+       if (size == kUnknownSize)
+-        return failure();
++        allIndexStaticShape = false;
+     }
+     maxIndexRank = std::max(maxIndexRank, (int)indexTensorType.getRank());
+   }
+ 
+-  SmallVector<int64_t> refinedInputShape = makeShapeTorchCompatible(inputShape);
+-  for (int64_t size : refinedInputShape) {
+-    if (size == kUnknownSize) {
++  if (!allIndexStaticShape) {
++    auto bcastSizeTensorInfo =
++        getBroadcastSize(op, rewriter, indexTensors, dimSizeIndexBits);
++    if (failed(bcastSizeTensorInfo)) {
++      llvm::outs() << "failed here\n";
+       return failure();
+     }
++    bcastSizeTensor = *bcastSizeTensorInfo;
+   }
++
++  llvm::ArrayRef<int64_t> refinedInputShape = inputShape;
+   for (int i = 0; i < maxIndexRank; i++) {
+     indicesShape.push_back(refinedInputShape[i]);
+     expandShape.push_back(refinedInputShape[i]);
+@@ -252,12 +344,27 @@ FailureOr<Value> broadcastAndConcatIndices(Operation *op,
+   RankedTensorType bcastIndexType =
+       RankedTensorType::get(indicesShape, indexElemTy);
+   for (auto indexTensor : indexTensors) {
+-    Value bcastVal =
+-        hlo::promoteAndBroadcast(rewriter, indexTensor, bcastIndexType);
++    Value bcastVal;
+     RankedTensorType reshapeType =
+         RankedTensorType::get(expandShape, indexElemTy);
+-    bcastVal = rewriter.create<stablehlo::ReshapeOp>(op->getLoc(), reshapeType,
+-                                                     bcastVal);
++    if (allIndexStaticShape) {
++      bcastVal = hlo::promoteAndBroadcast(rewriter, indexTensor, bcastIndexType,
++                                          std::nullopt);
++      bcastVal = rewriter.create<stablehlo::ReshapeOp>(op->getLoc(),
++                                                       reshapeType, bcastVal);
++    } else {
++      bcastVal = hlo::promoteAndBroadcast(rewriter, indexTensor, bcastIndexType,
++                                          bcastSizeTensor);
++      auto bcastValShapeTensorVec =
++          *hlo::getDimSizesOfTensor(rewriter, op, bcastVal, dimSizeIndexBits);
++      bcastValShapeTensorVec.push_back(rewriter.create<mlir::arith::ConstantOp>(
++          op->getLoc(), rewriter.getIntegerAttr(
++                            rewriter.getIntegerType(dimSizeIndexBits), 1)));
++      Value bcastValShapeTensor = rewriter.create<tensor::FromElementsOp>(
++          op->getLoc(), bcastValShapeTensorVec).getResult();
++      bcastVal = rewriter.create<stablehlo::DynamicReshapeOp>(
++          op->getLoc(), reshapeType, bcastVal, bcastValShapeTensor);
++    }
+     broadcastedIndices.push_back(bcastVal);
+   }
+ 
+@@ -803,7 +910,7 @@ LogicalResult ConvertAtenOp<AtenIndexTensorHackedTwinOp>::matchAndRewrite(
+ 
+   int maxIndexRank = -1;
+   auto gatherIndicesInfo = broadcastAndConcatIndices(op, rewriter, indexTensors,
+-                                                     outShape, maxIndexRank);
++                                                     outShape, options.dimSizeIndexBits, maxIndexRank);
+   if (failed(gatherIndicesInfo)) {
+     return rewriter.notifyMatchFailure(
+         op, "failed to generate broadcasted indices");
+@@ -877,7 +984,7 @@ LogicalResult ConvertAtenOp<AtenIndexPutHackedTwinOp>::matchAndRewrite(
+ 
+   int maxIndexRank = -1;
+   auto scatterIndicesInfo = broadcastAndConcatIndices(
+-      op, rewriter, indexTensors, valuesShape, maxIndexRank);
++      op, rewriter, indexTensors, valuesShape, options.dimSizeIndexBits, maxIndexRank);
+   if (failed(scatterIndicesInfo)) {
+     return rewriter.notifyMatchFailure(
+         op, "failed to generate broadcasted indices");
+diff --git a/lib/Conversion/TorchToStablehlo/StablehloLegalizeUtils.cpp b/lib/Conversion/TorchToStablehlo/StablehloLegalizeUtils.cpp
+index c4d629d4..5332c204 100644
+--- a/lib/Conversion/TorchToStablehlo/StablehloLegalizeUtils.cpp
++++ b/lib/Conversion/TorchToStablehlo/StablehloLegalizeUtils.cpp
+@@ -156,12 +156,14 @@ Value promoteType(PatternRewriter &rewriter, Location loc, Value input,
+ }
+ 
+ Value promoteAndBroadcast(ConversionPatternRewriter &rewriter, Value input,
+-                          TensorType outType) {
++                          TensorType outType, std::optional<Value> bcastSizeTensor) {
+   // Two tensors are “broadcastable” if the following rules hold:
+   //   - Each tensor has at least one dimension.
+   //   - When iterating over the dimension sizes, starting at the trailing
+   //   dimension, the dimension sizes must either be equal, one of them is 1, or
+   //   one of them does not exist.
++  // If one provide bcastSizeTensor, we emit stablehlo::DynamicBroadcastInDimOp instead 
++  // of stablehlo::BroadcastInDimOp to support dynamic shape.
+   Operation *op = input.getDefiningOp();
+   TensorType in_type = dyn_cast<TensorType>(input.getType());
+ 
+@@ -199,6 +201,10 @@ Value promoteAndBroadcast(ConversionPatternRewriter &rewriter, Value input,
+     return input;
+   }
+   auto bcast_attr = rewriter.getDenseI64ArrayAttr(bcastDims);
++  if (bcastSizeTensor.has_value()) {
++    auto bcast_op = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(op->getLoc(), outType, input, bcastSizeTensor.value(), bcast_attr);
++    return bcast_op.getResult();
++  }
+   auto bcast_op = rewriter.create<stablehlo::BroadcastInDimOp>(
+       op->getLoc(), outType, input, bcast_attr);
+   return bcast_op.getResult();

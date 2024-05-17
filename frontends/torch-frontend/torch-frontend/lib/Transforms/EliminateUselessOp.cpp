@@ -60,6 +60,18 @@ struct EliminateAtenWarnOp : public OpRewritePattern<AtenWarnOp> {
 } // namespace
 
 namespace {
+// This is probably buggy. Maybe we should pass through the runtime assert
+struct EliminateAtenRuntimeAssertOp : public OpRewritePattern<RuntimeAssertOp> {
+  using OpRewritePattern<RuntimeAssertOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(RuntimeAssertOp op,
+                                PatternRewriter &rewriter) const override {
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+} // namespace
+
+namespace {
 struct EliminateUselessOpPass
     : public EliminateUselessOpBase<EliminateUselessOpPass> {
   void runOnOperation() override {
@@ -70,6 +82,8 @@ struct EliminateUselessOpPass
     patterns.add<EliminateTorchOperatorOpByPrefix>(context, "profiler.");
     // Eliminate torch.aten.warn op
     patterns.add<EliminateAtenWarnOp>(context);
+    // Eliminate torch.runtime.assert op
+    patterns.add<EliminateAtenRuntimeAssertOp>(context);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
