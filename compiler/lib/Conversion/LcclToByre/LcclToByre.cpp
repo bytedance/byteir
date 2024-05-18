@@ -31,6 +31,29 @@ using namespace llvm;
 
 namespace {
 
+template <typename T>
+ArrayAttr getByreMemoryEffectForLcclOps(T op, PatternRewriter &rewriter) {
+  SmallVector<Attribute> memoryEffects;
+
+  if (MemoryEffectOpInterface iface =
+          dyn_cast<MemoryEffectOpInterface>(op.getOperation())) {
+    for (auto memrefOp : op.getOperands()) {
+      if (iface.getEffectOnValue<MemoryEffects::Write>(memrefOp)) {
+        memoryEffects.push_back(rewriter.getAttr<byre::MemoryEffectAttr>(
+            byre::MemoryEffect::Write));
+      } else if (iface.getEffectOnValue<MemoryEffects::Read>(memrefOp)) {
+        memoryEffects.push_back(
+            rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::Read));
+      } else {
+        memoryEffects.push_back(
+            rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::None));
+      }
+    }
+  }
+  assert(op.getOperands().size() == memoryEffects.size());
+  return rewriter.getAttr<ArrayAttr>(memoryEffects);
+}
+
 template <typename T> const StringRef getByreOpName() {
   if (std::is_same_v<T, lccl::BroadcastOp>)
     return byre::ByreBroadcastName;
@@ -57,9 +80,11 @@ struct ConvertLcclOpToByrePattern : public OpRewritePattern<T> {
   using OpRewritePattern<T>::OpRewritePattern;
   LogicalResult matchAndRewrite(T op,
                                 PatternRewriter &rewriter) const override {
+    auto memoryEffectsArray = getByreMemoryEffectForLcclOps(op, rewriter);
     if (op.getDynamicReplicaGroups()) {
       auto byreOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
-          op, TypeRange(), getByreOpName<T>(), op.getOperands(), ArrayAttr());
+          op, TypeRange(), getByreOpName<T>(), op.getOperands(),
+          memoryEffectsArray);
       auto &&attrs = getOpAttrExceptReplicaGroups(op);
       attrs.emplace_back(op.getSynchronousAttrName(), op.getSynchronousAttr());
       addAttrs(byreOp.getOperation(), attrs);
@@ -68,7 +93,7 @@ struct ConvertLcclOpToByrePattern : public OpRewritePattern<T> {
       for (Attribute replicaGroup : replicaGroups) {
         auto byreOp = rewriter.create<byre::ComputeOp>(
             op.getLoc(), TypeRange(), getByreOpName<T>(), op.getOperands(),
-            ArrayAttr());
+            memoryEffectsArray);
         auto &&attrs = getOpAttrExceptReplicaGroups(op);
         attrs.emplace_back(rewriter.getStringAttr(byre::ReplicaGroupStr),
                            replicaGroup);
@@ -84,8 +109,15 @@ struct ConvertSendOpToByrePattern : public OpRewritePattern<lccl::SendOp> {
   using OpRewritePattern<lccl::SendOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(lccl::SendOp op,
                                 PatternRewriter &rewriter) const override {
+    // auto readMemoryEffects =
+    //     rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::Read);
+    // ArrayAttr memoryEffectsAttr = rewriter.getArrayAttr({readMemoryEffects});
+
+    auto memoryEffectsArray = getByreMemoryEffectForLcclOps(op, rewriter);
+
     auto byreOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
-        op, TypeRange(), byre::ByreSendName, op.getOperands(), ArrayAttr());
+        op, TypeRange(), byre::ByreSendName, op.getOperands(),
+        memoryEffectsArray);
     SmallVector<NamedAttribute> attrs;
     if (op.getTargetIndex().has_value())
       attrs.emplace_back(rewriter.getStringAttr(byre::ByreRankStr),
@@ -100,8 +132,14 @@ struct ConvertRecvOpToByrePattern : public OpRewritePattern<lccl::RecvOp> {
   using OpRewritePattern<lccl::RecvOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(lccl::RecvOp op,
                                 PatternRewriter &rewriter) const override {
+    // auto writeMemoryEffects =
+    //     rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::Write);
+    // ArrayAttr memoryEffectsAttr =
+    // rewriter.getArrayAttr({writeMemoryEffects});
+    auto memoryEffectsArray = getByreMemoryEffectForLcclOps(op, rewriter);
     auto byreOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
-        op, TypeRange(), byre::ByreRecvName, op.getOperands(), ArrayAttr());
+        op, TypeRange(), byre::ByreRecvName, op.getOperands(),
+        memoryEffectsArray);
     SmallVector<NamedAttribute> attrs;
     if (op.getSourceIndex().has_value())
       attrs.emplace_back(rewriter.getStringAttr(byre::ByreRankStr),
