@@ -42,7 +42,7 @@ template <typename T> const StringRef getByreOpName() {
 }
 
 template <typename T>
-SmallVector<NamedAttribute> getOpAttrExceptEeplicaGroups(T op) {
+SmallVector<NamedAttribute> getOpAttrExceptReplicaGroups(T op) {
   SmallVector<NamedAttribute> attrs;
   for (auto attr : op.getOperation()->getAttrDictionary()) {
     if (attr.getName() == op.getReplicaGroupsAttrName())
@@ -60,7 +60,7 @@ struct ConvertLcclOpToByrePattern : public OpRewritePattern<T> {
     if (op.getDynamicReplicaGroups()) {
       auto byreOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
           op, TypeRange(), getByreOpName<T>(), op.getOperands(), ArrayAttr());
-      auto &&attrs = getOpAttrExceptEeplicaGroups(op);
+      auto &&attrs = getOpAttrExceptReplicaGroups(op);
       attrs.emplace_back(op.getSynchronousAttrName(), op.getSynchronousAttr());
       addAttrs(byreOp.getOperation(), attrs);
     } else {
@@ -69,7 +69,7 @@ struct ConvertLcclOpToByrePattern : public OpRewritePattern<T> {
         auto byreOp = rewriter.create<byre::ComputeOp>(
             op.getLoc(), TypeRange(), getByreOpName<T>(), op.getOperands(),
             ArrayAttr());
-        auto &&attrs = getOpAttrExceptEeplicaGroups(op);
+        auto &&attrs = getOpAttrExceptReplicaGroups(op);
         attrs.emplace_back(rewriter.getStringAttr(byre::ReplicaGroupStr),
                            replicaGroup);
         addAttrs(byreOp.getOperation(), attrs);
