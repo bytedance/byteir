@@ -34,7 +34,6 @@ namespace {
 template <typename T>
 ArrayAttr getByreMemoryEffectForLcclOps(T op, PatternRewriter &rewriter) {
   SmallVector<Attribute> memoryEffects;
-
   if (MemoryEffectOpInterface iface =
           dyn_cast<MemoryEffectOpInterface>(op.getOperation())) {
     for (auto memrefOp : op.getOperands()) {
@@ -109,12 +108,7 @@ struct ConvertSendOpToByrePattern : public OpRewritePattern<lccl::SendOp> {
   using OpRewritePattern<lccl::SendOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(lccl::SendOp op,
                                 PatternRewriter &rewriter) const override {
-    // auto readMemoryEffects =
-    //     rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::Read);
-    // ArrayAttr memoryEffectsAttr = rewriter.getArrayAttr({readMemoryEffects});
-
     auto memoryEffectsArray = getByreMemoryEffectForLcclOps(op, rewriter);
-
     auto byreOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, TypeRange(), byre::ByreSendName, op.getOperands(),
         memoryEffectsArray);
@@ -132,10 +126,6 @@ struct ConvertRecvOpToByrePattern : public OpRewritePattern<lccl::RecvOp> {
   using OpRewritePattern<lccl::RecvOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(lccl::RecvOp op,
                                 PatternRewriter &rewriter) const override {
-    // auto writeMemoryEffects =
-    //     rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::Write);
-    // ArrayAttr memoryEffectsAttr =
-    // rewriter.getArrayAttr({writeMemoryEffects});
     auto memoryEffectsArray = getByreMemoryEffectForLcclOps(op, rewriter);
     auto byreOp = rewriter.replaceOpWithNewOp<byre::ComputeOp>(
         op, TypeRange(), byre::ByreRecvName, op.getOperands(),
