@@ -66,13 +66,13 @@ stablehlo::ConstantOp
 createInitialValueForReduceOp<stablehlo::MaxOp>(PatternRewriter &rewriter,
                                                 Location loc, Type elementTy) {
   auto constType = RankedTensorType::get({}, elementTy);
-  if (elementTy.isa<mlir::FloatType>()) {
+  if (isa<mlir::FloatType>(elementTy)) {
     auto constAttr = DenseElementsAttr::get(
         constType,
-        {APFloat::getInf(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+        {APFloat::getInf(cast<mlir::FloatType>(elementTy).getFloatSemantics(),
                          /*negative=*/true)});
     return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
-  } else if (elementTy.isa<mlir::IntegerType>() &&
+  } else if (isa<mlir::IntegerType>(elementTy) &&
              elementTy.getIntOrFloatBitWidth() != 8) {
     auto constAttr = DenseElementsAttr::get(
         constType,
@@ -88,13 +88,13 @@ stablehlo::ConstantOp
 createInitialValueForReduceOp<stablehlo::AddOp>(PatternRewriter &rewriter,
                                                 Location loc, Type elementTy) {
   auto constType = RankedTensorType::get({}, elementTy);
-  if (elementTy.isa<mlir::FloatType>()) {
+  if (isa<mlir::FloatType>(elementTy)) {
     auto constAttr = DenseElementsAttr::get(
         constType,
-        {APFloat::getZero(elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+        {APFloat::getZero(cast<mlir::FloatType>(elementTy).getFloatSemantics(),
                           /*negative=*/false)});
     return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
-  } else if (elementTy.isa<mlir::IntegerType>() &&
+  } else if (isa<mlir::IntegerType>(elementTy) &&
              elementTy.getIntOrFloatBitWidth() != 8) {
     auto constAttr = DenseElementsAttr::get(
         constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
@@ -109,7 +109,7 @@ stablehlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter,
                                          Location loc, Value input,
                                          llvm::SmallVector<int64_t> dims) {
   llvm::sort(dims.begin(), dims.end());
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   stablehlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
       rewriter, loc, inputType.getElementType());
 
@@ -143,7 +143,7 @@ stablehlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter,
 
 Value promoteType(Location loc, Value input, TensorType desiredType,
                   PatternRewriter &rewriter) {
-  TensorType inType = input.getType().dyn_cast<TensorType>();
+  TensorType inType = dyn_cast<TensorType>(input.getType());
   if (inType.getElementType() == desiredType.getElementType()) {
     return input;
   }
@@ -156,11 +156,12 @@ Value promoteType(Location loc, Value input, TensorType desiredType,
 DenseFPElementsAttr getSplatFloatAttr(RankedTensorType type, double value) {
   bool losesInfo;
   APFloat v = APFloat(value);
-  v.convert(type.getElementType().cast<mlir::FloatType>().getFloatSemantics(),
+  v.convert(cast<mlir::FloatType>(type.getElementType()).getFloatSemantics(),
             APFloat::rmNearestTiesToEven, &losesInfo);
   assert(!losesInfo && "should not lose info");
   return DenseFPElementsAttr::get(type, {v});
 }
+
 } // namespace
 
 namespace {
@@ -174,17 +175,16 @@ public:
   LogicalResult
   matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    mlir::RankedTensorType outType =
-        OpConversionPattern<AtenOpT>::getTypeConverter()
-            ->convertType(op->getResultTypes()[0])
-            .template cast<RankedTensorType>();
+    mlir::RankedTensorType outType = cast<RankedTensorType>(
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op->getResultTypes()[0]));
     mlir::FloatType outElementType =
-        outType.getElementType().template cast<mlir::FloatType>();
+        cast<mlir::FloatType>(outType.getElementType());
 
     // promote input
     Value input =
         promoteType(op->getLoc(), adaptor.getInput(), outType, rewriter);
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     // infer the axis list and axis shape
     llvm::SmallVector<int64_t> normalizedShape;
     if (!matchPattern(op.getNormalizedShape(),
@@ -271,9 +271,9 @@ public:
   LogicalResult
   matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    RankedTensorType outType = OpConversionPattern<AtenOpT>::getTypeConverter()
-                                   ->convertType(op->getResultTypes()[0])
-                                   .template cast<RankedTensorType>();
+    RankedTensorType outType = cast<RankedTensorType>(
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op->getResultTypes()[0]));
     if (!outType.hasStaticShape()) {
       return op.emitError("must be static shape");
     }
@@ -339,13 +339,13 @@ public:
     Value result = rewriter.create<stablehlo::ReshapeOp>(
         op->getLoc(), outType, customCallOp->getResult(0));
     // group_norm weight/bias
-    if (!weight.getType().template isa<Torch::NoneType>()) {
+    if (!isa<Torch::NoneType>(weight.getType())) {
       Value bcastWeight = rewriter.create<stablehlo::BroadcastInDimOp>(
           op->getLoc(), outType, weight, rewriter.getDenseI64ArrayAttr({1}));
       result =
           rewriter.create<stablehlo::MulOp>(op->getLoc(), result, bcastWeight);
     }
-    if (!bias.getType().template isa<Torch::NoneType>()) {
+    if (!isa<Torch::NoneType>(bias.getType())) {
       Value bcastBias = rewriter.create<stablehlo::BroadcastInDimOp>(
           op->getLoc(), outType, bias, rewriter.getDenseI64ArrayAttr({1}));
       result =
@@ -372,12 +372,11 @@ public:
   matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType =
-        OpConversionPattern<AtenOpT>::getTypeConverter()
-            ->convertType(op->getResult(0).getType())
-            .template cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op->getResult(0).getType()));
 
     int64_t dimInt;
     if (!matchPattern(op.getDim(), m_TorchConstantInt(&dimInt)))
@@ -414,12 +413,11 @@ public:
   matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType =
-        OpConversionPattern<AtenOpT>::getTypeConverter()
-            ->convertType(op->getResult(0).getType())
-            .template cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op->getResult(0).getType()));
 
     int64_t dimInt;
     if (!matchPattern(op.getDim(), m_TorchConstantInt(&dimInt)))
@@ -455,9 +453,8 @@ public:
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
     SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op->getResult(0).getType()));
 
     std::string approximate;
     if (!matchPattern(op.getApproximate(), m_TorchConstantStr(approximate)))
@@ -494,11 +491,10 @@ public:
   matchAndRewrite(AtenArgmaxOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op->getResult(0).getType()));
     int64_t dimInt;
     if (!matchPattern(op.getDim(), m_TorchConstantInt(&dimInt))) {
       return rewriter.notifyMatchFailure(op, "unimplemented: "
@@ -544,7 +540,7 @@ public:
   matchAndRewrite(AtenMaxDimOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
 
     SmallVector<Type> resultTypes;
@@ -567,32 +563,8 @@ public:
                                              "keepdim is not constant bool");
     }
 
-    if (op.getResults()[1].use_empty()) { // simplify to stablehlo.reduce
-      auto reduceOp = createSingleOpReduce<stablehlo::MaxOp>(
-          rewriter, op->getLoc(), input, {dimInt});
-      if (keepDim) {
-        auto inputShapeInfo = hlo::getDimSizesOfTensor(rewriter, op, input,
-                                                       /*dimSizeIndexBits=*/64);
-        if (failed(inputShapeInfo)) {
-          return rewriter.notifyMatchFailure(
-              op, "failed to get dimension sizes of the input");
-        }
-        auto outputShapeVec = *inputShapeInfo;
-        outputShapeVec[dimInt] = rewriter.create<mlir::arith::ConstantOp>(
-            op->getLoc(),
-            rewriter.getIntegerAttr(rewriter.getIntegerType(64), 1));
-        auto outputShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
-            op->getLoc(), outputShapeVec);
-        Value reshapeResult = rewriter.create<stablehlo::DynamicReshapeOp>(
-            op->getLoc(), resultTypes[0], reduceOp.getResults()[0],
-            outputShapeTensor);
-        rewriter.replaceOp(op, ArrayRef<Value>{reshapeResult, Value()});
-        return success();
-      } else {
-        rewriter.replaceOp(op,
-                           ArrayRef<Value>{reduceOp.getResults()[0], Value()});
-        return success();
-      }
+    if (op.getResults()[1].use_empty()) { // should simplify to stablehlo.reduce
+      return failure();
     }
 
     std::vector<NamedAttribute> byteir_attrs;
@@ -636,15 +608,14 @@ public:
   matchAndRewrite(AtenOneHotOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     auto inputElemType = inputType.getElementType();
     if (!inputElemType.isa<mlir::IntegerType>()) {
       return rewriter.notifyMatchFailure(op, "only int indices is allowed");
     }
     SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op->getResult(0).getType()));
     int64_t numClasses;
     if (!matchPattern(op.getNumClasses(), m_TorchConstantInt(&numClasses))) {
       return rewriter.notifyMatchFailure(op, "unimplemented: "
@@ -684,7 +655,7 @@ public:
   matchAndRewrite(AtenTopkOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
     SmallVector<Type> resultTypes;
     if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
@@ -810,9 +781,8 @@ public:
       bufferArgs.push_back(operand);
     }
 
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op->getResult(0).getType()));
 
     std::vector<NamedAttribute> byteir_attrs;
 
@@ -847,9 +817,8 @@ public:
       bufferArgs.push_back(operand);
     }
 
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op->getResult(0).getType()));
 
     std::vector<NamedAttribute> byteir_attrs;
 
@@ -890,7 +859,7 @@ public:
     if (!matchPattern(op.getIgnoreIndex(), m_TorchConstantInt(&ignoreIndex)))
       return rewriter.notifyMatchFailure(op, "ignore_index must be constant");
 
-    if (!weight.getType().isa<mlir::torch::Torch::NoneType>())
+    if (!isa<mlir::torch::Torch::NoneType>(weight.getType()))
       return rewriter.notifyMatchFailure(
           op, "Unimplemented, the weight operand is not incorporated.");
 
@@ -949,9 +918,8 @@ public:
           op, "Unimplemented, the weight operand is not incorporated.");
 
     SmallVector<Value> bufferArgs({grad_out, input, target, total_weight});
-    RankedTensorType resultType = getTypeConverter()
-                                      ->convertType(op->getResult(0).getType())
-                                      .template cast<RankedTensorType>();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op->getResult(0).getType()));
 
     std::vector<NamedAttribute> byteir_attrs;
     byteir_attrs.emplace_back(rewriter.getStringAttr("reduction"),
@@ -1204,6 +1172,39 @@ public:
 };
 } // namespace
 
+// aten.nonzero
+namespace {
+class ConvertAtenNonzeroOp : public OpConversionPattern<AtenNonzeroOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenNonzeroOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getSelf();
+    auto inputType = input.getType().template cast<RankedTensorType>();
+    SmallVector<Value> bufferArgs({input});
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
+    if (!resultType) {
+      return op.emitError("could not convert output types");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getNonZeroName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), TypeRange{resultType}, bufferArgs,
+        ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+} // namespace
+
 namespace {
 class ConvertTorchToCustomCall
     : public ConvertTorchToCustomCallBase<ConvertTorchToCustomCall> {
@@ -1294,6 +1295,8 @@ public:
     }
     if (validCustomCallOpsSet.contains("aten.max.dim")) {
       target.addIllegalOp<AtenMaxDimOp>();
+      target.addDynamicallyLegalOp<AtenMaxDimOp>(
+          [](AtenMaxDimOp op) { return op.getIndices().use_empty(); });
       patterns.add<ConvertAtenMaxDimOp>(typeConverter, context);
     }
     if (validCustomCallOpsSet.contains("aten.one_hot")) {
@@ -1304,6 +1307,9 @@ public:
       target.addIllegalOp<AtenTopkOp>();
       patterns.add<ConvertAtenTopkOp>(typeConverter, context);
     }
+
+    target.addIllegalOp<AtenNonzeroOp>();
+    patterns.add<ConvertAtenNonzeroOp>(typeConverter, context);
 
     target.addIllegalOp<CustomOp>();
     patterns.add<ConvertDynamicPartitionCustomOp>(typeConverter, context);

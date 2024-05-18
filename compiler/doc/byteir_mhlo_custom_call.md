@@ -165,6 +165,14 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 - Results:
   - output: Tensor (ElementType same as input)
 
+### byteir.non_zero
+- Operands:
+  - input: Tensor
+- Reults:
+  - output: Int32/Int64/Index Tensor
+
+Semantics: see https://pytorch.org/docs/stable/generated/torch.nonzero.html
+
 ### byteir.quantize
 - Operands:
   - input: FloatTensor

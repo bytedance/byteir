@@ -55,12 +55,12 @@ struct ConvertAten_IndexPutImplOp
     Location loc = op->getLoc();
     Value input = adaptor.getSelf();
     Value values = adaptor.getValues();
-    auto inputType = input.getType().cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<int64_t> inputShape(inputType.getShape());
     if (inputShape.size() != 2) {
       return op->emitError("only support 2D input in index_put");
     }
-    auto valuesType = values.getType().cast<RankedTensorType>();
+    auto valuesType = cast<RankedTensorType>(values.getType());
     SmallVector<int64_t> valuesShape(valuesType.getShape());
     if (valuesShape.size() != 3) {
       return op->emitError("only support 3D values in index_put");
@@ -85,7 +85,7 @@ struct ConvertAten_IndexPutImplOp
     }
     Value index = indicesList[0];
 
-    if (index.getType().isa<Torch::NoneType>())
+    if (isa<Torch::NoneType>(index.getType()))
       return rewriter.notifyMatchFailure(op, "Index tensor must not be None.");
 
     index = typeConverter->materializeTargetConversion(
@@ -95,7 +95,7 @@ struct ConvertAten_IndexPutImplOp
     // index: [Q, P] -> [Q * P, 1]
     // values: [Q, P, N] -> [Q * P, N]
 
-    auto indexType = index.getType().cast<RankedTensorType>();
+    auto indexType = cast<RankedTensorType>(index.getType());
     SmallVector<int64_t> indexShape(indexType.getShape());
     if (indexShape.size() != 2) {
       return op->emitError("only support 2D index in index_put");
@@ -162,13 +162,13 @@ struct ConvertAtenMaxPool2dWithIndicesBackwardOp
   matchAndRewrite(AtenMaxPool2dWithIndicesBackwardOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputTy = input.getType().cast<RankedTensorType>();
+    auto inputTy = cast<RankedTensorType>(input.getType());
     auto inputElemTy = inputTy.getElementType();
     auto inputRank = inputTy.getRank();
     Value gradOutput = adaptor.getGradOutput();
 
     auto outValTy =
-        getTypeConverter()->convertType(op.getType()).cast<RankedTensorType>();
+        cast<RankedTensorType>(getTypeConverter()->convertType(op.getType()));
 
     SmallVector<int64_t, 2> padding, kernelSize, stride, dilation;
 
@@ -290,16 +290,16 @@ struct ConvertAtenPowScalarOp : public OpConversionPattern<AtenPowScalarOp> {
   matchAndRewrite(AtenPowScalarOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value lhs = adaptor.getSelf();
-    auto lhsType = lhs.getType().dyn_cast<TensorType>();
+    auto lhsType = dyn_cast<TensorType>(lhs.getType());
     Value rhs = adaptor.getExponent();
-    TensorType rhsType = rhs.getType().dyn_cast<TensorType>();
+    TensorType rhsType = dyn_cast<TensorType>(rhs.getType());
 
     if (!rhsType)
       return op.emitError("only Tensor types supported in StableHLO");
 
-    auto outType = OpConversionPattern<AtenPowScalarOp>::getTypeConverter()
-                       ->convertType(op.getType())
-                       .template cast<TensorType>();
+    auto outType = cast<TensorType>(
+        OpConversionPattern<AtenPowScalarOp>::getTypeConverter()->convertType(
+            op.getType()));
 
     Type outElemTy = outType.getElementType();
     if (!outElemTy.isIntOrFloat()) {

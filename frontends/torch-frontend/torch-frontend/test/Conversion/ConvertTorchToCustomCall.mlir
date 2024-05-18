@@ -122,9 +122,7 @@ func.func @torch.aten.max.dim(%arg0: !torch.vtensor<[32,64,21128],f32>) -> !torc
   return %values : !torch.vtensor<[32,64],f32>
 }
 // CHECK-LABEL: func.func @torch.aten.max.dim
-// CHECK: stablehlo.reduce
-// CHECK: stablehlo.max
-// CHECK-NOT: torch.aten.max.dim
+// CHECK: torch.aten.max.dim
 
 func.func @torch.aten.max.dim.1(%arg0: !torch.vtensor<[32,64,21128],f32>) -> (!torch.vtensor<[32,64],f32>, !torch.vtensor<[32,64],si64>) {
   %int-1 = torch.constant.int -1
@@ -243,3 +241,13 @@ func.func @torch.byteir.flash_attn_bwd(%arg0: !torch.vtensor<[2,256,12,128],f16>
 // CHECK-SAME: @byteir.flash_attn_bwd
 // CHECK: byteir_attrs = {causal = true, dropout_p = 1.000000e-01 : f64, softmax_scale = 1.000000e+00 : f64}
 // CHECH-NOT: torch.operator
+
+func.func @torch.aten.nonzero(%arg0: !torch.vtensor<[5],si64>) -> !torch.vtensor<[?,1],si64> {
+  %0 = torch.aten.nonzero %arg0 : !torch.vtensor<[5],si64> -> !torch.vtensor<[?,1],si64>
+  return %0 : !torch.vtensor<[?,1],si64>
+}
+// CHECK-LABEL: func.func @torch.aten.nonzero
+// CHECK: stablehlo.custom_call
+// CHECK-SAME: @byteir.non_zero
+// CHECK: byteir_attrs = {}
+// CHECH-NOT: torch.aten.nonzero

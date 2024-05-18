@@ -43,8 +43,15 @@ bool isCustomMhloRngUniformOp(Operation *op) {
   return false;
 }
 
+bool isCustomMhloByteirRepeatOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRepeatName();
+  }
+  return false;
+}
+
 bool isFusibleCandidate(Operation *op) {
-  if (isCustomMhloRngUniformOp(op))
+  if (isCustomMhloRngUniformOp(op) || isCustomMhloByteirRepeatOp(op))
     return true;
   return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
 }
