@@ -1,5 +1,7 @@
+// RUN: byteir-opt %s | FileCheck %s
+
 module {
-  func.func @main(%arg0: tensor<3x2xf32>) -> tensor<3x8xf32> {
+  func.func @forward(%arg0: tensor<3x2xf32>) -> tensor<3x8xf32> {
     %0 = stablehlo.constant dense<1.000000e+00> : tensor<1xf32>
     %1 = stablehlo.constant() {value = dense<1.0> : tensor<8xf32>} : () -> tensor<8xf32>
     %2 = stablehlo.constant() {value = dense<2.0> : tensor<8x16xf32>} : () -> tensor<8x16xf32>
@@ -29,4 +31,4 @@ module {
     return %25 : tensor<3x8xf32>
   }
 }
-
+// CHECK-LABEL: func.func @forward
