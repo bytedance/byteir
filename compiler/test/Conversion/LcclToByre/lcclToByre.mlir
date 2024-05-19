@@ -66,8 +66,8 @@ module attributes {byre.container_module} {
 }
 // CHECK-LABEL:   func.func @broadcast(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<3xf32> {byre.argname = "in0", byre.argtype = 1 : i32}) attributes {byre.entry_point} {
-// CHECK:           byre.compute @nccl.Broadcast(%[[VAL_0]]) {memory_effects = [2 : i32], replica_group = [1, 2], synchronous = true} : memref<3xf32>
-// CHECK:           byre.compute @nccl.Broadcast(%[[VAL_0]]) {memory_effects = [2 : i32], replica_group = [3, 4], synchronous = true} : memref<3xf32>
+// CHECK:           byre.compute @nccl.Broadcast(%[[VAL_0]]) {memory_effects = [3 : i32], replica_group = [1, 2], synchronous = true} : memref<3xf32>
+// CHECK:           byre.compute @nccl.Broadcast(%[[VAL_0]]) {memory_effects = [3 : i32], replica_group = [3, 4], synchronous = true} : memref<3xf32>
 // CHECK:           return
 // CHECK:         }
 
@@ -82,7 +82,7 @@ module attributes {byre.container_module} {
 // CHECK-LABEL:   func.func @broadcast_dynamic(
 // CHECK-SAME:      %[[VAL_0:.*]]: memref<3xf32> {byre.argname = "in0", byre.argtype = 1 : i32},
 // CHECK-SAME:      %[[VAL_1:.*]]: memref<1x4xindex> {byre.argname = "in1", byre.argtype = 1 : i32}) attributes {byre.entry_point} {
-// CHECK:           byre.compute @nccl.Broadcast(%[[VAL_0]], %[[VAL_1]]) {memory_effects = [2 : i32, 1 : i32], synchronous = true} : memref<3xf32>, memref<1x4xindex>
+// CHECK:           byre.compute @nccl.Broadcast(%[[VAL_0]], %[[VAL_1]]) {memory_effects = [3 : i32, 1 : i32], synchronous = true} : memref<3xf32>, memref<1x4xindex>
 // CHECK:           return
 // CHECK:         }
 

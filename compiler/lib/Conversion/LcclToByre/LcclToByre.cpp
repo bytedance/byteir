@@ -37,16 +37,15 @@ ArrayAttr getByreMemoryEffectForLcclOps(T op, PatternRewriter &rewriter) {
   if (MemoryEffectOpInterface iface =
           dyn_cast<MemoryEffectOpInterface>(op.getOperation())) {
     for (auto memrefOp : op.getOperands()) {
+      uint32_t memoryEffect = static_cast<uint32_t>(byre::MemoryEffect::None);
       if (iface.getEffectOnValue<MemoryEffects::Write>(memrefOp)) {
-        memoryEffects.push_back(rewriter.getAttr<byre::MemoryEffectAttr>(
-            byre::MemoryEffect::Write));
-      } else if (iface.getEffectOnValue<MemoryEffects::Read>(memrefOp)) {
-        memoryEffects.push_back(
-            rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::Read));
-      } else {
-        memoryEffects.push_back(
-            rewriter.getAttr<byre::MemoryEffectAttr>(byre::MemoryEffect::None));
+        memoryEffect |= static_cast<uint32_t>(byre::MemoryEffect::Write);
       }
+      if (iface.getEffectOnValue<MemoryEffects::Read>(memrefOp)) {
+        memoryEffect |= static_cast<uint32_t>(byre::MemoryEffect::Read);
+      }
+      memoryEffects.push_back(rewriter.getAttr<byre::MemoryEffectAttr>(
+          static_cast<byre::MemoryEffect>(memoryEffect)));
     }
   }
   assert(op.getOperands().size() == memoryEffects.size());
