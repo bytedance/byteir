@@ -46,7 +46,7 @@ struct GroupAllocationHook {
   std::vector<size_t> tensor_indexes;
   // return an array of AsyncValues, each AsyncValue is mapping to the
   // corresponding tensor index
-  // Note: this method could be called more than once due to mulitple execution
+  // Note: this method could be called more than once due to multiple execution
   // frameworks
   std::function<std::vector<AsyncValue>(void)> alloc_f;
   // receive an array of AsyncValues as argument, each AsyncValue is mapping to
