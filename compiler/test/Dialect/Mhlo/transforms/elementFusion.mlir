@@ -1,5 +1,6 @@
 // RUN: byteir-opt %s -fuse-element | FileCheck %s
 // RUN: byteir-opt %s -fuse-element="cluster-single-op" | FileCheck %s --check-prefix CHECK-SINGLE
+// RUN: byteir-opt %s -fuse-element="cluster-single-op disable-elementwise-fusion" | FileCheck %s --check-prefix CHECK-DISABLE
 
 func.func @mhlo_element(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 : tensor<4xf32>) -> tensor<4xf32> {
   %0 = "mhlo.add"(%arg0, %arg1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
@@ -17,6 +18,21 @@ func.func @mhlo_element(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 : te
 // CHECK-NEXT:    mhlo.return
 // CHECK: {__byteir_elementwise_fusion__}
 // CHECK:  return
+
+// CHECK-DISABLE-LABEL: func.func @mhlo_element
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.return
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.abs
+// CHECK-NEXT:    mhlo.return
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.return
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.return
+// CHECK-NEXT:  return
 
 func.func @mhlo_element_broadcast(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 : tensor<3x4xf32>) -> tensor<3x4xf32> {
   %0 = "mhlo.add"(%arg0, %arg1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
