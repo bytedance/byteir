@@ -176,20 +176,6 @@ public:
   }
 };
 
-// Rewrite `arith.max/minimum` to `arith.max/minnum`.
-template <typename SourceOpT, typename TargetOpT>
-struct ConvertArithMinMaxMum : public OpRewritePattern<SourceOpT> {
-public:
-  using OpRewritePattern<SourceOpT>::OpRewritePattern;
-  // using OpAdaptor = typename SourceOpT::Adaptor;
-  LogicalResult matchAndRewrite(SourceOpT op,
-                                PatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<TargetOpT>(op, op.getType(), op.getLhs(),
-                                           op.getRhs(), op.getFastmathAttr());
-    return success();
-  }
-};
-
 void populateOptionalGpuToNVVMExtConversionPatterns(
     LLVMTypeConverter &converter, RewritePatternSet &patterns) {
 
@@ -202,10 +188,10 @@ void populateOptionalGpuToNVVMExtConversionPatterns(
 void populateTempGpuToNVVMExtConversionPatterns(LLVMTypeConverter &converter,
                                                 RewritePatternSet &patterns) {
 
-  patterns.add<ConvertArithMinMaxMum<arith::MaximumFOp, arith::MaxNumFOp>>(
-      patterns.getContext());
-  patterns.add<ConvertArithMinMaxMum<arith::MinimumFOp, arith::MinNumFOp>>(
-      patterns.getContext());
+  patterns.add<OpToFuncCallLowering<arith::MaximumFOp>>(converter, "__nv_fmaxf",
+                                                        "__nv_fmax");
+  patterns.add<OpToFuncCallLowering<arith::MinimumFOp>>(converter, "__nv_fminf",
+                                                        "__nv_fmin");
 }
 
 static IntegerAttr wrapNumericMemorySpace(MLIRContext *ctx, unsigned space) {
