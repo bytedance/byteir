@@ -176,6 +176,20 @@ public:
   }
 };
 
+// Rewrite `arith.max/minimum` to `arith.max/minnum`.
+template <typename SourceOpT, typename TargetOpT>
+struct ConvertArithMinMaxMum : public OpRewritePattern<SourceOpT> {
+public:
+  using OpRewritePattern<SourceOpT>::OpRewritePattern;
+  // using OpAdaptor = typename SourceOpT::Adaptor;
+  LogicalResult matchAndRewrite(SourceOpT op,
+                                PatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<TargetOpT>(op, op.getType(), op.getLhs(),
+                                           op.getRhs(), op.getFastmathAttr());
+    return success();
+  }
+};
+
 void populateOptionalGpuToNVVMExtConversionPatterns(
     LLVMTypeConverter &converter, RewritePatternSet &patterns) {
 
@@ -183,6 +197,15 @@ void populateOptionalGpuToNVVMExtConversionPatterns(
                                                        "__nv_fmax");
   patterns.add<OpToFuncCallLowering<arith::MinNumFOp>>(converter, "__nv_fminf",
                                                        "__nv_fmin");
+}
+
+void populateTempGpuToNVVMExtConversionPatterns(LLVMTypeConverter &converter,
+                                                RewritePatternSet &patterns) {
+
+  patterns.add<ConvertArithMinMaxMum<arith::MaximumFOp, arith::MaxNumFOp>>(
+      patterns.getContext());
+  patterns.add<ConvertArithMinMaxMum<arith::MinimumFOp, arith::MinNumFOp>>(
+      patterns.getContext());
 }
 
 static IntegerAttr wrapNumericMemorySpace(MLIRContext *ctx, unsigned space) {
@@ -203,13 +226,24 @@ void populateGpuMemorySpaceAttributeConversions(
       });
 }
 
+bool compare_nvgpu_arch_lt(const std::string &lhs, const std::string &rhs) {
+  if (lhs.size() < 4 || rhs.size() < 4)
+    return false;
+
+  auto larch = std::stoi(lhs.substr(3));
+  auto rarch = std::stoi(rhs.substr(3));
+  return larch < rarch;
+}
+
 // Note: this pass is an externsion pass of upstream pass:
 // https://github.com/llvm/llvm-project/blob/main/mlir/lib/Conversion/GPUToNVVM/LowerGpuOpsToNVVMOps.cpp
 struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
   GPUToNVVMExtPass() = default;
-  GPUToNVVMExtPass(bool useBarePtrCallConv, unsigned indexBitwidth) {
+  GPUToNVVMExtPass(bool useBarePtrCallConv, unsigned indexBitwidth,
+                   const std::string &gpuArch) {
     this->useBarePtrCallConv = useBarePtrCallConv;
     this->indexBitwidth = indexBitwidth;
+    this->gpuArch = gpuArch;
   }
 
   void runOnOperation() override {
@@ -284,6 +318,12 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
     // our extension fixing
     // populateOptionalGpuToNVVMExtConversionPatterns(converter, llvmPatterns);
 
+    // TODO: remove this rewrite pattern while upgrading llvm higher than
+    // `ee54c86ef`
+    if (compare_nvgpu_arch_lt(this->gpuArch, "sm_80")) {
+      populateTempGpuToNVVMExtConversionPatterns(converter, llvmPatterns);
+    }
+
     LLVMConversionTarget target(getContext());
     configureGpuToNVVMConversionLegality(target);
     FrozenRewritePatternSet frozenLLVMPatterns(std::move(llvmPatterns));
@@ -305,6 +345,8 @@ struct GPUToNVVMExtPass : public GPUToNVVMExtBase<GPUToNVVMExtPass> {
 } // anonymous namespace
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
-mlir::createGPUToNVVMExtPass(bool useBarePtrCallConv, unsigned indexBitwidth) {
-  return std::make_unique<GPUToNVVMExtPass>(useBarePtrCallConv, indexBitwidth);
+mlir::createGPUToNVVMExtPass(bool useBarePtrCallConv, unsigned indexBitwidth,
+                             const std::string &gpuArch) {
+  return std::make_unique<GPUToNVVMExtPass>(useBarePtrCallConv, indexBitwidth,
+                                            gpuArch);
 }

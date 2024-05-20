@@ -169,14 +169,18 @@ struct ptxGenerator {
       return mlir::failure();
     }
 
-    if (failed(runMLIRPass(moduleOp,
-                           createSerializeToPTXPass(
-                               static_cast<unsigned>(codeGenOpt), libdeviceFile,
-                               nvptxTriple, gpuArch, ptxFeatures, ptxStr),
-                           prefixName + ".gpuptx.mlir",
-                           "createSerializeToPTXPass",
-                           /*saveOutput*/ true,
-                           /*gpuPass*/ true))) {
+    std::string llirPath = "";
+    if (saveTemps)
+      llirPath = prefixName + ".gpukernel.ll";
+
+    if (failed(runMLIRPass(
+            moduleOp,
+            createSerializeToPTXPass(static_cast<unsigned>(codeGenOpt),
+                                     libdeviceFile, nvptxTriple, gpuArch,
+                                     ptxFeatures, ptxStr, llirPath),
+            prefixName + ".gpuptx.mlir", "createSerializeToPTXPass",
+            /*saveOutput*/ true,
+            /*gpuPass*/ true))) {
       return mlir::failure();
     }
 

@@ -29,6 +29,10 @@ struct NVVMCodegenPipelineOptions
       llvm::cl::desc("An optional attribute to speicify whether using bare ptr "
                      "call convention."),
       llvm::cl::init(false)};
+  Option<std::string> gpuArch{
+      *this, "gpu-arch",
+      llvm::cl::desc("Specificy the target nvgpu arch, e.g. sm_90"),
+      llvm::cl::init("sm_80")};
 };
 
 void createNVVMCodegenPipeline(OpPassManager &pm,
