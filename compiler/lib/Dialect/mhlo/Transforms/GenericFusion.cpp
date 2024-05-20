@@ -273,7 +273,7 @@ struct ElementwiseFusionPass : public GenericFusionPass<ElementwiseFusionPass> {
   ::mlir::Pass::Option<bool> disableElementwiseFusion{
       *this, "disable-elementwise-fusion",
       ::llvm::cl::desc(
-          "whether to cluster single operation into mhlo.fusion op"),
+          "disable fusion strategy, only outline single operation"),
       ::llvm::cl::init(false)};
 };
 

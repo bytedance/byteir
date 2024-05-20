@@ -153,8 +153,7 @@ struct CatFusionPass : public GenericFusionPass<CatFusionPass> {
 
   ::mlir::Pass::Option<bool> aggressiveMode{
       *this, "aggressive-mode",
-      ::llvm::cl::desc(
-          "whether to cluster single operation into mhlo.fusion op"),
+      ::llvm::cl::desc("whether to fuse CAT aggressively"),
       ::llvm::cl::init(false)};
 };
 
