@@ -116,9 +116,9 @@ def _compile_cuda(
     device_module = ir.Module.parse(module_str, context)
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true})").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_type}" + "})").run(device_module.operation)
         else:
-            PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_type}"  + "})").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx file
     byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_type)
@@ -222,9 +222,9 @@ def _compile_cuda_with_ait_impl(
     device_module = ir.Module.parse(module_str, context)
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true})").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_type}" + "})").run(device_module.operation)
         else:
-            PassManager.parse("builtin.module(nvvm-codegen)").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_type}" + "})").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx
     byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_type)

@@ -29,7 +29,8 @@ class GPUModuleOp;
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>> createGPUToNVVMExtPass(
     bool useBarePtrCallConv = false,
-    unsigned indexBitwidth = kDeriveIndexBitwidthFromDataLayout);
+    unsigned indexBitwidth = kDeriveIndexBitwidthFromDataLayout,
+    const std::string &gpuArch = "sm_80");
 
 } // namespace mlir
 

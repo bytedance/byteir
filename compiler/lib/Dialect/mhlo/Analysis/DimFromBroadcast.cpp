@@ -103,6 +103,10 @@ SmallVector<bool> DimFromBroadcast::compute(Value v) {
   ArrayRef<int64_t> curShape = shapedType.getShape();
 
   Operation *defOp = v.getDefiningOp();
+  if (!defOp) {
+    return SmallVector<bool>();
+  }
+
   SmallVector<bool> dimFlag =
       llvm::TypeSwitch<Operation *, SmallVector<bool>>(defOp)
           .Case<mhlo::BroadcastInDimOp>(
