@@ -34,7 +34,8 @@ std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
 createSerializeToPTXPass(unsigned optLevel, const std::string &libdeviceFile,
                          const std::string &triple,
                          const std::string &targetChip,
-                         const std::string &features, std::string &targetISA);
+                         const std::string &features, std::string &targetISA,
+                         const std::string &llirPath = "");
 
 } // namespace mlir
 

@@ -39,7 +39,9 @@ def GPUToNVVMExt : Pass<"gpu-to-nvvm-ext", "gpu::GPUModuleOp"> {
            "All memrefs must have static shape">,
     Option<"indexBitwidth", "index-bitwidth", "unsigned",
            /*default=kDeriveIndexBitwidthFromDataLayout*/"0",
-           "Bitwidth of the index type, 0 to use size of machine word">
+           "Bitwidth of the index type, 0 to use size of machine word">,
+    Option<"gpuArch", "gpu-arch", "std::string", /*default*/ "\"sm_80\"",
+           "Specificy the target nvgpu arch">
   ];
 }
 

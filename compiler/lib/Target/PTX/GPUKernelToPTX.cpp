@@ -33,6 +33,7 @@
 #include "llvm/Linker/Linker.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -42,6 +43,8 @@
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
+
+#define DEBUG_TYPE "gpu-kernel-to-ptx"
 
 using namespace llvm;
 using namespace mlir;
@@ -100,6 +103,17 @@ static void addOptimizationPasses(llvm::FunctionPassManager &fPM,
   mPM.addPass(llvm::AlwaysInlinerPass());
 }
 
+static void dump_llir(llvm::Module &llvmModule, const std::string &llirPath) {
+  std::error_code EC;
+  raw_fd_ostream dest(llirPath, EC, sys::fs::OF_Text);
+  if (!EC) {
+    llvmModule.print(dest, nullptr);
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "Error opening output IR file: " << EC.message()
+                            << "\n";);
+  }
+}
+
 class SerializeToPTX
     : public PassWrapper<SerializeToPTX, OperationPass<gpu::GPUModuleOp>> {
 public:
@@ -107,9 +121,11 @@ public:
 
   SerializeToPTX(unsigned opt, const std::string &libdeviceFile,
                  const std::string &triple, const std::string &chip,
-                 const std::string &features, std::string &targetISA)
+                 const std::string &features, std::string &targetISA,
+                 const std::string &llirPath)
       : optLevelAsInt(opt), libdeviceFile(libdeviceFile), triple(triple),
-        chip(chip), features(features), targetISA(targetISA) {}
+        chip(chip), features(features), targetISA(targetISA),
+        llirPath(llirPath) {}
 
   void runOnOperation() override;
 
@@ -143,6 +159,8 @@ private:
   std::string features;
 
   std::string &targetISA;
+
+  std::string llirPath;
 };
 
 void SerializeToPTX::runOnOperation() {
@@ -158,6 +176,10 @@ void SerializeToPTX::runOnOperation() {
   if (failed(linkLibdevice(*llvmModule, llvmContext))) {
     return signalPassFailure();
   }
+
+  // Dump llir for debugging.
+  if (!llirPath.empty())
+    dump_llir(*llvmModule, llirPath);
 
   std::unique_ptr<llvm::TargetMachine> targetMachine = createTargetMachine();
   if (!targetMachine)
@@ -315,8 +337,9 @@ LogicalResult SerializeToPTX::linkLibdevice(llvm::Module &llvmModule,
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>> mlir::createSerializeToPTXPass(
     unsigned optLevel, const std::string &libdeviceFile,
     const std::string &triple, const std::string &chip,
-    const std::string &features, std::string &targetISA) {
+    const std::string &features, std::string &targetISA,
+    const std::string &llirPath) {
 
   return std::make_unique<SerializeToPTX>(optLevel, libdeviceFile, triple, chip,
-                                          features, targetISA);
+                                          features, targetISA, llirPath);
 }
