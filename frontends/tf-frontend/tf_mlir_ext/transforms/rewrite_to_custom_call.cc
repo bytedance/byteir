@@ -176,6 +176,18 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
   return customCallOp.getResults()[0];
 }
 
+DenseFPElementsAttr getSplatFpElementsAttr(ShapedType type, float v) {
+  APFloat epsilonFloat = APFloat(v);
+  bool losesInfo = false;
+  auto status = epsilonFloat.convert(
+      type.getElementType().cast<FloatType>().getFloatSemantics(),
+      APFloat::rmNearestTiesToEven, &losesInfo);
+  if (losesInfo || status != llvm::APFloatBase::opStatus::opOK) {
+    return nullptr;
+  }
+  return DenseFPElementsAttr::get(type, epsilonFloat);
+}
+
 Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
                               Value inputMD, Value gammaMD, Value betaMD,
                               ElementsAttr epsilon, ElementsAttr axis) {
@@ -189,11 +201,13 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
   assert(inputMDRank == gammaMDType.getRank());
   assert(inputMDRank == betaMDType.getRank());
 
-  auto gammaAttr = DenseElementsAttr::get(
+  auto gammaAttr = getSplatFpElementsAttr(
       inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 1.0f);
+  assert(gammaAttr);
   Value gamma = rewriter.create<TF::ConstOp>(loc, gammaAttr);
-  auto betaAttr = DenseElementsAttr::get(
+  auto betaAttr = getSplatFpElementsAttr(
       inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 0.0f);
+  assert(betaAttr);
   Value beta = rewriter.create<TF::ConstOp>(loc, betaAttr);
 
   llvm::SmallVector<int64_t> inputShape = {1, cDim};
@@ -221,7 +235,8 @@ Value createLayerNormWithoutBeta(PatternRewriter &rewriter, Location loc,
                                  Value input, Value gama, ElementsAttr epsilon,
                                  ElementsAttr axis) {
   auto gamaShapedType = gama.getType().cast<ShapedType>();
-  auto betaAttr = DenseElementsAttr::get(gamaShapedType, 0.0f);
+  auto betaAttr = getSplatFpElementsAttr(gamaShapedType, 0.0f);
+  assert(betaAttr);
   auto betaOp = rewriter.create<TF::ConstOp>(loc, betaAttr);
   Value beta = betaOp.getOutput();
   return createLayerNorm(rewriter, loc, input, gama, beta, epsilon, axis);
