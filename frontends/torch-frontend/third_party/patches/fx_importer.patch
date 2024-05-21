@@ -102,7 +102,7 @@ index 381f8f9a..75059770 100644
 -        np_tensor = np.array(tensor.tolist()).astype(npy_dtype)
 +
 +        # NOTE: if we torch.export a torch.nn.Module under fake mode, the parameters in the fx.GraphModule will be FakeTensor.
-+        # So we specifically handle FaekTensor here by randomly generating a tensor of the same shape and dtype.
++        # So we specifically handle FakeTensor here by randomly generating a tensor of the same shape and dtype.
 +        if isinstance(tensor, TorchFakeTensor):
 +            np_tensor = np.random.rand(*list(tensor.shape)).astype(npy_dtype)
 +        else:
