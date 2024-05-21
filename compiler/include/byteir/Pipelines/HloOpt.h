@@ -39,8 +39,8 @@ struct HloOptPipelineOptions
       llvm::cl::desc("whether to outline the single element-wise operation as "
                      "an independent function"),
       llvm::cl::init(false)};
-  Option<bool> disableElementwiseFusion{
-      *this, "disable-elementwise-fusion",
+  Option<bool> disableFusion{
+      *this, "disable-fusion",
       llvm::cl::desc("disable fusion strategy, only outline single operation"),
       llvm::cl::init(false)};
   Option<bool> outlineCatOp{
