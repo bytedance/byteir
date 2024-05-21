@@ -394,10 +394,10 @@ TEST(TestDistributedSession, NCCLE2E) {
     BRT_TEST_CHECK_STATUS(status_cuda);
 
     std::vector<std::string> config_ir = {
-        "test/test_files/Distributed/e2e.mlir",
-        "test/test_files/Distributed/e2e.mlir",
-        "test/test_files/Distributed/e2e.mlir",
-        "test/test_files/Distributed/e2e.mlir"};
+        "test/test_files/Distributed/ccl.mlir",
+        "test/test_files/Distributed/ccl.mlir",
+        "test/test_files/Distributed/ccl.mlir",
+        "test/test_files/Distributed/ccl.mlir"};
     std::string ir_url;
     d_session.LoadConfig(config_ir, ir_url);
     auto status_load = d_session.Load(ir_url, "byre");
