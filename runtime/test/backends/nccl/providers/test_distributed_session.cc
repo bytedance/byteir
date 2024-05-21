@@ -406,6 +406,7 @@ TEST(TestDistributedSession, NCCLE2E) {
     std::unique_ptr<RequestContext> request;
     auto status_request = d_session.NewRequestContext(&request);
     BRT_TEST_CHECK_STATUS(status_request);
+    request->FinishIOBinding();
 
     auto status_run = d_session.Run(*request);
     BRT_TEST_CHECK_STATUS(status_run);
