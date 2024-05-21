@@ -62,6 +62,12 @@ bool isFusibleTrigger(Operation *) { return true; }
 
 bool isFusibleWith(Operation *, Operation *) { return true; }
 
+bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
+  return isSplatMhloConstantLike(target) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
+             target);
+}
+
 bool isValidSingleOp(Operation *op) {
   if (llvm::isa<mhlo::ReshapeOp>(op))
     return false;
@@ -79,6 +85,15 @@ static GenericFuserConfig config{getByteIRHloAggressiveFusionAttrName(),
                                  aggressive_fusion::isValidSingleOp,
                                  aggressive_fusion::isValidFusionPattern};
 
+static GenericFuserConfig no_fuse_config{
+    getByteIRHloAggressiveFusionAttrName(),
+    aggressive_fusion::isFusibleCandidate,
+    aggressive_fusion::isFusibleStart,
+    aggressive_fusion::isFusibleTrigger,
+    aggressive_fusion::isFusibleWithNoDenseFuse,
+    aggressive_fusion::isValidSingleOp,
+    aggressive_fusion::isValidFusionPattern};
+
 } // namespace aggressive_fusion
 
 // A derived fusion pass for hlo aggressive fusion, which would fuse mhlo ops
@@ -88,7 +103,12 @@ struct HloAggressiveFusionPass
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(HloAggressiveFusionPass)
 
-  HloAggressiveFusionPass() : GenericFusionPass(true) {}
+  HloAggressiveFusionPass(bool disableFusion) : GenericFusionPass(true) {
+    this->disableFusion = disableFusion;
+  }
+
+  HloAggressiveFusionPass(const HloAggressiveFusionPass &other)
+      : GenericFusionPass<HloAggressiveFusionPass>(other) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -109,12 +129,21 @@ struct HloAggressiveFusionPass
   }
   ::llvm::StringRef getName() const override { return "HloAggressiveFusion"; }
 
-  const GenericFuserConfig &getConfig() { return aggressive_fusion::config; }
+  const GenericFuserConfig &getConfig() {
+    return disableFusion ? aggressive_fusion::no_fuse_config
+                         : aggressive_fusion::config;
+  }
+
+  ::mlir::Pass::Option<bool> disableFusion{
+      *this, "disable-fusion",
+      ::llvm::cl::desc(
+          "disable fusion strategy, only outline single operation"),
+      ::llvm::cl::init(false)};
 };
 
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createHloAggressiveFusionPass() {
-  return std::make_unique<HloAggressiveFusionPass>();
+mlir::createHloAggressiveFusionPass(bool disableFusion) {
+  return std::make_unique<HloAggressiveFusionPass>(disableFusion);
 }
