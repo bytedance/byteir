@@ -12,11 +12,11 @@ module attributes {byre.container_module, gpu.container_module} {
     %2 = "byre.alias"(%alloc) <{offset = 0 : i64}> {device = "cuda"} : (memref<512xi8, "cuda">) -> memref<3x16xf32, "cuda">
     byre.compute @MatmulOp_f32f32_f32(%1, %alloc_1, %2) {device = "cuda", lhs_contracting_dimension = 0 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<8x3xf32, "cuda">, memref<8x16xf32, "cuda">, memref<3x16xf32, "cuda">
     %3 = "byre.alias"(%alloc) <{offset = 256 : i64}> {device = "cuda"} : (memref<512xi8, "cuda">) -> memref<3x16xf32, "cuda">
-    byre.compute @PTXOp(%2, %3) {BlockSize.x = 256 : i32, GridSize.x = 1 : i32, arg_ranks = [2 : i32, 2 : i32], call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown3", memory_effects = [1 : i32, 2 : i32]} : memref<3x16xf32, "cuda">, memref<3x16xf32, "cuda">
+    byre.compute @PTXOp(%2, %3) {BlockSize.x = 256 : i32, GridSize.x = 1 : i32, arg_ranks = [2 : i32, 2 : i32], call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown0", memory_effects = [1 : i32, 2 : i32]} : memref<3x16xf32, "cuda">, memref<3x16xf32, "cuda">
     %4 = "byre.alias"(%alloc) <{offset = 0 : i64}> {device = "cuda"} : (memref<512xi8, "cuda">) -> memref<3x8xf32, "cuda">
     byre.compute @MatmulOp_f32f32_f32(%3, %alloc_0, %4) {device = "cuda", lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<3x16xf32, "cuda">, memref<16x8xf32, "cuda">, memref<3x8xf32, "cuda">
     %5 = "byre.alias"(%alloc) <{offset = 256 : i64}> {device = "cuda"} : (memref<512xi8, "cuda">) -> memref<3x8xf32, "cuda">
-    byre.compute @PTXOp(%4, %5) {BlockSize.x = 256 : i32, GridSize.x = 1 : i32, arg_ranks = [2 : i32, 2 : i32], call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown4", memory_effects = [1 : i32, 2 : i32]} : memref<3x8xf32, "cuda">, memref<3x8xf32, "cuda">
+    byre.compute @PTXOp(%4, %5) {BlockSize.x = 256 : i32, GridSize.x = 1 : i32, arg_ranks = [2 : i32, 2 : i32], call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown1", memory_effects = [1 : i32, 2 : i32]} : memref<3x8xf32, "cuda">, memref<3x8xf32, "cuda">
     byre.compute @nccl.AllReduce(%5, %arg1) {device = "cuda", memory_effects = [1 : i32, 2 : i32], reduction = "sum", replica_group = [0, 1, 2, 3], synchronous = true} : memref<3x8xf32, "cuda">, memref<3x8xf32, "cuda">
     return
   }
