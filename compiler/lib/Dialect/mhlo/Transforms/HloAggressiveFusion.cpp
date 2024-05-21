@@ -88,8 +88,7 @@ struct HloAggressiveFusionPass
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(HloAggressiveFusionPass)
 
-  HloAggressiveFusionPass()
-      : GenericFusionPass(aggressive_fusion::config, true) {}
+  HloAggressiveFusionPass() : GenericFusionPass(true) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -109,6 +108,8 @@ struct HloAggressiveFusionPass
     return ::llvm::StringLiteral("HloAggressiveFusion");
   }
   ::llvm::StringRef getName() const override { return "HloAggressiveFusion"; }
+
+  const GenericFuserConfig &getConfig() { return aggressive_fusion::config; }
 };
 
 } // namespace

@@ -90,7 +90,8 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 createCatFusionPass(bool aggressiveMode = false);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createElementFusionPass(bool clusterSingleElemwiseOp = false);
+createElementFusionPass(bool clusterSingleElemwiseOp = false,
+                        bool disableElementwiseFuse = false);
 
 std::unique_ptr<OperationPass<func::FuncOp>> createMatmulEpilogueFusionPass();
 
