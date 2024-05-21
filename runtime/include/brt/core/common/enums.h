@@ -28,7 +28,7 @@ typedef enum {
   BRT_REDUCEOP_COUNT = 3,
 } ReduceOp;
 
-inline ReduceOp GetReduceOp(std::string reduceOp) {
+inline ReduceOp GetReduceOp(const std::string& reduceOp) {
   if (reduceOp == "sum")
     return BRT_SUM;
   else if (reduceOp == "max")
