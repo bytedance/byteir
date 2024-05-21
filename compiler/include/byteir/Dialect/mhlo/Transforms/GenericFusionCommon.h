@@ -90,9 +90,7 @@ public:
 template <typename DerivedT>
 class GenericFusionPass : public GenericFusionBase<DerivedT> {
 public:
-  GenericFusionPass(GenericFuserConfig config, bool clusterSingleOp)
-      : GenericFusionBase<DerivedT>() {
-    fuse_config = config;
+  GenericFusionPass(bool clusterSingleOp) : GenericFusionBase<DerivedT>() {
     this->clusterSingleOp = clusterSingleOp;
   }
 
@@ -107,6 +105,7 @@ public:
       deepReplicateAncestorOps(block.getTerminator(), isDeepMhloFoldable);
     }
 
+    auto fuse_config = static_cast<DerivedT *>(this)->getConfig();
     ProducerFusionPlanner planner(
         funcOp, fuse_config.fuse_candidate, fuse_config.fuse_start,
         fuse_config.fuse_trigger, fuse_config.fuse_with);
@@ -128,10 +127,6 @@ public:
       }
     }
   }
-
-protected:
-  // member variable
-  GenericFuserConfig fuse_config;
 };
 
 } // namespace mlir

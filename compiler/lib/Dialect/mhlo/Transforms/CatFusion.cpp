@@ -123,10 +123,12 @@ struct CatFusionPass : public GenericFusionPass<CatFusionPass> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(CatFusionPass)
 
-  CatFusionPass(bool aggressiveMode)
-      : GenericFusionPass(aggressiveMode ? cat_fusion::aggressiveConfig
-                                         : cat_fusion::config,
-                          true) {}
+  CatFusionPass(bool aggressiveMode) : GenericFusionPass(true) {
+    this->aggressiveMode = aggressiveMode;
+  }
+
+  CatFusionPass(const CatFusionPass &other)
+      : GenericFusionPass<CatFusionPass>(other) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -143,6 +145,16 @@ struct CatFusionPass : public GenericFusionPass<CatFusionPass> {
     return ::llvm::StringLiteral("CatFusion");
   }
   ::llvm::StringRef getName() const override { return "CatFusion"; }
+
+  const GenericFuserConfig &getConfig() {
+    return this->aggressiveMode ? cat_fusion::aggressiveConfig
+                                : cat_fusion::config;
+  }
+
+  ::mlir::Pass::Option<bool> aggressiveMode{
+      *this, "aggressive-mode",
+      ::llvm::cl::desc("whether to fuse CAT aggressively"),
+      ::llvm::cl::init(false)};
 };
 
 } // namespace

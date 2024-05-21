@@ -89,6 +89,12 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) {
          isCustomMhloRngOp(target);
 }
 
+bool isFusibleWithNoElementwiseFuse(Operation *target, Operation * /*start*/) {
+  return isSplatMhloConstantLike(target) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
+             target);
+}
+
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
@@ -102,6 +108,15 @@ static GenericFuserConfig config{
     getByteIRElementwiseFusionAttrName(), elementwise::isFusibleCandidate,
     elementwise::isFusibleStart,          elementwise::isFusibleTrigger,
     elementwise::isFusibleWith,           elementwise::isValidSingleOp,
+    elementwise::isValidFusionPattern};
+
+static GenericFuserConfig config_no_elementwise_fuse{
+    getByteIRElementwiseFusionAttrName(),
+    elementwise::isFusibleCandidate,
+    elementwise::isFusibleStart,
+    elementwise::isFusibleTrigger,
+    elementwise::isFusibleWithNoElementwiseFuse,
+    elementwise::isValidSingleOp,
     elementwise::isValidFusionPattern};
 
 } // namespace elementwise
@@ -225,8 +240,13 @@ struct ElementwiseFusionPass : public GenericFusionPass<ElementwiseFusionPass> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ElementwiseFusionPass)
 
-  ElementwiseFusionPass(bool clusterSingleOp)
-      : GenericFusionPass(elementwise::config, clusterSingleOp) {}
+  ElementwiseFusionPass(bool clusterSingleOp, bool disableElementwiseFusion)
+      : GenericFusionPass(clusterSingleOp) {
+    this->disableElementwiseFusion = disableElementwiseFusion;
+  }
+
+  ElementwiseFusionPass(const ElementwiseFusionPass &other)
+      : GenericFusionPass<ElementwiseFusionPass>(other) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -243,6 +263,18 @@ struct ElementwiseFusionPass : public GenericFusionPass<ElementwiseFusionPass> {
     return ::llvm::StringLiteral("ElementFusion");
   }
   ::llvm::StringRef getName() const override { return "ElementFusion"; }
+
+  const GenericFuserConfig &getConfig() {
+    return this->disableElementwiseFusion
+               ? elementwise::config_no_elementwise_fuse
+               : elementwise::config;
+  }
+
+  ::mlir::Pass::Option<bool> disableElementwiseFusion{
+      *this, "disable-elementwise-fusion",
+      ::llvm::cl::desc(
+          "disable fusion strategy, only outline single operation"),
+      ::llvm::cl::init(false)};
 };
 
 // a derived fusion pass for matmul epilogue fusion
@@ -251,8 +283,7 @@ struct MatmulEpilogueFusionPass
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MatmulEpilogueFusionPass)
 
-  MatmulEpilogueFusionPass()
-      : GenericFusionPass(matmul_epilogue::config, false) {}
+  MatmulEpilogueFusionPass() : GenericFusionPass(false) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -271,6 +302,8 @@ struct MatmulEpilogueFusionPass
     return ::llvm::StringLiteral("MatmulEpilogueFusion");
   }
   ::llvm::StringRef getName() const override { return "MatmulEpilogueFusion"; }
+
+  const GenericFuserConfig &getConfig() { return matmul_epilogue::config; }
 };
 
 // a derived fusion pass for reduction fusion
@@ -278,7 +311,7 @@ struct ReductionFusionPass : public GenericFusionPass<ReductionFusionPass> {
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ReductionFusionPass)
 
-  ReductionFusionPass() : GenericFusionPass(reduction::config, false) {}
+  ReductionFusionPass() : GenericFusionPass(false) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {
@@ -295,12 +328,16 @@ struct ReductionFusionPass : public GenericFusionPass<ReductionFusionPass> {
     return ::llvm::StringLiteral("ReductionFusion");
   }
   ::llvm::StringRef getName() const override { return "ReductionFusion"; }
+
+  const GenericFuserConfig &getConfig() { return reduction::config; }
 };
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createElementFusionPass(bool clusterSingleElemwiseOp) {
-  return std::make_unique<ElementwiseFusionPass>(clusterSingleElemwiseOp);
+mlir::createElementFusionPass(bool clusterSingleElemwiseOp,
+                              bool disableElementwiseFuse) {
+  return std::make_unique<ElementwiseFusionPass>(clusterSingleElemwiseOp,
+                                                 disableElementwiseFuse);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
