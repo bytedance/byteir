@@ -98,7 +98,42 @@ class DistributedCollectiveTest(DistributedTestBase):
             ).run(ir)
 
     # TODO: add test for send/recv
+class MLP(torch.nn.Module):
+    def __init__(self, hidden_dim, world_size):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.world_size = world_size
+        self.fc1 = torch.nn.Linear(self.hidden_dim, self.hidden_dim * 4)
+        self.fc2 = torch.nn.Linear(self.hidden_dim * 4, self.hidden_dim)
+        self._initialize_weights()
 
+    def _initialize_weights(self):
+        with torch.no_grad():
+            # Initialize weights with fixed values
+            self.fc1.weight.fill_(0.01)
+            self.fc1.bias.fill_(0.02)
+            self.fc2.weight.fill_(0.03)
+            self.fc2.bias.fill_(0.04)
+
+    def forward(self, x):
+        return funcol.all_reduce(self.fc2(self.fc1(x)), "sum", list(range(self.world_size)))
+
+class DistributedCollectiveE2ETest(DistributedTestBase):
+    @property
+    def world_size(self):
+        return 4
+
+    @with_comms
+    def test_mlp_e2e(self):
+        module = MLP(hidden_dim=4, world_size=self.world_size)
+        x = torch.rand(3, 4)
+        prog = torch.export.export(module, (x, ), constraints=None)
+
+        module = compile_dynamo_model(prog, "stablehlo")
+
+        if dist.get_rank() == 0:
+            ir = module.operation.get_asm()
+            print(ir)
 
 if __name__ == "__main__":
     run_tests()
