@@ -1,4 +1,5 @@
 add_mlir_dialect_library(ByteIRSCFPasses
+  FuseNestedForall.cpp
   InsertTrivialSCFLoop.cpp
   TilingInterfaceToSCFFor.cpp
   RemoveSingleIterationLoop.cpp
