@@ -1,6 +1,6 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- VectorWarpDistribute.h ---------------------------*--- C++ -*-===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,11 +15,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
-#define BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
+#ifndef BYTEIR_DIALECT_SCF_TRANSFORMS_VECTORWARPDISTRIBUTE_H
+#define BYTEIR_DIALECT_SCF_TRANSFORMS_VECTORWARPDISTRIBUTE_H
 
-#include "byteir/Dialect/Vector/Transforms/MoveForallRegionIntoWarpOp.h"
-#include "byteir/Dialect/Vector/Transforms/VectorWarpDistribute.h"
 #include "mlir/Pass/Pass.h"
 #include <memory>
 
@@ -28,12 +26,13 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_DECL_VECTORTRANSPOSELOWERINGPASS
-#define GEN_PASS_DECL_MOVEFORALLREGIONINTOWARPOPPASS
-#define GEN_PASS_REGISTRATION
+#define GEN_PASS_DECL_VECTORWARPDISTRIBUTEPASS
 #include "byteir/Dialect/Vector/Transforms/Passes.h.inc"
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+createVectorWarpDistributePass(const VectorWarpDistributePassOptions &options =
+                                   VectorWarpDistributePassOptions());
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
+#endif // BYTEIR_DIALECT_SCF_TRANSFORMS_VECTORWARPDISTRIBUTE_H

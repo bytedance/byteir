@@ -1,6 +1,8 @@
 add_mlir_dialect_library(ByteIRVectorPasses
   CanonicalizeExt.cpp
   VectorLowerings.cpp
+  VectorWarpDistribute.cpp
+  MoveForallRegionIntoWarpOp.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/Vector/Transforms
