@@ -276,6 +276,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
           [](ReqeustContextWithSession &req) { THROW_ON_FAIL(req.Run()); },
           py::call_guard<py::gil_scoped_release>());
 
+#ifdef BRT_USE_CUDA
   py::class_<RequestContextWithDistributedSession,
              std::unique_ptr<RequestContextWithDistributedSession>>(
       m, "DistributedRequestContext")
@@ -308,6 +309,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
             THROW_ON_FAIL(req.Run());
           },
           py::call_guard<py::gil_scoped_release>());
+#endif
 
   py::class_<Session, std::shared_ptr<Session>>(m, "Session")
       .def(py::init([](const std::string &device, py::object alloc_f,
