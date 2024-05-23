@@ -176,7 +176,7 @@ struct SimplifyDotGeneralToBroadcastMultiply
       auto lhsRank = lhsType.getRank();
       auto rhsRank = rhsType.getRank();
 
-      // broadcast lhs and rhs.
+      /// broadcast lhs and rhs.
       auto lhsBcastDims = llvm::to_vector(llvm::seq<int64_t>(0, lhsRank));
       auto rhsBcastDims = llvm::to_vector(llvm::seq<int64_t>(0, rhsRank));
       if (isSingleM)
@@ -195,7 +195,7 @@ struct SimplifyDotGeneralToBroadcastMultiply
       Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
           loc, mulType, op.getRhs(), rewriter.getI64TensorAttr(rhsBcastDims));
 
-      // replace bmm with mul and reduce.
+      /// replace bmm with mul and reduce.
       Value mulOp =
           rewriter.create<mhlo::MulOp>(loc, mulType, bcastLhs, bcastRhs);
       llvm::SmallVector<int64_t, 2> reduceShape;
