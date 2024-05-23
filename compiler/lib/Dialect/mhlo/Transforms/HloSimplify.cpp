@@ -33,6 +33,25 @@ using namespace mlir;
 
 namespace {
 
+static Value createIntialZeroValue(Type elementTy, PatternRewriter &rewriter,
+                                   Location &loc) {
+  auto constType = RankedTensorType::get({}, elementTy);
+  if (isa<mlir::FloatType>(elementTy)) {
+    auto constAttr = DenseElementsAttr::get(
+        constType,
+        {APFloat::getZero(cast<mlir::FloatType>(elementTy).getFloatSemantics(),
+                          /*negative=*/false)});
+    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+  } else if (isa<mlir::IntegerType>(elementTy) &&
+             elementTy.getIntOrFloatBitWidth() != 8) {
+    auto constAttr = DenseElementsAttr::get(
+        constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
+    return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
+  }
+
+  return nullptr;
+}
+
 struct SimplifyReduceToReshape : public OpRewritePattern<mhlo::ReduceOp> {
   using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::ReduceOp op,
@@ -132,23 +151,107 @@ struct SimplifyDotGeneralToBroadcastMultiply
       return failure();
     }
 
-    // k == 1
-    if (lhsType.getDimSize(dimensionNumbers.getLhsContractingDimensions()[0]) !=
-            1 ||
-        rhsType.getDimSize(dimensionNumbers.getRhsContractingDimensions()[0]) !=
-            1) {
-      return failure();
+    auto is_single_k = [&]() {
+      return lhsType.getDimSize(
+                 dimensionNumbers.getLhsContractingDimensions()[0]) == 1 &&
+             rhsType.getDimSize(
+                 dimensionNumbers.getRhsContractingDimensions()[0]) == 1;
+    };
+
+    auto is_single_m_n = [&]() {
+      return lhsType.getDimSize(lhsType.getRank() - 2) == 1 ||
+             rhsType.getDimSize(rhsType.getRank() - 1) == 1;
+    };
+
+    auto resultRank = op.getType().getRank();
+    auto resultShape = op.getType().getShape();
+    auto resultElementTy = op.getType().getElementType();
+    auto has_batch = dimensionNumbers.getLhsBatchingDimensions().size() != 0 ||
+                     dimensionNumbers.getRhsBatchingDimensions().size();
+    auto B = has_batch ? resultShape[0] : 0;
+    auto M = lhsType.getDimSize(lhsType.getRank() - 2);
+    auto N = rhsType.getDimSize(rhsType.getRank() - 1);
+    auto LK =
+        lhsType.getDimSize(dimensionNumbers.getLhsContractingDimensions()[0]);
+    auto RK =
+        rhsType.getDimSize(dimensionNumbers.getRhsContractingDimensions()[0]);
+    auto K = std::max(LK, RK);
+
+    if (is_single_k()) {
+      // k == 1
+      auto iota = llvm::iota_range<int64_t>(0, lhsType.getRank(), false);
+      llvm::SmallVector<int64_t> bcastDims(iota.begin(), iota.end());
+      Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
+          loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
+      Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
+          loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
+      rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
+                                               bcastRhs);
+      return success();
+    } else if (is_single_m_n()) {
+      // m == 1 or n == 1
+      const bool is_single_m = M == 1;
+      auto lhsRank = lhsType.getRank();
+      auto rhsRank = rhsType.getRank();
+
+      // broadcast lhs and rhs.
+      auto lIota = llvm::iota_range<int64_t>(0, lhsRank, false);
+      auto rIota = llvm::iota_range<int64_t>(0, rhsRank, false);
+      llvm::SmallVector<int64_t, 3> lhsBcastDims(lIota.begin(), lIota.end());
+      llvm::SmallVector<int64_t, 3> rhsBcastDims(rIota.begin(), rIota.end());
+      if (is_single_m)
+        std::swap(lhsBcastDims[lhsRank - 1], lhsBcastDims[lhsRank - 2]);
+      else
+        std::swap(rhsBcastDims[rhsRank - 1], rhsBcastDims[rhsRank - 2]);
+      // result shape of mulop is: [B,K,N] or [B,M,K].
+      llvm::SmallVector<int64_t, 3> mulShape(resultShape);
+      if (is_single_m)
+        mulShape[resultRank - 2] = K;
+      else
+        mulShape[resultRank - 1] = K;
+      auto mulType = RankedTensorType::get(mulShape, resultElementTy);
+      Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
+          loc, mulType, op.getLhs(), rewriter.getI64TensorAttr(lhsBcastDims));
+      Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
+          loc, mulType, op.getRhs(), rewriter.getI64TensorAttr(rhsBcastDims));
+
+      // replace bmm with mul and reduce.
+      Value mulOp =
+          rewriter.create<mhlo::MulOp>(loc, mulType, bcastLhs, bcastRhs);
+      llvm::SmallVector<int64_t, 2> reduceShape;
+      if (has_batch)
+        reduceShape.push_back(B);
+      if (is_single_m)
+        reduceShape.push_back(N);
+      else
+        reduceShape.push_back(M);
+      auto initVal = createIntialZeroValue(resultElementTy, rewriter, loc);
+      auto dim = is_single_m ? resultRank - 2 : resultRank - 1;
+      auto reduceOp = rewriter.create<mhlo::ReduceOp>(
+          loc, TypeRange{RankedTensorType::get(reduceShape, resultElementTy)},
+          ValueRange{mulOp}, ValueRange{initVal},
+          rewriter.getI64VectorAttr({dim}));
+
+      Block &block = reduceOp.getBody().emplaceBlock();
+      auto blockValArgType = RankedTensorType::get({}, resultElementTy);
+      block.addArgument(blockValArgType, loc);
+      block.addArgument(blockValArgType, loc);
+      auto *firstArg = block.args_begin();
+      auto *secondArg = std::next(firstArg);
+      // create reduceOp body.
+      {
+        OpBuilder::InsertionGuard guard(rewriter);
+        rewriter.setInsertionPointToStart(&block);
+        auto addOp = rewriter.create<mhlo::AddOp>(loc, *firstArg, *secondArg);
+        rewriter.create<mhlo::ReturnOp>(loc, mlir::ValueRange{addOp});
+      }
+
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
+                                                   reduceOp.getResults());
+      return success();
     }
 
-    auto iota = llvm::iota_range<int64_t>(0, lhsType.getRank(), false);
-    llvm::SmallVector<int64_t> bcastDims(iota.begin(), iota.end());
-    Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
-        loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
-    Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
-        loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
-    rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
-                                             bcastRhs);
-    return success();
+    return failure();
   }
 };
 
