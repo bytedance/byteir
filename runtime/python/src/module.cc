@@ -38,6 +38,7 @@
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
 
+#include "brt/backends/cuda/device/cuda_allocator.h"
 #include "brt/backends/nccl/providers/nccl_provider.h"
 #include "brt/core/distributed/rendezvous_socket.h"
 
@@ -221,8 +222,10 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 
   m.def("get_free_port", []() { return brt::GetFreePort(); });
 
-  m.def("create_server",
-        [](int nranks, int port) { return brt::CreateServer(nranks, port); });
+  m.def("create_server", [](int nranks, int port) {
+    THROW_ON_FAIL(brt::CreateServer(nranks, port));
+    return;
+  });
 
   py::enum_<PyDType>(m, "DType")
       .value("float32", PyDType::Float32)
@@ -394,6 +397,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
       .def(py::init([](int rank, int nrank, const std::string &host, int port) {
         auto distributed_session =
             std::make_shared<DistributedSession>(rank, nrank, host, port);
+        THROW_ON_FAIL(CUDAAllocatorFactory(distributed_session.get(), rank));
         THROW_ON_FAIL(DefaultNCCLExecutionProviderFactory(
             distributed_session.get(), rank));
         return distributed_session;

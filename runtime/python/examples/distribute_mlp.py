@@ -11,7 +11,7 @@ import torch.distributed._functional_collectives as funcol
 
 from torch_frontend import compile_dynamo_model
 
-stablehlo_ir_name = "input.mlir"
+stablehlo_ir_name = "stablehlo_ccl.mlir"
 ccl_ir_name = "ccl.mlir"
 
 
@@ -98,13 +98,12 @@ def infer(rank, world_size, hidden_dim, brt_host, brt_port):
 
     data = data.to(rank)
 
-    # with torch.no_grad():
-    #     outputs = model(data)
+    with torch.no_grad():
+        outputs = model(data)
 
     outputs_brt = brt_infer(world_size, brt_host, brt_port, rank, data)
-    print("outputs_brt = ", outputs_brt)
 
-    # assert torch.allclose(outputs_brt, outputs)
+    assert torch.allclose(outputs_brt, outputs)
 
     cleanup()
 
@@ -122,11 +121,10 @@ def main():
 
     ir = module.operation.get_asm()
 
-    if not os.path.exists(stablehlo_ir_name):
-        with open(stablehlo_ir_name, "w") as f:
-            f.write(ir)
+    with open(stablehlo_ir_name, "w") as f:
+        f.write(ir)
 
-    byteir.compile(stablehlo_ir_name, ccl_ir_name, entry_func="main", verbose=True)
+    byteir.compile(stablehlo_ir_name, ccl_ir_name, entry_func="main")
 
     port = brt.get_free_port()
     brt.create_server(world_size, port)
