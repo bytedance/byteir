@@ -106,6 +106,7 @@ private:
   std::shared_ptr<Session> session;
 };
 
+#ifdef BRT_USE_CUDA
 class RequestContextWithDistributedSession {
 public:
   auto Run() { return session->Run(Context()); }
@@ -135,6 +136,7 @@ private:
   std::unique_ptr<RequestContext> req;
   std::shared_ptr<DistributedSession> session;
 };
+#endif
 
 class PyEnv {
 public:
@@ -391,7 +393,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 #undef DEF_SESSION_METH_GENERIC
       // clang-format on
       ;
-  // 绑定DistributedSession类
+#ifdef BRT_USE_CUDA
   py::class_<DistributedSession, Session, std::shared_ptr<DistributedSession>>(
       m, "DistributedSession")
       .def(py::init([](int rank, int nrank, const std::string &host, int port) {
@@ -426,4 +428,5 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 #undef DEF_DISTRIBUTED_SESSION_METH_GENERIC
       // clang-format on
       ;
+#endif
 }
