@@ -151,13 +151,6 @@ struct SimplifyDotGeneralToBroadcastMultiply
       return failure();
     }
 
-    auto is_single_k = [&]() {
-      return lhsType.getDimSize(
-                 dimensionNumbers.getLhsContractingDimensions()[0]) == 1 &&
-             rhsType.getDimSize(
-                 dimensionNumbers.getRhsContractingDimensions()[0]) == 1;
-    };
-
     auto is_single_m_n = [&]() {
       return lhsType.getDimSize(lhsType.getRank() - 2) == 1 ||
              rhsType.getDimSize(rhsType.getRank() - 1) == 1;
@@ -166,9 +159,9 @@ struct SimplifyDotGeneralToBroadcastMultiply
     auto resultRank = op.getType().getRank();
     auto resultShape = op.getType().getShape();
     auto resultElementTy = op.getType().getElementType();
-    auto has_batch = dimensionNumbers.getLhsBatchingDimensions().size() != 0 ||
-                     dimensionNumbers.getRhsBatchingDimensions().size();
-    auto B = has_batch ? resultShape[0] : 0;
+    auto hasBatch = dimensionNumbers.getLhsBatchingDimensions().size() != 0 ||
+                    dimensionNumbers.getRhsBatchingDimensions().size() != 0;
+    auto B = hasBatch ? resultShape[0] : 0;
     auto M = lhsType.getDimSize(lhsType.getRank() - 2);
     auto N = rhsType.getDimSize(rhsType.getRank() - 1);
     auto LK =
@@ -177,35 +170,22 @@ struct SimplifyDotGeneralToBroadcastMultiply
         rhsType.getDimSize(dimensionNumbers.getRhsContractingDimensions()[0]);
     auto K = std::max(LK, RK);
 
-    if (is_single_k()) {
-      // k == 1
-      auto iota = llvm::iota_range<int64_t>(0, lhsType.getRank(), false);
-      llvm::SmallVector<int64_t> bcastDims(iota.begin(), iota.end());
-      Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
-          loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
-      Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
-          loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
-      rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
-                                               bcastRhs);
-      return success();
-    } else if (is_single_m_n()) {
+    if (is_single_m_n()) {
       // m == 1 or n == 1
-      const bool is_single_m = M == 1;
+      const bool isSingleM = M == 1;
       auto lhsRank = lhsType.getRank();
       auto rhsRank = rhsType.getRank();
 
       // broadcast lhs and rhs.
-      auto lIota = llvm::iota_range<int64_t>(0, lhsRank, false);
-      auto rIota = llvm::iota_range<int64_t>(0, rhsRank, false);
-      llvm::SmallVector<int64_t, 3> lhsBcastDims(lIota.begin(), lIota.end());
-      llvm::SmallVector<int64_t, 3> rhsBcastDims(rIota.begin(), rIota.end());
-      if (is_single_m)
+      auto lhsBcastDims = llvm::to_vector(llvm::seq<int64_t>(0, lhsRank));
+      auto rhsBcastDims = llvm::to_vector(llvm::seq<int64_t>(0, rhsRank));
+      if (isSingleM)
         std::swap(lhsBcastDims[lhsRank - 1], lhsBcastDims[lhsRank - 2]);
       else
         std::swap(rhsBcastDims[rhsRank - 1], rhsBcastDims[rhsRank - 2]);
       // result shape of mulop is: [B,K,N] or [B,M,K].
       llvm::SmallVector<int64_t, 3> mulShape(resultShape);
-      if (is_single_m)
+      if (isSingleM)
         mulShape[resultRank - 2] = K;
       else
         mulShape[resultRank - 1] = K;
@@ -219,14 +199,14 @@ struct SimplifyDotGeneralToBroadcastMultiply
       Value mulOp =
           rewriter.create<mhlo::MulOp>(loc, mulType, bcastLhs, bcastRhs);
       llvm::SmallVector<int64_t, 2> reduceShape;
-      if (has_batch)
+      if (hasBatch)
         reduceShape.push_back(B);
-      if (is_single_m)
+      if (isSingleM)
         reduceShape.push_back(N);
       else
         reduceShape.push_back(M);
       auto initVal = createIntialZeroValue(resultElementTy, rewriter, loc);
-      auto dim = is_single_m ? resultRank - 2 : resultRank - 1;
+      auto dim = isSingleM ? resultRank - 2 : resultRank - 1;
       auto reduceOp = rewriter.create<mhlo::ReduceOp>(
           loc, TypeRange{RankedTensorType::get(reduceShape, resultElementTy)},
           ValueRange{mulOp}, ValueRange{initVal},
