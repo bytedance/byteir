@@ -42,8 +42,7 @@ static Value createIntialZeroValue(Type elementTy, PatternRewriter &rewriter,
         {APFloat::getZero(cast<mlir::FloatType>(elementTy).getFloatSemantics(),
                           /*negative=*/false)});
     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
-  } else if (isa<mlir::IntegerType>(elementTy) &&
-             elementTy.getIntOrFloatBitWidth() != 8) {
+  } else if (isa<mlir::IntegerType>(elementTy)) {
     auto constAttr = DenseElementsAttr::get(
         constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
     return rewriter.create<mhlo::ConstantOp>(loc, constType, constAttr);
@@ -286,13 +285,11 @@ struct SimplifySingleKDotToBroadcastMultiply : public OpRewritePattern<OpTy> {
     };
 
     // Try to match the desired condition as k==1. if not, early return.
-    if (auto dotOp =
-            llvm::dyn_cast_or_null<mhlo::DotGeneralOp>(op.getOperation())) {
-      if (!isCandidateDotGeneral(dotOp))
+    if constexpr (std::is_same_v<mhlo::DotGeneralOp, OpTy>) {
+      if (!isCandidateDotGeneral(op))
         return failure();
-    } else if (!isCandidateDot()) {
+    } else if (!isCandidateDot())
       return failure();
-    }
 
     // replace dot with bcast+mul
     auto bcastDims =
