@@ -56,9 +56,13 @@ class DistributedCollectiveTest(DistributedTestBase):
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
-            FileCheck().check("@main").check("ccl.reduce_scatter").check("axis = 0").check('reduction = "sum"').check(
-                "replica_groups = [[0, 1, 2, 3]]"
-            ).check("-> tensor<1xf32>").run(ir)
+            FileCheck().check("@main").check("ccl.reduce_scatter").check(
+                "axis = 0"
+            ).check('reduction = "sum"').check("replica_groups = [[0, 1, 2, 3]]").check(
+                "-> tensor<1xf32>"
+            ).run(
+                ir
+            )
 
     @with_comms
     def test_all_reduce(self):
@@ -68,9 +72,9 @@ class DistributedCollectiveTest(DistributedTestBase):
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
-            FileCheck().check("@main").check("ccl.all_reduce").check('reduction = "sum"').check(
-                "replica_groups = [[0, 1, 2, 3]]"
-            ).check("-> tensor<4xf32>").run(ir)
+            FileCheck().check("@main").check("ccl.all_reduce").check(
+                'reduction = "sum"'
+            ).check("replica_groups = [[0, 1, 2, 3]]").check("-> tensor<4xf32>").run(ir)
 
     @with_comms
     def test_all_gather(self):
@@ -93,11 +97,13 @@ class DistributedCollectiveTest(DistributedTestBase):
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
-            FileCheck().check("@main").check("ccl.broadcast").check("replica_groups = [[2, 0, 1, 3]]").check(
-                "-> tensor<4xf32>"
-            ).run(ir)
+            FileCheck().check("@main").check("ccl.broadcast").check(
+                "replica_groups = [[2, 0, 1, 3]]"
+            ).check("-> tensor<4xf32>").run(ir)
 
     # TODO: add test for send/recv
+
+
 class MLP(torch.nn.Module):
     def __init__(self, hidden_dim, world_size):
         super().__init__()
@@ -105,18 +111,12 @@ class MLP(torch.nn.Module):
         self.world_size = world_size
         self.fc1 = torch.nn.Linear(self.hidden_dim, self.hidden_dim * 4)
         self.fc2 = torch.nn.Linear(self.hidden_dim * 4, self.hidden_dim)
-        self._initialize_weights()
-
-    def _initialize_weights(self):
-        with torch.no_grad():
-            # Initialize weights with fixed values
-            self.fc1.weight.fill_(0.01)
-            self.fc1.bias.fill_(0.02)
-            self.fc2.weight.fill_(0.03)
-            self.fc2.bias.fill_(0.04)
 
     def forward(self, x):
-        return funcol.all_reduce(self.fc2(self.fc1(x)), "sum", list(range(self.world_size)))
+        return funcol.all_reduce(
+            self.fc2(self.fc1(x)), "sum", list(range(self.world_size))
+        )
+
 
 class DistributedCollectiveE2ETest(DistributedTestBase):
     @property
@@ -127,13 +127,14 @@ class DistributedCollectiveE2ETest(DistributedTestBase):
     def test_mlp_e2e(self):
         module = MLP(hidden_dim=4, world_size=self.world_size)
         x = torch.rand(3, 4)
-        prog = torch.export.export(module, (x, ), constraints=None)
+        prog = torch.export.export(module, (x,), constraints=None)
 
         module = compile_dynamo_model(prog, "stablehlo")
 
         if dist.get_rank() == 0:
             ir = module.operation.get_asm()
             print(ir)
+
 
 if __name__ == "__main__":
     run_tests()
