@@ -231,6 +231,27 @@ func.func @layer_norm_negative_axis(%arg0: tensor<1x32x3xf32>) -> tensor<1x32x3x
 // CHECK-SAME: @byteir.layer_norm
 // CHECK-SAME: byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}
 
+func.func @layer_norm_without_gamma(%arg0: tensor<32x64xf16>) -> tensor<32x64xf16> {
+  %cst_1 = "tf.Const"() <{value = dense<-1> : tensor<1xi32>}> : () -> tensor<1xi32>
+  %cst_2 = "tf.Const"() <{value = dense<1.013280e-06> : tensor<f16>}> : () -> tensor<f16>
+  %cst_3 = "tf.Const"() <{value = dense<[-1.916500e-02, -1.800540e-03, -7.980340e-03, -1.962280e-02, 1.242070e-02, -1.342770e-02, -2.662660e-03, 9.689330e-03, 1.054380e-02, -1.081470e-03
+  %0 = "tf.Mean"(%arg0, %cst_1) <{keep_dims = true}> {device = ""} : (tensor<32x64xf16>, tensor<1xi32>) -> tensor<32x1xf16>
+  %1 = "tf.SquaredDifference"(%0, %arg0) {device = ""} : (tensor<32x1xf16>, tensor<32x64xf16>) -> tensor<32x64xf16>
+  %2 = "tf.Mean"(%1, %cst_1) <{keep_dims = true}> {device = ""} : (tensor<32x64xf16>, tensor<1xi32>) -> tensor<32x1xf16>
+  %3 = "tf.AddV2"(%2, %cst_2) {device = ""} : (tensor<32x1xf16>, tensor<f16>) -> tensor<32x1xf16>
+  %4 = "tf.Rsqrt"(%3) {device = ""} : (tensor<32x1xf16>) -> tensor<32x1xf16>
+  %5 = "tf.Sub"(%arg0, %0) {device = ""} : (tensor<32x64xf16>, tensor<32x1xf16>) -> tensor<32x64xf16>
+  %6 = "tf.Mul"(%4, %5) {device = ""} : (tensor<32x1xf16>, tensor<32x64xf16>) -> tensor<32x64xf16>
+  %7 = "tf.AddV2"(%6, %cst_3) {device = ""} : (tensor<32x64xf16>, tensor<64xf16>) -> tensor<32x64xf16>
+  func.return %7 : tensor<32x64xf16>
+}
+// CHECK-LABEL:  func.func @layer_norm_without_gamma(%arg0: tensor<32x64xf16>) -> tensor<32x64xf16> {
+// CHECK-LABEL:    %cst = "tf.Const"() <{value = dense<1.000000e+00> : tensor<64xf16>}> : () -> tensor<64xf16>
+// CHECK-LABEL:    %cst_0 = "tf.Const"() <{value = dense<[-1.916500e-02, -1.800540e-03, -7.980340e-03, -1.962280e-02, 1.242070e-02, -1.342770e-02, -2.662660e-03, 9.689330e-03, 1.054380e-
+// CHECK-LABEL:    %0 = mhlo.custom_call @byteir.layer_norm(%arg0, %cst, %cst_0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 1.0132789611816406E-6 : f64}} : (tensor<32x64
+// CHECK-LABEL:    return %0 : tensor<32x64xf16>
+// CHECK-LABEL:  }
+
 func.func @layer_norm_without_beta(%arg0: tensor<512x128xf16>) -> tensor<512x128xf16> {
   %cst_1 = "tf.Const"() {value = dense<"0xED00B183330094806480C0007F80B180948032005E8238804400C9801303E500E100EB014D81380015003901BB80718051819B00A102C780DF00510345010581F0007182D7014F030F00D7004E04A40049812B80CA849181BF800480E500D380C30191819200648228814380E5002900AF00FA804302D80166821601EC0233803500D580CF80B9801500538226808C817180E9012D0010018481DB000B004280A9806201248089001501A7019B000100138252819D007C8186808102F180FF002E819380BB0020003A003702C80092821080A800D800C681C0027C81D1805500B1810F006480150184802D0102841D8120838F002F000501E90005806A01BC00"> : tensor<128xf16>} : () -> tensor<128xf16>
   %cst_2 = "tf.Const"() {value = dense<1.000170e-04> : tensor<f16>} : () -> tensor<f16>
