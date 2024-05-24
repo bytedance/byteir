@@ -106,7 +106,7 @@ struct SimplifySliceBroadcastToBroadcast
   }
 };
 
-struct SimplifyDotGeneralToBroadcastMultiply
+struct SimplifyDotGeneralToBcastMulReduce
     : public OpRewritePattern<mhlo::DotGeneralOp> {
   using OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
@@ -164,18 +164,8 @@ struct SimplifyDotGeneralToBroadcastMultiply
     auto B = hasBatch ? resultShape[0] : 0;
     auto M = lhsType.getDimSize(lhsType.getRank() - 2);
     auto N = rhsType.getDimSize(rhsType.getRank() - 1);
-    auto LK =
+    auto K =
         lhsType.getDimSize(dimensionNumbers.getLhsContractingDimensions()[0]);
-    auto RK =
-        rhsType.getDimSize(dimensionNumbers.getRhsContractingDimensions()[0]);
-    auto K = std::max(LK, RK);
-
-    auto is_single_k = [&]() {
-      return lhsType.getDimSize(
-                 dimensionNumbers.getLhsContractingDimensions()[0]) == 1 &&
-             rhsType.getDimSize(
-                 dimensionNumbers.getRhsContractingDimensions()[0]) == 1;
-    };
 
     if (is_single_m_n()) {
       // m == 1 or n == 1
@@ -236,20 +226,85 @@ struct SimplifyDotGeneralToBroadcastMultiply
       rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
                                                    reduceOp.getResults());
       return success();
-    } else if (is_single_k()) {
-      // k == 1
-      auto iota = llvm::iota_range<int64_t>(0, lhsType.getRank(), false);
-      llvm::SmallVector<int64_t> bcastDims(iota.begin(), iota.end());
-      Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
-          loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
-      Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
-          loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
-      rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
-                                               bcastRhs);
-      return success();
     }
 
     return failure();
+  }
+};
+
+template <typename OpTy>
+struct SimplifySingleKDotToBroadcastMultiply : public OpRewritePattern<OpTy> {
+  using OpRewritePattern<OpTy>::OpRewritePattern;
+  LogicalResult matchAndRewrite(OpTy op,
+                                PatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    auto lhsType = cast<RankedTensorType>(op.getLhs().getType());
+    auto rhsType = cast<RankedTensorType>(op.getRhs().getType());
+
+    // TODO: support dynamic shape
+    if (!lhsType.hasStaticShape() || !rhsType.hasStaticShape()) {
+      return failure();
+    }
+
+    auto isCandidateDot = [&]() {
+      return lhsType.getRank() == 2 && rhsType.getRank() == 2 &&
+             lhsType.getDimSize(1) == 1 && rhsType.getDimSize(0) == 1;
+    };
+
+    auto isCandidateDotGeneral = [&](mhlo::DotGeneralOp dot) {
+      auto dimNums = dot.getDotDimensionNumbers();
+      if (dimNums.getLhsContractingDimensions().size() != 1 ||
+          dimNums.getRhsContractingDimensions().size() != 1) {
+        return false;
+      }
+      if (dimNums.getLhsBatchingDimensions().size() == 0 &&
+          dimNums.getRhsBatchingDimensions().size() == 0) {
+        if (lhsType.getRank() != 2 || rhsType.getRank() != 2) {
+          return false;
+        }
+      } else if (dimNums.getLhsBatchingDimensions().size() == 1 &&
+                 dimNums.getRhsBatchingDimensions().size() == 1) {
+        if (lhsType.getRank() != 3 || rhsType.getRank() != 3) {
+          return false;
+        }
+        if (dimNums.getLhsBatchingDimensions()[0] != 0 ||
+            dimNums.getRhsBatchingDimensions()[0] != 0) {
+          return false;
+        }
+      } else {
+        return false;
+      }
+
+      if (dimNums.getLhsContractingDimensions()[0] != lhsType.getRank() - 1 ||
+          dimNums.getRhsContractingDimensions()[0] != rhsType.getRank() - 2) {
+        return false;
+      }
+      // check: k==1
+      return lhsType.getDimSize(dimNums.getLhsContractingDimensions()[0]) ==
+                 1 &&
+             rhsType.getDimSize(dimNums.getRhsContractingDimensions()[0]) == 1;
+    };
+
+    // Try to match the desired condition as k==1. if not, early return.
+    if (auto dotOp =
+            llvm::dyn_cast_or_null<mhlo::DotGeneralOp>(op.getOperation())) {
+      if (!isCandidateDotGeneral(dotOp))
+        return failure();
+    } else if (!isCandidateDot()) {
+      return failure();
+    }
+
+    // replace dot with bcast+mul
+    auto bcastDims =
+        llvm::to_vector(llvm::seq<int64_t>(0, op.getType().getRank()));
+    Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
+        loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
+    Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
+        loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
+    rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
+                                             bcastRhs);
+
+    return success();
   }
 };
 
@@ -379,7 +434,10 @@ struct HloSimplifyPass : public HloSimplifyBase<HloSimplifyPass> {
     RewritePatternSet patterns(context);
     patterns.add<SimplifyReduceToReshape>(context);
     patterns.add<SimplifySliceBroadcastToBroadcast>(context);
-    patterns.add<SimplifyDotGeneralToBroadcastMultiply>(context);
+    patterns.add<SimplifyDotGeneralToBcastMulReduce>(context);
+    patterns.add<SimplifySingleKDotToBroadcastMultiply<mhlo::DotOp>>(context);
+    patterns.add<SimplifySingleKDotToBroadcastMultiply<mhlo::DotGeneralOp>>(
+        context);
     patterns.add<ReshapeGatherPattern>(context);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));

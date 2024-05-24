@@ -55,3 +55,27 @@ func.func @simplify_dot_general_bmm_case3(%arg0: tensor<128x20x1xf32>, %arg1: te
 // CHECK-NEXT: mhlo.broadcast_in_dim
 // CHECK-NEXT: mhlo.multiply
 // CHECK-NEXT: return
+
+func.func @simplify_dot_mm_k1_case0(%arg0: tensor<128x1xf32>, %arg1: tensor<1x50xf32>, %arg2: tensor<128x50xf32>) -> tensor<128x50xf32> {
+  %0 = mhlo.constant dense<0.000000e+00> : tensor<1x50xf32>
+  %1 = mhlo.maximum %arg1, %0 : tensor<1x50xf32>
+  %2 = "mhlo.dot_general"(%arg0, %1) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<128x1xf32>, tensor<1x50xf32>) -> tensor<128x50xf32>
+  return %2 : tensor<128x50xf32>
+}
+// CHECK-LABEL: @simplify_dot_mm_k1_case0
+// CHECK: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
+
+func.func @simplify_dot_mm_k1_case1(%arg0: tensor<128x1xf32>, %arg1: tensor<1x50xf32>, %arg2: tensor<128x50xf32>) -> tensor<128x50xf32> {
+  %0 = mhlo.constant dense<0.000000e+00> : tensor<1x50xf32>
+  %1 = mhlo.maximum %arg1, %0 : tensor<1x50xf32>
+  %2 = "mhlo.dot"(%arg0, %1) : (tensor<128x1xf32>, tensor<1x50xf32>) -> tensor<128x50xf32>
+  return %2 : tensor<128x50xf32>
+}
+// CHECK-LABEL: @simplify_dot_mm_k1_case1
+// CHECK: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
