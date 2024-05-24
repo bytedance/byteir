@@ -289,12 +289,12 @@ def LayoutTransformation : Pass<"transform-layout", "mlir::func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// ReduceFusion
+// ReduceWindowFusion
 //===----------------------------------------------------------------------===//
 
-def ReduceFusion : Pass<"fuse-reduce", "mlir::func::FuncOp"> {
-  let summary = "Fuse reduce and reduce-window ops";
-  let constructor = "mlir::createReduceFusionPass()";
+def ReduceWindowFusion : Pass<"fuse-reduce-window", "mlir::func::FuncOp"> {
+  let summary = "Fuse reduce-window with pad op";
+  let constructor = "mlir::createReduceWindowFusionPass()";
 }
 
 //===----------------------------------------------------------------------===//

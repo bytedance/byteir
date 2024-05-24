@@ -34,8 +34,8 @@ constexpr StringRef getByteIRCatFusionAttrName() {
   return "__byteir_cat_fusion__";
 }
 
-constexpr StringRef getByteIRReduceFusionAttrName() {
-  return "__byteir_reduce_fusion__";
+constexpr StringRef getByteIRReduceWindowFusionAttrName() {
+  return "__byteir_reduce_window_fusion__";
 }
 
 constexpr StringRef getByteIRElementwiseFusionAttrName() {
@@ -58,7 +58,7 @@ constexpr StringRef getByteIRHloAggressiveFusionAttrName() {
   return "__byteir_hlo_aggressive_fusion__";
 }
 
-// fuse ReduceWindow with Pad and/or Constant
+// fuse ReduceWindow with Pad
 void populateFuseReduceWindowPatterns(RewritePatternSet &patterns);
 
 // fuse ConvForward patterns
@@ -78,7 +78,7 @@ void populateIOConvertBatchNormPattern(RewritePatternSet &patterns);
 void populateTrivialFusionPattern(RewritePatternSet &patterns,
                                   llvm::StringMap<StringRef> &lut_name);
 
-std::unique_ptr<OperationPass<func::FuncOp>> createReduceFusionPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createReduceWindowFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvBackwardFusionPass();
 
