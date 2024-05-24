@@ -85,12 +85,12 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
 
   addCleanUpExtPassPipeline(pm);
 
-  // generic folding
+  // generic folding and simplify
+  pm.addNestedPass<func::FuncOp>(createUnfuseBatchNormPass());
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
-  pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
-  pm.addNestedPass<func::FuncOp>(createReduceFusionPass());
   pm.addNestedPass<func::FuncOp>(createHloSimplifyPass());
+  pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
   pm.addPass(createConvertOpToCustomCallPass());
 
   // rewrite with constraint
