@@ -58,6 +58,10 @@ inline void registerByteIRMhloPassesExt() {
     return mlir::createElementFusionPass();
   });
 
+  ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
+    return mlir::createConcatSliceFusionPass();
+  });
+
   // register createCatFusionPass
   ::mlir::registerPass([]() -> std::unique_ptr<::mlir::Pass> {
     return mlir::createCatFusionPass();

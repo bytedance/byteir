@@ -93,6 +93,8 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 createElementFusionPass(bool clusterSingleElemwiseOp = false,
                         bool disableElementwiseFuse = false);
 
+std::unique_ptr<OperationPass<func::FuncOp>> createConcatSliceFusionPass();
+
 std::unique_ptr<OperationPass<func::FuncOp>> createMatmulEpilogueFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createIOConvertFusionPass();
