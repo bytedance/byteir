@@ -69,6 +69,41 @@ def RewriteLayerNorm : Pat<
    (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
    (OneRank $gama_attr), (OneRank $beta_attr)]>;
 
+def RewriteLayerNormWithoutGamma : Pat<
+  (TF_AddV2Op
+    (TF_MulOp
+      (TF_RsqrtOp
+        (TF_AddV2Op
+          (TF_MeanOp
+            (TF_SquaredDifferenceOp
+              (TF_MeanOp:$mean_input
+                $input,
+                (TF_ConstOp:$axis $axis_attr),
+                $keep_dims_0
+              ),
+              $input
+            ),
+            $axis_1,
+            $keep_dims_1
+          ),
+          (TF_ConstOp $epsilon_attr)
+        )
+      ),
+      (TF_SubOp
+        $input_1,
+        $mean_input_1
+      )
+    ),
+    (TF_ConstOp:$beta $beta_attr)
+  ),
+  (NativeCodeCall<"createLayerNormWithoutGamma($_builder, $_loc, $0, $1, $2, $3)"> $input, $beta, $epsilon_attr, $axis_attr),
+  [(OneSize $epsilon_attr), (OneSize $axis_attr),
+   (TrueBoolAttr $keep_dims_0), (TrueBoolAttr $keep_dims_1),
+   (SameTwoValuesOrAttrs $axis, $axis_1),
+   (SameTwoValuesOrAttrs $input, $input_1),
+   (SameTwoValuesOrAttrs $mean_input, $mean_input_1),
+   (OneRank $beta_attr)]>;
+
 def RewriteLayerNormWithoutBeta : Pat<
   (TF_SubOp
     (TF_MulOp
