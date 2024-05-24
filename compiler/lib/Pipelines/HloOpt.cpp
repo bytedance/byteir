@@ -44,6 +44,7 @@ void addGenericHloFusionPatterns(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(createDotTransposeFusionPass());
 
   pm.addNestedPass<func::FuncOp>(createReductionFusionPass());
+  pm.addNestedPass<func::FuncOp>(createConcatSliceFusionPass());
   // Element fusion (always last?)
   // Note: if outlineSingleElemwiseOp is set, element fusion must be the last
   // pass, since it will cluster every elemenwise op which is not fused yet into

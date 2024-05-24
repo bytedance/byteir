@@ -123,6 +123,73 @@ static GenericFuserConfig config_no_elementwise_fuse{
     elementwise::isValidSingleOp,
     elementwise::isValidFusionPattern};
 
+namespace concat_slice {
+// TODO: fuse elementwise with concat
+bool isFusibleCandidate(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(op);
+}
+
+bool isFusibleStart(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(op);
+}
+
+bool isFusibleTrigger(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(op);
+}
+
+bool isFusibleWith(Operation *target, Operation *start) {
+  if (llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(start)) {
+    return llvm::isa<mhlo::SliceOp, mhlo::ReshapeOp>(target);
+  }
+  return false;
+}
+
+bool isValidSingleOp(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp>(op);
+}
+
+bool isValidFusionPattern(const MhloFusionPattern &pattern) {
+  if (!llvm::any_of(pattern, [](Operation *op) {
+        return llvm::isa<mhlo::ConcatenateOp>(op);
+      })) {
+    return false;
+  }
+
+  llvm::DenseSet<Operation *> opSet(pattern.begin(), pattern.end());
+  for (auto op : pattern) {
+    if (llvm::isa<mhlo::ConcatenateOp>(op)) {
+      bool isLegal = true;
+      for (auto operand : op->getOperands()) {
+        if (auto defOp = operand.getDefiningOp()) {
+          while (defOp) {
+            if (opSet.find(defOp) == opSet.end()) {
+              break;
+            }
+            if (!llvm::isa<mhlo::ReshapeOp, mhlo::SliceOp>(defOp)) {
+              isLegal = false;
+              break;
+            } else {
+              defOp = defOp->getOperand(0).getDefiningOp();
+            }
+          }
+        }
+        if (!isLegal) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+};
+static GenericFuserConfig config_concat_slice_fuse{
+    getByteIRElementwiseFusionAttrName(),
+    elementwise::concat_slice::isFusibleCandidate,
+    elementwise::concat_slice::isFusibleStart,
+    elementwise::concat_slice::isFusibleTrigger,
+    elementwise::concat_slice::isFusibleWith,
+    elementwise::concat_slice::isValidSingleOp,
+    elementwise::concat_slice::isValidFusionPattern};
+} // namespace concat_slice
 } // namespace elementwise
 
 //===----------------------------------------------------------------------===//
@@ -359,6 +426,33 @@ struct ElementwiseFusionPass : public GenericFusionPass<ElementwiseFusionPass> {
       ::llvm::cl::init(false)};
 };
 
+struct ConcatSliceFusionPass : public GenericFusionPass<ConcatSliceFusionPass> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConcatSliceFusionPass)
+
+  ConcatSliceFusionPass() : GenericFusionPass(true) {}
+
+  /// Returns the command-line argument attached to this pass.
+  static constexpr ::llvm::StringLiteral getArgumentName() {
+    return ::llvm::StringLiteral("fuse-concat-slice");
+  }
+  ::llvm::StringRef getArgument() const override { return "fuse-concat-slice"; }
+
+  ::llvm::StringRef getDescription() const override {
+    return "Fuse concat with slice op";
+  }
+
+  /// Returns the derived pass name.
+  static constexpr ::llvm::StringLiteral getPassName() {
+    return ::llvm::StringLiteral("ConcatSliceFusion");
+  }
+  ::llvm::StringRef getName() const override { return "ConcaSliceFusion"; }
+
+  const GenericFuserConfig &getConfig() {
+    return elementwise::concat_slice::config_concat_slice_fuse;
+  }
+};
+
 // a derived fusion pass for matmul epilogue fusion
 struct MatmulEpilogueFusionPass
     : public GenericFusionPass<MatmulEpilogueFusionPass> {
@@ -465,6 +559,11 @@ mlir::createElementFusionPass(bool clusterSingleElemwiseOp,
                               bool disableElementwiseFuse) {
   return std::make_unique<ElementwiseFusionPass>(clusterSingleElemwiseOp,
                                                  disableElementwiseFuse);
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createConcatSliceFusionPass() {
+  return std::make_unique<ConcatSliceFusionPass>();
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
