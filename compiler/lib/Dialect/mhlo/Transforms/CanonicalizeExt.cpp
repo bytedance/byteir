@@ -2210,7 +2210,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
 
   patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
 
-  populateConvertOpPattern(patterns);
+  populateConvertOpPattern(patterns, foldLimit, blindFold);
 }
 
 void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(

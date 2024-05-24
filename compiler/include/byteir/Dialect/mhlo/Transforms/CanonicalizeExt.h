@@ -35,9 +35,9 @@ void populateFoldMultiplyZeroPattern(RewritePatternSet &patterns);
 // fold large binary Op
 void populateFoldLargeBinaryOpPatterns(RewritePatternSet &patterns);
 
-// fold benefical convert with constant
-void populateConvertOpPattern(RewritePatternSet &patterns,
-                              int64_t foldLimit = 0, bool blindFold = false);
+// fold convert op conditionally
+void populateConvertOpPattern(RewritePatternSet &patterns, int64_t foldLimit,
+                              bool blindFold);
 
 // canonicalize deprecated opset
 void populateCanonicalizeDeprecatedOpPattern(RewritePatternSet &patterns);
