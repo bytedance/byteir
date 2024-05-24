@@ -30,5 +30,24 @@ def test_nonzero():
     module = compile_dynamo_model(prog, "raw")
     print(module.operation.get_asm())
 
+# ==============================================================================
+
+class MLPModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = torch.nn.Linear(10, 10)
+    def forward(self, x):
+        return self.fc(x)
+
+def test_mlp():
+    inputs = (torch.randn(10, 10),)
+    prog = torch.export.export(MLPModule(), inputs, constraints=None)
+    module = compile_dynamo_model(prog, "stablehlo")
+    mlir_str = module.operation.get_asm()
+    print(mlir_str)
+    assert not "dense_resource" in mlir_str
+
 if __name__ == "__main__":
+    test_slice()
     test_nonzero()
+    test_mlp()
