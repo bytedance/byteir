@@ -170,6 +170,13 @@ struct SimplifyDotGeneralToBroadcastMultiply
         rhsType.getDimSize(dimensionNumbers.getRhsContractingDimensions()[0]);
     auto K = std::max(LK, RK);
 
+    auto is_single_k = [&]() {
+      return lhsType.getDimSize(
+                 dimensionNumbers.getLhsContractingDimensions()[0]) == 1 &&
+             rhsType.getDimSize(
+                 dimensionNumbers.getRhsContractingDimensions()[0]) == 1;
+    };
+
     if (is_single_m_n()) {
       // m == 1 or n == 1
       const bool isSingleM = M == 1;
@@ -228,6 +235,17 @@ struct SimplifyDotGeneralToBroadcastMultiply
 
       rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
                                                    reduceOp.getResults());
+      return success();
+    } else if (is_single_k()) {
+      // k == 1
+      auto iota = llvm::iota_range<int64_t>(0, lhsType.getRank(), false);
+      llvm::SmallVector<int64_t> bcastDims(iota.begin(), iota.end());
+      Value bcastLhs = rewriter.create<mhlo::BroadcastInDimOp>(
+          loc, op.getType(), op.getLhs(), rewriter.getI64TensorAttr(bcastDims));
+      Value bcastRhs = rewriter.create<mhlo::BroadcastInDimOp>(
+          loc, op.getType(), op.getRhs(), rewriter.getI64TensorAttr(bcastDims));
+      rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, op.getType(), bcastLhs,
+                                               bcastRhs);
       return success();
     }
 

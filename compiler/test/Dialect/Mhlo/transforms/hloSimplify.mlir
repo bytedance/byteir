@@ -69,6 +69,25 @@ func.func @simplify_dot_general$bmm$case1(%arg0: tensor<128x50x4xf32>, %arg1: te
 // CHECK-NEXT: mhlo.divide
 // CHECK-NEXT: return
 
+func.func @simplify_dot_general_bmm_case2(%arg0: tensor<128x1x1xf32>, %arg1: tensor<128x1x30xf32>) -> (tensor<128x1x30xf32>) {
+  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<128x1x1xf32>, tensor<128x1x30xf32>) -> tensor<128x1x30xf32>
+  return %0 : tensor<128x1x30xf32>
+}
+// CHECK-LABEL: @simplify_dot_general_bmm_case2
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
+
+func.func @simplify_dot_general_bmm_case3(%arg0: tensor<128x20x1xf32>, %arg1: tensor<128x1x30xf32>) -> (tensor<128x20x30xf32>) {
+  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<128x20x1xf32>, tensor<128x1x30xf32>) -> tensor<128x20x30xf32>
+  return %0 : tensor<128x20x30xf32>
+}
+// CHECK-LABEL: @simplify_dot_general_bmm_case3
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
+
 func.func @gather_2d(%arg0 : tensor<1024x768xf32>, %arg1 : tensor<2x256xi64>) -> tensor<2x256x768xf32> {
   %0 = "mhlo.gather"(%arg0, %arg1) {dimension_numbers = #mhlo.gather<offset_dims = [2], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 2>, indices_are_sorted = false, slice_sizes = dense<[1, 768]> : tensor<2xi64>} : (tensor<1024x768xf32>, tensor<2x256xi64>) -> tensor<2x256x768xf32>
   return %0 : tensor<2x256x768xf32>

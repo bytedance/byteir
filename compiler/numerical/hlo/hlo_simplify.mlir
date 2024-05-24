@@ -36,3 +36,22 @@ func.func @simplify_dot_general_bmm_case1(%arg0: tensor<128x50x4xf32>, %arg1: te
 // CHECK-NEXT: mhlo.reduce
 // CHECK-NEXT: mhlo.reshape
 // CHECK-NEXT: return
+
+func.func @simplify_dot_general_bmm_case2(%arg0: tensor<128x1x1xf32>, %arg1: tensor<128x1x30xf32>) -> (tensor<128x1x30xf32>) {
+  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<128x1x1xf32>, tensor<128x1x30xf32>) -> tensor<128x1x30xf32>
+  return %0 : tensor<128x1x30xf32>
+}
+// CHECK-LABEL: @simplify_dot_general_bmm_case2
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
+
+func.func @simplify_dot_general_bmm_case3(%arg0: tensor<128x20x1xf32>, %arg1: tensor<128x1x30xf32>) -> (tensor<128x20x30xf32>) {
+  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<128x20x1xf32>, tensor<128x1x30xf32>) -> tensor<128x20x30xf32>
+  return %0 : tensor<128x20x30xf32>
+}
+// CHECK-LABEL: @simplify_dot_general_bmm_case3
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.broadcast_in_dim
+// CHECK-NEXT: mhlo.multiply
+// CHECK-NEXT: return
