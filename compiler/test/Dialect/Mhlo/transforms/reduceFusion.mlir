@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -fuse-reduce | FileCheck %s
+// RUN: byteir-opt %s -fuse-reduce-window | FileCheck %s
 
 func.func @reduce_window_pad_and_const_ini(%arg0: tensor<32x64x112x112xf16>, %arg1: tensor<f16>) -> tensor<32x64x56x56xf16>{
   %0 = mhlo.constant dense<0xFC00> : tensor<f16>
