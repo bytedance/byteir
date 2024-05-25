@@ -1,6 +1,6 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- PassDetail.h -------------------------------------------*--- C++ -*-===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,25 +15,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
-#define BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
+#ifndef BYTEIR_DIALECT_SCF_TRANSFORMS_PASSDETAIL_H
+#define BYTEIR_DIALECT_SCF_TRANSFORMS_PASSDETAIL_H
 
-#include "byteir/Dialect/Vector/Transforms/MoveForallRegionIntoWarpOp.h"
-#include "byteir/Dialect/Vector/Transforms/VectorWarpDistribute.h"
+#include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
-#include <memory>
 
+// forward dialects for conversions
 namespace mlir {
-namespace func {
-class FuncOp;
-} // namespace func
+namespace vector {
+class VectorDialect;
+} // namespace vector
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_DECL_VECTORTRANSPOSELOWERINGPASS
-#define GEN_PASS_DECL_MOVEFORALLREGIONINTOWARPOPPASS
-#define GEN_PASS_REGISTRATION
+#define GEN_PASS_CLASSES
 #include "byteir/Dialect/Vector/Transforms/Passes.h.inc"
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
+#endif // BYTEIR_DIALECT_SCF_TRANSFORMS_PASSDETAIL_H
