@@ -45,7 +45,9 @@ namespace brt {
 
 namespace {
 
-// statcially register all CPU OpKernels
+// legacy register
+// note: we do not guarantee the backward compatibility of these OpKernels,
+// we will remove them if brt upgrade to 2.0
 BRT_STATIC_KERNEL_REGISTRATION(
     DeviceKind::CPU, ProviderType::BRT, [](KernelRegistry *registry) {
       registry->Register(
@@ -76,6 +78,16 @@ BRT_STATIC_KERNEL_REGISTRATION(
             return kernel;
           });
       registry->Register(
+          "tf.Where",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::TFWhere>(info);
+          });
+    });
+
+// statcially register all CPU OpKernels
+BRT_STATIC_KERNEL_REGISTRATION(
+    DeviceKind::CPU, ProviderType::BRT, [](KernelRegistry *registry) {
+      registry->Register(
           "LLVMJITOp",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::LLVMJITOpKernel>(info);
@@ -89,11 +101,6 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "FillOp",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
             return std::make_shared<cpu::Fill>(info);
-          });
-      registry->Register(
-          "tf.Where",
-          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
-            return std::make_shared<cpu::TFWhere>(info);
           });
       registry->Register(
           "tf.Equal",

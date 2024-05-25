@@ -35,6 +35,10 @@ using namespace mlir;
 using namespace mlir::mhlo;
 
 namespace {
+
+//===----------------------------------------------------------------------===//
+// ElementwiseFusion
+//===----------------------------------------------------------------------===//
 namespace elementwise {
 
 bool isCustomMhloRngOp(Operation *op) {
@@ -119,7 +123,78 @@ static GenericFuserConfig config_no_elementwise_fuse{
     elementwise::isValidSingleOp,
     elementwise::isValidFusionPattern};
 
+namespace concat_slice {
+// TODO: fuse elementwise with concat
+bool isFusibleCandidate(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(op);
+}
+
+bool isFusibleStart(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(op);
+}
+
+bool isFusibleTrigger(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(op);
+}
+
+bool isFusibleWith(Operation *target, Operation *start) {
+  if (llvm::isa<mhlo::ConcatenateOp, mhlo::ReshapeOp, mhlo::SliceOp>(start)) {
+    return llvm::isa<mhlo::SliceOp, mhlo::ReshapeOp>(target);
+  }
+  return false;
+}
+
+bool isValidSingleOp(Operation *op) {
+  return llvm::isa<mhlo::ConcatenateOp>(op);
+}
+
+bool isValidFusionPattern(const MhloFusionPattern &pattern) {
+  if (!llvm::any_of(pattern, [](Operation *op) {
+        return llvm::isa<mhlo::ConcatenateOp>(op);
+      })) {
+    return false;
+  }
+
+  llvm::DenseSet<Operation *> opSet(pattern.begin(), pattern.end());
+  for (auto op : pattern) {
+    if (llvm::isa<mhlo::ConcatenateOp>(op)) {
+      bool isLegal = true;
+      for (auto operand : op->getOperands()) {
+        if (auto defOp = operand.getDefiningOp()) {
+          while (defOp) {
+            if (opSet.find(defOp) == opSet.end()) {
+              break;
+            }
+            if (!llvm::isa<mhlo::ReshapeOp, mhlo::SliceOp>(defOp)) {
+              isLegal = false;
+              break;
+            } else {
+              defOp = defOp->getOperand(0).getDefiningOp();
+            }
+          }
+        }
+        if (!isLegal) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+};
+static GenericFuserConfig config_concat_slice_fuse{
+    getByteIRElementwiseFusionAttrName(),
+    elementwise::concat_slice::isFusibleCandidate,
+    elementwise::concat_slice::isFusibleStart,
+    elementwise::concat_slice::isFusibleTrigger,
+    elementwise::concat_slice::isFusibleWith,
+    elementwise::concat_slice::isValidSingleOp,
+    elementwise::concat_slice::isValidFusionPattern};
+} // namespace concat_slice
 } // namespace elementwise
+
+//===----------------------------------------------------------------------===//
+// MatmulEpilogueFusion
+//===----------------------------------------------------------------------===//
 
 namespace matmul_epilogue {
 
@@ -155,6 +230,10 @@ static GenericFuserConfig config{getByteIRMatmulEpilogueFusionAttrName(),
                                  matmul_epilogue::isValidFusionPattern};
 
 } // namespace matmul_epilogue
+
+//===----------------------------------------------------------------------===//
+// ReductionFusion
+//===----------------------------------------------------------------------===//
 
 namespace reduction {
 // TODO: maybe we should support non-splat constant on device in future
@@ -235,6 +314,76 @@ static GenericFuserConfig config{
 
 } // namespace reduction
 
+//===----------------------------------------------------------------------===//
+// AggressiveFusion
+//===----------------------------------------------------------------------===//
+
+namespace aggressive_fusion {
+
+bool isCustomMhloRngUniformOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRngUniformName();
+  }
+  return false;
+}
+
+bool isCustomMhloByteirRepeatOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRepeatName();
+  }
+  return false;
+}
+
+bool isFusibleCandidate(Operation *op) {
+  if (isCustomMhloRngUniformOp(op) || isCustomMhloByteirRepeatOp(op))
+    return true;
+  return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
+}
+
+bool isFusibleStart(Operation *) { return true; }
+
+bool isFusibleTrigger(Operation *) { return true; }
+
+bool isFusibleWith(Operation *, Operation *) { return true; }
+
+bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
+  return isSplatMhloConstantLike(target) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
+             target);
+}
+
+bool isValidSingleOp(Operation *op) {
+  if (llvm::isa<mhlo::ReshapeOp>(op))
+    return false;
+  else
+    return true;
+}
+
+bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
+
+static GenericFuserConfig config{getByteIRHloAggressiveFusionAttrName(),
+                                 aggressive_fusion::isFusibleCandidate,
+                                 aggressive_fusion::isFusibleStart,
+                                 aggressive_fusion::isFusibleTrigger,
+                                 aggressive_fusion::isFusibleWith,
+                                 aggressive_fusion::isValidSingleOp,
+                                 aggressive_fusion::isValidFusionPattern};
+
+static GenericFuserConfig no_fuse_config{
+    getByteIRHloAggressiveFusionAttrName(),
+    aggressive_fusion::isFusibleCandidate,
+    aggressive_fusion::isFusibleStart,
+    aggressive_fusion::isFusibleTrigger,
+    aggressive_fusion::isFusibleWithNoDenseFuse,
+    aggressive_fusion::isValidSingleOp,
+    aggressive_fusion::isValidFusionPattern};
+
+} // namespace aggressive_fusion
+
+//===----------------------------------------------------------------------===//
+// Fusion Passes
+//===----------------------------------------------------------------------===//
+
 // a derived fusion pass for elementwise
 struct ElementwiseFusionPass : public GenericFusionPass<ElementwiseFusionPass> {
 
@@ -275,6 +424,33 @@ struct ElementwiseFusionPass : public GenericFusionPass<ElementwiseFusionPass> {
       ::llvm::cl::desc(
           "disable fusion strategy, only outline single operation"),
       ::llvm::cl::init(false)};
+};
+
+struct ConcatSliceFusionPass : public GenericFusionPass<ConcatSliceFusionPass> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConcatSliceFusionPass)
+
+  ConcatSliceFusionPass() : GenericFusionPass(true) {}
+
+  /// Returns the command-line argument attached to this pass.
+  static constexpr ::llvm::StringLiteral getArgumentName() {
+    return ::llvm::StringLiteral("fuse-concat-slice");
+  }
+  ::llvm::StringRef getArgument() const override { return "fuse-concat-slice"; }
+
+  ::llvm::StringRef getDescription() const override {
+    return "Fuse concat with slice op";
+  }
+
+  /// Returns the derived pass name.
+  static constexpr ::llvm::StringLiteral getPassName() {
+    return ::llvm::StringLiteral("ConcatSliceFusion");
+  }
+  ::llvm::StringRef getName() const override { return "ConcaSliceFusion"; }
+
+  const GenericFuserConfig &getConfig() {
+    return elementwise::concat_slice::config_concat_slice_fuse;
+  }
 };
 
 // a derived fusion pass for matmul epilogue fusion
@@ -331,6 +507,51 @@ struct ReductionFusionPass : public GenericFusionPass<ReductionFusionPass> {
 
   const GenericFuserConfig &getConfig() { return reduction::config; }
 };
+
+// A derived fusion pass for hlo aggressive fusion, which would fuse mhlo ops
+// into mhlo.fusion group as much as possible
+struct HloAggressiveFusionPass
+    : public GenericFusionPass<HloAggressiveFusionPass> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(HloAggressiveFusionPass)
+
+  HloAggressiveFusionPass(bool disableFusion) : GenericFusionPass(true) {
+    this->disableFusion = disableFusion;
+  }
+
+  HloAggressiveFusionPass(const HloAggressiveFusionPass &other)
+      : GenericFusionPass<HloAggressiveFusionPass>(other) {}
+
+  /// Returns the command-line argument attached to this pass.
+  static constexpr ::llvm::StringLiteral getArgumentName() {
+    return ::llvm::StringLiteral("hlo-aggressive-fusion");
+  }
+  ::llvm::StringRef getArgument() const override {
+    return "hlo-aggressive-fusion";
+  }
+
+  ::llvm::StringRef getDescription() const override {
+    return "Do aggressive fusion on mhlo dialect, fuse mhlo ops into "
+           "mhlo.fusion group as much as possible.";
+  }
+
+  /// Returns the derived pass name.
+  static constexpr ::llvm::StringLiteral getPassName() {
+    return ::llvm::StringLiteral("HloAggressiveFusion");
+  }
+  ::llvm::StringRef getName() const override { return "HloAggressiveFusion"; }
+
+  const GenericFuserConfig &getConfig() {
+    return disableFusion ? aggressive_fusion::no_fuse_config
+                         : aggressive_fusion::config;
+  }
+
+  ::mlir::Pass::Option<bool> disableFusion{
+      *this, "disable-fusion",
+      ::llvm::cl::desc(
+          "disable fusion strategy, only outline single operation"),
+      ::llvm::cl::init(false)};
+};
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
@@ -341,10 +562,20 @@ mlir::createElementFusionPass(bool clusterSingleElemwiseOp,
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createConcatSliceFusionPass() {
+  return std::make_unique<ConcatSliceFusionPass>();
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createMatmulEpilogueFusionPass() {
   return std::make_unique<MatmulEpilogueFusionPass>();
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::createReductionFusionPass() {
   return std::make_unique<ReductionFusionPass>();
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createHloAggressiveFusionPass(bool disableFusion) {
+  return std::make_unique<HloAggressiveFusionPass>(disableFusion);
 }

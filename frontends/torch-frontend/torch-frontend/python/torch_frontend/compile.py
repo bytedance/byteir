@@ -255,7 +255,7 @@ def compile_dynamo_model(
     with module.context:
         # We still need torch-function-to-torch-pipeline help us do something, e.g.,
         # decompose ops, like aten.addmm, aten.t and so on.
-        option_string = "{backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
+        option_string = "{shape-dtype-refine=false backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
         pm = PassManager.parse(
             f"builtin.module(torch-function-to-torch-pipeline{option_string})"
         )

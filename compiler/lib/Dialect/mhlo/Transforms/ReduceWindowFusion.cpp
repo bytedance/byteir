@@ -84,16 +84,17 @@ struct PadReduceWindowPattern : public OpRewritePattern<mhlo::ReduceWindowOp> {
     auto fusion = *createMhloFusionFromPattern(rewriter, pattern);
 
     // add attr
-    fusion->setAttr(getByteIRReduceFusionAttrName(),
+    fusion->setAttr(getByteIRReduceWindowFusionAttrName(),
                     UnitAttr::get(fusion.getContext()));
 
     return success();
   }
 };
 
-struct ReduceFusionPass : public ReduceFusionBase<ReduceFusionPass> {
+struct ReduceWindowFusionPass
+    : public ReduceWindowFusionBase<ReduceWindowFusionPass> {
 
-  ReduceFusionPass() : ReduceFusionBase() {}
+  ReduceWindowFusionPass() : ReduceWindowFusionBase() {}
 
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
@@ -102,8 +103,8 @@ struct ReduceFusionPass : public ReduceFusionBase<ReduceFusionPass> {
     populateFuseReduceWindowPatterns(patterns);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns))) {
-      funcOp.emitError(
-          "ReduceFusionPass applyPatternsAndFoldGreedily does not converge");
+      funcOp.emitError("ReduceWindowFusionPass applyPatternsAndFoldGreedily "
+                       "does not converge");
       signalPassFailure();
     }
   }
@@ -114,6 +115,7 @@ void mlir::populateFuseReduceWindowPatterns(RewritePatternSet &patterns) {
   patterns.add<PadReduceWindowPattern>(patterns.getContext());
 }
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createReduceFusionPass() {
-  return std::make_unique<ReduceFusionPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createReduceWindowFusionPass() {
+  return std::make_unique<ReduceWindowFusionPass>();
 }
