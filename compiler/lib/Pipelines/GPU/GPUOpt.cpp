@@ -32,6 +32,7 @@
 #include "byteir/Transforms/Passes.h"
 #include "byteir/Transforms/RemoveFuncBody.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/Passes.h"
@@ -100,6 +101,7 @@ void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
     anchoredPM.addPass(createCSEPass());
     anchoredPM.addPass(createScalarVectorLoweringPass());
     anchoredPM.addPass(createCanonicalizeExtPass());
+    anchoredPM.addPass(createConvertVectorToSCFPass());
     pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
         getByteIRReductionFusionAttrName(), anchoredPM));
   }

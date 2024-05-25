@@ -47,7 +47,6 @@ void addGenericSCFOptPasses(OpPassManager &pm) {
   // for reduction
   pm.addNestedPass<func::FuncOp>(
       createFuseNestedForallPass(getByteIRReductionFusionAttrName()));
-  pm.addNestedPass<func::FuncOp>(createConvertVectorToSCFPass());
   addCleanUpExtPassPipeline(pm);
 }
 
