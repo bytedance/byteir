@@ -92,4 +92,16 @@ def VectorWarpDistributePass : Pass<"vector-warp-distribute", "mlir::func::FuncO
           "Maximum number of transfer write elements to distribute">,
   ];
 }
+
+//===----------------------------------------------------------------------===//
+// Scalar Vector Lowering
+//===----------------------------------------------------------------------===//
+
+def ScalarVectorLoweringPass : Pass<"scalar-vector-lowering", "func::FuncOp"> {
+  let summary = "Pass to lower scalar vector";
+  let dependentDialects = [
+    "memref::MemRefDialect",
+    "vector::VectorDialect"
+  ];
+}
 #endif // BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES

@@ -28,6 +28,7 @@
 #include "byteir/Dialect/Shape/Passes.h"
 #include "byteir/Dialect/Tensor/Passes.h"
 #include "byteir/Dialect/Transform/Passes.h"
+#include "byteir/Dialect/Vector/Transforms/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/InitAllPipelines.h"
 #include "byteir/Target/CUDA/ToCUDA.h"
@@ -52,6 +53,7 @@ void byteirRegisterAllPasses() {
   registerByteIRMemRefPasses();
   registerByteIRMhloPassesExt();
   registerByteIRSCFPasses();
+  registerByteIRVectorPasses();
   registerByteIRShapePasses();
   registerByteIRTensorPasses();
   registerByteIRTransformPasses();
