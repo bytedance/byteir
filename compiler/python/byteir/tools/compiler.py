@@ -18,6 +18,7 @@ if __name__ == "__main__":
                         default="local",
                         choices=["local", "sm_70", "sm_75", "sm_80", "sm_86", "sm_90"],
                         help="specify target gpu type: 'local' for detecting by nvidia-smi")
+    parser.add_argument("--serial", type=str, default="1.0.0", help="byre serialize version")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("--ait_parallelism", type=int, default=1, help="number of processes to compile ait op")
     parser.add_argument("--disable_byteir_cache", action="store_true")
@@ -28,6 +29,7 @@ if __name__ == "__main__":
                    args.entry_func,
                    args.target,
                    args.gpu_type,
+                   args.serial,
                    args.verbose,
                    args.ait_parallelism,
                    args.disable_byteir_cache)
