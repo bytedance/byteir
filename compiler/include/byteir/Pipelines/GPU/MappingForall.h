@@ -18,6 +18,7 @@
 #ifndef BYTEIR_PIPELINES_GPU_MAPPING_FORALL_H
 #define BYTEIR_PIPELINES_GPU_MAPPING_FORALL_H
 
+#include "byteir/Utils/OptionUtils.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
 #include "mlir/Pass/PassRegistry.h"
@@ -34,6 +35,12 @@ struct GPUMappingForallOptions
       *this, "annotate-prefix",
       llvm::cl::desc("An optional annotate prefix attribute on target ops."),
       llvm::cl::init("__byteir_gpu_split_grid_reduction")};
+  Option<int64_t> warpSize{*this, "warp-size", llvm::cl::desc("warp size."),
+                           llvm::cl::init(32)};
+  Option<llvm::cl::KernelDims> blockDimsHint{
+      *this, "block-size-hint",
+      llvm::cl::desc("block dims hint for dynamic shape."),
+      llvm::cl::init(llvm::cl::KernelDims{1024, 1, 1})};
   // TODO: option for grid/block dims hint
 };
 
