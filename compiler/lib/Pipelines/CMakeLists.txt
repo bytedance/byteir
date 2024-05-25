@@ -30,6 +30,7 @@ add_mlir_library(ByteIRPipelines
   ByteIRMemRefPasses
   ByteIRTransforms
   ByteIRUtils
+  MLIRBufferTransforms
 
   LINK_LIBS PUBLIC
   ByteIRGPUPipelines
@@ -52,4 +53,5 @@ add_mlir_library(ByteIRPipelines
   ByteIRToByre
   ByteIRToGPU
   ByteIRToLinalg
+  MLIRBufferTransforms
 )

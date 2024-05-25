@@ -21,9 +21,9 @@ using KernelDims = llvm::cl::KernelDims;
 bool llvm::cl::parser<KernelDims>::parse(Option &O, StringRef ArgName,
                                          StringRef Arg, KernelDims &Val) {
   SmallVector<int64_t, 3> integerVals;
-  if (Arg.size() <= 0 || Arg[0] != '{')
-    return false;
-  int64_t idx = 1;
+  if (Arg.size() <= 0)
+    return true;
+  int64_t idx = 0;
   int64_t len = Arg.size();
   auto parseInteger = [&]() -> std::optional<int64_t> {
     int64_t sgn = 1;
@@ -63,22 +63,21 @@ bool llvm::cl::parser<KernelDims>::parse(Option &O, StringRef ArgName,
     }
     auto curInt = parseInteger();
     if (!curInt.has_value())
-      return false;
+      return true;
     integerVals.emplace_back(curInt.value());
     while (consumeIf(' ')) {
     }
   }
-  consumeIf('}');
   if (static_cast<int64_t>(integerVals.size()) != 3 || idx != len)
-    return false;
+    return true;
   for (auto v : integerVals) {
     if (v < 0)
-      return false;
+      return true;
   }
   Val.x = integerVals[0];
   Val.y = integerVals[1];
   Val.z = integerVals[2];
-  return true;
+  return false;
 }
 
 void llvm::cl::parser<KernelDims>::printOptionDiff(const Option &O,
