@@ -25,7 +25,7 @@ cmake -GNinja \
       -DLLVM_CCACHE_BUILD=OFF \
       -DLLVM_ENABLE_TERMINFO=OFF \
       -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-      -DCMAKE_INSTALL_PREFIX=./build/install
+      -DCMAKE_INSTALL_PREFIX=$(pwd)/build/install
 # via -DCMAKE_C_COMPILER=gcc/clang and -DCMAKE_CXX_COMPILER=g++/clang++
 # to specify gcc>=8.5 or clang>=7 
 
@@ -40,31 +40,35 @@ cd /path_to_byteir
 git submodule update --init external/mlir-hlo
 
 # build ByteIR
-cmake -B./compiler/build -H./compiler/cmake/ -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DLLVM_INSTALL_PATH=$(pwd)/external/llvm-project/build/install \
-                -DLLVM_EXTERNAL_LIT=$(which lit)
+cmake -B./compiler/build \
+      -H./compiler/cmake \
+      -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_INSTALL_PATH=$(pwd)/external/llvm-project/build/install \
+      -DLLVM_EXTERNAL_LIT=$(which lit) \
+      -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
-cmake --build . --target all
+cmake --build ./compiler/build --target check-byteir
 ```
 ### Windows 
 ```bash
-mkdir /path_to_byteir
 cd /path_to_byteir
 
 # build ByteIR
-cmake -B./compiler/build -H./compiler/cmake/ -G "Visual Studio 16 2019" -A x64 \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
-                -DLLVM_EXTERNAL_LIT=lit_location # this is optional for external lit 
+cmake -B./compiler/build
+      -H./compiler/cmake
+      -G "Visual Studio 16 2019" -A x64 \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
+      -DLLVM_EXTERNAL_LIT=lit_location # this is optional for external lit 
 
-cmake --build . --target all
+cmake --build ./compiler/build --target check-byteir
 ```
 
 ## Testing 
 This command runs all ByteIR unit tests:
 ```bash
-cmake --build . --target check-byteir
+cmake --build ./compiler/build --target check-byteir
 ```
 ByteIR relies on ```llvm-lit``` and ```FileCheck``` for testing.
 For more information, you can refer to [this page](https://www.llvm.org/docs/CommandGuide/FileCheck.html)
@@ -73,13 +77,13 @@ All the tests are placed in the folder ```byteir/test```.
 
 ## Install (Optional)
 ```bash
-cmake --install . --prefix path_to_install_BYTEIR
+cmake --install ./compiler/build --prefix path_to_install_BYTEIR
 ```
 
 ## Pack Python Wheel (Optional)
 ```bash
-cmake --build . --target byteir-python-pack
-# byteir-*.whl in /path_to_byteir/build/python/dist/
+cmake --build ./compiler/build --target byteir-python-pack
+# byteir-*.whl in /path_to_byteir/compiler/build/python/dist/
 ```
 
 ## IRs (Dialects)
@@ -97,6 +101,10 @@ They are listed in [doc/byteir_mhlo_custom_call.md](doc/byteir_mhlo_custom_call.
 ### ACE & LACE
 ACE is an internal dialect defined by ByteIR. 
 It is a supplement to MHLO dialect and LACE is the corresponding part of LMHLO.
+
+### CCL
+CCL is an internal dialect defined by ByteIR.
+It is a IR which represents communication operators in distribution.
 
 ### LinalgExt
 LinalgExt is a dialect defined by ByteIR.
