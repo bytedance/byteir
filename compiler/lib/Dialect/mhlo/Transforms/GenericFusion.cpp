@@ -36,17 +36,24 @@ using namespace mlir::mhlo;
 
 namespace {
 
-//===----------------------------------------------------------------------===//
-// ElementwiseFusion
-//===----------------------------------------------------------------------===//
-namespace elementwise {
-
 bool isCustomMhloRngOp(Operation *op) {
   if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
     return customOp.getCallTargetName() == getRngUniformName();
   }
   return false;
 }
+
+bool isCustomMhloByteirRepeatOp(Operation *op) {
+  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
+    return customOp.getCallTargetName() == getRepeatName();
+  }
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
+// ElementwiseFusion
+//===----------------------------------------------------------------------===//
+namespace elementwise {
 
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
@@ -320,22 +327,8 @@ static GenericFuserConfig config{
 
 namespace aggressive_fusion {
 
-bool isCustomMhloRngUniformOp(Operation *op) {
-  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
-    return customOp.getCallTargetName() == getRngUniformName();
-  }
-  return false;
-}
-
-bool isCustomMhloByteirRepeatOp(Operation *op) {
-  if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
-    return customOp.getCallTargetName() == getRepeatName();
-  }
-  return false;
-}
-
 bool isFusibleCandidate(Operation *op) {
-  if (isCustomMhloRngUniformOp(op) || isCustomMhloByteirRepeatOp(op))
+  if (isCustomMhloRngOp(op) || isCustomMhloByteirRepeatOp(op))
     return true;
   return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
 }

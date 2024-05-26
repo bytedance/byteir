@@ -7,34 +7,53 @@ The ByteIR Compiler is an MLIR-based compiler for CPU/GPU/ASIC.
 
 ***Python*** (for python binding): minimum version is 3.6, requiring numpy and pybind11 installed.
 
-## Build
+## Build LLVM
 
-### Apply Patches
-Make sure to apply possible patches for submodules
 ```bash
-bash /path_to_byteir/scripts/apply_patches.sh
+cd /path_to_byteir
+git submodule update --init external/llvm-project
+
+# build llvm
+cd external/llvm-project
+cmake -GNinja \
+      -H./llvm \
+      -G./build \
+      -DLLVM_ENABLE_PROJECTS=mlir \
+      -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ENABLE_ASSERTIONS=ON \
+      -DLLVM_CCACHE_BUILD=OFF \
+      -DLLVM_ENABLE_TERMINFO=OFF \
+      -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+      -DCMAKE_INSTALL_PREFIX=./build/install
+# via -DCMAKE_C_COMPILER=gcc/clang and -DCMAKE_CXX_COMPILER=g++/clang++
+# to specify gcc>=8.5 or clang>=7 
+
+cmake --build ./build --target all --target install
 ```
 
+## Build ByteIR
 ### Linux/Mac 
 ```bash
-mkdir /path_to_byteir/build
-cd /path_to_byteir/build/
+cd /path_to_byteir
+
+git submodule update --init external/mlir-hlo
 
 # build ByteIR
-cmake ../cmake/ -G Ninja \
+cmake -B./compiler/build -H./compiler/cmake/ -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
-                -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
-                -DLLVM_EXTERNAL_LIT=lit_executatble_location # or using $(which lit), this is optional for external lit 
+                -DLLVM_INSTALL_PATH=$(pwd)/external/llvm-project/build/install \
+                -DLLVM_EXTERNAL_LIT=$(which lit)
 
 cmake --build . --target all
 ```
 ### Windows 
 ```bash
-mkdir /path_to_byteir/build
-cd /path_to_byteir/build/
+mkdir /path_to_byteir
+cd /path_to_byteir
 
 # build ByteIR
-cmake ../cmake/ -G "Visual Studio 16 2019" -A x64 \
+cmake -B./compiler/build -H./compiler/cmake/ -G "Visual Studio 16 2019" -A x64 \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
                 -DLLVM_EXTERNAL_LIT=lit_location # this is optional for external lit 
