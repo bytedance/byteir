@@ -638,4 +638,3 @@ module attributes {byre.container_module} {
 // CHECK: memref.copy
 // CHECK: memref.copy
 
-
