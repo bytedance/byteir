@@ -29,6 +29,10 @@
 #include "byteir/Conversion/GemmCodeGen/GemmCodeGenPattern.h"
 #include "byteir/Conversion/GemmCodeGen/Transforms/Transforms.h"
 #include "byteir/Conversion/GemmCodeGen/Utils/GPUCodeGenUtils.h"
+
+#include "byteir/Dialect/GPU/Passes.h"
+#include "byteir/Dialect/GPU/Transforms/Transforms.h"
+
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
@@ -170,6 +174,7 @@ static LogicalResult tileToWarp(func::FuncOp funcOp,
   filter
       .addFilter([](Operation *op) {
         // linalg.copy will be handled by GPUDistributeSharedMemoryCopy pass.
+        // So we should not tile it here.
         return success(!isa<linalg::CopyOp>(op));
       })
       .setMatchByDefault();
@@ -188,15 +193,14 @@ public:
     MLIRContext *context = &getContext();
     auto funcOp = getOperation();
 
+    // blockDim.x will be a multiple of warp size, in Nvidia GPU, the number
+    // should be 32.
     std::optional<SmallVector<int64_t, 3>> optionalWorkgroupSize =
         getGemmBlockSize(funcOp);
     if (!optionalWorkgroupSize.has_value())
       return;
 
     SmallVector<int64_t, 3> workgroupSize = optionalWorkgroupSize.value();
-
-    int64_t flatWorkgroupSize =
-        workgroupSize[0] * workgroupSize[1] * workgroupSize[2];
 
     // Apply last level of tiling and distribute to warps.
     if (failed(tileToWarp(funcOp, workgroupSize))) {

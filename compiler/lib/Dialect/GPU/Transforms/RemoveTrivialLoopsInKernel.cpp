@@ -66,10 +66,8 @@ static unsigned dimToIndex(gpu::Dimension dim) {
 /// As we only use this function in gemm codegen, we we can assume loop variable
 /// is relavant to gpu.threadId or gpu.blockId.
 static std::optional<std::pair<AffineExpr, AffineExpr>>
-getWorkgroupRange(Value processorValue, SmallVectorImpl<Value> & /*dims*/,
-                  SmallVectorImpl<Value> & /*symbols*/,
-                  ArrayRef<int64_t> workgroupCount,
-                  ArrayRef<int64_t> workgroupSize) {
+getWorkgroupRange(Value processorValue, ArrayRef<int64_t> workgroupSize) {
+  // If the value is a threadID return the range [0, workgroupSize-1].
   if (auto idOp = processorValue.getDefiningOp<gpu::ThreadIdOp>()) {
     unsigned index = dimToIndex(idOp.getDimension());
     OpBuilder b(processorValue.getContext());
@@ -114,16 +112,17 @@ class RemoveSingleIterationLoopPass final
     SmallVector<int64_t, 3> tileSize = getGemmTileSize(funcOp).value();
     func::ReturnOp returnOp =
         cast<func::ReturnOp>(funcOp.getBody().front().getTerminator());
-    memref::AllocOp allocOp =
-        dyn_cast<memref::AllocOp>(returnOp.getOperand(0).getDefiningOp());
-    if (!allocOp)
-      return;
 
     // Here is a hack way to get the number of workgroups.
     // As we know the tile size and the result shape, so number of workgroups is
     // resultShape / tileSize.
     // If it is a bmm, this algorithm will be wrong.
     // TODO: use the number of workgroups from a more elegant way.
+
+    memref::AllocOp allocOp =
+        dyn_cast<memref::AllocOp>(returnOp.getOperand(0).getDefiningOp());
+    if (!allocOp)
+      return;
     auto memrefShape = allocOp.getType().getShape();
     SmallVector<int64_t> numWorkgroups;
     for (int i = 0; i < 2; i++) {

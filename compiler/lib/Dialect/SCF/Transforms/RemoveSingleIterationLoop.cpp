@@ -16,7 +16,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Copyright 2021 The IREE Authors
+// Some code comes from
+// compiler/src/iree/compiler/Codegen/Transforms/RemoveSingleIterationLoop.cpp
+// of IREE project. Copyright 2021 The IREE Authors
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -36,7 +38,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "iree-codegen-remove-single-iteration"
+#define DEBUG_TYPE "remove-single-iteration"
 
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
 
