@@ -41,12 +41,19 @@ void getAllAlias(Operation *op,
                  llvm::SmallVectorImpl<SmallVector<Value>> &aliases,
                  bool skipNonOverlapedSubviews = false);
 
+bool maybeOpOperandWrite(OpOperand &opOpernad);
+
+bool maybeOpOperandRead(OpOperand &opOpernad);
+
 // Note: this method would collect all **potential** read/write uses on given
 // aliases
-void getMemEffects(llvm::SmallVectorImpl<OpMemEffectOrder> &memEffects,
-                   llvm::ArrayRef<SmallVector<Value>> aliases,
-                   llvm::DenseMap<Operation *, unsigned> &opToIdx,
-                   unsigned pivot);
+using OperandMemEffectFn = std::function<bool(OpOperand &)>;
+void getMemEffects(
+    llvm::SmallVectorImpl<OpMemEffectOrder> &memEffects,
+    llvm::ArrayRef<SmallVector<Value>> aliases,
+    llvm::DenseMap<Operation *, unsigned> &opToIdx, unsigned pivot,
+    const OperandMemEffectFn &hasReadEffect = maybeOpOperandRead,
+    const OperandMemEffectFn &hasWriteEffect = maybeOpOperandWrite);
 
 } // namespace mlir
 

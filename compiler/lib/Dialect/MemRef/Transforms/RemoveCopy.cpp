@@ -114,6 +114,7 @@ public:
 
     SmallVector<SmallVector<Value>, 2> aliases(2);
     getAllAlias(copyOp, aliases, /*skipNonOverlapedSubviews*/ true);
+    aliases[0].push_back(copyOp.getSource());
 
     llvm::DenseMap<Operation *, unsigned> opToIdx;
     unsigned idx = 0;
@@ -121,7 +122,16 @@ public:
         [&](Operation *inner) { opToIdx[inner] = idx++; });
 
     SmallVector<OpMemEffectOrder, 2> memEffects(2);
-    getMemEffects(memEffects, aliases, opToIdx, opToIdx[copyOp]);
+    auto hasReadEffectFn = [](OpOperand &opOpernad) -> bool {
+      if (maybeOpOperandRead(opOpernad) ||
+          llvm::isa<func::ReturnOp>(opOpernad.getOwner())) {
+        return true;
+      }
+      return false;
+    };
+
+    getMemEffects(memEffects, aliases, opToIdx, opToIdx[copyOp],
+                  hasReadEffectFn);
 
     auto hasReadAfterWrite = [&](ArrayRef<Operation *> reads,
                                  ArrayRef<Operation *> writes) {
