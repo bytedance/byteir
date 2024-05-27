@@ -44,36 +44,20 @@ class ByteIRFunction:
             torch.cuda.current_stream()._as_parameter_.value)
 
     def __call__(self, *inputs):
-        def get_stride_from_size(_size):
-            if len(_size) == 0:
-                return ()
-            strides = [1]
-            tmp = 1
-            for i in range(1,len(_size)):
-                tmp = tmp * _size[i]
-                strides.insert(0, tmp)
-            return tuple(strides)
-
         from brt.utils import brt_dtype_to_torch_dtype
 
         log.debug(f"***** Run function compiled through byteir ******")
 
         # FIXME. byteir requires all inputs on device side, move host side tensor to device.
-        # Process the strided tensor as byteir does not support yet.
+        # Preprocess the strided tensor as byteir does not support yet.
         new_inputs = []
 
         for i in range(0, len(inputs)):
             _t = inputs[i]
             if not _t.is_cuda:
                 log.warning(f"device error: type={type(_t)}, {_t.device}")
-                new_inputs.append(_t.to('cuda'))
-            elif _t.stride() != get_stride_from_size(_t.size()):
-                new_inputs.append(_t.clone())
-                log.warning(f"stride tensor error: sz:{_t.size()}, stride:{_t.stride()}")
-            else:
-                if _t.storage_offset() != 0:
-                    log.warning(f"offset error: {_t.storage_offset()}")
-                new_inputs.append(_t)
+                _t = _t.to("cuda")
+            new_inputs.append(_t.contiguous())
 
         device = new_inputs[0].device
 
@@ -88,7 +72,10 @@ class ByteIRFunction:
 
         for offset, input in zip(self._session.get_input_arg_offsets(),
                                  new_inputs):
-            self._req.bind_arg(offset, input.data_ptr() + input.storage_offset() * input.element_size())
+            self._req.bind_arg(
+                offset,
+                input.data_ptr() +
+                input.storage_offset() * input.element_size())
         for offset, output in zip(self._session.get_output_arg_offsets(),
                                   results):
             self._req.bind_arg(offset, output.data_ptr())
