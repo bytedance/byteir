@@ -1,5 +1,6 @@
 add_mlir_dialect_library(ByteIRGPUPasses
   ShmAllocaToWorkgroupArg.cpp
+  GPUDistributeToWarp.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/GPU
