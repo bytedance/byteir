@@ -307,25 +307,6 @@ def RewriteWithConstraint :  Pass<"rewrite-with-constraint", "mlir::func::FuncOp
 }
 
 //===----------------------------------------------------------------------===//
-// ShapeReification
-//===----------------------------------------------------------------------===//
-
-def ShapeReification : Pass<"byteir-shape-reification", "func::FuncOp"> {
-  let summary = "Iteratively reify all shape computations.";
-  let description = [{
-    If an operation has a shape reification implementation, that is to say, we 
-    know how to express the outputs' shape by it's inputs' shape symbolicly, 
-    then a tensor.dim or shape.shape_of on this type of operation could be 
-    reified. And shape reification procedure could be handled recursively.
-  }];
-  let constructor = "mlir::createByteIRShapeReificationPass()";
-  let dependentDialects = [
-    "mlir::shape::ShapeDialect",
-    "mlir::tensor::TensorDialect"
-  ];
-}
-
-//===----------------------------------------------------------------------===//
 // Static Shape Inference
 //===----------------------------------------------------------------------===//
 

@@ -269,7 +269,7 @@ def MhloToCat : Pass<"mhlo-to-cat", "func::FuncOp"> {
 // HloToByreTensor
 //===----------------------------------------------------------------------===//
 
-def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "func::FuncOp"> {
+def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "ModuleOp"> {
   let summary = "Convert hlo op to byre tensor op.";
   let constructor = "mlir::createConvertHloToByreTensorPass()";
   let dependentDialects = [

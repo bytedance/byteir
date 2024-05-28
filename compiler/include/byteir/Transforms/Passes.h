@@ -35,6 +35,7 @@
 #include "byteir/Transforms/RewriteOpToStdCall.h"
 #include "byteir/Transforms/SetArgShape.h"
 #include "byteir/Transforms/SetSpace.h"
+#include "byteir/Transforms/ShapeReification.h"
 #include "byteir/Transforms/TryCatchModulePipeline.h"
 
 namespace mlir {

@@ -1,6 +1,6 @@
 //===- ShapeReification.cpp -----------------------------------*--- C++ -*-===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,11 +15,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Dialect/mhlo/Transforms/ShapeReification.h"
+#include "byteir/Transforms/ShapeReification.h"
 
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -59,11 +60,12 @@ struct ShapeReificationOnTensorDimPattern
 
     // Insert cast, if needed.
     if (dimOfShape.getType() != op.getType()) {
-      dimOfShape = rewriter.create<tensor::CastOp>(op.getLoc(), op.getType(),
-                                                   dimOfShape);
+      dimOfShape = rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), op.getType(), dimOfShape);
     }
 
     rewriter.replaceOp(op, dimOfShape);
+
     return success();
   }
 };

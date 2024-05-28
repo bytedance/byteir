@@ -17,13 +17,23 @@
 
 #include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
+#include "byteir/Transforms/ShapeReification.h"
 #include "mhlo/IR/hlo_ops.h"
+#include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/OwningOpRef.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
+#include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Debug.h"
+
+#include <queue>
+#include <string>
 
 using namespace mlir;
 
@@ -177,6 +187,203 @@ mlir::inferReturnTypeComponents(llvm::StringRef name) {
   return nullptr;
 }
 
+namespace {
+bool deduceFromFuncArgShape(Value value) {
+  if (value.isa<BlockArgument>()) {
+    return false;
+  }
+
+  auto defOp = value.getDefiningOp();
+  if (!defOp) {
+    return false;
+  }
+
+  if (isa<arith::ConstantIndexOp, arith::ConstantOp>(defOp)) {
+    return true;
+  }
+
+  if (isa<tensor::DimOp, shape::ShapeOfOp>(defOp)) {
+    auto operand = defOp->getOperand(0);
+    if (operand.isa<BlockArgument>()) {
+      return true;
+    }
+    return false;
+  }
+
+  for (Value &&operand : defOp->getOperands()) {
+    if (!deduceFromFuncArgShape(operand)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// the auxiliaryModuleOp must be a empty module, only used for save shapeFunc
+FailureOr<func::FuncOp>
+createCorrespondingShapeFunc(func::FuncOp funcOp, ModuleOp auxiliaryModuleOp) {
+  // use auxiliary builder, create shape func in the start of auxiliaryModuleOp
+  ModuleOp oriModuleOp = funcOp->getParentOfType<ModuleOp>();
+  OpBuilder builder = OpBuilder::atBlockBegin(auxiliaryModuleOp.getBody());
+
+  // clone funcOp, newFuncOp used for deduce function shape
+  Twine shapeFuncName = funcOp.getName() + "_Shape";
+  auto shapeFunc = builder.create<func::FuncOp>(
+      funcOp->getLoc(), shapeFuncName.str(), funcOp.getFunctionType());
+  shapeFunc.setPrivate();
+  IRMapping emptyBvm;
+  funcOp.cloneInto(shapeFunc, emptyBvm);
+  llvm::DenseSet<func::CallOp> callOpSet;
+  shapeFunc.walk([&](func::CallOp callOp) { callOpSet.insert(callOp); });
+
+  while (!callOpSet.empty()) {
+    auto callOp = *callOpSet.begin();
+    callOpSet.erase(callOpSet.begin());
+    auto callFunc = oriModuleOp.lookupSymbol<func::FuncOp>(callOp.getCallee());
+    // inline this func.
+    builder.setInsertionPoint(callOp);
+    IRMapping bvm;
+    for (auto inputAndArg :
+         llvm::zip(callFunc.getArguments(), callOp.getOperands())) {
+      bvm.map(std::get<0>(inputAndArg), std::get<1>(inputAndArg));
+    }
+    Block &entryBlock = callFunc.getBlocks().front();
+    ValueRange funcOuts;
+    for (Operation &op : entryBlock) {
+      auto retOp = mlir::dyn_cast<func::ReturnOp>(op);
+      if (!retOp) {
+        auto newOp = builder.clone(op, bvm);
+        if (auto nestedCall = dyn_cast<func::CallOp>(newOp)) {
+          callOpSet.insert(nestedCall);
+        }
+      } else {
+        funcOuts = retOp.getOperands();
+      }
+    }
+
+    for (auto callResultAndFuncOuts :
+         llvm::zip(callOp.getResults(), funcOuts)) {
+      auto mappedOut = bvm.lookup(std::get<1>(callResultAndFuncOuts));
+      std::get<0>(callResultAndFuncOuts).replaceAllUsesWith(mappedOut);
+    }
+    callOp->erase();
+  }
+
+  // replace the operands of returnOp with corresponding shape
+  func::ReturnOp retOp = *shapeFunc.getOps<func::ReturnOp>().begin();
+  if (!retOp) {
+    shapeFunc->erase();
+    return failure();
+  }
+
+  for (Value &&retTensor : retOp.getOperands()) {
+    auto retTy = retTensor.getType();
+    if (!retTy.isa<RankedTensorType>()) {
+      shapeFunc->erase();
+      return failure();
+    }
+  }
+
+  SmallVector<Type> allResultTypes;
+  SmallVector<Value> allResults;
+
+  builder.setInsertionPoint(retOp);
+  for (Value &&retTensor : retOp.getOperands()) {
+    auto retShape = builder.create<shape::ShapeOfOp>(retOp.getLoc(), retTensor);
+    allResultTypes.emplace_back(retShape.getType());
+    allResults.emplace_back(retShape);
+  }
+
+  // return the shape of original tensor returned by function
+  auto shapeFuncRetOp =
+      builder.create<func::ReturnOp>(retOp.getLoc(), allResults);
+  auto shapeFuncType =
+      builder.getFunctionType(shapeFunc.getArgumentTypes(), allResultTypes);
+  shapeFunc.setFunctionType(shapeFuncType);
+  retOp->erase();
+
+  // reify shapeFunc to get the shape computation.
+  {
+    PassManager pm(oriModuleOp->getContext(), func::FuncOp::getOperationName());
+    // only run pass on shapeFunc
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
+    pm.addPass(createByteIRShapeReificationPass());
+    pm.addPass(createCanonicalizerPass());
+    pm.addPass(createCSEPass());
+    if (mlir::failed(pm.run(shapeFunc))) {
+      shapeFunc->erase();
+      return failure();
+    }
+  }
+  return shapeFunc;
+}
+
+LogicalResult reifyCallOp(OpBuilder &builder, Operation *op,
+                          SmallVectorImpl<Value> &reifications) {
+  OpBuilder::InsertionGuard guard(builder);
+  auto callOp = dyn_cast<func::CallOp>(op);
+  if (!callOp) {
+    return failure();
+  }
+
+  ModuleOp moduleOp = op->getParentOfType<ModuleOp>();
+  StringRef funcName = callOp.getCallee();
+  auto funcOp = moduleOp.lookupSymbol<func::FuncOp>(funcName);
+
+  // create a temp module, then insert corresponding shape function to this
+  // module
+  OwningOpRef<ModuleOp> auxiliaryModuleOp(
+      ModuleOp::create(UnknownLoc::get(moduleOp->getContext())));
+  auto maybeShapeFunc =
+      createCorrespondingShapeFunc(funcOp, auxiliaryModuleOp.get());
+  if (failed(maybeShapeFunc)) {
+    return failure();
+  }
+
+  func::FuncOp shapeFunc = *maybeShapeFunc;
+  func::ReturnOp retOp = *shapeFunc.getOps<func::ReturnOp>().begin();
+
+  // collect all shape computation ops
+  SetVector<Operation *> reificationOpSet;
+  getBackwardSlice(retOp.getOperation(), &reificationOpSet);
+  SmallVector<Operation *> reificationOps(reificationOpSet.begin(),
+                                          reificationOpSet.end());
+  // value only depends on the shape of FuncArgs.
+  for (Value &&ret : retOp.getOperands()) {
+    if (!deduceFromFuncArgShape(ret)) {
+      shapeFunc->erase();
+      return failure();
+    }
+  }
+
+  // mapping the shape computation ops and collect reifications
+  {
+    mlir::computeTopologicalSorting(reificationOps);
+
+    IRMapping bvm;
+    size_t numArg = shapeFunc.getNumArguments();
+    for (size_t i = 0; i < numArg; ++i) {
+      bvm.map(shapeFunc.getArgument(i), callOp.getOperand(i));
+    }
+
+    builder.setInsertionPoint(callOp);
+
+    for (Operation *oldOp : reificationOps) {
+      auto newOp = builder.clone(*oldOp, bvm);
+    }
+
+    for (Value &&ret : retOp.getOperands()) {
+      reifications.push_back(bvm.lookup(ret));
+    }
+  }
+
+  // remove newFuncOp
+  shapeFunc->erase();
+  return success();
+}
+
+} // namespace
+
 LogicalResult mlir::reifyShapes(OpBuilder &builder, Operation *op,
                                 SmallVectorImpl<Value> &reifications) {
   if (!op)
@@ -207,6 +414,16 @@ LogicalResult mlir::reifyShapes(OpBuilder &builder, Operation *op,
     }
     if (failed(inferFunc(op, builder, op->getOperands(), reifications)))
       return failure();
+  } else if (auto callOp = dyn_cast<func::CallOp>(op)) {
+    if (failed(reifyCallOp(builder, op, reifications))) {
+      return failure();
+    }
+  } else if (auto dpsOp = dyn_cast<DestinationStyleOpInterface>(op)) {
+    for (OpResult &&result : op->getOpResults()) {
+      auto tiedOperand = dpsOp.getTiedOpOperand(result);
+      reifications.push_back(
+          builder.create<shape::ShapeOfOp>(op->getLoc(), tiedOperand->get()));
+    }
   } else {
     // Return failure if op doesn't have InferShapedTypeOpInterface and not
     // registered.

@@ -43,6 +43,10 @@ namespace memref {
 class MemRefDialect;
 } // namespace memref
 
+namespace arith {
+class ArithDialect;
+} // namespace arith
+
 namespace mhlo {
 class MhloDialect;
 } // namespace mhlo
@@ -50,6 +54,14 @@ class MhloDialect;
 namespace scf {
 class SCFDialect;
 } // namespace scf
+
+namespace shape {
+class ShapeDialect;
+} // namespace shape
+
+namespace tensor {
+class TensorDialect;
+} // namespace tensor
 
 #define GEN_PASS_CLASSES
 #include "byteir/Transforms/Passes.h.inc"
