@@ -32,8 +32,8 @@
 
 #include "byteir/Dialect/SCF/Transforms/RemoveSingleIterationLoop.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Affine/Utils.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"

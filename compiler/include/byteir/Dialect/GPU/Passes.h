@@ -18,9 +18,9 @@
 #ifndef BYTEIR_DIALECT_GPU_PASSES_H
 #define BYTEIR_DIALECT_GPU_PASSES_H
 
-#include "mlir/Pass/Pass.h"
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
 #include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoopsInKernel.h"
+#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 namespace gpu {

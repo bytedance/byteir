@@ -1779,9 +1779,8 @@ LinalgTransformationFilter::LinalgTransformationFilter(
     filters.push_back(f);
 }
 
-LogicalResult
-LinalgTransformationFilter::checkAndNotify(RewriterBase &rewriter,
-                                           Operation *op) const {
+LogicalResult LinalgTransformationFilter::checkAndNotify(RewriterBase &rewriter,
+                                                         Operation *op) const {
   if (llvm::any_of(filters,
                    [&](const FilterFunction &f) { return failed(f(op)); }))
     return failure();
