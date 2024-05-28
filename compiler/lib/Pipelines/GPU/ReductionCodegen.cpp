@@ -866,10 +866,11 @@ std::optional<GridTileConfig> getGridTileConfig(linalg::GenericOp genericOp,
              parallelismPerBlock > 1) {
         parallelismPerBlock /= 2;
       }
-
-      if (parallelismPerBlock > warpSize)
-        parallelismPerBlock = warpSize;
     }
+  }
+
+  if (parallelismPerBlock == 1) {
+    mapReductionDimToThread = false;
   }
 
   SmallVector<unsigned> parallelDims;
@@ -1317,11 +1318,12 @@ void createGPUTileSplitWarpReductionTransformImpl(OpPassManager &pm,
     int64_t initEnd = initStart + initRange.size();
     for (int64_t i = initStart; i < initEnd; ++i) {
       // get the neutral tensor.empty()
+      // FIXME(zxg): if fillOp has multi output, this may be buggy.
       auto producer = b.create<transform::GetProducerOfOperand>(
           /* producer type */ transform::OperationType::get(
               b.getContext(), tensor::EmptyOp::getOperationName()),
           /* target */ tileReductionOp.getFillOp(),
-          /* operand number */ i);
+          /* operand number */ 1);
 
       // promote to WorkGroup
       auto workgroupMemoryAddressSpace = gpu::AddressSpaceAttr::get(
