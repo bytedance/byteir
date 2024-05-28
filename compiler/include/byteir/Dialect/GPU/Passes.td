@@ -34,13 +34,27 @@ def ShmAllocaToWorkgroupArg : Pass<"shm-alloca-to-workgroup-arg", "gpu::GPUModul
 }
 
 //===----------------------------------------------------------------------===//
-// createGPUDistributeToWarpPass
+// GPUDistributeToWarp
 //===----------------------------------------------------------------------===//
+def GPUDistributeToWarp: Pass<"gpu-distributed-to-warp", "func::FuncOp"> {
+  let summary = "Distribute Linalg Ops to GPU warps.";
+  let constructor = "mlir::createGPUDistributeToWarpPass()";
+  let dependentDialects = [
+    "memref::MemRefDialect",
+    "linalg::LinalgDialect",
+    "arith::ArithDialect",
+    "vector::VectorDialect",
+    "gpu::GPUDialect",
+  ];  
+}
 
-
 //===----------------------------------------------------------------------===//
-// createGPUDistributeToWarpPass
+// RemoveSingleIterationLoop
 //===----------------------------------------------------------------------===//
+def RemoveSingleIterationLoop : Pass<"remove-single-iteration-loop", "func::FuncOp"> {
+  let summary = "Remove loops which run once in a GPU kernel.";
+  let constructor = "mlir::createRemoveSingleIterationLoopPass()";
+}
 
 
 #endif // BYTEIR_DIALECT_GPU_PASSES

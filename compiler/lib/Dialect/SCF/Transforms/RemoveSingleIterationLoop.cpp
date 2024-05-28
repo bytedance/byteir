@@ -1,5 +1,4 @@
-//===- RemoveSingleIterationLoop.cpp ------------------------------------*---
-// C++ -*-===//
+//===- RemoveSingleIterationLoop.cpp -------------------------*---C++ -*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,8 +30,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Conversion/GemmCodeGen/Transforms/Transforms.h"
+#include "byteir/Dialect/SCF/Transforms/RemoveSingleIterationLoop.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Affine/Utils.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"

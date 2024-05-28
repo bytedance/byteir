@@ -19,8 +19,8 @@
 #ifndef BYTEIR_UTILS_GPU_CODEGEN_UTILS_H
 #define BYTEIR_UTILS_GPU_CODEGEN_UTILS_H
 
-#include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/IR/PatternMatch.h"
 
@@ -28,6 +28,7 @@ namespace mlir {
 
 // Because CUDA only has dimension x,y,z
 static constexpr unsigned kNumMaxParallelDims = 3;
+static constexpr int32_t kNumGPUDims = 3;
 
 static constexpr StringRef getGemmTileConfigAttrName() {
   return "__byteir_gemm_tile_config__";
@@ -45,19 +46,6 @@ std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);
 
-/// Replace the uses of memref value `origValue` with the given
-/// `replacementValue`. Some uses of the memref value might require changes to
-/// the operation itself. Create new operations which can carry the change, and
-/// transitively replace their uses.
-void replaceMemrefUsesAndPropagateType(RewriterBase &rewriter, Location loc,
-                                       Value origValue, Value replacementValue);
-
-/// Sink given operations as close as possible to their uses.
-void sinkOpsInCFG(const SmallVector<Operation *> &allocs,
-                  DominanceInfo &dominators);
-
-void packSharedMemoryAlloc(func::FuncOp funcOp);
-
 llvm::SmallVector<mlir::linalg::ProcInfo, 2>
 getGPUThreadIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
                          unsigned numDims,
@@ -68,11 +56,16 @@ getSubgroupIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
                         unsigned warpSize, unsigned numDims,
                         llvm::ArrayRef<int64_t> numSubgroups);
 
-/// Return true if the given memref has workgroup memory space.
-bool hasSharedMemoryAddressSpace(MemRefType memrefType);
+/// Distributes LinalgOp ops that match filter.
+LogicalResult
+distributeLinalgOpsWithFilter(func::FuncOp funcOp,
+                              linalg::LinalgTilingOptions tilingOptions,
+                              linalg_ext::LinalgTransformationFilter filter);
 
-void createAsyncGroups(RewriterBase &rewriter, func::FuncOp funcOp,
-                       bool useMMASync);
+LogicalResult
+distributeLinalgOpsWithFilter(IRRewriter &rewriter, func::FuncOp funcOp,
+                              linalg::LinalgTilingOptions tilingOptions,
+                              linalg_ext::LinalgTransformationFilter filter);
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_GPU_CODEGEN_UTILS_H

@@ -1,5 +1,4 @@
-//===- GPUDistributeToWarp.cpp ------------------------------------*--- C++
-//-*-===//
+//===- GPUDistributeToWarp.cpp --------------------------*--- C++-*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,10 +24,10 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "byteir/Conversion/GemmCodeGen/GPUDistributeToWarp.h"
-#include "byteir/Conversion/GemmCodeGen/GemmCodeGenPattern.h"
-#include "byteir/Conversion/GemmCodeGen/Transforms/Transforms.h"
-#include "byteir/Conversion/GemmCodeGen/Utils/GPUCodeGenUtils.h"
+#include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
+// #include "byteir/Conversion/GemmCodeGen/GemmCodeGenPattern.h"
+#include "byteir/Dialect/GPU/Transforms/Transforms.h"
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/GPU/Transforms/Transforms.h"
@@ -49,7 +48,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
-#include "../PassDetail.h"
+#include "PassDetail.h"
 
 #define DEBUG_TYPE "gpu-distribute-to-warp"
 
@@ -115,6 +114,8 @@ calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
   func::FuncOp funcOp = operation->getParentOfType<func::FuncOp>();
   SmallVector<int64_t, 3> blockTileSize = getGemmTileSize(funcOp).value();
   SmallVector<Value> tileSizesVal;
+
+  auto linalgOp = cast<linalg::LinalgOp>(operation);
 
   // Use partitionedLoop to know what loop needs to be distributed.
   auto partitionedLoops = getPartitionableLoops(linalgOp, std::nullopt);

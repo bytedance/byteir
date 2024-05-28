@@ -25,9 +25,9 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "byteir/Conversion/GemmCodeGen/RemoveTrivialLoops.h"
-#include "byteir/Conversion/GemmCodeGen/Transforms/Transforms.h"
-#include "byteir/Conversion/GemmCodeGen/Utils/GPUCodeGenUtils.h"
+#include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoopsInKernel.h"
+#include "byteir/Dialect/GPU/Transforms/Transforms.h"
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "mlir/Pass/Pass.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -39,7 +39,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
 
-#include "../PassDetail.h"
+#include "PassDetail.h"
 
 #define DEBUG_TYPE "remove-trivial-loops"
 
@@ -82,8 +82,7 @@ getWorkgroupRange(Value processorValue, ArrayRef<int64_t> workgroupSize) {
     return std::make_pair(bound, bound);
   }
 
-  if (workgroupCount.empty())
-    return std::nullopt;
+  return std::nullopt;
 }
 
 static LogicalResult removeOneTripTiledLoops(func::FuncOp funcOp,
