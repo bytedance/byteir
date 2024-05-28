@@ -28,6 +28,7 @@
 #include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoopsInKernel.h"
 #include "byteir/Dialect/GPU/Transforms/Transforms.h"
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
+#include "byteir/Dialect/SCF/Transforms/RemoveSingleIterationLoop.h"
 #include "mlir/Pass/Pass.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -66,20 +67,30 @@ static unsigned dimToIndex(gpu::Dimension dim) {
 /// As we only use this function in gemm codegen, we we can assume loop variable
 /// is relavant to gpu.threadId or gpu.blockId.
 static std::optional<std::pair<AffineExpr, AffineExpr>>
-getWorkgroupRange(Value processorValue, ArrayRef<int64_t> workgroupSize) {
+getWorkgroupRange(Value processorValue, SmallVectorImpl<Value> & /*dims*/,
+                  SmallVectorImpl<Value> & /*symbols*/,
+                  ArrayRef<int64_t> workgroupCount,
+                  ArrayRef<int64_t> workgroupSize) {
+  OpBuilder builder(processorValue.getContext());
   // If the value is a threadID return the range [0, workgroupSize-1].
   if (auto idOp = processorValue.getDefiningOp<gpu::ThreadIdOp>()) {
     unsigned index = dimToIndex(idOp.getDimension());
-    OpBuilder b(processorValue.getContext());
-    AffineExpr zero = b.getAffineConstantExpr(0);
-    AffineExpr ubExpr = b.getAffineConstantExpr(workgroupSize[index]);
+    AffineExpr zero = builder.getAffineConstantExpr(0);
+    AffineExpr ubExpr = builder.getAffineConstantExpr(workgroupSize[index]);
     return std::make_pair(zero, ubExpr - 1);
   }
+  // If the value is a blockDim return the range [workgroupSize, workgroupSize].
   if (auto dimOp = processorValue.getDefiningOp<gpu::BlockDimOp>()) {
-    OpBuilder builder(processorValue.getContext());
     unsigned index = dimToIndex(dimOp.getDimension());
     AffineExpr bound = builder.getAffineConstantExpr(workgroupSize[index]);
     return std::make_pair(bound, bound);
+  }
+  // If the value is a blockID return the range [0, workgroupCount-1].
+  if (auto idOp = processorValue.getDefiningOp<gpu::BlockIdOp>()) {
+    unsigned index = dimToIndex(idOp.getDimension());
+    AffineExpr zero = builder.getAffineConstantExpr(0);
+    AffineExpr ubExpr = builder.getAffineConstantExpr(workgroupCount[index]);
+    return std::make_pair(zero, ubExpr);
   }
 
   return std::nullopt;

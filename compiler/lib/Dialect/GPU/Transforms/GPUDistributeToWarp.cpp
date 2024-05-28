@@ -212,8 +212,8 @@ public:
       // Apply canonicalization patterns.
       RewritePatternSet threadTilingCanonicalizationPatterns =
           linalg::getLinalgTilingCanonicalizationPatterns(context);
-      populateAffineMinSCFCanonicalizationPattern(
-          threadTilingCanonicalizationPatterns);
+      // populateAffineMinSCFCanonicalizationPattern(
+      //     threadTilingCanonicalizationPatterns);
       if (failed(applyPatternsAndFoldGreedily(
               funcOp, std::move(threadTilingCanonicalizationPatterns)))) {
         return signalPassFailure();

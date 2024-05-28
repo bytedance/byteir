@@ -18,6 +18,16 @@
 #ifndef BYTEIR_DIALECT_SCF_TRANSFORMS_REMOVESINGLEITERATIONLOOP_H
 #define BYTEIR_DIALECT_SCF_TRANSFORMS_REMOVESINGLEITERATIONLOOP_H
 
+#include "byteir/Dialect/Linalg/Passes.h"
+
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+
 namespace mlir {
 using GetMinMaxExprFn =
     std::function<std::optional<std::pair<AffineExpr, AffineExpr>>(
