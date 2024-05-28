@@ -37,6 +37,11 @@
 #include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
+
+#include "brt/backends/cuda/device/cuda_allocator.h"
+#include "brt/backends/nccl/providers/nccl_provider.h"
+#include "brt/core/distributed/rendezvous_socket.h"
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -100,6 +105,38 @@ private:
   std::unique_ptr<RequestContext> req;
   std::shared_ptr<Session> session;
 };
+
+#ifdef BRT_USE_CUDA
+class RequestContextWithDistributedSession {
+public:
+  auto Run() { return session->Run(Context()); }
+
+  RequestContextWithDistributedSession(
+      std::shared_ptr<DistributedSession> session_, WorkQueue *work_queue)
+      : session(session_) {
+    THROW_ON_FAIL(session->NewRequestContext(&req, work_queue));
+  }
+
+  RequestContextWithDistributedSession(
+      std::shared_ptr<DistributedSession> session_)
+      : session(session_) {
+    THROW_ON_FAIL(session->NewRequestContext(&req));
+  }
+
+  RequestContext &Context() {
+    if (!req) {
+      throw std::runtime_error("Unintialize request context");
+    }
+    return *req;
+  }
+
+  ~RequestContextWithDistributedSession() { req.reset(); }
+
+private:
+  std::unique_ptr<RequestContext> req;
+  std::shared_ptr<DistributedSession> session;
+};
+#endif
 
 class PyEnv {
 public:
@@ -185,6 +222,13 @@ PYBIND11_MODULE(MODULE_NAME, m) {
   // initialize internal logger
   static_cast<void>(PyEnv::GetInstance());
 
+  m.def("get_free_port", []() { return brt::GetFreePort(); });
+
+  m.def("create_server", [](int nranks, int port) {
+    THROW_ON_FAIL(brt::CreateServer(nranks, port));
+    return;
+  });
+
   py::enum_<PyDType>(m, "DType")
       .value("float32", PyDType::Float32)
       .value("int32", PyDType::Int32)
@@ -231,6 +275,41 @@ PYBIND11_MODULE(MODULE_NAME, m) {
           "run",
           [](ReqeustContextWithSession &req) { THROW_ON_FAIL(req.Run()); },
           py::call_guard<py::gil_scoped_release>());
+
+#ifdef BRT_USE_CUDA
+  py::class_<RequestContextWithDistributedSession,
+             std::unique_ptr<RequestContextWithDistributedSession>>(
+      m, "DistributedRequestContext")
+      .def("bind_arg",
+           [](RequestContextWithDistributedSession &req, size_t offset,
+              const size_t ptr) {
+             THROW_ON_FAIL(
+                 req.Context().BindArg(offset, reinterpret_cast<void *>(ptr)));
+           })
+      .def("get_arg",
+           [](RequestContextWithDistributedSession &req, size_t offset) {
+             void *ptr = req.Context().GetArg(offset);
+             return reinterpret_cast<size_t>(ptr);
+           })
+      .def(
+          "finish_io_binding",
+          [](RequestContextWithDistributedSession &req) {
+            req.Context().FinishIOBinding();
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "sync",
+          [](RequestContextWithDistributedSession &req) {
+            THROW_ON_FAIL(req.Context().Sync());
+          },
+          py::call_guard<py::gil_scoped_release>())
+      .def(
+          "run",
+          [](RequestContextWithDistributedSession &req) {
+            THROW_ON_FAIL(req.Run());
+          },
+          py::call_guard<py::gil_scoped_release>());
+#endif
 
   py::class_<Session, std::shared_ptr<Session>>(m, "Session")
       .def(py::init([](const std::string &device, py::object alloc_f,
@@ -316,4 +395,40 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 #undef DEF_SESSION_METH_GENERIC
       // clang-format on
       ;
+#ifdef BRT_USE_CUDA
+  py::class_<DistributedSession, Session, std::shared_ptr<DistributedSession>>(
+      m, "DistributedSession")
+      .def(py::init([](int rank, int nrank, const std::string &host, int port) {
+        auto distributed_session =
+            std::make_shared<DistributedSession>(rank, nrank, host, port);
+        THROW_ON_FAIL(CUDAAllocatorFactory(distributed_session.get(), rank));
+        THROW_ON_FAIL(DefaultNCCLExecutionProviderFactory(
+            distributed_session.get(), rank));
+        return distributed_session;
+      }))
+      .def(
+          "load_config",
+          [](DistributedSession &session, std::vector<std::string> config) {
+            std::string ir_url;
+            session.LoadConfig(config, ir_url);
+            return ir_url;
+          },
+          py::arg("config"))
+      .def("new_request_context",
+           [](std::shared_ptr<DistributedSession> session,
+              std::optional<size_t> stream) {
+             return std::make_unique<RequestContextWithDistributedSession>(
+                 session);
+           })
+  // clang-format off
+#define DEF_DISTRIBUTED_SESSION_METH_GENERIC(name, impl)                                   \
+  .def(#name, &DistributedSession::impl)
+      DEF_DISTRIBUTED_SESSION_METH_GENERIC(get_rank, GetRank)
+      DEF_DISTRIBUTED_SESSION_METH_GENERIC(get_nranks, GetNRanks)
+      DEF_DISTRIBUTED_SESSION_METH_GENERIC(get_host, GetHost)
+      DEF_DISTRIBUTED_SESSION_METH_GENERIC(get_port, GetPort)
+#undef DEF_DISTRIBUTED_SESSION_METH_GENERIC
+      // clang-format on
+      ;
+#endif
 }
