@@ -7,7 +7,9 @@ The ByteIR Compiler is an MLIR-based compiler for CPU/GPU/ASIC.
 
 ***Python*** (for python binding): minimum version is 3.6, requiring numpy and pybind11 installed.
 
-## Build LLVM
+## Build and Run
+
+### Build LLVM
 
 ```bash
 cd /path_to_byteir
@@ -22,6 +24,7 @@ cmake -GNinja \
       -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ENABLE_ASSERTIONS=ON \
+      -DLLVM_INSTALL_UTILS=ON \
       -DLLVM_CCACHE_BUILD=OFF \
       -DLLVM_ENABLE_TERMINFO=OFF \
       -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
@@ -32,8 +35,8 @@ cmake -GNinja \
 cmake --build ./build --target all --target install
 ```
 
-## Build ByteIR
-### Linux/Mac 
+### Build ByteIR
+#### Linux/Mac 
 ```bash
 cd /path_to_byteir
 
@@ -50,9 +53,11 @@ cmake -B./compiler/build \
 
 cmake --build ./compiler/build --target check-byteir
 ```
-### Windows 
+#### Windows 
 ```bash
 cd /path_to_byteir
+
+git submodule update --init external/mlir-hlo
 
 # build ByteIR
 cmake -B./compiler/build
@@ -65,22 +70,29 @@ cmake -B./compiler/build
 cmake --build ./compiler/build --target check-byteir
 ```
 
-## Testing 
-This command runs all ByteIR unit tests:
+### Testing 
+This command runs ByteIR unit tests:
 ```bash
 cmake --build ./compiler/build --target check-byteir
 ```
 ByteIR relies on ```llvm-lit``` and ```FileCheck``` for testing.
 For more information, you can refer to [this page](https://www.llvm.org/docs/CommandGuide/FileCheck.html)
-All the tests are placed in the folder ```byteir/test```.
+All the tests are placed in the folder ```compiler/test```.
+
+### Run with Python Binding
+This command is an example showing that how to compile model by using ByteIR:
+```bash
+PYTHONPATH=./compiler/build/python_packages/byteir python3 -m byteir.tools.compiler ./compiler/test/E2E/MLPInference/input.mlir -o out.mlir --entry_func forward
+# add -v (means verbose) to see detailed compiling pipeline 
+```
 
 
-## Install (Optional)
+### Install (Optional)
 ```bash
 cmake --install ./compiler/build --prefix path_to_install_BYTEIR
 ```
 
-## Pack Python Wheel (Optional)
+### Pack Python Wheel (Optional)
 ```bash
 cmake --build ./compiler/build --target byteir-python-pack
 # byteir-*.whl in /path_to_byteir/compiler/build/python/dist/
