@@ -23,6 +23,7 @@
 #include "byteir/Dialect/Cat/IR/CatDialect.h"
 #include "byteir/Dialect/Ccl/IR/CclOps.h"
 #include "byteir/Dialect/Ccl/TransformOps/CclTransformOps.h"
+#include "byteir/Dialect/GPU/TransformOps/GPUExtTransformOps.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
@@ -45,5 +46,6 @@ void byteirRegisterDialectExtensions(MlirContext context) {
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);
   tensor_ext::registerTilingInterfaceExternalModels(registry);
+  gpu_ext::registerTransformDialectExtension(registry);
   unwrap(context)->appendDialectRegistry(registry);
 }

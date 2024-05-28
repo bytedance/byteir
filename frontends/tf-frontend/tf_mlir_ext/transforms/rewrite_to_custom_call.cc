@@ -231,6 +231,17 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
   return add;
 }
 
+Value createLayerNormWithoutGamma(PatternRewriter &rewriter, Location loc,
+                                  Value input, Value beta, ElementsAttr epsilon,
+                                  ElementsAttr axis) {
+  auto betaShapedType = beta.getType().cast<ShapedType>();
+  auto gammaAttr = getSplatFpElementsAttr(betaShapedType, 1.0f);
+  assert(betaAttr);
+  auto gammaOp = rewriter.create<TF::ConstOp>(loc, gammaAttr);
+  Value gamma = gammaOp.getOutput();
+  return createLayerNorm(rewriter, loc, input, gamma, beta, epsilon, axis);
+}
+
 Value createLayerNormWithoutBeta(PatternRewriter &rewriter, Location loc,
                                  Value input, Value gama, ElementsAttr epsilon,
                                  ElementsAttr axis) {
@@ -761,6 +772,8 @@ struct RewriteToCustomCallOpsPass
         validCustomCallOpSet[getLayerNormName()].emplace_back(
             std::make_unique<RewriteLayerNorm>(context));
       }
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormWithoutGamma>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormWithoutBeta>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(

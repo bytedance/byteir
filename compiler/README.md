@@ -7,60 +7,95 @@ The ByteIR Compiler is an MLIR-based compiler for CPU/GPU/ASIC.
 
 ***Python*** (for python binding): minimum version is 3.6, requiring numpy and pybind11 installed.
 
-## Build
+## Build and Run
 
-### Apply Patches
-Make sure to apply possible patches for submodules
+### Build LLVM
+
 ```bash
-bash /path_to_byteir/scripts/apply_patches.sh
+cd /path_to_byteir
+git submodule update --init external/llvm-project
+
+# build llvm
+cd external/llvm-project
+cmake -H./llvm \
+      -B./build \
+      -GNinja \
+      -DLLVM_ENABLE_PROJECTS=mlir \
+      -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ENABLE_ASSERTIONS=ON \
+      -DLLVM_INSTALL_UTILS=ON \
+      -DLLVM_CCACHE_BUILD=OFF \
+      -DLLVM_ENABLE_TERMINFO=OFF \
+      -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+      -DCMAKE_INSTALL_PREFIX=$(pwd)/build/install
+# via -DCMAKE_C_COMPILER=gcc/clang and -DCMAKE_CXX_COMPILER=g++/clang++
+# to specify gcc>=8.5 or clang>=7 
+
+cmake --build ./build --target all --target install
 ```
 
-### Linux/Mac 
+### Build ByteIR
+#### Linux/Mac 
 ```bash
-mkdir /path_to_byteir/build
-cd /path_to_byteir/build/
+cd /path_to_byteir
+
+git submodule update --init external/mlir-hlo
 
 # build ByteIR
-cmake ../cmake/ -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
-                -DLLVM_EXTERNAL_LIT=lit_executatble_location # or using $(which lit), this is optional for external lit 
+cmake -B./compiler/build \
+      -H./compiler/cmake \
+      -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_INSTALL_PATH=$(pwd)/external/llvm-project/build/install \
+      -DLLVM_EXTERNAL_LIT=$(which lit) \
+      -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
-cmake --build . --target all
+cmake --build ./compiler/build --target check-byteir
 ```
-### Windows 
+#### Windows 
 ```bash
-mkdir /path_to_byteir/build
-cd /path_to_byteir/build/
+cd /path_to_byteir
+
+git submodule update --init external/mlir-hlo
 
 # build ByteIR
-cmake ../cmake/ -G "Visual Studio 16 2019" -A x64 \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
-                -DLLVM_EXTERNAL_LIT=lit_location # this is optional for external lit 
+cmake -B./compiler/build
+      -H./compiler/cmake
+      -G "Visual Studio 16 2019" -A x64 \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_INSTALL_PATH=path_to_LLVM_installed_or_built_directory \
+      -DLLVM_EXTERNAL_LIT=lit_location # this is optional for external lit 
 
-cmake --build . --target all
+cmake --build ./compiler/build --target check-byteir
 ```
 
-## Testing 
-This command runs all ByteIR unit tests:
+### Testing 
+This command runs ByteIR unit tests:
 ```bash
-cmake --build . --target check-byteir
+cmake --build ./compiler/build --target check-byteir
 ```
 ByteIR relies on ```llvm-lit``` and ```FileCheck``` for testing.
 For more information, you can refer to [this page](https://www.llvm.org/docs/CommandGuide/FileCheck.html)
-All the tests are placed in the folder ```byteir/test```.
+All the tests are placed in the folder ```compiler/test```.
 
-
-## Install (Optional)
+### Run with Python Binding
+This command is an example showing that how to compile model by using ByteIR:
 ```bash
-cmake --install . --prefix path_to_install_BYTEIR
+PYTHONPATH=./compiler/build/python_packages/byteir python3 -m byteir.tools.compiler ./compiler/test/E2E/MLPInference/input.mlir -o out.mlir --entry_func forward
+# add -v (means verbose) to see detailed compiling pipeline 
 ```
 
-## Pack Python Wheel (Optional)
+
+### Install (Optional)
 ```bash
-cmake --build . --target byteir-python-pack
-# byteir-*.whl in /path_to_byteir/build/python/dist/
+cmake --install ./compiler/build --prefix path_to_install_BYTEIR
+```
+
+### Pack Python Wheel (Optional)
+```bash
+cmake --build ./compiler/build --target byteir-python-pack
+# byteir-*.whl in /path_to_byteir/compiler/build/python/dist/
 ```
 
 ## IRs (Dialects)
@@ -78,6 +113,10 @@ They are listed in [doc/byteir_mhlo_custom_call.md](doc/byteir_mhlo_custom_call.
 ### ACE & LACE
 ACE is an internal dialect defined by ByteIR. 
 It is a supplement to MHLO dialect and LACE is the corresponding part of LMHLO.
+
+### CCL
+CCL is an internal dialect defined by ByteIR.
+It is a dialect which represents communication operators in distribution.
 
 ### LinalgExt
 LinalgExt is a dialect defined by ByteIR.

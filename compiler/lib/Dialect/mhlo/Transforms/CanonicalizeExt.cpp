@@ -64,6 +64,8 @@
 using namespace llvm;
 using namespace mlir;
 
+namespace {
+
 ///
 ///  foldBroadcastInDimConstWithBinary
 ///
@@ -2127,6 +2129,25 @@ struct FoldGatherWithInput : public OpRewritePattern<mhlo::GatherOp> {
   }
 };
 
+struct CanonicalizeBroadcastToBroadcastInDim
+    : public OpRewritePattern<mhlo::BroadcastOp> {
+  using OpRewritePattern<mhlo::BroadcastOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::BroadcastOp op,
+                                PatternRewriter &rewriter) const override {
+    auto broadcastSizes = op.getBroadcastSizes();
+    auto resultType = cast<RankedTensorType>(op.getType());
+
+    SmallVector<int64_t> broadcastDimensions = llvm::to_vector(
+        llvm::seq<int64_t>(broadcastSizes.size(), resultType.getRank()));
+    rewriter.replaceOpWithNewOp<mhlo::BroadcastInDimOp>(
+        op, resultType, op.getOperand(),
+        rewriter.getI64TensorAttr(broadcastDimensions));
+    return success();
+  }
+};
+
+} // namespace
+
 void mlir::mhlo::populateFoldMultiplyZeroPattern(RewritePatternSet &patterns) {
   patterns.add<FoldMultiplyZero>(patterns.getContext());
 }
@@ -2146,9 +2167,19 @@ void mlir::mhlo::populateFoldLargeBinaryOpPatterns(
   patterns.add<FoldClampOp>(ctx);
 }
 
-void mlir::mhlo::populateFoldBeneficialConstantConvertOpPattern(
-    RewritePatternSet &patterns) {
+void mlir::mhlo::populateConvertOpPattern(RewritePatternSet &patterns,
+                                          int64_t foldLimit, bool blindFold) {
+  patterns.add<EliminateRedundantConvertFromI1>(patterns.getContext());
   patterns.add<FoldBeneficialConstantConvertOp>(patterns.getContext());
+  patterns.add<FoldConstantConvertOp>(patterns.getContext(), /*foldLimit=*/1);
+  if (blindFold) {
+    patterns.add<FoldConstantConvertOp>(patterns.getContext(), foldLimit);
+  }
+}
+
+void mlir::mhlo::populateCanonicalizeDeprecatedOpPattern(
+    RewritePatternSet &patterns) {
+  patterns.add<CanonicalizeBroadcastToBroadcastInDim>(patterns.getContext());
 }
 
 // TODO: split more patterns to populate function
@@ -2156,17 +2187,19 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
                                                  MLIRContext *ctx,
                                                  int64_t foldLimit,
                                                  bool blindFold) {
+  populateCanonicalizeDeprecatedOpPattern(patterns);
+
+  populateFoldLargeBinaryOpPatterns(patterns);
+
   patterns.add<FoldBroadcastInDimConstWithBinary>(ctx);
   patterns.add<FoldBroadcastInDimReshape>(ctx);
   patterns.add<FoldConcatWithContinuousSlices>(ctx);
   patterns.add<SimplifyDynamicConvToConv>(ctx);
-  populateFoldLargeBinaryOpPatterns(patterns);
   patterns.add<FoldLargeSliceOp>(ctx);
   patterns.add<CanonicalizeBroadcastInDimConst>(ctx);
   patterns.add<SimplifyByteIRAddNToAdd>(ctx);
   patterns.add<CanonicalizeConcatWithBroadcast>(ctx);
   patterns.add<SimplifyAddInsertSlicesToInsertSlices>(ctx);
-  patterns.add<EliminateRedundantConvertFromI1>(ctx);
   patterns.add<FoldConcatWithSlicesAndRehape>(ctx);
   patterns.add<SimplifyCumsumToIota>(ctx);
   patterns.add<SimplifyTransposeReshapeTranspose>(ctx);
@@ -2176,11 +2209,8 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<FoldLargeConcatenate>(ctx);
 
   patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
-  populateFoldBeneficialConstantConvertOpPattern(patterns);
-  patterns.add<FoldConstantConvertOp>(ctx, /*foldLimit=*/1);
-  if (blindFold) {
-    patterns.add<FoldConstantConvertOp>(ctx, foldLimit);
-  }
+
+  populateConvertOpPattern(patterns, foldLimit, blindFold);
 }
 
 void mlir::mhlo::populateCanonicalizeExtPatternsForTheDialectOnly(
