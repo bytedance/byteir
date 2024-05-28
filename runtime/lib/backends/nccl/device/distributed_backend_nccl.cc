@@ -218,12 +218,20 @@ Status DistributedBackendNCCL::broadcast(const void *sendbuff, void *recvbuff,
   int color = replica_group.find(rank()) == replica_group.end()
                   ? NCCL_SPLIT_NOCOLOR
                   : 0;
+  int key = rank();
+  if (key == root) {
+    key = -1;
+  }
+  // The value of key will determine the rank order, and the smaller key means
+  // the smaller rank in new communicator.
+  // So origin root rank will be 0 in the new communicator.
   ncclComm_t m_comm;
-  NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, rank(), &m_comm, NULL));
+  NCCL_ASSERT(ncclCommSplit(m_nccl->m_comm, color, key, &m_comm, NULL));
+
   // perform broadcast synchronously
   if (m_comm != NULL)
-    NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, len, get_nccl_dtype(dtype),
-                              root, m_comm, stream));
+    NCCL_ASSERT(ncclBroadcast(sendbuff, recvbuff, len, get_nccl_dtype(dtype), 0,
+                              m_comm, stream));
   NCCL_ASSERT(ncclCommDestroy(m_comm));
   return Status::OK();
 }
