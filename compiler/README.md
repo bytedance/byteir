@@ -116,7 +116,7 @@ It is a supplement to MHLO dialect and LACE is the corresponding part of LMHLO.
 
 ### CCL
 CCL is an internal dialect defined by ByteIR.
-It is a IR which represents communication operators in distribution.
+It is a dialect which represents communication operators in distribution.
 
 ### LinalgExt
 LinalgExt is a dialect defined by ByteIR.
