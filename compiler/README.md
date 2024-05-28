@@ -17,9 +17,9 @@ git submodule update --init external/llvm-project
 
 # build llvm
 cd external/llvm-project
-cmake -GNinja \
-      -H./llvm \
-      -G./build \
+cmake -H./llvm \
+      -B./build \
+      -GNinja \
       -DLLVM_ENABLE_PROJECTS=mlir \
       -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
       -DCMAKE_BUILD_TYPE=Release \
