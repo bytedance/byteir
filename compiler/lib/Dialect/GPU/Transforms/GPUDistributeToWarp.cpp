@@ -161,7 +161,7 @@ static LogicalResult tileToWarp(func::FuncOp funcOp,
   auto getWarpProcInfoFn = [warpPerWorkgroup](
                                OpBuilder &builder, Location loc,
                                ArrayRef<Range> parallelLoopRanges) {
-    return getSubgroupIdsAndCounts(builder, loc, /*warpSize=*/32u,
+    return getSubgroupIdsAndCounts(builder, loc, /*warpSize=*/kWarpSize,
                                    parallelLoopRanges.size(), warpPerWorkgroup);
   };
   linalg::LinalgLoopDistributionOptions warpDistributionOptions;
