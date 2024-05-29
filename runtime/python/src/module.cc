@@ -34,19 +34,21 @@
 
 #ifdef BRT_USE_CUDA
 #include "brt/backends/cuda/device/common/cuda_call.h"
+#include "brt/backends/cuda/device/cuda_allocator.h"
 #include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/backends/cuda/device/cuda_work_queue.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
 
-#include "brt/backends/cuda/device/cuda_allocator.h"
+#ifdef BRT_USE_NCCL
 #include "brt/backends/nccl/providers/nccl_provider.h"
 #include "brt/core/distributed/rendezvous_socket.h"
+#endif // BRT_USE_NCCL
 
 #include <cuda.h>
 #include <cuda_runtime.h>
 
 using namespace brt::cuda;
-#endif
+#endif // BRT_USE_CUDA
 
 #include <memory>
 #include <optional>
@@ -106,7 +108,7 @@ private:
   std::shared_ptr<Session> session;
 };
 
-#ifdef BRT_USE_CUDA
+#if defined(BRT_USE_CUDA) && defined(BRT_USE_NCCL)
 class RequestContextWithDistributedSession {
 public:
   auto Run() { return session->Run(Context()); }
@@ -136,7 +138,7 @@ private:
   std::unique_ptr<RequestContext> req;
   std::shared_ptr<DistributedSession> session;
 };
-#endif
+#endif // defined(BRT_USE_CUDA) && defined(BRT_USE_NCCL)
 
 class PyEnv {
 public:
@@ -276,7 +278,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
           [](ReqeustContextWithSession &req) { THROW_ON_FAIL(req.Run()); },
           py::call_guard<py::gil_scoped_release>());
 
-#ifdef BRT_USE_CUDA
+#if defined(BRT_USE_CUDA) && defined(BRT_USE_NCCL)
   py::class_<RequestContextWithDistributedSession,
              std::unique_ptr<RequestContextWithDistributedSession>>(
       m, "DistributedRequestContext")
@@ -309,7 +311,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
             THROW_ON_FAIL(req.Run());
           },
           py::call_guard<py::gil_scoped_release>());
-#endif
+#endif // defined(BRT_USE_CUDA) && defined(BRT_USE_NCCL)
 
   py::class_<Session, std::shared_ptr<Session>>(m, "Session")
       .def(py::init([](const std::string &device, py::object alloc_f,
@@ -339,7 +341,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                  session->AddExecutionProvider(std::move(provider));
                }
              }
-#endif
+#endif // BRT_USE_CUDA
              else {
                throw std::runtime_error("unsupported device type " + device);
              }
@@ -373,7 +375,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
                 work_queue.reset(new CUDAWorkQueue(device_id));
               }
             }
-#endif
+#endif // BRT_USE_CUDA
             return std::make_unique<ReqeustContextWithSession>(
                 session, work_queue.release());
           },
@@ -395,7 +397,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 #undef DEF_SESSION_METH_GENERIC
       // clang-format on
       ;
-#ifdef BRT_USE_CUDA
+#if defined(BRT_USE_CUDA) && defined(BRT_USE_NCCL)
   py::class_<DistributedSession, Session, std::shared_ptr<DistributedSession>>(
       m, "DistributedSession")
       .def(py::init([](int rank, int nrank, const std::string &host, int port) {
@@ -430,5 +432,5 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 #undef DEF_DISTRIBUTED_SESSION_METH_GENERIC
       // clang-format on
       ;
-#endif
+#endif // defined(BRT_USE_CUDA) && defined(BRT_USE_NCCL)
 }
