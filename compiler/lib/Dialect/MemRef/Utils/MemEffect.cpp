@@ -24,8 +24,7 @@
 using namespace mlir;
 using namespace llvm;
 
-namespace {
-static bool maybeOpOperandWrite(OpOperand &opOpernad) {
+bool mlir::maybeOpOperandWrite(OpOperand &opOpernad) {
   if (auto memEffect =
           dyn_cast<MemoryEffectOpInterface>(opOpernad.getOwner())) {
     return memEffect.getEffectOnValue<MemoryEffects::Write>(opOpernad.get())
@@ -34,7 +33,7 @@ static bool maybeOpOperandWrite(OpOperand &opOpernad) {
   return true;
 }
 
-static bool maybeOpOperandRead(OpOperand &opOpernad) {
+bool mlir::maybeOpOperandRead(OpOperand &opOpernad) {
   if (auto memEffect =
           dyn_cast<MemoryEffectOpInterface>(opOpernad.getOwner())) {
     return memEffect.getEffectOnValue<MemoryEffects::Read>(opOpernad.get())
@@ -42,7 +41,6 @@ static bool maybeOpOperandRead(OpOperand &opOpernad) {
   }
   return true;
 }
-} // namespace
 
 void mlir::getAllAlias(Operation *op,
                        SmallVectorImpl<SmallVector<Value>> &aliases,
@@ -75,23 +73,25 @@ void mlir::getAllAlias(Operation *op,
 void mlir::getMemEffects(SmallVectorImpl<OpMemEffectOrder> &memEffects,
                          ArrayRef<SmallVector<Value>> aliases,
                          llvm::DenseMap<Operation *, unsigned> &opToIdx,
-                         unsigned pivot) {
+                         unsigned pivot,
+                         const OperandMemEffectFn &hasReadEffect,
+                         const OperandMemEffectFn &hasWriteEffect) {
   for (const auto &en : llvm::enumerate(aliases)) {
     for (auto val : en.value()) {
       for (auto &use : val.getUses()) {
         auto user = use.getOwner();
         if (opToIdx[user] < pivot) {
-          if (maybeOpOperandRead(use)) {
+          if (hasReadEffect(use)) {
             memEffects[en.index()].before.reads.push_back(user);
           }
-          if (maybeOpOperandWrite(use)) {
+          if (hasWriteEffect(use)) {
             memEffects[en.index()].before.writes.push_back(user);
           }
         } else if (opToIdx[user] > pivot) {
-          if (maybeOpOperandRead(use)) {
+          if (hasReadEffect(use)) {
             memEffects[en.index()].after.reads.push_back(user);
           }
-          if (maybeOpOperandWrite(use)) {
+          if (hasWriteEffect(use)) {
             memEffects[en.index()].after.writes.push_back(user);
           }
         }
