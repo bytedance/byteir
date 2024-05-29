@@ -1,4 +1,5 @@
 add_mlir_dialect_library(ByteIRGPUPasses
+  GPUBlockSwizzle.cpp
   ShmAllocaToWorkgroupArg.cpp
 
   ADDITIONAL_HEADER_DIRS
