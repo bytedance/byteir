@@ -599,3 +599,18 @@ func.func @src_alloc_shape_transform_3(%arg0: memref<2x1x1001xf16>, %arg1: memre
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
+
+// -----
+
+func.func @insert_slice(%arg0: memref<1024x9xf32>, %arg1: memref<1024x9xf32>) -> (memref<1024x9xf32>, memref<1024x9xf32>) attributes {__byteir_elementwise_fusion__} {
+  %subview = memref.subview %arg0[0, 0] [1024, 4] [1, 1] : memref<1024x9xf32> to memref<1024x4xf32, strided<[9, 1]>>
+  %alloc = memref.alloc() : memref<1024x9xf32>
+  memref.copy %arg1, %alloc : memref<1024x9xf32> to memref<1024x9xf32>
+  %subview_0 = memref.subview %alloc[0, 0] [1024, 4] [1, 1] : memref<1024x9xf32> to memref<1024x4xf32, strided<[9, 1]>>
+  memref.copy %subview, %subview_0 : memref<1024x4xf32, strided<[9, 1]>> to memref<1024x4xf32, strided<[9, 1]>>
+  return %alloc, %arg1 : memref<1024x9xf32>, memref<1024x9xf32>
+}
+
+// CHECK-LABEL: func.func @insert_slice
+// CHECK: memref.copy
+// CHECK: memref.copy
