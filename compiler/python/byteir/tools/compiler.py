@@ -26,10 +26,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     byteir.compile(args.input_mlir_path,
                    args.output_host_mlir_path,
-                   args.entry_func,
-                   args.target,
-                   args.gpu_type,
-                   args.serial_version,
-                   args.verbose,
-                   args.ait_parallelism,
-                   args.disable_byteir_cache)
+                   entry_func=args.entry_func,
+                   target=args.target,
+                   gpu_type=args.gpu_type,
+                   byre_serial_version=args.serial_version,
+                   verbose=args.verbose,
+                   parallelism=args.ait_parallelism,
+                   disable_byteir_ait_cache=args.disable_byteir_cache)

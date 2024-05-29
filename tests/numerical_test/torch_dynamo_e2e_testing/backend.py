@@ -4,6 +4,7 @@ import torch
 import sys
 import functools
 from typing import List
+from itertools import count
 
 from torch.fx.experimental.proxy_tensor import maybe_disable_fake_tensor_mode
 from torch.fx.passes.fake_tensor_prop import FakeTensorProp
@@ -77,6 +78,7 @@ class ByteIRFunction:
                 ret_ptr += 1
         return results
 
+g_graph_id = count(0)
 
 def byteir_compile_fx_inner(
     graph: torch.fx.GraphModule, inputs, is_backward, ban_lst=[]
@@ -99,11 +101,12 @@ def byteir_compile_fx_inner(
 
     model_name = "test"
     TEMP_FOLDER = "./temp"
+    category_name = f"{category}_{next(g_graph_id)}"
     os.makedirs(TEMP_FOLDER, exist_ok=True)
-    os.makedirs(TEMP_FOLDER + f"/{model_name}_{category}", exist_ok=True)
-    mlir_file_name = f"{TEMP_FOLDER}/{model_name}_{category}.{compile_type}.mlir"
+    os.makedirs(TEMP_FOLDER + f"/{model_name}_{category_name}", exist_ok=True)
+    mlir_file_name = f"{TEMP_FOLDER}/{model_name}_{category_name}.{compile_type}.mlir"
     output_mlir_file_name = (
-        f"{TEMP_FOLDER}/{model_name}_{category}/{model_name}_{category}.rt.mlir"
+        f"{TEMP_FOLDER}/{model_name}_{category}/{model_name}_{category_name}.rt.mlir"
     )
     with open(mlir_file_name, "w+") as fout:
         compiled_graph.operation.print(file=fout, large_elements_limit=None)

@@ -99,6 +99,7 @@ def _compile_cuda(
     with context:
         PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
         PassManager.parse("builtin.module(inline)").run(module.operation)
+        PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
         if useBarePtrCallConv:
             PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(module.operation)
         else:
@@ -205,6 +206,7 @@ def _compile_cuda_with_ait_impl(
     with context:
         PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(processor.module.operation)
         PassManager.parse("builtin.module(inline)").run(processor.module.operation)
+        PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
         if useBarePtrCallConv:
             PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(processor.module.operation)
         else:

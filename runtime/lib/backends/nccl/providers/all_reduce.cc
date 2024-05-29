@@ -53,7 +53,7 @@ common::Status AllReduce::RunImpl(const ExecutionContext &ctx) {
                                   std::multiplies<int64_t>());
   void *src = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(0));
   void *target = reinterpret_cast<void *>(accessor.GetArgAsyncValueRef(1));
-  std::string &&reduce_op = accessor.GetAttrAsString("reduce_op");
+  std::string &&reduce_op = accessor.GetAttrAsString("reduction");
   auto replica_group = accessor.GetAttrAsIntArray("replica_group");
   std::set<int64_t> replica_group_set(replica_group.begin(),
                                       replica_group.end());
