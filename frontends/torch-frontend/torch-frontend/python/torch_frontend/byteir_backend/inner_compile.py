@@ -48,6 +48,7 @@ g_graph_counter = count(0)
 
 BACKEND_LEGAL_OPS = ["aten.max.dim"]
 
+
 @dynamo_utils.dynamo_timed(phase_name="byteir_compile")
 def inner_compile(gm: torch.fx.GraphModule,
                   example_inputs: List[torch.Tensor],
@@ -71,7 +72,7 @@ def inner_compile(gm: torch.fx.GraphModule,
 
     if config.byteir_save_fxgraph:
         # save fx graph, example inputs and outs
-        fxg_dir_name = f"fx_graph_{compiler_type}"
+        fxg_dir_name = f"fx_graph_{compiler_type}_{graph_id}"
         fx_graph_folder = f"{workdir}/{fxg_dir_name}/"
         os.makedirs(fx_graph_folder, exist_ok=True)
         with unset_fake_temporarily():
@@ -95,7 +96,11 @@ def inner_compile(gm: torch.fx.GraphModule,
             with open(stablehlo_file, "w") as f:
                 print(module.operation.get_asm(), file=f)
         if not os.path.exists(byre_file):
-            byteir.compile(stablehlo_file, byre_file, verbose=False, target="cuda")
+            byteir.compile(stablehlo_file,
+                           byre_file,
+                           verbose=False,
+                           target="cuda")
+            #byteir.compile(stablehlo_file, byre_file, verbose=False, target="cuda_with_ait")
 
         byre_session = brt.Session(alloc_func=caching_allocator_alloc,
                                    free_func=caching_allocator_delete)

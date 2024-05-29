@@ -28,6 +28,10 @@ declare_mlir_python_sources(TorchFrontendPythonSources.TopLevel
     byteir_backend/config.py
     byteir_backend/inner_compile.py
     byteir_backend/utils.py
+    byteir_backend/byteir_fusible_pattern.py
+    byteir_backend/fx_match_utils.py
+    byteir_backend/fx_utils.py
+    byteir_backend/partitioners.py
 
     tools/compiler.py
 )

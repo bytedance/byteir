@@ -72,10 +72,7 @@ class ByteIRFunction:
 
         for offset, input in zip(self._session.get_input_arg_offsets(),
                                  new_inputs):
-            self._req.bind_arg(
-                offset,
-                input.data_ptr() +
-                input.storage_offset() * input.element_size())
+            self._req.bind_arg(offset, input.data_ptr())
         for offset, output in zip(self._session.get_output_arg_offsets(),
                                   results):
             self._req.bind_arg(offset, output.data_ptr())
