@@ -118,6 +118,10 @@ class RemoveSingleIterationLoopPass final
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
 
+    if (!hasGemmTileConfig(funcOp)) {
+      return;
+    }
+
     SmallVector<int64_t, 3> workgroupSize = getGemmBlockSize(funcOp).value();
     SmallVector<int64_t, 3> tileSize = getGemmTileSize(funcOp).value();
     func::ReturnOp returnOp =

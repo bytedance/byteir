@@ -49,6 +49,7 @@ static constexpr StringRef getGemmPipelineDepthAttrName() {
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);
+bool hasGemmTileConfig(func::FuncOp funcOp);
 
 llvm::SmallVector<mlir::linalg::ProcInfo, 2>
 getGPUThreadIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,

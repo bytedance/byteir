@@ -18,7 +18,6 @@
 
 #include <optional>
 
-// #include "byteir/Conversion/GemmCodeGen/Transforms/Transforms.h"
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 
@@ -79,6 +78,10 @@ std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp) {
         .getInt();
   }
   return std::nullopt;
+}
+
+bool hasGemmTileConfig(func::FuncOp funcOp) {
+  return funcOp->hasAttr(getByteIRMatmulEpilogueFusionAttrName());
 }
 
 //===----------------------------------------------------------------------===//
