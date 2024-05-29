@@ -442,3 +442,50 @@ TEST(TestDistributedSession, NCCLBroadcast2) {
     threads[i].join();
   }
 }
+
+TEST(TestDistributedSession, NCCLE2E) {
+  const int nranks = 4;
+  const std::string host = "localhost";
+  int port = brt::GetFreePort();
+  auto ret = brt::CreateServer(nranks, port);
+  ASSERT_EQ(Status::OK(), ret);
+
+  auto run = [nranks, host, port](int rank) {
+    int local_rank = rank;
+    DistributedSession d_session(rank, nranks, host, port);
+    auto status_allocator = CUDAAllocatorFactory(&d_session, local_rank);
+    BRT_TEST_CHECK_STATUS(status_allocator);
+    auto status_cuda =
+        DefaultNCCLExecutionProviderFactory(&d_session, local_rank);
+    BRT_TEST_CHECK_STATUS(status_cuda);
+
+    std::vector<std::string> config_ir = {
+        "test/test_files/Distributed/ccl.mlir",
+        "test/test_files/Distributed/ccl.mlir",
+        "test/test_files/Distributed/ccl.mlir",
+        "test/test_files/Distributed/ccl.mlir"};
+    std::string ir_url;
+    d_session.LoadConfig(config_ir, ir_url);
+    auto status_load = d_session.Load(ir_url, "byre");
+    BRT_TEST_CHECK_STATUS(status_load);
+
+    std::unique_ptr<RequestContext> request;
+    auto status_request = d_session.NewRequestContext(&request);
+    BRT_TEST_CHECK_STATUS(status_request);
+    request->FinishIOBinding();
+
+    auto status_run = d_session.Run(*request);
+    BRT_TEST_CHECK_STATUS(status_run);
+    auto status_sync = request->Sync();
+    BRT_TEST_CHECK_STATUS(status_sync);
+  };
+
+  std::vector<std::thread> threads;
+  for (size_t i = 0; i < nranks; i++) {
+    threads.push_back(std::thread(run, i));
+  }
+
+  for (size_t i = 0; i < nranks; i++) {
+    threads[i].join();
+  }
+}
