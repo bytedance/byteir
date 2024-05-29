@@ -489,14 +489,14 @@ module attributes {byre.container_module} {
 // CHECK-LABEL:   func.func @src_alloc_shape_transform_0(
 // CHECK-SAME:                                           %[[VAL_0:.*]]: memref<2x224x224x3xf16, "gpuhost"> {byre.argname = "input_tensor@Cast", byre.argtype = 1 : i32},
 // CHECK-SAME:                                           %[[VAL_1:.*]]: memref<2x1001xf16, "gpuhost"> {byre.argname = "softmax_tensor@Cast", byre.argtype = 2 : i32}) attributes {byre.entry_point, byteir.entry_point = {inputs = ["input_tensor@Cast"], outputs = ["softmax_tensor@Cast"]}} {
-// CHECK:           %[[VAL_2:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<2x224x224x3xf16, "gpuhost"> into memref<301056xf16, "gpuhost">
-// CHECK:           %[[VAL_3:.*]] = memref.collapse_shape %[[VAL_1]] {{\[\[}}0, 1]] : memref<2x1001xf16, "gpuhost"> into memref<2002xf16, "gpuhost">
-// CHECK:           %[[VAL_4:.*]] = memref.alloc() : memref<2002xf16, "gpu">
-// CHECK:           %[[VAL_5:.*]] = memref.expand_shape %[[VAL_2]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<301056xf16, "gpuhost"> into memref<2x224x1x672xf16, "gpuhost">
-// CHECK:           %[[VAL_6:.*]] = memref.alloc() : memref<2x224x1x672xf16, "gpu">
-// CHECK:           memref.copy %[[VAL_5]], %[[VAL_6]] : memref<2x224x1x672xf16, "gpuhost"> to memref<2x224x1x672xf16, "gpu">
-// CHECK:           byre.compute @foo(%[[VAL_6]], %[[VAL_4]]) {device = "gpu", kernel_name = "main_gpu", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "gpu">, memref<2002xf16, "gpu">
-// CHECK:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2002xf16, "gpu"> to memref<2002xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_2:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<2x224x224x3xf16, "gpuhost"> into memref<301056xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_3:.*]] = memref.collapse_shape %[[VAL_1]] {{\[\[}}0, 1]] : memref<2x1001xf16, "gpuhost"> into memref<2002xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_4:.*]] = memref.alloc() : memref<2002xf16, "gpu">
+// CHECK-DAG:           %[[VAL_5:.*]] = memref.expand_shape %[[VAL_2]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<301056xf16, "gpuhost"> into memref<2x224x1x672xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_6:.*]] = memref.alloc() : memref<2x224x1x672xf16, "gpu">
+// CHECK-DAG:           memref.copy %[[VAL_5]], %[[VAL_6]] : memref<2x224x1x672xf16, "gpuhost"> to memref<2x224x1x672xf16, "gpu">
+// CHECK-DAG:           byre.compute @foo(%[[VAL_6]], %[[VAL_4]]) {device = "gpu", kernel_name = "main_gpu", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "gpu">, memref<2002xf16, "gpu">
+// CHECK-DAG:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2002xf16, "gpu"> to memref<2002xf16, "gpuhost">
 // CHECK:           return
 // CHECK:         }
 
@@ -522,14 +522,14 @@ module attributes {byre.container_module} {
 // CHECK-LABEL:   func.func @src_alloc_shape_transform_1(
 // CHECK-SAME:                                           %[[VAL_0:.*]]: memref<2x224x224x3xf16, "gpuhost"> {byre.argname = "input_tensor@Cast", byre.argtype = 1 : i32},
 // CHECK-SAME:                                           %[[VAL_1:.*]]: memref<2x1001xf16, "gpuhost"> {byre.argname = "softmax_tensor@Cast", byre.argtype = 2 : i32}) attributes {byre.entry_point, byteir.entry_point = {inputs = ["input_tensor@Cast"], outputs = ["softmax_tensor@Cast"]}} {
-// CHECK:           %[[VAL_2:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<2x224x224x3xf16, "gpuhost"> into memref<301056xf16, "gpuhost">
-// CHECK:           %[[VAL_3:.*]] = memref.expand_shape %[[VAL_1]] {{\[\[}}0], [1, 2]] : memref<2x1001xf16, "gpuhost"> into memref<2x1x1001xf16, "gpuhost">
-// CHECK:           %[[VAL_4:.*]] = memref.alloc() : memref<2x1x1001xf16, "gpu">
-// CHECK:           %[[VAL_5:.*]] = memref.expand_shape %[[VAL_2]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<301056xf16, "gpuhost"> into memref<2x224x1x672xf16, "gpuhost">
-// CHECK:           %[[VAL_6:.*]] = memref.alloc() : memref<2x224x1x672xf16, "gpu">
-// CHECK:           memref.copy %[[VAL_5]], %[[VAL_6]] : memref<2x224x1x672xf16, "gpuhost"> to memref<2x224x1x672xf16, "gpu">
-// CHECK:           byre.compute @foo(%[[VAL_6]], %[[VAL_4]]) {device = "gpu", kernel_name = "main_gpu", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "gpu">, memref<2x1x1001xf16, "gpu">
-// CHECK:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2x1x1001xf16, "gpu"> to memref<2x1x1001xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_2:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<2x224x224x3xf16, "gpuhost"> into memref<301056xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_3:.*]] = memref.expand_shape %[[VAL_1]] {{\[\[}}0], [1, 2]] : memref<2x1001xf16, "gpuhost"> into memref<2x1x1001xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_4:.*]] = memref.alloc() : memref<2x1x1001xf16, "gpu">
+// CHECK-DAG:           %[[VAL_5:.*]] = memref.expand_shape %[[VAL_2]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<301056xf16, "gpuhost"> into memref<2x224x1x672xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_6:.*]] = memref.alloc() : memref<2x224x1x672xf16, "gpu">
+// CHECK-DAG:           memref.copy %[[VAL_5]], %[[VAL_6]] : memref<2x224x1x672xf16, "gpuhost"> to memref<2x224x1x672xf16, "gpu">
+// CHECK-DAG:           byre.compute @foo(%[[VAL_6]], %[[VAL_4]]) {device = "gpu", kernel_name = "main_gpu", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "gpu">, memref<2x1x1001xf16, "gpu">
+// CHECK-DAG:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2x1x1001xf16, "gpu"> to memref<2x1x1001xf16, "gpuhost">
 // CHECK:           return
 // CHECK:         }
 
@@ -554,14 +554,14 @@ module attributes {byre.container_module} {
 // CHECK-LABEL:   func.func @src_alloc_shape_transform_2(
 // CHECK-SAME:                                           %[[VAL_0:.*]]: memref<2x224x224x3xf16, "gpuhost"> {byre.argname = "input_tensor@Cast", byre.argtype = 1 : i32},
 // CHECK-SAME:                                           %[[VAL_1:.*]]: memref<2x1001xf16, "gpuhost"> {byre.argname = "softmax_tensor@Cast", byre.argtype = 2 : i32}) attributes {byre.entry_point, byteir.entry_point = {inputs = ["input_tensor@Cast"], outputs = ["softmax_tensor@Cast"]}} {
-// CHECK:           %[[VAL_2:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<2x224x224x3xf16, "gpuhost"> into memref<301056xf16, "gpuhost">
-// CHECK:           %[[VAL_3:.*]] = memref.expand_shape %[[VAL_1]] {{\[\[}}0], [1, 2]] : memref<2x1001xf16, "gpuhost"> into memref<2x1x1001xf16, "gpuhost">
-// CHECK:           %[[VAL_4:.*]] = memref.alloc() : memref<2x1x1001xf16, "gpu">
-// CHECK:           %[[VAL_5:.*]] = memref.expand_shape %[[VAL_2]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<301056xf16, "gpuhost"> into memref<2x224x1x672xf16, "gpuhost">
-// CHECK:           %[[VAL_6:.*]] = memref.alloc() : memref<2x224x1x672xf16, "gpu">
-// CHECK:           memref.copy %[[VAL_5]], %[[VAL_6]] : memref<2x224x1x672xf16, "gpuhost"> to memref<2x224x1x672xf16, "gpu">
-// CHECK:           byre.compute @foo(%[[VAL_6]], %[[VAL_4]]) {device = "gpu", kernel_name = "main_gpu", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "gpu">, memref<2x1x1001xf16, "gpu">
-// CHECK:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2x1x1001xf16, "gpu"> to memref<2x1x1001xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_2:.*]] = memref.collapse_shape %[[VAL_0]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<2x224x224x3xf16, "gpuhost"> into memref<301056xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_3:.*]] = memref.expand_shape %[[VAL_1]] {{\[\[}}0], [1, 2]] : memref<2x1001xf16, "gpuhost"> into memref<2x1x1001xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_4:.*]] = memref.alloc() : memref<2x1x1001xf16, "gpu">
+// CHECK-DAG:           %[[VAL_5:.*]] = memref.expand_shape %[[VAL_2]] {{\[\[}}0, 1, 2, 3]] {device = "gpuhost"} : memref<301056xf16, "gpuhost"> into memref<2x224x1x672xf16, "gpuhost">
+// CHECK-DAG:           %[[VAL_6:.*]] = memref.alloc() : memref<2x224x1x672xf16, "gpu">
+// CHECK-DAG:           memref.copy %[[VAL_5]], %[[VAL_6]] : memref<2x224x1x672xf16, "gpuhost"> to memref<2x224x1x672xf16, "gpu">
+// CHECK-DAG:           byre.compute @foo(%[[VAL_6]], %[[VAL_4]]) {device = "gpu", kernel_name = "main_gpu", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "gpu">, memref<2x1x1001xf16, "gpu">
+// CHECK-DAG:           memref.copy %[[VAL_4]], %[[VAL_3]] : memref<2x1x1001xf16, "gpu"> to memref<2x1x1001xf16, "gpuhost">
 // CHECK:           return
 // CHECK:         }
 
@@ -614,3 +614,28 @@ func.func @insert_slice(%arg0: memref<1024x9xf32>, %arg1: memref<1024x9xf32>) ->
 // CHECK-LABEL: func.func @insert_slice
 // CHECK: memref.copy
 // CHECK: memref.copy
+
+// -----
+
+module attributes {byre.container_module} {
+  func.func @h2dCopy(%arg0: memref<2x224x224x3xf16, "cpu"> {byre.argname = "input_tensor@Cast", byre.argtype = 1 : i32}, %arg1: memref<2x1001xf16, "cuda"> {byre.argname = "softmax_tensor@Cast", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
+    %collapse_shape = memref.collapse_shape %arg0 [[0, 1, 2, 3]] {device = "cpu"} : memref<2x224x224x3xf16, "cpu"> into memref<301056xf16, "cpu">
+    %expand_shape = memref.expand_shape %collapse_shape [[0, 1, 2, 3]] {device = "cpu"} : memref<301056xf16, "cpu"> into memref<2x224x1x672xf16, "cpu">
+    %alloc = memref.alloc() : memref<2x1x1x1001xf16, "cuda">
+    %alloc_0 = memref.alloc() : memref<2x224x1x672xf16, "cuda">
+    memref.copy %expand_shape, %alloc_0 : memref<2x224x1x672xf16, "cpu"> to memref<2x224x1x672xf16, "cuda">
+    byre.compute @cudaComputeOp(%alloc_0, %alloc) {device = "cuda", kernel_name = "main_cuda", memory_effects = [1 : i32, 2 : i32]} : memref<2x224x1x672xf16, "cuda">, memref<2x1x1x1001xf16, "cuda">
+    %alloc_1 = memref.alloc() : memref<2x1x1x1001xf16, "cpu">
+    memref.copy %alloc, %alloc_1 : memref<2x1x1x1001xf16, "cuda"> to memref<2x1x1x1001xf16, "cpu">
+    %collapse_shape_2 = memref.collapse_shape %alloc_1 [[0], [1, 2, 3]] {device = "cpu"} : memref<2x1x1x1001xf16, "cpu"> into memref<2x1001xf16, "cpu">
+    memref.copy %collapse_shape_2, %arg1 : memref<2x1001xf16, "cpu"> to memref<2x1001xf16, "cuda">
+    return
+  }
+}
+
+// CHECK-LABEL: func.func @h2dCopy
+// CHECK: memref.copy
+// CHECK: memref.copy
+// CHECK: memref.copy
+
+

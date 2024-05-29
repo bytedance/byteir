@@ -112,6 +112,12 @@ public:
       }
     }
 
+    auto srcMemSpace = src.getType().cast<MemRefType>().getMemorySpace();
+    auto dstMemSpace = target.getType().cast<MemRefType>().getMemorySpace();
+    if (srcMemSpace && dstMemSpace && srcMemSpace != dstMemSpace) {
+      return failure();
+    }
+
     SmallVector<SmallVector<Value>, 2> aliases(2);
     getAllAlias(copyOp, aliases, /*skipNonOverlapedSubviews*/ true);
     aliases[0].push_back(copyOp.getSource());
