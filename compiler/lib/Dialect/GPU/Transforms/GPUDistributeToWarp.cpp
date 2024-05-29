@@ -25,13 +25,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
-// #include "byteir/Conversion/GemmCodeGen/GemmCodeGenPattern.h"
-#include "byteir/Dialect/GPU/Transforms/Transforms.h"
-#include "byteir/Dialect/GPU/Transforms/Utils.h"
-
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/GPU/Transforms/Transforms.h"
-
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
