@@ -107,10 +107,6 @@ getGPUThreadIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
   return procInfo;
 }
 
-// distribute parallel loops to warp
-// warpIdx.x = threadIdx.x / 32
-// warpIdx.y = threadIdx.y
-// warpIdx.z = threadIdx.z
 llvm::SmallVector<mlir::linalg::ProcInfo, 2>
 getSubgroupIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
                         unsigned warpSize, unsigned numDims,

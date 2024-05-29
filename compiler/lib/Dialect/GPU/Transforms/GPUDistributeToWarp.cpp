@@ -144,6 +144,10 @@ calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
 }
 
 /// Tiles to warp.
+/// distribute parallel loops to warp
+/// warpIdx.x = threadIdx.x / 32
+/// warpIdx.y = threadIdx.y
+/// warpIdx.z = threadIdx.z
 static LogicalResult tileToWarp(func::FuncOp funcOp,
                                 SmallVectorImpl<int64_t> &workgroupSize) {
   std::array<int64_t, 3> warpPerWorkgroup = {
