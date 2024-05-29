@@ -19,6 +19,7 @@
 
 #include "byteir/Utils/AffineUtils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -153,6 +154,124 @@ public:
   }
 };
 
+class InsertSliceToLinalgGeneric
+    : public OpConversionPattern<tensor::InsertSliceOp> {
+public:
+  using OpConversionPattern<tensor::InsertSliceOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(tensor::InsertSliceOp op,
+                  tensor::InsertSliceOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto ctx = op.getContext();
+    auto source = op.getSource();
+    auto dest = op.getDest();
+    auto resultTy = op.getResultType();
+    auto inputTy = op.getSourceType();
+    int64_t nloops = resultTy.getRank();
+
+    if (ShapedType::isDynamicShape(resultTy.getShape())) {
+      return failure();
+    }
+
+    // Find input/output values and types.
+    auto loc = op.getLoc();
+    auto emptyOp = rewriter.create<tensor::EmptyOp>(loc, resultTy.getShape(),
+                                                    resultTy.getElementType());
+    Value output = emptyOp.getResult();
+
+    SmallVector<AffineMap> maps;
+    maps.push_back(AffineMap::getMultiDimIdentityMap(nloops, ctx));
+
+    // Build `linalg.generic` op.
+    ValueRange inputs = adaptor.getOperands();
+    auto ranges = op.getOrCreateRanges(rewriter, loc);
+    llvm::SmallBitVector droppedDims = op.getDroppedDims();
+
+    auto linalgOp = rewriter.create<linalg::GenericOp>(
+        loc, resultTy, ValueRange(), output, maps,
+        getNParallelLoopsAttrs(nloops),
+        [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange args) {
+          SmallVector<Value> linalgIndices;
+          for (int64_t i = 0; i < nloops; ++i) {
+            linalgIndices.emplace_back(
+                nestedBuilder.create<linalg::IndexOp>(loc, i));
+          }
+
+          SmallVector<Value> srcIndices;
+          Value predicate;
+          int64_t srcDimIdx = 0;
+          for (int64_t i = 0; i < resultTy.getRank(); ++i) {
+            if (droppedDims.test(i))
+              continue;
+            srcIndices.emplace_back(linalgIndices[i]);
+
+            AffineExpr offset, stride, idx;
+            SmallVector<OpFoldResult> symbolVals = {
+                linalgIndices[i],
+                ranges[i].offset,
+                ranges[i].stride,
+            };
+
+            bindSymbols(nestedBuilder.getContext(), idx, offset, stride);
+            OpFoldResult remainder = affine::makeComposedFoldedAffineApply(
+                nestedBuilder, loc,
+                AffineMap::get(0, 3, (idx - offset) % stride), symbolVals);
+
+            Value remainderVal =
+                getValueOrCreateConstantIndexOp(nestedBuilder, loc, remainder);
+
+            OpFoldResult division = affine::makeComposedFoldedAffineApply(
+                nestedBuilder, loc,
+                AffineMap::get(0, 3, (idx - offset).floorDiv(stride)),
+                symbolVals);
+            Value divisionVal =
+                getValueOrCreateConstantIndexOp(nestedBuilder, loc, division);
+
+            Value zero = nestedBuilder.create<arith::ConstantIndexOp>(loc, 0);
+            Value equalZero = nestedBuilder.create<arith::CmpIOp>(
+                loc, arith::CmpIPredicate::eq, remainderVal, zero);
+
+            Value size = getValueOrCreateConstantIndexOp(nestedBuilder, loc,
+                                                         ranges[i].size);
+            Value inBound = nestedBuilder.create<arith::CmpIOp>(
+                loc, arith::CmpIPredicate::ult, divisionVal, size);
+            Value curPredicate =
+                nestedBuilder.create<arith::AndIOp>(loc, equalZero, inBound);
+
+            predicate = predicate ? nestedBuilder.create<arith::AndIOp>(
+                                        loc, predicate, curPredicate)
+                                  : curPredicate;
+            srcDimIdx += 1;
+          }
+
+          auto ifPred = nestedBuilder.create<scf::IfOp>(
+              loc, resultTy.getElementType(), predicate,
+              /*withElseRegion=*/true);
+
+          // Pred == true, return source
+          {
+            OpBuilder ifPredThenB = ifPred.getThenBodyBuilder();
+            Value val =
+                ifPredThenB.create<tensor::ExtractOp>(loc, source, srcIndices);
+            ifPredThenB.create<scf::YieldOp>(loc, val);
+          }
+
+          // Pred == false, therefore return dest.
+          {
+            OpBuilder ifPredElseB = ifPred.getElseBodyBuilder();
+            Value val =
+                ifPredElseB.create<tensor::ExtractOp>(loc, dest, linalgIndices);
+            ifPredElseB.create<scf::YieldOp>(loc, val);
+          }
+          nestedBuilder.create<linalg::YieldOp>(loc, ifPred.getResults());
+        });
+
+    rewriter.replaceOp(op, linalgOp->getResults());
+    return success();
+  }
+};
+
 struct TensorToLinalgPass : public TensorToLinalgBase<TensorToLinalgPass> {
 
   TensorToLinalgPass() = default;
@@ -173,8 +292,8 @@ struct TensorToLinalgPass : public TensorToLinalgBase<TensorToLinalgPass> {
     target.addLegalDialect<arith::ArithDialect, cf::ControlFlowDialect,
                            func::FuncDialect, linalg::LinalgDialect,
                            math::MathDialect, scf::SCFDialect,
-                           shape::ShapeDialect>();
-    target.addLegalOp<tensor::EmptyOp>();
+                           shape::ShapeDialect, affine::AffineDialect>();
+    target.addLegalOp<tensor::EmptyOp, tensor::ExtractOp>();
 
     target.addDynamicallyLegalOp<tensor::ExpandShapeOp>(
         [&](tensor::ExpandShapeOp op) {
@@ -184,7 +303,10 @@ struct TensorToLinalgPass : public TensorToLinalgBase<TensorToLinalgPass> {
         [&](tensor::CollapseShapeOp op) {
           return !op.getResultType().hasStaticShape();
         });
-
+    target.addDynamicallyLegalOp<tensor::ExtractSliceOp>(
+        [&](tensor::ExtractSliceOp op) {
+          return !op.getResultType().hasStaticShape();
+        });
     populateTensorToLinalgConversionPatterns(patterns);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
     if (failed(applyPartialConversion(func, target, frozenPatterns))) {
@@ -228,8 +350,8 @@ LogicalResult mlir::simplifyTensorReshapeLikeOp(RewriterBase &rewriter,
 
 void mlir::populateTensorToLinalgConversionPatterns(
     RewritePatternSet &patterns) {
-  patterns.add<ExpandShapeToLinalgGeneric, CollapseShapeToLinalgGeneric>(
-      patterns.getContext());
+  patterns.add<ExpandShapeToLinalgGeneric, CollapseShapeToLinalgGeneric,
+               InsertSliceToLinalgGeneric>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::createTensorToLinalgPass() {
