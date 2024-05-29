@@ -39,6 +39,15 @@ using namespace mlir;
 
 namespace {
 void addGenericLinalgPasses(OpPassManager &pm) {
+  { // for insert slice fusion
+    OpPassManager anchoredPM(func::FuncOp::getOperationName());
+    anchoredPM.addPass(createTensorToLinalgPass());
+    anchoredPM.addPass(createCanonicalizerPass());
+    anchoredPM.addPass(createCSEPass());
+    pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
+        getByteIRElementwiseFusionAttrName(), anchoredPM));
+  }
+
   pm.addNestedPass<func::FuncOp>(
       createHloFusionToLinalgPass(getByteIRElementwiseFusionAttrName()));
   pm.addNestedPass<func::FuncOp>(
@@ -67,6 +76,7 @@ void addGenericLinalgPasses(OpPassManager &pm) {
           /*enableSharedInput*/ true, /*enableDiffShapes*/ false));
       anchoredPM.addPass(createCSEPass());
       anchoredPM.addPass(createCanonicalizerPass());
+      anchoredPM.addPass(bufferization::createEmptyTensorEliminationPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(elementwiseAnchor, anchoredPM));
     }

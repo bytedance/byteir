@@ -63,7 +63,7 @@ bool isFusibleCandidate(Operation *op) {
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
           isSplatMhloConstantLike(op) ||
           isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op) ||
-          isCustomMhloRngOp(op));
+          isa<mhlo::SliceOp>(op) || isCustomMhloRngOp(op));
 }
 
 // every candidate can start
@@ -92,7 +92,11 @@ bool isFusibleTrigger(Operation *op) {
   return false;
 }
 
-bool isFusibleWith(Operation *target, Operation * /*start*/) {
+bool isFusibleWith(Operation *target, Operation *start) {
+  if (isa<mhlo::SliceOp>(target)) {
+    return start->hasTrait<::mlir::OpTrait::Elementwise>();
+  }
+
   return target->hasTrait<::mlir::OpTrait::Elementwise>() ||
          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
          isSplatMhloConstantLike(target) ||
