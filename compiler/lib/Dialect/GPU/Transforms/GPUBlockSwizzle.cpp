@@ -126,14 +126,19 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
   auto loops = newforallOp.getInductionVars();
   auto mapping = newforallOp.getMappingAttr().getValue();
 
-  Value workgroupIdX =
-      loops[mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId()];
-  Value workgroupIdY =
-      loops[mapping[1].cast<gpu::GPUBlockMappingAttr>().getMappingId()];
-  Value workgroupCountX =
-      gridSize[mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId()];
-  Value workgroupCountY =
-      gridSize[mapping[1].cast<gpu::GPUBlockMappingAttr>().getMappingId()];
+  Value workgroupIdX, workgroupIdY, workgroupCountX, workgroupCountY;
+
+  if (mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId() == 0) {
+    workgroupIdX = originLoops[0];
+    workgroupIdY = originLoops[1];
+    workgroupCountX = gridSize[0];
+    workgroupCountY = gridSize[1];
+  } else {
+    workgroupIdX = originLoops[1];
+    workgroupIdY = originLoops[0];
+    workgroupCountX = gridSize[1];
+    workgroupCountY = gridSize[0];
+  }
 
   auto [swizzledIdX, swizzledIdY] =
       makeSwizzledIds(newforallOp.getLoc(), b, workgroupIdX, workgroupIdY,
