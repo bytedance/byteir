@@ -103,6 +103,7 @@ makeSwizzledIds(Location loc, OpBuilder b, Value workgroupIdX,
 // Only support 2d grid.
 static LogicalResult reorderForallOpInFunc(func::FuncOp func,
                                            unsigned swizzleLogTile) {
+  llvm::errs() << "swizzleLogTile: " << swizzleLogTile << "\n";
   unsigned swizzleTile = 1 << swizzleLogTile;
   std::vector<scf::ForallOp> forallOps;
   func.walk([&](scf::ForallOp forallOp) {
@@ -114,23 +115,17 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
     return failure();
   scf::ForallOp forallOp = forallOps[0];
 
-  OpBuilder b(func.getContext());
+  OpBuilder b(forallOp);
 
-  // scf::ForallOp newforallOp = forallOp.cloneWithoutRegions();
-  // Region &region = newforallOp->getRegion(0);
-  // b.setInsertionPointToStart(&region.front());
+  scf::ForallOp newforallOp = forallOp.clone();
+  newforallOp.getBody()->clear();
+  b.insert(newforallOp);
 
-  // // create a new block
-  // Block *block = b.createBlock(&region);
-  // region.push_back(block);
-
-  // scf::ForallOp newforallOp = forallOp.clone();
-  // newforallOp.getBody()->clear();
-
-  scf::ForallOp newforallOp = b.create<scf::ForallOp>(
-      forallOp.getLoc(), forallOp.getMixedLowerBound(),
-      forallOp.getMixedUpperBound(), forallOp.getMixedStep(),
-      ValueRange(), forallOp.getMapping());
+  // This way will not copy attributes.
+  // scf::ForallOp newforallOp = b.create<scf::ForallOp>(
+  //     forallOp.getLoc(), forallOp.getMixedLowerBound(),
+  //     forallOp.getMixedUpperBound(), forallOp.getMixedStep(),
+  //     forallOp.getResults(), forallOp.getMapping());
 
   b.setInsertionPointToStart(newforallOp.getBody());
   auto originLoops = forallOp.getInductionVars();
@@ -154,19 +149,18 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
   IRMapping bvm;
   bvm.map(originLoops[0], swizzledIdX);
   bvm.map(originLoops[1], swizzledIdY);
-
   for (auto &op : forallOp.getBody()->getOperations()) {
     b.clone(op, bvm);
   }
-
-  // forallOp.replaceAllUsesWith(newforallOp);
+  forallOp.replaceAllUsesWith(newforallOp);
+  forallOp.erase();
   return success();
 }
 
 namespace {
 struct GPUBlockSwizzlePass : public GPUBlockSwizzleBase<GPUBlockSwizzlePass> {
 public:
-  explicit GPUBlockSwizzlePass(unsigned swizzleLogTile)
+  explicit GPUBlockSwizzlePass(int64_t swizzleLogTile)
       : swizzleLogTile(swizzleLogTile) {}
 
   void runOnOperation() override {
@@ -179,12 +173,13 @@ public:
   }
 
 private:
-  unsigned swizzleLogTile;
+  int64_t swizzleLogTile;
 };
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createGPUBlockSwizzlePass(unsigned swizzleLogTile) {
+createGPUBlockSwizzlePass(int64_t swizzleLogTile) {
+  llvm::errs() << "in createGPUBlockSwizzlePass swizzleLogTile: " << swizzleLogTile << "\n";
   return std::make_unique<GPUBlockSwizzlePass>(swizzleLogTile);
 }
 

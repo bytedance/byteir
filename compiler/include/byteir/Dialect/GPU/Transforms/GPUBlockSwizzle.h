@@ -27,9 +27,9 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-/// Pass to distribute Linalg ops to GPU warps.
+/// Pass to make scf.forall do swizzle jobs.
 std::unique_ptr<OperationPass<func::FuncOp>>
-createGPUBlockSwizzlePass(unsigned swizzleLogTile = 0);
+createGPUBlockSwizzlePass(int64_t swizzleLogTile = 0);
 
 } // namespace mlir
 
