@@ -50,6 +50,54 @@ public:
   }
 };
 
+class ConvertCastOpToByrePattern : public OpConversionPattern<memref::CastOp> {
+public:
+  ConvertCastOpToByrePattern(MLIRContext *ctx)
+      : OpConversionPattern<memref::CastOp>(ctx) {}
+
+  LogicalResult
+  matchAndRewrite(memref::CastOp op, memref::CastOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (auto subview = op.getSource().getDefiningOp<memref::SubViewOp>()) {
+      if (!subview.getSource().getType().getLayout().isIdentity())
+        return failure();
+      if (!op.getType().cast<MemRefType>().getLayout().isIdentity())
+        return failure();
+
+      rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getType(),
+                                                 subview.getSource(), 0);
+      return success();
+    }
+
+    return failure();
+  }
+};
+
+class ConvertCollapseShapeOpToByrePattern
+    : public OpConversionPattern<memref::CollapseShapeOp> {
+public:
+  ConvertCollapseShapeOpToByrePattern(MLIRContext *ctx)
+      : OpConversionPattern<memref::CollapseShapeOp>(ctx) {}
+
+  LogicalResult
+  matchAndRewrite(memref::CollapseShapeOp op,
+                  memref::CollapseShapeOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (auto subview = op.getSrc().getDefiningOp<memref::SubViewOp>()) {
+      if (!subview.getSource().getType().getLayout().isIdentity())
+        return failure();
+      if (!op.getType().getLayout().isIdentity())
+        return failure();
+
+      rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getType(),
+                                                 subview.getSource(), 0);
+      return success();
+    }
+
+    return failure();
+  }
+};
+
 class ConvertViewOpToByrePattern : public OpConversionPattern<memref::ViewOp> {
 public:
   ConvertViewOpToByrePattern(MLIRContext *ctx)
@@ -196,7 +244,8 @@ void mlir::populateMemrefToByrePattern(RewritePatternSet &patterns) {
                ConvertGetGlobalOpToByrePattern,
                ConvertReshapeLikeOpToByrePattern<memref::CollapseShapeOp>,
                ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>,
-               ConvertSubViewOpToByrePattern>(patterns.getContext());
+               ConvertSubViewOpToByrePattern, ConvertCastOpToByrePattern,
+               ConvertCollapseShapeOpToByrePattern>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
