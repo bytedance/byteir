@@ -129,13 +129,13 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
   Value workgroupIdX, workgroupIdY, workgroupCountX, workgroupCountY;
 
   if (mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId() == 0) {
-    workgroupIdX = originLoops[0];
-    workgroupIdY = originLoops[1];
+    workgroupIdX = loops[0];
+    workgroupIdY = loops[1];
     workgroupCountX = gridSize[0];
     workgroupCountY = gridSize[1];
   } else {
-    workgroupIdX = originLoops[1];
-    workgroupIdY = originLoops[0];
+    workgroupIdX = loops[1];
+    workgroupIdY = loops[0];
     workgroupCountX = gridSize[1];
     workgroupCountY = gridSize[0];
   }
