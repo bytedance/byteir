@@ -124,7 +124,7 @@ void addGenericLinalgPasses(OpPassManager &pm) {
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
     }
-    
+
     GPUTileBlockReductionOptions tileBlockRedOptions;
     tileBlockRedOptions.funcAnchor = reductionAnchor;
     tileBlockRedOptions.blockSize = 256;
