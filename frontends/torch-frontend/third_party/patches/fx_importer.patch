@@ -1,0 +1,158 @@
+diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
+index 381f8f9a..a5e2d32b 100644
+--- a/python/torch_mlir/extras/fx_importer.py
++++ b/python/torch_mlir/extras/fx_importer.py
+@@ -52,6 +52,10 @@ from torch._subclasses import (
+     FakeTensor as TorchFakeTensor,
+ )
+ 
++from torch.distributed._functional_collectives import (
++    AsyncCollectiveTensor as TorchAsyncCollectiveTensor
++)
++
+ from torch.fx import (
+     Graph,
+     GraphModule,
+@@ -924,6 +928,19 @@ class ContextCache:
+             tensor_meta = node.meta.get("tensor_meta")
+             val = node.meta.get("val")
+             sparsity = node.meta.get("sparsity", None)
++            # Some nodes returns a list, like torch.ops.aten.unbind.int
++            if isinstance(tensor_meta, List) or isinstance(val, List):
++                if tensor_meta is not None and all(x is not None for x in tensor_meta):
++                    # Assume that all results in the list are tensors.
++                    # TODO: Solve this assumption
++                    return IrType.parse("!torch.list<vtensor>", context=self._c)
++                elif val is not None and all(x is not None for x in val):
++                    return IrType.parse("!torch.list<vtensor>", context=self._c)
++                else:
++                    raise NotImplementedError(
++                        f"FIXME: Unsupported placeholder node (this often indicates that a necessary) "
++                        f"fx preprocessing pass was not run): {node.meta}"
++                    )
+         except KeyError as e:
+             raise RuntimeError(
+                 f"FIXME: Illegal access to torch.fx.Node.meta: {e} ({node.meta.keys()} : {node.meta})"
+@@ -1035,6 +1052,7 @@ class GraphNodeImporter:
+         "_on_node_produced",
+         "_v",
+         "_multi_result_nodes",
++        "_list_return_nodes",
+         "fx_importer",
+     ]
+ 
+@@ -1058,6 +1076,9 @@ class GraphNodeImporter:
+         # They will have their getitem calls short-circuited.
+         self._multi_result_nodes: Set[torch_fx.Node] = set()
+ 
++        # Stores the node that returns a list, like aten.unbind.int
++        self._list_return_nodes: Set[torch_fx.Node] = set()
++
+     def bind_node_value(
+         self,
+         node: Node,
+@@ -1213,6 +1234,23 @@ class GraphNodeImporter:
+                                     f"notify developers if this case happens "
+                                     f"(at {loc})."
+                                 )
++                        elif getitem_ref in self._list_return_nodes:
++                            fx_list_return_value = self._v[(getitem_ref, 0)]
++                            operands = [
++                                fx_list_return_value,
++                                self._import_default_value(loc, getitem_index, torch.IntType)
++                            ]
++
++                            # We trust the tensor type in FX graph, even if it's a getitem
++                            # from a value of MLIR ListType.
++                            operation = Operation.create(
++                                "torch.aten.__getitem__.t",
++                                results=(self._cc.node_val_to_type(node),),
++                                operands = operands,
++                                loc=loc
++                            )
++                            for i, value in enumerate(operation.results):
++                                self._v[(node, i)] = value
+                         else:
+                             raise NotImplementedError(
+                                 f"General getitem access to non-multi-result ops"
+@@ -1676,6 +1714,10 @@ class GraphNodeImporter:
+             # Unary return directly maps a single meta["val"] and cannot be subscripted.
+             # if "tensor_meta" is None, this will throw unsupported placeholder node error
+             result_types = [self._cc.node_val_to_type(node)]
++
++            # separately handle ops returning list.
++            if str(result_types[0]).startswith("!torch.list"):
++                self._list_return_nodes.add(node)
+         elif return_count == 0:
+             # Some torch ops do have 0 returns, and these are supported with ZeroResults
+             # op trait. Python bindings for IR creation allow us to pass empty result_types
+@@ -1717,6 +1759,8 @@ def _make_vtensor_literal_op(
+ ) -> Operation:
+     mapping = py_attr_tracker.track(tensor)
+     if mapping.is_empty:
++        # unwrap from TorchAsyncCollectiveTensor
++        tensor = tensor.elem if isinstance(tensor, TorchAsyncCollectiveTensor) else tensor
+         # check support for bfloat16
+         assert not (
+             tensor.dtype == torch.bfloat16 and ml_dtypes is None
+@@ -1732,29 +1776,42 @@ def _make_vtensor_literal_op(
+         # detach() which throws an error as we are operating in a FakeTensorMode, hence the simplest way to get this raw
+         # buffer is via the indirection: Tensor -> list -> numpy array. This allows us to create a vtensor literal as
+         # desired, but also limits which data types we can support in this function (see TORCH_DTYPE_TO_NPY_TYPE above)
+-        np_tensor = np.array(tensor.tolist()).astype(npy_dtype)
+-        # One element constants are more optimizable as splat DenseElementsAttr. DenseResourceElementsAttr does not
+-        # support splats, so don't use it for that case. In addition, at the time of writing, it has bugs with handling
+-        # 0d tensors.
+-        if np_tensor.size == 1:
++
++        # NOTE: if we torch.export a torch.nn.Module under fake mode, the parameters in the fx.GraphModule will be FakeTensor.
++        # So we specifically handle FakeTensor here by creating a splat DenseElementsAttr with value 0.
++        if isinstance(tensor, TorchFakeTensor):
++            array = np.array([0]).astype(npy_dtype)
+             try:
+-                dtype = tensor.dtype
+-                element_type = TORCH_DTYPE_TO_MLIR_TYPE[dtype]()
++                element_type = TORCH_DTYPE_TO_MLIR_TYPE[tensor.dtype]()
+             except KeyError:
+-                raise TypeError(f"Could not map Torch dtype {dtype} to an MLIR type")
++                raise TypeError(f"Could not map Torch dtype {tensor.dtype} to an MLIR type")
+             elements_attr = DenseElementsAttr.get(
+-                type=element_type, array=np_tensor, shape=np_tensor.shape
++                array=array, type=element_type, shape=list(tensor.shape)
+             )
+         else:
+-            bytes_view = np_tensor.view(npy_dtype)
+-            tensor_type = create_mlir_tensor_type(tensor)
+-            shape_desc = "_".join([str(d) for d in tensor.shape])
+-            blob_name = f"torch_tensor_{shape_desc}_{str(tensor.dtype)}"
+-            elements_attr = DenseResourceElementsAttr.get_from_buffer(
+-                bytes_view,
+-                blob_name,
+-                tensor_type,
+-            )
++            np_tensor = np.array(tensor.tolist()).astype(npy_dtype)
++            # One element constants are more optimizable as splat DenseElementsAttr. DenseResourceElementsAttr does not
++            # support splats, so don't use it for that case. In addition, at the time of writing, it has bugs with handling
++            # 0d tensors.
++            if np_tensor.size == 1:
++                try:
++                    dtype = tensor.dtype
++                    element_type = TORCH_DTYPE_TO_MLIR_TYPE[dtype]()
++                except KeyError:
++                    raise TypeError(f"Could not map Torch dtype {dtype} to an MLIR type")
++                elements_attr = DenseElementsAttr.get(
++                    type=element_type, array=np_tensor, shape=np_tensor.shape
++                )
++            else:
++                bytes_view = np_tensor.view(npy_dtype)
++                tensor_type = create_mlir_tensor_type(tensor)
++                shape_desc = "_".join([str(d) for d in tensor.shape])
++                blob_name = f"torch_tensor_{shape_desc}_{str(tensor.dtype)}"
++                elements_attr = DenseResourceElementsAttr.get_from_buffer(
++                    bytes_view,
++                    blob_name,
++                    tensor_type,
++                )
+         mapping.value = elements_attr
+     else:
+         elements_attr = mapping.value
