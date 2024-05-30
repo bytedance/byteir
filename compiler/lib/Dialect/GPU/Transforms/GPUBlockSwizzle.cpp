@@ -40,12 +40,6 @@ using namespace llvm;
 using namespace mlir;
 
 namespace {
-#define GEN_PASS_DEF_GPUBLOCKSWIZZLEPASS
-#include "byteir/Dialect/GPU/Passes.h.inc"
-} // namespace
-
-namespace mlir {
-
 bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
   if (auto mapping = forallOp.getMappingAttr()) {
     if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
@@ -157,7 +151,6 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
   return success();
 }
 
-namespace {
 struct GPUBlockSwizzlePass : public GPUBlockSwizzleBase<GPUBlockSwizzlePass> {
 public:
   explicit GPUBlockSwizzlePass(int64_t swizzleLogTile)
@@ -178,9 +171,8 @@ private:
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createGPUBlockSwizzlePass(int64_t swizzleLogTile) {
-  llvm::errs() << "in createGPUBlockSwizzlePass swizzleLogTile: " << swizzleLogTile << "\n";
+mlir::createGPUBlockSwizzlePass(int64_t swizzleLogTile) {
+  llvm::errs() << "in createGPUBlockSwizzlePass swizzleLogTile: "
+               << swizzleLogTile << "\n";
   return std::make_unique<GPUBlockSwizzlePass>(swizzleLogTile);
 }
-
-} // namespace mlir
