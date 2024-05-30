@@ -1,4 +1,4 @@
-// RUN: byteir-opt -gpu-block-swizzle  -canonicalize -cse --verify-diagnostics %s | FileCheck %s
+// RUN: byteir-opt -gpu-block-swizzle="swizzle-log-tile=2"  -canonicalize -cse --verify-diagnostics %s | FileCheck %s
 
 #map = affine_map<(d0) -> (d0 * 128)>
 module {
@@ -26,3 +26,28 @@ module {
     return %0 : memref<5376x5376xf16>
   }
 }
+
+// CHECK: #[[MAP:.*]] = affine_map<(d0) -> (d0 * 128)>
+// CHECK:     %[[C4:.*]] = arith.constant 4 : index
+// CHECK-NEXT:     %[[C42:.*]] = arith.constant 42 : index
+// CHECK-NEXT:     %[[CST:.*]] = arith.constant 0.000000e+00 : f16
+// CHECK-NEXT:     %[[C0:.*]] = arith.constant 0 : index
+// CHECK-NEXT:     %[[C2048:.*]] = arith.constant 2048 : index
+// CHECK-NEXT:     %[[C32:.*]] = arith.constant 32 : index
+// CHECK-NEXT:     %[[ALLOC:.*]] = memref.alloc() : memref<5376x5376xf16>
+// CHECK:          scf.forall (%[[ARG2:.*]], %[[ARG3:.*]]) in (42, 42) {
+// CHECK-NEXT:       %[[REMUI0:.*]] = arith.remui %[[ARG2]], %[[C4]] : index
+// CHECK-NEXT:       %[[DIVUI0:.*]] = arith.divui %[[ARG2]], %[[C4]] : index
+// CHECK-NEXT:       %[[MULI0:.*]] = arith.muli %[[REMUI0]], %[[C42]] : index
+// CHECK-NEXT:       %[[ADDI0:.*]] = arith.addi %[[ARG3]], %[[MULI0]] : index
+// CHECK-NEXT:       %[[REMUI1:.*]] = arith.remui %[[ADDI0]], %[[C4]] : index
+// CHECK-NEXT:       %[[MULI1:.*]] = arith.muli %[[DIVUI0]], %[[C4]] : index
+// CHECK-NEXT:       %[[DIVUI1:.*]] = arith.divui %[[ADDI0]], %[[C4]] : index
+// CHECK-NEXT:       %[[ADDI1:.*]] = arith.addi %[[REMUI1]], %[[MULI1]] : index
+// CHECK-NEXT:       %[[ADDI2:.*]] = arith.addi %[[MULI1]], %[[C4]] : index
+// CHECK-NEXT:       %[[CMPI:.*]] = arith.cmpi ugt, %[[ADDI2]], %[[C42]] : index
+// CHECK-NEXT:       %[[SELECT0:.*]] = arith.select %[[CMPI]], %[[ARG3]], %[[DIVUI1]] : index
+// CHECK-NEXT:       %[[SELECT1:.*]] = arith.select %[[CMPI]], %[[ARG2]], %[[ADDI1]] : index
+// CHECK-NEXT:       %[[APPLY_MAP0:.*]] = affine.apply #[[MAP]](%[[SELECT0]])
+// CHECK-NEXT:       %[[APPLY_MAP1:.*]] = affine.apply #[[MAP]](%[[SELECT1]])
+// CHECK-NEXT:       %[[SUBVIEW:.*]] = memref.subview %[[ALLOC]][%[[APPLY_MAP0]], %[[APPLY_MAP1]]] [128, 128] [1, 1] : memref<5376x5376xf16> to memref<128x128xf16, strided<[5376, 1], offset: ?>>

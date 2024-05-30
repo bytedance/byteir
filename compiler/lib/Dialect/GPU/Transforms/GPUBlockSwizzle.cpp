@@ -97,7 +97,6 @@ makeSwizzledIds(Location loc, OpBuilder b, Value workgroupIdX,
 // Only support 2d grid.
 static LogicalResult reorderForallOpInFunc(func::FuncOp func,
                                            unsigned swizzleLogTile) {
-  llvm::errs() << "swizzleLogTile: " << swizzleLogTile << "\n";
   unsigned swizzleTile = 1 << swizzleLogTile;
   std::vector<scf::ForallOp> forallOps;
   func.walk([&](scf::ForallOp forallOp) {
