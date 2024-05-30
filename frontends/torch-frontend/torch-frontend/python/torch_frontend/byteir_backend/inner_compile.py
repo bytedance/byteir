@@ -57,7 +57,7 @@ def inner_compile(gm: torch.fx.GraphModule,
                   **kwargs) -> CompiledArtifact:
 
     graph_id = next(g_graph_counter)
-    log.debug(f"byteir compiling {compiler_type} graph {graph_id}")
+    log.info(f"byteir compiling {compiler_type} graph {graph_id}")
 
     if workdir is None:
         key = compiled_fx_graph_hash(gm, example_inputs, kwargs)

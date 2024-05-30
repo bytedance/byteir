@@ -7,6 +7,12 @@ def byteir(*args, **kwargs):
 
     return byteir_compiler(*args, **kwargs)
 
+@register_backend
+def byteir_debug(*args, **kwargs):
+    from .debug import debug_backend
+
+    return debug_backend(*args, **kwargs)
+
 def set_cache_dir(path: str):
     from .compilation_cache import ByteIRFxGraphCache
 
