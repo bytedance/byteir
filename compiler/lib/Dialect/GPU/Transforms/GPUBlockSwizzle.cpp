@@ -153,8 +153,9 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
 
 struct GPUBlockSwizzlePass : public GPUBlockSwizzleBase<GPUBlockSwizzlePass> {
 public:
-  explicit GPUBlockSwizzlePass(int64_t swizzleLogTile)
-      : swizzleLogTile(swizzleLogTile) {}
+  GPUBlockSwizzlePass(int64_t swizzleLogTile) : GPUBlockSwizzleBase() {
+    this->swizzleLogTile = swizzleLogTile;
+  }
 
   void runOnOperation() override {
     func::FuncOp op = getOperation();
@@ -164,15 +165,10 @@ public:
       return signalPassFailure();
     }
   }
-
-private:
-  int64_t swizzleLogTile;
 };
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createGPUBlockSwizzlePass(int64_t swizzleLogTile) {
-  llvm::errs() << "in createGPUBlockSwizzlePass swizzleLogTile: "
-               << swizzleLogTile << "\n";
   return std::make_unique<GPUBlockSwizzlePass>(swizzleLogTile);
 }
