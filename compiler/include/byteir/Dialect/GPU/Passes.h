@@ -18,8 +18,8 @@
 #ifndef BYTEIR_DIALECT_GPU_PASSES_H
 #define BYTEIR_DIALECT_GPU_PASSES_H
 
-#include "mlir/Pass/Pass.h"
 #include "byteir/Dialect/GPU/Transforms/GPUBlockSwizzle.h"
+#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 namespace gpu {
