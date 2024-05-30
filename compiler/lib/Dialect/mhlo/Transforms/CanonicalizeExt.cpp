@@ -1023,6 +1023,14 @@ static Attribute CompareFolder(mhlo::CompareOp op, ArrayRef<Attribute> attrs) {
     return {};
   }
 
+  auto resultTy = op.getType().cast<ShapedType>();
+  if (lhs.isSplat() && rhs.isSplat()) {
+    bool value =
+        Convert()(addSign(lhs.getSplatValue<SrcType>(), lhs.getElementType()),
+                  addSign(rhs.getSplatValue<SrcType>(), rhs.getElementType()));
+    return DenseElementsAttr::get(resultTy, value);
+  }
+
   SmallVector<bool, 6> values;
   values.reserve(lhs.getNumElements());
   for (const auto zip :
@@ -1032,7 +1040,6 @@ static Attribute CompareFolder(mhlo::CompareOp op, ArrayRef<Attribute> attrs) {
                   addSign(std::get<1>(zip), rhs.getElementType())));
   }
 
-  auto resultTy = op.getType().cast<ShapedType>();
   return DenseElementsAttr::get(resultTy, values);
 }
 
@@ -1206,10 +1213,6 @@ struct FoldLargeCompareOp : public OpRewritePattern<mhlo::CompareOp> {
     auto elementType =
         lhsOp.getValue().getType().cast<ShapedType>().getElementType();
     if (elementType.isa<ComplexType>()) {
-      return failure();
-    }
-    // upstream handled splat value
-    if (lhsOp.getValue().isSplat() || rhsOp.getValue().isSplat()) {
       return failure();
     }
 
