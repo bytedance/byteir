@@ -61,48 +61,7 @@ bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
   return false;
 }
 
-/// Implements the following swizzling logic:
-/// void getTiledId2(unsigned x, unsigned y, unsigned* tiledx,
-///                  unsigned* tiledy) {
-///  unsigned t_tiledx = (x + (y % tile) * grid_size_x) / tile;
-///  unsigned t_tiledy = (y / tile) * tile +
-///      (x + (y % tile) * grid_size_x) % tile;
-///  bool c = grid_size_y % tile != 0 &&
-///      ((y / tile) * tile + tile) > grid_size_y;
-///  *tiledx = c ? x : t_tiledx;
-///  *tiledy = c ? y : t_tiledy;
-/// }
-static std::pair<Value, Value>
-makeSwizzledIds(Location loc, OpBuilder b, Value workgroupIdX,
-                Value workgroupIdY, Value workgroupCountX,
-                Value workgroupCountY, unsigned swizzleTile) {
-  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
-  Value tile = b.create<arith::ConstantIndexOp>(loc, swizzleTile);
-  Value yModTile = b.create<arith::RemUIOp>(loc, workgroupIdY, tile);
-  Value yDivTile = b.create<arith::DivUIOp>(loc, workgroupIdY, tile);
-  Value swizzleParam = b.create<arith::MulIOp>(loc, yModTile, workgroupCountX);
-  Value swizzleParam2 =
-      b.create<arith::AddIOp>(loc, workgroupIdX, swizzleParam);
-  Value swizzleParam3 = b.create<arith::RemUIOp>(loc, swizzleParam2, tile);
-  Value swizzleParam4 = b.create<arith::MulIOp>(loc, yDivTile, tile);
-  Value unboundedSwizzledIdX =
-      b.create<arith::DivUIOp>(loc, swizzleParam2, tile);
-  Value unboundedSwizzledIdY =
-      b.create<arith::AddIOp>(loc, swizzleParam3, swizzleParam4);
-  Value gyModTile = b.create<arith::RemUIOp>(loc, workgroupCountY, tile);
-  Value gyAddTile = b.create<arith::AddIOp>(loc, swizzleParam4, tile);
-  Value condition1 =
-      b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne, gyModTile, zero);
-  Value condition2 = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ugt,
-                                             gyAddTile, workgroupCountY);
-  Value condition3 = b.create<arith::AndIOp>(loc, condition1, condition2);
-  Value swizzledIdX = b.create<arith::SelectOp>(loc, condition3, workgroupIdX,
-                                                unboundedSwizzledIdX);
-  Value swizzledIdY = b.create<arith::SelectOp>(loc, condition3, workgroupIdY,
-                                                unboundedSwizzledIdY);
-  return {swizzledIdX, swizzledIdY};
-}
-
+// Implements the following swizzling logic:
 // def get_tiled_id_triton(x, y, grid_size_x, grid_size_y, tile):
 //     GROUP_SIZE_M = tile
 //     pid = x + y * grid_size_x
