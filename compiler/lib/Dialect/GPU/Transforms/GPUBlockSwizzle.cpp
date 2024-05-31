@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+// Some code comes from
+// compiler/src/iree/compiler/Codegen/Common/GPU/WorkgroupReordering.cpp of
+// IREE project.
+// Original license:
+// Copyright 2022 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "byteir/Dialect/GPU/Transforms/GPUBlockSwizzle.h"
 #include "byteir/Dialect/GPU/Passes.h"
