@@ -168,7 +168,6 @@ std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp) {
 //===----------------------------------------------------------------------===//
 // GPU processor IDs and sizes
 //===----------------------------------------------------------------------===//
-// 得到procInfo
 llvm::SmallVector<mlir::linalg::ProcInfo, 2>
 getGPUThreadIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
                          unsigned numDims,
@@ -188,6 +187,7 @@ getGPUThreadIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
   return procInfo;
 }
 
+// warpIdx.x = threadIdx.x / warpsize
 llvm::SmallVector<mlir::linalg::ProcInfo, 2>
 getSubgroupIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
                         unsigned warpSize, unsigned numDims,
