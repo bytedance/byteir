@@ -1,4 +1,4 @@
-//===- OptimizeVectorTransfer.h --------------------------------------*--- C++
+//===- GPUDistributeToWarp.h --------------------------------------*--- C++
 //-*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
