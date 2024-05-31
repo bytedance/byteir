@@ -19,6 +19,7 @@
 
 #include "byteir/Conversion/ToGPU/ToGPU.h"
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Transforms/TransformInsertion.h"
@@ -44,31 +45,6 @@ static constexpr int64_t kMaximumBlockDim = 1024;
 struct MappingForallConfig {
   SmallVector<int64_t> blockDims;
 };
-
-// TODO: move to common helper
-bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
-  if (auto mapping = forallOp.getMappingAttr()) {
-    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
-          return isa<gpu::GPUBlockMappingAttr>(attr);
-        })) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool isMappedToGPUThreads(scf::ForallOp forallOp) {
-  if (auto mapping = forallOp.getMappingAttr()) {
-    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
-          return isa<gpu::GPUThreadMappingAttr>(attr);
-        })) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 void updateBlockDims(scf::ForallOp forallOp, SmallVector<int64_t> &blockDims) {
   for (auto &&[lb, ub, step, mappingAttr] : llvm::zip(

@@ -122,26 +122,27 @@ class RemoveSingleIterationLoopPass final
       return;
     }
 
+    auto blockSizeOptional = getGemmBlockSize(funcOp);
+    auto tileSizeOptional = getGemmTileSize(funcOp);
+    if (!blockSizeOptional || !tileSizeOptional) {
+      return;
+    }
+
     SmallVector<int64_t, 3> workgroupSize = getGemmBlockSize(funcOp).value();
     SmallVector<int64_t, 3> tileSize = getGemmTileSize(funcOp).value();
-    func::ReturnOp returnOp =
-        cast<func::ReturnOp>(funcOp.getBody().front().getTerminator());
 
-    // Here is a hack way to get the number of workgroups.
-    // As we know the tile size and the result shape, so number of workgroups is
-    // resultShape / tileSize.
-    // If it is a bmm, this algorithm will be wrong.
-    // TODO: use the number of workgroups from a more elegant way.
-
-    memref::AllocOp allocOp =
-        dyn_cast<memref::AllocOp>(returnOp.getOperand(0).getDefiningOp());
-    if (!allocOp)
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
+    if (!forallOpOptional)
       return;
-    auto memrefShape = allocOp.getType().getShape();
-    SmallVector<int64_t> numWorkgroups;
-    for (int i = 0; i < 2; i++) {
-      numWorkgroups.push_back(memrefShape[i] / tileSize[i]);
-    }
+    auto forallOp = forallOpOptional.value();
+
+    auto numParallelIterations =
+        getConstantIntValues(forallOp.getMixedUpperBound());
+
+    assert(forallOp.isNormalized() && numParallelIterations.has_value() &&
+           "requires normalized forall op");
+
+    SmallVector<int64_t> numWorkgroups = numParallelIterations.value();
     numWorkgroups.push_back(1);
 
     if (failed(removeOneTripTiledLoops(funcOp, workgroupSize, numWorkgroups))) {

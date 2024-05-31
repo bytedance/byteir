@@ -19,6 +19,7 @@
 
 #include "byteir/Conversion/ToGPU/ToGPU.h"
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/Linalg/TransformOps/LinalgExtTransformOps.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Dialect/Transform/Transforms/TransformInsertion.h"
@@ -49,74 +50,6 @@ constexpr bool isPowerOf2(int64_t n) { return (!(n & (n - 1))); }
 
 constexpr int64_t nextPowerOf2(int64_t n) {
   return (n <= 1) ? 1 : (isPowerOf2(n) ? n : (2 * nextPowerOf2((n + 1) / 2)));
-}
-
-bool isMappedToGPUBlocks(scf::ForOp forOp) {
-  if (auto loopToSIMTAttr =
-          forOp->getAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
-    auto mappingTo = loopToSIMTAttr.getValue();
-    if (mappingTo == getBlockIdXName() || mappingTo == getBlockIdYName() ||
-        mappingTo == getBlockIdZName()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
-  if (auto mapping = forallOp.getMappingAttr()) {
-    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
-          return isa<gpu::GPUBlockMappingAttr>(attr);
-        })) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool isMappedToGPUBlocks(Operation *op) {
-  if (auto forOp = llvm::dyn_cast_or_null<scf::ForOp>(op)) {
-    return isMappedToGPUBlocks(forOp);
-  }
-  if (auto forallOp = llvm::dyn_cast_or_null<scf::ForallOp>(op)) {
-    return isMappedToGPUBlocks(forallOp);
-  }
-  return false;
-}
-
-bool isMappedToGPUThreads(scf::ForOp forOp) {
-  if (auto loopToSIMTAttr =
-          forOp->getAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
-    auto mappingTo = loopToSIMTAttr.getValue();
-    if (mappingTo == getThreadIdXName() || mappingTo == getThreadIdYName() ||
-        mappingTo == getThreadIdZName()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool isMappedToGPUThreads(scf::ForallOp forallOp) {
-  if (auto mapping = forallOp.getMappingAttr()) {
-    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
-          return isa<gpu::GPUThreadMappingAttr>(attr);
-        })) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool isMappedToGPUThreads(Operation *op) {
-  if (auto forOp = llvm::dyn_cast_or_null<scf::ForOp>(op)) {
-    return isMappedToGPUThreads(forOp);
-  }
-  if (auto forallOp = llvm::dyn_cast_or_null<scf::ForallOp>(op)) {
-    return isMappedToGPUThreads(forallOp);
-  }
-  return false;
 }
 
 uint64_t getNumTiledLoops(ArrayRef<int64_t> tileSizes) {

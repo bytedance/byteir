@@ -21,10 +21,6 @@ module {
     } {mapping = [#gpu.block<y>, #gpu.block<x>]}
     return %alloc : memref<5376x5376xf16>
   }
-  func.func @main(%arg0: memref<5376x2048xf16>, %arg1: memref<2048x5376xf16>) -> memref<5376x5376xf16> attributes {__placeholder__byre.entry_point} {
-    %0 = call @Unknown0(%arg0, %arg1) : (memref<5376x2048xf16>, memref<2048x5376xf16>) -> memref<5376x5376xf16>
-    return %0 : memref<5376x5376xf16>
-  }
 }
 
 // CHECK: #[[MAP1:.*]] = affine_map<()[s0] -> (s0 * 64)>

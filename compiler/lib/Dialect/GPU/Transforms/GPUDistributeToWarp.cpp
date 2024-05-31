@@ -51,25 +51,11 @@
 static constexpr int32_t kWarpSize = 32;
 static constexpr int32_t kNumGPUDims = 3;
 
-static constexpr mlir::StringRef copyToWorkgroupMemoryMarker =
-    "copy_to_workgroup_memory";
 static constexpr mlir::StringRef vectorizeMarker = "vectorize";
-
-// Markers for intermediate transformations.
-static const llvm::StringRef kCopyToDistribute = "copy_to_distribute";
-static const llvm::StringRef kCopyDistributed = "copy_distributed";
 
 namespace mlir {
 
-static StringRef getCopyToWorkgroupMemoryMarker() {
-  return copyToWorkgroupMemoryMarker;
-}
-
 static StringRef getVectorizeMarker() { return vectorizeMarker; }
-
-static StringRef getWorkgroupKTiledMarker() { return "workgroup_k_tiled"; }
-
-static StringRef getWorkgroupMemoryMarker() { return "workgroup_memory"; }
 
 /// Filters out dimensions in `parallelLoops` that have unit range in
 /// `loopRanges`.
@@ -108,6 +94,9 @@ static SmallVector<Value>
 calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
                              Operation *operation) {
   func::FuncOp funcOp = operation->getParentOfType<func::FuncOp>();
+  auto blockTileSizeOptional = getGemmTileSize(funcOp);
+  if (!blockTileSizeOptional.has_value())
+    return {};
   SmallVector<int64_t, 3> blockTileSize = getGemmTileSize(funcOp).value();
   SmallVector<Value> tileSizesVal;
 
@@ -139,12 +128,12 @@ calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
   return tileSizesVal;
 }
 
-/// Tiles to warp.
+/// Tiles to warp in the ForallOp which is mapped to threadblock.
 /// distribute parallel loops to warp
 /// warpIdx.x = threadIdx.x / 32
 /// warpIdx.y = threadIdx.y
 /// warpIdx.z = threadIdx.z
-static LogicalResult tileToWarp(func::FuncOp funcOp,
+static LogicalResult tileToWarp(scf::ForallOp forallOp,
                                 SmallVectorImpl<int64_t> &workgroupSize) {
   std::array<int64_t, 3> warpPerWorkgroup = {
       workgroupSize[0] / kWarpSize, workgroupSize[1], workgroupSize[2]};
@@ -167,11 +156,11 @@ static LogicalResult tileToWarp(func::FuncOp funcOp,
                            .setLoopType(linalg::LinalgTilingLoopType::Loops)
                            .setTileSizeComputationFunction(getInnerTileSizeFn)
                            .setDistributionOptions(warpDistributionOptions);
-  MLIRContext *context = funcOp.getContext();
+  MLIRContext *context = forallOp.getContext();
+  // March nothing in kLinalgTransformMarker, and set kLinalgTransformMarker to
+  // "vectorize".
   linalg_ext::LinalgTransformationFilter filter(
-      {StringAttr::get(context, getWorkgroupKTiledMarker()),
-       StringAttr::get(context, getWorkgroupMemoryMarker())},
-      StringAttr::get(context, getVectorizeMarker()));
+      ArrayRef<StringAttr>{}, StringAttr::get(context, getVectorizeMarker()));
   filter
       .addFilter([](Operation *op) {
         // linalg.copy will be handled by GPUDistributeSharedMemoryCopy pass.
@@ -179,7 +168,7 @@ static LogicalResult tileToWarp(func::FuncOp funcOp,
         return success(!isa<linalg::CopyOp>(op));
       })
       .setMatchByDefault();
-  return distributeLinalgOpsWithFilter(funcOp, tilingOptions, filter);
+  return distributeLinalgOpsWithFilter(forallOp, tilingOptions, filter);
 }
 
 namespace {
@@ -191,27 +180,42 @@ public:
     registry.insert<affine::AffineDialect, gpu::GPUDialect>();
   }
   void runOnOperation() override {
-    MLIRContext *context = &getContext();
     auto funcOp = getOperation();
+
+    if (!hasGemmTileConfig(funcOp)) {
+      return signalPassFailure();
+    }
 
     // blockDim.x will be a multiple of warp size, in Nvidia GPU, the number
     // should be 32.
     std::optional<SmallVector<int64_t, 3>> optionalWorkgroupSize =
         getGemmBlockSize(funcOp);
-    if (!optionalWorkgroupSize.has_value())
-      return;
+    if (!optionalWorkgroupSize.has_value()) {
+      return signalPassFailure();
+    }
 
     SmallVector<int64_t, 3> workgroupSize = optionalWorkgroupSize.value();
 
-    // Apply last level of tiling and distribute to warps.
-    if (failed(tileToWarp(funcOp, workgroupSize))) {
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
+    if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }
+    scf::ForallOp forallOp = *forallOpOptional;
+
+    // Apply last level of tiling and distribute to warps.
+    if (failed(tileToWarp(forallOp, workgroupSize))) {
+      return signalPassFailure();
+    }
+
+    LLVM_DEBUG({
+      llvm::dbgs() << "After distribute to warp, before canonicalize:";
+      funcOp.dump();
+    });
 
     {
       // Apply canonicalization patterns.
       RewritePatternSet threadTilingCanonicalizationPatterns =
-          linalg::getLinalgTilingCanonicalizationPatterns(context);
+          linalg::getLinalgTilingCanonicalizationPatterns(funcOp.getContext());
       // populateAffineMinSCFCanonicalizationPattern(
       //     threadTilingCanonicalizationPatterns);
       if (failed(applyPatternsAndFoldGreedily(

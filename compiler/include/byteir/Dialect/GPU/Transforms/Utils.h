@@ -45,7 +45,6 @@ static constexpr StringRef getGemmBlockSizeAttrName() {
 static constexpr StringRef getGemmPipelineDepthAttrName() {
   return "__byteir_gemm_pipeline_depth__";
 }
-
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);
@@ -61,14 +60,22 @@ getSubgroupIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
                         unsigned warpSize, unsigned numDims,
                         llvm::ArrayRef<int64_t> numSubgroups);
 
+bool isMappedToGPUBlocks(Operation *op);
+bool isMappedToGPUThreads(Operation *op);
+
+// Get the ForallOp which mapped to threadblock level in a function.
+// There should be only one valid ForallOp, otherwise the function will return
+// std::nullopt;
+std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp);
+
 /// Distributes LinalgOp ops that match filter.
 LogicalResult
-distributeLinalgOpsWithFilter(func::FuncOp funcOp,
+distributeLinalgOpsWithFilter(Operation *root,
                               linalg::LinalgTilingOptions tilingOptions,
                               linalg_ext::LinalgTransformationFilter filter);
 
 LogicalResult
-distributeLinalgOpsWithFilter(IRRewriter &rewriter, func::FuncOp funcOp,
+distributeLinalgOpsWithFilter(IRRewriter &rewriter, Operation *root,
                               linalg::LinalgTilingOptions tilingOptions,
                               linalg_ext::LinalgTransformationFilter filter);
 } // namespace mlir

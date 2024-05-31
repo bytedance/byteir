@@ -18,6 +18,7 @@
 
 #include <optional>
 
+#include "byteir/Conversion/ToGPU/ToGPU.h"
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 
@@ -84,6 +85,86 @@ bool hasGemmTileConfig(func::FuncOp funcOp) {
   return funcOp->hasAttr(getByteIRMatmulEpilogueFusionAttrName());
 }
 
+// Check if the ForallOp is already mapped to threadblock level.
+static bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
+  if (auto mapping = forallOp.getMappingAttr()) {
+    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
+          return isa<gpu::GPUBlockMappingAttr>(attr);
+        })) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool isMappedToGPUThreads(scf::ForallOp forallOp) {
+  if (auto mapping = forallOp.getMappingAttr()) {
+    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
+          return isa<gpu::GPUThreadMappingAttr>(attr);
+        })) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool isMappedToGPUBlocks(scf::ForOp forOp) {
+  if (auto loopToSIMTAttr =
+          forOp->getAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
+    auto mappingTo = loopToSIMTAttr.getValue();
+    if (mappingTo == getBlockIdXName() || mappingTo == getBlockIdYName() ||
+        mappingTo == getBlockIdZName()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool isMappedToGPUThreads(scf::ForOp forOp) {
+  if (auto loopToSIMTAttr =
+          forOp->getAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
+    auto mappingTo = loopToSIMTAttr.getValue();
+    if (mappingTo == getThreadIdXName() || mappingTo == getThreadIdYName() ||
+        mappingTo == getThreadIdZName()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool isMappedToGPUBlocks(Operation *op) {
+  if (auto forOp = llvm::dyn_cast_or_null<scf::ForOp>(op)) {
+    return isMappedToGPUBlocks(forOp);
+  }
+  if (auto forallOp = llvm::dyn_cast_or_null<scf::ForallOp>(op)) {
+    return isMappedToGPUBlocks(forallOp);
+  }
+  return false;
+}
+
+bool isMappedToGPUThreads(Operation *op) {
+  if (auto forOp = llvm::dyn_cast_or_null<scf::ForOp>(op)) {
+    return isMappedToGPUThreads(forOp);
+  }
+  if (auto forallOp = llvm::dyn_cast_or_null<scf::ForallOp>(op)) {
+    return isMappedToGPUThreads(forallOp);
+  }
+  return false;
+}
+
+std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp) {
+  std::vector<scf::ForallOp> forallOps;
+  funcOp.walk([&](scf::ForallOp forallOp) {
+    if (isMappedToGPUBlocks(forallOp) &&
+        forallOp.getMappingAttr().getValue().size() == 2)
+      forallOps.push_back(forallOp);
+  });
+  if (forallOps.size() != 1) {
+    return std::nullopt;
+  }
+  return forallOps[0];
+}
+
 //===----------------------------------------------------------------------===//
 // GPU processor IDs and sizes
 //===----------------------------------------------------------------------===//
@@ -136,11 +217,11 @@ getSubgroupIdsAndCounts(mlir::OpBuilder &builder, mlir::Location loc,
 
 /// Distributes LinalgOp ops that match filter, rewriter provided.
 LogicalResult
-distributeLinalgOpsWithFilter(IRRewriter &rewriter, func::FuncOp funcOp,
+distributeLinalgOpsWithFilter(IRRewriter &rewriter, Operation *root,
                               linalg::LinalgTilingOptions tilingOptions,
                               linalg_ext::LinalgTransformationFilter filter) {
   SmallVector<linalg::LinalgOp> candidates;
-  funcOp.walk([&](linalg::LinalgOp op) {
+  root->walk([&](linalg::LinalgOp op) {
     if (succeeded(filter.checkAndNotify(rewriter, op))) {
       candidates.push_back(op);
     }
@@ -166,11 +247,11 @@ distributeLinalgOpsWithFilter(IRRewriter &rewriter, func::FuncOp funcOp,
 
 /// Distributes LinalgOp ops that match filter.
 LogicalResult
-distributeLinalgOpsWithFilter(func::FuncOp funcOp,
+distributeLinalgOpsWithFilter(Operation *root,
                               linalg::LinalgTilingOptions tilingOptions,
                               linalg_ext::LinalgTransformationFilter filter) {
-  IRRewriter rewriter(funcOp.getContext());
-  return distributeLinalgOpsWithFilter(rewriter, funcOp, tilingOptions, filter);
+  IRRewriter rewriter(root->getContext());
+  return distributeLinalgOpsWithFilter(rewriter, root, tilingOptions, filter);
 }
 
 } // namespace mlir
