@@ -121,6 +121,8 @@ struct ConvertAten_IndexPutImplOp
             rewriter.getContext(),
             /*updateWindowDims=*/updateWindowDims,
             /*insertedWindowDims=*/insertedWindowDims,
+            /*inputBatchingDims=*/{},
+            /*scatterIndicesBatchingDims=*/{},
             /*scatterDimsToOperandDims=*/scatterDimsToOperandDims,
             /*indexVectorDim=*/indexVectorDim);
 
