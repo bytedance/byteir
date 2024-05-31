@@ -103,6 +103,57 @@ makeSwizzledIds(Location loc, OpBuilder b, Value workgroupIdX,
   return {swizzledIdX, swizzledIdY};
 }
 
+// def get_tiled_id_triton(x, y, grid_size_x, grid_size_y, tile):
+//     GROUP_SIZE_M = tile
+//     pid = x + y * grid_size_x
+//     # Number of programs in group
+//     num_pid_in_group = GROUP_SIZE_M * grid_size_x
+//     # Id of the group this program is in
+//     group_id = pid // num_pid_in_group
+//     # Row-id of the first program in the group
+//     first_pid_m = group_id * GROUP_SIZE_M
+//     # If `num_pid_m` isn't divisible by `GROUP_SIZE_M`
+//     group_size_m = min(grid_size_y - first_pid_m, GROUP_SIZE_M)
+//     # *Within groups*, programs are ordered in a column-major order
+//     # Row-id of the program in the *launch grid*
+//     pid_m = first_pid_m + (pid % group_size_m)
+//     # Col-id of the program in the *launch grid*
+//     pid_n = (pid % num_pid_in_group) // group_size_m
+// return pid_n, pid_m
+static std::pair<Value, Value>
+makeSwizzledIdsInTritonWay(Location loc, OpBuilder &b, Value x, Value y,
+                           Value gridSizeX, Value gridSizeY,
+                           unsigned swizzleTile) {
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value groupSizeM = b.create<arith::ConstantIndexOp>(loc, swizzleTile);
+  // pid = x + y * grid_size_x
+  Value pid = b.create<arith::AddIOp>(
+      loc, x, b.create<arith::MulIOp>(loc, y, gridSizeX));
+
+  // num_pid_in_group = GROUP_SIZE_M * grid_size_x
+  Value numPidInGroup = b.create<arith::MulIOp>(loc, groupSizeM, gridSizeX);
+  // group_id = pid / num_pid_in_group
+  Value groupId = b.create<arith::DivUIOp>(loc, pid, numPidInGroup);
+  // first_pid_m = group_id * GROUP_SIZE_M
+  Value firstPidM = b.create<arith::MulIOp>(loc, groupId, groupSizeM);
+  // group_size_m = min(grid_size_y - first_pid_m, GROUP_SIZE_M)
+  Value gridSizeYMinusFirstPidM =
+      b.create<arith::SubIOp>(loc, gridSizeY, firstPidM);
+  Value groupSizeMFinal =
+      b.create<arith::MinSIOp>(loc, gridSizeYMinusFirstPidM, groupSizeM);
+
+  // pid_m = first_pid_m + (pid % group_size_m)
+  Value pidModGroupSizeM = b.create<arith::RemUIOp>(loc, pid, groupSizeMFinal);
+  Value pidM = b.create<arith::AddIOp>(loc, firstPidM, pidModGroupSizeM);
+
+  // pid_n = (pid % num_pid_in_group) / group_size_m
+  Value pidModNumPidInGroup = b.create<arith::RemUIOp>(loc, pid, numPidInGroup);
+  Value pidN =
+      b.create<arith::DivUIOp>(loc, pidModNumPidInGroup, groupSizeMFinal);
+
+  return {pidN, pidM};
+}
+
 // Only support 2d grid.
 static LogicalResult reorderForallOpInFunc(func::FuncOp func,
                                            unsigned swizzleLogTile) {
@@ -149,9 +200,9 @@ static LogicalResult reorderForallOpInFunc(func::FuncOp func,
     workgroupCountY = gridSize[0];
   }
 
-  auto [swizzledIdX, swizzledIdY] =
-      makeSwizzledIds(newforallOp.getLoc(), b, workgroupIdX, workgroupIdY,
-                      workgroupCountX, workgroupCountY, swizzleTile);
+  auto [swizzledIdX, swizzledIdY] = makeSwizzledIdsInTritonWay(
+      newforallOp.getLoc(), b, workgroupIdX, workgroupIdY, workgroupCountX,
+      workgroupCountY, swizzleTile);
 
   IRMapping bvm;
   bvm.map(originLoops[0], swizzledIdX);
