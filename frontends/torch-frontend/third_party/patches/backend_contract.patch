@@ -1,5 +1,5 @@
 diff --git a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
-index 38198a91..fd4a40df 100644
+index 4542287a..4d4d997a 100644
 --- a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
 +++ b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
 @@ -10,6 +10,7 @@
@@ -9,8 +9,8 @@ index 38198a91..fd4a40df 100644
 +#include "mlir/IR/OpDefinition.h"
  #include "mlir/Pass/PassManager.h"
  #include "mlir/Transforms/DialectConversion.h"
- #include "mlir/Transforms/Passes.h"
-@@ -30,6 +31,50 @@ using namespace mlir::torch::Torch;
+ #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
+@@ -29,6 +30,50 @@ using namespace mlir::torch::Torch;
  // Checking the backend contract.
  //===----------------------------------------------------------------------===//
  
