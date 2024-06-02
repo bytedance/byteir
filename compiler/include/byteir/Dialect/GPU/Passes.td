@@ -56,5 +56,12 @@ def RemoveTrivialLoops : Pass<"remove-trivial-loops", "func::FuncOp"> {
   let constructor = "mlir::createRemoveTrivialLoopsPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// GPUDistributeSharedMemoryCopy
+//===----------------------------------------------------------------------===//
+def GPUDistributeSharedMemoryCopy : Pass<"gpu-distribute-shared-memory-copy", "func::FuncOp"> {
+  let summary = "Pass to distribute Linalg CopyOp to Vector TransferReadOp.";
+  let constructor = "mlir::createGPUDistributeSharedMemoryCopyPass()";
+}
 
 #endif // BYTEIR_DIALECT_GPU_PASSES

@@ -20,6 +20,7 @@
 
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
 #include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoops.h"
+#include "byteir/Dialect/GPU/Transforms/GPUDistributeSharedMemoryCopy.h"
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
