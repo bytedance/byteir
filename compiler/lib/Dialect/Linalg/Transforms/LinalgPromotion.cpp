@@ -1,5 +1,4 @@
-//===- LinalgPromote.cpp -------------------------------------*--- C++
-//-*-===//
+//===- LinalgPromotion.cpp ----------------------------------*--- C++-*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,7 +82,7 @@ allocateWorkgroupMemory(OpBuilder &builder, memref::SubViewOp subview,
   memref::AllocaOp buffer =
       builder.create<memref::AllocaOp>(forallOp.getLoc(), type);
   setMarker(buffer, allocMarker[OPERAND]);
-  // to fix fill op.
+  // To fix fill op. The FillOp operand `subview` should be rewrited to `alloca`
   subview->replaceUsesWithIf(buffer, [&](OpOperand &opOperand) {
     return isa<linalg::FillOp>(opOperand.getOwner());
   });
@@ -111,7 +110,7 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
 
   auto op = src.getDefiningOp();
   scf::ForallOp forallOp = op->getParentOfType<scf::ForallOp>();
-  // copyWorkgroupMemoryToGlobalMemory before GPU kernel end.
+  // copyWorkgroupMemoryToGlobalMemory before the GPU kernel end.
   Operation *terminator = forallOp.getBody()->getTerminator();
   b.setInsertionPoint(terminator);
 
