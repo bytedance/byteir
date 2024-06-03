@@ -48,13 +48,12 @@
 
 #define DEBUG_TYPE "gpu-distribute-to-warp"
 
-static constexpr int32_t kWarpSize = 32;
-static constexpr int32_t kNumGPUDims = 3;
-
 using namespace mlir;
 
 namespace {
 
+static constexpr int32_t kWarpSize = 32;
+static constexpr int32_t kNumGPUDims = 3;
 static constexpr StringRef getVectorizeMarker() { return "vectorize"; }
 
 /// Filters out dimensions in `parallelLoops` that have unit range in
