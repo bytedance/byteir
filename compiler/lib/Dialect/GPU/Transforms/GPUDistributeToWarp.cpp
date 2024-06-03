@@ -51,11 +51,11 @@
 static constexpr int32_t kWarpSize = 32;
 static constexpr int32_t kNumGPUDims = 3;
 
-static constexpr mlir::StringRef vectorizeMarker = "vectorize";
+using namespace mlir;
 
-namespace mlir {
+namespace {
 
-static StringRef getVectorizeMarker() { return vectorizeMarker; }
+static constexpr StringRef getVectorizeMarker() { return "vectorize"; }
 
 /// Filters out dimensions in `parallelLoops` that have unit range in
 /// `loopRanges`.
@@ -165,13 +165,13 @@ static LogicalResult tileToWarp(scf::ForallOp forallOp,
       .addFilter([](Operation *op) {
         // linalg.copy will be handled by GPUDistributeSharedMemoryCopy pass.
         // So we should not tile it here.
-        return success(!isa<linalg::CopyOp>(op));
+        return success(
+            isa<linalg::FillOp, linalg::MatmulOp, linalg::BatchMatmulOp>(op));
       })
       .setMatchByDefault();
   return distributeLinalgOpsWithFilter(forallOp, tilingOptions, filter);
 }
 
-namespace {
 struct GPUDistributeToWarpPass
     : public GPUDistributeToWarpBase<GPUDistributeToWarpPass> {
 public:
@@ -232,8 +232,7 @@ public:
 };
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createGPUDistributeToWarpPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createGPUDistributeToWarpPass() {
   return std::make_unique<GPUDistributeToWarpPass>();
 }
-
-} // namespace mlir
