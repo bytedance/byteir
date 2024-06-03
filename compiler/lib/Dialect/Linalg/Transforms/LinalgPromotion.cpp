@@ -14,6 +14,16 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+// Some code comes from
+// mlir/lib/Dialect/Linalg/Transforms/Promotion.cpp of
+// LLVM project.
+// Original license:
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Linalg/Transforms/LinalgPromotion.h"
 #include "byteir/Utils/LoopUtils.h"
