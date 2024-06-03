@@ -1,5 +1,4 @@
-//===- GPUCodegenUtils.h -----------------------------------------------*--- C++
-//-*-===//
+//===- Utils.h ------------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,7 +65,7 @@ bool isMappedToGPUThreads(Operation *op);
 // Get the ForallOp which mapped to threadblock level in a function.
 // There should be only one valid ForallOp, otherwise the function will return
 // std::nullopt;
-std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp);
+std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp);
 
 /// Distributes LinalgOp ops that match filter.
 LogicalResult

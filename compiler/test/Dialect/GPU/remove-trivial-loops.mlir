@@ -1,4 +1,4 @@
-// RUN: byteir-opt --remove-single-iteration-loop -canonicalize -cse --verify-diagnostics %s | FileCheck %s
+// RUN: byteir-opt -remove-trivial-loops -canonicalize -cse --verify-diagnostics %s | FileCheck %s
 
 #map = affine_map<(d0) -> (d0 * 128)>
 #map1 = affine_map<()[s0] -> (s0 * 64)>

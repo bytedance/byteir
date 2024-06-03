@@ -1,4 +1,4 @@
-//===- RemoveTrivialLoopsInKernel.h ----------------------------*---C++-*-===//
+//===- RemoveTrivialLoops.h ----------------------------*---C++-*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_GPU_TRANSFORMS_REMOVETRIVIALLOOPSINKERNEL_H
-#define BYTEIR_DIALECT_GPU_TRANSFORMS_REMOVETRIVIALLOOPSINKERNEL_H
+#ifndef BYTEIR_DIALECT_GPU_TRANSFORMS_REMOVETRIVIALLOOPS_H
+#define BYTEIR_DIALECT_GPU_TRANSFORMS_REMOVETRIVIALLOOPS_H
 
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/StringRef.h"
@@ -27,9 +27,8 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createRemoveSingleIterationLoopPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createRemoveTrivialLoopsPass();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_GPU_TRANSFORMS_REMOVETRIVIALLOOPSINKERNEL_H
+#endif // BYTEIR_DIALECT_GPU_TRANSFORMS_REMOVETRIVIALLOOPS_H

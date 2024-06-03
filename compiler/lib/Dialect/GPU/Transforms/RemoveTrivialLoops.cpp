@@ -1,5 +1,4 @@
-//===- RemoveTrivialLoops.cpp ------------------------------------*--- C++
-//-*-===//
+//===- RemoveTrivialLoops.cpp -------------------------------*--- C++-*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +24,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoopsInKernel.h"
+#include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoops.h"
 #include "byteir/Dialect/GPU/Transforms/Transforms.h"
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/SCF/Transforms/RemoveSingleIterationLoop.h"
@@ -90,7 +89,7 @@ getWorkgroupRange(Value processorValue, SmallVectorImpl<Value> & /*dims*/,
     unsigned index = dimToIndex(idOp.getDimension());
     AffineExpr zero = builder.getAffineConstantExpr(0);
     AffineExpr ubExpr = builder.getAffineConstantExpr(workgroupCount[index]);
-    return std::make_pair(zero, ubExpr);
+    return std::make_pair(zero, ubExpr - 1);
   }
 
   return std::nullopt;
@@ -113,8 +112,8 @@ static LogicalResult removeOneTripTiledLoops(func::FuncOp funcOp,
 
 namespace {
 
-class RemoveSingleIterationLoopPass final
-    : public RemoveSingleIterationLoopBase<RemoveSingleIterationLoopPass> {
+class RemoveTrivialLoopsPass final
+    : public RemoveTrivialLoopsBase<RemoveTrivialLoopsPass> {
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
 
@@ -123,28 +122,22 @@ class RemoveSingleIterationLoopPass final
     }
 
     auto blockSizeOptional = getGemmBlockSize(funcOp);
-    auto tileSizeOptional = getGemmTileSize(funcOp);
-    if (!blockSizeOptional || !tileSizeOptional) {
+    if (!blockSizeOptional) {
       return;
     }
+    SmallVector<int64_t, 3> workgroupSize = blockSizeOptional.value();
 
-    SmallVector<int64_t, 3> workgroupSize = getGemmBlockSize(funcOp).value();
-    SmallVector<int64_t, 3> tileSize = getGemmTileSize(funcOp).value();
-
-    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
     if (!forallOpOptional)
       return;
     auto forallOp = forallOpOptional.value();
-
     auto numParallelIterations =
         getConstantIntValues(forallOp.getMixedUpperBound());
-
     assert(forallOp.isNormalized() && numParallelIterations.has_value() &&
            "requires normalized forall op");
 
     SmallVector<int64_t> numWorkgroups = numParallelIterations.value();
     numWorkgroups.push_back(1);
-
     if (failed(removeOneTripTiledLoops(funcOp, workgroupSize, numWorkgroups))) {
       return signalPassFailure();
     }
@@ -152,9 +145,8 @@ class RemoveSingleIterationLoopPass final
 };
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createRemoveSingleIterationLoopPass() {
-  return std::make_unique<RemoveSingleIterationLoopPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createRemoveTrivialLoopsPass() {
+  return std::make_unique<RemoveTrivialLoopsPass>();
 }
 
 } // namespace mlir

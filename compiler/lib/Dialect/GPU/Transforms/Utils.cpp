@@ -1,5 +1,4 @@
-//===- GPUCodeGenUtils.cpp ---------------------------------------------*--- C++
-//-*-===//
+//===- Utils.cpp ----------------------------------------------*--- C++-*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -152,7 +151,7 @@ bool isMappedToGPUThreads(Operation *op) {
   return false;
 }
 
-std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp) {
+std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp) {
   std::vector<scf::ForallOp> forallOps;
   funcOp.walk([&](scf::ForallOp forallOp) {
     if (isMappedToGPUBlocks(forallOp) &&

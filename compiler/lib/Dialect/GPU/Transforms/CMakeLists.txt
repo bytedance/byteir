@@ -1,7 +1,7 @@
 add_mlir_dialect_library(ByteIRGPUPasses
   ShmAllocaToWorkgroupArg.cpp
   GPUDistributeToWarp.cpp
-  RemoveTrivialLoopsInKernel.cpp
+  RemoveTrivialLoops.cpp
   Utils.cpp
 
   ADDITIONAL_HEADER_DIRS

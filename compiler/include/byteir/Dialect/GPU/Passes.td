@@ -49,11 +49,11 @@ def GPUDistributeToWarp: Pass<"gpu-distributed-to-warp", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// RemoveSingleIterationLoop
+// RemoveTrivialLoops
 //===----------------------------------------------------------------------===//
-def RemoveSingleIterationLoop : Pass<"remove-single-iteration-loop", "func::FuncOp"> {
+def RemoveTrivialLoops : Pass<"remove-trivial-loops", "func::FuncOp"> {
   let summary = "Remove loops which run once in a GPU kernel.";
-  let constructor = "mlir::createRemoveSingleIterationLoopPass()";
+  let constructor = "mlir::createRemoveTrivialLoopsPass()";
 }
 
 
