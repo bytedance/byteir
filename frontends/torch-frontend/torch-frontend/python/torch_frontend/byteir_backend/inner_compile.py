@@ -9,16 +9,13 @@ import torch
 from torch._dynamo import (
     utils as dynamo_utils, )
 from torch._dynamo.utils import counters
+from torch._dynamo.utils import detect_fake_mode
 from torch.cuda.memory import caching_allocator_alloc, caching_allocator_delete
 from torch.fx.experimental.proxy_tensor import maybe_disable_fake_tensor_mode
 from torch._subclasses.fake_tensor import (
     FakeTensorMode,
     FakeTensor,
     FakeTensorConverter,
-    TensorMetadata,
-    extract_tensor_metadata,
-    maybe_get_fake_mode,
-    unset_fake_temporarily,
 )
 
 import torch_frontend
@@ -40,7 +37,13 @@ from .compiled_function import (
     ByteIRFunction,
 )
 from .utils import (
-    dump_tensors_meta_info, )
+    dump_tensors_meta_info,
+    BypassFxGraphCache,
+    OrderedSetHolder,
+    TensorMetadata,
+    extract_tensor_metadata,
+    maybe_get_fake_mode,
+)
 from . import config
 
 log = logging.getLogger(__name__)
@@ -49,7 +52,7 @@ g_graph_counter = count(0)
 BACKEND_LEGAL_OPS = ["aten.max.dim"]
 
 
-@dynamo_utils.dynamo_timed(phase_name="byteir_compile")
+#@dynamo_utils.dynamo_timed(phase_name="byteir_compile")
 def inner_compile(gm: torch.fx.GraphModule,
                   example_inputs: List[torch.Tensor],
                   workdir: str = None,
@@ -75,9 +78,10 @@ def inner_compile(gm: torch.fx.GraphModule,
         fxg_dir_name = f"fx_graph_{compiler_type}_{graph_id}"
         fx_graph_folder = f"{workdir}/{fxg_dir_name}/"
         os.makedirs(fx_graph_folder, exist_ok=True)
-        with unset_fake_temporarily():
+        with maybe_disable_fake_tensor_mode():
             gm.to_folder(folder=fx_graph_folder, module_name="FxModule")
-        with FakeTensorMode(allow_non_fake_inputs=True):
+        with detect_fake_mode(example_inputs):
+            #with FakeTensorMode(allow_non_fake_inputs=True):
             fake_outs = gm(*example_inputs)
         dump_tensors_meta_info(
             example_inputs,
@@ -124,7 +128,7 @@ def byteir_fx_compiler(gm: torch.fx.GraphModule,
     log.info(
         f"########################### {'FORWARD' if not is_backward else 'BACKWARD'} ###########################"
     )
-    log.info(torch._guards.TracingContext.try_get())
+    log.info(torch._guards.TracingContext.get())
 
     if config.byteir_not_use_cache:
         compiled_artifact = inner_compile(gm, example_inputs)
