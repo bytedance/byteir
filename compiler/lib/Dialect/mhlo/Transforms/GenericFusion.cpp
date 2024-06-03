@@ -327,10 +327,24 @@ static GenericFuserConfig config{
 
 namespace aggressive_fusion {
 
+bool isAliasLikeOp(Operation *op) {
+  if (llvm::isa<mhlo::ReshapeOp>(op)) {
+    return true;
+  } else if (auto slice = llvm::dyn_cast_if_present<mhlo::SliceOp>(op)) {
+    return isSliceContinuousSubview(slice);
+  }
+  return false;
+}
+
 bool isFusibleCandidate(Operation *op) {
   if (isCustomMhloRngOp(op) || isCustomMhloByteirRepeatOp(op))
     return true;
-  return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
+  // return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
+  if (isAliasLikeOp(op))
+    return false;
+  if (llvm::isa<mhlo::CustomCallOp>(op))
+    return false;
+  return isMhlo(op);
 }
 
 bool isFusibleStart(Operation *) { return true; }
@@ -346,10 +360,11 @@ bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
 }
 
 bool isValidSingleOp(Operation *op) {
-  if (llvm::isa<mhlo::ReshapeOp>(op))
-    return false;
-  else
-    return true;
+  // if (llvm::isa<mhlo::ReshapeOp>(op))
+  //  return false;
+  // else
+  //  return true;
+  return true;
 }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
