@@ -539,7 +539,7 @@ class GPUDistributeSharedMemoryCopyPass
     }
     SmallVector<int64_t, 3> workgroupSize = optionalWorkgroupSize.value();
 
-    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
     if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }
