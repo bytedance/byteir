@@ -38,7 +38,8 @@ namespace {
 
 bool isCustomMhloRngOp(Operation *op) {
   if (auto customOp = llvm::dyn_cast_or_null<mhlo::CustomCallOp>(op)) {
-    return customOp.getCallTargetName() == getRngUniformName();
+    return (customOp.getCallTargetName() == getRngUniformName()) ||
+           (customOp.getCallTargetName() == getRngNormalName());
   }
   return false;
 }
