@@ -88,9 +88,78 @@ struct CoalecsedForExtractFromShapeCast
     return success();
   }
 };
+
+struct EliminateExtractElementFromInsertElement
+    : public OpRewritePattern<vector::ExtractElementOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::ExtractElementOp extractEleOp,
+                                PatternRewriter &rewriter) const override {
+    auto insertEleOp =
+        extractEleOp.getVector().getDefiningOp<vector::InsertElementOp>();
+    if (!insertEleOp) {
+      return failure();
+    }
+
+    VectorType vectorType = extractEleOp.getSourceVectorType();
+    Value insertPos = insertEleOp.getPosition();
+    Value extractPos = extractEleOp.getPosition();
+
+    if ((!extractPos && !insertPos) ||
+        (extractPos && extractPos == insertPos)) {
+      rewriter.replaceOp(extractEleOp, insertEleOp.getSource());
+      return success();
+    }
+
+    return failure();
+  }
+};
+
+struct EliminateExtractElementFromSplat
+    : public OpRewritePattern<vector::ExtractElementOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::ExtractElementOp extractEleOp,
+                                PatternRewriter &rewriter) const override {
+    auto splatOp = extractEleOp.getVector().getDefiningOp<vector::SplatOp>();
+    if (!splatOp) {
+      return failure();
+    }
+    rewriter.replaceOp(extractEleOp, splatOp.getInput());
+    return success();
+  }
+};
+
+struct EliminateExtractElementFromConstant
+    : public OpRewritePattern<vector::ExtractElementOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::ExtractElementOp extractEleOp,
+                                PatternRewriter &rewriter) const override {
+    auto constantOp =
+        extractEleOp.getVector().getDefiningOp<arith::ConstantOp>();
+    if (!constantOp) {
+      return failure();
+    }
+    auto attr = llvm::dyn_cast<DenseElementsAttr>(constantOp.getValue());
+    if (!attr || !attr.isSplat()) {
+      return failure();
+    }
+
+    auto splatValue = attr.getSplatValue<TypedAttr>();
+    rewriter.replaceOpWithNewOp<arith::ConstantOp>(
+        extractEleOp, extractEleOp.getType(), splatValue);
+
+    return success();
+  }
+};
+
 } // namespace
 
 void mlir::vector::populateCanonicalizeExtPatterns(
     RewritePatternSet &patterns) {
   patterns.add<CoalecsedForExtractFromShapeCast>(patterns.getContext());
+  patterns.add<EliminateExtractElementFromInsertElement>(patterns.getContext());
+  patterns.add<EliminateExtractElementFromSplat>(patterns.getContext());
+  patterns.add<EliminateExtractElementFromConstant>(patterns.getContext());
 }

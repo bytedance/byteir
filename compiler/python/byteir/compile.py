@@ -375,7 +375,7 @@ def compile(
 
     ### legalize stablehlo to mhlo
     with context:
-        PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize)").run(module.operation)
+        PassManager.parse("builtin.module(canonicalize,stablehlo-legalize-to-hlo,canonicalize-ext,canonicalize)").run(module.operation)
         _print_verbose(module, "// IR Dump After Legalize to HLO:") if verbose else ...
 
     ### parse output options from output_file_path

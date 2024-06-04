@@ -38,6 +38,20 @@ namespace {
 
 static unsigned cnt = 0;
 
+static std::string getNameByDominateOp(mhlo::FusionOp fusionOp) {
+  Block &block = fusionOp.getFusedComputation().front();
+  for (mlir::Operation &op : block.getOperations()) {
+    if (isa<mhlo::TransposeOp>(op)) {
+      return "Transpose";
+    } else if (isa<mhlo::ConcatenateOp>(op)) {
+      return "Concat";
+    } else if (isa<mhlo::ReduceOp>(op)) {
+      return "Reduce";
+    }
+  }
+  return "Elementwise";
+}
+
 static std::string getOutlineFuncitonName(mhlo::FusionOp fusionOp,
                                           unsigned &cnt) {
   StringAttr nameAttr =
@@ -45,7 +59,7 @@ static std::string getOutlineFuncitonName(mhlo::FusionOp fusionOp,
   std::string funcName;
 
   if (nameAttr == nullptr) {
-    funcName = "Unknown" + Twine(cnt++).str();
+    funcName = getNameByDominateOp(fusionOp) + Twine(cnt++).str();
   } else {
     funcName = nameAttr.getValue().str() + Twine(cnt++).str();
   }

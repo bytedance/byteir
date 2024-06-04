@@ -33,11 +33,21 @@
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Transforms/Passes.h"
+#include "transforms/passes.h"
 
 using namespace mlir;
 
 namespace {
 void addGenericLinalgPasses(OpPassManager &pm) {
+  { // for insert slice fusion
+    OpPassManager anchoredPM(func::FuncOp::getOperationName());
+    anchoredPM.addPass(createTensorToLinalgPass());
+    anchoredPM.addPass(createCanonicalizerPass());
+    anchoredPM.addPass(createCSEPass());
+    pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
+        getByteIRElementwiseFusionAttrName(), anchoredPM));
+  }
+
   pm.addNestedPass<func::FuncOp>(
       createHloFusionToLinalgPass(getByteIRElementwiseFusionAttrName()));
   pm.addNestedPass<func::FuncOp>(
@@ -66,6 +76,7 @@ void addGenericLinalgPasses(OpPassManager &pm) {
           /*enableSharedInput*/ true, /*enableDiffShapes*/ false));
       anchoredPM.addPass(createCSEPass());
       anchoredPM.addPass(createCanonicalizerPass());
+      anchoredPM.addPass(bufferization::createEmptyTensorEliminationPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(elementwiseAnchor, anchoredPM));
     }
@@ -87,32 +98,36 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     createGPUSplitGridReductionTransform(pm, splitGridRedOptions);
     pm.addPass(createTransformDialectInterpreter(true));
     pm.addPass(createCanonicalizerPass());
+    {
+      OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
+      pm.addNestedPass<func::FuncOp>(
+          createAnchoredPipelinePass(reductionAnchor, anchoredPM));
+    }
 
     GPUTileGridReductionOptions tileGridRedOptions;
     tileGridRedOptions.funcAnchor = reductionAnchor;
-    tileGridRedOptions.blockSize = 512;
+    tileGridRedOptions.blockSize = 256;
     pm.addPass(createLinalgFoldUnitExtentDimsPass());
     createGPUTileGridReductionTransform(pm, tileGridRedOptions);
     pm.addPass(createTransformDialectInterpreter(true));
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
-      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
     }
 
-    GPUSplitBlockReductionOptions splitBlockRedOptions;
-    splitBlockRedOptions.funcAnchor = reductionAnchor;
-    splitBlockRedOptions.splitFactor = 16;
-    createGPUSplitBlockReductionTransform(pm, splitBlockRedOptions);
-    pm.addPass(createTransformDialectInterpreter(true));
-    pm.addPass(createCanonicalizerPass());
-
     GPUTileBlockReductionOptions tileBlockRedOptions;
     tileBlockRedOptions.funcAnchor = reductionAnchor;
-    tileBlockRedOptions.blockSize = 512;
+    tileBlockRedOptions.blockSize = 256;
     createGPUTileBlockReductionTransform(pm, tileBlockRedOptions);
     pm.addPass(createTransformDialectInterpreter(true));
     {
@@ -133,11 +148,50 @@ void addGenericLinalgPasses(OpPassManager &pm) {
       anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
     }
 
-    pm.addPass(createDetensorizeTransformInsertionPass(reductionAnchor));
+    // Combine block redution
+    // step 1: per warp redution
+    GPUTileSplitWarpReductionOptions splitWarpRedOptions;
+    splitWarpRedOptions.funcAnchor = reductionAnchor;
+    splitWarpRedOptions.blockSize = 256;
+    createGPUTileSplitWarpReductionTransform(pm, splitWarpRedOptions);
+    pm.addPass(createTransformDialectInterpreter(true));
+    {
+      OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
+      anchoredPM.addPass(createCanonicalizerPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
+      pm.addNestedPass<func::FuncOp>(
+          createAnchoredPipelinePass(reductionAnchor, anchoredPM));
+    }
+
+    // step 2: reduce in first warp
+    GPUTileWarpReductionOptions warpRedOptions;
+    warpRedOptions.funcAnchor = reductionAnchor;
+    warpRedOptions.warpSize = 32;
+    createGPUTileWarpReductionTransform(pm, warpRedOptions);
+    pm.addPass(createTransformDialectInterpreter(true));
+    {
+      OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCanonicalizerPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
+      pm.addNestedPass<func::FuncOp>(
+          createAnchoredPipelinePass(reductionAnchor, anchoredPM));
+    }
+
+    pm.addNestedPass<func::FuncOp>(mlir::createDetensorizeScfOpsPass());
+    pm.addPass(createCanonicalizeExtPass());
+    pm.addPass(createDetensorizeTransformInsertionPass(true, reductionAnchor));
     pm.addPass(createTransformDialectInterpreter(true));
     pm.addPass(createCanonicalizeExtPass());
     pm.addPass(createRewriteInDPSTransformInsertionPass(reductionAnchor));

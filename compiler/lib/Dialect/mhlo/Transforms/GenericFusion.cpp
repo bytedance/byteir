@@ -25,6 +25,7 @@
 #include "byteir/Utils/Utils.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"
 
@@ -61,7 +62,8 @@ bool isFusibleCandidate(Operation *op) {
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
           isSplatMhloConstantLike(op) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp,
+              mhlo::TransposeOp, mhlo::SliceOp>(op) ||
           isCustomMhloRngOp(op));
 }
 
@@ -71,7 +73,7 @@ bool isFusibleStart(Operation *op) { return true; }
 bool isFusibleTrigger(Operation *op) {
   if (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
       op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-      isa<mhlo::ReshapeOp>(op) || isCustomMhloRngOp(op)) {
+      isa<mhlo::ReshapeOp, mhlo::TransposeOp>(op) || isCustomMhloRngOp(op)) {
     return true;
   }
 
@@ -91,12 +93,16 @@ bool isFusibleTrigger(Operation *op) {
   return false;
 }
 
-bool isFusibleWith(Operation *target, Operation * /*start*/) {
+bool isFusibleWith(Operation *target, Operation *start) {
+  if (isa<mhlo::SliceOp>(target)) {
+    return start->hasTrait<::mlir::OpTrait::Elementwise>();
+  }
+
   return target->hasTrait<::mlir::OpTrait::Elementwise>() ||
          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
          isSplatMhloConstantLike(target) ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp,
+             mhlo::TransposeOp>(target) ||
          isCustomMhloRngOp(target);
 }
 
@@ -109,7 +115,8 @@ bool isFusibleWithNoElementwiseFuse(Operation *target, Operation * /*start*/) {
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp,
+             mhlo::TransposeOp>(op) ||
          isCustomMhloRngOp(op);
 }
 
@@ -197,6 +204,40 @@ static GenericFuserConfig config_concat_slice_fuse{
     elementwise::concat_slice::isValidSingleOp,
     elementwise::concat_slice::isValidFusionPattern};
 } // namespace concat_slice
+namespace insert_slice_with_elementwise {
+bool isFusibleCandidate(Operation *op) {
+  return llvm::isa<tensor::InsertSliceOp, mhlo::SliceOp>(op) ||
+         op->hasTrait<::mlir::OpTrait::Elementwise>();
+}
+
+bool isFusibleTrigger(Operation *op) {
+  return llvm::isa<tensor::InsertSliceOp>(op) ||
+         op->hasTrait<::mlir::OpTrait::Elementwise>();
+}
+
+bool isFusibleStart(Operation *op) { return llvm::isa<mhlo::SliceOp>(op); }
+
+bool isFusibleWith(Operation *target, Operation *start) {
+  if (llvm::isa<tensor::InsertSliceOp>(start)) {
+    return llvm::isa<mhlo::SliceOp>(target);
+  }
+  return llvm::isa<tensor::InsertSliceOp>(target) ||
+         target->hasTrait<::mlir::OpTrait::Elementwise>();
+}
+
+bool isValidSingleOp(Operation *op) { return false; }
+
+bool isValidFusionPattern(const MhloFusionPattern &pattern) { return true; }
+
+static GenericFuserConfig config_insert_slice_with_elementwise_fuse{
+    getByteIRElementwiseFusionAttrName(),
+    elementwise::insert_slice_with_elementwise::isFusibleCandidate,
+    elementwise::insert_slice_with_elementwise::isFusibleStart,
+    elementwise::insert_slice_with_elementwise::isFusibleTrigger,
+    elementwise::insert_slice_with_elementwise::isFusibleWith,
+    elementwise::insert_slice_with_elementwise::isValidSingleOp,
+    elementwise::insert_slice_with_elementwise::isValidFusionPattern};
+} // namespace insert_slice_with_elementwise
 } // namespace elementwise
 
 //===----------------------------------------------------------------------===//
@@ -446,6 +487,40 @@ struct ConcatSliceFusionPass : public GenericFusionPass<ConcatSliceFusionPass> {
   }
 };
 
+struct InsertSliceWithElementwiseFusionPass
+    : public GenericFusionPass<InsertSliceWithElementwiseFusionPass> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(
+      InsertSliceWithElementwiseFusionPass)
+
+  InsertSliceWithElementwiseFusionPass() : GenericFusionPass(true) {}
+
+  /// Returns the command-line argument attached to this pass.
+  static constexpr ::llvm::StringLiteral getArgumentName() {
+    return ::llvm::StringLiteral("fuse-insert-slice-with-elemwise");
+  }
+  ::llvm::StringRef getArgument() const override {
+    return "fuse-insert-slice-with-elemwise";
+  }
+
+  ::llvm::StringRef getDescription() const override {
+    return "Fuse insertSliceOp with elementwiseOp";
+  }
+
+  /// Returns the derived pass name.
+  static constexpr ::llvm::StringLiteral getPassName() {
+    return ::llvm::StringLiteral("InsertSliceWithElemwiseFusion");
+  }
+  ::llvm::StringRef getName() const override {
+    return "InsertSliceWithElemwiseFusion";
+  }
+
+  const GenericFuserConfig &getConfig() {
+    return elementwise::insert_slice_with_elementwise::
+        config_insert_slice_with_elementwise_fuse;
+  }
+};
+
 // a derived fusion pass for matmul epilogue fusion
 struct MatmulEpilogueFusionPass
     : public GenericFusionPass<MatmulEpilogueFusionPass> {
@@ -557,6 +632,11 @@ mlir::createElementFusionPass(bool clusterSingleElemwiseOp,
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createConcatSliceFusionPass() {
   return std::make_unique<ConcatSliceFusionPass>();
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createInsertSliceWithElemwiseFusionPass() {
+  return std::make_unique<InsertSliceWithElementwiseFusionPass>();
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

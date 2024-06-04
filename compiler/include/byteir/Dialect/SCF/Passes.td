@@ -38,4 +38,21 @@ def InsertTrivialSCFLoop : Pass<"insert-trivial-scf-loop", "mlir::func::FuncOp">
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// FuseNestedForall
+//===----------------------------------------------------------------------===//
+
+def FuseNestedForall : Pass<"fuse-nested-forall", "mlir::func::FuncOp"> {
+  let summary = "Fuse nested forall if possible";
+  let constructor = "mlir::createFuseNestedForallPass()";
+  let dependentDialects = [
+    "scf::SCFDialect"
+  ];
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
 #endif // BYTEIR_DIALECT_SCF_PASSES
