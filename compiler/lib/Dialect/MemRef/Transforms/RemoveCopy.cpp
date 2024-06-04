@@ -216,8 +216,8 @@ public:
     // we prefer target alloc over src alloc in this implementation
     if (auto targetAlloc = target.getDefiningOp<memref::AllocOp>()) {
       if (auto srcDef = src.getDefiningOp()) {
-        if (isa<memref::AllocOp, memref::SubViewOp, memref::ExpandShapeOp>(
-                srcDef))
+        if (isa<memref::AllocOp, memref::SubViewOp, memref::ExpandShapeOp,
+                memref::ExpandShapeOp>(srcDef))
           hoistUpOpInBlock(srcDef, domInfo);
       }
 
