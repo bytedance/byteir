@@ -1,5 +1,4 @@
-//===- GPUDistributeSharedMemoryCopy.cpp------------------------------------*---
-// C++ -*-===//
+//===- GPUDistributeSharedMemoryCopy.cpp------------------------*---C++ -*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,7 +79,7 @@ static constexpr int32_t kNumGPUDims = 3;
 static constexpr int copyVectorNumBits = 128;
 
 static constexpr StringRef getCopyToWorkgroupMemoryMarker() {
-  return "copy_to_workgroup_memory";
+  return "__byteir_copy_related_to_workgroup_memory__";
 }
 
 static constexpr StringRef getVectorizeMarker() { return "vectorizeMarker"; }
@@ -427,6 +426,7 @@ GeneralizeNamedOps(ArrayRef<linalg::CopyOp> copiesToWorkgroupMem) {
   SmallVector<linalg::GenericOp> genericCopies;
   for (auto linalgOp : copiesToWorkgroupMem) {
     IRRewriter rewriter(linalgOp.getContext());
+    rewriter.setInsertionPoint(linalgOp);
     auto attrDic = linalgOp->getDiscardableAttrDictionary();
     FailureOr<linalg::GenericOp> generalizedOp =
         linalg::generalizeNamedOp(rewriter, linalgOp);
@@ -449,8 +449,8 @@ LogicalResult gpuDistributeSharedMemoryCopy(scf::ForallOp forallOp,
 
   // Step 0. First Generalize LinalgCopyOps.
   forallOp.walk([&](linalg::CopyOp copyOp) {
-    if (hasMarker(copyOp, getCopyToWorkgroupMemoryMarker()))
-      linalgCopies.push_back(copyOp);
+    // if (hasMarker(copyOp, getCopyToWorkgroupMemoryMarker()))
+    linalgCopies.push_back(copyOp);
   });
 
   if (linalgCopies.empty())
