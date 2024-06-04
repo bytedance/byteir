@@ -1,3 +1,6 @@
+// RUN: byteir-opt %s --hlo-opt="target=CPU" --linalg-tensor-opt="target=CPU" --byre-tensor-opt="entry-func=main append-arg-types" --byteir-bufferize-opt --scf-opt="target=CPU" --host-opt --byre-opt --to-llvm | byteir-translate --mlir-to-llvmir | FileCheck %s
+
+// CHECK-LABEL: define void @_mlir_ciface_Unknown
 
 func.func @main(%arg0: tensor<512x200xf32>, %arg1: tensor<512x2x100xf32>) -> tensor<128x2x100xf32> {
     %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[128, 200]> : tensor<2xi64>, start_indices = dense<[0, 0]> : tensor<2xi64>, strides = dense<1> : tensor<2xi64>} : (tensor<512x200xf32>) -> tensor<128x200xf32>
@@ -7,4 +10,3 @@ func.func @main(%arg0: tensor<512x200xf32>, %arg1: tensor<512x2x100xf32>) -> ten
     %4 = mhlo.add %2, %3 : tensor<128x2x100xf32>
     return %4 : tensor<128x2x100xf32>
 }
-    

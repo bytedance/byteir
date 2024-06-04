@@ -1,3 +1,7 @@
+// RUN: byteir-opt %s --host-opt --byre-opt | FileCheck %s
+
+// CHECK-LABEL: func.func @Unknown
+
 module {
   func.func private @Unknown0(%arg0: memref<128x2x100xf32>, %arg1: memref<128x2x100xf32>) -> memref<128x2x100xf32> attributes {__byteir_hlo_aggressive_fusion__} {
     %c1 = arith.constant 1 : index
@@ -18,13 +22,11 @@ module {
   func.func @main(%arg0: memref<512x200xf32>, %arg1: memref<512x2x100xf32>) -> memref<128x2x100xf32> attributes {__placeholder__byre.entry_point} {
     %subview = memref.subview %arg0[0, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1]>>
     %subview_0 = memref.subview %arg0[10, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1], offset: 2000>>
-    %expand_shape = memref.expand_shape %subview [[0], [1, 2]] : memref<128x200xf32, strided<[200, 1]>> into memref<128x2x100xf32, strided<[200, 100, 1]>>
-    %expand_shape_1 = memref.expand_shape %subview_0 [[0], [1, 2]] : memref<128x200xf32, strided<[200, 1], offset: 2000>> into memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>>
-    %cast = memref.cast %expand_shape : memref<128x2x100xf32, strided<[200, 100, 1]>> to memref<128x2x100xf32>
-    %alloc = memref.alloc() : memref<128x2x100xf32>
-    memref.copy %expand_shape_1, %alloc : memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>> to memref<128x2x100xf32>
-    %0 = call @Unknown0(%cast, %alloc) : (memref<128x2x100xf32>, memref<128x2x100xf32>) -> memref<128x2x100xf32>
+    %expand_shape = memref.expand_shape %subview_0 [[0], [1, 2]] : memref<128x200xf32, strided<[200, 1], offset: 2000>> into memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>>
+    %expand_shape_1 = memref.expand_shape %subview [[0], [1, 2]] : memref<128x200xf32, strided<[200, 1]>> into memref<128x2x100xf32, strided<[200, 100, 1]>>
+    %cast = memref.cast %expand_shape_1 : memref<128x2x100xf32, strided<[200, 100, 1]>> to memref<128x2x100xf32>
+    %reinterpret_cast = memref.reinterpret_cast %expand_shape to offset: [0], sizes: [128, 2, 100], strides: [200, 100, 1] : memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>> to memref<128x2x100xf32>
+    %0 = call @Unknown0(%cast, %reinterpret_cast) : (memref<128x2x100xf32>, memref<128x2x100xf32>) -> memref<128x2x100xf32>
     return %0 : memref<128x2x100xf32>
   }
 }
-
