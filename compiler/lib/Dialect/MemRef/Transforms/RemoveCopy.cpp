@@ -67,12 +67,15 @@ bool anyIncompatibleUseExceptReshapeOp(Value oldValue, Value newValue) {
 bool anyIncompatibleUseWithCast(Value oldValue, Value newValue) {
   bool incompatible = llvm::any_of(oldValue.getUses(), [](OpOperand &operand) {
     Operation *op = operand.getOwner();
-    return llvm::isa<memref::CollapseShapeOp, memref::ExpandShapeOp>(op);
+    Dialect *dialect = op->getDialect();
+    return llvm::isa<memref::CollapseShapeOp, memref::ExpandShapeOp,
+                     func::CallOp>(op) ||
+           (dialect && dialect->getNamespace() == "byre");
   });
-  incompatible |= !isStaticShapeAndContiguousRowMajorEx(
-      oldValue.getType().cast<MemRefType>());
-  incompatible |= !isStaticShapeAndContiguousRowMajorEx(
-      newValue.getType().cast<MemRefType>());
+  incompatible &= (!isStaticShapeAndContiguousRowMajorEx(
+                       oldValue.getType().cast<MemRefType>()) ||
+                   !isStaticShapeAndContiguousRowMajorEx(
+                       newValue.getType().cast<MemRefType>()));
   return incompatible;
 }
 
