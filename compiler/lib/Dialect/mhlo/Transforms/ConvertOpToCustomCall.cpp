@@ -88,14 +88,11 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
   return attrs;
 }
 
-struct ConvertRngUniformToCustomCall : public OpRewritePattern<mhlo::RngOp> {
+struct ConvertRngToCustomCall : public OpRewritePattern<mhlo::RngOp> {
   using OpRewritePattern<mhlo::RngOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::RngOp op,
                                 PatternRewriter &rewriter) const override {
-    if (op.getRngDistribution() != mhlo::RngDistribution::UNIFORM) {
-      return failure();
-    }
     auto A = op.getA();
     auto B = op.getB();
     auto shape = op.getShape();
@@ -122,9 +119,13 @@ struct ConvertRngUniformToCustomCall : public OpRewritePattern<mhlo::RngOp> {
     if (!op.getType().hasStaticShape()) {
       bufferArgs.emplace_back(shape);
     }
+    auto distributionName =
+        op.getRngDistribution() == mhlo::RngDistribution::UNIFORM
+            ? getRngUniformName()
+            : getRngNormalName();
     auto customCallOp = rewriter.create<mhlo::CustomCallOp>(
-        op->getLoc(), ArrayRef<Type>{resultType}, bufferArgs,
-        getRngUniformName(), false, rewriter.getStringAttr(""),
+        op->getLoc(), ArrayRef<Type>{resultType}, bufferArgs, distributionName,
+        false, rewriter.getStringAttr(""),
         mhlo::CustomCallApiVersion{
             mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL},
         rewriter.getArrayAttr(ArrayRef<Attribute>{}),
@@ -237,7 +238,7 @@ struct ConvertOpToCustomCallPass
 } // namespace
 
 void mlir::populateRngPatternToCustomCall(RewritePatternSet &patterns) {
-  patterns.add<ConvertRngUniformToCustomCall>(patterns.getContext());
+  patterns.add<ConvertRngToCustomCall>(patterns.getContext());
 }
 
 void mlir::populateFlashFwdRewritePattern(RewritePatternSet &patterns) {
