@@ -40,11 +40,11 @@ module {
 // CHECK-NEXT:       scf.for %[[ARG4:.*]] = %[[C0]] to %[[C2048]] step %[[C32]] {
 // CHECK-NEXT:         %[[SUBVIEW_2:.*]] = memref.subview %[[ARG0]][%[[APPLY_MAP0]], %[[ARG4]]] [128, 32] [1, 1] : memref<5376x2048xf16> to memref<128x32xf16, strided<[2048, 1], offset: ?>>
 // CHECK-NEXT:         %[[SUBVIEW_3:.*]] = memref.subview %[[ARG1]][%[[ARG4]], %[[APPLY_MAP1]]] [32, 128] [1, 1] : memref<2048x5376xf16> to memref<32x128xf16, strided<[5376, 1], offset: ?>>
-// CHECK-NEXT:         linalg.copy {__byteir_load_matrix_a__} ins(%[[SUBVIEW_2]] : memref<128x32xf16, strided<[2048, 1], offset: ?>>) outs(%[[ALLOCA_1]] : memref<128x32xf16, #gpu.address_space<workgroup>>)
-// CHECK-NEXT:         linalg.copy {__byteir_load_matrix_b__} ins(%[[SUBVIEW_3]] : memref<32x128xf16, strided<[5376, 1], offset: ?>>) outs(%[[ALLOCA_0]] : memref<32x128xf16, #gpu.address_space<workgroup>>)
+// CHECK-NEXT:         linalg.copy {__byteir_load_matrix_a__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[SUBVIEW_2]] : memref<128x32xf16, strided<[2048, 1], offset: ?>>) outs(%[[ALLOCA_1]] : memref<128x32xf16, #gpu.address_space<workgroup>>)
+// CHECK-NEXT:         linalg.copy {__byteir_load_matrix_b__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[SUBVIEW_3]] : memref<32x128xf16, strided<[5376, 1], offset: ?>>) outs(%[[ALLOCA_0]] : memref<32x128xf16, #gpu.address_space<workgroup>>)
 // CHECK-NEXT:         linalg.matmul {__byteir_gpu_tile_gemm_0, __byteir_mma__, __byteir_mma_level__ = "Threadblock", __byteir_target__ = "nv_sm_80"} ins(%[[ALLOCA_1]], %[[ALLOCA_0]] : memref<128x32xf16, #gpu.address_space<workgroup>>, memref<32x128xf16, #gpu.address_space<workgroup>>) outs(%[[ALLOCA]] : memref<128x128xf16, #gpu.address_space<workgroup>>)
 // CHECK-NEXT:       }
-// CHECK-NEXT:       linalg.copy {__byteir_store_matrix_c__} ins(%[[ALLOCA]] : memref<128x128xf16, #gpu.address_space<workgroup>>) outs(%[[SUBVIEW]] : memref<128x128xf16, strided<[5376, 1], offset: ?>>)
+// CHECK-NEXT:       linalg.copy {__byteir_store_matrix_c__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[ALLOCA]] : memref<128x128xf16, #gpu.address_space<workgroup>>) outs(%[[SUBVIEW]] : memref<128x128xf16, strided<[5376, 1], offset: ?>>)
 // CHECK-NEXT:     } {mapping = [#gpu.block<y>, #gpu.block<x>]}
 // CHECK-NEXT:     return %[[ALLOC]] : memref<5376x5376xf16>
 // CHECK-NEXT:   }

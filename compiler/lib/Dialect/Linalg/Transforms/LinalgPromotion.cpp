@@ -26,6 +26,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Linalg/Transforms/LinalgPromotion.h"
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Utils/LoopUtils.h"
 #include "byteir/Utils/MemUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -56,14 +57,13 @@ constexpr StringRef copyMarker[3] = {
     "__byteir_store_matrix_c__",
 };
 
-static void setMarker(Operation *op, StringRef marker) {
-  op->setAttr(marker, UnitAttr::get(op->getContext()));
-}
+namespace MatmulOperands {
+constexpr static int64_t A = 0;
+constexpr static int64_t B = 1;
+constexpr static int64_t C = 2;
+} // namespace MatmulOperands
 
-//===----------------------------------------------------------------------===//
-// GPU workgroup memory
-//===----------------------------------------------------------------------===//
-
+// Insert shared memory allocation in front of the scf.forall op.
 template <int OPERAND>
 std::optional<Value>
 allocateWorkgroupMemory(OpBuilder &builder, memref::SubViewOp subview,
@@ -92,7 +92,8 @@ allocateWorkgroupMemory(OpBuilder &builder, memref::SubViewOp subview,
   memref::AllocaOp buffer =
       builder.create<memref::AllocaOp>(forallOp.getLoc(), type);
   setMarker(buffer, allocMarker[OPERAND]);
-  // To fix fill op. The FillOp operand `subview` should be rewrited to `alloca`
+  // To fix fill op. The FillOp operand `subview` should be rewrited to
+  // `alloca`
   subview->replaceUsesWithIf(buffer, [&](OpOperand &opOperand) {
     return isa<linalg::FillOp>(opOperand.getOwner());
   });
@@ -103,13 +104,18 @@ LogicalResult deallocateWorkgroupMemory(OpBuilder &, Value /*buffer*/) {
   return success();
 }
 
+// For MatmulOperands::A and MatmulOperands::B, do copy global memory.
+// For MatmulOperands::C, do nothing. As we have handled Linalg FillOp before.
 template <int OPERAND>
 LogicalResult copyGlobalMemoryToWorkgroupMemory(OpBuilder &b, Value src,
                                                 Value dst) {
-  if (OPERAND == 2) {
+  // don't copy to C, because there should be a FillOp
+  if (OPERAND == MatmulOperands::C) {
     return success();
   }
   Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
+  setLinalgTransformationMarker(copyOp,
+                                getCopyRelatedToWorkgroupMemoryMarker());
   setMarker(copyOp, copyMarker[OPERAND]);
   return success();
 }
@@ -125,7 +131,9 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
   b.setInsertionPoint(terminator);
 
   Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
-  setMarker(copyOp, copyMarker[2]);
+  setLinalgTransformationMarker(copyOp,
+                                getCopyRelatedToWorkgroupMemoryMarker());
+  setMarker(copyOp, copyMarker[MatmulOperands::C]);
   return success();
 }
 
@@ -150,7 +158,7 @@ static LogicalResult promotionImpl(OpBuilder &builder, Operation *op) {
   if (failed(promoteSubviewsPrecondition(op, promotionOptions)))
     return failure();
 
-  // promoteSubViews will modify op inplace.
+  // PromoteSubViews will modify linalg op inplace.
   std::optional<linalg::LinalgOp> promotedOp =
       promoteSubViews(builder, cast<linalg::LinalgOp>(op), promotionOptions);
   if (!promotedOp) {
@@ -166,7 +174,16 @@ public:
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
     SmallVector<linalg::LinalgOp> toPromote;
-    funcOp.walk([&](linalg::LinalgOp linalgOp) {
+
+    if (!hasGemmTileConfig(funcOp))
+      return;
+
+    auto forallOptional = getForallOpMappedTo2DBlock(funcOp);
+    if (!forallOptional)
+      return;
+
+    scf::ForallOp forallOp = *forallOptional;
+    forallOp.walk([&](linalg::LinalgOp linalgOp) {
       if (isa<linalg::MatmulOp, linalg::BatchMatmulOp>(linalgOp))
         toPromote.push_back(linalgOp);
     });
@@ -175,8 +192,8 @@ public:
       OpBuilder builder(linalgOp);
 
       // As we want to mark every generated op, so we do promote seperately.
-      (void)promotionImpl<0>(builder, linalgOp);
-      (void)promotionImpl<1>(builder, linalgOp);
+      (void)promotionImpl<MatmulOperands::A>(builder, linalgOp);
+      (void)promotionImpl<MatmulOperands::B>(builder, linalgOp);
 
       // TODO:
       // If we do promotion before we split K, it will be much easier.
@@ -185,7 +202,7 @@ public:
       // inserts should be in the scf.forall op.
       auto forOp = linalgOp->getParentOfType<scf::ForOp>();
       builder.setInsertionPoint(forOp); // before forOp
-      (void)promotionImpl<2>(builder, linalgOp);
+      (void)promotionImpl<MatmulOperands::C>(builder, linalgOp);
     }
   }
 };
