@@ -5,6 +5,7 @@
 module {
   func.func private @Unknown0(%arg0: memref<i64>, %arg1: memref<i64>) -> memref<1x97xf32> attributes {__byteir_hlo_aggressive_fusion__} {
     %cst = arith.constant 0.000000e+00 : f32
+    %cst_0 = arith.constant 6.283185 : f32
     %c-1879881855_i32 = arith.constant -1879881855 : i32
     %c-616729560_i32 = arith.constant -616729560 : i32
     %c534103459_i32 = arith.constant 534103459 : i32
@@ -19,8 +20,9 @@ module {
     %c-626627285_i32 = arith.constant -626627285 : i32
     %c1993301258_i32 = arith.constant 1993301258 : i32
     %c1013904242_i32 = arith.constant 1013904242 : i32
-    %cst_0 = arith.constant 1.16415322E-10 : f32
-    %cst_1 = arith.constant 2.32830644E-10 : f32
+    %cst_1 = arith.constant -2.000000e+00 : f32
+    %cst_2 = arith.constant 1.16415322E-10 : f32
+    %cst_3 = arith.constant 2.32830644E-10 : f32
     %c-1150833019_i32 = arith.constant -1150833019 : i32
     %c-1640531527_i32 = arith.constant -1640531527 : i32
     %c32_i64 = arith.constant 32 : i64
@@ -173,15 +175,25 @@ module {
       %137 = arith.addi %2, %c-1879881855_i32 : i32
       %138 = arith.extui %136 : i32 to i64
       %139 = arith.muli %138, %c3449720151_i64 : i64
-      %140 = arith.shrui %139, %c32_i64 : i64
-      %141 = arith.trunci %140 : i64 to i32
-      %142 = arith.xori %141, %134 : i32
-      %143 = arith.xori %142, %137 : i32
-      %144 = arith.uitofp %143 : i32 to f32
-      %145 = arith.mulf %144, %cst_1 : f32
-      %146 = arith.addf %145, %cst_0 : f32
-      %147 = arith.addf %146, %cst : f32
-      memref.store %147, %alloc[%c0, %arg2] : memref<1x97xf32>
+      %140 = arith.trunci %139 : i64 to i32
+      %141 = arith.shrui %139, %c32_i64 : i64
+      %142 = arith.trunci %141 : i64 to i32
+      %143 = arith.xori %142, %134 : i32
+      %144 = arith.xori %143, %137 : i32
+      %145 = arith.uitofp %144 : i32 to f32
+      %146 = arith.mulf %145, %cst_3 : f32
+      %147 = arith.addf %146, %cst_2 : f32
+      %148 = arith.uitofp %140 : i32 to f32
+      %149 = arith.mulf %148, %cst_3 : f32
+      %150 = arith.addf %149, %cst_2 : f32
+      %151 = math.log %147 : f32
+      %152 = arith.mulf %151, %cst_1 : f32
+      %153 = math.sqrt %152 : f32
+      %154 = arith.mulf %150, %cst_0 : f32
+      %155 = math.cos %154 : f32
+      %156 = arith.mulf %153, %155 : f32
+      %157 = arith.addf %156, %cst : f32
+      memref.store %157, %alloc[%c0, %arg2] : memref<1x97xf32>
     }
     return %alloc : memref<1x97xf32>
   }

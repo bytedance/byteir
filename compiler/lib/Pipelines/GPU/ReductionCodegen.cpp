@@ -536,8 +536,10 @@ std::optional<GridTileConfig> getGridTileConfig(linalg::GenericOp genericOp,
   for (auto &&affineMap : genericOp.getIndexingMapsArray()) {
     if (affineMap.isPermutation()) {
       auto dim = affineMap.getDimPosition(numLoops - 1);
-      padDim = dim;
       if (loopSizes[dim] > warpSize) {
+        if (loopSizes[dim] % warpSize != 0) {
+          padDim = dim;
+        }
         tileSizes[dim] *= warpSize;
         break;
       }
