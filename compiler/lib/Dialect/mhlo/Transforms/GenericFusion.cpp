@@ -339,7 +339,6 @@ bool isAliasLikeOp(Operation *op) {
 bool isFusibleCandidate(Operation *op) {
   if (isCustomMhloRngOp(op) || isCustomMhloByteirRepeatOp(op))
     return true;
-  // return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
   if (isAliasLikeOp(op))
     return false;
   if (llvm::isa<mhlo::CustomCallOp>(op))
@@ -360,10 +359,6 @@ bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
 }
 
 bool isValidSingleOp(Operation *op) {
-  // if (llvm::isa<mhlo::ReshapeOp>(op))
-  //  return false;
-  // else
-  //  return true;
   return true;
 }
 

@@ -42,7 +42,6 @@ public:
   LogicalResult
   matchAndRewrite(OpTy op, typename OpTy::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // if (!op.getType().getLayout().isIdentity())
     if (!isStaticShapeAndContiguousRowMajorEx(op.getType()))
       return failure();
 
@@ -80,9 +79,6 @@ public:
   LogicalResult
   matchAndRewrite(memref::SubViewOp op, memref::SubViewOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // if (!op.getType().getLayout().isIdentity())
-    //  return failure();
-
     if (!isStaticShapeAndContiguousRowMajorEx(op.getType()))
       return failure();
 

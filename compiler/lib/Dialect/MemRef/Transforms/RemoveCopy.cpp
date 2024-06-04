@@ -231,6 +231,10 @@ public:
       }
 
       if (!anyIncompatibleUseWithCast(target, src)) {
+        // The memref of source and target are contiguous, cast source value to
+        // the same type with target. As `byre.alias` could handle source with
+        // offset, `memref.(reinterpret)cast` would be converted to `byre.alias`
+        // in pass `memref-to-byre`.
         LLVM_DEBUG(llvm::dbgs()
                    << "contiguous src type: " << src.getType() << "\n");
         LLVM_DEBUG(llvm::dbgs()
