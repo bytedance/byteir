@@ -639,3 +639,17 @@ module attributes {byre.container_module} {
 // CHECK: memref.copy
 
 
+// -----
+module attributes {byre.container_module} {
+  func.func @reduce_sum(%arg0: memref<1x32x256x256xf32, "cuda"> {byre.argname = "Input0", byre.argtype = 1 : i32}, %arg1: memref<1x32x256xf32, "cuda"> {byre.argname = "Output0", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
+    %alloc = memref.alloc() : memref<8192xf32, "cuda">
+    byre.compute @PTXOp(%arg0, %alloc) {BlockSize.x = 256 : i32, BlockSize.y = 1 : i32, BlockSize.z = 1 : i32, GridSize.x = 8192 : i32, GridSize.y = 1 : i32, GridSize.z = 1 : i32, call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown0_kernel"} : memref<1x32x256x256xf32, "cuda">, memref<8192xf32, "cuda">
+    %expand_shape = memref.expand_shape %alloc [[0, 1, 2]] : memref<8192xf32, "cuda"> into memref<1x32x256xf32, "cuda">
+    memref.copy %expand_shape, %arg1 : memref<1x32x256xf32, "cuda"> to memref<1x32x256xf32, "cuda">
+    return
+  }
+}
+
+// CHECK-LABEL: func.func @reduce_sum
+// CHECK: %[[COLLAPSE:.*]] = memref.collapse_shape %arg1 {{\[\[}}0, 1, 2]] : memref<1x32x256xf32, "cuda"> into memref<8192xf32, "cuda">
+// CHECK: byre.compute @PTXOp(%arg0, %[[COLLAPSE]]) {BlockSize.x = 256 : i32, BlockSize.y = 1 : i32, BlockSize.z = 1 : i32, GridSize.x = 8192 : i32, GridSize.y = 1 : i32, GridSize.z = 1 : i32, call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown0_kernel"} : memref<1x32x256x256xf32, "cuda">, memref<8192xf32, "cuda">

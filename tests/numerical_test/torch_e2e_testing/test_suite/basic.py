@@ -113,3 +113,35 @@ class ReductionOneSizeModule(torch.nn.Module):
 @register_test_case(module_factory=lambda: ReductionOneSizeModule())
 def ReductionOneSizeModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(1024,1))
+
+class RngUniformModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        a = torch.rand(32,10240000)*0.001
+        mean = torch.ops.aten.mean(a,dim=1)
+        std = torch.ops.aten.std(a,dim=1)
+        return torch.cat([mean,std])
+
+
+@register_test_case(module_factory=lambda: RngUniformModule())
+def RngUniformModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(32,10240000))
+
+class RngNormalModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        a = torch.randn(32,10240000)*0.001
+        mean = torch.ops.aten.mean(a,dim=1)
+        std = torch.ops.aten.std(a,dim=1)
+        return torch.cat([mean,std])
+
+
+@register_test_case(module_factory=lambda: RngNormalModule())
+def RngNormalModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(32,10240000))

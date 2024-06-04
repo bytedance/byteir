@@ -89,6 +89,10 @@ constexpr llvm::StringRef getRngUniformName() {
   return CUSTOM_CALL_NAME_PREFIX "rng_uniform";
 }
 
+constexpr llvm::StringRef getRngNormalName() {
+  return CUSTOM_CALL_NAME_PREFIX "rng_normal";
+}
+
 constexpr llvm::StringRef getFlashAttnFwdName() {
   return CUSTOM_CALL_NAME_PREFIX "flash_attn_fwd";
 }
