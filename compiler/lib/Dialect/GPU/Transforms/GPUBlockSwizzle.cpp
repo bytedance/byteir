@@ -102,8 +102,8 @@ makeSwizzledIdsInTritonWay(Location loc, OpBuilder &b, Value x, Value y,
 }
 
 // Only support 2d grid.
-static LogicalResult
-reorderForallOpMappedTo2DBlock(scf::ForallOp forallOp unsigned swizzleLogTile) {
+static LogicalResult reorderForallOpMappedTo2DBlock(scf::ForallOp forallOp,
+                                                    unsigned swizzleLogTile) {
   unsigned swizzleTile = 1 << swizzleLogTile;
   OpBuilder b(forallOp);
 
