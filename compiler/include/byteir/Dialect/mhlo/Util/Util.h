@@ -103,6 +103,9 @@ bool isDenseMhloConstantValue(Value val);
 template <typename RegionOp, typename Op = mhlo::ReduceOp>
 bool isRegularReduceOp(Op op);
 
+// Return true if slice region is continuous
+bool isSliceContinuousSubview(mhlo::SliceOp op);
+
 // return cumsum's index, return nullopt if not a cumsum op
 std::optional<int64_t> getCumsumIndex(mhlo::ReduceWindowOp op);
 

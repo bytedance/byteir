@@ -37,16 +37,16 @@ func.func @reshape_add(%arg0: tensor<2xf32>, %arg1: tensor<2x1xf32>) -> (tensor<
   return %1 : tensor<2x1xf32>
 }
 // CHECK-LABEL: func.func @reshape_add
+// CHECK-NEXT:  mhlo.reshape
 // CHECK-NEXT:  mhlo.fusion
-// CHECK-NEXT:    mhlo.reshape
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.return
 // CHECK: {__byteir_hlo_aggressive_fusion__}
 // CHECK:  return
 
 // CHECK-NOFUSION-LABEL: func.func @reshape_add
+// CHECK-NOFUSION-NEXT:  mhlo.reshape
 // CHECK-NOFUSION-NEXT:  mhlo.fusion
-// CHECK-NOFUSION-NEXT:    mhlo.reshape
 // CHECK-NOFUSION-NEXT:    mhlo.add
 // CHECK-NOFUSION-NEXT:    mhlo.return
 // CHECK-NOFUSION-NEXT: {__byteir_hlo_aggressive_fusion__}
