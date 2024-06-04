@@ -27,11 +27,10 @@
 #include "byteir/Dialect/GPU/Transforms/GPUBlockSwizzle.h"
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/GPU/Transforms/Transforms.h"
-#include "byteir/Transforms/MemoryPlanning.h"
+#include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/IRMapping.h"
@@ -41,7 +40,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include <utility>
 
-#include "PassDetails.h"
+#include "PassDetail.h"
 
 #define DEBUG_TYPE "gpu-block-swizzle"
 
@@ -49,17 +48,6 @@ using namespace llvm;
 using namespace mlir;
 
 namespace {
-bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
-  if (auto mapping = forallOp.getMappingAttr()) {
-    if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
-          return isa<gpu::GPUBlockMappingAttr>(attr);
-        })) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 // Implements the following swizzling logic:
 // def get_tiled_id_triton(x, y, grid_size_x, grid_size_y, tile):
@@ -114,39 +102,22 @@ makeSwizzledIdsInTritonWay(Location loc, OpBuilder &b, Value x, Value y,
 }
 
 // Only support 2d grid.
-static LogicalResult reorderForallOpInFunc(func::FuncOp func,
-                                           unsigned swizzleLogTile) {
+static LogicalResult
+reorderForallOpMappedTo2DBlock(scf::ForallOp forallOp unsigned swizzleLogTile) {
   unsigned swizzleTile = 1 << swizzleLogTile;
-  std::vector<scf::ForallOp> forallOps;
-  func.walk([&](scf::ForallOp forallOp) {
-    if (isMappedToGPUBlocks(forallOp) &&
-        forallOp.getMappingAttr().getValue().size() == 2)
-      forallOps.push_back(forallOp);
-  });
-  if (forallOps.size() != 1)
-    return failure();
-  scf::ForallOp forallOp = forallOps[0];
-
   OpBuilder b(forallOp);
 
   scf::ForallOp newforallOp = forallOp.clone();
   newforallOp.getBody()->clear();
   b.insert(newforallOp);
-
-  // This way will not copy attributes.
-  // scf::ForallOp newforallOp = b.create<scf::ForallOp>(
-  //     forallOp.getLoc(), forallOp.getMixedLowerBound(),
-  //     forallOp.getMixedUpperBound(), forallOp.getMixedStep(),
-  //     forallOp.getResults(), forallOp.getMapping());
-
   b.setInsertionPointToStart(newforallOp.getBody());
+
   auto originLoops = forallOp.getInductionVars();
   auto gridSize = newforallOp.getUpperBound(b);
   auto loops = newforallOp.getInductionVars();
   auto mapping = newforallOp.getMappingAttr().getValue();
 
   Value workgroupIdX, workgroupIdY, workgroupCountX, workgroupCountY;
-
   if (mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId() == 0) {
     workgroupIdX = loops[0];
     workgroupIdY = loops[1];
@@ -181,10 +152,18 @@ public:
   }
 
   void runOnOperation() override {
-    func::FuncOp op = getOperation();
-    if (!op->hasAttr("__byteir_matmul_epilogue_fusion__"))
-      return;
-    if (failed(reorderForallOpInFunc(op, swizzleLogTile))) {
+    func::FuncOp funcOp = getOperation();
+    if (!hasGemmTileConfig(funcOp)) {
+      return signalPassFailure();
+    }
+
+    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    if (!forallOpOptional.has_value()) {
+      return signalPassFailure();
+    }
+    scf::ForallOp forallOp = *forallOpOptional;
+
+    if (failed(reorderForallOpMappedTo2DBlock(forallOp, swizzleLogTile))) {
       return signalPassFailure();
     }
   }
