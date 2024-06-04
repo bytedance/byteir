@@ -123,7 +123,7 @@ class E2ECollections:
     ])
     def ByreTensorOptPipeline(filecheck, *, entryFunc="main"):
         return OptPipeline(E2ECollections.ByreTensorOpt, [E2ECollections.BufferizeOpt], ["-byre-tensor-opt=\"append-arg-types entry-func={}\"".format(entryFunc)], filecheck)
-    BufferizeOptPipeline = functools.partial(OptPipeline, BufferizeOpt, [AffineOpt, SCFOpt], [
+    BufferizeOptPipeline = functools.partial(OptPipeline, BufferizeOpt, [SCFOpt], [
         "-byteir-bufferize-opt",
     ])
     AffineOptPipeline = functools.partial(OptPipeline, AffineOpt, [GPUOpt], [

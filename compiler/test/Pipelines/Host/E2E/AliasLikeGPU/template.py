@@ -41,13 +41,13 @@ func.func @main(%arg0: tensor<512x200xf32>, %arg1: tensor<512x2x100xf32>) -> ten
 // CHECK-LABEL: func.func @main
 """),
         HostOutputPipeline(r"""
-// CHECK-LABEL: gpu.func @Unknown0
+// CHECK-LABEL: func.func @main
 """),
         NVVMCodegenPipeline(r"""
 // CHECK-LABEL: llvm.func @Unknown0
 """),
         PTXCodegenPipeline(r"""
-// CHECK-LABEL: func.func @main
+// CHECK-LABEL: .visible .entry Unknown0
 """),
     ]
 )

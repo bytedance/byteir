@@ -1,6 +1,6 @@
 // RUN: byteir-opt %s  | FileCheck %s
 
-// CHECK-LABEL: gpu.func @Unknown0
+// CHECK-LABEL: func.func @main
 
 module attributes {byre.container_module, gpu.container_module} {
   func.func @main(%arg0: memref<512x200xf32, "cuda"> {byre.argname = "Input0", byre.argtype = 1 : i32}, %arg1: memref<512x2x100xf32, "cuda"> {byre.argname = "Input1", byre.argtype = 1 : i32}, %arg2: memref<128x2x100xf32, "cuda"> {byre.argname = "Output0", byre.argtype = 2 : i32}) attributes {byre.entry_point, device_file_name = "your_file"} {

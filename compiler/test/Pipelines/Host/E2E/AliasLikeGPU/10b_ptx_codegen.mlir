@@ -1,6 +1,6 @@
 // RUN: byteir-translate %s -gen-ptx -o-ptx device_output -dump-ptx | FileCheck %s
 
-// CHECK-LABEL: func.func @main
+// CHECK-LABEL: .visible .entry Unknown0
 
 module attributes {byre.container_module, gpu.container_module} {
   gpu.module @unified {
