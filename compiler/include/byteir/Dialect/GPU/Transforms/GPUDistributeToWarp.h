@@ -1,6 +1,7 @@
-//===- Passes.h ----------------------------------------------*--- C++ -*-===//
+//===- GPUDistributeToWarp.h --------------------------------------*--- C++
+//-*-===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,25 +16,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_GPU_PASSES_H
-#define BYTEIR_DIALECT_GPU_PASSES_H
+#ifndef BYTEIR_DIALECT_GPU_TRANSFORMS_GPUDISTRIBUTETOWARP_H
+#define BYTEIR_DIALECT_GPU_TRANSFORMS_GPUDISTRIBUTETOWARP_H
 
-#include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
-#include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoops.h"
 #include "mlir/Pass/Pass.h"
+#include "llvm/ADT/StringRef.h"
+#include <memory>
 
 namespace mlir {
-namespace gpu {
-class GPUFuncOp;
-} // namespace gpu
+namespace func {
+class FuncOp;
+} // namespace func
 
-#define GEN_PASS_DECL
-#include "byteir/Dialect/GPU/Passes.h.inc"
-
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/GPU/Passes.h.inc"
+/// Pass to distribute Linalg ops to GPU warps.
+std::unique_ptr<OperationPass<func::FuncOp>> createGPUDistributeToWarpPass();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_GPU_PASSES_H
+#endif // BYTEIR_DIALECT_GPU_TRANSFORMS_GPUDISTRIBUTETOWARP_H
