@@ -1,6 +1,7 @@
 add_mlir_dialect_library(ByteIRSCFPasses
   InsertTrivialSCFLoop.cpp
   TilingInterfaceToSCFFor.cpp
+  RemoveSingleIterationLoop.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Dialect/SCF
