@@ -45,7 +45,6 @@ BatchTranspose<T>::BatchTranspose(const OpAccessor &accessor) {
   auto shape_input = accessor.GetArgShape(0);
   auto shape_output = accessor.GetArgShape(1);
 
-  BRT_ENFORCE((shape_input.size() == 2 || shape_input.size() == 3));
   BRT_ENFORCE(shape_output ==
               transpose::DeduceOutputShape(
                   shape_input, accessor.GetAttrAsIntArray("permutation")));
@@ -56,11 +55,10 @@ template <typename T>
 void BatchTranspose<T>::Execute(const T *input, T *output,
                                 cudnnHandle_t /*handle*/, cudaStream_t stream) {
   auto p = MakeCUDAGridAndBlock(input_shape[1], input_shape[0]);
-  int32_t batch = 1, m, n;
-  if (input_shape.size() == 2) {
-    m = input_shape[0], n = input_shape[1];
-  } else if (input_shape.size() == 3) {
-    batch = input_shape[0], m = input_shape[1], n = input_shape[2];
+  int32_t rank = input_shape.size();
+  int32_t batch = 1, m = input_shape[rank - 2], n = input_shape[rank - 1];
+  for (int32_t i = 0; i < rank - 2; ++i) {
+    batch *= input_shape[i];
   }
   kernel::batch_transpose<T>(batch, m, n, input, output, stream);
   BRT_CUDA_CHECK(cudaGetLastError());
