@@ -57,4 +57,12 @@ def RemoveTrivialLoops : Pass<"remove-trivial-loops", "func::FuncOp"> {
 }
 
 
+//===----------------------------------------------------------------------===//
+// GPUPackSharedMemoryAlloc
+//===----------------------------------------------------------------------===//
+def GPUPackSharedMemoryAlloc : Pass<"gpu-pack-shared-memory-alloc", "func::FuncOp"> {
+  let summary = "Analysis shared memory reuse and pack it into i8 alloc.";
+  let constructor = "mlir::createGPUPackSharedMemoryAllocPass()";
+}
+
 #endif // BYTEIR_DIALECT_GPU_PASSES

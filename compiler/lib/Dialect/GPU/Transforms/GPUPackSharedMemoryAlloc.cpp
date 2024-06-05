@@ -24,24 +24,19 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include "byteir/Dialect/GPU/Transforms/GPUPackSharedMemory.h"
+#include "byteir/Dialect/GPU/Transforms/GPUPackSharedMemoryAlloc.h"
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/GPU/Transforms/Transforms.h"
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "byteir/Dialect/Linalg/Transforms/Transforms.h"
 
-#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
-#include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Analysis/Liveness.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
-#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/Matchers.h"
-#include "mlir/Support/MathExtras.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
 #include "PassDetail.h"
@@ -51,7 +46,6 @@
 using namespace mlir;
 
 namespace {
-// 
 static int64_t getAllocSize(Operation *op, DataLayout &dataLayout) {
   auto allocOp = cast<memref::AllocaOp>(op);
   int64_t numElements = allocOp.getType().getNumElements();
@@ -60,8 +54,12 @@ static int64_t getAllocSize(Operation *op, DataLayout &dataLayout) {
          8;
 }
 
+// Group of Alloc operations that have overlapping liveranges.
+using AliasGroup = SmallVector<Operation *>;
+
 // help function of packing
-void analyseAllocsForPacking(func::FuncOp funcOp, ArrayRef<Operation *> allocs,
+void analyseAllocsForPacking(scf::ForallOp forallOp,
+                             ArrayRef<Operation *> allocs,
                              SmallVector<AliasGroup> &aliasGroups) {
   // Represent of a group of allocations with overlapping liverange and the
   // liveness of the overall group.
@@ -74,7 +72,7 @@ void analyseAllocsForPacking(func::FuncOp funcOp, ArrayRef<Operation *> allocs,
     // with the liverange we store it as a DesneSet.
     llvm::DenseSet<Operation *> liveness;
   };
-  Liveness liveness(funcOp);
+  Liveness liveness(forallOp);
   SmallVector<AllocGroup> groups;
   for (Operation *alloc : allocs) {
     SmallVector<size_t> aliasGroups;
@@ -139,9 +137,7 @@ void packAllocs(OpBuilder &builder, scf::ForallOp forallOp,
                 ArrayRef<AliasGroup> aliasGroups) {
   if (aliasGroups.empty())
     return;
-  DataLayout dataLayout = DataLayout::closest(funcOp);
-  scf::ForallOp loopParent =
-      aliasGroups[0][0]->getParentOfType<scf::ForallOp>();
+  DataLayout dataLayout = DataLayout::closest(forallOp);
   builder.setInsertionPointToStart(forallOp.getBody());
   int64_t maxAlloc = 0;
   for (size_t i = 0; i < aliasGroups.size(); i++) {
@@ -158,7 +154,7 @@ void packAllocs(OpBuilder &builder, scf::ForallOp forallOp,
   MemRefType allocType = MemRefType::get({maxAlloc}, builder.getI8Type(),
                                          AffineMap(), memorySpace);
   Value packedAlloc =
-      builder.create<memref::AllocaOp>(funcOp.getLoc(), allocType);
+      builder.create<memref::AllocaOp>(forallOp.getLoc(), allocType);
   for (size_t i = 0; i < aliasGroups.size(); i++) {
     int64_t offset = 0;
     for (Operation *alloc : aliasGroups[i]) {
@@ -208,18 +204,19 @@ void sinkOpsInCFG(const SmallVector<Operation *> &allocs,
   }
 }
 
-void packSharedMemoryAlloc(func::FuncOp funcOp) {
-  DominanceInfo dominators(funcOp);
+void packSharedMemoryAlloc(scf::ForallOp forallOp) {
+  DominanceInfo dominators(forallOp);
   SmallVector<Operation *> allocs;
-  funcOp.walk([&](memref::AllocaOp alloca) {
-    if (hasSharedMemoryAddressSpace(alloca.getType())) {
+  forallOp.walk([&](memref::AllocaOp alloca) {
+    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(alloca.getType())) {
       allocs.push_back(alloca);
     }
   });
   // First sink the alloc as low as possible in the CFG.
   sinkOpsInCFG(allocs, dominators);
   SmallVector<AliasGroup> aliasGroups;
-  analyseAllocsForPacking(funcOp, allocs, aliasGroups);
+  analyseAllocsForPacking(forallOp, allocs, aliasGroups);
+  llvm::errs() << aliasGroups.size() << "\n";
   // If there is 1 or less alias group there is nothing to do.
   if (aliasGroups.size() <= 1)
     return;
@@ -227,24 +224,42 @@ void packSharedMemoryAlloc(func::FuncOp funcOp) {
   // Pack all the allocations into one i8 alloc.
   // We may need to add extra barriers to make sure we are done writting or
   // reading from the previous alias group before starting a new one.
-  // TODO(Yangxinyu): analysis this
-  int sz = aliasGroups.size();
+  // int sz = aliasGroups.size();
   // insert barrier at last aliasGroup
-  for (Operation *alloc : aliasGroups[0]) {
-    addBarrier(funcOp, alloc, aliasGroups[0]);
-  }
+  // for (Operation *alloc : aliasGroups[0]) {
+  //   addBarrier(forallOp, alloc, aliasGroups[0]);
+  // }
   // for (size_t i = 0; i < aliasGroups.size(); i++) {
   //   for (Operation *alloc : aliasGroups[i]) {
   //     addBarrier(funcOp, alloc, aliasGroups[i]);
   //   }
   // }
 
-  OpBuilder builder(funcOp.getContext());
-  packAllocs(builder, funcOp, aliasGroups);
+  OpBuilder builder(forallOp.getContext());
+  packAllocs(builder, forallOp, aliasGroups);
 }
+
+struct GPUPackSharedMemoryAllocPass
+    : public GPUPackSharedMemoryAllocBase<GPUPackSharedMemoryAllocPass> {
+public:
+  void runOnOperation() override {
+    auto funcOp = getOperation();
+    if (!hasGemmTileConfig(funcOp)) {
+      return signalPassFailure();
+    }
+    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    if (!forallOpOptional.has_value()) {
+      return signalPassFailure();
+    }
+    scf::ForallOp forallOp = *forallOpOptional;
+
+    packSharedMemoryAlloc(forallOp);
+  }
+};
+
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createPackSharedMemoryPass() {
-  return std::make_unique<PackSharedMemoryPass>();
+mlir::createGPUPackSharedMemoryAllocPass() {
+  return std::make_unique<GPUPackSharedMemoryAllocPass>();
 }
