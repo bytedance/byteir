@@ -34,6 +34,8 @@ declare_mlir_python_sources(TorchFrontendPythonSources.TopLevel
     byteir_backend/partitioners.py
 
     tools/compiler.py
+    tools/gen_extra_library.py
+    tools/extra_fn.mlir
 )
 
 ################################################################################
