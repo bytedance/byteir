@@ -40,11 +40,12 @@ using namespace brt::ir;
 namespace brt {
 namespace cuda {
 
-template <typename T> Transpose2D<T>::Transpose2D(const OpAccessor &accessor) {
+template <typename T>
+BatchTranspose<T>::BatchTranspose(const OpAccessor &accessor) {
   auto shape_input = accessor.GetArgShape(0);
   auto shape_output = accessor.GetArgShape(1);
 
-  BRT_ENFORCE(shape_input.size() == 2);
+  BRT_ENFORCE((shape_input.size() == 2 || shape_input.size() == 3));
   BRT_ENFORCE(shape_output ==
               transpose::DeduceOutputShape(
                   shape_input, accessor.GetAttrAsIntArray("permutation")));
@@ -52,18 +53,22 @@ template <typename T> Transpose2D<T>::Transpose2D(const OpAccessor &accessor) {
 }
 
 template <typename T>
-void Transpose2D<T>::Execute(const T *input, T *output,
-                             cudnnHandle_t /*handle*/, cudaStream_t stream) {
+void BatchTranspose<T>::Execute(const T *input, T *output,
+                                cudnnHandle_t /*handle*/, cudaStream_t stream) {
   auto p = MakeCUDAGridAndBlock(input_shape[1], input_shape[0]);
-  kernel::transpose_naive_2d<T>(input, output, static_cast<int>(input_shape[0]),
-                                static_cast<int>(input_shape[1]), p.first,
-                                p.second, stream);
+  int32_t batch = 1, m, n;
+  if (input_shape.size() == 2) {
+    m = input_shape[0], n = input_shape[1];
+  } else if (input_shape.size() == 3) {
+    batch = input_shape[0], m = input_shape[1], n = input_shape[2];
+  }
+  kernel::batch_transpose<T>(batch, m, n, input, output, stream);
   BRT_CUDA_CHECK(cudaGetLastError());
 }
 
 // instantiate
-template class Transpose2D<float>;
-template class Transpose2D<__half>;
+template class BatchTranspose<float>;
+template class BatchTranspose<__half>;
 
 template <typename T> Transpose4D<T>::Transpose4D(const OpAccessor &accessor) {
   auto shape_input = accessor.GetArgShape(0);
@@ -134,8 +139,14 @@ template class Transpose4D<__half>;
 template <typename T>
 TransposeImpl<T>::TransposeImpl(const OpAccessor &accessor) {
   auto shape_input = accessor.GetArgShape(0);
-  if (shape_input.size() == 2) {
-    this->impl = new Transpose2D<T>(accessor);
+  if (shape_input.size() == 2 || shape_input.size() == 3) {
+    auto permutation = accessor.GetAttrAsIntArray("permutation");
+    if (permutation[permutation.size() - 2] == permutation.size() - 1 &&
+        permutation[permutation.size() - 1] == permutation.size() - 2) {
+      this->impl = new BatchTranspose<T>(accessor);
+    } else {
+      BRT_THROW("unsupported transpose");
+    }
   } else if (shape_input.size() == 4) {
     this->impl = new Transpose4D<T>(accessor);
   } else {
