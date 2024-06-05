@@ -47,6 +47,14 @@ namespace mhlo {
 class MhloDialect;
 } // namespace mhlo
 
+namespace pdl {
+class PDLDialect;
+} // namespace pdl
+
+namespace pdl_interp {
+class PDLInterpDialect;
+} // namespace pdl_interp
+
 namespace scf {
 class SCFDialect;
 } // namespace scf
