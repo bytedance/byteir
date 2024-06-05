@@ -128,6 +128,15 @@ def LinalgPrefetch : Pass<"linalg-prefetch", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// LinalgPromotion
+//===----------------------------------------------------------------------===//
+
+def LinalgPromotion : Pass<"linalg-promotion", "func::FuncOp"> {
+  let summary = "Promote Linalg's MamtulOp operand subview to memref.alloca and linalg.copy";
+  let constructor = "mlir::createLinalgPromotionPass()";
+}
+
+//===----------------------------------------------------------------------===//
 // LinalgScopeTiling
 //===----------------------------------------------------------------------===//
 
