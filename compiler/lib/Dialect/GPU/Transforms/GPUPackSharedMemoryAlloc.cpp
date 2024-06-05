@@ -216,7 +216,6 @@ void packSharedMemoryAlloc(scf::ForallOp forallOp) {
   sinkOpsInCFG(allocs, dominators);
   SmallVector<AliasGroup> aliasGroups;
   analyseAllocsForPacking(forallOp, allocs, aliasGroups);
-  llvm::errs() << aliasGroups.size() << "\n";
   // If there is 1 or less alias group there is nothing to do.
   if (aliasGroups.size() <= 1)
     return;
