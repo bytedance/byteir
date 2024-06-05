@@ -19,6 +19,7 @@ declare_mlir_python_sources(ByteIRPythonSources.Common
     _backend_registry.py
     utils.py
     compile.py
+    pattern_matches.py
     tools/compiler.py
     tools/cat_execute.py
     tools/cat_numerical_test.py
