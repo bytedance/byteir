@@ -58,6 +58,21 @@ namespace elementwise {
 
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
+  if (auto transposeOp = llvm::dyn_cast<mhlo::TransposeOp>(op)) {
+    llvm::SmallVector<int64_t> permutation =
+        llvm::to_vector(transposeOp.getPermutation().getValues<int64_t>());
+    if (permutation[permutation.size() - 2] == permutation.size() - 1 &&
+        permutation[permutation.size() - 1] == permutation.size() - 2) {
+      for (size_t i = 0; i < permutation.size() - 2; i++) {
+        if (permutation[i] != i) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return true;
+  }
+
   return isMhlo(op) &&
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||

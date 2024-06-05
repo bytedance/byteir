@@ -139,14 +139,17 @@ template class Transpose4D<__half>;
 template <typename T>
 TransposeImpl<T>::TransposeImpl(const OpAccessor &accessor) {
   auto shape_input = accessor.GetArgShape(0);
-  if (shape_input.size() == 2 || shape_input.size() == 3) {
-    auto permutation = accessor.GetAttrAsIntArray("permutation");
-    if (permutation[permutation.size() - 2] == permutation.size() - 1 &&
-        permutation[permutation.size() - 1] == permutation.size() - 2) {
-      this->impl = new BatchTranspose<T>(accessor);
-    } else {
-      BRT_THROW("unsupported transpose");
+  bool identity = true;
+  auto permutation = accessor.GetAttrAsIntArray("permutation");
+  for (size_t i = 0; i < permutation.size() - 2; i++) {
+    if (permutation[i] != i) {
+      identity = false;
     }
+  }
+  if (permutation[permutation.size() - 2] == permutation.size() - 1 &&
+      permutation[permutation.size() - 1] == permutation.size() - 2 &&
+      identity) {
+    this->impl = new BatchTranspose<T>(accessor);
   } else if (shape_input.size() == 4) {
     this->impl = new Transpose4D<T>(accessor);
   } else {
