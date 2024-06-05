@@ -94,7 +94,7 @@ class ByteIRFxGraphHashDetails:
         example_inputs: List[torch.Tensor],
         fx_kwargs: Dict[str, Any],
     ):
-        self.gm = gm
+        self.gm = gm.__str__()
         self.example_inputs = example_inputs
 
         # Order kwargs so hashing is stable to changes in kwarg order.
@@ -151,6 +151,9 @@ class ByteIRFxGraphHashDetails:
                 for k, v in obj.items():
                     h = ByteIRFxGraphCachePickler.get_hash(v)
                     lines.append(f"[{h}] {attr}[{k}]: {get_str(v)}")
+            elif isinstance(obj, torch.fx.GraphModule):
+                h = ByteIRFxGraphCachePickler.get_hash(obj.__str__())
+                lines.append(f"[{h}] {attr}: {get_str(obj)}")
             else:
                 h = ByteIRFxGraphCachePickler.get_hash(obj)
                 lines.append(f"[{h}] {attr}: {get_str(obj)}")
