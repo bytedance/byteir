@@ -49,6 +49,8 @@ static constexpr StringRef getCopyRelatedToWorkgroupMemoryMarker() {
   return "__byteir_copy_related_to_workgroup_memory__";
 }
 
+static constexpr StringRef getVectorizeMarker() { return "vectorizeMarker"; }
+
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);

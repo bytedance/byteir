@@ -1,4 +1,4 @@
-// RUN: byteir-opt -gpu-distribute-shared-memory-copy  -canonicalize -cse --verify-diagnostics %s | FileCheck %s
+// RUN: byteir-opt -gpu-distribute-shared-memory-copy --cse --canonicalize --fold-memref-alias-ops --canonicalize --cse --verify-diagnostics %s | FileCheck %s
 
 #map = affine_map<(d0) -> (d0 * 128)>
 module {
@@ -28,3 +28,26 @@ module {
     return %alloc : memref<5376x5376xf16>
   }
 }
+// CHECK-LABEL:      scf.for %arg4 = %c0 to %c2048 step %c32 {
+
+// CHECK:            %[[READ0:.*]] = vector.transfer_read %arg0[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<5376x2048xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ0]], %alloca_1[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<128x32xf16, #gpu.address_space<workgroup>>
+// CHECK:            %[[READ1:.*]] = vector.transfer_read %arg0[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<5376x2048xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ1]], %alloca_1[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<128x32xf16, #gpu.address_space<workgroup>>
+// CHECK:            %[[READ2:.*]] = vector.transfer_read %arg0[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<5376x2048xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ2]], %alloca_1[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<128x32xf16, #gpu.address_space<workgroup>>
+// CHECK:            %[[READ3:.*]] = vector.transfer_read %arg0[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<5376x2048xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ3]], %alloca_1[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<128x32xf16, #gpu.address_space<workgroup>>
+
+// CHECK:            %[[READ4:.*]] = vector.transfer_read %arg1[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<2048x5376xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ4]], %alloca_0[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<32x128xf16, #gpu.address_space<workgroup>>
+// CHECK:            %[[READ5:.*]] = vector.transfer_read %arg1[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<2048x5376xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ5]], %alloca_0[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<32x128xf16, #gpu.address_space<workgroup>>
+// CHECK:            %[[READ6:.*]] = vector.transfer_read %arg1[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<2048x5376xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ6]], %alloca_0[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<32x128xf16, #gpu.address_space<workgroup>>
+// CHECK:            %[[READ7:.*]] = vector.transfer_read %arg1[%{{.*}}, %{{.*}}], %cst {in_bounds = [true, true]} : memref<2048x5376xf16>, vector<1x8xf16>
+// CHECK:            vector.transfer_write %[[READ7]], %alloca_0[%{{.*}}, %{{.*}}] {in_bounds = [true, true]} : vector<1x8xf16>, memref<32x128xf16, #gpu.address_space<workgroup>>
+
+// CHECK:            linalg.matmul {__byteir_gpu_tile_gemm_0, __byteir_mma__, __byteir_mma_level__ = "Threadblock", __byteir_target__ = "nv_sm_80"} ins(%alloca_1, %alloca_0 : memref<128x32xf16, #gpu.address_space<workgroup>>, memref<32x128xf16, #gpu.address_space<workgroup>>) outs(%alloca : memref<128x128xf16, #gpu.address_space<workgroup>>)
+// CHECK-COUNT-8:    vector.transfer_read %alloca{{.*}} : memref<{{.*}}>, vector<1x8xf16>
+// CHECK-COUNT-8:    vector.transfer_write %{{.*}}, %alloc[{{.*}}] {{.*}} : vector<1x8xf16>, memref<{{.*}}>

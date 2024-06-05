@@ -24,6 +24,10 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+//====---------------------------------------------------------------------===//
+// Pass to lower workgroup memory copy to distibuted
+// transfer_read/transfer_write ops.
+//====---------------------------------------------------------------------===//
 #include <algorithm>
 #include <numeric>
 
@@ -61,11 +65,6 @@ void debugPrint(Operation *funcOp, const char *step) {
   });
 }
 
-//====---------------------------------------------------------------------===//
-// Pass to lower workgroup memory copy to distibuted
-// transfer_read/transfer_write ops.
-//====---------------------------------------------------------------------===//
-
 namespace {
 
 // Markers for intermediate transformations.
@@ -77,21 +76,6 @@ static constexpr int32_t kNumGPUDims = 3;
 // For optimal performance we always want to copy 128 bits
 // async copy limit, must be n * copyVectorNumBits
 static constexpr int copyVectorNumBits = 128;
-
-static constexpr StringRef getCopyToWorkgroupMemoryMarker() {
-  return "__byteir_copy_related_to_workgroup_memory__";
-}
-
-static constexpr StringRef getVectorizeMarker() { return "vectorizeMarker"; }
-
-static bool hasMarker(Operation *op, ArrayRef<StringRef> marker) {
-  StringAttr attr = op->getAttrOfType<StringAttr>(
-      linalg_ext::LinalgTransforms::kLinalgTransformMarker);
-  return attr && (marker.empty() ||
-                  llvm::any_of(marker, [&attr](StringRef markerValue) {
-                    return attr.getValue() == markerValue;
-                  }));
-}
 
 /// Tiles copy to shared memory mapping. Copy to shared memory are not part of
 /// the launch config but needs to be distributed on the workgroup picked by the
@@ -143,7 +127,7 @@ static LogicalResult tileCopyToWorkgroupMem(scf::ForallOp forallOp,
 
   auto filter = mlir::linalg_ext::LinalgTransformationFilter(
       {StringAttr::get(forallOp.getContext(),
-                       getCopyToWorkgroupMemoryMarker())},
+                       getCopyRelatedToWorkgroupMemoryMarker())},
       StringAttr::get(forallOp.getContext(), getVectorizeMarker()));
   return distributeLinalgOpsWithFilter(forallOp, tilingOptions, filter);
 }
@@ -267,7 +251,7 @@ static LogicalResult tileToUnroll(scf::ForallOp funcOp,
 
   MLIRContext *context = funcOp.getContext();
   auto filter = mlir::linalg_ext::LinalgTransformationFilter(
-      {StringAttr::get(context, getCopyToWorkgroupMemoryMarker())},
+      {StringAttr::get(context, getCopyRelatedToWorkgroupMemoryMarker())},
       StringAttr::get(context, kCopyToDistribute));
   return distributeLinalgOpsWithFilter(funcOp, tilingOptions, filter);
 }
@@ -362,7 +346,7 @@ static void vectorizeCopyToWorkgroupMemoryOps(scf::ForallOp forallOp) {
   MLIRContext *context = forallOp.getContext();
   IRRewriter rewriter(context);
   auto filter = mlir::linalg_ext::LinalgTransformationFilter(
-      {StringAttr::get(context, getCopyToWorkgroupMemoryMarker()),
+      {StringAttr::get(context, getCopyRelatedToWorkgroupMemoryMarker()),
        StringAttr::get(context, kCopyDistributed)},
       std::nullopt);
 
@@ -449,8 +433,10 @@ LogicalResult gpuDistributeSharedMemoryCopy(scf::ForallOp forallOp,
 
   // Step 0. First Generalize LinalgCopyOps.
   forallOp.walk([&](linalg::CopyOp copyOp) {
-    // if (hasMarker(copyOp, getCopyToWorkgroupMemoryMarker()))
-    linalgCopies.push_back(copyOp);
+    if (hasAnyLinalgTransformationMarker(
+            copyOp, {getCopyRelatedToWorkgroupMemoryMarker()})) {
+      linalgCopies.push_back(copyOp);
+    }
   });
 
   if (linalgCopies.empty())
