@@ -318,9 +318,7 @@ static void populateVectorUnrollPatterns(RewritePatternSet &patterns) {
 // This pass generate mma instead of wmma instructions.
 struct GPUTensorCoreVectorizationPass
     : public GPUTensorCoreVectorizationBase<GPUTensorCoreVectorizationPass> {
-  GPUTensorCoreVectorizationPass()
-      : GPUTensorCoreVectorizationBase() {
-  }
+  GPUTensorCoreVectorizationPass() : GPUTensorCoreVectorizationBase() {}
 
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
