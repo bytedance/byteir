@@ -168,8 +168,8 @@ struct LinalgTransformationFilter {
 
   LinalgTransformationFilter(LinalgTransformationFilter &&) = default;
   LinalgTransformationFilter(const LinalgTransformationFilter &) = default;
-  LogicalResult checkAndNotify(PatternRewriter &rewriter, Operation *op) const;
-  void replaceLinalgTransformationFilter(PatternRewriter &rewriter,
+  LogicalResult checkAndNotify(RewriterBase &rewriter, Operation *op) const;
+  void replaceLinalgTransformationFilter(RewriterBase &rewriter,
                                          Operation *op) const;
   bool hasReplacementFilter(Operation *op) const;
 

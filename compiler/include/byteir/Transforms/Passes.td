@@ -37,6 +37,23 @@ def AnchoredPipeline : Pass<"anchored-pipeline"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ApplyPDLPatterns
+//===----------------------------------------------------------------------===//
+
+def ApplyPDLPatterns : Pass<"apply-pdl-patterns"> {
+  let summary = "Apply pdl patterns on given module";
+  let constructor = "mlir::createApplyPDLPatternsPass()";
+  let options = [
+    Option<"pdlFile", "pdl-file", "std::string",
+           /*default=*/"", "To specify the pdl module file.">,
+  ];
+  let dependentDialects = [
+    "::mlir::pdl::PDLDialect",
+    "::mlir::pdl_interp::PDLInterpDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // TryCatch Module Pipeline
 //===----------------------------------------------------------------------===//
 

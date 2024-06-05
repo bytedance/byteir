@@ -28,6 +28,7 @@
 #include "byteir/Dialect/Tensor/IR/TilingInterfaceImpl.h"
 #include "byteir/Dialect/Transform/IR/TransformExtOps.h"
 #include "byteir/Utils/OpInterfaceUtils.h"
+#include "byteir/Utils/PatternMatch.h"
 #include "mlir/CAPI/Registration.h"
 
 using namespace mlir;
@@ -42,6 +43,7 @@ MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(
 void byteirRegisterDialectExtensions(MlirContext context) {
   DialectRegistry registry;
   registeOpInterfaceExtensions(registry);
+  registerPDLPatternHooksInterface(registry);
   ccl::registerTransformDialectExtension(registry);
   linalg_ext::registerTransformDialectExtension(registry);
   transform_ext::registerTransformDialectExtension(registry);

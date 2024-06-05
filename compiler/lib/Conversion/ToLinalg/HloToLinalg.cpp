@@ -32,6 +32,7 @@
 // limitations under the License.
 //===----------------------------------------------------------------------===//
 
+#include "../PassDetail.h"
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
@@ -55,8 +56,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
-
-#include "../PassDetail.h"
+#include <cmath>
 
 using namespace mlir;
 using namespace mlir::linalg;
@@ -826,6 +826,75 @@ static Value castToIndexTensor(OpBuilder &builder, Location loc,
   return builder.create<arith::IndexCastOp>(loc, resultTy, shapeOp);
 }
 
+static llvm::SmallVector<Value>
+generateRoundInst(OpBuilder &b, Location loc, llvm::SmallVector<Value> keys,
+                  llvm::SmallVector<Value> counters) {
+  auto i64Counter0 = b.create<arith::ExtUIOp>(loc, b.getI64Type(), counters[0]);
+  auto i64Counter2 = b.create<arith::ExtUIOp>(loc, b.getI64Type(), counters[2]);
+  auto i64const1 =
+      b.create<arith::ConstantOp>(loc, b.getI64IntegerAttr(0xD2511F53));
+  auto i64const2 =
+      b.create<arith::ConstantOp>(loc, b.getI64IntegerAttr(0xCD9E8D57));
+  auto t1 = b.create<arith::MulIOp>(loc, i64Counter0, i64const1);
+  auto lo0 = b.create<arith::TruncIOp>(loc, b.getI32Type(), t1);
+  auto i64hi0 = b.create<arith::ShRUIOp>(
+      loc, t1, b.create<arith::ConstantOp>(loc, b.getI64IntegerAttr(32)));
+  auto hi0 = b.create<arith::TruncIOp>(loc, b.getI32Type(), i64hi0);
+
+  auto t2 = b.create<arith::MulIOp>(loc, i64Counter2, i64const2);
+  auto lo1 = b.create<arith::TruncIOp>(loc, b.getI32Type(), t2);
+  auto i64hi1 = b.create<arith::ShRUIOp>(
+      loc, t2, b.create<arith::ConstantOp>(loc, b.getI64IntegerAttr(32)));
+  auto hi1 = b.create<arith::TruncIOp>(loc, b.getI32Type(), i64hi1);
+
+  auto t3 = b.create<arith::XOrIOp>(loc, hi1, counters[1]);
+  auto newC0 = b.create<arith::XOrIOp>(loc, t3, keys[0]);
+  auto t4 = b.create<arith::XOrIOp>(loc, hi0, counters[3]);
+  auto newC2 = b.create<arith::XOrIOp>(loc, t4, keys[1]);
+  return {newC0, lo1, newC2, lo0};
+};
+
+static llvm::SmallVector<Value> Philox4x32_10(OpBuilder &b, Location loc,
+                                              const Value &seed,
+                                              const Value &offset,
+                                              int64_t targetRank) {
+  Value i32Seed = b.create<arith::TruncIOp>(loc, b.getI32Type(), seed);
+  Value i32Offset = b.create<arith::TruncIOp>(loc, b.getI32Type(), offset);
+  Value kInitialSeed = b.create<arith::AddIOp>(loc, i32Seed, i32Offset);
+  llvm::SmallVector<Value> updateVec = {kInitialSeed}; // seed
+  Value multiplier =
+      b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(1103515245));
+  Value incrementStep =
+      b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(12345));
+  // For output matrix with rank N:
+  // temp1 = (cast(I32, index(D.0)) + seed) * mult + incr
+  // ...
+  // tempN = (cast(I32, index(D.(N))) + tempN_1) * mult + incr
+  for (int i = 0; i < targetRank; i++) {
+    Value update = updateVec.back();
+    Value ind = b.create<linalg::IndexOp>(loc, i);
+    Value castInd = b.create<arith::IndexCastOp>(loc, b.getI32Type(), ind);
+    Value addRes = b.create<arith::AddIOp>(loc, castInd, update);
+    Value multRes = b.create<arith::MulIOp>(loc, addRes, multiplier);
+    Value incRes = b.create<arith::AddIOp>(loc, multRes, incrementStep);
+    updateVec.push_back(incRes);
+  }
+  llvm::SmallVector<Value> keys{i32Seed, i32Offset};
+  llvm::SmallVector<Value> counters(
+      4, b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(0)));
+  counters[0] = updateVec.back();
+  counters = generateRoundInst(b, loc, keys, counters);
+  auto keyOffset0 =
+      b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(0x9E3779B9));
+  auto keyOffset1 =
+      b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(0xBB67AE85));
+  for (uint32_t i = 0; i < 9; i++) {
+    keys[0] = b.create<arith::AddIOp>(loc, keys[0], keyOffset0);
+    keys[1] = b.create<arith::AddIOp>(loc, keys[1], keyOffset1);
+    counters = generateRoundInst(b, loc, keys, counters);
+  }
+  return counters;
+}
 class RngUniformCustomCallConverter
     : public OpConversionPattern<mhlo::CustomCallOp> {
 public:
@@ -880,8 +949,7 @@ public:
     indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // seed
     indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // offset
     indexingMaps.push_back(AffineMap::getMultiDimIdentityMap(targetRank, ctx));
-    // Generic region with LCG Algorithm that make use of element index from:
-    // https://reviews.llvm.org/D101364
+
     auto linalgOp = rewriter.create<linalg::GenericOp>(
         loc, /*resultTensors=*/targetTy,
         /*inputs=*/
@@ -891,45 +959,131 @@ public:
         getParallelAndReductionIterators(/*nLoops=*/targetRank,
                                          /*nReduction=*/0),
         [&](OpBuilder &b, Location loc, ValueRange args) {
-          Value i32Seed =
-              b.create<arith::TruncIOp>(loc, b.getI32Type(), args[2]);
-          Value i32Offset =
-              b.create<arith::TruncIOp>(loc, b.getI32Type(), args[3]);
-          Value kInitialSeed = b.create<arith::AddIOp>(loc, i32Seed, i32Offset);
-          llvm::SmallVector<Value> updateVec = {kInitialSeed}; // seed
-          Value multiplier =
-              b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(1103515245));
-          Value incrementStep =
-              b.create<arith::ConstantOp>(loc, b.getI32IntegerAttr(12345));
-          // For output matrix with rank N:
-          // temp1 = (cast(I32, index(D.0)) + seed) * mult + incr
-          // ...
-          // tempN = (cast(I32, index(D.(N))) + tempN_1) * mult + incr
-          for (int i = 0; i < targetRank; i++) {
-            Value update = updateVec.back();
-            Value ind = b.create<linalg::IndexOp>(loc, i);
-            Value castInd =
-                b.create<arith::IndexCastOp>(loc, b.getI32Type(), ind);
-            Value addRes = b.create<arith::AddIOp>(loc, castInd, update);
-            Value multRes = b.create<arith::MulIOp>(loc, addRes, multiplier);
-            Value incRes = b.create<arith::AddIOp>(loc, multRes, incrementStep);
-            updateVec.push_back(incRes);
-          }
-          // Scaling = (max - min) * const(F64, 2.3283064E-10)
-          // which is derived from rand(min,max) = rand()/(RAND_MAX/(max-min)).
-          Value epsilon = b.create<arith::ConstantOp>(
-              loc, b.getFloatAttr(args[0].getType(), 2.3283064E-10));
-          Value range = b.create<arith::SubFOp>(loc, args[1], args[0]);
-          Value scale = b.create<arith::MulFOp>(loc, range, epsilon);
-          // Res = cast(T, cast(F64, tempN) * scaling + min)
-          Value updateCast = b.create<arith::UIToFPOp>(
-              loc, targetTy.getElementType(), updateVec.back());
-          Value scaleUpdate = b.create<arith::MulFOp>(loc, updateCast, scale);
-          Value res = b.create<arith::AddFOp>(loc, scaleUpdate, args[0]);
+          auto counters = Philox4x32_10(b, loc, args[2], args[3], targetRank);
+          auto factor =
+              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -32)));
+          auto halfFactor =
+              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -33)));
+          auto f32Counter =
+              b.create<arith::UIToFPOp>(loc, b.getF32Type(), counters[0]);
+          auto t5 = b.create<arith::MulFOp>(loc, factor, f32Counter);
+          auto u01 = b.create<arith::AddFOp>(loc, t5, halfFactor);
+          auto range = b.create<arith::SubFOp>(loc, args[1], args[0]);
+          auto scale = b.create<arith::MulFOp>(loc, u01, range);
+          Value res = b.create<arith::AddFOp>(loc, scale, args[0]);
           b.create<linalg::YieldOp>(loc, res);
         },
         linalg::getPrunedAttributeList(op));
     rewriter.replaceOp(op, linalgOp.getResults());
+    return success();
+  }
+};
+
+class RngNormalCustomCallConverter
+    : public OpConversionPattern<mhlo::CustomCallOp> {
+public:
+  using OpConversionPattern<mhlo::CustomCallOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::CustomCallOp op, mhlo::CustomCallOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    if (op.getCallTargetName() != getRngNormalName())
+      return failure();
+    auto ctx = op.getContext();
+    auto loc = op.getLoc();
+    auto meanTy = adaptor.getOperands()[0].getType().dyn_cast<ShapedType>();
+    auto stdDevTy = adaptor.getOperands()[1].getType().dyn_cast<ShapedType>();
+    if (!meanTy.getElementType().dyn_cast<FloatType>() ||
+        !stdDevTy.getElementType().dyn_cast<FloatType>()) {
+      return rewriter.notifyMatchFailure(
+          op, "expected min/max for rng op to be FloatType");
+    }
+    auto targetTy = op.getResults()[0].getType().cast<ShapedType>();
+    if (!targetTy) {
+      return rewriter.notifyMatchFailure(
+          op, "expected target shape of rng op to be ShapedType");
+    }
+
+    // create empty tensor
+    SmallVector<Value> sizes;
+    if (adaptor.getOperands().size() == 5) {
+      // dynamic shape
+      auto reifiedShape =
+          castToIndexTensor(rewriter, loc, adaptor.getOperands()[4]);
+      for (const auto &en : llvm::enumerate(targetTy.getShape())) {
+        if (en.value() != ShapedType::kDynamic)
+          continue;
+        sizes.push_back(rewriter.create<tensor::ExtractOp>(
+            loc, reifiedShape,
+            ValueRange{
+                rewriter.create<arith::ConstantIndexOp>(loc, en.index())}));
+      }
+    } else {
+      // static shape
+      assert(adaptor.getOperands().size() == 4 &&
+             "static shape byteir.rng_norm must have 4 operands.");
+    }
+    Value emptyTensor = getEmptyTensor(rewriter, loc, targetTy, sizes);
+
+    // Creates index map using target matrix's rank.
+    auto targetRank = targetTy.getRank();
+    SmallVector<AffineMap, 6> indexingMaps;
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx));
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx));
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx));
+    indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx));
+    indexingMaps.push_back(AffineMap::getMultiDimIdentityMap(targetRank, ctx));
+
+    auto linalgOp = rewriter.create<linalg::GenericOp>(
+        loc, /*resultTensors=*/targetTy,
+        /*inputs=*/
+        ValueRange{
+            adaptor.getOperands()[0],
+            adaptor.getOperands()[1], // mean and std_dev
+            adaptor.getOperands()[2],
+            adaptor.getOperands()[3], // seed and offset
+        },
+        /*outputs=*/emptyTensor, indexingMaps,
+        getParallelAndReductionIterators(/*nLoops=*/targetRank,
+                                         /*nReduction=*/0),
+        [&](OpBuilder &b, Location loc, ValueRange args) {
+          auto counters = Philox4x32_10(b, loc, args[2], args[3], targetRank);
+          auto factor =
+              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -32)));
+          auto halfFactor =
+              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -33)));
+
+          auto counter0 =
+              b.create<arith::UIToFPOp>(loc, b.getF32Type(), counters[0]);
+          auto t5 = b.create<arith::MulFOp>(loc, factor, counter0);
+          auto firstUniformRand = b.create<arith::AddFOp>(loc, t5, halfFactor);
+
+          auto counter1 =
+              b.create<arith::UIToFPOp>(loc, b.getF32Type(), counters[1]);
+          auto t6 = b.create<arith::MulFOp>(loc, factor, counter1);
+          auto secondUniformRand = b.create<arith::AddFOp>(loc, t6, halfFactor);
+
+          // std::sqrt(-2 * std::log(u1)) * std::cos(2 * pi * u2);
+          auto negTwo = b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(-2));
+          auto logRes = b.create<math::LogOp>(loc, firstUniformRand);
+          auto sqrtOpn = b.create<arith::MulFOp>(loc, negTwo, logRes);
+          auto sqrtRes = b.create<math::SqrtOp>(loc, sqrtOpn);
+
+          auto twoFP = b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(2));
+          auto pi =
+              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(3.1415926));
+          auto doublePi = b.create<arith::MulFOp>(loc, pi, twoFP);
+          auto cosOpn =
+              b.create<arith::MulFOp>(loc, doublePi, secondUniformRand);
+          auto cosRes = b.create<math::CosOp>(loc, cosOpn);
+
+          auto stdNormRand = b.create<arith::MulFOp>(loc, sqrtRes, cosRes);
+          auto mulStdDev = b.create<arith::MulFOp>(loc, stdNormRand, args[1]);
+          Value addMean = b.create<arith::AddFOp>(loc, mulStdDev, args[0]);
+          b.create<linalg::YieldOp>(loc, addMean);
+        },
+        linalg::getPrunedAttributeList(op));
+    rewriter.replaceOp(op, linalgOp);
     return success();
   }
 };
@@ -1178,6 +1332,7 @@ void mlir::populateHloToLinalgExtConversionPattern(
   patterns.add<LayerNormCustomCallConverter>(ctx);
   patterns.add<GeLUCustomCallConverter>(ctx);
   patterns.add<RngUniformCustomCallConverter>(ctx);
+  patterns.add<RngNormalCustomCallConverter>(ctx);
   patterns.add<ByteirRepeatCustomCallConverter>(ctx);
 }
 
