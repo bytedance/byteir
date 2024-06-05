@@ -56,5 +56,16 @@ def RemoveTrivialLoops : Pass<"remove-trivial-loops", "func::FuncOp"> {
   let constructor = "mlir::createRemoveTrivialLoopsPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// GPUTensorCoreVectorization
+//===----------------------------------------------------------------------===//
+def GPUTensorCoreVectorization : Pass<"gpu-tensorcore-vectorization", "func::FuncOp"> {
+  let summary = "Transform linalg.matmul to vector.contract which is compatible with MMA.";
+  let constructor = "mlir::createGPUTensorCoreVectorizationPass()";
+  let dependentDialects = [
+      "vector::VectorDialect",
+  ];
+}
+
 
 #endif // BYTEIR_DIALECT_GPU_PASSES
