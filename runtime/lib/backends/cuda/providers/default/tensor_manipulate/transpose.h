@@ -34,11 +34,11 @@ public:
 };
 
 /**
- * Transpose2D
+ * BatchTranspose
  */
-template <typename T> class Transpose2D : public TransposeBase<T> {
+template <typename T> class BatchTranspose : public TransposeBase<T> {
 public:
-  explicit Transpose2D(const OpAccessor &accessor);
+  explicit BatchTranspose(const OpAccessor &accessor);
 
   virtual void Execute(const T *input, T *output, cudnnHandle_t handle,
                        cudaStream_t stream) override;
