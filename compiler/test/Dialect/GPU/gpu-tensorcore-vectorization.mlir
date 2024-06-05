@@ -37,3 +37,13 @@ module {
     return %alloc : memref<5376x5376xf16>
   }
 }
+
+//    CHECK-LABEL: func.func private @Unknown0
+// CHECK-COUNT-32:   vector.transfer_write {{.*}} : vector<16x8xf16>, memref<64x64xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>
+//         CHECK:   scf.for
+// CHECK-COUNT-8:     vector.transfer_read {{.*}} {in_bounds = [true, true]} : memref<64x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>>, vector<16x16xf16>
+// CHECK-COUNT-32:     vector.transfer_read {{.*}} {in_bounds = [true, true]} : memref<64x64xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>, vector<16x8xf16>
+// CHECK-COUNT-8:     vector.transfer_read {{.*}} {in_bounds = [true, true], permutation_map = #{{.*}}} : memref<32x64xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>, vector<16x16xf16>
+// CHECK-COUNT-64:     vector.contract {{.*}} : vector<16x16xf16>, vector<8x16xf16> into vector<16x8xf16>
+// CHECK-COUNT-32:     vector.transfer_write {{.*}} : vector<16x8xf16>, memref<64x64xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>
+//    CHECK-NEXT:   }
