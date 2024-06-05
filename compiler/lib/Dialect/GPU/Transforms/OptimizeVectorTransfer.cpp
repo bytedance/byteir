@@ -97,14 +97,19 @@ static bool noAliasingUseInLoop(vector::TransferReadOp transferRead,
 
 /// upstream can only handle FuncOp. We loose the constrain.
 /// TODO: Remove it when upstream fixed.
+/// We must do this in the forall loop, because moveLoopInvariantCode will move
+/// threadidx op outside.
 void hoistRedundantVectorTransfers(Operation *root) {
   bool changed = true;
   while (changed) {
     changed = false;
     // First move loop invariant ops outside of their loop. This needs to be
     // done before as we cannot move ops without interrupting the function walk.
-    root->walk(
-        [&](LoopLikeOpInterface loopLike) { moveLoopInvariantCode(loopLike); });
+    root->walk([&](LoopLikeOpInterface loopLike) {
+      if (root == loopLike)
+        return;
+      moveLoopInvariantCode(loopLike);
+    });
 
     root->walk([&](vector::TransferReadOp transferRead) {
       if (!isa<MemRefType>(transferRead.getShapedType()))
@@ -243,11 +248,13 @@ struct OptimizeVectorTransferPass
       return;
     }
 
-    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
     if (!forallOpOptional)
       return;
     auto forallOp = forallOpOptional.value();
     hoistRedundantVectorTransfers(forallOp);
+    IRRewriter rewriter(forallOp->getContext());
+    vector::transferOpflowOpt(rewriter, forallOp);
   }
 };
 
