@@ -24,6 +24,7 @@
 #include "byteir/Dialect/Linalg/Transforms/LinalgDataPlace.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgPrefetch.h"
+#include "byteir/Dialect/Linalg/Transforms/LinalgPromotion.h"
 #include "byteir/Dialect/Linalg/Transforms/Tiling.h"
 
 namespace mlir {
