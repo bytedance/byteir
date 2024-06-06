@@ -1,3 +1,5 @@
+//RUN: byteir-opt --gpu-pack-shared-memory-alloc %s | FileCheck %s
+
 #map = affine_map<(d0) -> (d0 * 128)>
 #map1 = affine_map<()[s0] -> (s0 * 64)>
 #map2 = affine_map<(d0) -> ((d0 floordiv 32) * 64)>
