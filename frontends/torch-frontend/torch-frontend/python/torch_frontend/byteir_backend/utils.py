@@ -154,15 +154,6 @@ def maybe_get_fake_mode(t):
         return maybe_get_fake_mode(unwrapped)
     return None
 
-# @contextlib.contextmanager
-# def unset_fake_temporarily():
-#     old = torch._C._unset_dispatch_mode(torch._C._TorchDispatchModeKey.FAKE)
-#     try:
-#         yield old
-#     finally:
-#         if old is not None:
-#             torch._C._set_dispatch_mode(old)
-
 
 
 def record_execution_time(stage: str = "Unknown"):

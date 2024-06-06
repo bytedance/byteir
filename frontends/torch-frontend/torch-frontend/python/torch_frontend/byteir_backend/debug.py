@@ -17,12 +17,13 @@ def debug_backend(gm: torch.fx.GraphModule,
     _opt_gm = byteir_compiler(gm, example_inputs)
 
     def f(*inputs):
-        opt_inputs = [
-            inp.as_strided(size=inp.size(),
-                           stride=inp.stride(),
-                           storage_offset=inp.storage_offset())
-            for inp in inputs
-        ]
+        opt_inputs = []
+        for inp in inputs:
+            _opt_inp = torch.empty_strided(size=inp.size(),
+                                           stride=inp.stride(),
+                                           storage_offset=inp.storage_offset())
+            opt_inputs.append(_opt_inp.copy_(inp))
+
         eager_inputs = inputs
         eager_res = gm(*eager_inputs)
         opt_res = _opt_gm(*opt_inputs)
@@ -32,7 +33,7 @@ def debug_backend(gm: torch.fx.GraphModule,
         try:
             torch.testing.assert_close(eager_res, opt_res)
         except Exception as e:
-            log.error(f"******* debug backend pass *******")
+            log.error(f"******* debug backend fail *******")
             raise e
 
         print(f"******* debug backend pass *******")
