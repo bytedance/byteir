@@ -53,6 +53,7 @@ int main(int argc, char *argv[]) {
 
   onnx_frontend::EmissionTargetType emissionTarget;
   bool emitElide = false;
+  bool doSerial = false;
   if (onnx_mlir::outputBaseName == "-") {
     emissionTarget = onnx_frontend::EmitStablehloIR;
   } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName, ".onnx.mlir")) {
@@ -65,12 +66,28 @@ int main(int argc, char *argv[]) {
                                      ".stablehlo.mlir")) {
     emissionTarget = onnx_frontend::EmitStablehloIR;
   } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
+                                     ".stablehlo.mlirbc")) {
+    emissionTarget = onnx_frontend::EmitStablehloIR;
+    doSerial = true;
+  } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
                                      ".stablehlo.elide.mlir")) {
     emissionTarget = onnx_frontend::EmitStablehloIR;
     emitElide = true;
+  } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
+                                     ".stablehlo.elide.mlirbc")) {
+    emissionTarget = onnx_frontend::EmitStablehloIR;
+    emitElide = true;
+    doSerial = true;
   } else {
     std::cerr << "Invalid output extension name" << std::endl;
     return 1;
+  }
+
+  std::string serializeVersion("");
+  if (doSerial) {
+    // get mininum stablehlo version between input and onnx-frontend.
+    onnx_frontend::getStablehloSerialVersion(onnx_frontend::serialVersion,
+                                             serializeVersion);
   }
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
@@ -90,7 +107,8 @@ int main(int argc, char *argv[]) {
         pm, onnx_frontend::customCallOps, onnx_frontend::enableUnroll);
     onnx_frontend::addVerifyONNXToStablehloPasses(pm);
   }
-  auto status = onnx_frontend::compileModule(
-      module, pm, onnx_mlir::outputBaseName, emissionTarget, emitElide);
+  auto status =
+      onnx_frontend::compileModule(module, pm, onnx_mlir::outputBaseName,
+                                   emissionTarget, emitElide, serializeVersion);
   return status;
 }
