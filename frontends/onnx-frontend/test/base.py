@@ -1,4 +1,5 @@
 import json
+import os
 import os.path as osp
 import pytest
 import re
@@ -56,7 +57,7 @@ class TestBase:
 
         # test convert to bytecode.
         cmd_opts_bc = cmd_opts
-        cmd_opts_bc.append(f"-o={stablehlo_ir_path}" + ".bc")
+        cmd_opts_bc.append(f"-o={os.path.splitext(stablehlo_ir_path)[0]}" + ".mlirbc")
 
         p = subprocess.run(
             cmd_opts_bc, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)

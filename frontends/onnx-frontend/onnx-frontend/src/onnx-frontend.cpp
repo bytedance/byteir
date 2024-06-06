@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
                                      ".stablehlo.mlir")) {
     emissionTarget = onnx_frontend::EmitStablehloIR;
   } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
-                                     ".stablehlo.mlir.bc")) {
+                                     ".stablehlo.mlirbc")) {
     emissionTarget = onnx_frontend::EmitStablehloIR;
     doSerial = true;
   } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
     emissionTarget = onnx_frontend::EmitStablehloIR;
     emitElide = true;
   } else if (onnx_frontend::EndsWith(onnx_mlir::outputBaseName,
-                                     ".stablehlo.elide.mlir.bc")) {
+                                     ".stablehlo.elide.mlirbc")) {
     emissionTarget = onnx_frontend::EmitStablehloIR;
     emitElide = true;
     doSerial = true;
