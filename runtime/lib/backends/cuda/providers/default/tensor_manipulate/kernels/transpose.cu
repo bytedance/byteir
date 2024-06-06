@@ -41,6 +41,39 @@ void transpose_naive_2d(const T *input, T *output, int m, int n, dim3 grid,
   transpose_naive_2d_kernel<T><<<grid, block, 0, stream>>>(input, output, m, n);
 }
 
+// inner dim small than 4
+template <typename T, int32_t PackSize, int32_t BlockSize, int32_t Col>
+__global__ void batch_transpose_with_small_inner_dim_kernel(
+    const int32_t total_row, const int32_t row, void *__restrict__ inp_ptr,
+    void *__restrict__ out_ptr) {
+
+  for (int32_t i = threadIdx.x + blockIdx.x * BlockSize,
+               step_tile = gridDim.x * BlockSize;
+       i < total_row; i += step_tile) {
+    const int32_t batch_idx = i / row;
+    const int32_t row_idx = i - row * batch_idx;
+
+    T *inp_tile_gmem = reinterpret_cast<T *>(inp_ptr);
+    T *out_tile_gmem = reinterpret_cast<T *>(out_ptr);
+    inp_tile_gmem += batch_idx * row * Col + row_idx * Col;
+    out_tile_gmem += batch_idx * row * Col + row_idx;
+
+    union PackType {
+      typename std::aligned_storage<sizeof(T) * PackSize,
+                                    sizeof(T) * PackSize>::type t;
+      T a[PackSize];
+    };
+
+    for (int32_t j = 0; j < Col; j += PackSize) {
+      PackType val = (reinterpret_cast<PackType *>(inp_tile_gmem))[j];
+      for (int32_t k = 0; k < PackSize; ++k) {
+        out_tile_gmem[k * row] = val.a[k];
+      }
+    }
+  }
+}
+
+// (batch, dim0, dim1) => (batch, dim1, dim0)
 template <typename T, int32_t TileSizeX, int32_t TileSizeY, int32_t BlockSize>
 __global__ void batch_transpose_kernel(const int32_t total_tile_num,
                                        const int32_t tile_num_in_dim0,
@@ -94,6 +127,17 @@ __global__ void batch_transpose_kernel(const int32_t total_tile_num,
   }
 }
 
+template <typename T, int32_t PackSize, int32_t BlockSize, int32_t Col>
+void LaunchBatchTransposeWithSmallInnerDim(int32_t total_row, const int32_t row,
+                                           void *inp_ptr, void *out_ptr,
+                                           cudaStream_t stream) {
+  dim3 block(BlockSize);
+  const int32_t blockNum = (total_row - 1) / BlockSize + 1;
+  dim3 grid(blockNum >= kMaxGridDim ? kMaxGridDim : blockNum);
+  batch_transpose_with_small_inner_dim_kernel<T, PackSize, BlockSize, Col>
+      <<<grid, block, 0, stream>>>(total_row, row, inp_ptr, out_ptr);
+}
+
 template <typename T>
 void batch_transpose(int32_t batch, int32_t row, int32_t col, const T *inp_ptr,
                      T *out_ptr, cudaStream_t stream) {
@@ -104,7 +148,29 @@ void batch_transpose(int32_t batch, int32_t row, int32_t col, const T *inp_ptr,
   const int32_t tile_per_sample = tile_num_in_dim0 * tile_num_in_dim1;
   const int32_t total_tile_num = batch * tile_per_sample;
   dim3 grid(total_tile_num >= kMaxGridDim ? kMaxGridDim : total_tile_num);
-  if (row < 8 || col < 8) {
+  if (col <= 4) {
+    const int32_t total_row = batch * row;
+    constexpr int32_t kBlockSize = 256;
+    switch (col) {
+    case 2:
+      LaunchBatchTransposeWithSmallInnerDim<T, 2, kBlockSize, 2>(
+          total_row, row, reinterpret_cast<void *>(const_cast<T *>(inp_ptr)),
+          reinterpret_cast<void *>(out_ptr), stream);
+      break;
+    case 3:
+      LaunchBatchTransposeWithSmallInnerDim<T, 1, kBlockSize, 3>(
+          total_row, row, reinterpret_cast<void *>(const_cast<T *>(inp_ptr)),
+          reinterpret_cast<void *>(out_ptr), stream);
+      break;
+    case 4:
+      LaunchBatchTransposeWithSmallInnerDim<T, 4, kBlockSize, 4>(
+          total_row, row, reinterpret_cast<void *>(const_cast<T *>(inp_ptr)),
+          reinterpret_cast<void *>(out_ptr), stream);
+      break;
+    default:
+      break;
+    }
+  } else if (row < 8 || col < 8) {
     constexpr int32_t kBlockSize = 64;
     dim3 block(kBlockSize);
     batch_transpose_kernel<T, kTileSize, kTileSize, kBlockSize>

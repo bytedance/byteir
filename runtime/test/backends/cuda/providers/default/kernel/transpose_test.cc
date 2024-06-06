@@ -193,7 +193,9 @@ TEST(CUDAOpKerenlTest, TransposeOp) {
   // 3D Batch transpose
   TestTranspose<float>({13, 789, 1234}, {13, 1234, 789}, {0, 2, 1});
   TestTranspose<float>({65536, 32, 50}, {65536, 50, 32}, {0, 2, 1});
-  TestTranspose<float>({65536, 2, 50}, {65536, 50, 2}, {0, 2, 1});
+  TestTranspose<float>({127, 2, 50}, {127, 50, 2}, {0, 2, 1});
+  TestTranspose<float>({127, 3, 50}, {127, 50, 3}, {0, 2, 1});
+  TestTranspose<float>({127, 4, 50}, {127, 50, 4}, {0, 2, 1});
   // NCHW 2 NHWC
   TestTranspose<float>({10, 20, 30, 40}, {10, 30, 40, 20}, {0, 2, 3, 1});
   // NHWC 2 NCHW
@@ -209,6 +211,7 @@ TEST(CUDAOpKerenlTest, TransposeOpFp16) {
   TestTranspose<__half>({1000, 512}, {512, 1000}, {1, 0});
   // 3D Batch transpose
   TestTranspose<__half>({13, 789, 1234}, {13, 1234, 789}, {0, 2, 1});
+  TestTranspose<__half>({65536, 50, 2}, {65536, 2, 50}, {0, 2, 1});
   // NCHW 2 NHWC
   TestTranspose<__half>({10, 20, 30, 40}, {10, 30, 40, 20}, {0, 2, 3, 1});
   // NHWC 2 NCHW
