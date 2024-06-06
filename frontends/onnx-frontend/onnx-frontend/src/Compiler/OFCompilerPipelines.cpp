@@ -17,6 +17,8 @@
 #include "third_party/onnx-mlir/src/Compiler/CompilerUtils.hpp"
 #include "third_party/onnx-mlir/src/Pass/Passes.hpp"
 
+#include "stablehlo/transforms/Passes.h"
+
 #include "mlir/Transforms/Passes.h"
 
 #include "onnx-frontend/src/Compiler/OFCompilerOptions.hpp"
@@ -83,6 +85,21 @@ void addCustomizedONNXToStablehloPasses(
   pm.addPass(onnx_frontend::createOFModifyEntryPointPass());
   pm.addPass(onnx_mlir::createLowerToStablehloPass(enableUnroll));
   pm.addPass(onnx_frontend::createOFCanonicalizerPass());
+
+  // Canonicalize Stablehlo dynamic ops to static ops
+  pm.addNestedPass<mlir::func::FuncOp>(
+      stablehlo::createStablehloCanonicalizeDynamismPass());
+  pm.addNestedPass<mlir::func::FuncOp>(
+      onnx_frontend::createOFCanonicalizerPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+  pm.addPass(stablehlo::createStablehloRefineShapesPass());
+  pm.addNestedPass<mlir::func::FuncOp>(
+      onnx_frontend::createOFCanonicalizerPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+  pm.addNestedPass<mlir::func::FuncOp>(
+      stablehlo::createStablehloCanonicalizeDynamismPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+
   (void)mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 }

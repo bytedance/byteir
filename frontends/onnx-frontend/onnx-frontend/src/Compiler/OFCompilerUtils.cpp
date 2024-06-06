@@ -12,15 +12,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Support/FileUtilities.h"
 #include "onnx/onnx_pb.h"
 #include "onnx/shape_inference/implementation.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 #include "third_party/onnx-mlir/src/Builder/FrontendDialectTransformer.hpp"
 #include "third_party/onnx-mlir/src/Compiler/CompilerOptions.hpp"
 #include "third_party/onnx-mlir/src/Compiler/CompilerUtils.hpp"
+
+#include "stablehlo/api/PortableApi.h"
+#include "stablehlo/dialect/Version.h"
 
 #include "onnx-frontend/src/Compiler/OFCompilerOptions.hpp"
 #include "onnx-frontend/src/Compiler/OFCompilerUtils.hpp"
@@ -305,18 +310,74 @@ int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
   return onnx_mlir::CompilerSuccess;
 }
 
+void getStablehloSerialVersion(const std::string &inputVersion,
+                               std::string &outputVersion) {
+  auto inpVersion = mlir::vhlo::Version::fromString(inputVersion);
+  if (mlir::failed(inpVersion)) {
+    outputVersion = mlir::stablehlo::getCurrentVersion();
+  } else {
+    auto curVersion = mlir::vhlo::Version::getCurrentVersion();
+    outputVersion = curVersion < *inpVersion ? curVersion.toString()
+                                             : (*inpVersion).toString();
+  }
+}
+
+// Return 0 on success, error code on error.
+int outputModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
+                 llvm::raw_ostream &os, int64_t largeElementLimit = -1,
+                 std::string serialVersion = "") {
+  mlir::OpPrintingFlags flags;
+  if (onnx_mlir::preserveLocations)
+    flags.enableDebugInfo();
+  if (largeElementLimit >= 0)
+    flags.elideLargeElementsAttrs(largeElementLimit);
+  if (serialVersion.empty())
+    module->print(os, flags);
+  else {
+    // Generate stablehlo bytecode.
+    std::string buffer;
+    llvm::raw_string_ostream _os(buffer);
+    module->print(_os, flags);
+    if (mlir::failed(mlir::stablehlo::serializePortableArtifact(
+            buffer, serialVersion, os))) {
+      llvm::errs() << "Serialize to bytecode fail. version=" << serialVersion
+                   << "\n";
+      return onnx_mlir::CompilerFailure;
+    }
+  }
+  return onnx_mlir::CompilerSuccess;
+}
+
+// Return 0 on success, error code on error.
+int outputCode(mlir::OwningOpRef<mlir::ModuleOp> &module,
+               std::string filenameWithExt, int64_t largeElementLimit,
+               std::string serialVersion = "") {
+  std::string errorMessage;
+  auto output = mlir::openOutputFile(filenameWithExt, &errorMessage);
+  if (!output) {
+    llvm::errs() << errorMessage << "\n";
+    return onnx_mlir::InvalidOutputFileAccess;
+  }
+  auto retCode =
+      outputModule(module, output->os(), largeElementLimit, serialVersion);
+  output->keep();
+  return retCode;
+  // return onnx_mlir::CompilerSuccess;
+}
+
 // Return 0 on success, error code on failure.
 int emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
                std::string outputFilename,
-               onnx_frontend::EmissionTargetType emissionTarget,
-               bool emitElide) {
+               onnx_frontend::EmissionTargetType emissionTarget, bool emitElide,
+               std::string serialVersion) {
   if (emissionTarget == onnx_frontend::EmitONNXIR ||
       emissionTarget == onnx_frontend::EmitStablehloIR) {
     if (emitElide) {
-      return onnx_mlir::outputCode(module, outputFilename,
-                                   /*largeElementLimit=*/100);
+      return outputCode(module, outputFilename,
+                        /*largeElementLimit=*/100, serialVersion);
     }
-    return onnx_mlir::outputCode(module, outputFilename);
+    return outputCode(module, outputFilename, /*largeElementLimit=*/-1,
+                      serialVersion);
   }
   return onnx_mlir::InvalidCompilerOption;
 }
@@ -325,10 +386,10 @@ int emitOutput(mlir::OwningOpRef<mlir::ModuleOp> &module,
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
                   mlir::PassManager &pm, std::string outputFilename,
                   onnx_frontend::EmissionTargetType emissionTarget,
-                  bool emitElide) {
+                  bool emitElide, std::string serialVersion) {
   bool runFailure = mlir::failed(pm.run(*module));
-  int outputStatus =
-      emitOutput(module, outputFilename, emissionTarget, emitElide);
+  int outputStatus = emitOutput(module, outputFilename, emissionTarget,
+                                emitElide, serialVersion);
   if (runFailure)
     return onnx_mlir::CompilerFailure;
   return outputStatus;
