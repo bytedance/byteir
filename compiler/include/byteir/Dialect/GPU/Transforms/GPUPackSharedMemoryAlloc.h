@@ -28,7 +28,8 @@ class FuncOp;
 } // namespace func
 
 /// Analysis shared memory reuse and pack it into i8 alloc.
-std::unique_ptr<OperationPass<func::FuncOp>> createGPUPackSharedMemoryAllocPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createGPUPackSharedMemoryAllocPass();
 
 } // namespace mlir
 
