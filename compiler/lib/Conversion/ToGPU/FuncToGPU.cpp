@@ -47,7 +47,7 @@
 #define DEBUG_TYPE "func-to-gpu"
 
 // TODO: configurable coarsen factor
-#define COARSEN_FACTOR 4
+#define COARSEN_FACTOR 1
 
 using namespace llvm;
 using namespace mlir;
@@ -55,6 +55,9 @@ using namespace mlir::arith;
 using namespace mlir::gpu;
 
 namespace {
+constexpr int64_t kGridTileNumThreshold = 64;
+constexpr int64_t kNumWave = 128;
+constexpr int64_t kWarpSize = 32;
 
 static void creaetGuardedSIMT(OpBuilder &b, Value id, Value bound,
                               LoopLikeOpInterface looplike, bool coarsen) {
@@ -290,42 +293,86 @@ void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
     if (toGPUSizes[i] <= 0) {
       toGPUSizes[i] = 1;
     }
-
-    auto attr = IntegerAttr::get(IntegerType::get(ctx, 32), toGPUSizes[i]);
-    toGPUAttrs.push_back(attr);
   }
 
   // estimate maxGridSizes if possible
   SmallVector<int64_t> maxGridSizes = {0, 0, 0};
   // collect loops from inner to outer
-  func.walk([&](LoopLikeOpInterface loopLike) {
-    if (loopLike->hasAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
-      auto coarsen =
-          loopLike->hasAttrOfType<UnitAttr>(getCoarsenSIMTAttrName());
-      int64_t factor = coarsen ? coarsenFactor : 1;
-
-      auto strAttr =
-          loopLike->getAttrOfType<StringAttr>(getLoopToSIMTAttrName());
-
-      if (strAttr.getValue() == getLinearIdXName()) {
-        maxGridSizes[0] =
-            estimateGridSize(loopLike, maxGridSizes[0], toGPUSizes[0] * factor);
-      } else if (strAttr.getValue() == getLinearIdYName()) {
-        maxGridSizes[1] =
-            estimateGridSize(loopLike, maxGridSizes[1], toGPUSizes[1] * factor);
-      } else if (strAttr.getValue() == getLinearIdZName()) {
-        maxGridSizes[2] =
-            estimateGridSize(loopLike, maxGridSizes[2], toGPUSizes[2] * factor);
-      } else if (strAttr.getValue() == getBlockIdXName()) {
-        maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0], factor);
-      } else if (strAttr.getValue() == getBlockIdYName()) {
-        maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1], factor);
-      } else if (strAttr.getValue() == getBlockIdZName()) {
-        maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2], factor);
+  bool firstCheck = true;
+  auto isSuitableConfig = [&]() -> bool {
+    if (llvm::all_of(maxGridSizes, [](int64_t val) { return val == 0; })) {
+      return false;
+    }
+    int64_t totalGridSize = 1;
+    for (auto v : maxGridSizes) {
+      if (v != 0)
+        totalGridSize *= v;
+    }
+    int64_t totalBlockSize = 1;
+    for (size_t i = 0; i < 3; ++i) {
+      totalBlockSize *= toGPUSizes[i];
+    }
+    if (totalGridSize < kGridTileNumThreshold &&
+        totalBlockSize >= kWarpSize * 2) {
+      return false;
+    }
+    return true;
+  };
+  while (!isSuitableConfig()) {
+    if (!firstCheck) {
+      for (int64_t i = 2; i >= 0; --i) {
+        if (toGPUSizes[i] >= 2) {
+          toGPUSizes[i] /= 2;
+          break;
+        }
       }
     }
-  });
+    firstCheck = false;
+    maxGridSizes = {0, 0, 0};
 
+    func.walk([&](LoopLikeOpInterface loopLike) {
+      if (loopLike->hasAttrOfType<StringAttr>(getLoopToSIMTAttrName())) {
+        auto coarsen =
+            loopLike->hasAttrOfType<UnitAttr>(getCoarsenSIMTAttrName());
+        int64_t factor = coarsen ? coarsenFactor : 1;
+
+        auto strAttr =
+            loopLike->getAttrOfType<StringAttr>(getLoopToSIMTAttrName());
+
+        if (strAttr.getValue() == getLinearIdXName()) {
+          maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0],
+                                             toGPUSizes[0] * factor);
+        } else if (strAttr.getValue() == getLinearIdYName()) {
+          maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1],
+                                             toGPUSizes[1] * factor);
+        } else if (strAttr.getValue() == getLinearIdZName()) {
+          maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2],
+                                             toGPUSizes[2] * factor);
+        } else if (strAttr.getValue() == getBlockIdXName()) {
+          maxGridSizes[0] = estimateGridSize(loopLike, maxGridSizes[0], factor);
+        } else if (strAttr.getValue() == getBlockIdYName()) {
+          maxGridSizes[1] = estimateGridSize(loopLike, maxGridSizes[1], factor);
+        } else if (strAttr.getValue() == getBlockIdZName()) {
+          maxGridSizes[2] = estimateGridSize(loopLike, maxGridSizes[2], factor);
+        }
+      }
+    });
+  }
+
+  int64_t threshold = kGridTileNumThreshold * kNumWave;
+  for (size_t i = 0; i < maxGridSizes.size(); ++i) {
+    if (maxGridSizes[i] > threshold) {
+      maxGridSizes[i] = threshold;
+    } else {
+      threshold /= maxGridSizes[i];
+      break;
+    }
+  }
+
+  for (size_t i = 0; i < 3; ++i) {
+    auto attr = IntegerAttr::get(IntegerType::get(ctx, 32), toGPUSizes[i]);
+    toGPUAttrs.push_back(attr);
+  }
   for (size_t i = 0; i < 3; ++i) {
     size_t j = i + 3;
     // if no estimation use suggested attr value
