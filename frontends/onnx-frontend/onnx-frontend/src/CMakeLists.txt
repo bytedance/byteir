@@ -10,6 +10,7 @@ add_onnx_frontend_executable(onnx-frontend
   LINK_LIBS PRIVATE
   OFCompiler
   OMCompilerOptions
+  StablehloPortableApi
   )
 
 add_onnx_frontend_executable(onnx-frontend-opt

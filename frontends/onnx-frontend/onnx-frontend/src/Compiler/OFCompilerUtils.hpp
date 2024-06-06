@@ -22,9 +22,12 @@ namespace onnx_frontend {
 int processInputFile(std::string inputFilename, mlir::MLIRContext &context,
     mlir::OwningOpRef<mlir::ModuleOp> &module, std::string *errorMessage);
 
+void getStablehloSerialVersion(const std::string &inputVersion,
+                               std::string &outputVersion);
+
 int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::PassManager &pm, std::string outputFilename,
-    onnx_frontend::EmissionTargetType emissionTarget,
-    bool emitElide);
+                  mlir::PassManager &pm, std::string outputFilename,
+                  onnx_frontend::EmissionTargetType emissionTarget,
+                  bool emitElide, const std::string serialVersion);
 
 } // namespace onnx_frontend

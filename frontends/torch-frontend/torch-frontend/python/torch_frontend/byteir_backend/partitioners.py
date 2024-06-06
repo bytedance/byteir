@@ -3,7 +3,7 @@ from torch.fx.experimental.symbolic_shapes import (hint_int, free_symbols,
                                                    is_symbol_binding_fx_node,
                                                    find_symbol_binding_fx_nodes
                                                    )
-from torch.fx.experimental.sym_node import (
+from torch.fx.experimental.symbolic_shapes import (
     magic_methods,
     method_to_operator,
 )
