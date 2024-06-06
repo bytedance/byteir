@@ -1,6 +1,7 @@
 from typing import Optional, Sequence, Union, List, Tuple
 from enum import Enum
 import sys
+import os
 
 import torch
 import torch.export
@@ -37,11 +38,12 @@ BYTEIR_CUSTOM_OPS = [
     "byteir.flash_attn_bwd",
 ]
 
-# ops which should not decomposed by torch-mlir 
+# ops which should not be decomposed by torch-mlir 
 NOT_DECOMPOSE_OPS = [
     "aten.randn.generator",
     "aten.normal_functional",
     "aten.amax",
+    "aten.amin",
 ]
 
 
@@ -76,17 +78,12 @@ def _get_debug_parameters(debug: DebugType):
         }
     return debug_parameters
 
-
-# FIXME(lyq): how to support multi-threading or multi-process?
-def _get_extra_library_file(backend_legal_ops: Sequence[str]):
-    from torch_mlir import torchscript
-
-    extra_library = []
-    for op in backend_legal_ops:
-        if op in byteir_extra_library:
-            extra_library += byteir_extra_library[op]
-    return torchscript._canon_extra_library(extra_library)
-
+def _get_extra_library_file(backend_legal_ops):
+    CUR_DIR = os.path.abspath(os.path.dirname(__file__))
+    for extra_op in byteir_extra_library:
+        if extra_op in backend_legal_ops:
+            return str(os.path.join(CUR_DIR, "tools", "extra_fn.mlir"))
+    return ""
 
 def compile(
     model: torch.nn.Module,
@@ -252,10 +249,18 @@ def compile_dynamo_model(
         print()
         sys.stdout.flush()
 
+    extra_library_file_name = _get_extra_library_file(backend_legal_ops)
     with module.context:
         # We still need torch-function-to-torch-pipeline help us do something, e.g.,
         # decompose ops, like aten.addmm, aten.t and so on.
-        option_string = "{shape-dtype-refine=false backend-legal-ops=" + ",".join(backend_legal_ops) + "}"
+        option_string = (
+            "{shape-dtype-refine=false"
+            + " backend-legal-ops="
+            + ",".join(backend_legal_ops)
+            + " extra-library="
+            + extra_library_file_name
+            + "}"
+        )
         pm = PassManager.parse(
             f"builtin.module(torch-function-to-torch-pipeline{option_string})"
         )

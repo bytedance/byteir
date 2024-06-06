@@ -19,6 +19,7 @@
 #define BYTEIR_TRANSFORMS_PASSES_H
 
 #include "byteir/Transforms/AnchoredPipeline.h"
+#include "byteir/Transforms/ApplyPDLPatterns.h"
 #include "byteir/Transforms/Bufferize.h"
 #include "byteir/Transforms/CMAE.h"
 #include "byteir/Transforms/CanonicalizeExt.h"

@@ -1,5 +1,6 @@
 add_mlir_library(ByteIRTransforms
   AnchoredPipeline.cpp
+  ApplyPDLPatterns.cpp
   Bufferize.cpp
   TryCatchModulePipeline.cpp
   CanonicalizeExt.cpp
@@ -40,6 +41,8 @@ add_mlir_library(ByteIRTransforms
   MLIRIR
   MLIRAffineDialect
   MLIRMemRefDialect
+  MLIRPDLDialect
+  MLIRPDLInterpDialect
   MLIRSCFDialect
   MLIRTransforms
 )
