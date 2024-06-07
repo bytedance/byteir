@@ -34,6 +34,17 @@ def ShmAllocaToWorkgroupArg : Pass<"shm-alloca-to-workgroup-arg", "gpu::GPUModul
 }
 
 //===----------------------------------------------------------------------===//
+// GPUBlockSwizzle
+//===----------------------------------------------------------------------===//
+def GPUBlockSwizzle : Pass<"gpu-block-swizzle", "func::FuncOp"> {
+  let summary = "Swizzle GPU block to improve performance";
+  let constructor = "mlir::createGPUBlockSwizzlePass()";
+  let options = [
+    Option<"swizzleLogTile", "swizzle-log-tile", "int64_t", /*default=*/"0", "the log of gpu block swizzle tile">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // GPUDistributeToWarp
 //===----------------------------------------------------------------------===//
 def GPUDistributeToWarp: Pass<"gpu-distributed-to-warp", "func::FuncOp"> {

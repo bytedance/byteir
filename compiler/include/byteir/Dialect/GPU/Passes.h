@@ -18,6 +18,7 @@
 #ifndef BYTEIR_DIALECT_GPU_PASSES_H
 #define BYTEIR_DIALECT_GPU_PASSES_H
 
+#include "byteir/Dialect/GPU/Transforms/GPUBlockSwizzle.h"
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
 #include "byteir/Dialect/GPU/Transforms/GPUTensorCoreVectorization.h"
 #include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoops.h"
