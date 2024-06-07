@@ -149,12 +149,14 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
                               traceback.format_exception(
                                   type(e), e, e.__traceback__)),
                           runtime_error=None,
-                          numerical_error=None)
+                          numerical_error=None,
+                          performance_result=None)
 
     res = TestResult(unique_name=mhlo_file,
                      compilation_error=None,
                      runtime_error=None,
-                     numerical_error=None)
+                     numerical_error=None,
+                     performance_result=None)
 
     return res
 
@@ -194,7 +196,8 @@ def compile_and_run_mlir(mhlo_file, target, **kwargs):
                               traceback.format_exception(
                                   type(e), e, e.__traceback__)),
                           runtime_error=None,
-                          numerical_error=None)
+                          numerical_error=None,
+                          performance_result=None)
     # brt runtime
     try:
         cur_device = get_target_device(target)
@@ -238,7 +241,8 @@ def compile_and_run_mlir(mhlo_file, target, **kwargs):
                           runtime_error="".join(
                               traceback.format_exception(
                                   type(e), e, e.__traceback__)),
-                          numerical_error=None)
+                          numerical_error=None,
+                          performance_result=None)
     # compare outputs
     try:
         for golden_output, output in zip(golden_outputs, torch_outputs):
@@ -254,11 +258,13 @@ def compile_and_run_mlir(mhlo_file, target, **kwargs):
                           runtime_error=None,
                           numerical_error="".join(
                               traceback.format_exception(
-                                  type(e), e, e.__traceback__)))
+                                  type(e), e, e.__traceback__)),
+                          performance_result=None)
     return TestResult(unique_name=mhlo_file,
                       compilation_error=None,
                       runtime_error=None,
-                      numerical_error=None)
+                      numerical_error=None,
+                      performance_result=None)
 
 
 def compile_and_run_torch(test, target):
@@ -288,7 +294,8 @@ def compile_and_run_torch(test, target):
                               traceback.format_exception(
                                   type(e), e, e.__traceback__)),
                           runtime_error=None,
-                          numerical_error=None)
+                          numerical_error=None,
+                          performance_result=None)
 
     # runtime
     try:
@@ -317,7 +324,8 @@ def compile_and_run_torch(test, target):
                           runtime_error="".join(
                               traceback.format_exception(
                                   type(e), e, e.__traceback__)),
-                          numerical_error=None)
+                          numerical_error=None,
+                          performance_result=None)
 
     # numerical check
     golden_output = trace_item.output.detach().cpu()
@@ -331,8 +339,10 @@ def compile_and_run_torch(test, target):
                           runtime_error=None,
                           numerical_error="".join(
                               traceback.format_exception(
-                                  type(e), e, e.__traceback__)))
+                                  type(e), e, e.__traceback__)),
+                          performance_result=None)
     return TestResult(unique_name=test.unique_name,
                       compilation_error=None,
                       runtime_error=None,
-                      numerical_error=None)
+                      numerical_error=None,
+                      performance_result=None)

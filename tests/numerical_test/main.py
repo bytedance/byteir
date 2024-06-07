@@ -37,7 +37,7 @@ EXCLUDE_MLIR_CPU_TESTS = [
 EXCLUDE_TORCH_TESTS = []
 
 MLIR_CPU_SPECIAL_INPUTS = {
-    "log_plus_one.mlir" : ["uniform", 0.5, 1.0],
+    "log_plus_one.mlir": ["uniform", 0.5, 1.0],
 }
 
 SM80_PLUS_TESTS = [
@@ -72,10 +72,11 @@ def _detect_cuda_with_nvidia_smi():
     except Exception:
         return None
 
+
 def _get_test_files_from_dir(directory):
     test_files = []
     for filename in os.listdir(directory):
-        if filename.startswith('.'):
+        if filename.startswith("."):
             continue
         if os.path.isfile(os.path.join(directory, filename)):
             test_files.append(filename)
@@ -97,13 +98,16 @@ def run_mlir_test(target, gpu_arch, filter):
     for filename in test_files:
         if not re.match(filter, filename):
             continue
-        if filename not in EXCLUDE_MLIR_TESTS and _is_gpu_test_supported(gpu_arch, filename):
+        if filename not in EXCLUDE_MLIR_TESTS and _is_gpu_test_supported(
+            gpu_arch, filename
+        ):
             mlir_tests.append(os.path.join(directory, filename))
 
     results = []
     for test in mlir_tests:
         results.append(compile_and_run_mlir(test, target))
     return results
+
 
 def run_mlir_cpu_test(filter):
     directory = os.path.join(CUR_DIR, "mlir_tests", "cpu_ops")
@@ -115,20 +119,37 @@ def run_mlir_cpu_test(filter):
         if not re.match(filter, filename):
             continue
         if filename not in EXCLUDE_MLIR_CPU_TESTS:
-            mlir_tests.append([os.path.join(directory, filename), MLIR_CPU_SPECIAL_INPUTS[filename] if filename in MLIR_CPU_SPECIAL_INPUTS else None])
+            mlir_tests.append(
+                [
+                    os.path.join(directory, filename),
+                    MLIR_CPU_SPECIAL_INPUTS[filename]
+                    if filename in MLIR_CPU_SPECIAL_INPUTS
+                    else None,
+                ]
+            )
 
     results = []
     for test in mlir_tests:
         if test[1] is None:
             results.append(compile_and_run_mlir(test[0], cpu_target))
         else:
-            results.append(compile_and_run_mlir(test[0], cpu_target, mode=test[1][0], low=test[1][1], high=test[1][2]))
+            results.append(
+                compile_and_run_mlir(
+                    test[0],
+                    cpu_target,
+                    mode=test[1][0],
+                    low=test[1][1],
+                    high=test[1][2],
+                )
+            )
 
     return results
 
+
 def run_torch_test(target, gpu_arch, filter):
     tests = [
-        test for test in GLOBAL_TORCH_TEST_REGISTRY
+        test
+        for test in GLOBAL_TORCH_TEST_REGISTRY
         if re.match(filter, test.unique_name)
         and test.unique_name not in EXCLUDE_TORCH_TESTS
         and _is_gpu_test_supported(gpu_arch, test.unique_name)
@@ -138,11 +159,12 @@ def run_torch_test(target, gpu_arch, filter):
         results.append(compile_and_run_torch(test, target))
     return results
 
+
 def run(config, target, filter, mode="numerical"):
     if config == "mlir" and target == "cpu":
         return run_mlir_cpu_test(filter)
     gpu_arch = _detect_cuda_with_nvidia_smi()
-    assert (gpu_arch != None)
+    assert gpu_arch != None
     if config == "mlir":
         return run_mlir_test(target, gpu_arch, filter)
     elif config == "torch":
@@ -156,23 +178,50 @@ def run(config, target, filter, mode="numerical"):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--filter", default=".*", help="""
-    Regular expression specifying which tests to include in this run.
-    """)
-    parser.add_argument("-c", "--config", type=str,
-                        choices=["all", "mlir", "torch", "dynamo"], help="test sets to run.")
-    parser.add_argument("--target", type=str, default="cuda_with_ait",
-                        choices=["cpu", "cuda", "cuda_with_ait", "cuda_with_ait_aggressive"], help="target device name")
-    parser.add_argument("--mode", type=str, default="numerical", choices=["numerical", "perf"],
-                        help="testing mode, `numerical` means numerical test, `perf` means perfermance test")
+    parser.add_argument(
+        "-f",
+        "--filter",
+        default=".*",
+        help="Regular expression specifying which tests to include in this run.",
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        choices=["all", "mlir", "torch", "dynamo"],
+        help="test sets to run.",
+    )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default="cuda_with_ait",
+        choices=[
+            "cpu",
+            "cuda",
+            "cuda_with_ait",
+            "cuda_with_ait_aggressive",
+            "native_torch",
+        ],
+        help="target backend",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="numerical",
+        choices=["numerical", "perf"],
+        help="testing mode, `numerical` means numerical test, `perf` means performance test",
+    )
     args = parser.parse_args()
     return args
 
 
-ALL_CONFIG={"mlir": "cpu",
-            "mlir": "cuda_with_ait",
-            "torch": "cuda_with_ait",
-            "dynamo": None}
+ALL_CONFIG = {
+    "mlir": "cpu",
+    "mlir": "cuda_with_ait",
+    "torch": "cuda_with_ait",
+    "dynamo": None,
+}
+
 
 def main():
     args = parse_args()
@@ -184,7 +233,7 @@ def main():
             results += run(config, target, args.filter)
     else:
         results += run(args.config, args.target, args.filter, mode=args.mode)
- 
+
     failed = report_results(results)
     sys.exit(1 if failed else 0)
 
