@@ -138,7 +138,7 @@ def run_torch_test(target, gpu_arch, filter):
         results.append(compile_and_run_torch(test, target))
     return results
 
-def run(config, target, filter):
+def run(config, target, filter, mode="numerical"):
     if config == "mlir" and target == "cpu":
         return run_mlir_cpu_test(filter)
     gpu_arch = _detect_cuda_with_nvidia_smi()
@@ -169,16 +169,21 @@ def parse_args():
     return args
 
 
+ALL_CONFIG={"mlir": "cpu",
+            "mlir": "cuda_with_ait",
+            "torch": "cuda_with_ait",
+            "dynamo": None}
+
 def main():
     args = parse_args()
+    assert args.config is not None
 
     results = []
-    ALL_CONFIG={"mlir": "cpu", "mlir": "cuda_with_ait", "torch": "cuda_with_ait", "dynamo": None}
     if args.config == "all":
         for config, target in ALL_CONFIG.items():
             results += run(config, target, args.filter)
     else:
-        results += run(args.config, args.target, args.filter)
+        results += run(args.config, args.target, args.filter, mode=args.mode)
  
     failed = report_results(results)
     sys.exit(1 if failed else 0)
