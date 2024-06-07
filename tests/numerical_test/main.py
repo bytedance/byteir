@@ -24,6 +24,8 @@ from utils import report_results
 import sys
 from subprocess import PIPE, Popen
 
+CUR_DIR = os.path.dirname(os.path.abspath(__file__))
+
 EXCLUDE_MLIR_TESTS = []
 
 # Unsupported ops
@@ -70,25 +72,33 @@ def _detect_cuda_with_nvidia_smi():
     except Exception:
         return None
 
+def _get_test_files_from_dir(directory):
+    test_files = []
+    for filename in os.listdir(directory):
+        if filename.startswith('.'):
+            continue
+        if os.path.isfile(os.path.join(directory, filename)):
+            test_files.append(filename)
+    return test_files
 
-def is_test_supported(arch, test_name):
+
+def _is_gpu_test_supported(gpu_arch, test_name):
     # TODO: other arch
-    if arch < 80:
+    if gpu_arch < 80:
         return test_name not in SM80_PLUS_TESTS
     return True
 
 
-def run_mlir_test(target, arch, filter):
-    directory = os.path.dirname(os.path.realpath(__file__))
-    directory = directory + "/mlir_tests/ops"
+def run_mlir_test(target, gpu_arch, filter):
+    directory = os.path.join(CUR_DIR, "mlir_tests", "ops")
     mlir_tests = []
 
-    for filename in os.listdir(directory):
-        f = os.path.join(directory, filename)
-        # checking if it is a file
-        if os.path.isfile(f) and re.match(filter, filename):
-            if filename not in EXCLUDE_MLIR_TESTS and is_test_supported(arch, filename):
-                mlir_tests.append(f)
+    test_files = _get_test_files_from_dir(directory)
+    for filename in test_files:
+        if not re.match(filter, filename):
+            continue
+        if filename not in EXCLUDE_MLIR_TESTS and _is_gpu_test_supported(gpu_arch, filename):
+            mlir_tests.append(os.path.join(directory, filename))
 
     results = []
     for test in mlir_tests:
@@ -96,19 +106,16 @@ def run_mlir_test(target, arch, filter):
     return results
 
 def run_mlir_cpu_test(filter):
-    directory = os.path.dirname(os.path.realpath(__file__))
-    directory = directory + "/mlir_tests/cpu_ops"
+    directory = os.path.join(CUR_DIR, "mlir_tests", "cpu_ops")
     cpu_target = "cpu"
     mlir_tests = []
 
-    for filename in os.listdir(directory):
-        if filename.startswith('.'):
+    test_files = _get_test_files_from_dir(directory)
+    for filename in test_files:
+        if not re.match(filter, filename):
             continue
-        f = os.path.join(directory, filename)
-        # checking if it is a file
-        if os.path.isfile(f) and re.match(filter, filename):
-            if filename not in EXCLUDE_MLIR_CPU_TESTS:
-                mlir_tests.append([f, MLIR_CPU_SPECIAL_INPUTS[filename] if filename in MLIR_CPU_SPECIAL_INPUTS else None])
+        if filename not in EXCLUDE_MLIR_CPU_TESTS:
+            mlir_tests.append([os.path.join(directory, filename), MLIR_CPU_SPECIAL_INPUTS[filename] if filename in MLIR_CPU_SPECIAL_INPUTS else None])
 
     results = []
     for test in mlir_tests:
@@ -119,12 +126,12 @@ def run_mlir_cpu_test(filter):
 
     return results
 
-def run_torch_test(target, arch, filter):
+def run_torch_test(target, gpu_arch, filter):
     tests = [
         test for test in GLOBAL_TORCH_TEST_REGISTRY
         if re.match(filter, test.unique_name)
         and test.unique_name not in EXCLUDE_TORCH_TESTS
-        and is_test_supported(arch, test.unique_name)
+        and _is_gpu_test_supported(gpu_arch, test.unique_name)
     ]
     results = []
     for test in tests:
@@ -134,15 +141,15 @@ def run_torch_test(target, arch, filter):
 def run(config, target, filter):
     if config == "mlir" and target == "cpu":
         return run_mlir_cpu_test(filter)
-    arch = _detect_cuda_with_nvidia_smi()
-    assert (arch != None)
+    gpu_arch = _detect_cuda_with_nvidia_smi()
+    assert (gpu_arch != None)
     if config == "mlir":
-        return run_mlir_test(target, arch, filter)
+        return run_mlir_test(target, gpu_arch, filter)
     elif config == "torch":
-        return run_torch_test(target, arch, filter)
+        return run_torch_test(target, gpu_arch, filter)
     elif config == "dynamo":
         # TODO(zzk): use test infra for dynamo tests
-        run_torch_dynamo_tests(arch)
+        run_torch_dynamo_tests(gpu_arch)
         return []
     assert False, f"unknown config: {config}"
 
@@ -152,10 +159,12 @@ def parse_args():
     parser.add_argument("-f", "--filter", default=".*", help="""
     Regular expression specifying which tests to include in this run.
     """)
+    parser.add_argument("-c", "--config", type=str,
+                        choices=["all", "mlir", "torch", "dynamo"], help="test sets to run.")
     parser.add_argument("--target", type=str, default="cuda_with_ait",
-                    choices=["cpu", "cuda", "cuda_with_ait", "cuda_with_ait_aggressive"], help="target device name")
-    parser.add_argument("-c", "--config", default="all",
-                    choices=["all", "mlir", "torch", "dynamo"], help="test sets to run.")
+                        choices=["cpu", "cuda", "cuda_with_ait", "cuda_with_ait_aggressive"], help="target device name")
+    parser.add_argument("--mode", type=str, default="numerical", choices=["numerical", "perf"],
+                        help="testing mode, `numerical` means numerical test, `perf` means perfermance test")
     args = parser.parse_args()
     return args
 
