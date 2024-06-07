@@ -15,10 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 // Some code comes from
-// compiler/src/iree/compiler/Codegen/LLVMGPU/GPUPackSharedMemory.cpp of
-// IREE project.
-// Original license:
-// Copyright 2021 The IREE Authors
+// compiler/src/iree/compiler/Codegen/LLVMGPU/LLVMGPUPackSharedMemoryAlloc.cpp
+// of IREE project. Original license: Copyright 2021 The IREE Authors
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -219,20 +217,6 @@ void packSharedMemoryAlloc(scf::ForallOp forallOp) {
   // If there is 1 or less alias group there is nothing to do.
   if (aliasGroups.size() <= 1)
     return;
-
-  // Pack all the allocations into one i8 alloc.
-  // We may need to add extra barriers to make sure we are done writting or
-  // reading from the previous alias group before starting a new one.
-  // int sz = aliasGroups.size();
-  // insert barrier at last aliasGroup
-  // for (Operation *alloc : aliasGroups[0]) {
-  //   addBarrier(forallOp, alloc, aliasGroups[0]);
-  // }
-  // for (size_t i = 0; i < aliasGroups.size(); i++) {
-  //   for (Operation *alloc : aliasGroups[i]) {
-  //     addBarrier(funcOp, alloc, aliasGroups[i]);
-  //   }
-  // }
 
   OpBuilder builder(forallOp.getContext());
   packAllocs(builder, forallOp, aliasGroups);
