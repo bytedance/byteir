@@ -18,6 +18,8 @@
 #include "byteir/Transforms/ShapeFuncOutlining.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
+#include "byteir/Utils/Utils.h"
+#include "mlir/Analysis/SliceAnalysis.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -37,49 +39,57 @@ using namespace mlir;
 
 namespace {
 
-static std::pair<func::FuncOp, byre::ComputeShapeOp>
-createShapeFuncForSpecificOutputs(OpBuilder &builder,
-                                  SmallVector<Value> outputs) {
-  static size_t shapeFuncCnt = 0;
-  llvm::DenseSet<Operation *> visitedOp;
-  std::queue<Operation *> opQueue;
-  llvm::DenseSet<Value> inputsSet;
-  // collect shape computation ops and shape func inputs
+static SmallVector<Operation *, 8>
+getBackwardSliceOfOutputs(const SmallVector<Value> &outputs) {
+  llvm::DenseSet<Operation *> opSet;
+  llvm::SetVector<Operation *> backwardSlice;
   for (Value result : outputs) {
-    if (llvm::isa<BlockArgument>(result)) {
-      inputsSet.insert(result);
-    }
-    if (auto defOp = result.getDefiningOp()) {
-      opQueue.push(defOp);
-    }
+    llvm::SetVector<Operation *> backwardSlice;
+    BackwardSliceOptions options;
+    options.inclusive = true;
+    getBackwardSlice(result, &backwardSlice, options);
+    opSet.insert(backwardSlice.begin(), backwardSlice.end());
   }
+  SmallVector<Operation *, 8> backwardOps(opSet.begin(), opSet.end());
+  return backwardOps;
+}
 
-  while (!opQueue.empty()) {
-    Operation *op = opQueue.front();
-    opQueue.pop();
-    if (visitedOp.find(op) != visitedOp.end()) {
-      continue;
-    }
-    visitedOp.insert(op);
+static bool isOpOnlyUseOperandMeta(Operation *op) {
+  return llvm::isa<memref::DimOp, memref::RankOp>(op);
+}
 
-    for (Value operand : op->getOperands()) {
-      if (llvm::isa<BlockArgument>(operand)) {
-        inputsSet.insert(operand);
-      } else if (Operation *defOp = operand.getDefiningOp()) {
-        opQueue.push(defOp);
+static bool
+isClusterOnlyUseInputMeta(const SmallVector<Operation *, 8> &cluster) {
+  auto inputs = getInputsOfCluster(cluster);
+  llvm::DenseSet<Value> inputSet(inputs.begin(), inputs.end());
+  for (auto op : cluster) {
+    bool useInput = false;
+    for (auto operand : op->getOperands()) {
+      if (inputSet.find(operand) != inputSet.end()) {
+        useInput = true;
+        break;
       }
     }
+    if (useInput && !isOpOnlyUseOperandMeta(op))
+      return false;
   }
+  return true;
+}
 
-  llvm::SmallVector<Value> inputs(inputsSet.begin(), inputsSet.end());
-  llvm::SmallVector<Operation *> shapeComputationOps(visitedOp.begin(),
-                                                     visitedOp.end());
-
+static std::pair<func::FuncOp, byre::ComputeShapeOp>
+createShapeFuncForSpecificOutputs(OpBuilder &builder,
+                                  const SmallVector<Value> &outputs) {
+  static size_t shapeFuncCnt = 0;
+  llvm::SmallVector<Operation *, 8> shapeComputationOps =
+      getBackwardSliceOfOutputs(outputs);
   mlir::computeTopologicalSorting(shapeComputationOps);
+  auto inputs = getInputsOfCluster(shapeComputationOps);
+
   SmallVector<Location, 8> locations;
   for (Operation *op : shapeComputationOps) {
     locations.push_back(op->getLoc());
   }
+
   Location fusedLoc =
       FusedLoc::get(shapeComputationOps.back()->getContext(), locations);
 
@@ -87,6 +97,7 @@ createShapeFuncForSpecificOutputs(OpBuilder &builder,
   for (Value v : inputs) {
     inputTypes.emplace_back(v.getType());
   }
+
   for (Value v : outputs) {
     outputTypes.emplace_back(v.getType());
   }
@@ -182,7 +193,11 @@ struct ShapeFuncOutliningPass
 
     if (outputsSet.size() > 0) {
       llvm::SmallVector<Value> outputs(outputsSet.begin(), outputsSet.end());
-      auto shapeFunc = createShapeFuncForSpecificOutputs(builder, outputs);
+      llvm::SmallVector<Operation *, 8> shapeComputationOps =
+          getBackwardSliceOfOutputs(outputs);
+      if (isClusterOnlyUseInputMeta(shapeComputationOps)) {
+        (void)createShapeFuncForSpecificOutputs(builder, outputs);
+      }
     }
   }
 };
