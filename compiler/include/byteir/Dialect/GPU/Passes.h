@@ -20,6 +20,7 @@
 
 #include "byteir/Dialect/GPU/Transforms/GPUBlockSwizzle.h"
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
+#include "byteir/Dialect/GPU/Transforms/GPUTensorCoreVectorization.h"
 #include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoops.h"
 #include "mlir/Pass/Pass.h"
 

@@ -47,6 +47,9 @@ using namespace mlir;
 
 namespace mlir {
 
+//===----------------------------------------------------------------------===//
+// Get gemm codegen configs.
+//===----------------------------------------------------------------------===//
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp) {
   if (funcOp->hasAttr(getByteIRMatmulEpilogueFusionAttrName()) &&
       funcOp->hasAttr(getGemmTileConfigAttrName())) {
@@ -84,7 +87,10 @@ bool hasGemmTileConfig(func::FuncOp funcOp) {
   return funcOp->hasAttr(getByteIRMatmulEpilogueFusionAttrName());
 }
 
-// Check if the ForallOp is already mapped to threadblock level.
+//===----------------------------------------------------------------------===//
+// Check if the ForallOp or ForOp is already mapped to threadblock level or
+// thread level.
+//===----------------------------------------------------------------------===//
 static bool isMappedToGPUBlocks(scf::ForallOp forallOp) {
   if (auto mapping = forallOp.getMappingAttr()) {
     if (llvm::any_of(mapping.getValue(), [](Attribute attr) {
@@ -151,6 +157,10 @@ bool isMappedToGPUThreads(Operation *op) {
   return false;
 }
 
+//===----------------------------------------------------------------------===//
+// Get the scf.forall op mapped to threadblock.
+// Just for gemm codegen for now.
+//===----------------------------------------------------------------------===//
 std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp) {
   std::vector<scf::ForallOp> forallOps;
   funcOp.walk([&](scf::ForallOp forallOp) {
@@ -253,4 +263,35 @@ distributeLinalgOpsWithFilter(Operation *root,
   return distributeLinalgOpsWithFilter(rewriter, root, tilingOptions, filter);
 }
 
+//===----------------------------------------------------------------------===//
+// Check if the operation has specific marker
+//===----------------------------------------------------------------------===//
+void setMarker(Operation *op, StringRef marker) {
+  op->setAttr(marker, UnitAttr::get(op->getContext()));
+}
+
+bool hasMarker(Operation *op, StringRef marker) {
+  return op->hasAttrOfType<UnitAttr>(marker);
+}
+
+bool hasMarker(Operation *op, ArrayRef<StringRef> marker) {
+  return marker.empty() || llvm::any_of(marker, [op](StringRef markerValue) {
+           return op->hasAttrOfType<UnitAttr>(markerValue);
+         });
+}
+
+void setLinalgTransformationMarker(Operation *op, StringRef marker) {
+  op->setAttr(linalg_ext::LinalgTransforms::kLinalgTransformMarker,
+              StringAttr::get(op->getContext(), marker));
+}
+
+bool hasAnyLinalgTransformationMarker(Operation *op,
+                                      ArrayRef<StringRef> marker) {
+  StringAttr attr = op->getAttrOfType<StringAttr>(
+      linalg_ext::LinalgTransforms::kLinalgTransformMarker);
+  return attr && (marker.empty() ||
+                  llvm::any_of(marker, [&attr](StringRef markerValue) {
+                    return attr.getValue() == markerValue;
+                  }));
+}
 } // namespace mlir

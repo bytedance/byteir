@@ -1377,6 +1377,48 @@ struct FoldLargeConcatenate : public OpRewritePattern<mhlo::ConcatenateOp> {
   }
 };
 
+struct CanonicalizeClamp : public OpRewritePattern<mhlo::ClampOp> {
+  using OpRewritePattern<mhlo::ClampOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ClampOp op,
+                                PatternRewriter &rewriter) const override {
+    auto minConst = op.getMin().getDefiningOp<mhlo::ConstantOp>();
+    auto maxConst = op.getMax().getDefiningOp<mhlo::ConstantOp>();
+    if (!minConst || !maxConst) {
+      return failure();
+    }
+    auto minAttr =
+        dyn_cast_if_present<DenseElementsAttr>(minConst.getValueAttr());
+    auto maxAttr =
+        dyn_cast_if_present<DenseElementsAttr>(maxConst.getValueAttr());
+    if (!minAttr || !maxAttr) {
+      return failure();
+    }
+    if (!minAttr.isSplat() || !maxAttr.isSplat()) {
+      return failure();
+    }
+    // replace splat const with scalar
+    if (minAttr.getType().getRank() > 0 && maxAttr.getType().getRank() > 0) {
+      minAttr = dyn_cast<SplatElementsAttr>(minAttr).resizeSplat(
+          minAttr.getType().clone(SmallVector<int64_t>{}));
+      maxAttr = dyn_cast<SplatElementsAttr>(maxAttr).resizeSplat(
+          maxAttr.getType().clone(SmallVector<int64_t>{}));
+      minConst = rewriter.create<mhlo::ConstantOp>(minConst.getLoc(), minAttr);
+      op->setOperand(0, minConst);
+      maxConst = rewriter.create<mhlo::ConstantOp>(maxConst.getLoc(), maxAttr);
+      op->setOperand(2, maxConst);
+      return success();
+    }
+    // remove op if min/max are out of range
+    if (op.getType().getElementType().isa<FloatType>() &&
+        minAttr.getSplatValue<FloatAttr>().getValue().isNegInfinity() &&
+        maxAttr.getSplatValue<FloatAttr>().getValue().isPosInfinity()) {
+      rewriter.replaceAllUsesWith(op.getResult(), op.getOperand());
+      return success();
+    }
+    return failure();
+  }
+};
+
 namespace {
 template <typename T>
 DenseElementsAttr foldTransposeHelper(mhlo::TransposeOp op,
@@ -2210,6 +2252,7 @@ void mlir::mhlo::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
   patterns.add<FoldGatherWithInput>(ctx);
   patterns.add<FoldScatterWithInputAndUpdate>(ctx);
   patterns.add<FoldLargeConcatenate>(ctx);
+  patterns.add<CanonicalizeClamp>(ctx);
 
   patterns.add<FoldTransposeNonSplat>(ctx, foldLimit);
 

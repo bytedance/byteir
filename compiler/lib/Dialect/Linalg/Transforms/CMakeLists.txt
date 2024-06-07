@@ -8,6 +8,7 @@ add_mlir_dialect_library(ByteIRLinalgPasses
   LinalgExtToLoops.cpp
   LinalgGeneralizationExt.cpp
   LinalgPrefetch.cpp
+  LinalgPromotion.cpp
   Tiling.cpp
   ScopeTiling.cpp
   Transforms.cpp

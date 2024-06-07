@@ -44,6 +44,11 @@ static constexpr StringRef getGemmBlockSizeAttrName() {
 static constexpr StringRef getGemmPipelineDepthAttrName() {
   return "__byteir_gemm_pipeline_depth__";
 }
+
+static constexpr StringRef getCopyRelatedToWorkgroupMemoryMarker() {
+  return "__byteir_copy_related_to_workgroup_memory__";
+}
+
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);
@@ -66,6 +71,26 @@ bool isMappedToGPUThreads(Operation *op);
 // There should be only one valid ForallOp, otherwise the function will return
 // std::nullopt;
 std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp);
+
+// Set a marker attribute on the operation.
+// The marker is represented as a UnitAttr.
+void setMarker(mlir::Operation *op, llvm::StringRef marker);
+
+// Check if the operation has the specified markers.
+bool hasMarker(Operation *op, StringRef marker);
+
+// Check if the operation has any of the specified markers.
+// The markers are represented as UnitAttrs.
+bool hasMarker(mlir::Operation *op, llvm::ArrayRef<llvm::StringRef> markers);
+
+// Set a linalg transformation marker attribute on the operation.
+// The marker is represented as a StringAttr.
+void setLinalgTransformationMarker(mlir::Operation *op, llvm::StringRef marker);
+
+// Check if the operation has any of the specified linalg transformation
+// markers. The markers are represented as StringAttrs.
+bool hasAnyLinalgTransformationMarker(mlir::Operation *op,
+                                      llvm::ArrayRef<llvm::StringRef> markers);
 
 /// Distributes LinalgOp ops that match filter.
 LogicalResult
