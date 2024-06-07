@@ -518,10 +518,10 @@ LogicalResult CustomOp::verify() {
 
 void byre::addAsyncDependency(Operation *op, Value token) {
   op->insertOperands(0, {token});
-  if (!op->template hasTrait<OpTrait::AttrSizedOperandSegments>())
+  if (!op->template hasTrait<mlir::OpTrait::AttrSizedOperandSegments>())
     return;
-  auto attrName =
-      OpTrait::AttrSizedOperandSegments<void>::getOperandSegmentSizeAttr();
+  auto attrName = mlir::OpTrait::AttrSizedOperandSegments<
+      void>::getOperandSegmentSizeAttr();
   auto sizeAttr = op->template getAttrOfType<DenseI32ArrayAttr>(attrName);
   if (!sizeAttr)
     return; // Async dependencies is the only variadic operand.

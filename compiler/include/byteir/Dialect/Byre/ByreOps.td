@@ -40,6 +40,13 @@ include "mlir/Interfaces/ViewLikeInterface.td"
 class Byre_Op<string mnemonic, list<Trait> traits = []> :
     Op<Byre_Dialect, mnemonic, traits>;
 
+
+class Byre_NativeOpTrait<string name> : NativeOpTrait<name> {
+  let cppNamespace = "::mlir::byre::OpTrait";
+}
+
+def UsingOperandMeta : Byre_NativeOpTrait<"UsingOperandMeta">;
+
 def Byre_ComputeOnTensorOp : Byre_Op<"compute_on_tensor",
     [HasParent<"func::FuncOp">, ByreInterface, AttrSizedOperandSegments,
     DestinationStyleOpInterface]> {
@@ -131,7 +138,7 @@ def Byre_ComputeOp : Byre_Op<"compute",
 def Byre_ComputeShapeOp : Byre_Op<"compute_shape",
     [HasParent<"func::FuncOp">,
      DeclareOpInterfaceMethods<ByreInterface, ["getCalleeName"]>,
-     MemRefsNormalizable, Pure]> {
+     MemRefsNormalizable, Pure, UsingOperandMeta]> {
   let summary = "operation which references a shape computation fn";
   let description = [{
     ComputeShape op references a shape computation function in runtime,

@@ -59,10 +59,6 @@ ArgSideEffectType ArgSideEffectAnalysis::getType(mlir::Operation *op,
     return ArgSideEffectType::kError;
   }
 
-  if (isPure(op)) {
-    return ArgSideEffectType::kInput;
-  }
-
   // if having MemoryEffectOpInterface, use it first
   if (auto opInter = dyn_cast<MemoryEffectOpInterface>(op)) {
     if (opInter.getEffectOnValue<MemoryEffects::Read>(op->getOperand(argOffset))
@@ -76,7 +72,6 @@ ArgSideEffectType ArgSideEffectAnalysis::getType(mlir::Operation *op,
     }
     return ArgSideEffectType::kError;
   }
-  llvm::outs() << "callOp\n";
 
   // if no MemoryEffectOpInterface, use lookup
   // check call first, use fucOp's name in lookup
@@ -97,6 +92,6 @@ ArgSideEffectType ArgSideEffectAnalysis::getType(mlir::Operation *op,
     // return error by default for an op
     return ArgSideEffectType::kError;
   }
-  llvm::outs() << "opNameToGetType\n";
+
   return opNameToGetType[name](op, argOffset);
 }
