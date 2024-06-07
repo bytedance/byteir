@@ -14,15 +14,6 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// Some code comes from
-// compiler/src/iree/compiler/Codegen/Common/GPU/WorkgroupReordering.cpp of
-// IREE project.
-// Original license:
-// Copyright 2022 The IREE Authors
-//
-// Licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "byteir/Dialect/GPU/Transforms/GPUBlockSwizzle.h"
 #include "byteir/Dialect/GPU/Passes.h"
@@ -50,23 +41,25 @@ using namespace mlir;
 namespace {
 
 // Implements the following swizzling logic:
-// def get_tiled_id_triton(x, y, grid_size_x, grid_size_y, tile):
-//     GROUP_SIZE_M = tile
-//     pid = x + y * grid_size_x
-//     # Number of programs in group
-//     num_pid_in_group = GROUP_SIZE_M * grid_size_x
-//     # Id of the group this program is in
-//     group_id = pid // num_pid_in_group
-//     # Row-id of the first program in the group
-//     first_pid_m = group_id * GROUP_SIZE_M
-//     # If `num_pid_m` isn't divisible by `GROUP_SIZE_M`
-//     group_size_m = min(grid_size_y - first_pid_m, GROUP_SIZE_M)
-//     # *Within groups*, programs are ordered in a column-major order
-//     # Row-id of the program in the *launch grid*
-//     pid_m = first_pid_m + (pid % group_size_m)
-//     # Col-id of the program in the *launch grid*
-//     pid_n = (pid % num_pid_in_group) // group_size_m
-// return pid_n, pid_m
+/***
+def get_tiled_id_triton(x, y, grid_size_x, grid_size_y, tile):
+    GROUP_SIZE_M = tile
+    pid = x + y * grid_size_x
+    # Number of programs in group
+    num_pid_in_group = GROUP_SIZE_M * grid_size_x
+    # Id of the group this program is in
+    group_id = pid // num_pid_in_group
+    # Row-id of the first program in the group
+    first_pid_m = group_id * GROUP_SIZE_M
+    # If `num_pid_m` isn't divisible by `GROUP_SIZE_M`
+    group_size_m = min(grid_size_y - first_pid_m, GROUP_SIZE_M)
+    # *Within groups*, programs are ordered in a column-major order
+    # Row-id of the program in the *launch grid*
+    pid_m = first_pid_m + (pid % group_size_m)
+    # Col-id of the program in the *launch grid*
+    pid_n = (pid % num_pid_in_group) // group_size_m
+    return pid_n, pid_m
+***/
 static std::pair<Value, Value>
 makeSwizzledIdsInTritonWay(Location loc, OpBuilder &b, Value x, Value y,
                            Value gridSizeX, Value gridSizeY,
@@ -118,7 +111,11 @@ static LogicalResult reorderForallOpMappedTo2DBlock(scf::ForallOp forallOp,
   auto mapping = newforallOp.getMappingAttr().getValue();
 
   Value workgroupIdX, workgroupIdY, workgroupCountX, workgroupCountY;
-  if (mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId() == 0) {
+  // if mapping[0] == gpu::MappingId::DimX, workgroupIdx = loop[0], otherwise
+  // workgroupIdx = loop[1]
+  int64_t dimXMapping = static_cast<int64_t>(gpu::MappingId::DimX);
+  if (mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId() ==
+      dimXMapping) {
     workgroupIdX = loops[0];
     workgroupIdY = loops[1];
     workgroupCountX = gridSize[0];
