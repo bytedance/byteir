@@ -12,11 +12,11 @@
 # limitations under the License.
 # ==============================================================================
 
-import numpy as np
 from byteir import ir
 from subprocess import PIPE, Popen
 
 def mlir_type_to_np_dtype(mlir_type):
+    import numpy as np
     if str(mlir_type) == "f64":
         return np.float64
     if str(mlir_type) == "f32":
@@ -49,6 +49,7 @@ def mlir_type_to_np_dtype(mlir_type):
 
 
 def mlir_attr_to_pyobj(attribute):
+    import numpy as np
     if ir.DictAttr.isinstance(attribute):
         dict_attr = ir.DictAttr(attribute)
         return {
