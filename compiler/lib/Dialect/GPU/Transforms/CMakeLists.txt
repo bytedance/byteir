@@ -2,8 +2,8 @@ add_mlir_dialect_library(ByteIRGPUPasses
   GPUBlockSwizzle.cpp
   GPUTensorCoreVectorization.cpp
   GPUDistributeToWarp.cpp
-  ShmAllocaToWorkgroupArg.cpp
   RemoveTrivialLoops.cpp
+  ShmAllocaToWorkgroupArg.cpp
   Utils.cpp
 
   ADDITIONAL_HEADER_DIRS
