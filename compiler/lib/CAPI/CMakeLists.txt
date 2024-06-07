@@ -5,6 +5,7 @@ add_mlir_public_c_api_library(ByteIRCAPI
   Dialects.cpp
   Passes.cpp
   Translation.cpp
+  PDLValue.cpp
 
   LINK_LIBS PUBLIC
   ${dialect_libs}

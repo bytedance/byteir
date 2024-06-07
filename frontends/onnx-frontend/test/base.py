@@ -1,4 +1,5 @@
 import json
+import os
 import os.path as osp
 import pytest
 import re
@@ -45,7 +46,7 @@ class TestBase:
         # cmd_opts.append("-mlir-print-op-generic")
         if onnx_frontend_option != "":
             cmd_opts.append(onnx_frontend_option)
-
+        
         # cmd_opts.append(f"-o={stablehlo_ir_path}")
         p = subprocess.run(
             cmd_opts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -53,6 +54,15 @@ class TestBase:
         assert not err, str(err)
         with open(stablehlo_ir_path, "w") as f:
             f.write(out)
+
+        # test convert to bytecode.
+        cmd_opts_bc = cmd_opts
+        cmd_opts_bc.append(f"-o={os.path.splitext(stablehlo_ir_path)[0]}" + ".mlirbc")
+
+        p = subprocess.run(
+            cmd_opts_bc, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        out, err = p.stdout, p.stderr
+        assert not err, str(err)
 
     def onnx_stablehlo_test_helper(self, onnx_path, stablehlo_ir_path, input_data: Dict[str, npt.NDArray], decimal):
         # TODO: handle a model with multiple final outputs

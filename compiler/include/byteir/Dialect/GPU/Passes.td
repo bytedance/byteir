@@ -34,6 +34,17 @@ def ShmAllocaToWorkgroupArg : Pass<"shm-alloca-to-workgroup-arg", "gpu::GPUModul
 }
 
 //===----------------------------------------------------------------------===//
+// GPUBlockSwizzle
+//===----------------------------------------------------------------------===//
+def GPUBlockSwizzle : Pass<"gpu-block-swizzle", "func::FuncOp"> {
+  let summary = "Swizzle GPU block to improve performance";
+  let constructor = "mlir::createGPUBlockSwizzlePass()";
+  let options = [
+    Option<"swizzleLogTile", "swizzle-log-tile", "int64_t", /*default=*/"0", "the log of gpu block swizzle tile">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // GPUDistributeToWarp
 //===----------------------------------------------------------------------===//
 def GPUDistributeToWarp: Pass<"gpu-distributed-to-warp", "func::FuncOp"> {
@@ -63,5 +74,17 @@ def GPUDistributeSharedMemoryCopy : Pass<"gpu-distribute-shared-memory-copy", "f
   let summary = "Pass to distribute Linalg CopyOp to Vector TransferReadOp.";
   let constructor = "mlir::createGPUDistributeSharedMemoryCopyPass()";
 }
+
+//===----------------------------------------------------------------------===//
+// GPUTensorCoreVectorization
+//===----------------------------------------------------------------------===//
+def GPUTensorCoreVectorization : Pass<"gpu-tensorcore-vectorization", "func::FuncOp"> {
+  let summary = "Transform linalg.matmul to vector.contract which is compatible with MMA.";
+  let constructor = "mlir::createGPUTensorCoreVectorizationPass()";
+  let dependentDialects = [
+      "vector::VectorDialect",
+  ];
+}
+
 
 #endif // BYTEIR_DIALECT_GPU_PASSES
