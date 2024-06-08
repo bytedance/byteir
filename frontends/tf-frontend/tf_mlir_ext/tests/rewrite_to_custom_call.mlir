@@ -1,4 +1,6 @@
-// RUN: tf-ext-opt -rewrite-to-custom-call="ops=softmax,log_softmax,gelu,erf,arg_max,arg_min,top_k,layer_norm,l2_norm,addn,one_hot,DynamicMaskStitch,DynamicPartition,DynamicStitch" %s | FileCheck %s
+// RUN: tf-ext-opt
+// -rewrite-to-custom-call="ops=softmax,log_softmax,gelu,erf,arg_max,arg_min,top_k,layer_norm,l2_norm,addn,one_hot,DynamicMaskStitch,DynamicPartition,DynamicStitch"
+// %s | FileCheck %s
 
 func.func @softmax_case0(%arg0: tensor<100x100xf32>) -> tensor<100x100xf32> {
   %0 = "tf.Softmax"(%arg0) : (tensor<100x100xf32>) -> tensor<100x100xf32>
@@ -337,7 +339,7 @@ func.func @layer_norm_multi_dim_v2(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32
 }
 // CHECK-LABEL: func.func @layer_norm_multi_dim_v2(%arg0: tensor<2x8x4xf32>) -> tensor<2x8x4xf32> {
 // CHECK:        %0 = "tf.Reshape"(%arg0, %cst_1) : (tensor<2x8x4xf32>, tensor<2xi64>) -> tensor<16x4xf32>
-// CHECK-NEXT:   %1 = mhlo.custom_call @byteir.layer_norm(%0, %cst, %cst_0) {backend_config = "", byteir_attrs = {axis = [2], epsilon = 9.9999999747524271E-7 : f64}} : (tensor<16x4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<16x4xf32>
+// CHECK-NEXT:   %1 = mhlo.custom_call @byteir.layer_norm(%0, %cst, %cst_0) {backend_config = "", byteir_attrs = {axis = [1], epsilon = 9.9999999747524271E-7 : f64}} : (tensor<16x4xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<16x4xf32>
 // CHECK-NEXT:   %2 = "tf.Reshape"(%1, %cst_2) : (tensor<16x4xf32>, tensor<3xi64>) -> tensor<2x8x4xf32>
 // CHECK-NEXT:   %3 = "tf.Mul"(%2, %cst_3) : (tensor<2x8x4xf32>, tensor<2x1x4xf32>) -> tensor<2x8x4xf32>
 // CHECK-NEXT:   %4 = "tf.Add"(%3, %cst_4) : (tensor<2x8x4xf32>, tensor<2x1x4xf32>) -> tensor<2x8x4xf32>
@@ -702,13 +704,22 @@ func.func @dynamic_stitch(%part0: tensor<?xi32>, %part1: tensor<?xi32>, %4: tens
 // CHECK-SAME: byteir_attrs = {}
 
 func.func @onehot_case0(%arg0: tensor<150xi32>) -> tensor<150x16xf32> {
-  %off_value = "tf.Const"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
-  %depth = "tf.Const"() {value = dense<16> : tensor<i32>} : () -> tensor<i32>
-  %on_value = "tf.Const"() {value = dense<1.000000e+00> : tensor<f32>} : () -> tensor<f32>
-  %0 = "tf.OneHot"(%arg0, %depth, %on_value, %off_value) {axis = -1 : i64, device = ""} : (tensor<150xi32>, tensor<i32>, tensor<f32>, tensor<f32>) -> tensor<150x16xf32>
-  return %0 : tensor<150x16xf32>
+  % off_value =
+      "tf.Const"(){value = dense<0.000000e+00> : tensor<f32>}
+      : ()
+            ->tensor<f32> %
+      depth = "tf.Const"(){value = dense<16> : tensor<i32>} : ()->tensor<i32> %
+              on_value =
+                  "tf.Const"(){value = dense<1.000000e+00> : tensor<f32>}
+      : ()
+            ->tensor<f32> %
+                  0 = "tf.OneHot"(% arg0, % depth, % on_value,
+                                  % off_value){axis = -1 : i64, device = ""}
+      : (tensor<150xi32>, tensor<i32>, tensor<f32>, tensor<f32>)
+            ->tensor<150x16xf32> return %
+                      0 : tensor<150x16xf32>
 }
-// CHECK-LABEL: func.func @onehot_case0(%arg0: tensor<150xi32>) -> tensor<150x16xf32> {
-// CHECK: mhlo.custom_call
-// CHECK-SAME: @byteir.one_hot
-// CHECK-SAME: byteir_attrs = {axis = 1 : i64, depth = 16 : i64, off_value = 0.000000e+00 : f32, on_value = 1.000000e+00 : f32}
+// CHECK-LABEL: func.func @onehot_case0(%arg0: tensor<150xi32>) ->
+// tensor<150x16xf32> { CHECK: mhlo.custom_call CHECK-SAME: @byteir.one_hot
+// CHECK-SAME: byteir_attrs = {axis = 1 : i64, depth = 16 : i64, off_value =
+// 0.000000e+00 : f32, on_value = 1.000000e+00 : f32}

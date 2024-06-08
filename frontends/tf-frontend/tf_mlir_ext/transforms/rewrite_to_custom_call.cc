@@ -200,6 +200,9 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
   auto betaMDType = betaMD.getType().cast<ShapedType>();
   assert(inputMDRank == gammaMDType.getRank());
   assert(inputMDRank == betaMDType.getRank());
+  int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
+  assert(axisValue == -1 || axisValue == (inputMDRank - 1));
+  auto axisType = axis.getType().dyn_cast<ShapedType>();
 
   auto gammaAttr = getSplatFpElementsAttr(
       inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 1.0f);
@@ -219,6 +222,9 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
       rewriter.create<TF::ConstOp>(loc, rewriter.getI64TensorAttr(inputShape));
   Value input =
       rewriter.create<TF::ReshapeOp>(loc, inputType, inputMD, inputShapeV);
+  if (axisValue == (inputMDRank - 1)) {
+    axis = DenseIntElementsAttr::get(axisType, 1);
+  }
   Value output =
       createLayerNorm(rewriter, loc, input, gamma, beta, epsilon, axis);
   Value inputMDShapeV = rewriter.create<TF::ConstOp>(
