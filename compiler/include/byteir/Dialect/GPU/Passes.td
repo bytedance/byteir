@@ -39,6 +39,16 @@ def ShmAllocaToWorkgroupArg : Pass<"shm-alloca-to-workgroup-arg", "gpu::GPUModul
 def OptimizeVectorTransfer: Pass<"optimize-vector-tranfer", "func::FuncOp"> {
   let summary = "Remove redundant transfer-write.";
   let constructor = "mlir::createOptimizeVectorTransferPass()";
+
+//===----------------------------------------------------------------------===//
+// GPUBlockSwizzle
+//===----------------------------------------------------------------------===//
+def GPUBlockSwizzle : Pass<"gpu-block-swizzle", "func::FuncOp"> {
+  let summary = "Swizzle GPU block to improve performance";
+  let constructor = "mlir::createGPUBlockSwizzlePass()";
+  let options = [
+    Option<"swizzleLogTile", "swizzle-log-tile", "int64_t", /*default=*/"0", "the log of gpu block swizzle tile">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -64,5 +74,24 @@ def RemoveTrivialLoops : Pass<"remove-trivial-loops", "func::FuncOp"> {
   let constructor = "mlir::createRemoveTrivialLoopsPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// GPUTensorCoreVectorization
+//===----------------------------------------------------------------------===//
+def GPUTensorCoreVectorization : Pass<"gpu-tensorcore-vectorization", "func::FuncOp"> {
+  let summary = "Transform linalg.matmul to vector.contract which is compatible with MMA.";
+  let constructor = "mlir::createGPUTensorCoreVectorizationPass()";
+  let dependentDialects = [
+      "vector::VectorDialect",
+  ];
+}
+
+
+//===----------------------------------------------------------------------===//
+// GPUPackSharedMemoryAlloc
+//===----------------------------------------------------------------------===//
+def GPUPackSharedMemoryAlloc : Pass<"gpu-pack-shared-memory-alloc", "func::FuncOp"> {
+  let summary = "Analysis shared memory reuse and pack it into i8 alloc.";
+  let constructor = "mlir::createGPUPackSharedMemoryAllocPass()";
+}
 
 #endif // BYTEIR_DIALECT_GPU_PASSES
