@@ -22,7 +22,6 @@ from torch_e2e_testing.test_suite import register_all_torch_tests
 from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
 from utils import report_results
 import sys
-from subprocess import PIPE, Popen
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,29 +47,6 @@ SM80_PLUS_TESTS = [
     "BatchMatmulAddF32Module_basic",
     "BatchMatmulF32Module_basic",
 ]
-
-
-def _detect_cuda_with_nvidia_smi():
-    try:
-        proc = Popen(
-            ["nvidia-smi", "--query-gpu=gpu_name", "--format=csv"],
-            stdout=PIPE,
-            stderr=PIPE,
-        )
-        stdout, stderr = proc.communicate()
-        stdout = stdout.decode("utf-8")
-        sm_names = {
-            70: ["V100"],
-            75: ["T4", "Quadro T2000"],
-            80: ["PG509", "A100", "A10", "RTX 30", "A30", "RTX 40", "A16"],
-            90: ["H100"],
-        }
-        for sm, names in sm_names.items():
-            if any(name in stdout for name in names):
-                return sm
-        return None
-    except Exception:
-        return None
 
 
 def _get_test_files_from_dir(directory):
@@ -163,8 +139,11 @@ def run_torch_test(target, gpu_arch, filter):
 def run(config, target, filter, mode="numerical"):
     if config == "mlir" and target == "cpu":
         return run_mlir_cpu_test(filter)
-    gpu_arch = _detect_cuda_with_nvidia_smi()
+    from byteir.utils import detect_cuda_with_nvidia_smi
+    gpu_arch = detect_cuda_with_nvidia_smi()
     assert gpu_arch != None
+    assert gpu_arch.startswith("sm_")
+    gpu_arch = int(gpu_arch[3:])
     if config == "mlir":
         return run_mlir_test(target, gpu_arch, filter)
     elif config == "torch":
@@ -181,6 +160,7 @@ def parse_args():
     parser.add_argument(
         "-f",
         "--filter",
+        type=str,
         default=".*",
         help="Regular expression specifying which tests to include in this run.",
     )
