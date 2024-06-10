@@ -34,8 +34,8 @@ void CatDialect::initialize() {
 
 LogicalResult VerifyBMMLayout(Value lhs, Value rhs, Value out,
                               llvm::StringRef layoutStr) {
-  auto lhsType = lhs.getType().cast<ShapedType>();
-  auto rhsType = rhs.getType().cast<ShapedType>();
+  auto lhsType = cast<ShapedType>(lhs.getType());
+  auto rhsType = cast<ShapedType>(rhs.getType());
   if (lhsType.getRank() != 3 || rhsType.getRank() != 3)
     return failure();
 
@@ -55,9 +55,9 @@ LogicalResult VerifyBMMLayout(Value lhs, Value rhs, Value out,
 
 LogicalResult VerifyGemmLayout(Value lhs, Value rhs, Value out,
                                llvm::StringRef layoutStr) {
-  auto lhsShape = lhs.getType().cast<ShapedType>().getShape();
-  auto rhsShape = rhs.getType().cast<ShapedType>().getShape();
-  // auto outShape = out.getType().cast<ShapedType>().getShape();
+  auto lhsShape = cast<ShapedType>(lhs.getType()).getShape();
+  auto rhsShape = cast<ShapedType>(rhs.getType()).getShape();
+  // auto outShape = cast<ShapedType>(out.getType()).getShape();
   if (layoutStr == "rrr" && lhsShape[1] == rhsShape[0])
     return success();
   if (layoutStr == "rcr" && lhsShape[1] == rhsShape[1])
@@ -73,9 +73,9 @@ LogicalResult VerifyGemmLayout(Value lhs, Value rhs, Value out,
 LogicalResult VerifyGemmPermute0213Layout(Value lhs, Value rhs, Value out,
                                           int64_t t1, int64_t t2,
                                           llvm::StringRef layoutStr) {
-  auto lhsShape = lhs.getType().cast<ShapedType>().getShape();
-  auto rhsShape = rhs.getType().cast<ShapedType>().getShape();
-  auto outShape = out.getType().cast<ShapedType>().getShape();
+  auto lhsShape = cast<ShapedType>(lhs.getType()).getShape();
+  auto rhsShape = cast<ShapedType>(rhs.getType()).getShape();
+  auto outShape = cast<ShapedType>(out.getType()).getShape();
   if (t1 != outShape[2] || t2 != outShape[1])
     return failure();
   if (layoutStr == "rrr" && lhsShape[1] == rhsShape[0]) {

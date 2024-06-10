@@ -62,7 +62,7 @@ void mlir::deepReplicateAncestorOps(
   for (auto cand : candidates) {
     LLVM_DEBUG(llvm::dbgs() << "replicate candidate " << *cand << "\n");
     for (auto val : cand->getResults()) {
-      auto resultNumber = val.cast<OpResult>().getResultNumber();
+      auto resultNumber = cast<OpResult>(val).getResultNumber();
       // collect all user and operandNumber
       llvm::SmallDenseMap<Operation *, unsigned> OpAndNumber;
       for (auto &use : val.getUses()) {
@@ -116,7 +116,7 @@ void mlir::replicateDefiningOp(Block *block,
       auto val = op.getOperand(i);
       auto opDef = val.getDefiningOp();
       if (opDef != nullptr && checkFunc(opDef)) {
-        replaceOps.emplace_back(&op, i, val.cast<OpResult>().getResultNumber());
+        replaceOps.emplace_back(&op, i, cast<OpResult>(val).getResultNumber());
       }
     }
   }
@@ -232,7 +232,7 @@ LogicalResult mlir::deepFold(Operation *op, IRMapping &bvm,
 
     for (const OpResult &opRes : defOp->getOpResults()) {
       OpFoldResult foldResult = operandResults[opRes.getResultNumber()];
-      auto attr = foldResult.dyn_cast<Attribute>();
+      auto attr = dyn_cast<Attribute>(foldResult);
       constOpernadAttrs.push_back(attr);
       if (!bvm.contains(opRes)) {
         Value newConst = arith::ConstantOp::materialize(
@@ -266,8 +266,8 @@ std::optional<SmallVector<Type>> mlir::mixTypes(TypeRange cloneFromElementTypes,
       return std::nullopt;
     }
 
-    auto fromElementType = std::get<0>(item).cast<ShapedType>();
-    auto fromShape = std::get<1>(item).cast<ShapedType>();
+    auto fromElementType = cast<ShapedType>(std::get<0>(item));
+    auto fromShape = cast<ShapedType>(std::get<1>(item));
 
     ret.push_back(fromElementType.clone(fromShape.getShape()));
   }

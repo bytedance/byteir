@@ -53,7 +53,7 @@ struct ShapeReificationOnTensorDimPattern
     }
 
     Value shape =
-        reifications[op.getSource().cast<OpResult>().getResultNumber()];
+        reifications[cast<OpResult>(op.getSource()).getResultNumber()];
     Value dimOfShape =
         rewriter.create<tensor::ExtractOp>(op.getLoc(), shape, op.getIndex());
 
@@ -83,7 +83,7 @@ struct ShapeReificationPattern : public OpRewritePattern<shape::ShapeOfOp> {
       return failure();
     }
 
-    Value shape = reifications[op.getArg().cast<OpResult>().getResultNumber()];
+    Value shape = reifications[cast<OpResult>(op.getArg()).getResultNumber()];
     // Insert cast, if needed.
     if (shape.getType() != op.getType()) {
       shape = rewriter.create<tensor::CastOp>(op.getLoc(), op.getType(), shape);

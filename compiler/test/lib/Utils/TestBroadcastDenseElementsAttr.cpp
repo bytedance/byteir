@@ -40,8 +40,8 @@ struct BroadcastConstantPattern
     auto broadcastDimensions =
         llvm::to_vector(op.getBroadcastDimensions().getValues<int64_t>());
     auto broadcastedAttr = createBroadcastedDenseElementsAttr(
-        constOp.getValue().cast<DenseElementsAttr>(),
-        op.getType().cast<ShapedType>(), broadcastDimensions);
+        cast<DenseElementsAttr>(constOp.getValue()),
+        cast<ShapedType>(op.getType()), broadcastDimensions);
     if (!broadcastedAttr.has_value()) {
       return failure();
     }

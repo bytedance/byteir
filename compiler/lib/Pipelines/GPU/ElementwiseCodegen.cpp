@@ -72,7 +72,7 @@ llvm::SmallSet<int64_t, 8> getBroadcastDims(linalg::GenericOp genericOp) {
   for (auto &&affineMap : genericOp.getIndexingMapsArray()) {
     SmallVector<size_t> visited(numLoops, 0);
     for (auto &&expr : affineMap.getResults()) {
-      if (auto dimExpr = expr.dyn_cast<AffineDimExpr>()) {
+      if (auto dimExpr = dyn_cast<AffineDimExpr>(expr)) {
         visited[dimExpr.getPosition()] = true;
       }
     }

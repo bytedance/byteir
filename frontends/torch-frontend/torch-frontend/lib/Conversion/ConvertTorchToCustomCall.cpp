@@ -734,10 +734,8 @@ public:
 
     SmallVector<Type> resultTypes;
     for (size_t i = 0; i < op.getNumResults(); i++) {
-      RankedTensorType resultType =
-          getTypeConverter()
-              ->convertType(op->getResult(i).getType())
-              .cast<RankedTensorType>();
+      RankedTensorType resultType = cast<RankedTensorType>(
+          getTypeConverter()->convertType(op->getResult(i).getType()));
       resultTypes.push_back(resultType);
     }
 
@@ -1181,7 +1179,7 @@ public:
   matchAndRewrite(AtenNonzeroOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (!resultType) {

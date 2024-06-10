@@ -145,7 +145,7 @@ std::optional<std::string> GetSpace(mlir::Value val);
 DTypeEnum GetElementDTypeEnum(mlir::Value val);
 
 template <typename T> inline bool IsElementType(mlir::Value val) {
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = llvm::dyn_cast<mlir::MemRefType>(val.getType())) {
     return memref.getElementType().isa<T>();
   }
   return false;

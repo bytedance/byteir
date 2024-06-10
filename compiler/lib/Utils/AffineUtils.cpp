@@ -145,7 +145,7 @@ bool mlir::isProjectedPermutationAndAllowConst(AffineMap map) {
 
   SmallVector<bool, 8> seen(map.getNumInputs(), false);
   for (auto expr : map.getResults()) {
-    if (auto dim = expr.dyn_cast<AffineDimExpr>()) {
+    if (auto dim = dyn_cast<AffineDimExpr>(expr)) {
       if (seen[dim.getPosition()])
         return false;
       seen[dim.getPosition()] = true;

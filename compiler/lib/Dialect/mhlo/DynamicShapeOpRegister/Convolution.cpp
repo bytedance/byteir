@@ -53,7 +53,7 @@ convertNx2Attribute(std::optional<mlir::DenseIntElementsAttr> optionalAttr,
     return SmallVector<std::pair<int64_t, int64_t>>{};
   mlir::DenseIntElementsAttr attr = *optionalAttr;
 
-  auto attrType = attr.getType().cast<RankedTensorType>(); // ensured by ODS.
+  auto attrType = cast<RankedTensorType>(attr.getType()); // ensured by ODS.
   if (attrType.getRank() > 1) {
     if (attrType.getRank() != 2 || attrType.getShape()[1] != 2)
       return (mlir::emitError(loc) << "expects the shape of padding-attribute "
@@ -269,8 +269,8 @@ void mlir::registerConvolutionInferReturnTypeComponents() {
           return failure();
         }
 
-        auto lhsType = adaptor.getLhs().getType().dyn_cast<RankedTensorType>();
-        auto rhsType = adaptor.getRhs().getType().dyn_cast<RankedTensorType>();
+        auto lhsType = dyn_cast<RankedTensorType>(adaptor.getLhs().getType());
+        auto rhsType = dyn_cast<RankedTensorType>(adaptor.getRhs().getType());
         if (!lhsType || !rhsType) {
           LLVM_DEBUG(llvm::dbgs() << loc << ": operands type missing\n");
           return failure();

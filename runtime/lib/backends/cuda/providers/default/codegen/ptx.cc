@@ -61,7 +61,7 @@ std::string GetFileName(Operation *op) {
 std::vector<int> GetIntArrayAttr(ArrayAttr arr) {
   std::vector<int> res;
   for (auto attr : arr) {
-    if (auto i_attr = attr.dyn_cast<IntegerAttr>()) {
+    if (auto i_attr = dyn_cast<IntegerAttr>(attr)) {
       res.push_back(i_attr.getInt());
     }
   }

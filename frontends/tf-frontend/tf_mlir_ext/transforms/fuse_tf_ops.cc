@@ -88,7 +88,7 @@ struct FuseDilatedConv3DPattern : public OpRewritePattern<TF::Conv3DOp> {
       return rewriter.notifyMatchFailure(op, "op's data format isn't NDHWC");
     }
     // Allow dynamic batch, width and height dimensions only.
-    auto result_ty = op.getResult().getType().template cast<TensorType>();
+    auto result_ty = cast<TensorType>(op.getResult().getType());
     if (!result_ty.hasRank() || result_ty.getRank() != 5 ||
         result_ty.isDynamicDim(4)) {
       return rewriter.notifyMatchFailure(

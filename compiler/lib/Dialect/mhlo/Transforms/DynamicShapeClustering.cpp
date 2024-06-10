@@ -192,7 +192,7 @@ struct DynamicShapeClusteringPass
 
         if (llvm::isa<mhlo::MhloDialect>(op->getDialect())) {
           for (Value operand : op->getOperands()) {
-            if (auto shapeType = operand.getType().dyn_cast<ShapedType>()) {
+            if (auto shapeType = dyn_cast<ShapedType>(operand.getType())) {
               if (!shapeType.hasStaticShape())
                 return true;
             }
@@ -200,7 +200,7 @@ struct DynamicShapeClusteringPass
           // the input of DynamicBroadcastInDim are all static, but the result
           // is dynamic
           for (auto value : op->getResults()) {
-            if (auto shapeType = value.getType().dyn_cast<ShapedType>()) {
+            if (auto shapeType = dyn_cast<ShapedType>(value.getType())) {
               if (!dynSrcAnalysis.isDynamicSource(value) &&
                   !shapeType.hasStaticShape())
                 return true;

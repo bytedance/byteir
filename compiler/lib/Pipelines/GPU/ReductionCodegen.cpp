@@ -80,7 +80,7 @@ std::optional<int64_t> getOperandReductionDim(OpOperand &operand) {
     return std::nullopt;
 
   for (auto &&en : llvm::enumerate(affineMap.getResults())) {
-    if (auto dimExpr = en.value().dyn_cast<AffineDimExpr>()) {
+    if (auto dimExpr = dyn_cast<AffineDimExpr>(en.value())) {
       if (dimExpr.getPosition() == *dim) {
         return en.index();
       }

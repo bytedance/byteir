@@ -87,7 +87,7 @@ static Value createReduce(Value input, Value init, int64_t reductionDim,
 
 static Value fillTensorWithZeros(OpBuilder &builder, Location loc,
                                  Value tensor) {
-  auto type = tensor.getType().cast<ShapedType>();
+  auto type = cast<ShapedType>(tensor.getType());
   Value zero;
   auto zeroAttr = builder.getZeroAttr(type.getElementType());
   zero = builder.create<arith::ConstantOp>(loc, zeroAttr);
@@ -138,7 +138,7 @@ struct LayerNormOpToLinalgReduceAndGeneric
 
     // 1. Build a sum
     // using weight Ty as reduceTy since they are same
-    auto inputTy = op.getOperandType(0).cast<RankedTensorType>();
+    auto inputTy = cast<RankedTensorType>(op.getOperandType(0));
     auto reduceShape = getShapeWithSkips(inputTy.getShape(), op.getIntAxis());
     auto reduceTy =
         RankedTensorType::get(reduceShape, inputTy.getElementType());
@@ -305,7 +305,7 @@ public:
         op.input(), op.max(), op.getDimension(), loc, rewriter);
 
     // 2. Build exp(x-max)
-    auto resultTy = op.getType(0).cast<RankedTensorType>();
+    auto resultTy = cast<RankedTensorType>(op.getType(0));
     // Create an empty
     auto emptyOp = rewriter.create<tensor::EmptyOp>(loc, resultTy.getShape(),
                                                     resultTy.getElementType());
@@ -345,7 +345,7 @@ public:
     mapAccInit.push_back(AffineMap::getMultiDimIdentityMap(nloops - 1, ctx));
     SmallVector<Value> accInitInputs{op.accumulator(), op.max(), partialMax};
 
-    auto reducedResultTy = partialMax.getType().cast<RankedTensorType>();
+    auto reducedResultTy = cast<RankedTensorType>(partialMax.getType());
     auto reduceEmptyOp = rewriter.create<tensor::EmptyOp>(
         loc, reducedResultTy.getShape(), reducedResultTy.getElementType());
 

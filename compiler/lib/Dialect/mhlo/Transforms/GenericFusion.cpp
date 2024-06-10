@@ -300,7 +300,7 @@ bool isValidFusionPattern(const MhloFusionPattern &pattern) {
       ValueRange inputs = reduceOp.getInputs();
       auto reduceDims = reduceOp.getDimensionsAttr();
       for (Value in : inputs) {
-        auto inputShape = in.getType().cast<ShapedType>().getShape();
+        auto inputShape = cast<ShapedType>(in.getType()).getShape();
         for (auto iter = reduceDims.begin(); iter != reduceDims.end(); iter++) {
           APInt reDim = *iter;
           if (inputShape[reDim.getSExtValue()] != 1) {

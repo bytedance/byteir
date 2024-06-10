@@ -38,7 +38,7 @@ verifyReplicaGroups(std::optional<Location> location,
         "dynamic_replica_groups and replica_groups can't exist simultaneously");
 
   if (dynamicReplicaGroups != nullptr) {
-    ShapedType type = dynamicReplicaGroups.getType().cast<ShapedType>();
+    ShapedType type = cast<ShapedType>(dynamicReplicaGroups.getType());
     if (!type.getElementType().isa<IndexType, IntegerType>())
       return emitOptionalError(
           location,

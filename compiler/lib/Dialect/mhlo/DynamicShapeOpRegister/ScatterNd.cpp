@@ -39,7 +39,7 @@ void mlir::registerScatterNdInferBoundedReturnTypeComponents() {
         llvm::SmallVector<int64_t> dims;
         adaptor.getDims(dims);
         Type type = RankedTensorType::get(dims, IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
 }

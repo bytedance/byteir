@@ -185,17 +185,17 @@ static std::pair<KernelDim3, KernelDim3> createBlockAndGrid(OpBuilder &b,
   auto loc = func.getLoc();
 
   auto bx = b.create<arith::ConstantIndexOp>(
-      loc, arrayAttr[0].cast<IntegerAttr>().getInt());
+      loc, cast<IntegerAttr>(arrayAttr[0]).getInt());
   auto by = b.create<arith::ConstantIndexOp>(
-      loc, arrayAttr[1].cast<IntegerAttr>().getInt());
+      loc, cast<IntegerAttr>(arrayAttr[1]).getInt());
   auto bz = b.create<arith::ConstantIndexOp>(
-      loc, arrayAttr[2].cast<IntegerAttr>().getInt());
+      loc, cast<IntegerAttr>(arrayAttr[2]).getInt());
   auto gx = b.create<arith::ConstantIndexOp>(
-      loc, arrayAttr[3].cast<IntegerAttr>().getInt());
+      loc, cast<IntegerAttr>(arrayAttr[3]).getInt());
   auto gy = b.create<arith::ConstantIndexOp>(
-      loc, arrayAttr[4].cast<IntegerAttr>().getInt());
+      loc, cast<IntegerAttr>(arrayAttr[4]).getInt());
   auto gz = b.create<arith::ConstantIndexOp>(
-      loc, arrayAttr[5].cast<IntegerAttr>().getInt());
+      loc, cast<IntegerAttr>(arrayAttr[5]).getInt());
 
   KernelDim3 block{bx, by, bz};
   KernelDim3 grid{gx, gy, gz};
@@ -268,7 +268,7 @@ void setValidStaticGPUConfigAttr(func::FuncOp func, ArrayRef<int64_t> bs,
   // read attrs
   if (auto arrayAttr = func->getAttrOfType<ArrayAttr>(getToGPUAttrName())) {
     for (auto attr : arrayAttr) {
-      if (auto intAttr = attr.dyn_cast<IntegerAttr>()) {
+      if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
         toGPUSizes.push_back(intAttr.getInt());
       } else {
         toGPUSizes.push_back(1);
@@ -412,10 +412,10 @@ static void simplifyGuards(gpu::GPUFuncOp gFunc, gpu::LaunchFuncOp launch) {
       SmallVector<OpFoldResult> foldResults;
       auto isFold = deepFold(cmp, bvm, foldResults);
       if (succeeded(isFold) && foldResults.size() == 1) {
-        auto attr = foldResults[0].dyn_cast<Attribute>();
+        auto attr = dyn_cast<Attribute>(foldResults[0]);
         // check it is true
         // if so, override the condition into true
-        if (attr.cast<IntegerAttr>().getInt() != 0) {
+        if (cast<IntegerAttr>(attr).getInt() != 0) {
           builder.setInsertionPoint(ifOp);
           Value newConst = arith::ConstantOp::materialize(
               builder, attr, cmp.getType(), cmp.getLoc());

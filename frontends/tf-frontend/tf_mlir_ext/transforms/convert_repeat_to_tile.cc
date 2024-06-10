@@ -39,17 +39,17 @@ struct ConvertRepeatToTilePattern : public RewritePattern {
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
     assert(op->getName().getStringRef() == "tf.Repeat");
-    auto repeatType = op->getResult(0).getType().dyn_cast<ShapedType>();
+    auto repeatType = dyn_cast<ShapedType>(op->getResult(0).getType());
     if (!repeatType)
       return failure();
 
     auto input = op->getOperand(0);
-    auto inputType = input.getType().dyn_cast<ShapedType>();
+    auto inputType = dyn_cast<ShapedType>(input.getType());
     if (!inputType)
       return failure();
 
     auto times = op->getOperand(1);
-    auto timesType = times.getType().dyn_cast<ShapedType>();
+    auto timesType = dyn_cast<ShapedType>(times.getType());
     if (!timesType || !timesType.hasStaticShape())
       return failure();
 

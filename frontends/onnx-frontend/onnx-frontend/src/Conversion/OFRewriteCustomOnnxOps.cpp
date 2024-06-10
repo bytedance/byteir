@@ -48,19 +48,19 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
                                ValueRange inputs, StringAttr func_name, ValueRange outputs) {
   Value output = outputs[0];
   RankedTensorType outputType =
-      output.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(output.getType());
   assert(outputType != nullptr &&
          "Quantize/Dequantize's output type must be ranked");
   Value scale = inputs[1];
   RankedTensorType scaleType =
-      scale.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(scale.getType());
   assert(scaleType != nullptr &&
          "Quantize/Dequantize's scale type must be ranked");
   assert(scaleType.getRank() <= 1 &&
          "Quantize/Dequantize's scale rank should be 0 or 1");
   Value zeropoint = inputs[2];
   RankedTensorType zeropointType =
-      zeropoint.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(zeropoint.getType());
   assert(zeropointType != nullptr &&
          "Quantize/Dequantize's zeropoint type must be ranked");
   Type zpElementType = zeropointType.getElementType();
@@ -114,7 +114,7 @@ struct ONNXCustomOpLowering : public RewritePattern {
       std::string attrName = namedAttr.getName().getValue().str();
       Attribute attr = namedAttr.getValue();
       if (attrName == "function_name") {
-        func_name = attr.cast<StringAttr>().str();
+        func_name = cast<StringAttr>(attr).str();
       } else if (std::find(excludeStrings.begin(), excludeStrings.end(), attrName) ==
           excludeStrings.end()) {
         attrs.setAttr(attrName, attr);

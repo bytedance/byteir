@@ -101,7 +101,7 @@ transform::AnnotateExtOp::apply(TransformRewriter &rewriter,
     addAttrs(target, attrs);
     targetOps.push_back(target);
   }
-  transformResults.set(getTransformed().cast<OpResult>(), targetOps);
+  transformResults.set(cast<OpResult>(getTransformed()), targetOps);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -148,7 +148,7 @@ transform::CollapseDimsOp::apply(transform::TransformRewriter &rewriter,
 
     collapsed.push_back(definingOp);
   }
-  results.set(getTransformed().cast<OpResult>(), collapsed);
+  results.set(cast<OpResult>(getTransformed()), collapsed);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -293,7 +293,7 @@ std::optional<std::pair<Operation *, SmallVector<Value>>>
 replaceUnitExtents(GenericOp genericOp, PatternRewriter &rewriter) {
   // Skip the pattern if the op has any tensor with special encoding.
   if (llvm::any_of(genericOp->getOperandTypes(), [](Type type) {
-        auto tensorType = type.dyn_cast<RankedTensorType>();
+        auto tensorType = dyn_cast<RankedTensorType>(type);
         return tensorType && tensorType.getEncoding() != nullptr;
       }))
     return std::nullopt;
@@ -340,7 +340,7 @@ replaceUnitExtents(GenericOp genericOp, PatternRewriter &rewriter) {
     }
     auto targetType = RankedTensorType::get(
         targetShapes[idx],
-        opOperand.get().getType().cast<ShapedType>().getElementType());
+        cast<ShapedType>(opOperand.get().getType()).getElementType());
     Value collapsed = rewriter.create<tensor::CollapseShapeOp>(
         loc, targetType, opOperand.get(), reassociations[idx]);
     newOperands.push_back(collapsed);
@@ -373,7 +373,7 @@ replaceUnitExtents(GenericOp genericOp, PatternRewriter &rewriter) {
       continue;
     }
 
-    auto origResultType = origOutput.getType().cast<RankedTensorType>();
+    auto origResultType = cast<RankedTensorType>(origOutput.getType());
     Value expanded = rewriter.create<tensor::ExpandShapeOp>(
         loc, origResultType, result.value(), reassociations[index]);
     resultReplacements.push_back(expanded);
@@ -409,7 +409,7 @@ transform::FoldUnitExtentDimsOp::apply(transform::TransformRewriter &rewriter,
 
     transformed.push_back(replacements->first);
   }
-  results.set(getTransformed().cast<OpResult>(), transformed);
+  results.set(cast<OpResult>(getTransformed()), transformed);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -560,7 +560,7 @@ static ParseResult parseTileLikeOp(OpAsmParser &parser, OperationState &result,
   if (!sizesAttr)
     return parser.emitError(opLoc)
            << "expected '" << sizesAttrName << "' attribute";
-  auto sizesArrayAttr = sizesAttr.dyn_cast<ArrayAttr>();
+  auto sizesArrayAttr = dyn_cast<ArrayAttr>(sizesAttr);
   if (!sizesArrayAttr)
     return parser.emitError(opLoc)
            << "'" << sizesAttrName << "' attribute must be an array";
@@ -746,7 +746,7 @@ transform::LowerToLoopsOp::apply(TransformRewriter &rewriter,
         return diag;
       }
 
-      transformResults.set(getLoops()[en.index()].cast<OpResult>(),
+      transformResults.set(cast<OpResult>(getLoops()[en.index()]),
                            {(*loops)[loopId].getOperation()});
     }
     rewriter.eraseOp(op);
@@ -881,8 +881,8 @@ transform::LinalgOutlineOp::apply(transform::TransformRewriter &rewriter,
     funcs.insert(funcOp);
     calls.push_back(callOp);
   }
-  results.set(getFunctions().cast<OpResult>(), funcs.getArrayRef());
-  results.set(getCalls().cast<OpResult>(), calls);
+  results.set(cast<OpResult>(getFunctions()), funcs.getArrayRef());
+  results.set(cast<OpResult>(getCalls()), calls);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -1019,23 +1019,23 @@ transform::TileExtOp::apply(TransformRewriter &rewriter,
     scf::SCFTilingOptions tilingOptions;
     unsigned index = en.index();
     if (!tileSizes.empty()) {
-      tilingOptions.setTileSizeComputationFunction([&, index](OpBuilder &b,
-                                                              Operation *) {
-        SmallVector<OpFoldResult, 4> sizes;
-        sizes.reserve(tileSizes.size());
-        unsigned dynamicIdx = 0;
-        for (OpFoldResult ofr : getMixedSizes()) {
-          if (auto attr = ofr.dyn_cast<Attribute>()) {
-            sizes.push_back(b.create<arith::ConstantIndexOp>(
-                                 getLoc(), attr.cast<IntegerAttr>().getInt())
-                                .getResult());
-          } else {
-            sizes.push_back(
-                dynamicSizeProducers[dynamicIdx++][index]->getResult(0));
-          }
-        }
-        return sizes;
-      });
+      tilingOptions.setTileSizeComputationFunction(
+          [&, index](OpBuilder &b, Operation *) {
+            SmallVector<OpFoldResult, 4> sizes;
+            sizes.reserve(tileSizes.size());
+            unsigned dynamicIdx = 0;
+            for (OpFoldResult ofr : getMixedSizes()) {
+              if (auto attr = dyn_cast<Attribute>(ofr)) {
+                sizes.push_back(b.create<arith::ConstantIndexOp>(
+                                     getLoc(), cast<IntegerAttr>(attr).getInt())
+                                    .getResult());
+              } else {
+                sizes.push_back(
+                    dynamicSizeProducers[dynamicIdx++][index]->getResult(0));
+              }
+            }
+            return sizes;
+          });
     }
 
     tilingOptions.setInterchange(getInterchange());
@@ -1062,9 +1062,9 @@ transform::TileExtOp::apply(TransformRewriter &rewriter,
       loops[en2.index()].push_back(en2.value());
   }
 
-  transformResults.set(getTiledLinalgOp().cast<OpResult>(), tiled);
+  transformResults.set(cast<OpResult>(getTiledLinalgOp()), tiled);
   for (const auto &en : llvm::enumerate(loops))
-    transformResults.set(getLoops()[en.index()].cast<OpResult>(), en.value());
+    transformResults.set(cast<OpResult>(getLoops()[en.index()]), en.value());
 
   return DiagnosedSilenceableFailure::success();
 }
@@ -1319,7 +1319,7 @@ DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
     }
 
     // create new init op, reset the types and replace all the uses
-    ShapedType retType = mergeOp->getResult(0).getType().dyn_cast<ShapedType>();
+    ShapedType retType = dyn_cast<ShapedType>(mergeOp->getResult(0).getType());
     if (!retType) {
       DiagnosedSilenceableFailure diag =
           emitSilenceableError()
@@ -1386,8 +1386,8 @@ DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
     newFillOps.push_back(newFillOp);
     newLoopOps.push_back(loopOp);
   }
-  transformResults.set(getNewInit().cast<OpResult>(), newFillOps);
-  transformResults.set(getNewLoop().cast<OpResult>(), newLoopOps);
+  transformResults.set(cast<OpResult>(getNewInit()), newFillOps);
+  transformResults.set(cast<OpResult>(getNewLoop()), newLoopOps);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -1542,7 +1542,7 @@ ParseResult transform::FuseOperandsOp::parse(OpAsmParser &parser,
   if (!tileNumsAttr)
     return parser.emitError(opLoc)
            << "expected '" << tileNumsAttrName << "' attribute";
-  auto tileNumsArrayAttr = tileNumsAttr.dyn_cast<ArrayAttr>();
+  auto tileNumsArrayAttr = dyn_cast<ArrayAttr>(tileNumsAttr);
   if (!tileNumsArrayAttr)
     return parser.emitError(opLoc)
            << "'" << tileNumsAttrName << "' attribute must be an array";
