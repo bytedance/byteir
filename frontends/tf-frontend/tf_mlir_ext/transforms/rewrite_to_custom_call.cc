@@ -200,6 +200,9 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
   auto betaMDType = cast<ShapedType>(betaMD.getType());
   assert(inputMDRank == gammaMDType.getRank());
   assert(inputMDRank == betaMDType.getRank());
+  int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
+  assert(axisValue == -1 || axisValue == (inputMDRank - 1));
+  auto axisType = axis.getType().dyn_cast<ShapedType>();
 
   auto gammaAttr = getSplatFpElementsAttr(
       inputMDType.clone(llvm::SmallVector<int64_t>({cDim})), 1.0f);
@@ -219,6 +222,9 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
       rewriter.create<TF::ConstOp>(loc, rewriter.getI64TensorAttr(inputShape));
   Value input =
       rewriter.create<TF::ReshapeOp>(loc, inputType, inputMD, inputShapeV);
+  if (axisValue == (inputMDRank - 1)) {
+    axis = DenseIntElementsAttr::get(axisType, 1);
+  }
   Value output =
       createLayerNorm(rewriter, loc, input, gamma, beta, epsilon, axis);
   Value inputMDShapeV = rewriter.create<TF::ConstOp>(
@@ -317,8 +323,8 @@ Value createLayerNormWithBody(PatternRewriter &rewriter, Location loc,
 }
 
 Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
-                   double epsilon, int64_t axis) {
-  RankedTensorType inputType = cast<RankedTensorType>(input.getType());
+                   double epsilon, int64_t axis, bool epsOutSideSqrt) {
+  RankedTensorType inputType = input.getType().cast<RankedTensorType>();
   // canonicalize axis to be positive
   if (axis < 0) {
     axis = inputType.getRank() + axis;
@@ -335,6 +341,9 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
   SmallVector<mlir::NamedAttribute> byteir_attrs;
   byteir_attrs.push_back(NamedAttribute(rewriter.getStringAttr("epsilon"),
                                         rewriter.getF64FloatAttr(epsilon)));
+  byteir_attrs.push_back(
+      NamedAttribute(rewriter.getStringAttr("eps_outside_sqrt"),
+                     rewriter.getBoolAttr(epsOutSideSqrt)));
   // TODO: support axis list
   byteir_attrs.push_back(NamedAttribute(rewriter.getStringAttr("axis"),
                                         rewriter.getI64ArrayAttr({axis})));
@@ -349,7 +358,7 @@ Value createL2NormV1(PatternRewriter &rewriter, Location loc, Value input,
       (*epsilon.getValues<APFloat>().begin()).convertToDouble();
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
 
-  return createL2Norm(rewriter, loc, input, epsilonValue, axisValue);
+  return createL2Norm(rewriter, loc, input, epsilonValue, axisValue, false);
 }
 
 Value createL2NormV1Multiplyer(PatternRewriter &rewriter, Location loc,
@@ -360,7 +369,7 @@ Value createL2NormV1Multiplyer(PatternRewriter &rewriter, Location loc,
       (*epsilon.getValues<APFloat>().begin()).convertToDouble();
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
   auto l2normOutput =
-      createL2Norm(rewriter, loc, input, epsilonValue, axisValue);
+      createL2Norm(rewriter, loc, input, epsilonValue, axisValue, false);
 
   auto l2normType = dyn_cast<ShapedType>(l2normOutput.getType());
   auto constType = dyn_cast<ShapedType>(constMultiplyer.getType());
@@ -399,7 +408,33 @@ Value createL2NormV1Multiplyer(PatternRewriter &rewriter, Location loc,
 Value createL2NormV2(PatternRewriter &rewriter, Location loc, Value input,
                      ElementsAttr axis) {
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
-  return createL2Norm(rewriter, loc, input, 0.0, axisValue);
+  return createL2Norm(rewriter, loc, input, 0.0, axisValue, false);
+}
+
+Value createCoupleL2NormWithBatchMatMulV2(PatternRewriter &rewriter,
+                                          Location loc, Value inputX,
+                                          Value inputY, ElementsAttr epsilon,
+                                          ElementsAttr axis) {
+  auto inputXType = inputX.getType().dyn_cast<ShapedType>();
+  auto inputYType = inputY.getType().dyn_cast<ShapedType>();
+  assert(inputXType.getRank() == 3);
+  assert(inputYType.getRank() == 3);
+  llvm::SmallVector<int64_t> outShape(3, 0);
+  outShape[0] = inputXType.getShape()[0];
+  outShape[1] = inputXType.getShape()[1];
+  outShape[2] = inputYType.getShape()[1];
+  auto outType = inputXType.clone(outShape);
+  double epsilonValue =
+      (*epsilon.getValues<APFloat>().begin()).convertToDouble();
+  int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
+  auto l2normX =
+      createL2Norm(rewriter, loc, inputX, epsilonValue, axisValue, true);
+  auto l2normY =
+      createL2Norm(rewriter, loc, inputY, epsilonValue, axisValue, true);
+  Value outValue = rewriter.create<TF::BatchMatMulV2Op>(
+      loc, outType, l2normX, l2normY, rewriter.getBoolAttr(false),
+      rewriter.getBoolAttr(true));
+  return outValue;
 }
 
 Value createGELU(PatternRewriter &rewriter, Location loc, Value input,
@@ -779,6 +814,8 @@ struct RewriteToCustomCallOpsPass
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormMultiDim>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
+          std::make_unique<RewriteLayerNormMultiDimV2>(context));
+      validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapAdd>(context));
       validCustomCallOpSet[getLayerNormName()].emplace_back(
           std::make_unique<RewriteLayerNormSwapMul>(context));
@@ -812,6 +849,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<RewriteL2NormV2SwapMul>(context));
       validCustomCallOpSet[getL2NormName()].emplace_back(
           std::make_unique<RewriteL2NormV3>(context));
+      validCustomCallOpSet[getL2NormName()].emplace_back(
+          std::make_unique<RewriteCoupleL2NormWithBatchMatMulV2>(context));
 
       // patterns with c++
       validCustomCallOpSet[getOneHotName()].emplace_back(
