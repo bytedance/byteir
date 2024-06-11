@@ -164,19 +164,10 @@ def _compile_cuda_with_ait_impl(
     processor.module = module
 
     processor.preprocess_pass()
-    _print_verbose(processor.module, "// IR Dump After Cat Preprocess:") if verbose else ...
-    with context:
-        processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
-        _print_verbose(processor.module, "// IR Dump After Cat Opt:") if verbose else ...
-    # clustering
-    with context:
-        processor.hlo_opt_pass(outline_single_elemwise_op=True, aggressive_mode=aggressive_mode)
-        _print_verbose(processor.module, "// IR Dump After Hlo Opt:") if verbose else ...
-    # generate ait .so for subgraphs
-    dll_paths = []
-    with context:
-        _, dll_paths = processor.ait_opt_pass(anchor_only=True)
-        _print_verbose(processor.module, "// IR Dump After AIT Opt:") if verbose else ...
+    processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
+    processor.hlo_opt_pass(outline_single_elemwise_op=True, aggressive_mode=aggressive_mode)
+    # generate ait lib .so for subgraphs
+    _, dll_paths = processor.ait_opt_pass(anchor_only=True)
     # move .so to output dir
     for dll_path in dll_paths:
         print("cp -p {} {}".format(dll_path, output_file_dir))

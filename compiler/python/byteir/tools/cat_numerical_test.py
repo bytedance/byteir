@@ -18,7 +18,9 @@ parser.add_argument(
 parser.add_argument(
     "--backend", type=str, choices=["ait"], default="ait", help="runtime backend"
 )
-
+parser.add_argument(
+    "-v", "--verbose", action="store_true"
+)
 args = parser.parse_args()
 
 def generate_inputs(interp):
@@ -49,14 +51,14 @@ if __name__ == "__main__":
     with ir.Context() as context:
 
         if args.after_pass_file == None:
-            processor = IRProcessor("model", "./workspace")
+            processor = IRProcessor("model", "./workspace", verbose=args.verbose)
             processor.load_from_file(args.before_pass_file)
             if args.preprocess:
                 processor.preprocess_pass()
             processor.cat_opt_pass(anchor_only=True)
             func_name = processor.module.body.operations[0].name.value
         else:
-            processor = IRProcessor("model", "./workspace")
+            processor = IRProcessor("model", "./workspace", verbose=args.verbose)
             processor.load_from_file(args.after_pass_file)
             func_name = processor.module.body.operations[0].name.value
         outputs = processor.execute(inputs, backend="ait")
