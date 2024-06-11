@@ -60,8 +60,8 @@ LogicalResult InsertReshapeShapeConstraints(Operation *op, OpBuilder &builder) {
   SmallVector<Value> dimOfOperand, dimOfResult;
   auto operand = op->getOperand(0);
   auto result = op->getResult(0);
-  auto oprRankedTensor = operand.getType().dyn_cast<RankedTensorType>();
-  auto resRankedTensor = result.getType().dyn_cast<RankedTensorType>();
+  auto oprRankedTensor = dyn_cast<RankedTensorType>(operand.getType());
+  auto resRankedTensor = dyn_cast<RankedTensorType>(result.getType());
   if (!oprRankedTensor || !resRankedTensor)
     return failure();
   auto inputShape = oprRankedTensor.getShape();

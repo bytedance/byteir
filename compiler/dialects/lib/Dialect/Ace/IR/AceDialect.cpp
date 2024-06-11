@@ -99,14 +99,14 @@ OpFoldResult mlir::ace::ConstOp::fold(FoldAdaptor) { return getValue(); }
 //===----------------------------------------------------------------------===//
 
 LogicalResult mlir::ace::ReshapeOp::verify() {
-  auto operandTy = getOperand().getType().dyn_cast<RankedTensorType>();
+  auto operandTy = dyn_cast<RankedTensorType>(getOperand().getType());
   // If the operand type is dynamically shaped there is nothing to verify.
   if (!operandTy || !operandTy.hasStaticShape())
     return success();
 
   // If the operand type is statically shaped (not required) the number of
   // elements must match that of the result type.
-  auto resultTy = getResult().getType().cast<RankedTensorType>();
+  auto resultTy = cast<RankedTensorType>(getResult().getType());
   assert(resultTy && resultTy.hasStaticShape() &&
          "result type must be statically shaped");
   int64_t numResultElements = resultTy.getNumElements();

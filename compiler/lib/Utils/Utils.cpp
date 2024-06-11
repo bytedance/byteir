@@ -44,8 +44,8 @@ std::optional<int64_t> mlir::getLiteralFromConstantLike(Value v) {
   if (auto dimOp = dyn_cast_or_null<memref::DimOp>(v.getDefiningOp())) {
     if (auto maybeIndex = dimOp.getConstantIndex()) {
       if (maybeIndex.has_value()) {
-        return dimOp.getSource().getType().dyn_cast<ShapedType>().getDimSize(
-            *maybeIndex);
+        return dyn_cast<ShapedType>(dimOp.getSource().getType())
+            .getDimSize(*maybeIndex);
       }
     }
   }
@@ -102,21 +102,21 @@ bool mlir::isConstantIndex(Value value, int64_t lit) {
 }
 
 bool mlir::isZeroAttribute(Attribute value) {
-  if (auto intValue = value.dyn_cast<IntegerAttr>())
+  if (auto intValue = dyn_cast<IntegerAttr>(value))
     return intValue.getValue().isZero();
-  if (auto fpValue = value.dyn_cast<FloatAttr>())
+  if (auto fpValue = dyn_cast<FloatAttr>(value))
     return fpValue.getValue().isZero();
-  if (auto splatValue = value.dyn_cast<SplatElementsAttr>())
+  if (auto splatValue = dyn_cast<SplatElementsAttr>(value))
     return isZeroAttribute(splatValue.getSplatValue<Attribute>());
-  if (auto elementsValue = value.dyn_cast<ElementsAttr>())
+  if (auto elementsValue = dyn_cast<ElementsAttr>(value))
     return llvm::all_of(elementsValue.getValues<Attribute>(), isZeroAttribute);
-  if (auto arrayValue = value.dyn_cast<ArrayAttr>())
+  if (auto arrayValue = dyn_cast<ArrayAttr>(value))
     return llvm::all_of(arrayValue.getValue(), isZeroAttribute);
   return false;
 }
 
 bool mlir::isMinValueAttribute(Attribute value) {
-  if (auto intValue = value.dyn_cast<IntegerAttr>()) {
+  if (auto intValue = dyn_cast<IntegerAttr>(value)) {
     if (intValue.getType().isUnsignedInteger() ||
         intValue.getType().getIntOrFloatBitWidth() == 1) {
       return intValue.getValue().isMinValue();
@@ -125,21 +125,21 @@ bool mlir::isMinValueAttribute(Attribute value) {
       return intValue.getValue().isMinSignedValue();
     }
   }
-  if (auto fpValue = value.dyn_cast<FloatAttr>())
+  if (auto fpValue = dyn_cast<FloatAttr>(value))
     return fpValue.getValue().isInfinity() &&
            fpValue.getValue().isNegative(); // -inf
-  if (auto splatValue = value.dyn_cast<SplatElementsAttr>())
+  if (auto splatValue = dyn_cast<SplatElementsAttr>(value))
     return isMinValueAttribute(splatValue.getSplatValue<Attribute>());
-  if (auto elementsValue = value.dyn_cast<ElementsAttr>())
+  if (auto elementsValue = dyn_cast<ElementsAttr>(value))
     return llvm::all_of(elementsValue.getValues<Attribute>(),
                         isMinValueAttribute);
-  if (auto arrayValue = value.dyn_cast<ArrayAttr>())
+  if (auto arrayValue = dyn_cast<ArrayAttr>(value))
     return llvm::all_of(arrayValue.getValue(), isMinValueAttribute);
   return false;
 }
 
 bool mlir::isMaxValueAttribute(Attribute value) {
-  if (auto intValue = value.dyn_cast<IntegerAttr>()) {
+  if (auto intValue = dyn_cast<IntegerAttr>(value)) {
     if (intValue.getType().isUnsignedInteger() ||
         intValue.getType().getIntOrFloatBitWidth() == 1) {
       return intValue.getValue().isMaxValue();
@@ -148,15 +148,15 @@ bool mlir::isMaxValueAttribute(Attribute value) {
       return intValue.getValue().isMaxSignedValue();
     }
   }
-  if (auto fpValue = value.dyn_cast<FloatAttr>())
+  if (auto fpValue = dyn_cast<FloatAttr>(value))
     return fpValue.getValue().isInfinity() &&
            !fpValue.getValue().isNegative(); // inf
-  if (auto splatValue = value.dyn_cast<SplatElementsAttr>())
+  if (auto splatValue = dyn_cast<SplatElementsAttr>(value))
     return isMaxValueAttribute(splatValue.getSplatValue<Attribute>());
-  if (auto elementsValue = value.dyn_cast<ElementsAttr>())
+  if (auto elementsValue = dyn_cast<ElementsAttr>(value))
     return llvm::all_of(elementsValue.getValues<Attribute>(),
                         isMaxValueAttribute);
-  if (auto arrayValue = value.dyn_cast<ArrayAttr>())
+  if (auto arrayValue = dyn_cast<ArrayAttr>(value))
     return llvm::all_of(arrayValue.getValue(), isMaxValueAttribute);
   return false;
 }
@@ -427,7 +427,7 @@ Value mlir::getDimValue(OpBuilder &builder, Location loc, Value v,
 
 OpFoldResult mlir::getDim(OpBuilder &builder, Location loc, Value v,
                           int64_t dim) {
-  auto t = v.getType().cast<ShapedType>();
+  auto t = cast<ShapedType>(v.getType());
   if (!t.hasRank() || t.isDynamicDim(dim)) {
     return getDimValue(builder, loc, v, dim);
   }
@@ -451,7 +451,7 @@ Value mlir::getSlice(OpBuilder &b, Location loc, Value source,
 }
 
 OpFoldResult mlir::canonicalizeOpFoldResult(OpFoldResult ofr, bool enableFold) {
-  if (auto val = ofr.dyn_cast<Value>()) {
+  if (auto val = dyn_cast<Value>(ofr)) {
     if (enableFold) {
       if (auto opResult = llvm::dyn_cast<OpResult>(val)) {
         OpBuilder builder(opResult.getOwner());

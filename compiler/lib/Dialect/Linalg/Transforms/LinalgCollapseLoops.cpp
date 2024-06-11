@@ -100,9 +100,8 @@ getCollapsibleLoops(linalg::GenericOp genericOp,
       [&](const SmallVector<AffineExpr, 4> &exprOfRange) {
         for (auto [index, map] :
              llvm::enumerate(genericOp.getIndexingMapsArray())) {
-          auto operandType = genericOp->getOperand(index)
-                                 .getType()
-                                 .template dyn_cast<ShapedType>();
+          auto operandType =
+              dyn_cast<ShapedType>(genericOp->getOperand(index).getType());
           if (operandType) {
             int64_t dynamicDimCount = 0;
             for (auto expr : exprOfRange) {
@@ -125,7 +124,7 @@ getCollapsibleLoops(linalg::GenericOp genericOp,
   // collapse loop greedily from the inside out
   for (auto nextExpr :
        llvm::reverse(genericOp.getIndexingMapsArray().front().getResults())) {
-    unsigned pos = nextExpr.cast<AffineDimExpr>().getPosition();
+    unsigned pos = cast<AffineDimExpr>(nextExpr).getPosition();
     if (!range.empty()) {
       auto exprOfRangeWithNext = exprOfRange;
       exprOfRangeWithNext.push_back(nextExpr);
@@ -180,7 +179,7 @@ static bool isEligibleForCollapse(linalg::GenericOp genericOp) {
     return false;
 
   if (!llvm::all_of(genericOp->getOperandTypes(), [](Type t) {
-        if (auto memrefType = t.dyn_cast_or_null<MemRefType>()) {
+        if (auto memrefType = dyn_cast_or_null<MemRefType>(t)) {
           return memrefType.getLayout().isIdentity();
         }
         return true;
@@ -312,7 +311,7 @@ getCollapsedOpIndexingMap(AffineMap indexingMap,
   auto origOpToCollapsedOpMapping =
       collapsingInfo.getOrigOpToCollapsedOpMapping();
   for (auto expr : indexingMap.getResults()) {
-    unsigned dim = expr.cast<AffineDimExpr>().getPosition();
+    unsigned dim = cast<AffineDimExpr>(expr).getPosition();
     // If the dim is not the first of the collapsed dim, do nothing.
     if (origOpToCollapsedOpMapping[dim].second != 0)
       continue;
@@ -338,7 +337,7 @@ getOperandReassociation(AffineMap indexingMap,
       collapsingInfo.getCollapsedOpToOrigOpMapping();
   while (counter < indexingMap.getNumResults()) {
     unsigned dim =
-        indexingMap.getResult(counter).cast<AffineDimExpr>().getPosition();
+        cast<AffineDimExpr>(indexingMap.getResult(counter)).getPosition();
     // This is the start of a collapsed dimensions of the iteration that
     // is gauranteed to be preserved in the indexing map. The number of folded
     // dims is obtained from the collapsed op to original op mapping.
@@ -444,8 +443,8 @@ FailureOr<SmallVector<Value>> collapseGenericOpIterationDimsEx(
       cast<LinalgOp>(genericOp.getOperation())
           .createLoopRanges(rewriter, genericOp.getLoc());
   auto opFoldIsConstantValue = [](OpFoldResult ofr, int64_t value) {
-    if (auto attr = ofr.dyn_cast<Attribute>())
-      return attr.cast<IntegerAttr>().getInt() == value;
+    if (auto attr = dyn_cast<Attribute>(ofr))
+      return cast<IntegerAttr>(attr).getInt() == value;
     llvm::APInt actual;
     return matchPattern(ofr.get<Value>(), m_ConstantInt(&actual)) &&
            actual.getSExtValue() == value;
@@ -527,8 +526,8 @@ FailureOr<SmallVector<Value>> collapseGenericOpIterationDimsEx(
     Value collapsedOpResult =
         collapsedGenericOp->getResult(originalResult.index());
     auto originalResultType =
-        originalResult.value().getType().cast<ShapedType>();
-    auto collapsedOpResultType = collapsedOpResult.getType().cast<ShapedType>();
+        cast<ShapedType>(originalResult.value().getType());
+    auto collapsedOpResultType = cast<ShapedType>(collapsedOpResult.getType());
     if (collapsedOpResultType.getRank() != originalResultType.getRank()) {
       AffineMap indexingMap =
           genericOp.getIndexingMapMatchingResult(originalResult.value());

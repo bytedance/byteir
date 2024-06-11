@@ -336,7 +336,7 @@ static inline void relocateFuncOpResults(func::FuncOp func,
         func.setArgAttr(idx + retValIter.index(),
                         ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
                         opBuilder.getI64IntegerAttr(
-                            retVal.cast<BlockArgument>().getArgNumber()));
+                            cast<BlockArgument>(retVal).getArgNumber()));
       } else {
         // if return value not alloced in entry function (like alloced in inner
         // function), insert a memref.copy.
@@ -371,7 +371,7 @@ static inline void rewriteCallOpsForFuncOp(ArrayRef<func::CallOp> calls) {
     // change result to alloc
     for (auto r : callOp.getResults()) {
       auto alloc = opBuilder.create<memref::AllocOp>(
-          callOp.getLoc(), r.getType().dyn_cast<MemRefType>());
+          callOp.getLoc(), dyn_cast<MemRefType>(r.getType()));
       r.replaceAllUsesExcept(alloc.getResult(), callOp);
       oprands.push_back(alloc.getResult());
     }
@@ -514,7 +514,7 @@ static inline void rewriteByreResultAttrsToFuncResultAttr(func::FuncOp func) {
       return;
     for (size_t i = 0; i < newResultAttrs.size(); ++i) {
       if (auto newResultAttrsDict =
-              newResultAttrs[i].dyn_cast_or_null<DictionaryAttr>()) {
+              dyn_cast_or_null<DictionaryAttr>(newResultAttrs[i])) {
         NamedAttrList originAttrs = func.getResultAttrs(i);
         originAttrs.append(newResultAttrsDict.getValue());
         func.setResultAttrs(i, originAttrs.getDictionary(func->getContext()));

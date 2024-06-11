@@ -103,7 +103,7 @@ public:
     auto block = genericOp.getBlock();
     auto loc = genericOp.getLoc();
     for (auto output : outputs) {
-      block->addArgument(output.getType().cast<ShapedType>().getElementType(),
+      block->addArgument(cast<ShapedType>(output.getType()).getElementType(),
                          loc);
     }
 
@@ -221,7 +221,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
   if (auto dstOp = dyn_cast<DestinationStyleOpInterface>(op)) {
     for (auto opOperand : dstOp.getDpsInputOperands()) {
       auto tensor = opOperand->get();
-      if (auto shapeTy = tensor.getType().dyn_cast<ShapedType>()) {
+      if (auto shapeTy = dyn_cast<ShapedType>(tensor.getType())) {
         for (int64_t d = 0; d < shapeTy.getRank(); ++d) {
           updateExprToTensorAndDim(tensor, d);
           offset++;
@@ -230,7 +230,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
     }
 
     for (Value tensor : dstOp.getDpsInits()) {
-      if (auto shapeTy = tensor.getType().dyn_cast<ShapedType>()) {
+      if (auto shapeTy = dyn_cast<ShapedType>(tensor.getType())) {
         for (auto d = 0; d < shapeTy.getRank(); ++d) {
           updateExprToTensorAndDim(tensor, d);
           offset++;
@@ -242,7 +242,7 @@ mlir::linalg_ext::simplifyTensorDimOpUsedInLinalg(RewriterBase &rewriter,
   offset = 0;
   bool isSucceeded = false;
   auto applyReplaceTensorDimAndUpdateOffset = [&](Value tensor) {
-    if (auto shapeTy = tensor.getType().dyn_cast<ShapedType>()) {
+    if (auto shapeTy = dyn_cast<ShapedType>(tensor.getType())) {
       unsigned rank = shapeTy.getRank();
       for (auto user : llvm::make_early_inc_range(tensor.getUsers())) {
         if (auto dimOp = dyn_cast<tensor::DimOp>(user)) {
@@ -459,7 +459,7 @@ mlir::linalg_ext::getLoopIteratorTypes(Operation *op,
 
     auto indexingMap = (*indexingMaps)[en.index()];
     for (const auto &en2 : llvm::enumerate(mixedOffsets)) {
-      Value argVal = en2.value().dyn_cast<Value>();
+      Value argVal = dyn_cast<Value>(en2.value());
 
       if (!argVal) {
         // skip when argVal folded to a const
@@ -566,7 +566,7 @@ getUntiledProducerFromSliceSource(OpOperand *source,
                                   ArrayRef<scf::ForOp> loops) {
   std::optional<OpOperand *> destinationIterArg;
   auto loopIt = loops.rbegin(); // inner to outer
-  while (auto iterArg = source->get().dyn_cast<BlockArgument>()) {
+  while (auto iterArg = dyn_cast<BlockArgument>(source->get())) {
     scf::ForOp loop = *loopIt;
     if (iterArg.getOwner()->getParentOp() != loop)
       break;
@@ -577,7 +577,7 @@ getUntiledProducerFromSliceSource(OpOperand *source,
     destinationIterArg = source;
   }
 
-  return {source->get().dyn_cast<OpResult>(), destinationIterArg};
+  return {dyn_cast<OpResult>(source->get()), destinationIterArg};
 }
 
 /// If the tiled operation is destination passing style, update the
@@ -1824,8 +1824,8 @@ void LinalgTransformationFilter::replaceLinalgTransformationFilter(
 bool LinalgTransformationFilter::hasReplacementFilter(Operation *op) const {
   if (!replacement)
     return false;
-  auto attr = op->getAttr(LinalgTransforms::kLinalgTransformMarker)
-                  .dyn_cast<StringAttr>();
+  auto attr = dyn_cast<StringAttr>(
+      op->getAttr(LinalgTransforms::kLinalgTransformMarker));
   return attr && attr == *replacement;
 }
 } // namespace linalg_ext

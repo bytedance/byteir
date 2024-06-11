@@ -147,8 +147,8 @@ public:
   matchAndRewrite(OP op, typename OP::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     auto operand = adaptor.getOperand();
-    auto operandType = operand.getType().template cast<ShapedType>();
-    auto resultType = op.getType().template cast<ShapedType>();
+    auto operandType = llvm::cast<ShapedType>(operand.getType());
+    auto resultType = llvm::cast<ShapedType>(op.getType());
 
     if (!operandType.hasStaticShape() || !resultType.hasStaticShape())
       return failure();
@@ -199,7 +199,7 @@ public:
   matchAndRewrite(mhlo::SliceOp sliceOp,
                   typename mhlo::SliceOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
-    auto argType = adaptor.getOperands()[0].getType().dyn_cast<ShapedType>();
+    auto argType = dyn_cast<ShapedType>(adaptor.getOperands()[0].getType());
     if (!argType || !argType.hasRank()) {
       return rewriter.notifyMatchFailure(sliceOp, "expects known-rank args");
     }
@@ -238,7 +238,7 @@ public:
 
     uint64_t axis = concatOp.getDimension();
     if (llvm::any_of(adaptor.getOperands(), [&](auto &&value) {
-          return value.getType().template cast<ShapedType>().isDynamicDim(axis);
+          return cast<ShapedType>(value.getType()).isDynamicDim(axis);
         }))
       return failure();
 
@@ -266,7 +266,7 @@ public:
                                                    resultType, dynDims);
     int64_t upperBound = 0;
     for (auto &&operand : adaptor.getOperands()) {
-      auto operandType = operand.getType().cast<ShapedType>();
+      auto operandType = cast<ShapedType>(operand.getType());
       static_offsets[axis] = upperBound;
       static_sizes[axis] = operandType.getDimSize(axis);
       value = rewriter.create<tensor::InsertSliceOp>(
@@ -289,13 +289,13 @@ public:
   matchAndRewrite(mhlo::GatherOp op, typename mhlo::GatherOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto startIndices = op.getStartIndices();
-    auto startIndicesTy = startIndices.getType().cast<ShapedType>();
+    auto startIndicesTy = cast<ShapedType>(startIndices.getType());
     if (!startIndicesTy.hasRank()) {
       return rewriter.notifyMatchFailure(op, "unranked start_indices");
     }
 
     auto operand = op.getOperand();
-    auto operandTy = operand.getType().cast<ShapedType>();
+    auto operandTy = cast<ShapedType>(operand.getType());
     if (!operandTy.hasRank()) {
       return rewriter.notifyMatchFailure(op, "unranked operand");
     }
@@ -320,7 +320,7 @@ public:
       return rewriter.notifyMatchFailure(op, "start_index_map != [0]");
     }
 
-    auto resultTy = op.getResult().getType().dyn_cast<ShapedType>();
+    auto resultTy = dyn_cast<ShapedType>(op.getResult().getType());
     if (!resultTy) {
       return rewriter.notifyMatchFailure(op, "unranked result");
     }
@@ -423,8 +423,8 @@ public:
   matchAndRewrite(mlir::mhlo::DotOp op, mlir::mhlo::DotOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     // TODO: support matrix * vector, vector * matrix and vector * vector
-    if (adaptor.getLhs().getType().cast<ShapedType>().getRank() != 2 ||
-        adaptor.getRhs().getType().cast<ShapedType>().getRank() != 2)
+    if (cast<ShapedType>(adaptor.getLhs().getType()).getRank() != 2 ||
+        cast<ShapedType>(adaptor.getRhs().getType()).getRank() != 2)
       return failure();
 
     auto failureOrComputeOnTensorOp = replaceMhloOpWithByreComputeOnTensorOp(
@@ -483,7 +483,7 @@ public:
       // convert to BatchMatmulOp
       SmallVector<int64_t> batchingDimensions;
       for (int64_t i = 0,
-                   e = op->getResult(0).getType().cast<ShapedType>().getRank();
+                   e = cast<ShapedType>(op->getResult(0).getType()).getRank();
            i < e - 2; i++) {
         batchingDimensions.push_back(i);
       }
@@ -596,7 +596,7 @@ public:
       return rewriter.notifyMatchFailure(op, "unsupported block in reduce");
     }
 
-    auto inputShape = adaptor.getInputs()[0].getType().dyn_cast<ShapedType>();
+    auto inputShape = dyn_cast<ShapedType>(adaptor.getInputs()[0].getType());
     if (!inputShape || !inputShape.hasRank()) {
       return rewriter.notifyMatchFailure(op, "invalid input type");
     }
@@ -648,7 +648,7 @@ public:
       return rewriter.notifyMatchFailure(
           op, "batched reductions is not supported yet");
     }
-    auto inputShape = adaptor.getInputs()[0].getType().dyn_cast<ShapedType>();
+    auto inputShape = dyn_cast<ShapedType>(adaptor.getInputs()[0].getType());
     if (!inputShape || !inputShape.hasRank()) {
       return rewriter.notifyMatchFailure(op, "invalid input type");
     }

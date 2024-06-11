@@ -31,13 +31,13 @@ void mlir::registerRepeatInferBoundedReturnTypeComponents() {
          ValueShapeRange operands, DictionaryAttr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         Value input = operands[0];
-        ShapedType inputShape = input.getType().dyn_cast<ShapedType>();
+        ShapedType inputShape = dyn_cast<ShapedType>(input.getType());
         if (!inputShape || !inputShape.hasStaticShape())
           return failure();
         // TODO: set config for repeat bounded shape inference
         Type type = RankedTensorType::get(inputShape.getShape(),
                                           IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
 }

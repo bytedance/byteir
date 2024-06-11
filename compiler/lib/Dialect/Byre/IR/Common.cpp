@@ -76,7 +76,7 @@ std::string mlir::byre::getByreKey(StringRef original, TypeRange inTypes,
   // separate byre func name from input types
   out += "_";
   for (auto type : inTypes) {
-    if (auto shapedType = type.dyn_cast<mlir::ShapedType>()) {
+    if (auto shapedType = dyn_cast<mlir::ShapedType>(type)) {
       Type elementType = shapedType.getElementType();
       appendElementTypeToString(elementType, out);
     } else {
@@ -87,7 +87,7 @@ std::string mlir::byre::getByreKey(StringRef original, TypeRange inTypes,
   out += "_";
   if (outTypes.size() > 0) {
     for (auto type : outTypes) {
-      if (auto shapedType = type.dyn_cast<mlir::ShapedType>()) {
+      if (auto shapedType = dyn_cast<mlir::ShapedType>(type)) {
         Type elementType = shapedType.getElementType();
         appendElementTypeToString(elementType, out);
       } else {

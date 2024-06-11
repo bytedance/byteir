@@ -75,7 +75,7 @@ struct FuseConvBiasActPattern : public OpRewritePattern<ace::ActivateOp> {
     for (const auto &attr : originAttrs) {
       // check bias_add
       if (attr.getName() == "output_layout") {
-        auto layout = attr.getValue().cast<StringAttr>().getValue();
+        auto layout = cast<StringAttr>(attr.getValue()).getValue();
         if (layout == "NCHW" && broadcastDim != 1) {
           return failure();
         }
@@ -130,7 +130,7 @@ struct FuseConvBiasPattern : public OpRewritePattern<mhlo::AddOp> {
     for (const auto &attr : originAttrs) {
       // check bias_add
       if (attr.getName() == "output_layout") {
-        auto layout = attr.getValue().cast<StringAttr>().getValue();
+        auto layout = cast<StringAttr>(attr.getValue()).getValue();
         if (layout == "NCHW" && broadcastDim != 1) {
           return failure();
         }

@@ -60,7 +60,7 @@ common::Status AllGather::RunImpl(const ExecutionContext &ctx) {
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
   auto memref_type =
-      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+      cast<mlir::MemRefType>(info_.GetOperation()->getOperand(0).getType());
   nccl_backend->all_gather(src, target, elem_num / nccl_backend->nranks(),
                            ConvertMLIRTypeToDType(memref_type.getElementType()),
                            replica_group_set, d_context);

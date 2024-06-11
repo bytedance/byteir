@@ -24,4 +24,4 @@ namespace onnx_frontend {
 /// Canonicalize and correct the function's output types in one single pass
 std::unique_ptr<mlir::Pass> createOFCanonicalizerPass();
 
-}  // namespace onnx_frontend
+} // namespace onnx_frontend

@@ -94,7 +94,7 @@ OpAccessor::GetAttrAsIntArray(const std::string &name) const {
     // check if attribute is an array of IntegerAttr
     std::vector<int64_t> ret;
     for (auto &&i : attrArray.getValue()) {
-      if (auto attr = i.dyn_cast<IntegerAttr>()) {
+      if (auto attr = dyn_cast<IntegerAttr>(i)) {
         ret.push_back(attr.getInt());
       } else {
         BRT_THROW("Cannot cast " + name + " to array of IntAttr");

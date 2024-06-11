@@ -70,7 +70,7 @@ bool mlir::isSplatMhloConstantValue(Operation *op, int64_t splat_val) {
   if (auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(op)) {
     // only handle DenseIntElementsAttr for now
     // TODO: extend it
-    if (auto denseIntE = constOp.getValue().dyn_cast<DenseIntElementsAttr>()) {
+    if (auto denseIntE = dyn_cast<DenseIntElementsAttr>(constOp.getValue())) {
       return isSplatValue(denseIntE, splat_val);
     }
   }
@@ -81,7 +81,7 @@ bool mlir::isSplatMhloConstantValue(Operation *op, double splat_val) {
   if (auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(op)) {
     // only handle DenseFPElementsAttr for now
     // TODO: extend it
-    if (auto denseFPE = constOp.getValue().dyn_cast<DenseFPElementsAttr>()) {
+    if (auto denseFPE = dyn_cast<DenseFPElementsAttr>(constOp.getValue())) {
       return isSplatValue(denseFPE, splat_val);
     }
   }
@@ -178,7 +178,7 @@ std::optional<int64_t> mlir::getCumsumIndex(mhlo::ReduceWindowOp op) {
       SmallVector<int64_t>(op.getPaddingAttr().getValues<int64_t>().begin(),
                            op.getPaddingAttr().getValues<int64_t>().end());
 
-  auto inputShape = op.getInputs()[0].getType().cast<ShapedType>();
+  auto inputShape = cast<ShapedType>(op.getInputs()[0].getType());
   if (!inputShape.hasRank()) {
     return std::nullopt;
   }
@@ -655,11 +655,11 @@ mlir::computeReshapeInputOutputRankMapIndex(ShapedType inputType,
 // compute the index of the reshape's expand dimension
 std::optional<int64_t>
 mlir::computeReshapeExpandDim(mhlo::ReshapeOp reshapeOp) {
-  auto reshapeOperandType = reshapeOp.getOperand().getType().cast<ShapedType>();
+  auto reshapeOperandType = cast<ShapedType>(reshapeOp.getOperand().getType());
   if (!reshapeOperandType.hasStaticShape()) {
     return std::nullopt;
   }
-  auto reshapeResultType = reshapeOp.getResult().getType().cast<ShapedType>();
+  auto reshapeResultType = cast<ShapedType>(reshapeOp.getResult().getType());
 
   auto maybeIndex = computeReshapeInputOutputRankMapIndex(reshapeOperandType,
                                                           reshapeResultType);
@@ -682,7 +682,7 @@ mlir::createEmptyTensorForOpResult(OpBuilder &builder, Operation *op) {
   SmallVector<Value> emptyTensors;
   bool resultsHasDynamicShape = false;
   for (auto &&result : op->getResults()) {
-    if (auto resType = result.getType().template dyn_cast<ShapedType>()) {
+    if (auto resType = dyn_cast<ShapedType>(result.getType())) {
       if (resType.hasStaticShape()) {
         auto emptyOp = builder.create<tensor::EmptyOp>(
             op->getLoc(), resType.getShape(), resType.getElementType());
@@ -705,7 +705,7 @@ mlir::createEmptyTensorForOpResult(OpBuilder &builder, Operation *op) {
 
     for (auto &&resultAndShape : llvm::zip(op->getResults(), reifications)) {
       SmallVector<Value, 1> dynamicSizes;
-      auto resType = std::get<0>(resultAndShape).getType().cast<ShapedType>();
+      auto resType = cast<ShapedType>(std::get<0>(resultAndShape).getType());
       for (int64_t i = 0; i < resType.getRank(); ++i) {
         if (resType.isDynamicDim(i)) {
           auto dim = builder

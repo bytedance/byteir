@@ -323,13 +323,13 @@ struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
     // for >1D indices:
     // gather(tensor, indices) => reshape(gather(tensor,reshape(indices)))
     auto startIndices = op.getStartIndices();
-    auto startIndicesTy = startIndices.getType().cast<ShapedType>();
+    auto startIndicesTy = cast<ShapedType>(startIndices.getType());
     if (!startIndicesTy.hasRank()) {
       return rewriter.notifyMatchFailure(op, "unranked start_indices");
     }
 
     auto operand = op.getOperand();
-    auto operandTy = operand.getType().cast<ShapedType>();
+    auto operandTy = cast<ShapedType>(operand.getType());
     if (!operandTy.hasRank()) {
       return rewriter.notifyMatchFailure(op, "unranked operand");
     }
@@ -354,7 +354,7 @@ struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
       return rewriter.notifyMatchFailure(op, "start_index_map != [0]");
     }
 
-    auto resultTy = op.getResult().getType().dyn_cast<ShapedType>();
+    auto resultTy = dyn_cast<ShapedType>(op.getResult().getType());
     if (!resultTy) {
       return rewriter.notifyMatchFailure(op, "unranked result");
     }

@@ -60,8 +60,8 @@ getReassociationMapForFoldingUnitDims(ArrayRef<OpFoldResult> mixedSizes) {
     auto dim = it.index();
     auto size = it.value();
     curr.push_back(dim);
-    auto attr = size.dyn_cast<Attribute>();
-    if (attr && attr.cast<IntegerAttr>().getInt() == 1)
+    auto attr = dyn_cast<Attribute>(size);
+    if (attr && cast<IntegerAttr>(attr).getInt() == 1)
       continue;
     reassociation.emplace_back(ReassociationIndices{});
     std::swap(reassociation.back(), curr);
@@ -108,11 +108,10 @@ struct RankReducedExtractSliceCollapseShape
         *reassociation != collapseOp.getReassociationIndices())
       return failure();
 
-    auto rankReducedType =
+    auto rankReducedType = cast<RankedTensorType>(
         tensor::ExtractSliceOp::inferCanonicalRankReducedResultType(
             reassociation->size(), sliceOp.getSourceType(), offsets, sizes,
-            strides)
-            .cast<RankedTensorType>();
+            strides));
     if (rankReducedType != collapseOp.getType())
       return failure();
 

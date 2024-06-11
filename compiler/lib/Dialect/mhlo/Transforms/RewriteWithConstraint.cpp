@@ -44,8 +44,8 @@ struct BatchNormGradDropMeanAndVarPattern
       return failure();
     }
     if (!isSplatMhloConstant(mean)) {
-      auto type = op.getMean().getType().template cast<RankedTensorType>();
-      auto fpType = type.getElementType().template dyn_cast<FloatType>();
+      auto type = cast<RankedTensorType>(op.getMean().getType());
+      auto fpType = dyn_cast<FloatType>(type.getElementType());
       assert(fpType);
       Value zero = rewriter.create<mhlo::ConstantOp>(
           rewriter.getUnknownLoc(),
@@ -54,8 +54,8 @@ struct BatchNormGradDropMeanAndVarPattern
       op->setOperand(2, zero);
     }
     if (!isSplatMhloConstant(variance)) {
-      auto type = op.getVariance().getType().template cast<RankedTensorType>();
-      auto fpType = type.getElementType().template dyn_cast<FloatType>();
+      auto type = cast<RankedTensorType>(op.getVariance().getType());
+      auto fpType = dyn_cast<FloatType>(type.getElementType());
       assert(fpType);
       Value zero = rewriter.create<mhlo::ConstantOp>(
           rewriter.getUnknownLoc(),

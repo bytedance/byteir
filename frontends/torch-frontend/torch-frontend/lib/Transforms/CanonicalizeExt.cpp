@@ -32,18 +32,16 @@ LogicalResult foldConstantConvertOp(stablehlo::ConvertOp op,
           op.getOperand().getDefiningOp())) {
     return failure();
   }
-  DenseElementsAttr valueAttr = op.getOperand()
-                                    .getDefiningOp<stablehlo::ConstantOp>()
-                                    .getValue()
-                                    .cast<DenseElementsAttr>();
+  DenseElementsAttr valueAttr = cast<DenseElementsAttr>(
+      op.getOperand().getDefiningOp<stablehlo::ConstantOp>().getValue());
   Type inputElementType = valueAttr.getType().getElementType();
   Type outputElementType =
-      op.getResult().getType().cast<ShapedType>().getElementType();
+      cast<ShapedType>(op.getResult().getType()).getElementType();
   auto getWidth = [](Type type) -> int64_t {
     if (type.isa<FloatType>()) {
-      return type.cast<FloatType>().getWidth();
+      return cast<FloatType>(type).getWidth();
     } else if (type.isa<IntegerType>()) {
-      return type.cast<IntegerType>().getWidth();
+      return cast<IntegerType>(type).getWidth();
     } else {
       return -1;
     }
@@ -67,7 +65,7 @@ LogicalResult replaceArithConstantOpWithMhlo(arith::ConstantOp op,
   if (llvm::isa<ElementsAttr>(op.getValue())) {
     stablehlo::ConstantOp newConstantOp =
         rewriter.create<stablehlo::ConstantOp>(
-            op->getLoc(), op.getValue().cast<ElementsAttr>());
+            op->getLoc(), cast<ElementsAttr>(op.getValue()));
     rewriter.replaceOp(op, newConstantOp.getOutput());
     return success();
   }

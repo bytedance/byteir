@@ -121,8 +121,8 @@ struct RemoveTrivialTorchIndexSelect
     Value index = op.getIndex();
     Value input = op.getOperand();
 
-    auto indexShapedType = index.getType().dyn_cast<ShapedType>();
-    auto inputShapedType = input.getType().dyn_cast<ShapedType>();
+    auto indexShapedType = dyn_cast<ShapedType>(index.getType());
+    auto inputShapedType = dyn_cast<ShapedType>(input.getType());
     if (batchDims > 0 || indexShapedType.getRank() != 1 || !indexShapedType ||
         !indexShapedType.hasStaticShape() || !inputShapedType ||
         !inputShapedType.hasStaticShape() ||
@@ -295,11 +295,11 @@ mhlo::ConstantOp createVectorConstFromConst(int64_t featureDim,
   if (constOp.getValue().isSplat()) {
     return rewriter.create<mhlo::ConstantOp>(
         constOp.getLoc(),
-        constOp.getValue().cast<DenseElementsAttr>().resizeSplat(newAttrType));
+        cast<DenseElementsAttr>(constOp.getValue()).resizeSplat(newAttrType));
   } else {
     return rewriter.create<mhlo::ConstantOp>(
         constOp.getLoc(),
-        constOp.getValue().cast<DenseElementsAttr>().reshape(newAttrType));
+        cast<DenseElementsAttr>(constOp.getValue()).reshape(newAttrType));
   }
 }
 
@@ -333,9 +333,9 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
     } else if (std::is_same_v<OpTy, mhlo::DotOp>) {
       auto dotOp = dyn_cast<mhlo::DotOp>(&convOrDotOp);
       int64_t dotLhsRank =
-          dotOp->getLhs().getType().template cast<ShapedType>().getRank();
+          cast<ShapedType>(dotOp->getLhs().getType()).getRank();
       int64_t dotRhsRank =
-          dotOp->getRhs().getType().template cast<ShapedType>().getRank();
+          cast<ShapedType>(dotOp->getRhs().getType()).getRank();
       if ((dotLhsRank != 2) || (dotRhsRank != 2)) {
         return failure();
       }
@@ -346,7 +346,7 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
       return failure();
     if (!weight.hasOneUse())
       return failure();
-    if (!weight.getType().cast<ShapedType>().hasStaticShape())
+    if (!cast<ShapedType>(weight.getType()).hasStaticShape())
       return failure();
 
     // handle the conv/dot + bias scenario
@@ -395,7 +395,7 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
 
       // construct new weight
       OpBuilder builder(convOrDotOp);
-      auto weightType = weight.getType().template cast<ShapedType>();
+      auto weightType = cast<ShapedType>(weight.getType());
       BroadcastInDimOp newBroadInDimOp = builder.create<mhlo::BroadcastInDimOp>(
           constOp->getLoc(), weightType, constOp.getOutput(),
           rewriter.getI64TensorAttr({weightFeatureDim}));
@@ -501,8 +501,8 @@ struct ConvOrDotWithBiasFollowedByBroadcastPattern<
 
       OpBuilder builder(divOp);
       // replace b_const with 1 / b_const
-      auto constType = constOp.getOutput().getType().cast<RankedTensorType>();
-      auto fpType = constType.getElementType().dyn_cast<FloatType>();
+      auto constType = cast<RankedTensorType>(constOp.getOutput().getType());
+      auto fpType = dyn_cast<FloatType>(constType.getElementType());
       if (!fpType) {
         return failure();
       }

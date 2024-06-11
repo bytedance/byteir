@@ -234,7 +234,7 @@ FailureOr<TilingResult> mlir::commonGenerateResultTileValue(
   }
   for (const auto &resultExpr : llvm::enumerate(indexingMap.getResults())) {
     unsigned dimPosition =
-        resultExpr.value().cast<AffineDimExpr>().getPosition();
+        cast<AffineDimExpr>(resultExpr.value()).getPosition();
     iterationTileOffsets[dimPosition] = offsets[resultExpr.index()];
     iterationTileSizes[dimPosition] = sizes[resultExpr.index()];
   }

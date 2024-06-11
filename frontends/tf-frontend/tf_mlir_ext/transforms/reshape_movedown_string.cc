@@ -42,7 +42,7 @@ struct ReshapeMovedownStringPattern : public OpRewritePattern<TF::EqualOp> {
     if (types.size() != 2)
       return failure();
     for (Type &ty : types) {
-      auto tensor_type = ty.dyn_cast<mlir::TensorType>();
+      auto tensor_type = dyn_cast<mlir::TensorType>(ty);
       if (tensor_type) {
         if (!tensor_type.getElementType().isa<TF::StringType>()) {
           return failure();
@@ -59,8 +59,8 @@ struct ReshapeMovedownStringPattern : public OpRewritePattern<TF::EqualOp> {
     // 2. rewrite
     Value input = reshapeOp.getOperand(0);
     Value shape = reshapeOp.getOperand(1);
-    auto resultType = equal_op.getType().cast<RankedTensorType>();
-    auto reshapeType = input.getType().cast<RankedTensorType>();
+    auto resultType = cast<RankedTensorType>(equal_op.getType());
+    auto reshapeType = cast<RankedTensorType>(input.getType());
     if (!resultType.hasStaticShape() || !reshapeType.hasStaticShape())
       return failure();
 

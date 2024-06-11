@@ -150,7 +150,7 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
       (*epsilon.getValues<APFloat>().begin()).convertToDouble();
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
 
-  RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+  RankedTensorType inputType = cast<RankedTensorType>(input.getType());
   // canonicalize axis to be positive
   if (axisValue < 0) {
     axisValue = inputType.getRank() + axisValue;
@@ -180,7 +180,7 @@ DenseFPElementsAttr getSplatFpElementsAttr(ShapedType type, float v) {
   APFloat epsilonFloat = APFloat(v);
   bool losesInfo = false;
   auto status = epsilonFloat.convert(
-      type.getElementType().cast<FloatType>().getFloatSemantics(),
+      cast<FloatType>(type.getElementType()).getFloatSemantics(),
       APFloat::rmNearestTiesToEven, &losesInfo);
   if (losesInfo || status != llvm::APFloatBase::opStatus::opOK) {
     return nullptr;
@@ -191,13 +191,13 @@ DenseFPElementsAttr getSplatFpElementsAttr(ShapedType type, float v) {
 Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
                               Value inputMD, Value gammaMD, Value betaMD,
                               ElementsAttr epsilon, ElementsAttr axis) {
-  auto inputMDType = inputMD.getType().cast<ShapedType>();
+  auto inputMDType = cast<ShapedType>(inputMD.getType());
   auto inputMDShape = inputMDType.getShape();
   auto inputMDRank = inputMDType.getRank();
   assert(inputMDRank >= 3);
   int64_t cDim = inputMDShape[inputMDRank - 1];
-  auto gammaMDType = gammaMD.getType().cast<ShapedType>();
-  auto betaMDType = betaMD.getType().cast<ShapedType>();
+  auto gammaMDType = cast<ShapedType>(gammaMD.getType());
+  auto betaMDType = cast<ShapedType>(betaMD.getType());
   assert(inputMDRank == gammaMDType.getRank());
   assert(inputMDRank == betaMDType.getRank());
   int64_t axisValue = (*axis.getValues<APInt>().begin()).getSExtValue();
@@ -240,7 +240,7 @@ Value createLayerNormMultiDim(PatternRewriter &rewriter, Location loc,
 Value createLayerNormWithoutGamma(PatternRewriter &rewriter, Location loc,
                                   Value input, Value beta, ElementsAttr epsilon,
                                   ElementsAttr axis) {
-  auto betaShapedType = beta.getType().cast<ShapedType>();
+  auto betaShapedType = cast<ShapedType>(beta.getType());
   auto gammaAttr = getSplatFpElementsAttr(betaShapedType, 1.0f);
   assert(betaAttr);
   auto gammaOp = rewriter.create<TF::ConstOp>(loc, gammaAttr);
@@ -251,7 +251,7 @@ Value createLayerNormWithoutGamma(PatternRewriter &rewriter, Location loc,
 Value createLayerNormWithoutBeta(PatternRewriter &rewriter, Location loc,
                                  Value input, Value gama, ElementsAttr epsilon,
                                  ElementsAttr axis) {
-  auto gamaShapedType = gama.getType().cast<ShapedType>();
+  auto gamaShapedType = cast<ShapedType>(gama.getType());
   auto betaAttr = getSplatFpElementsAttr(gamaShapedType, 0.0f);
   assert(betaAttr);
   auto betaOp = rewriter.create<TF::ConstOp>(loc, betaAttr);
@@ -371,8 +371,8 @@ Value createL2NormV1Multiplyer(PatternRewriter &rewriter, Location loc,
   auto l2normOutput =
       createL2Norm(rewriter, loc, input, epsilonValue, axisValue, false);
 
-  auto l2normType = l2normOutput.getType().dyn_cast<ShapedType>();
-  auto constType = constMultiplyer.getType().dyn_cast<ShapedType>();
+  auto l2normType = dyn_cast<ShapedType>(l2normOutput.getType());
+  auto constType = dyn_cast<ShapedType>(constMultiplyer.getType());
   assert(l2normType.hasStaticShape() && constType.hasStaticShape());
   auto l2normShape = l2normType.getShape();
   auto constShape = constType.getShape();
@@ -439,7 +439,7 @@ Value createCoupleL2NormWithBatchMatMulV2(PatternRewriter &rewriter,
 
 Value createGELU(PatternRewriter &rewriter, Location loc, Value input,
                  llvm::StringRef approximate) {
-  RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+  RankedTensorType inputType = cast<RankedTensorType>(input.getType());
   mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
       loc, ArrayRef<Type>{inputType}, ArrayRef<Value>{input},
       getGeLUNameWithPrefix(), false, rewriter.getStringAttr(""),
@@ -473,14 +473,14 @@ struct RewriteMathArg : public OpRewritePattern<TFMathArgOp> {
           "ArgMin/ArgMax's dimension must be constant.");
     }
     DenseIntElementsAttr value =
-        dimensionOp.getValue().cast<DenseIntElementsAttr>();
+        cast<DenseIntElementsAttr>(dimensionOp.getValue());
     if (value.getNumElements() != 1) {
       return mathArgOp.emitOpError(
           "ArgMin/ArgMax's dimension must be one rank.");
     }
     int64_t axis = (*value.getValues<APInt>().begin()).getSExtValue();
     Value input = mathArgOp.getInput();
-    RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+    RankedTensorType inputType = cast<RankedTensorType>(input.getType());
     auto inputRank = inputType.getRank();
     if (axis < 0) {
       axis += inputRank;
@@ -532,7 +532,7 @@ struct RewriteTopKV2 : public OpRewritePattern<TF::TopKV2Op> {
     op->setAttr("k", rewriter.getI64IntegerAttr(k));
     // tf.TopKV2's axis is last dimension, like tf.Softmax
     int64_t axis =
-        op.getInput().getType().cast<RankedTensorType>().getRank() - 1;
+        cast<RankedTensorType>(op.getInput().getType()).getRank() - 1;
     op->setAttr("axis", rewriter.getI64ArrayAttr({axis}));
     // note: tf.TopKV2 has "sorted" BoolAttr
     customCallOp->setAttr(getByteIRAttrs(), getCleanAttr(op));
@@ -570,7 +570,7 @@ struct RewriteOneHot : public OpRewritePattern<TF::OneHotOp> {
     Attribute off_value = *offValueOp.getValue().getValues<Attribute>().begin();
     int64_t axis = op.getAxis();
     if (axis < 0) {
-      axis = axis + op.getResult().getType().cast<ShapedType>().getRank();
+      axis = axis + cast<ShapedType>(op.getResult().getType()).getRank();
     }
 
     mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
@@ -603,7 +603,7 @@ struct RewriteRepeat : public RewritePattern {
     // llvm::outs() << op->getName().getStringRef();
     assert(op->getName().getStringRef() == "tf.Repeat");
     RankedTensorType outType =
-        op->getResult(0).getType().dyn_cast<RankedTensorType>();
+        dyn_cast<RankedTensorType>(op->getResult(0).getType());
     if (!outType)
       return failure();
     llvm::SmallVector<mlir::Type> outTypes{outType};
@@ -632,7 +632,7 @@ template <typename TF_OP, typename Rewriter>
 std::enable_if_t<llvm::is_one_of<TF_OP, TF::SoftmaxOp, TF::LogSoftmaxOp>::value,
                  void>
 handleCustomAttr(TF_OP op, Rewriter &rewriter) {
-  auto type = op.getResult().getType().template dyn_cast<TensorType>();
+  auto type = dyn_cast<TensorType>(op.getResult().getType());
   if (type == nullptr) {
     return;
   }
@@ -731,7 +731,7 @@ struct RewriteDynamicMaskStitch : public OpRewritePattern<TF::DynamicStitchOp> {
     if (!cst) {
       return failure();
     }
-    auto cstValue = cst.getValue().cast<DenseIntElementsAttr>();
+    auto cstValue = cast<DenseIntElementsAttr>(cst.getValue());
     for (const auto &it : llvm::enumerate(cstValue.getValues<APInt>())) {
       if (it.index() != it.value()) {
         return failure();
@@ -739,7 +739,7 @@ struct RewriteDynamicMaskStitch : public OpRewritePattern<TF::DynamicStitchOp> {
     }
     // check indices' order in tf.DynamicPartition
     for (const auto &it : llvm::enumerate(indices)) {
-      auto index = it.value().cast<OpResult>().getResultNumber();
+      auto index = cast<OpResult>(it.value()).getResultNumber();
       if (index != it.index()) {
         return failure();
       }
@@ -935,8 +935,8 @@ struct RewriteToCustomCallOpsPass
         if (auto powOp = llvm::dyn_cast<TF::PowOp>(op)) {
           if (auto constOp = powOp.getY().getDefiningOp<TF::ConstOp>()) {
             auto value = constOp.getValue();
-            if (isSplatValue(value.dyn_cast<DenseIntElementsAttr>(), 3) ||
-                isSplatValue(value.dyn_cast<DenseFPElementsAttr>(), 3.0)) {
+            if (isSplatValue(dyn_cast<DenseIntElementsAttr>(value), 3) ||
+                isSplatValue(dyn_cast<DenseFPElementsAttr>(value), 3.0)) {
               llvm::errs() << "[[Warning]] there may be unfused GeLU. Please "
                               "check it:\n  ";
               op->print(llvm::errs());

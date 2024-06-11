@@ -36,7 +36,7 @@ verifyReplicaGroups(std::optional<Location> location,
         "dynamic_replica_groups and replica_groups can't exist simultaneously");
 
   if (dynamicReplicaGroups != nullptr) {
-    MemRefType type = dynamicReplicaGroups.getType().cast<MemRefType>();
+    MemRefType type = cast<MemRefType>(dynamicReplicaGroups.getType());
     if (!type.getElementType().isa<IndexType, IntegerType>())
       return emitOptionalError(
           location,
