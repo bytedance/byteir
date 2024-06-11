@@ -59,7 +59,7 @@ void mlir::registerStridedSliceInferBoundedReturnTypeComponents() {
         // TODO: support ellipsis_mask
         assert(ellipsisMask == 0);
 
-        ShapedType inputShapeType = input.getType().dyn_cast<ShapedType>();
+        ShapedType inputShapeType = dyn_cast<ShapedType>(input.getType());
         if (!inputShapeType || !inputShapeType.hasStaticShape()) {
           llvm::outs() << "input shape of tf.StridedSlice not static"
                        << "\n";
@@ -108,7 +108,7 @@ void mlir::registerStridedSliceInferBoundedReturnTypeComponents() {
           // TODO: support non const begin
           Type type =
               RankedTensorType::get(inputShape, IntegerType::get(context, 64));
-          inferredReturnTypes.push_back(type.cast<ShapedType>());
+          inferredReturnTypes.push_back(cast<ShapedType>(type));
           llvm::outs() << "begin of tf.StridedSlice not const value"
                        << "\n";
           return success();
@@ -118,7 +118,7 @@ void mlir::registerStridedSliceInferBoundedReturnTypeComponents() {
           // TODO: support non const end
           Type type =
               RankedTensorType::get(inputShape, IntegerType::get(context, 64));
-          inferredReturnTypes.push_back(type.cast<ShapedType>());
+          inferredReturnTypes.push_back(cast<ShapedType>(type));
           llvm::outs() << "end  of tf.StridedSlice not const value"
                        << "\n";
           return success();
@@ -128,7 +128,7 @@ void mlir::registerStridedSliceInferBoundedReturnTypeComponents() {
           // TODO: support non const stride
           Type type =
               RankedTensorType::get(inputShape, IntegerType::get(context, 64));
-          inferredReturnTypes.push_back(type.cast<ShapedType>());
+          inferredReturnTypes.push_back(cast<ShapedType>(type));
           llvm::outs() << "stride of tf.StridedSlice not const value"
                        << "\n";
           return success();
@@ -182,7 +182,7 @@ void mlir::registerStridedSliceInferBoundedReturnTypeComponents() {
         }
         Type type =
             RankedTensorType::get(outputShape, IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
 }

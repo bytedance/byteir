@@ -370,9 +370,9 @@ ParseResult parseIntegerAttrV1(AsmParser &parser, APInt &value,
   }
   if (succeeded(parser.parseColon()) && succeeded(parser.parseType(type))) {
     auto type_ = mappingTypeFrom(type);
-    auto width = type_.cast<IntegerType>().getWidth();
-    if (type_.cast<IntegerType>().isSignless() ||
-        type_.cast<IntegerType>().isSigned()) {
+    auto width = cast<IntegerType>(type_).getWidth();
+    if (cast<IntegerType>(type_).isSignless() ||
+        cast<IntegerType>(type_).isSigned()) {
       value = value.sextOrTrunc(width);
     } else {
       value = value.zextOrTrunc(width);
@@ -394,7 +394,7 @@ ParseResult parseFloatAttrV1(AsmParser &parser, mlir::FailureOr<APFloat> &value,
     bool losesInfo;
     APFloat floatValue(value_);
     floatValue.convert(
-        mappingTypeFrom(type).cast<FloatType>().getFloatSemantics(),
+        cast<FloatType>(mappingTypeFrom(type)).getFloatSemantics(),
         APFloat::rmNearestTiesToEven, &losesInfo);
     value = FailureOr(floatValue);
     return success();

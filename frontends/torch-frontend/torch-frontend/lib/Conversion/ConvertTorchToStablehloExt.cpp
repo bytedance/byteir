@@ -229,10 +229,9 @@ struct ConvertAtenMaxPool2dWithIndicesBackwardOp
     Value initVal;
     if (inputElemTy.isa<mlir::FloatType>()) {
       auto constAttr = DenseElementsAttr::get(
-          constType,
-          {APFloat::getZero(
-              inputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
-              /*negative=*/false)});
+          constType, {APFloat::getZero(
+                         cast<mlir::FloatType>(inputElemTy).getFloatSemantics(),
+                         /*negative=*/false)});
       initVal = rewriter.create<stablehlo::ConstantOp>(op->getLoc(), constType,
                                                        constAttr);
     } else if (inputElemTy.isa<mlir::IntegerType>() &&

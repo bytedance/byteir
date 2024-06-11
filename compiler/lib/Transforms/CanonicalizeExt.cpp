@@ -70,7 +70,7 @@ LogicalResult foldShapeBroadcast(shape::BroadcastOp op,
     values.push_back(shape);
     if (auto inputShape = shape.getDefiningOp<shape::ShapeOfOp>()) {
       if (auto shapeType =
-              inputShape.getArg().getType().dyn_cast<ShapedType>()) {
+              dyn_cast<ShapedType>(inputShape.getArg().getType())) {
         shapes.push_back(llvm::to_vector(shapeType.getShape()));
       } else {
         return failure();

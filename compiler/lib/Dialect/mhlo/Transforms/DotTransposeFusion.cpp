@@ -50,10 +50,10 @@ struct FuseDotTransposePattern : public OpRewritePattern<mhlo::TransposeOp> {
     attrs.append(byre::getByreComputeName(),
                  rewriter.getStringAttr("MatmulOp"));
     if (mhlo::DotOp dot = op.getOperand().getDefiningOp<mhlo::DotOp>()) {
-      if (dot.getLhs().getType().cast<ShapedType>().getRank() != 2) {
+      if (cast<ShapedType>(dot.getLhs().getType()).getRank() != 2) {
         return failure();
       }
-      if (dot.getRhs().getType().cast<ShapedType>().getRank() != 2) {
+      if (cast<ShapedType>(dot.getRhs().getType()).getRank() != 2) {
         return failure();
       }
       inputs.push_back(dot.getLhs());
@@ -67,10 +67,10 @@ struct FuseDotTransposePattern : public OpRewritePattern<mhlo::TransposeOp> {
       pattern.push_back(dot);
     } else if (mhlo::DotGeneralOp dotGeneral =
                    op.getOperand().getDefiningOp<mhlo::DotGeneralOp>()) {
-      if (dotGeneral.getLhs().getType().cast<ShapedType>().getRank() != 2) {
+      if (cast<ShapedType>(dotGeneral.getLhs().getType()).getRank() != 2) {
         return failure();
       }
-      if (dotGeneral.getRhs().getType().cast<ShapedType>().getRank() != 2) {
+      if (cast<ShapedType>(dotGeneral.getRhs().getType()).getRank() != 2) {
         return failure();
       }
       auto dotDimensionNumbers = dotGeneral.getDotDimensionNumbers();

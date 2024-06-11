@@ -51,11 +51,11 @@ namespace ir {
 namespace {
 void CollectTfAttrs(func::FuncOp funcOp, GraphInfo &info) {
   const auto attr_transform = [](mlir::Attribute attr) {
-    return attr.cast<mlir::StringAttr>().getValue().str();
+    return cast<mlir::StringAttr>(attr).getValue().str();
   };
   if (funcOp->hasAttr("tf.original_input_names")) {
     if (auto original_inputs_attr =
-            funcOp->getAttr("tf.original_input_names").dyn_cast<ArrayAttr>()) {
+            dyn_cast<ArrayAttr>(funcOp->getAttr("tf.original_input_names"))) {
       auto original_inputs = original_inputs_attr.getValue();
       std::transform(original_inputs.begin(), original_inputs.end(),
                      std::back_inserter(info.tf_original_input_names_attr),
@@ -66,16 +66,16 @@ void CollectTfAttrs(func::FuncOp funcOp, GraphInfo &info) {
     return;
   }
   if (auto byteir_entry_attr =
-          funcOp->getAttr("byteir.entry_point").dyn_cast<DictionaryAttr>()) {
+          dyn_cast<DictionaryAttr>(funcOp->getAttr("byteir.entry_point"))) {
     if (auto inputs_attr =
-            byteir_entry_attr.get("inputs").dyn_cast<ArrayAttr>()) {
+            dyn_cast<ArrayAttr>(byteir_entry_attr.get("inputs"))) {
       auto inputs = inputs_attr.getValue();
       std::transform(inputs.begin(), inputs.end(),
                      std::back_inserter(info.tf_input_names_attr),
                      attr_transform);
     }
     if (auto outputs_attr =
-            byteir_entry_attr.get("outputs").dyn_cast<ArrayAttr>()) {
+            dyn_cast<ArrayAttr>(byteir_entry_attr.get("outputs"))) {
       auto outputs = outputs_attr.getValue();
       std::transform(outputs.begin(), outputs.end(),
                      std::back_inserter(info.tf_output_names_attr),

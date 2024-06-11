@@ -78,7 +78,7 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
     ArrayRef<int64_t> collapsedShape, Value expandedValue) {
   MLIRContext *ctx = expandedValue.getContext();
   ArrayRef<int64_t> expandedShape =
-      expandedValue.getType().cast<ShapedType>().getShape();
+      cast<ShapedType>(expandedValue.getType()).getShape();
   TensorSliceParameters resSliceParameters;
   resSliceParameters.offsets.reserve(expandedShape.size());
   resSliceParameters.sizes.reserve(expandedShape.size());
@@ -120,14 +120,14 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
       }
 
       for (auto &&expr : llvm::reverse(offsetExprs)) {
-        if (auto constExpr = expr.dyn_cast<AffineConstantExpr>()) {
+        if (auto constExpr = dyn_cast<AffineConstantExpr>(expr)) {
           resSliceParameters.offsets.push_back(
               b.getIndexAttr(constExpr.getValue()));
         } else {
           resSliceParameters.offsets.push_back(
               b.create<affine::AffineApplyOp>(
                    loc, AffineMap::inferFromExprList({expr}).front(),
-                   collapsedOffset.dyn_cast<Value>())
+                   dyn_cast<Value>(collapsedOffset))
                   ->getResult(0));
         }
       }
@@ -205,7 +205,7 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
       collapsedIntTileSize /= expandedShape[dim];
       productOfDimSizes *= expandedShape[dim];
     }
-    Value collapsedOffsetVal = collapsedOffset.dyn_cast<Value>();
+    Value collapsedOffsetVal = dyn_cast<Value>(collapsedOffset);
     if (!collapsedOffsetVal) {
       return failure();
     }
@@ -238,7 +238,7 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
     ArrayRef<int64_t> expandedShape, Value collapsedValue) {
   MLIRContext *ctx = collapsedValue.getContext();
   ArrayRef<int64_t> collapsedShape =
-      collapsedValue.getType().cast<ShapedType>().getShape();
+      cast<ShapedType>(collapsedValue.getType()).getShape();
   TensorSliceParameters resSliceParameters;
   resSliceParameters.offsets.reserve(collapsedShape.size());
   resSliceParameters.sizes.reserve(collapsedShape.size());
@@ -275,7 +275,7 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
         if (!maybeIntOffset.has_value()) {
           offsetExpr = offsetExpr + getAffineDimExpr(ind++, ctx);
           offsetValues.push_back(
-              expandedSliceParams.offsets[dim].dyn_cast<Value>());
+              dyn_cast<Value>(expandedSliceParams.offsets[dim]));
         } else {
           offsetExpr = offsetExpr + getAffineConstantExpr(*maybeIntOffset, ctx);
         }
@@ -351,7 +351,7 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
     }
 
     Value firstNotOneOffsetVal =
-        expandedSliceParams.offsets[firstNotOneDim].dyn_cast<Value>();
+        dyn_cast<Value>(expandedSliceParams.offsets[firstNotOneDim]);
     if (!firstNotOneOffsetVal) {
       return failure();
     }

@@ -54,7 +54,7 @@ bool is_ascend(ArrayRef<int64_t> arr) {
 Value tryInsertReshape(PatternRewriter &rewriter, Operation *op, Value val,
                        ArrayRef<int64_t> batchDims,
                        ArrayRef<int64_t> contractDims) {
-  auto Ty = val.getType().cast<RankedTensorType>();
+  auto Ty = cast<RankedTensorType>(val.getType());
   int64_t batchDim = sub_prod(Ty.getShape(), batchDims);
   int64_t contractDim = sub_prod(Ty.getShape(), contractDims);
   int64_t spatialDim = prod(Ty.getShape()) / batchDim / contractDim;
@@ -77,12 +77,12 @@ public:
 
   LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
                                 PatternRewriter &rewriter) const override {
-    auto oldTy = op.getType().cast<RankedTensorType>();
+    auto oldTy = cast<RankedTensorType>(op.getType());
     int64_t rank = oldTy.getRank();
     Value lhs = op.getLhs();
     Value rhs = op.getRhs();
-    int64_t lrank = lhs.getType().cast<RankedTensorType>().getRank();
-    int64_t rrank = rhs.getType().cast<RankedTensorType>().getRank();
+    int64_t lrank = cast<RankedTensorType>(lhs.getType()).getRank();
+    int64_t rrank = cast<RankedTensorType>(rhs.getType()).getRank();
     if (rank == 3 && lrank == 3 && rrank == 3)
       return failure();
 

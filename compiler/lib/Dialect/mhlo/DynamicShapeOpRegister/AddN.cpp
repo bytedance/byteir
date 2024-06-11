@@ -34,14 +34,14 @@ void mlir::registerAddNInferReturnTypeComponents() {
       [](MLIRContext *context, std::optional<Location> loc,
          ValueShapeRange operands, DictionaryAttr attr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        ShapedType dataType = operands[0].getType().dyn_cast<ShapedType>();
+        ShapedType dataType = dyn_cast<ShapedType>(operands[0].getType());
         if (!dataType) {
           LLVM_DEBUG(llvm::dbgs() << loc << ": get dataType failed\n");
           return failure();
         }
         auto dataShape = dataType.getShape();
         for (auto operand : operands) {
-          ShapedType type = operand.getType().dyn_cast<ShapedType>();
+          ShapedType type = dyn_cast<ShapedType>(operand.getType());
           if (!dataType)
             return failure();
           auto shape = type.getShape();

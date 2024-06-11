@@ -194,8 +194,8 @@ public:
 
   LogicalResult matchAndRewrite(TF::StridedSliceOp op,
                                 PatternRewriter &rewriter) const override {
-    auto input_ty = op.getInput().getType().dyn_cast<RankedTensorType>();
-    auto result_ty = op.getType().dyn_cast<RankedTensorType>();
+    auto input_ty = dyn_cast<RankedTensorType>(op.getInput().getType());
+    auto result_ty = dyn_cast<RankedTensorType>(op.getType());
 
     if (!input_ty || input_ty.hasStaticShape() || !result_ty ||
         result_ty.hasStaticShape())
@@ -444,7 +444,7 @@ protected:
         !matchPattern(op.getStrides(), m_Constant(&sparse_strides_attr)))
       return false;
 
-    auto input_ty = op.getInput().getType().dyn_cast<RankedTensorType>();
+    auto input_ty = dyn_cast<RankedTensorType>(op.getInput().getType());
     // if (!input_ty || !input_ty.hasStaticShape()) return false;
     if (!input_ty)
       return false;
@@ -488,8 +488,8 @@ public:
                                 PatternRewriter &rewriter) const override {
     Value lhs = op.getX();
     Value rhs = op.getY();
-    auto lhs_type = lhs.getType().dyn_cast<RankedTensorType>();
-    auto rhs_type = rhs.getType().dyn_cast<RankedTensorType>();
+    auto lhs_type = dyn_cast<RankedTensorType>(lhs.getType());
+    auto rhs_type = dyn_cast<RankedTensorType>(rhs.getType());
     if (!lhs_type || !rhs_type)
       return failure();
     if (lhs_type.getRank() != rhs_type.getRank())
@@ -529,7 +529,7 @@ public:
   LogicalResult matchAndRewrite(TF::RoundOp tfRoundOp,
                                 PatternRewriter &rewriter) const override {
     auto *op = tfRoundOp.getOperation();
-    auto inputType = tfRoundOp.getX().getType().dyn_cast<ShapedType>();
+    auto inputType = dyn_cast<ShapedType>(tfRoundOp.getX().getType());
     if (!inputType) {
       return op->emitOpError("Round: input not tensor type");
     }

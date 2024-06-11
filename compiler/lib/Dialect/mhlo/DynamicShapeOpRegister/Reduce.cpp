@@ -33,12 +33,12 @@ void mlir::registerReduceInferReturnTypeComponents() {
       [](MLIRContext *context, std::optional<Location>,
          ValueShapeRange operands, DictionaryAttr attr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        auto inputType = operands[0].getType().dyn_cast<RankedTensorType>();
+        auto inputType = dyn_cast<RankedTensorType>(operands[0].getType());
         if (inputType == nullptr || !inputType.hasStaticShape()) {
           return failure();
         }
         auto dimensions =
-            attr.get("dimensions").dyn_cast<DenseIntElementsAttr>();
+            dyn_cast<DenseIntElementsAttr>(attr.get("dimensions"));
         if (dimensions == nullptr) {
           return failure();
         }
@@ -53,7 +53,7 @@ void mlir::registerReduceInferReturnTypeComponents() {
             shape.push_back(inputType.getDimSize(i));
         }
         Type type = RankedTensorType::get(shape, IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
 }

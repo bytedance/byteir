@@ -32,7 +32,7 @@ void mlir::registerConcatenateShapeConstraints() {
         auto concatOp = cast<mhlo::ConcatenateOp>(op);
         int64_t axis = static_cast<int64_t>(concatOp.getDimension());
         ShapedType resultType =
-            concatOp->getResult(0).getType().cast<ShapedType>();
+            cast<ShapedType>(concatOp->getResult(0).getType());
         if (!resultType.hasRank())
           return success();
 

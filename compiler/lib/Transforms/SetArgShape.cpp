@@ -74,7 +74,7 @@ struct SetArgShapePass : public SetArgShapeBase<SetArgShapePass> {
       auto arg = funcOp.getArgument(i);
       if ((this->shouldSetShape && this->shouldSetShape(arg)) ||
           funcOp.getArgAttr(i, this->argAttrName)) {
-        if (auto inputTy = arg.getType().dyn_cast<RankedTensorType>()) {
+        if (auto inputTy = dyn_cast<RankedTensorType>(arg.getType())) {
           Type elementType = inputTy.getElementType();
           llvm::SmallVector<int64_t> shape(inputTy.getShape().begin(),
                                            inputTy.getShape().end());
@@ -86,7 +86,7 @@ struct SetArgShapePass : public SetArgShapeBase<SetArgShapePass> {
               arg.setType(newArgType);
             }
           }
-        } else if (auto inputTy = arg.getType().dyn_cast<MemRefType>()) {
+        } else if (auto inputTy = dyn_cast<MemRefType>(arg.getType())) {
           Type elementType = inputTy.getElementType();
           llvm::SmallVector<int64_t> shape(inputTy.getShape().begin(),
                                            inputTy.getShape().end());

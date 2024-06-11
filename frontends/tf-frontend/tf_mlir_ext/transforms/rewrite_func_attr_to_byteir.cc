@@ -49,9 +49,9 @@ struct RewriteFuncAttrToByteIRPass
       auto entryFunction = funcOp->getAttrOfType<DictionaryAttr>(
           tensorflow::getTfEntryFuncKey());
       StringRef inputs =
-          entryFunction.get("inputs").cast<StringAttr>().getValue();
+          cast<StringAttr>(entryFunction.get("inputs")).getValue();
       StringRef outputs =
-          entryFunction.get("outputs").cast<StringAttr>().getValue();
+          cast<StringAttr>(entryFunction.get("outputs")).getValue();
       // TODO(lyq): handle "controls" attribute
       SmallVector<StringRef> inputsName;
       inputs.split(inputsName, ",");

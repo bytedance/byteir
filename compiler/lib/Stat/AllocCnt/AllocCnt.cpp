@@ -33,14 +33,14 @@ namespace {
 bool isAllocation(Operation *op) { return llvm::isa<memref::AllocOp>(op); }
 
 bool isStaticAllocation(Value value) {
-  if (MemRefType t = value.getType().dyn_cast_or_null<MemRefType>()) {
+  if (MemRefType t = dyn_cast_or_null<MemRefType>(value.getType())) {
     return isStatic(t);
   }
   return false;
 }
 
 size_t getSizeInBytes(Value value) {
-  MemRefType t = value.getType().cast<MemRefType>();
+  MemRefType t = cast<MemRefType>(value.getType());
   auto sizeInBits = getSizeInBits(t);
   assert(sizeInBits.has_value());
   return (*sizeInBits + 7) >> 3;

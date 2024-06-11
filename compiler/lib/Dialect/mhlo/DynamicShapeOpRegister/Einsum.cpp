@@ -190,7 +190,7 @@ LogicalResult einsumParseOperandsInfo(Operation *op, EinsumParseContext *ctx) {
   // to compute the number of dimensions covered by ellipsis.
   for (const auto i : llvm::iota_range<int>(0, numOps, /*Inclusive=*/false)) {
     const auto operand = op->getOperand(i);
-    auto operandType = operand.getType().cast<RankedTensorType>();
+    auto operandType = cast<RankedTensorType>(operand.getType());
     const auto &labels = opLabels[i];
     const auto ndims = operandType.getRank();
     int64_t nlabels = static_cast<int64_t>(labels.size());
@@ -398,7 +398,7 @@ void mlir::registerEinsumShapeConstraints() {
     builder.setInsertionPointAfter(op);
 
     auto getDimSize = [](const Value &operand, int dimIdx) {
-      auto type = operand.getType().cast<RankedTensorType>();
+      auto type = cast<RankedTensorType>(operand.getType());
       return type.getDimSize(dimIdx);
     };
 

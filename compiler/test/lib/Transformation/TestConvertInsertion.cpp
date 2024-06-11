@@ -80,7 +80,7 @@ struct TestI16ConvertRule : public ConvertRuleBase {
     auto builder = std::make_unique<mlir::OpBuilder>(context);
     FunctionType funcType = func.getFunctionType();
     if (isArg) {
-      auto TensorTy = funcType.getInput(offset).dyn_cast<TensorType>();
+      auto TensorTy = dyn_cast<TensorType>(funcType.getInput(offset));
       mlir::Type I16Type;
       if (offset == 0) {
         I16Type = builder.get()->getIntegerType(16);
@@ -88,7 +88,7 @@ struct TestI16ConvertRule : public ConvertRuleBase {
       } else
         return TensorTy;
     } else {
-      auto TensorTy = funcType.getResult(offset).dyn_cast<TensorType>();
+      auto TensorTy = dyn_cast<TensorType>(funcType.getResult(offset));
       mlir::Type I16Type;
       if (offset == 0) {
         I16Type = builder.get()->getIntegerType(16);

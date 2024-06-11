@@ -55,7 +55,7 @@ namespace {
 constexpr StringRef getInternalAliasAttrName() { return "__internal_alias__"; }
 
 static FailureOr<linalg::GenericOp> getAliasGeneric(OpBuilder &b, Value val) {
-  auto tensorTy = val.getType().dyn_cast<TensorType>();
+  auto tensorTy = dyn_cast<TensorType>(val.getType());
   if (!tensorTy) {
     return failure();
   }
@@ -122,13 +122,13 @@ static bool isBroadcast(GenericOp op) {
 static bool areShapeEqual(GenericOp consumer, OpOperand *producer) {
   // consumer
   Value consumerOutput = consumer.getOutputs()[0];
-  auto consumerShapeTy = consumerOutput.getType().dyn_cast<ShapedType>();
+  auto consumerShapeTy = dyn_cast<ShapedType>(consumerOutput.getType());
   if (!consumerShapeTy)
     return false;
 
   auto producerOp = producer->get().getDefiningOp<GenericOp>();
   for (auto output : producerOp.getOutputs()) {
-    auto outputShapeTy = output.getType().dyn_cast<ShapedType>();
+    auto outputShapeTy = dyn_cast<ShapedType>(output.getType());
     if (!outputShapeTy)
       return false;
     if (!areSameShape(consumerShapeTy, outputShapeTy)) {
@@ -359,7 +359,7 @@ fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
   auto consumerInputs = consumer.getDpsInputOperands();
   SmallVector<OpOperand *> operandsFromProducer = llvm::to_vector(
       llvm::make_filter_range(consumerInputs, [&](OpOperand *operand) {
-        auto opResult = operand->get().dyn_cast<OpResult>();
+        auto opResult = dyn_cast<OpResult>(operand->get());
         return opResult && opResult.getOwner() == producer.getOperation();
       }));
   llvm::SetVector<OpOperand *> operandsFromProducerSet(
@@ -373,7 +373,7 @@ fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
   for (OpOperand *consumerOperand : consumerInputs) {
     if (consumerOperand != fusedOperand &&
         operandsFromProducerSet.contains(consumerOperand)) {
-      auto curProducerResult = consumerOperand->get().cast<OpResult>();
+      auto curProducerResult = cast<OpResult>(consumerOperand->get());
       AffineMap curProducerResultIndexMap =
           producer.getIndexingMapMatchingResult(curProducerResult);
       AffineMap toCheckWithAffineMap = composeProduceResultAndConsumerOperand(
@@ -606,7 +606,7 @@ LogicalResult ExpansionInfo::compute(LinalgOp linalgOp,
   SmallVector<unsigned> numExpandedDims(fusedIndexMap.getNumDims(), 1);
   expandedShapeMap.resize(fusedIndexMap.getNumDims());
   for (const auto &resultExpr : llvm::enumerate(fusedIndexMap.getResults())) {
-    unsigned pos = resultExpr.value().cast<AffineDimExpr>().getPosition();
+    unsigned pos = cast<AffineDimExpr>(resultExpr.value()).getPosition();
     AffineMap foldedDims = reassociationMaps[resultExpr.index()];
     numExpandedDims[pos] = foldedDims.getNumResults();
     ArrayRef<int64_t> shape =
@@ -673,7 +673,7 @@ getIndexingMapInExpandedOp(OpBuilder &builder, AffineMap indexingMap,
       newExprs.push_back(expr);
       continue;
     }
-    unsigned pos = expr.cast<AffineDimExpr>().getPosition();
+    unsigned pos = cast<AffineDimExpr>(expr).getPosition();
     SmallVector<AffineExpr, 4> expandedExprs = llvm::to_vector<4>(
         llvm::map_range(expansionInfo.getExpandedDims(pos), [&](int64_t v) {
           return builder.getAffineDimExpr(static_cast<unsigned>(v));
@@ -700,7 +700,7 @@ static RankedTensorType getExpandedType(RankedTensorType originalType,
       expandedShape.push_back(originalType.getDimSize(idx));
       continue;
     }
-    unsigned dim = expr.cast<AffineDimExpr>().getPosition();
+    unsigned dim = cast<AffineDimExpr>(expr).getPosition();
     auto dimExpansion = expansionInfo.getExpandedShapeOfDim(dim);
     expandedShape.append(dimExpansion.begin(), dimExpansion.end());
   }
@@ -725,7 +725,7 @@ getReassociationForExpansion(AffineMap indexingMap,
       reassociation.push_back({numReshapeDims++});
       continue;
     }
-    unsigned dim = expr.cast<AffineDimExpr>().getPosition();
+    unsigned dim = cast<AffineDimExpr>(expr).getPosition();
     auto numExpandedDims = expansionInfo.getExpandedDims(dim).size();
     SmallVector<int64_t, 2> indices = llvm::to_vector<2>(
         llvm::seq<int64_t>(numReshapeDims, numReshapeDims + numExpandedDims));
