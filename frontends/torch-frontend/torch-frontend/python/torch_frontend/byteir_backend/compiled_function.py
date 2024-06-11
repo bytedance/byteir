@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import logging
 from typing import Optional, Any, Callable, Dict, List, Sequence, Tuple, Union
 from brt.utils import brt_dtype_to_torch_dtype
@@ -43,14 +44,48 @@ class ByteIRFunction:
         self._none_indices = none_indices
         self._req = self._session.new_request_context(
             torch.cuda.current_stream()._as_parameter_.value)
+        self.input_arg_offsets = self._session.get_input_arg_offsets()
+        self.output_arg_offsets = self._session.get_output_arg_offsets()
 
-        self.output_shape_and_dtype = [
-            (
-                self._session.get_static_shape(offset),
-                brt_dtype_to_torch_dtype(self._session.get_data_type(offset)),
-            )
-            for offset in self._session.get_output_arg_offsets()
+        self.output_shape_and_dtype = [(
+            self._session.get_static_shape(offset),
+            brt_dtype_to_torch_dtype(self._session.get_data_type(offset)),
+        ) for offset in self._session.get_output_arg_offsets()]
+
+        self._outs_len = len(self.output_arg_offsets)
+        self.static_shape_and_dtype = [
+            (self._session.get_static_shape(offset),
+             brt_dtype_to_torch_dtype(self._session.get_data_type(offset)))
+            for offset in self.output_arg_offsets
         ]
+
+        self.real_outs_index_map = self._get_outputs_index_map(
+            self._outs_len, self._none_indices)
+        self.strited_inputs_index = None
+
+    def _get_outputs_index_map(self, out_lens: int, none_indices: List[int]):
+        res = []
+        none_lens = len(none_indices)
+        none_cnt = 0
+        for idx in range(out_lens + none_lens):
+            if none_cnt < none_lens and idx == none_indices[none_cnt]:
+                none_cnt += 1
+                continue
+            res.append(idx)
+
+        return res
+
+    @functools.lru_cache
+    def get_out_tensors(self, device):
+        outputs_ptr = [None] * self._outs_len
+        results = [None] * (self._outs_len + len(self._none_indices))
+
+        for idx, shape_dty in enumerate(self.static_shape_and_dtype):
+            _out = torch.empty(shape_dty[0], dtype=shape_dty[1], device=device)
+            results[self.real_outs_index_map[idx]] = _out
+            outputs_ptr[idx] = _out.data_ptr()
+
+        return results, outputs_ptr
 
     def __call__(self, *inputs):
 
@@ -58,51 +93,40 @@ class ByteIRFunction:
 
         # FIXME. byteir requires all inputs on device side, move host side tensor to device.
         # Preprocess the strided tensor as byteir does not support yet.
-        new_inputs = []
+        new_inputs_ptr = [None] * len(inputs)
 
-        for i in range(0, len(inputs)):
-            _t = inputs[i]
-            if not _t.is_cuda:
-                log.warning(f"device error: type={type(_t)}, {_t.device}")
-                _t = _t.to("cuda")
-            new_inputs.append(_t.contiguous())
+        if self.strited_inputs_index is None:
+            self.strited_inputs_index = []
+            for i in range(0, len(inputs)):
+                _t = inputs[i]
+                if not _t.is_contiguous():
+                    _t = _t.contiguous()
+                    self.strited_inputs_index.append(i)
+                new_inputs_ptr[i] = _t.data_ptr()
+        else:
+            for i in range(0, len(inputs)):
+                new_inputs_ptr[i] = inputs[i].data_ptr()
+            for i in self.strited_inputs_index:
+                new_inputs_ptr[i] = inputs[i].contiguous().data_ptr()
 
-        device = new_inputs[0].device
+        device = inputs[0].device
 
-        results = [
-            torch.empty(
-                shape,
-                dtype=ty,
-                device=device,
-            ) for shape, ty in self.output_shape_and_dtype
-        ]
+        results, outputs_ptr = self.get_out_tensors(device)
 
         inputOffsetAndArg = []
         outputOffsetAndArg = []
-        for offset, input in zip(self._session.get_input_arg_offsets(),
-                                 new_inputs):
-            inputOffsetAndArg.append((offset, input.data_ptr()))
-        for offset, output in zip(self._session.get_output_arg_offsets(),
-                                  results):
-            outputOffsetAndArg.append((offset, output.data_ptr()))
+        for offset, input_ptr in zip(self.input_arg_offsets, new_inputs_ptr):
+            inputOffsetAndArg.append((offset, input_ptr))
+        for offset, output_ptr in zip(self.output_arg_offsets, outputs_ptr):
+            outputOffsetAndArg.append((offset, output_ptr))
         self._req.bind_args(inputOffsetAndArg)
         self._req.bind_args(outputOffsetAndArg)
         self._req.finish_io_binding()
         self._req.run()
         self._req.sync()
 
-        # add None results to return values
-        rets = []
-        none_cnt = 0
-        result_cnt = 0
-        for i in range(len(results) + len(self._none_indices)):
-            if none_cnt < len(
-                    self._none_indices) and i == self._none_indices[none_cnt]:
-                rets.append(None)
-                none_cnt += 1
-            else:
-                rets.append(results[result_cnt])
-                result_cnt += 1
+        rets = results
+
         if len(rets) == 1:
             return rets[0]
         return rets
