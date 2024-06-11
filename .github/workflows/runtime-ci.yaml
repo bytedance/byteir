@@ -7,6 +7,10 @@ on:
     paths:
       - ".github/workflows/runtime-ci.yaml"
       - "runtime/**"
+      - "compiler/include/byteir/Dialect/Byre/**"
+      - "compiler/lib/Dialect/Byre/**"
+      - "compiler/dialects/include/byteir/Dialect/Ace/**"
+      - "compiler/dialects/lib/Dialect/Ace/**"
       - "scripts/**"
       - "!**/**.md"
       - "!runtime/VERSION_NUMBER"
