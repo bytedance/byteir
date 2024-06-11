@@ -16,7 +16,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Analysis/SideEffect.h"
-#include "lhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 
 using namespace mlir;
@@ -33,9 +34,7 @@ struct TestPrintArgSideEffectPass
 
   StringRef getDescription() const final { return "Print the arg side effect"; }
 
-  void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<mlir::lmhlo::LmhloDialect>();
-  }
+  void getDependentDialects(DialectRegistry &registry) const override {}
 
   void runOnOperation() override {
     auto &os = llvm::outs();

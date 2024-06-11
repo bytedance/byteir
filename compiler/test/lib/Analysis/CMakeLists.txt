@@ -10,5 +10,4 @@ add_mlir_library(ByteIRTestAnalysis
 
   LINK_LIBS PUBLIC
   ByteIRAnalysis
-  LmhloDialect
   )

@@ -218,7 +218,7 @@ Value createCopyArg(Operation *op, Value oldArg, MemRefType dstMemrefTy,
     return createCopyOutputArg(op, oldArg, dstMemrefTy, copyPairToCopyTargets);
   }
 
-  return Value();
+  assert(false && "unknown ArgSideEffectType");
 }
 
 // update function types for args recursively

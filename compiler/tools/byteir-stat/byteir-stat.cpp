@@ -19,7 +19,6 @@
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Stat/Common/Reg.h"
 #include "byteir/Stat/InitAllStats.h"
-#include "lhlo/IR/lhlo_ops.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/InitAllDialects.h"
@@ -56,7 +55,6 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ace::AceDialect>();
   registry.insert<mlir::byre::ByreDialect>();
   registry.insert<mlir::mhlo::MhloDialect>();
-  registry.insert<mlir::lmhlo::LmhloDialect>();
 
   std::string errorMessage;
   auto input = openInputFile(inputFilename, &errorMessage);
