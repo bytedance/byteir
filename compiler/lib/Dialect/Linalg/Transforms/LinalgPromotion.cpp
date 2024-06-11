@@ -48,14 +48,12 @@ using namespace mlir;
 
 namespace {
 
-constexpr StringRef allocMarker[3] = {"__byteir_alloca_matrix_a__",
-                                      "__byteir_alloca_matrix_b__",
-                                      "__byteir_alloca_accumulator__"};
-constexpr StringRef copyMarker[3] = {
-    "__byteir_load_matrix_a__",
-    "__byteir_load_matrix_b__",
-    "__byteir_store_matrix_c__",
-};
+constexpr StringRef allocMarker[3] = {getAllocSharedMemoryAMarker(),
+                                      getAllocSharedMemoryBMarker(),
+                                      getAllocSharedMemoryAccMarker()};
+constexpr StringRef copyMarker[3] = {getCopyToSharedMemoryAMarker(),
+                                     getCopyToSharedMemoryBMarker(),
+                                     getCopyFromSharedMemoryAccMarker()};
 
 namespace MatmulOperands {
 constexpr static int64_t A = 0;
@@ -113,7 +111,7 @@ LogicalResult copyGlobalMemoryToWorkgroupMemory(OpBuilder &b, Value src,
   if (OPERAND == MatmulOperands::C) {
     return success();
   }
-  Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
+  Operation *copyOp = b.create<memref::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
                                 getCopyRelatedToWorkgroupMemoryMarker());
   setMarker(copyOp, copyMarker[OPERAND]);
@@ -130,7 +128,7 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
   Operation *terminator = forallOp.getBody()->getTerminator();
   b.setInsertionPoint(terminator);
 
-  Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
+  Operation *copyOp = b.create<memref::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
                                 getCopyRelatedToWorkgroupMemoryMarker());
   setMarker(copyOp, copyMarker[MatmulOperands::C]);

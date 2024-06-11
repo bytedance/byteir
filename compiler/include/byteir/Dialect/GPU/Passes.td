@@ -87,4 +87,14 @@ def GPUPackSharedMemoryAlloc : Pass<"gpu-pack-shared-memory-alloc", "func::FuncO
   let constructor = "mlir::createGPUPackSharedMemoryAllocPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// GPUPackSharedMemoryAlloc
+//===----------------------------------------------------------------------===//
+def GPUPipelining : Pass<"gpu-pipelining", "func::FuncOp"> {
+  let summary = "Pipelining async copy and mma oprations to improve performance.";
+  let constructor = "mlir::createGPUPipeliningPass()";
+  let options = [
+    Option<"stages", "stages", "int64_t", /*default=*/"0", "the number of stages for pipelining">,
+  ];
+}
 #endif // BYTEIR_DIALECT_GPU_PASSES
