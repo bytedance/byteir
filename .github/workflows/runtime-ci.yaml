@@ -1,18 +1,15 @@
-name: Compiler And Runtime Build
+name: Runtime Build
 
 on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - ".github/workflows/onnx-frontend-ci.yaml"
-      - ".github/workflows/tf-frontend-ci.yaml"
-      - ".github/workflows/torch-frontend-ci.yaml"
-      - "frontends/**"
-      - "**/**.md"
-      - "talks/**"
-      - "compiler/python/version.txt"
-      - "runtime/VERSION_NUMBER"
+    paths:
+      - ".github/workflows/runtime-ci.yaml"
+      - "runtime/**"
+      - "scripts/**"
+      - "!**/**.md"
+      - "!runtime/VERSION_NUMBER"
   workflow_dispatch:
 
 # Ensure that only a single job or workflow using the same
@@ -28,24 +25,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  byteir_compiler_build_and_test:
-    name: byteir compiler build and test
-    runs-on: self-hosted
-    container:
-      image: localhost:5000/byteir-ci
-      volumes:
-        - /data00/llvm_libraries:/data00/llvm_libraries
-        - /data00/mhlo_libraries:/data00/mhlo_libraries
-        - /data00/external_libraries:/data00/external_libraries
-      options: --runtime=nvidia --gpus all
-    steps:
-      - name: clear workspace
-        run: rm -rf $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
-      - name: Checkout byteir repo
-        uses: actions/checkout@v3
-      - name: Run build and test
-        run: ./scripts/compiler/build_and_test.sh
-        shell: bash
   brt_check_cpu:
     name: BRT cpu test
     runs-on: self-hosted
