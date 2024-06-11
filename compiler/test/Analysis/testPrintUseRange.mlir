@@ -1,4 +1,4 @@
-// RUN: byteir-opt -test-print-use-range -split-input-file %s | FileCheck %s
+// RUN: byteir-opt -test-print-use-range -split-input-file --allow-unregistered-dialect %s | FileCheck %s
 
 // CHECK-LABEL: Testing : func_empty
 func.func @func_empty() {
