@@ -23,8 +23,12 @@
 #include "byteir/Dialect/MemRef/Transforms/MultiBufferExt.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
+#include "mlir/Dialect/SCF/Transforms/Patterns.h"
+#include "mlir/IR/Builders.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "PassDetail.h"
@@ -34,29 +38,61 @@
 using namespace mlir;
 
 namespace {
-#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
-#define DBGSNL() (llvm::dbgs() << "\n")
 
-// static void
-// getSchedule(scf::ForOp forOp,
-//             std::vector<std::pair<Operation *, unsigned>> &schedule) {
-//   if (!forOp->hasAttr(kTestPipeliningLoopMarker))
-//     return;
+/// Helper to recursively add operation dependencies within `block` to `dep`
+/// set.
+static void addDepOps(llvm::SmallDenseSet<Operation *> &dep, Operation *op,
+                      Block *block) {
+  if (!dep.insert(op).second)
+    return;
+  for (Value operand : op->getOperands()) {
+    Operation *defOp = operand.getDefiningOp();
+    if (defOp && defOp->getBlock() == block)
+      addDepOps(dep, defOp, block);
+  }
+}
 
-//   schedule.resize(forOp.getBody()->getOperations().size() - 1);
-//   forOp.walk([&schedule](Operation *op) {
-//     auto attrStage =
-//     op->getAttrOfType<IntegerAttr>(kTestPipeliningStageMarker); auto
-//     attrCycle =
-//         op->getAttrOfType<IntegerAttr>(kTestPipeliningOpOrderMarker);
-//     if (attrCycle && attrStage) {
-//       // TODO: Index can be out-of-bounds if ops of the loop body disappear
-//       // due to folding.
-//       schedule[attrCycle.getInt()] =
-//           std::make_pair(op, unsigned(attrStage.getInt()));
-//     }
-//   });
-// }
+static void
+getPipelineStages(scf::ForOp forOp,
+                  std::vector<std::pair<Operation *, unsigned>> &ops,
+                  unsigned depth) {
+  SmallVector<linalg::CopyOp> copyOps;
+  forOp.walk([&](linalg::CopyOp copyOp) {
+    if (hasMarker(copyOp, {getCopyToSharedMemoryAMarker(),
+                           getCopyToSharedMemoryBMarker()})) {
+      copyOps.push_back(copyOp);
+    }
+  });
+
+  llvm::SmallDenseSet<Operation *> loadDep;
+  for (linalg::CopyOp copyOp : copyOps) {
+    addDepOps(loadDep, copyOp, forOp.getBody());
+  }
+
+  for (Operation &op : forOp.getBody()->getOperations()) {
+    if (!loadDep.count(&op) && !isa<scf::YieldOp>(op))
+      ops.push_back(std::make_pair(&op, depth));
+  }
+  for (Operation &op : forOp.getBody()->getOperations()) {
+    if (loadDep.count(&op))
+      ops.push_back(std::make_pair(&op, 0));
+  }
+}
+
+static Operation *replaceOpWithPredicatedOp(RewriterBase &rewriter,
+                                            Operation *op, Value pred) {
+  Location loc = op->getLoc();
+  if (!isa<linalg::CopyOp>(op))
+    return op;
+  auto ifOp = rewriter.create<scf::IfOp>(loc, op->getResultTypes(), pred, true);
+  // True branch.
+  op->moveBefore(&ifOp.getThenRegion().front(),
+                 ifOp.getThenRegion().front().begin());
+  rewriter.setInsertionPointAfter(op);
+  if (op->getNumResults() > 0)
+    rewriter.create<scf::YieldOp>(loc, op->getResults());
+  return ifOp.getOperation();
+}
 
 struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
   GPUPipeliningPass(int64_t stages) : GPUPipeliningBase() {
@@ -87,6 +123,31 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
         return signalPassFailure();
       }
     }
+
+    // step 2: find linalg.copy ops in scf.for and its dependencies
+    SmallVector<scf::ForOp> forOps;
+    // Mark the loop with shared memory copy for pipelining.
+    funcOp.walk([&forOps](scf::ForOp forOp) { forOps.push_back(forOp); });
+
+    assert(forOps.size() == 1 && "Only support 1 loop in matmul");
+
+    scf::PipeliningOption options;
+    unsigned maxDepth = stages;
+    auto getSchedule =
+        [maxDepth](scf::ForOp forOp,
+                   std::vector<std::pair<Operation *, unsigned>> &schedule) {
+          getPipelineStages(forOp, schedule, maxDepth);
+        };
+
+    // step 3: apply software pipelining
+    options.getScheduleFn = getSchedule;
+    options.supportDynamicLoops = false;
+    options.peelEpilogue = false;
+    options.predicateFn = replaceOpWithPredicatedOp;
+
+    RewritePatternSet patterns(&getContext());
+    scf::populateSCFLoopPipeliningPatterns(patterns, options);
+    (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
   }
 };
 
