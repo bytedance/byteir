@@ -111,7 +111,7 @@ LogicalResult copyGlobalMemoryToWorkgroupMemory(OpBuilder &b, Value src,
   if (OPERAND == MatmulOperands::C) {
     return success();
   }
-  Operation *copyOp = b.create<memref::CopyOp>(src.getLoc(), src, dst);
+  Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
                                 getCopyRelatedToWorkgroupMemoryMarker());
   setMarker(copyOp, copyMarker[OPERAND]);
@@ -128,7 +128,7 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
   Operation *terminator = forallOp.getBody()->getTerminator();
   b.setInsertionPoint(terminator);
 
-  Operation *copyOp = b.create<memref::CopyOp>(src.getLoc(), src, dst);
+  Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
                                 getCopyRelatedToWorkgroupMemoryMarker());
   setMarker(copyOp, copyMarker[MatmulOperands::C]);
