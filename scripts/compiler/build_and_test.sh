@@ -3,6 +3,21 @@
 set -e
 set -x
 
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --no-test)
+      BYTEIR_TEST=OFF
+      shift
+      ;;
+    *)
+      echo "Invalid option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+BYTEIR_TEST=${BYTEIR_TEST:-ON}
+
 # path to script
 CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # path to byteir root
@@ -31,13 +46,15 @@ cmake "-H$PROJ_DIR/cmake" \
       -DBYTEIR_ENABLE_BINDINGS_PYTHON=ON
 
 cmake --build "$BUILD_DIR" --target all check-byteir install
-cmake --build "$BUILD_DIR" --target check-byteir-numerical
 cmake --build "$BUILD_DIR" --target byteir-python-pack
 
-# test cat
-cmake --build "$BUILD_DIR" --target check-byteir-python
-
-# pytest
-pushd $ROOT_PROJ_DIR
-PYTHONPATH=./compiler/build/python_packages/byteir python3 -m pytest ./compiler/python/test/api
-popd
+if [[ $BYTEIR_TEST == "ON" ]]; then
+  # test numerical
+  cmake --build "$BUILD_DIR" --target check-byteir-numerical
+  # test cat
+  cmake --build "$BUILD_DIR" --target check-byteir-python
+  # pytest
+  pushd $ROOT_PROJ_DIR
+  PYTHONPATH=./compiler/build/python_packages/byteir python3 -m pytest ./compiler/python/test/api
+  popd
+fi

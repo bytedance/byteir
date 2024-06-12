@@ -72,4 +72,4 @@ if __name__ == "__main__":
         processor.benchmark(backend=args.backend, num_trials=10)
         print(f"cat {args.backend} profile finish")
     else:
-        raise NotImplemented(f"unimplemented mode {args.mode}")
+        raise NotImplementedError(f"unimplemented mode {args.mode}")
