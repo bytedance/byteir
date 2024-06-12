@@ -23,6 +23,7 @@
 #include "byteir/Dialect/MemRef/Transforms/MultiBufferExt.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
@@ -79,8 +80,8 @@ getPipelineStages(scf::ForOp forOp,
   }
 }
 
-static Operation *replaceOpWithPredicatedOp(RewriterBase &rewriter,
-                                            Operation *op, Value pred) {
+static Operation *replaceLinalgMatmulWithIfOp(RewriterBase &rewriter,
+                                              Operation *op, Value pred) {
   Location loc = op->getLoc();
   if (!isa<linalg::CopyOp>(op))
     return op;
@@ -143,11 +144,46 @@ struct GPUPipeliningPass : public GPUPipeliningBase<GPUPipeliningPass> {
     options.getScheduleFn = getSchedule;
     options.supportDynamicLoops = false;
     options.peelEpilogue = false;
-    options.predicateFn = replaceOpWithPredicatedOp;
+    options.predicateFn = replaceLinalgMatmulWithIfOp;
 
     RewritePatternSet patterns(&getContext());
     scf::populateSCFLoopPipeliningPatterns(patterns, options);
     (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+
+    // step 3: add nvvm commit_group and wait_group
+    // 3.1 find all the linalg.copy ops which do __byteir_load_matrix_a__ or
+    // __byteir_load_matrix_b__
+    SmallVector<linalg::CopyOp> copyOps;
+    funcOp.walk([&](linalg::CopyOp copyOp) {
+      if (hasMarker(copyOp, {getCopyToSharedMemoryAMarker(),
+                             getCopyToSharedMemoryBMarker()})) {
+        copyOps.push_back(copyOp);
+      }
+    });
+    // There is (stages + 1) * 2 copy ops in total
+    assert(copyOps.size() == (stages + 1) * 2 &&
+           "Wrong linalg copy ops number after pipelining");
+    OpBuilder b(funcOp.getContext());
+    // As group = stages + 1, we need to add commit_group after every group
+    for (int64_t g = 0; g < stages + 1; g++) {
+      Operation *lastCopyInGroup = copyOps[g * 2 + 1];
+      // if linalg.copy is inside a scf.if, we need to add commit_group after
+      // scf.if as we want to generate predicated copy
+      if (lastCopyInGroup->getParentOfType<scf::IfOp>()) {
+        lastCopyInGroup = lastCopyInGroup->getParentOfType<scf::IfOp>();
+      }
+      b.setInsertionPointAfter(lastCopyInGroup);
+      b.create<NVVM::CpAsyncCommitGroupOp>(funcOp.getLoc());
+    }
+    // 3.2 find linalg.matmul and add wait_group before it
+    SmallVector<linalg::MatmulOp> matmulOps;
+    funcOp.walk(
+        [&](linalg::MatmulOp matmulOp) { matmulOps.push_back(matmulOp); });
+    assert(matmulOps.size() == 1 && "Only support 1 matmul op in the loop");
+    linalg::MatmulOp matmulOp = matmulOps[0];
+    b.setInsertionPoint(matmulOp);
+    // wait first group done, stages - 1 prefetch groups can run in the pipeline
+    b.create<NVVM::CpAsyncWaitGroupOp>(funcOp.getLoc(), stages - 1);
   }
 };
 

@@ -64,6 +64,10 @@ namespace vector {
 class VectorDialect;
 }
 
+namespace NVVM {
+class NVVMDialect;
+} // namespace NVVM
+
 namespace transform {
 class TransformDialect;
 } // namespace transform
