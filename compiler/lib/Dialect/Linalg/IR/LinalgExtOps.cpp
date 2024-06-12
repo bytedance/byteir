@@ -129,7 +129,7 @@ static FailureOr<TilingResult> commonGenerateResultTileValueForLinalgExtOp(
   }
   for (const auto &resultExpr : llvm::enumerate(indexingMap.getResults())) {
     unsigned dimPosition =
-        resultExpr.value().cast<AffineDimExpr>().getPosition();
+        cast<AffineDimExpr>(resultExpr.value()).getPosition();
     iterationTileOffsets[dimPosition] = offsets[resultExpr.index()];
     iterationTileSizes[dimPosition] = sizes[resultExpr.index()];
   }
@@ -273,7 +273,7 @@ Operation *commonMergeReductions(Operation *op, OpBuilder &b, Location loc,
 
   // Then create a new reduction that only reduce the newly added dimension
   // from the previous op.
-  int64_t intermRank = partialReduce[0].getType().cast<ShapedType>().getRank();
+  int64_t intermRank = cast<ShapedType>(partialReduce[0].getType()).getRank();
   AffineMap inputMap = b.getMultiDimIdentityMap(intermRank);
   SmallVector<utils::IteratorType> reductionIteratorTypes;
   SmallVector<AffineExpr> exprs;
@@ -327,13 +327,13 @@ bool mlir::linalg_ext::involveReduction(
 
     auto indexingMap = indexingMaps[en.index()];
     for (const auto &en2 : llvm::enumerate(mixedOffsets)) {
-      auto value = en2.value().dyn_cast<Value>();
+      auto value = dyn_cast<Value>(en2.value());
       if (!value) {
         // since not a value, it implies not a loop arg
         continue;
       }
 
-      auto iterArg = value.dyn_cast<BlockArgument>();
+      auto iterArg = dyn_cast<BlockArgument>(value);
       if (!iterArg || !isa<scf::ForOp>(iterArg.getOwner()->getParentOp())) {
         // since not a BlockArgument or owner is a loop,
         // it implies not a loop arg
@@ -470,9 +470,9 @@ mlir::LogicalResult mlir::linalg_ext::ScanOp::verify() {
   if (!input().getType().isa<ShapedType>()) {
     return op->emitOpError("expected first input element type to be shaped");
   }
-  auto accumulatorType = accumulator().getType().cast<ShapedType>();
-  auto inputType = input().getType().cast<ShapedType>();
-  auto outputType = output().getType().cast<ShapedType>();
+  auto accumulatorType = cast<ShapedType>(accumulator().getType());
+  auto inputType = cast<ShapedType>(input().getType());
+  auto outputType = cast<ShapedType>(output().getType());
   ArrayRef<int64_t> inputShapes = inputType.getShape();
   ArrayRef<int64_t> outputShapes = outputType.getShape();
   if (accumulatorType.getElementType() != inputType.getElementType()) {
@@ -668,7 +668,7 @@ mlir::LogicalResult mlir::linalg_ext::ScatterOp::verify() {
     return op->emitOpError("expected one output operands src");
   }
   if (!llvm::all_of(op->getOperandTypes(), [](Type t) {
-        return t.isa<ShapedType>() && t.cast<ShapedType>().hasRank();
+        return t.isa<ShapedType>() && cast<ShapedType>(t).hasRank();
       })) {
     return op->emitOpError("expected ranked ShapedType for all operands");
   }
@@ -985,12 +985,12 @@ FailureOr<Value> getSoftmaxLikeScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
     return failure();
 
   auto scale = op->getResult(3);
-  if (auto scaleTensorTy = scale.getType().dyn_cast<TensorType>()) {
+  if (auto scaleTensorTy = dyn_cast<TensorType>(scale.getType())) {
     if (!consumerOutput.getType().isa<TensorType>()) {
       // Not support mixing TensorType with other types
       return failure();
     }
-    auto consumerTensorTy = consumerOutput.getType().cast<TensorType>();
+    auto consumerTensorTy = cast<TensorType>(consumerOutput.getType());
     auto scaleEmpty = b.create<tensor::EmptyOp>(
         loc, DiagOp::getDiagType(scaleTensorTy), ValueRange{});
     auto diag =
@@ -1005,7 +1005,7 @@ FailureOr<Value> getSoftmaxLikeScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
     SmallVector<Value> scaleMatmulInputs;
     scaleMatmulInputs.push_back(diag->getResult(0));
     scaleMatmulInputs.push_back(consumerOutput);
-    int64_t rank = consumerOutput.getType().cast<ShapedType>().getRank();
+    int64_t rank = cast<ShapedType>(consumerOutput.getType()).getRank();
     if (rank == 2) {
       auto scaleMatmul = b.create<linalg::MatmulOp>(loc, scaleMatmulInputs,
                                                     filledTensor->getResults());
@@ -1135,13 +1135,12 @@ mlir::LogicalResult verifySoftmaxLikeOp(SoftmaxLikeOp softmaxLikeOp) {
     return op->emitOpError("expected first input element type to be shaped");
   }
 
-  auto maxType = softmaxLikeOp.max().getType().template cast<ShapedType>();
+  auto maxType = cast<ShapedType>(softmaxLikeOp.max().getType());
   auto accumulatorType =
-      softmaxLikeOp.accumulator().getType().template cast<ShapedType>();
-  auto scaleType = softmaxLikeOp.scale().getType().template cast<ShapedType>();
-  auto inputType = softmaxLikeOp.input().getType().template cast<ShapedType>();
-  auto outputType =
-      softmaxLikeOp.output().getType().template cast<ShapedType>();
+      cast<ShapedType>(softmaxLikeOp.accumulator().getType());
+  auto scaleType = cast<ShapedType>(softmaxLikeOp.scale().getType());
+  auto inputType = cast<ShapedType>(softmaxLikeOp.input().getType());
+  auto outputType = cast<ShapedType>(softmaxLikeOp.output().getType());
   ArrayRef<int64_t> inputShapes = inputType.getShape();
   ArrayRef<int64_t> outputShapes = outputType.getShape();
 
@@ -1731,10 +1730,9 @@ mlir::LogicalResult mlir::linalg_ext::BatchMatmulOp::verify() {
     return emitOpError("expected 2 input operands");
   if (getNumDpsInits() != 1)
     return emitOpError("expected 1 output operands");
-  ArrayRef<int64_t> lhsShape = getLhs().getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> rhsShape = getRhs().getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> outShape =
-      getInit().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> lhsShape = cast<ShapedType>(getLhs().getType()).getShape();
+  ArrayRef<int64_t> rhsShape = cast<ShapedType>(getRhs().getType()).getShape();
+  ArrayRef<int64_t> outShape = cast<ShapedType>(getInit().getType()).getShape();
   int64_t bsRank = lhsShape.size() - 2;
 
   for (int64_t i = 0; i < bsRank; ++i) {
@@ -1963,8 +1961,8 @@ mlir::LogicalResult mlir::linalg_ext::LayerNormOp::verify() {
     return op->emitOpError("expected first input element type to be shaped");
   }
 
-  auto inputType = input().getType().cast<ShapedType>();
-  auto outputType = output().getType().cast<ShapedType>();
+  auto inputType = cast<ShapedType>(input().getType());
+  auto outputType = cast<ShapedType>(output().getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   ArrayRef<int64_t> outputShape = outputType.getShape();
   if (outputType.getElementType() != inputType.getElementType()) {
@@ -1974,8 +1972,8 @@ mlir::LogicalResult mlir::linalg_ext::LayerNormOp::verify() {
 
   if (getNumInputs() == 3) {
     // has weight and bias
-    auto weightType = weight().getType().cast<ShapedType>();
-    auto biasType = bias().getType().cast<ShapedType>();
+    auto weightType = cast<ShapedType>(weight().getType());
+    auto biasType = cast<ShapedType>(bias().getType());
     ArrayRef<int64_t> weightShape = weightType.getShape();
     ArrayRef<int64_t> biasShape = biasType.getShape();
 

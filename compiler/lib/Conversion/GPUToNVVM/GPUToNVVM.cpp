@@ -91,8 +91,8 @@ public:
 
     mlir::Type resultType = castedOperands.front().getType();
     mlir::Type funcType = getFunctionType(resultType, castedOperands);
-    StringRef funcName = getFunctionName(
-        funcType.cast<LLVM::LLVMFunctionType>().getReturnType());
+    StringRef funcName =
+        getFunctionName(cast<LLVM::LLVMFunctionType>(funcType).getReturnType());
     if (funcName.empty())
       return failure();
 

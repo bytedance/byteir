@@ -64,6 +64,7 @@ def get_config(config: str):
                 "layer_norm_without_gamma": 6,
                 "layer_norm_without_beta": 6,
                 "layer_norm_multi_dim": 6,
+                "layer_norm_multi_dim_v2": 6,
                 "layer_norm_swap_add": 6,
                 "layer_norm_swap_mul": 6,
                 "layer_norm_swap_squarediff": 5,
@@ -80,6 +81,7 @@ def get_config(config: str):
                 "l2_norm_V2": 3,
                 "l2_norm_V2_swap_mul": 3,
                 "l2_norm_V3": 6,
+                "l2_norm_couple_with_batchmatmulv2": 5,
                 "onehot_case0": 6,
             },
             "black_list": [

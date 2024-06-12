@@ -41,8 +41,8 @@ void mlir::registerTorchIndexSelectReifyReturnTypeShapes() {
 
         Location loc = op->getLoc();
 
-        auto operandType = operand.getType().dyn_cast<RankedTensorType>();
-        auto indexType = index.getType().dyn_cast<RankedTensorType>();
+        auto operandType = dyn_cast<RankedTensorType>(operand.getType());
+        auto indexType = dyn_cast<RankedTensorType>(index.getType());
         if (!operandType || !indexType)
           return failure();
 
@@ -131,10 +131,10 @@ void mlir::registerTorchIndexSelectInferReturnTypeComponents() {
         }
 
         if (auto dataType =
-                operands.getTypes()[0].dyn_cast_or_null<ShapedType>()) {
+                dyn_cast_or_null<ShapedType>(operands.getTypes()[0])) {
           auto outElement = dataType.getElementType();
           Type retType = RankedTensorType::get(resultShape, outElement);
-          inferredReturnTypes.push_back(retType.cast<ShapedType>());
+          inferredReturnTypes.push_back(cast<ShapedType>(retType));
           return success();
         }
         LLVM_DEBUG(llvm::dbgs() << loc << " get output element type failed\n");

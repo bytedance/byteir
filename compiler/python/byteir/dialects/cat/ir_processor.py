@@ -1,5 +1,6 @@
 from byteir import ir
 from byteir.dialects.cat.ait_cache import AITCache
+from byteir.dialects.builtin import ModuleOp
 from byteir.passmanager import PassManager
 
 from pathlib import Path
@@ -15,6 +16,11 @@ BYTEIR_CAT_ATTR = "__byteir_cat_fusion__"
 
 available_cuda_device_num = torch.cuda.device_count()
 MAX_COMPILATION_PARALLELISM = available_cuda_device_num
+
+def _print_verbose(module: ModuleOp, pipeline_msg: str):
+    print(pipeline_msg)
+    print(module.operation.get_asm(large_elements_limit=10))
+    print()
 
 def func_hash_str(func, gpu_type):
     hash_str = gpu_type + "_"
@@ -48,29 +54,23 @@ class IRProcessor:
     def _get_builder(self, module, subgraph_name, backend="ait"):
         assert module != None
         if backend == "ait":
-            from byteir.dialects.cat.ir_translator.ait_builder import ait_builder
-            return ait_builder(module, workdir=self.workdir, subgraph_name=subgraph_name)
+            from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
+            return AITBuilder(module, workdir=self.workdir, subgraph_name=subgraph_name)
         else:
             raise RuntimeError(f"Unsupported runtime backend {backend}")
 
     def load_from_file(self, module_file):
         self.module = ir.Module.parse(Path(module_file).read_text())
 
-    def _dump_ir(self, ir_name):
-        ir_file = f'{self.workdir}/{ir_name}'
-        with open(ir_file, "w") as f:
-            f.write(self.module.operation.get_asm())
-
-    def preprocess_pass(self, dump_ir=False):
+    def preprocess_pass(self):
         with self.module.context:
             pass_arg = "builtin.module(cat-preprocess)"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
-            if dump_ir:
-                self._dump_ir("{}.mhlo.simplified.mlir".format(self.job_name))
+            _print_verbose(self.module, "// IR Dump After Cat Preprocess:") if self.verbose else ...
         return self.module
 
-    def hlo_opt_pass(self, outline_single_elemwise_op=False, dump_ir=False, aggressive_mode=False):
+    def hlo_opt_pass(self, outline_single_elemwise_op=True, aggressive_mode=False):
         with self.module.context:
             if outline_single_elemwise_op:
                 if aggressive_mode:
@@ -81,11 +81,10 @@ class IRProcessor:
                 pass_arg = "builtin.module(hlo-opt{outline-cat-op})"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
-            if dump_ir:
-                self._dump_ir("{}.hlo_opt.mlir".format(self.job_name))
+            _print_verbose(self.module, "// IR Dump After Hlo Opt (with Cat):") if self.verbose else ...
         return self.module
 
-    def cat_opt_pass(self, anchor_only=False, dump_ir=False, aggressive_mode=False):
+    def cat_opt_pass(self, anchor_only=False, aggressive_mode=False):
         with self.module.context:
             if anchor_only:
                 pass_arg = "builtin.module(cat-opt{anchor-only})"
@@ -96,11 +95,10 @@ class IRProcessor:
                     pass_arg = "builtin.module(cat-opt)"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
-            if dump_ir:
-                self._dump_ir("{}.cat_opt.mlir".format(self.job_name))
+            _print_verbose(self.module, "// IR Dump After Cat Opt:") if self.verbose else ...
         return self.module
 
-    def ait_opt_pass(self, anchor_only=False, dump_ir=False):
+    def ait_opt_pass(self, anchor_only=False):
         if not anchor_only:
             builder = self._get_builder()
             builder.compile()
@@ -179,23 +177,13 @@ class IRProcessor:
                 self.byteir_cache.add(gpu_type, key, lib_path, override=False)
             self.byteir_cache._save()
             self.byteir_cache.close_cache()
-        
+
         with self.module.context:
             pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(funcNameArg, aitLibPathArg))
             pm.run(self.module.operation)
-            if dump_ir:
-                self._dump_ir("{}.ait_opt.mlir".format(self.job_name))
-        
-        return self.module, dllPaths
+            _print_verbose(self.module, "// IR Dump After Gen AIT Config:") if self.verbose else ...
 
-    def bufferize_opt_pass(self, dump_ir=False):
-        with self.module.context:
-            pass_arg = "builtin.module(byteir-bufferize-opt)"
-            pm = PassManager.parse(pass_arg)
-            pm.run(self.module.operation)
-            if dump_ir:
-                self._dump_ir("{}.bufferize_opt.mlir".format(self.job_name))
-        return self.module
+        return self.module, dllPaths
 
     def execute(self, inputs, backend="ait"):
         module = self.module.body.operations[0]
@@ -221,7 +209,7 @@ def _parallel_ait_compile(workdir: str, ir_str: str):
     module = ir.Module.parse(ir_str, context)
     assert len(module.body.operations) == 1
     func = module.body.operations[0]
-    from byteir.dialects.cat.ir_translator.ait_builder import ait_builder
-    builder = ait_builder(func, workdir=workdir, subgraph_name=func.name.value)
+    from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
+    builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value)
     builder.compile()
     builder.benchmark()

@@ -33,7 +33,7 @@ def _init_torch_tensor(AITTensor):
 
 
 # TODO: merge common part of ait & bt builder into a base class
-class ait_builder:
+class AITBuilder:
     # stores a graph
     # use stores mlir.Value to ait.Tensor map
     _value2tensor = None

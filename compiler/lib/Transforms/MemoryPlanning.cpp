@@ -60,7 +60,7 @@ size_t computeUserangeSize(const UseInterval &interval) {
 
 /// Compute the byte size of a given Value.
 size_t computeByteSize(const Value &v) {
-  auto type = v.getType().cast<ShapedType>();
+  auto type = cast<ShapedType>(v.getType());
   auto dtypeSize = (type.getElementTypeBitWidth() + 7) >> 3;
   return dtypeSize * type.getNumElements();
 }
@@ -261,7 +261,7 @@ public:
       // Add the current buffer offets to the packed infos.
       packedBuffers.emplace_back(
           currentIter->numSegments * this->alignment, allocBufferOffsets,
-          currentIter->alloc.getType().cast<MemRefType>().getMemorySpace());
+          cast<MemRefType>(currentIter->alloc.getType()).getMemorySpace());
     }
   }
 
@@ -277,8 +277,8 @@ private:
                         const AllocationInfo &allocToPack,
                         const AllocationInfo &allocToPackInto) {
 
-    if (allocToPackInto.alloc.getType().cast<MemRefType>().getMemorySpace() !=
-        allocToPack.alloc.getType().cast<MemRefType>().getMemorySpace())
+    if (cast<MemRefType>(allocToPackInto.alloc.getType()).getMemorySpace() !=
+        cast<MemRefType>(allocToPack.alloc.getType()).getMemorySpace())
       return false;
     // Check if the buffer to pack into has enough memory.
     if (allocToPackInto.numSegments < allocToPack.numSegments)
@@ -485,7 +485,7 @@ private:
 
     for (auto &packInfo : packedBuffer.allocBufferOffsets) {
       Value currentAlloc = packInfo.source;
-      auto memref = currentAlloc.getType().cast<MemRefType>();
+      auto memref = cast<MemRefType>(currentAlloc.getType());
       SmallVector<int64_t> strides;
       int64_t memrefOffset;
       if (failed(getStridesAndOffset(memref, strides, memrefOffset)))
@@ -544,9 +544,9 @@ struct MemoryPlanningPass : public MemoryPlanningBase<MemoryPlanningPass> {
       callback = [&](Value v) {
         if (this->couldReuseAllocation && !this->couldReuseAllocation(v))
           return false;
-        if (auto memType = v.getType().dyn_cast<MemRefType>()) {
+        if (auto memType = dyn_cast<MemRefType>(v.getType())) {
           if (auto space = memType.getMemorySpace()) {
-            if (auto asInt = space.dyn_cast<IntegerAttr>()) {
+            if (auto asInt = dyn_cast<IntegerAttr>(space)) {
               if (asInt.getInt() == (int)this->memSpace) {
                 return true;
               }

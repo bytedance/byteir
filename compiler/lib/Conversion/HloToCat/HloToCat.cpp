@@ -68,7 +68,7 @@ struct ConvertConv : public OpConversionPattern<mhlo::ConvolutionOp> {
     auto weightVal = adaptor.getRhs();
     // add nchw -> nhwc if needed
     if (layoutStr == "0123|0312|0312") {
-      auto inType = inputVal.getType().cast<RankedTensorType>();
+      auto inType = cast<RankedTensorType>(inputVal.getType());
       ArrayRef<int64_t> inShape = inType.getShape();
       auto imType = RankedTensorType::get(
           {inShape[0], inShape[2], inShape[3], inShape[1]},
@@ -131,7 +131,7 @@ struct ConvertMaxPooling2D : public OpConversionPattern<mhlo::ReduceWindowOp> {
   matchAndRewrite(mhlo::ReduceWindowOp op,
                   mhlo::ReduceWindowOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    int rank = op.getResultTypes()[0].cast<ShapedType>().getRank();
+    int rank = cast<ShapedType>(op.getResultTypes()[0]).getRank();
     if (rank != 4)
       return failure();
     if (op.getBaseDilations() && !isSplatValue(*op.getBaseDilations(), 1)) {
@@ -182,7 +182,7 @@ struct ConvertAvgPooling2D : public OpConversionPattern<mhlo::DivOp> {
     auto reduceOp = op.getOperands()[0].getDefiningOp<mhlo::ReduceWindowOp>();
     if (!reduceOp)
       return failure();
-    int rank = reduceOp.getResultTypes()[0].cast<ShapedType>().getRank();
+    int rank = cast<ShapedType>(reduceOp.getResultTypes()[0]).getRank();
     if (rank != 4)
       return failure();
 
@@ -220,7 +220,7 @@ struct ConvertAvgPooling2D : public OpConversionPattern<mhlo::DivOp> {
     auto constOp = op.getOperands()[1].getDefiningOp<mhlo::ConstantOp>();
     if (!constOp.getValue().isSplat())
       return failure();
-    auto attr = constOp.getValue().cast<DenseElementsAttr>();
+    auto attr = cast<DenseElementsAttr>(constOp.getValue());
     if (attr.getSplatValue<FloatAttr>().getValueAsDouble() !=
         kernelSize * kernelSize)
       return failure();
@@ -262,7 +262,7 @@ struct ConvertSlice : public OpConversionPattern<mhlo::SliceOp> {
       return failure();
     }
 
-    auto elemTy = input.getType().cast<RankedTensorType>().getElementType();
+    auto elemTy = cast<RankedTensorType>(input.getType()).getElementType();
     // AIT doesn't support slice int yet
     if (!elemTy.isa<mlir::FloatType>())
       return failure();
@@ -282,9 +282,8 @@ struct ConvertCast : public OpConversionPattern<mhlo::ConvertOp> {
   matchAndRewrite(mhlo::ConvertOp op, mhlo::ConvertOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto input = op.getOperand();
-    auto inputElemTy =
-        input.getType().cast<RankedTensorType>().getElementType();
-    auto outputElemTy = op.getType().cast<RankedTensorType>().getElementType();
+    auto inputElemTy = cast<RankedTensorType>(input.getType()).getElementType();
+    auto outputElemTy = cast<RankedTensorType>(op.getType()).getElementType();
     // only support f16/bf16/f32 => f16/bf16/f32
     if (!outputElemTy.isa<mlir::FloatType>() ||
         !inputElemTy.isa<mlir::FloatType>())
@@ -306,7 +305,7 @@ Value canFuseBroadcast(mhlo::BroadcastInDimOp broadcast, Value output,
                        ConversionPatternRewriter &rewriter) {
   bool canFuseDirectly = true;
   auto dims = broadcast.getBroadcastDimensions().getValues<int64_t>();
-  auto outputRank = output.getType().cast<ShapedType>().getRank();
+  auto outputRank = cast<ShapedType>(output.getType()).getRank();
   for (size_t i = 0; i < dims.size(); ++i) {
     canFuseDirectly &= (dims[i] == (outputRank - dims.size() + i));
   }
@@ -317,7 +316,7 @@ Value canFuseBroadcast(mhlo::BroadcastInDimOp broadcast, Value output,
   bool canFuseWithReshape = true;
   llvm::SmallVector<int64_t> resShape(outputRank, 1);
   auto inputShape =
-      broadcast.getOperand().getType().cast<ShapedType>().getShape();
+      cast<ShapedType>(broadcast.getOperand().getType()).getShape();
   for (size_t i = 0; i < dims.size() - 1; ++i) {
     canFuseWithReshape &= (dims[i + 1] > dims[i]); // remains dim ordering
   }
@@ -326,8 +325,7 @@ Value canFuseBroadcast(mhlo::BroadcastInDimOp broadcast, Value output,
   for (size_t i = 0; i < dims.size(); ++i) {
     resShape[dims[i]] = inputShape[i];
   }
-  auto outputElemTy =
-      output.getType().cast<RankedTensorType>().getElementType();
+  auto outputElemTy = cast<RankedTensorType>(output.getType()).getElementType();
   auto resultTy = RankedTensorType::get(resShape, outputElemTy);
   auto reshape = rewriter.create<mhlo::ReshapeOp>(broadcast.getLoc(), resultTy,
                                                   broadcast.getOperand());
@@ -345,7 +343,7 @@ struct ConvertBinaryAdd : public OpConversionPattern<mhlo::AddOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -386,7 +384,7 @@ struct ConvertBinaryMul : public OpConversionPattern<mhlo::MulOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -427,7 +425,7 @@ struct ConvertBinaryDiv : public OpConversionPattern<mhlo::DivOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -468,7 +466,7 @@ struct ConvertBinarySub : public OpConversionPattern<mhlo::SubtractOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -509,7 +507,7 @@ struct ConvertBinaryPow : public OpConversionPattern<mhlo::PowOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -550,7 +548,7 @@ struct ConvertBinaryMax : public OpConversionPattern<mhlo::MaxOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -591,7 +589,7 @@ struct ConvertNegate : public OpConversionPattern<mhlo::NegOp> {
                   ConversionPatternRewriter &rewriter) const override {
     if (!isa<func::FuncOp>(op->getParentOp()))
       return failure();
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -601,7 +599,7 @@ struct ConvertNegate : public OpConversionPattern<mhlo::NegOp> {
         op.getLoc(), constType,
         DenseElementsAttr::get(
             constType,
-            APFloat(outputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
+            APFloat(cast<mlir::FloatType>(outputElemTy).getFloatSemantics(),
                     -1)));
 
     auto opType = rewriter.getStringAttr("mul");
@@ -622,7 +620,7 @@ struct ConvertUnaryTanh : public OpConversionPattern<mhlo::TanhOp> {
   matchAndRewrite(mhlo::TanhOp op, mhlo::TanhOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto opType = rewriter.getStringAttr("tanh");
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -643,7 +641,7 @@ struct ConvertUnaryLogistic : public OpConversionPattern<mhlo::LogisticOp> {
   matchAndRewrite(mhlo::LogisticOp op, mhlo::LogisticOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto opType = rewriter.getStringAttr("log");
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -664,7 +662,7 @@ struct ConvertUnarySqrt : public OpConversionPattern<mhlo::SqrtOp> {
   matchAndRewrite(mhlo::SqrtOp op, mhlo::SqrtOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto opType = rewriter.getStringAttr("sqrt");
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -686,7 +684,7 @@ struct ConvertUnaryRsqrt : public OpConversionPattern<mhlo::RsqrtOp> {
                   ConversionPatternRewriter &rewriter) const override {
 
     auto opType = rewriter.getStringAttr("sqrt");
-    auto outputTy = op.getType().cast<RankedTensorType>();
+    auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
     if (!outputElemTy.isa<mlir::FloatType>())
       return failure();
@@ -698,7 +696,7 @@ struct ConvertUnaryRsqrt : public OpConversionPattern<mhlo::RsqrtOp> {
         op.getLoc(), constType,
         DenseElementsAttr::get(
             constType,
-            APFloat(outputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
+            APFloat(cast<mlir::FloatType>(outputElemTy).getFloatSemantics(),
                     1)));
 
     auto divType = rewriter.getStringAttr("div");
@@ -776,10 +774,10 @@ struct ConvertSoftmax : public OpConversionPattern<mhlo::CustomCallOp> {
     if (adaptor.getCallTargetName() != getSoftmaxName())
       return failure();
     DictionaryAttr byteirAttrs =
-        op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
     if (!byteirAttrs)
       return failure();
-    auto axisAttr = byteirAttrs.get("axis").cast<IntegerAttr>();
+    auto axisAttr = cast<IntegerAttr>(byteirAttrs.get("axis"));
     auto newOp = rewriter.create<cat::SoftmaxOp>(
         op.getLoc(), op.getResultTypes()[0], op.getOperands()[0], axisAttr);
     rewriter.replaceOp(op, newOp.getResult());
@@ -796,7 +794,7 @@ struct ConvertLayerNorm : public OpConversionPattern<mhlo::CustomCallOp> {
     if (adaptor.getCallTargetName() != getLayerNormName())
       return failure();
     DictionaryAttr byteirAttrs =
-        op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
     if (!byteirAttrs)
       return failure();
     if (!op.getResult(1).use_empty())
@@ -859,9 +857,9 @@ struct ConvertBatchMatmul : public OpConversionPattern<mhlo::DotGeneralOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Value lhs = adaptor.getLhs();
     Value rhs = adaptor.getRhs();
-    auto lrank = lhs.getType().cast<ShapedType>().getRank();
-    auto rrank = rhs.getType().cast<ShapedType>().getRank();
-    auto orank = op.getResult().getType().cast<ShapedType>().getRank();
+    auto lrank = cast<ShapedType>(lhs.getType()).getRank();
+    auto rrank = cast<ShapedType>(rhs.getType()).getRank();
+    auto orank = cast<ShapedType>(op.getResult().getType()).getRank();
     if (lrank != rrank || rrank != orank || lrank != 3)
       return failure();
     auto dimNumbers = adaptor.getDotDimensionNumbers();

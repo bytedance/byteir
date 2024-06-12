@@ -51,7 +51,7 @@ void ReplaceOp(Operation *old_op, Operation *new_op) {
 
 void ReplaceTFTypeToAceType(SmallVector<Type> &types, MLIRContext *ctx) {
   for (Type &ty : types) {
-    auto tensor_type = ty.dyn_cast<mlir::TensorType>();
+    auto tensor_type = dyn_cast<mlir::TensorType>(ty);
     if (tensor_type) {
       if (tensor_type.getElementType().isa<TF::StringType>()) {
         ty = tensor_type.cloneWith(std::nullopt, ace::StringType::get(ctx));
@@ -104,7 +104,7 @@ void LowerToAceCustomCall(Operation *op) {
 }
 
 void LowerToAceConstant(TF::ConstOp op) {
-  ShapedType ty = op.getOutput().getType().dyn_cast<ShapedType>();
+  ShapedType ty = dyn_cast<ShapedType>(op.getOutput().getType());
   // TODO(lyq): handle resource type
   if (!ty || !ty.getElementType().isa<TF::StringType>()) {
     return;
@@ -121,7 +121,7 @@ void LowerToAceConstant(TF::ConstOp op) {
 }
 
 void LowerToAceReshape(TF::SqueezeOp op) {
-  ShapedType ty = op.getOutput().getType().dyn_cast<ShapedType>();
+  ShapedType ty = dyn_cast<ShapedType>(op.getOutput().getType());
   // TODO(lyq): handle resource type
   if (!ty || !ty.getElementType().isa<TF::StringType>() ||
       !ty.hasStaticShape()) {
@@ -154,7 +154,7 @@ struct TfFallbackToCustomCallPass
     func::FuncOp funcOp = getOperation();
 
     auto check_is_string_or_resource = [](Type t) {
-      auto tensor_type = t.dyn_cast<mlir::TensorType>();
+      auto tensor_type = dyn_cast<mlir::TensorType>(t);
       Type elementType =
           tensor_type == nullptr ? t : tensor_type.getElementType();
       return elementType.isa<TF::StringType>() ||

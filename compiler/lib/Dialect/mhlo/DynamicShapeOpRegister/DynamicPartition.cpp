@@ -61,7 +61,7 @@ void mlir::registerDynamicPartitionInferBoundedReturnTypeComponents() {
                                 .getAs<IntegerAttr>("num_partitions")
                                 .getInt();
         if (ShapedType shapedType =
-                operands[0].getType().dyn_cast_or_null<ShapedType>()) {
+                dyn_cast_or_null<ShapedType>(operands[0].getType())) {
           inferredReturnTypes.append(numPartition, shapedType);
           return success();
         }

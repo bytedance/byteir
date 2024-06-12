@@ -43,7 +43,7 @@ bool IsAliasOp(Operation *op) { return llvm::isa<mlir::byre::AliasOp>(op); }
 // FIXME: How to handle i1 alias offset
 size_t GetAliasOffsetInByte(Operation *op) {
   auto offset = llvm::cast<mlir::byre::AliasOp>(op).getOffset();
-  if (auto memref = op->getOperand(0).getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(op->getOperand(0).getType())) {
     unsigned int element_byte = GetElementTypeByte(memref);
     return static_cast<size_t>(offset) * static_cast<size_t>(element_byte);
   }
@@ -62,7 +62,7 @@ bool IsAllocOp(Operation *op) {
 
 bool IsDynamicAllocOp(Operation *op, std::vector<mlir::Value> &dynamicSizes) {
   if (IsAllocOp(op)) {
-    if (auto memref = op->getResult(0).getType().dyn_cast<MemRefType>()) {
+    if (auto memref = dyn_cast<MemRefType>(op->getResult(0).getType())) {
       if (!memref.hasStaticShape()) {
         // TODO: this depends on the dynamic sizes are the first N operands
         dynamicSizes.insert(dynamicSizes.end(), op->operand_begin(),

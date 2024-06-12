@@ -14,7 +14,6 @@
 
 import numpy as np
 from byteir import ir
-import torch
 from subprocess import PIPE, Popen
 
 def mlir_type_to_np_dtype(mlir_type):
@@ -98,7 +97,8 @@ def mlir_type_to_torch_str(mlir_type) -> str:
     }
     return _map.get(str(mlir_type), None)
 
-def torch_dtype_from_str(dtype_name: str) -> torch.dtype:
+def torch_dtype_from_str(dtype_name: str):
+    import torch
     _map = {
         "float": torch.float,
         "bfloat16": torch.bfloat16,
@@ -134,7 +134,7 @@ def get_gpu_type():
     except Exception:
         return None
 
-def detect_cuda_with_nvidia_smi():
+def detect_gpu_arch_with_nvidia_smi():
     try:
         proc = Popen(
             ["nvidia-smi", "--query-gpu=gpu_name", "--format=csv"],

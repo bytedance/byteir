@@ -86,7 +86,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
         visited_ptrs.insert(arg_ptr);
 
         // TODO move this func to static func
-        if (auto memref = block_arg.getType().dyn_cast<MemRefType>()) {
+        if (auto memref = llvm::dyn_cast<MemRefType>(block_arg.getType())) {
           // store all block_arg in tensor_to_id and tensors
           graph_info_.tensor_to_id.emplace(arg_ptr, graph_info_.tensors.size());
           graph_info_.tensors.push_back(arg_ptr);
@@ -115,11 +115,9 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
             if (arg_attrs.get(mlir::byre::ByreDialect::
                                   getEntryPointFuncArgWeightValueAttrName())) {
               auto dtype = ConvertMLIRTypeToDType(memref.getElementType());
-              auto weight_attr =
-                  arg_attrs
-                      .get(mlir::byre::ByreDialect::
-                               getEntryPointFuncArgWeightValueAttrName())
-                      .dyn_cast_or_null<DenseElementsAttr>();
+              auto weight_attr = llvm::dyn_cast_or_null<DenseElementsAttr>(
+                  arg_attrs.get(mlir::byre::ByreDialect::
+                                    getEntryPointFuncArgWeightValueAttrName()));
               // If mlir's data storage changed, fix here like i1 dtype
               if (weight_attr == nullptr) {
                 return Status(BRT, FAIL,
@@ -131,7 +129,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
               }
 
               if (dtype == DTypeEnum::Bool) {
-                auto dense_int_attr = weight_attr.cast<DenseIntElementsAttr>();
+                auto dense_int_attr = cast<DenseIntElementsAttr>(weight_attr);
                 std::vector<char> host_data;
                 host_data.reserve(allocate_size);
                 for (APInt &&i : dense_int_attr) {
@@ -191,7 +189,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
   graph_.IterateNode([&](Operation *op) {
     std::vector<Value> dynamic_sizes;
     if (IsDynamicAllocOp(op, dynamic_sizes)) {
-      auto memref = op->getResult(0).getType().cast<MemRefType>();
+      auto memref = cast<MemRefType>(op->getResult(0).getType());
       if (static_cast<int64_t>(dynamic_sizes.size()) !=
           memref.getNumDynamicDims()) {
         status_internal =
@@ -259,7 +257,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
         }
         for (size_t i = 0; i < memory_effects_val.size(); i++) {
           auto memory_effect_attr =
-              memory_effects_val[i].cast<byre::MemoryEffectAttr>().getValue();
+              cast<byre::MemoryEffectAttr>(memory_effects_val[i]).getValue();
           if (memory_effect_attr == byre::MemoryEffect::Read) {
             // Read from operand, update dependency_graph
             if (dependent_op.count(op->getOperand(i)) > 0) {
@@ -314,7 +312,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
   std::unordered_map<Operation *, int> op_to_id_map;
   // create op kernel, generate tensor id and mapping IR value to it
   graph_.IterateNode([&](Operation *op) {
-    if (auto byre_op = dyn_cast<byre::ByreOp>(op)) {
+    if (auto byre_op = llvm::dyn_cast<byre::ByreOp>(op)) {
       const std::string &key = ByREHandle::GetKey(byre_op);
 
       bool found = false;
@@ -354,7 +352,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
           }
           visited_ptrs.insert(arg_ptr);
 
-          if (auto memref = op_arg.getType().dyn_cast<MemRefType>()) {
+          if (auto memref = llvm::dyn_cast<MemRefType>(op_arg.getType())) {
 
             if (cur_allocator != nullptr &&
                 visited_allocator_ptrs.count(cur_allocator) == 0) {
@@ -474,7 +472,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
 
   // compute offset for the rest intermediate tensors
   graph_.IterateNode([&](Operation *op) {
-    if (auto byre_op = dyn_cast<byre::ByreOp>(op)) {
+    if (auto byre_op = llvm::dyn_cast<byre::ByreOp>(op)) {
       const std::string &key = ByREHandle::GetKey(byre_op);
       for (size_t arg_idx = 0; arg_idx < op->getNumOperands(); arg_idx++) {
         auto op_arg = op->getOperand(arg_idx);
@@ -506,7 +504,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
         }
 
         // Find offset of intermeidate
-        if (auto memref = op_arg.getType().dyn_cast<MemRefType>()) {
+        if (auto memref = llvm::dyn_cast<MemRefType>(op_arg.getType())) {
           auto defining_op = op_arg.getDefiningOp();
           if (IsLocalAlias(defining_op)) {
             // handle local alias

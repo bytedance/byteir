@@ -13,7 +13,7 @@ if __name__ == "__main__":
                         default="cuda",
                         choices=["cuda", "cuda_with_ait", "cuda_with_ait_aggressive", "cpu"],
                         help="target device name")
-    parser.add_argument("--gpu_type",
+    parser.add_argument("--gpu_arch",
                         type=str,
                         default="local",
                         choices=["local", "sm_70", "sm_75", "sm_80", "sm_86", "sm_90"],
@@ -28,7 +28,7 @@ if __name__ == "__main__":
                    args.output_host_mlir_path,
                    entry_func=args.entry_func,
                    target=args.target,
-                   gpu_type=args.gpu_type,
+                   gpu_arch=args.gpu_arch,
                    byre_serial_version=args.serial_version,
                    verbose=args.verbose,
                    parallelism=args.ait_parallelism,

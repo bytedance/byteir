@@ -43,8 +43,8 @@ void LaceDialect::initialize() {
 //===----------------------------------------------------------------------===//
 LogicalResult ReshapeOp::verify() {
   // FIXME: only identify layout is supported now
-  auto sourceMemRef = getSource().getType().cast<MemRefType>();
-  auto targetMemRef = getTarget().getType().cast<MemRefType>();
+  auto sourceMemRef = cast<MemRefType>(getSource().getType());
+  auto targetMemRef = cast<MemRefType>(getTarget().getType());
 
   if (!sourceMemRef.getLayout().isIdentity() ||
       !targetMemRef.getLayout().isIdentity())
@@ -82,8 +82,8 @@ Wrapper operator*(Wrapper a, int64_t b) {
 
 LogicalResult SliceOp::verify() {
   // FIXME: only identify layout is supported now
-  auto sourceMemRef = getSource().getType().cast<MemRefType>();
-  auto targetMemRef = getTarget().getType().cast<MemRefType>();
+  auto sourceMemRef = cast<MemRefType>(getSource().getType());
+  auto targetMemRef = cast<MemRefType>(getTarget().getType());
 
   if (!sourceMemRef.getLayout().isIdentity() ||
       !targetMemRef.getLayout().isIdentity())
@@ -155,7 +155,7 @@ static MemRefType inferResultTypeOfSlice(MemRefType sourceMemRefType,
 }
 
 int64_t lace::SliceOp::getOffsetElem() {
-  auto sourceMemRef = getSource().getType().cast<MemRefType>();
+  auto sourceMemRef = cast<MemRefType>(getSource().getType());
   SmallVector<int64_t> startIndices, limitIndices, strides;
   getValuesFromDenseIntElementsAttr(getStartIndices(), startIndices);
   getValuesFromDenseIntElementsAttr(getLimitIndices(), limitIndices);

@@ -78,7 +78,7 @@ getBMMLayoutString(mhlo::DotDimensionNumbersAttr dimNumbers) {
 
 static inline StringAttr getPoolingType(mhlo::ReduceWindowOp reduceOp,
                                         ConversionPatternRewriter &rewriter) {
-  auto rank = reduceOp.getResultTypes()[0].cast<ShapedType>().getRank();
+  auto rank = cast<ShapedType>(reduceOp.getResultTypes()[0]).getRank();
   if (Operation *op = reduceOp.getReductionOp(0)) {
     if (isa<mhlo::MinOp>(*op) && rank == 4)
       return rewriter.getStringAttr("min2d");

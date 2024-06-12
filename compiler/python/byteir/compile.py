@@ -8,7 +8,7 @@ from .passmanager import PassManager
 from .dialects.cat import IRProcessor
 from .dialects.builtin import ModuleOp
 from ._backend_registry import register_byteir_compiler_backend, get_target_device, look_up_backend
-from .utils import detect_cuda_with_nvidia_smi
+from .utils import detect_gpu_arch_with_nvidia_smi
 
 import byteir
 
@@ -29,8 +29,8 @@ class CompileOptions:
                  output_file_prefix: str,
                  output_type: OutputType = OutputType.MLIR,
                  entry_func: str = "main",
-                 gpu_type: str = "local",
-                 cpu_type: str = '', # cpu arch ?
+                 gpu_arch: str = "local",
+                 cpu_arch: str = '', # cpu arch ?
                  byre_serial_version: str = "1.0.0",
                  verbose: bool = False,
                  name: str = "model",
@@ -43,8 +43,8 @@ class CompileOptions:
         self.output_file_prefix = output_file_prefix
         self.output_type = output_type
         self.entry_func = entry_func
-        self.gpu_type = gpu_type
-        self.cpu_type = cpu_type
+        self.gpu_arch = gpu_arch
+        self.cpu_arch = cpu_arch
         self.byre_serial_version = byre_serial_version
         self.verbose = verbose
         self.name = name
@@ -60,7 +60,7 @@ def _compile_cuda(
     target = compile_options.target
     module = compile_options.module
     entry_func = compile_options.entry_func
-    gpu_type = compile_options.gpu_type
+    gpu_arch = compile_options.gpu_arch
     verbose = compile_options.verbose
 
     output_file_dir = compile_options.output_dir
@@ -116,12 +116,12 @@ def _compile_cuda(
     device_module = ir.Module.parse(module_str, context)
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_type}" + "})").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_arch}" + "})").run(device_module.operation)
         else:
-            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_type}"  + "})").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_arch}"  + "})").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx file
-    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_type)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
 
     # create host mlir
     with context:
@@ -140,7 +140,7 @@ def _compile_cuda_with_ait_impl(
     target = "cuda"
     module = compile_options.module
     entry_func = compile_options.entry_func
-    gpu_type = compile_options.gpu_type
+    gpu_arch = compile_options.gpu_arch
     verbose = compile_options.verbose
     name = compile_options.name
     parallelism = compile_options.parallelism
@@ -164,19 +164,10 @@ def _compile_cuda_with_ait_impl(
     processor.module = module
 
     processor.preprocess_pass()
-    _print_verbose(processor.module, "// IR Dump After Cat Preprocess:") if verbose else ...
-    with context:
-        processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
-        _print_verbose(processor.module, "// IR Dump After Cat Opt:") if verbose else ...
-    # clustering
-    with context:
-        processor.hlo_opt_pass(outline_single_elemwise_op=True, aggressive_mode=aggressive_mode)
-        _print_verbose(processor.module, "// IR Dump After Hlo Opt:") if verbose else ...
-    # generate ait .so for subgraphs
-    dll_paths = []
-    with context:
-        _, dll_paths = processor.ait_opt_pass(anchor_only=True)
-        _print_verbose(processor.module, "// IR Dump After AIT Opt:") if verbose else ...
+    processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
+    processor.hlo_opt_pass(outline_single_elemwise_op=True, aggressive_mode=aggressive_mode)
+    # generate ait lib .so for subgraphs
+    _, dll_paths = processor.ait_opt_pass(anchor_only=True)
     # move .so to output dir
     for dll_path in dll_paths:
         print("cp -p {} {}".format(dll_path, output_file_dir))
@@ -223,12 +214,12 @@ def _compile_cuda_with_ait_impl(
     device_module = ir.Module.parse(module_str, context)
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_type}" + "})").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_arch}" + "})").run(device_module.operation)
         else:
-            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_type}" + "})").run(device_module.operation)
+            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_arch}" + "})").run(device_module.operation)
         _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
     # write to output device ptx
-    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_type)
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
 
     with context:
         PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
@@ -264,7 +255,7 @@ def _compile_cpu(
     target = compile_options.target
     module = compile_options.module
     entry_func = compile_options.entry_func
-    cpu_type = compile_options.cpu_type
+    cpu_arch = compile_options.cpu_arch
     verbose = compile_options.verbose
 
     output_file_dir = compile_options.output_dir
@@ -345,7 +336,7 @@ def compile(
     output_file_path: str,
     entry_func: str = "main",
     target: str = "cuda",
-    gpu_type: str = "local",
+    gpu_arch: str = "local",
     byre_serial_version: str = "1.0.0",
     verbose: bool = False,
     parallelism: int = 1,
@@ -354,12 +345,12 @@ def compile(
 ) -> None:
     _device = get_target_device(target)
     ### optional detecting gpu type from nvidia-smi
-    if _device == "cuda" and gpu_type == "local":
-        local_gpu = detect_cuda_with_nvidia_smi()
-        assert local_gpu is not None, "seems it doesn't have gpu on local"
-        gpu_type = local_gpu
+    if _device == "cuda" and gpu_arch == "local":
+        local_gpu_arch = detect_gpu_arch_with_nvidia_smi()
+        assert local_gpu_arch is not None, "seems it doesn't have gpu on local"
+        gpu_arch = local_gpu_arch
     if _device == "cuda":
-        print(f"Compiling PTX to {gpu_type}")
+        print(f"Compiling PTX to {gpu_arch}")
     elif _device  == "cpu":
         print(f"Compiling to cpu backend")
 
@@ -397,8 +388,8 @@ def compile(
         output_file_prefix,
         output_type=output_type,
         entry_func=entry_func,
-        gpu_type=gpu_type,
-        cpu_type='',
+        gpu_arch=gpu_arch,
+        cpu_arch='',
         byre_serial_version=byre_serial_version,
         verbose=verbose,
         parallelism=parallelism,

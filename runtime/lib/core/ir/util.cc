@@ -40,7 +40,7 @@ uint64_t GetStaticBytes(mlir::MemRefType memref) {
 // Get total bytes of a value if it is a memref
 // Return std::nullopt if a value is not a memref
 std::optional<uint64_t> GetStaticBytes(mlir::Value val) {
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(val.getType())) {
     return GetStaticBytes(memref);
   }
   return std::nullopt;
@@ -48,21 +48,21 @@ std::optional<uint64_t> GetStaticBytes(mlir::Value val) {
 
 // Get static shape in IR, negative value for unknown
 std::optional<llvm::ArrayRef<int64_t>> GetStaticShape(mlir::Value val) {
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(val.getType())) {
     return memref.getShape();
   }
   return std::nullopt;
 }
 
 std::optional<uint64_t> GetElementTypeByte(mlir::Value val) {
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(val.getType())) {
     return GetElementTypeByte(memref);
   }
   return std::nullopt;
 }
 
 std::optional<size_t> GetRank(mlir::Value val) {
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(val.getType())) {
     return static_cast<size_t>(memref.getRank());
   }
   return std::nullopt;
@@ -70,16 +70,15 @@ std::optional<size_t> GetRank(mlir::Value val) {
 
 // Get space in IR, empty value for unknown
 std::string GetSpace(mlir::MemRefType memref) {
-  if (auto str_attr = memref.getMemorySpace().dyn_cast_or_null<StringAttr>()) {
+  if (auto str_attr = dyn_cast_or_null<StringAttr>(memref.getMemorySpace())) {
     return str_attr.str();
   }
   return "";
 }
 
 std::optional<std::string> GetSpace(mlir::Value val) {
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
-    if (auto str_attr =
-            memref.getMemorySpace().dyn_cast_or_null<StringAttr>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(val.getType())) {
+    if (auto str_attr = dyn_cast_or_null<StringAttr>(memref.getMemorySpace())) {
       return str_attr.str();
     }
     return std::string();
@@ -89,7 +88,7 @@ std::optional<std::string> GetSpace(mlir::Value val) {
 
 DTypeEnum GetElementDTypeEnum(mlir::Value val) {
   Type elementType;
-  if (auto memref = val.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(val.getType())) {
     elementType = memref.getElementType();
   } else {
     return DTypeEnum::Invalid;
@@ -129,13 +128,13 @@ std::optional<int64_t> SizeToDimension(llvm::ArrayRef<int64_t> shape,
 }
 
 int64_t GetIntegerAttrValue(mlir::Attribute attr) {
-  mlir::IntegerAttr integerAttr = attr.dyn_cast<mlir::IntegerAttr>();
+  mlir::IntegerAttr integerAttr = dyn_cast<mlir::IntegerAttr>(attr);
   BRT_ENFORCE(integerAttr, "must be Integer Attribute");
   return integerAttr.getValue().getSExtValue();
 }
 
 bool IsComptaibleShapeOf(const std::vector<int64_t> &shape, mlir::Value value) {
-  if (auto memref = value.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(value.getType())) {
     return verifyCompatibleShape(shape, memref.getShape()).succeeded();
   }
   return false;

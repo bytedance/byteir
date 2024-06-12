@@ -60,7 +60,7 @@ FailureOr<unsigned> getIteratorTypeIndex(Operation *op, unsigned operandIdx,
   if (failed(affineMap))
     return failure();
   AffineDimExpr affineExpr =
-      affineMap->getResult(axis).dyn_cast<AffineDimExpr>();
+      dyn_cast<AffineDimExpr>(affineMap->getResult(axis));
   if (!affineExpr)
     return failure();
   return affineExpr.getPosition();
@@ -74,8 +74,7 @@ FailureOr<unsigned> getMatchedAxis(Operation *op, unsigned operandIdx,
   // affineMap is guaranteed to not be nullptr
   unsigned numResults = affineMap->getNumResults();
   for (unsigned i = 0; i < numResults; ++i) {
-    AffineDimExpr affineExpr =
-        affineMap->getResult(i).dyn_cast<AffineDimExpr>();
+    AffineDimExpr affineExpr = dyn_cast<AffineDimExpr>(affineMap->getResult(i));
     if (affineExpr.getPosition() == position)
       return i;
   }
@@ -216,15 +215,14 @@ struct AllGatherMoveDownPattern : public OpRewritePattern<ccl::AllGatherOp> {
         checkValidInputsAndOutputs(user, use);
     uint64_t axis = op.getAxis();
     Value allGatherSrc = op.getSrc();
-    ShapedType allGatherSrcType = allGatherSrc.getType().cast<ShapedType>();
+    ShapedType allGatherSrcType = cast<ShapedType>(allGatherSrc.getType());
     ArrayRef<int64_t> allGatherSrcShape = allGatherSrcType.getShape();
     int64_t gatherSrcDimSize = allGatherSrcShape[axis];
-    ShapedType userResultType = user->getResult(0).getType().cast<ShapedType>();
+    ShapedType userResultType = cast<ShapedType>(user->getResult(0).getType());
     SmallVector<int64_t> newUserResultShape(userResultType.getShape());
     newUserResultShape[*matchedGatherDim] = gatherSrcDimSize;
-    ShapedType newUserResultType = userResultType.cast<ShapedType>()
-                                       .clone(newUserResultShape)
-                                       .cast<ShapedType>();
+    ShapedType newUserResultType = cast<ShapedType>(
+        cast<ShapedType>(userResultType).clone(newUserResultShape));
 
     IRMapping bvm;
     if (!validityAndProducer.fillOp) {
@@ -285,9 +283,9 @@ struct FuseConsumerIntoForeachThreadPattern
       return failure();
     Operation *user = *regionOutput.getUsers().begin();
     RankedTensorType userResultType =
-        user->getResult(0).getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(user->getResult(0).getType());
     RankedTensorType userOperandType =
-        regionOutput.getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(regionOutput.getType());
     if (userResultType != userOperandType) {
       DBGS() << "[FuseConsumerIntoForeachThreadPattern] user's operand and "
                 "result types don't match.\n";

@@ -72,7 +72,7 @@ mlir::reshapeSplatElementsAttr(ElementsAttr attr,
 
 std::optional<ElementsAttr>
 mlir::reshapeSplatElementsAttr(ElementsAttr attr, ShapedType newShape) {
-  if (auto splat = attr.dyn_cast_or_null<SplatElementsAttr>()) {
+  if (auto splat = dyn_cast_or_null<SplatElementsAttr>(attr)) {
     return reshapeDenseElementsAttr(splat, newShape);
   }
   return std::nullopt;

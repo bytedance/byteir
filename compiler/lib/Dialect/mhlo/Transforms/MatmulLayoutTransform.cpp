@@ -50,7 +50,7 @@ LogicalResult tryRewrite(mhlo::DotOp op, OpBuilder builder,
   int64_t lhsContractingDimension = 1;
   int64_t rhsContractingDimension = 0;
   if (targetLayout[0] != defaultLayout[0]) {
-    auto lhsType = lhs.getType().cast<RankedTensorType>();
+    auto lhsType = cast<RankedTensorType>(lhs.getType());
     assert(lhsType.getRank() == 2);
     auto shape = lhsType.getShape();
     RankedTensorType newType =
@@ -62,7 +62,7 @@ LogicalResult tryRewrite(mhlo::DotOp op, OpBuilder builder,
     lhs = trans_op.getResult();
   }
   if (targetLayout[1] != defaultLayout[1]) {
-    auto rhsType = rhs.getType().cast<RankedTensorType>();
+    auto rhsType = cast<RankedTensorType>(rhs.getType());
     assert(rhsType.getRank() == 2);
     auto shape = rhsType.getShape();
     RankedTensorType newType =
@@ -93,7 +93,7 @@ LogicalResult tryRewrite(mhlo::DotOp op, OpBuilder builder,
       config = mlir::StringAttr::get(builder.getContext(), "km,kn->nm");
     if (targetLayout[0] == 'c' && targetLayout[1] == 'c')
       config = mlir::StringAttr::get(builder.getContext(), "km,nk->nm");
-    auto outType = op.getType().cast<RankedTensorType>();
+    auto outType = cast<RankedTensorType>(op.getType());
     auto outShape = outType.getShape();
     auto transposeType = RankedTensorType::get({outShape[1], outShape[0]},
                                                outType.getElementType());

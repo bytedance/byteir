@@ -130,7 +130,7 @@ struct DTypeOpConversionPattern : public RewritePattern {
         auto oldType = op->getOperand(i).getType();
         assert(ioTy.first[i]);
         auto newTy =
-            oldType.cast<TensorType>().cloneWith(std::nullopt, ioTy.first[i]);
+            cast<TensorType>(oldType).cloneWith(std::nullopt, ioTy.first[i]);
         auto convert = rewriter.create<mhlo::ConvertOp>(op->getLoc(), newTy,
                                                         op->getOperand(i));
         convert->setAttr(getConvertAnchorName(), UnitAttr::get(context));
@@ -138,8 +138,8 @@ struct DTypeOpConversionPattern : public RewritePattern {
         if (hasRegion) {
           Block &body = op->getRegion(0).front();
           auto arg = body.getArgument(i);
-          auto newArgTy = arg.getType().cast<TensorType>().cloneWith(
-              std::nullopt, ioTy.first[i]);
+          auto newArgTy = cast<TensorType>(arg.getType())
+                              .cloneWith(std::nullopt, ioTy.first[i]);
           arg.setType(newArgTy);
         }
       }
@@ -150,8 +150,8 @@ struct DTypeOpConversionPattern : public RewritePattern {
       if (originalTy != ioTy.second[i]) {
         changed = true;
         auto oldTy = op->getResult(i).getType();
-        auto newTy = op->getResult(i).getType().cast<TensorType>().cloneWith(
-            std::nullopt, ioTy.second[i]);
+        auto newTy = cast<TensorType>(op->getResult(i).getType())
+                         .cloneWith(std::nullopt, ioTy.second[i]);
         op->getResult(i).setType(newTy);
         auto convert = rewriter.create<mhlo::ConvertOp>(op->getLoc(), oldTy,
                                                         op->getResult(i));
@@ -161,8 +161,8 @@ struct DTypeOpConversionPattern : public RewritePattern {
           Block &body = op->getRegion(0).front();
           auto returnOp = body.getTerminator();
           auto res = returnOp->getOperand(i);
-          res.setType(res.getType().cast<TensorType>().cloneWith(
-              std::nullopt, ioTy.second[i]));
+          res.setType(cast<TensorType>(res.getType())
+                          .cloneWith(std::nullopt, ioTy.second[i]));
         }
       }
     }

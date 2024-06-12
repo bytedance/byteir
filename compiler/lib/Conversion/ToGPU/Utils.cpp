@@ -57,13 +57,13 @@ static bool isAliasOp(Operation &op) {
 
 bool mlir::isGPUGlobalAlloc(Operation &op) {
   if (auto alloc = dyn_cast<memref::AllocOp>(op)) {
-    auto memrefTy = alloc.getResult().getType().dyn_cast<MemRefType>();
+    auto memrefTy = dyn_cast<MemRefType>(alloc.getResult().getType());
     auto spaceAttr = memrefTy.getMemorySpace();
     if (spaceAttr == nullptr) {
       return true;
     }
 
-    if (auto intAttr = spaceAttr.dyn_cast<IntegerAttr>()) {
+    if (auto intAttr = dyn_cast<IntegerAttr>(spaceAttr)) {
       return intAttr.getInt() == 1;
     }
   }
@@ -142,7 +142,7 @@ gpu::GPUFuncOp mlir::cloneFuncToGPUFunc(OpBuilder &builder, func::FuncOp func,
     if (!usedGlobalAlloc.contains(alloc)) {
       oldWorkgroupValue.push_back(alloc.getResult());
       auto neweTy = cloneMemRefTypeWithMemSpace(
-          alloc.getResult().getType().dyn_cast<MemRefType>(), workgroupAttr);
+          dyn_cast<MemRefType>(alloc.getResult().getType()), workgroupAttr);
       workgroupAttrTypes.push_back(neweTy);
     }
   }

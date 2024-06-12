@@ -38,11 +38,11 @@ void mlir::registerBatchMatMulInferReturnTypeComponents() {
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         Value lhs = operands[0];
         Value rhs = operands[1];
-        auto lhsType = lhs.getType().dyn_cast<RankedTensorType>();
+        auto lhsType = dyn_cast<RankedTensorType>(lhs.getType());
         if (!lhsType || !lhsType.hasStaticShape()) {
           return failure();
         }
-        auto rhsType = rhs.getType().dyn_cast<RankedTensorType>();
+        auto rhsType = dyn_cast<RankedTensorType>(rhs.getType());
         if (!rhsType || !rhsType.hasStaticShape()) {
           return failure();
         }
@@ -65,7 +65,7 @@ void mlir::registerBatchMatMulInferReturnTypeComponents() {
 
         Type type =
             RankedTensorType::get(resShape, IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
 }
