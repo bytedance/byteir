@@ -113,12 +113,12 @@ class ByteIRFunction:
 
         results, outputs_ptr = self.get_out_tensors(device)
 
-        inputOffsetAndArg = []
-        outputOffsetAndArg = []
-        for offset, input_ptr in zip(self.input_arg_offsets, new_inputs_ptr):
-            inputOffsetAndArg.append((offset, input_ptr))
-        for offset, output_ptr in zip(self.output_arg_offsets, outputs_ptr):
-            outputOffsetAndArg.append((offset, output_ptr))
+        inputOffsetAndArg = [None] * len(new_inputs_ptr)
+        outputOffsetAndArg = [None] * len(outputs_ptr)
+        for idx, (offset, input_ptr) in enumerate(zip(self.input_arg_offsets, new_inputs_ptr)):
+            inputOffsetAndArg[idx] = (offset, input_ptr)
+        for idx, (offset, output_ptr) in enumerate(zip(self.output_arg_offsets, outputs_ptr)):
+            outputOffsetAndArg[idx] = (offset, output_ptr)
         self._req.bind_args(inputOffsetAndArg)
         self._req.bind_args(outputOffsetAndArg)
         self._req.finish_io_binding()
