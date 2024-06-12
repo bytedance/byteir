@@ -29,8 +29,8 @@ public:
 
   PDLPatternHooksInterface(Dialect *dialect) : Base(dialect) {}
 
-  void add(StringRef name, PDLConstraintFunction constraintFn);
-  void add(StringRef name, PDLRewriteFunction rewriteFn);
+  bool add(StringRef name, PDLConstraintFunction constraintFn, bool override);
+  bool add(StringRef name, PDLRewriteFunction rewriteFn, bool override);
 
   void apply(PDLPatternModule &pdlModule) const;
 
@@ -41,14 +41,26 @@ private:
   llvm::StringMap<PDLRewriteFunction> rewriteFunctions;
 };
 
-void PDLPatternHooksInterface::add(StringRef name,
-                                   PDLConstraintFunction constraintFn) {
-  constraintFunctions.try_emplace(name, std::move(constraintFn));
+bool PDLPatternHooksInterface::add(StringRef name,
+                                   PDLConstraintFunction constraintFn,
+                                   bool override) {
+  if (override) {
+    constraintFunctions.insert_or_assign(name, std::move(constraintFn));
+    return true;
+  } else {
+    return constraintFunctions.try_emplace(name, std::move(constraintFn))
+        .second;
+  }
 }
 
-void PDLPatternHooksInterface::add(StringRef name,
-                                   PDLRewriteFunction rewriteFn) {
-  rewriteFunctions.try_emplace(name, std::move(rewriteFn));
+bool PDLPatternHooksInterface::add(StringRef name, PDLRewriteFunction rewriteFn,
+                                   bool override) {
+  if (override) {
+    rewriteFunctions.insert_or_assign(name, std::move(rewriteFn));
+    return true;
+  } else {
+    return rewriteFunctions.try_emplace(name, std::move(rewriteFn)).second;
+  }
 }
 
 void PDLPatternHooksInterface::apply(PDLPatternModule &pdlPattern) const {
@@ -69,22 +81,24 @@ PDLPatternHooksInterface *PDLPatternHooksInterface::get(MLIRContext *ctx) {
   return dialect->getRegisteredInterface<PDLPatternHooksInterface>();
 }
 
-void mlir::registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
-                                         PDLConstraintFunction constraintFn) {
+bool mlir::registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
+                                         PDLConstraintFunction constraintFn,
+                                         bool override) {
   auto iface = PDLPatternHooksInterface::get(ctx);
   if (!iface)
-    return;
+    return false;
 
-  iface->add(name, std::move(constraintFn));
+  return iface->add(name, std::move(constraintFn), override);
 }
 
-void mlir::registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
-                                      PDLRewriteFunction rewriteFn) {
+bool mlir::registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
+                                      PDLRewriteFunction rewriteFn,
+                                      bool override) {
   auto iface = PDLPatternHooksInterface::get(ctx);
   if (!iface)
-    return;
+    return false;
 
-  iface->add(name, std::move(rewriteFn));
+  return iface->add(name, std::move(rewriteFn), override);
 }
 
 void mlir::applyPDLPatternHooks(PDLPatternModule &pdlPattern) {

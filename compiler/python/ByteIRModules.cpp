@@ -309,26 +309,31 @@ PYBIND11_MODULE(_byteir, m) {
       },
       py::arg("module0"), py::arg("module1"));
 
-  m.def("register_pdl_constraint_fn", [](MlirContext ctx, std::string name,
-                                         std::function<bool(py::args)> py_fn) {
-    std::function<bool(std::vector<MlirPDLValue>)> fn =
-        [py_fn](std::vector<MlirPDLValue> pdlValues) {
-          py::gil_scoped_acquire _;
-          py::tuple args(pdlValues.size());
-          for (size_t i = 0; i < pdlValues.size(); ++i) {
-            args[i] = wrap(pdlValues[i]);
-          }
-          return py_fn(args);
-        };
-    mlirRegisterPDLConstraintFn(ctx,
-                                mlirStringRefCreate(name.c_str(), name.size()),
-                                reinterpret_cast<void *>(&fn));
-  });
+  m.def(
+      "register_pdl_constraint_fn",
+      [](MlirContext ctx, std::string name, std::function<bool(py::args)> py_fn,
+         bool override) -> bool {
+        std::function<bool(std::vector<MlirPDLValue>)> fn =
+            [py_fn](std::vector<MlirPDLValue> pdlValues) {
+              py::gil_scoped_acquire _;
+              py::tuple args(pdlValues.size());
+              for (size_t i = 0; i < pdlValues.size(); ++i) {
+                args[i] = wrap(pdlValues[i]);
+              }
+              return py_fn(args);
+            };
+        return mlirRegisterPDLConstraintFn(
+            ctx, mlirStringRefCreate(name.c_str(), name.size()),
+            reinterpret_cast<void *>(&fn), override);
+      },
+      py::arg("context"), py::arg("name"), py::arg("fn"),
+      py::arg("override") = true);
 
   m.def(
-      "register_pdl_rewrite_fn", [](MlirContext ctx, std::string name,
-                                    std::function<py::object(py::args)> py_fn,
-                                    std::vector<MlirPDLValueKind> result_tys) {
+      "register_pdl_rewrite_fn",
+      [](MlirContext ctx, std::string name,
+         std::function<py::object(py::args)> py_fn,
+         std::vector<MlirPDLValueKind> result_tys, bool override) -> bool {
         std::function<bool(MlirOperation, MlirPDLResultListRef,
                            std::vector<MlirPDLValue>,
                            std::function<void(MlirOperation)>)>
@@ -388,10 +393,12 @@ PYBIND11_MODULE(_byteir, m) {
 
               return true;
             };
-        mlirRegisterPDLRewriteFn(ctx,
-                                 mlirStringRefCreate(name.c_str(), name.size()),
-                                 reinterpret_cast<void *>(&fn));
-      });
+        return mlirRegisterPDLRewriteFn(
+            ctx, mlirStringRefCreate(name.c_str(), name.size()),
+            reinterpret_cast<void *>(&fn), override);
+      },
+      py::arg("context"), py::arg("name"), py::arg("fn"),
+      py::arg("result_types"), py::arg("override") = true);
 
   py::enum_<MlirPDLValueKind>(m, "PDLValueKind")
       .value("Attribute", MlirPDLValueAttribute)
