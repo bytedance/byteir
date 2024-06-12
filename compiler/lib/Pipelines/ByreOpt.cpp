@@ -18,6 +18,7 @@
 #include "byteir/Pipelines/ByreOpt.h"
 
 #include "byteir/Conversion/MemrefToByre/MemrefToByre.h"
+#include "byteir/Dialect/MemRef/Transforms/RemoveCopy.h"
 #include "byteir/Conversion/ToByre/ToByre.h"
 
 #include "byteir/Dialect/Byre/ByreDialect.h"
@@ -43,6 +44,7 @@ void createByreOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
       entryFunc));
 
   pm.addPass(createConvertFuncAndCallToByrePass(appendArgTypes));
+  pm.addNestedPass<func::FuncOp>(createRemoveCopyPass());
 
   // only applied on entry point function
   OpPassManager anchoredPM(func::FuncOp::getOperationName());
