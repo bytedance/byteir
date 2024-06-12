@@ -25,6 +25,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/SmallSet.h"
@@ -181,18 +182,73 @@ void createGPUTileElementwiseTransformImpl(OpPassManager &pm,
 
   config.transformBuilder = [=](ImplicitLocOpBuilder &b, Operation *op,
                                 Value pdlV) {
-    auto tileConfig =
-        getTileConfig(llvm::cast<linalg::GenericOp>(op), warpSize, blockSize)
-            .value();
+    auto genericOp = llvm::cast<linalg::GenericOp>(op);
+    auto tileConfig = getTileConfig(genericOp, warpSize, blockSize).value();
+    int64_t numTiled = getNumTiledLoops(tileConfig.tileSizes);
     auto pdlType = pdl::OperationType::get(b.getContext());
+    int64_t numLoops = genericOp.getNumLoops();
+    SmallVector<int64_t> interchange;
+    for (size_t i = 0; i < numTiled; ++i)
+      interchange.emplace_back(i);
+
+    auto isPermute = [&](const SmallVector<int64_t> &arr) {
+      llvm::DenseSet<int64_t> elems(arr.begin(), arr.end());
+      if (elems.size() != arr.size())
+        return false;
+      int64_t maxElement = *std::max_element(arr.begin(), arr.end());
+      if (maxElement != elems.size() - 1)
+        return false;
+      return true;
+    };
+
+    genericOp.walk([&](tensor::ExtractOp extractOp) {
+      if (llvm::all_of(extractOp.getResult().getUsers(), [](Operation *user) {
+            return llvm::isa<scf::YieldOp>(user);
+          })) {
+        if (llvm::all_of(extractOp.getIndices(), [](Value idx) {
+              if (auto defOp = idx.getDefiningOp<linalg::IndexOp>()) {
+                return true;
+              }
+              return false;
+            })) {
+          SmallVector<int64_t> extractIndices;
+          for (auto idx : extractOp.getIndices()) {
+            auto defOp = idx.getDefiningOp<linalg::IndexOp>();
+            extractIndices.emplace_back(defOp.getDim());
+          }
+
+          if (extractIndices.size() != numTiled || !isPermute(extractIndices)) {
+            return WalkResult::advance();
+          }
+          SmallVector<int64_t> tensorShape =
+              llvm::to_vector(extractOp.getTensor().getType().getShape());
+          int64_t lastDim = -1;
+          for (int64_t i = tensorShape.size() - 1; i >= 0; --i) {
+            if (tensorShape[i] > 1) {
+              lastDim = i;
+              break;
+            }
+          }
+
+          if (lastDim != -1) {
+            int64_t len = tensorShape.size();
+            std::swap(interchange[extractIndices[lastDim]],
+                      interchange[extractIndices[len - 1]]);
+            return WalkResult::interrupt();
+          }
+        }
+      }
+      return WalkResult::advance();
+    });
+
     b.create<transform::FuseExtOp>(
         /* tiledOp type*/ pdlType,
         /* loops type */
-        SmallVector<Type>(getNumTiledLoops(tileConfig.tileSizes), pdlType),
+        SmallVector<Type>(numTiled, pdlType),
         /* target */ pdlV,
         /* stop */ Value(),
         /* tillSizes */ b.getI64ArrayAttr(tileConfig.tileSizes),
-        /* interchange */ b.getI64ArrayAttr({}),
+        /* interchange */ b.getI64ArrayAttr({interchange}),
         /* keep_intermediate*/ false);
   };
 
