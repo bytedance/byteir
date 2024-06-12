@@ -49,32 +49,6 @@ bool anyIncompatibleUse(Value oldValue, Value newValue) {
                       }) &&
          (oldValue.getType() != newValue.getType());
 }
-
-bool anyIncompatibleUseExceptReshapeOp(Value oldValue, Value newValue) {
-  return llvm::any_of(oldValue.getUses(),
-                      [](OpOperand &operand) {
-                        Operation *op = operand.getOwner();
-                        Dialect *dialect = op->getDialect();
-                        return llvm::isa<func::CallOp>(op) ||
-                               (dialect && dialect->getNamespace() == "byre");
-                      }) &&
-         (oldValue.getType() != newValue.getType());
-}
-
-SmallVector<Operation *> getReshapeOp(Value value) {
-  SmallVector<Operation *> reshapeOps;
-  auto operation = value.getDefiningOp();
-  while (operation &&
-         isa<memref::CollapseShapeOp, memref::ExpandShapeOp>(operation)) {
-    reshapeOps.push_back(operation);
-    value = operation->getOperand(0);
-    operation = value.getDefiningOp();
-  }
-  if (operation && isa<memref::AllocOp>(operation))
-    return reshapeOps;
-  return {};
-}
-
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
 public:
   RemoveCopyPattern(MLIRContext *context, DominanceInfo &dom)
@@ -225,41 +199,51 @@ public:
       }
     }
 
-    if (auto &&reshapeOps = getReshapeOp(src); reshapeOps.size()) {
-      auto &&srcAllocOp = aliases[0][0].getDefiningOp<memref::AllocOp>();
-      if (auto targetDef = target.getDefiningOp()) {
-        if (isa<memref::AllocOp, memref::SubViewOp>(targetDef))
-          hoistUpOpInBlock(targetDef, domInfo);
+    if (llvm::isa<BlockArgument>(target) &&
+        isa<func::FuncOp>(copyOp->getParentOp())) {
+      memref::AllocOp srcAllocOp;
+      for (auto alias : aliases[0]) {
+        auto defOp = alias.getDefiningOp();
+        if (!defOp) {
+          return failure();
+        }
+        if (!llvm::isa<memref::AllocOp, memref::CollapseShapeOp,
+                       memref::ExpandShapeOp>(defOp)) {
+          return failure();
+        }
+        if (auto allocOp = dyn_cast<memref::AllocOp>(defOp)) {
+          srcAllocOp = allocOp;
+        }
       }
 
-      if (!domInfo.properlyDominates(target, srcAllocOp)) {
-        LLVM_DEBUG(llvm::dbgs() << "failed at target " << target
-                                << " not dominated by " << srcAllocOp << "\n");
+      if (!srcAllocOp || target.getType() != src.getType()) {
         return failure();
       }
 
+      // using CollapseShapeOp/ExpandShapeOp reshape target to src alloc.
       rewriter.setInsertionPoint(srcAllocOp);
+      Value alias = src;
       Value reshapeTarget = target;
-      for (size_t pos = 0; pos < reshapeOps.size(); ++pos) {
-        auto shapeOp = reshapeOps[pos];
-        if (auto collapseShapeOp = dyn_cast<memref::CollapseShapeOp>(shapeOp)) {
+      while (!alias.getDefiningOp<memref::AllocOp>()) {
+        auto defOp = alias.getDefiningOp();
+        if (auto collapseShapeOp = dyn_cast<memref::CollapseShapeOp>(defOp)) {
+          // FIXME: expandShape doesn't support expanding dynamic dims.
           reshapeTarget = rewriter.create<memref::ExpandShapeOp>(
-              srcAllocOp.getLoc(), collapseShapeOp.getSrcType(), reshapeTarget,
+              alias.getLoc(), collapseShapeOp.getSrcType(), reshapeTarget,
               collapseShapeOp.getReassociationIndices());
+          alias = collapseShapeOp.getSrc();
         } else if (auto expandShapeOp =
-                       dyn_cast<memref::ExpandShapeOp>(shapeOp)) {
+                       dyn_cast<memref::ExpandShapeOp>(defOp)) {
           reshapeTarget = rewriter.create<memref::CollapseShapeOp>(
               srcAllocOp.getLoc(), expandShapeOp.getSrcType(), reshapeTarget,
               expandShapeOp.getReassociationIndices());
+          alias = expandShapeOp.getSrc();
         }
       }
-      if (!anyIncompatibleUseExceptReshapeOp(srcAllocOp, target)) {
-        rewriter.replaceOp(srcAllocOp, {reshapeTarget});
-      }
-      if (!anyIncompatibleUse(src, target))
-        rewriter.replaceOp(src.getDefiningOp(), {target});
-      return success();
+      rewriter.replaceOp(srcAllocOp, {reshapeTarget});
+      rewriter.eraseOp(copyOp);
     }
+
     return failure();
   }
 
