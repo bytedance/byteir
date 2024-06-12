@@ -1116,6 +1116,90 @@ public:
   }
 };
 
+/// Converts mhlo.concatenate operation to a linalg.generic op.
+struct StaticConcatenateToLinalgWithIndexSwitch
+    : public OpConversionPattern<mhlo::ConcatenateOp> {
+  using OpConversionPattern<mhlo::ConcatenateOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::ConcatenateOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Shortcut the one-operand case, simplifies code below.
+    if (adaptor.getOperands().size() == 1) {
+      rewriter.replaceOp(op, adaptor.getOperands()[0]);
+      return success();
+    }
+
+    auto resultType = op.getResult().getType().dyn_cast<RankedTensorType>();
+
+    if (!resultType)
+      return failure();
+
+    uint64_t dim = op.getDimension();
+    for (auto operand : adaptor.getOperands()) {
+      auto operandType = operand.getType().dyn_cast<RankedTensorType>();
+      if (!operandType)
+        return failure();
+      if (operandType.getShape()[dim] != 1)
+        return failure();
+    }
+
+    Location loc = op.getLoc();
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+
+    // Allocate the output tensor with tensor.empty.
+    Value result =
+        getEmptyTensorFor(rewriter, loc, resultType, op, adaptor.getOperands());
+
+    int64_t nloops = resultType.getRank();
+    rewriter.replaceOpWithNewOp<linalg::GenericOp>(
+        op,
+        /*resultTensorTypes=*/resultType,
+        /*inputs=*/ValueRange{}, /*outputBuffers=*/result,
+        llvm::ArrayRef(rewriter.getMultiDimIdentityMap(nloops)),
+        getNParallelLoopsAttrs(nloops),
+        [&](OpBuilder &nestedBuilder, Location loc, ValueRange) {
+          OpBuilder b = nestedBuilder;
+          SmallVector<int64_t> cases;
+          int64_t resDimSize = resultType.getShape()[dim];
+          for (int64_t i = 0; i < resDimSize - 1; ++i)
+            cases.emplace_back(i);
+
+          SmallVector<Value> extractIndices;
+          extractIndices.reserve(nloops);
+          for (int64_t i = 0; i < nloops; i++) {
+            extractIndices.push_back(b.create<linalg::IndexOp>(loc, i));
+          }
+
+          Value indexOp = b.create<linalg::IndexOp>(loc, dim);
+          extractIndices[dim] = zero;
+
+          auto indexSwitchOp = b.create<scf::IndexSwitchOp>(
+              loc, TypeRange{resultType.getElementType()}, indexOp, cases,
+              cases.size());
+
+          for (int64_t i = 0; i < resDimSize - 1; ++i) {
+            Block &curBlock = indexSwitchOp.getCaseRegions()[i].emplaceBlock();
+            b.setInsertionPointToStart(&curBlock);
+            Value val = b.create<tensor::ExtractOp>(
+                loc, adaptor.getOperands()[i], extractIndices);
+            b.create<scf::YieldOp>(loc, val);
+          }
+
+          Block &curBlock = indexSwitchOp.getDefaultRegion().emplaceBlock();
+          b.setInsertionPointToStart(&curBlock);
+          Value val = b.create<tensor::ExtractOp>(
+              loc, adaptor.getOperands()[resDimSize - 1], extractIndices);
+          b.create<scf::YieldOp>(loc, val);
+
+          nestedBuilder.create<linalg::YieldOp>(loc,
+                                                indexSwitchOp.getResults()[0]);
+        },
+        linalg::getPrunedAttributeList(op));
+    return success();
+  }
+};
+
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
@@ -1173,6 +1257,8 @@ void mlir::populateHloToLinalgExtConversionPattern(
   patterns.add<ReduceWindowOpConversion>(typeConverter, ctx, PatternBenefit(2));
   patterns.add<DotGeneralLinalgExtBatchMatMulOpConversion>(typeConverter, ctx,
                                                            PatternBenefit(2));
+  patterns.add<StaticConcatenateToLinalgWithIndexSwitch>(ctx,
+                                                         PatternBenefit(2));
   patterns.add<SoftmaxCustomCallConverter>(ctx);
   patterns.add<ScatterOpConversion>(ctx);
   patterns.add<LayerNormCustomCallConverter>(ctx);
