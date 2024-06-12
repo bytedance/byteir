@@ -185,14 +185,6 @@ class IRProcessor:
 
         return self.module, dllPaths
 
-    def bufferize_opt_pass(self, dump_ir=False):
-        with self.module.context:
-            pass_arg = "builtin.module(byteir-bufferize-opt)"
-            pm = PassManager.parse(pass_arg)
-            pm.run(self.module.operation)
-            _print_verbose(self.module, "// IR Dump After ByteIR Bufferize Opt:") if self.verbose else ...
-        return self.module
-
     def execute(self, inputs, backend="ait"):
         module = self.module.body.operations[0]
         subgraph_name = module.name.value

@@ -26,13 +26,6 @@ from byteir.utils import mlir_attr_to_pyobj, mlir_type_to_torch_str
 class AITemplateIRTranslator(IRTranslator):
     pass
 
-@AITemplateIRTranslator.register("mhlo.constant")
-def _dispatch_mhlo_constant(op, inputs):
-    shaped_type = ir.ShapedType(op.result.type)
-    shape = shaped_type.shape
-    output = Tensor(shape, dtype=mlir_type_to_torch_str(shaped_type.element_type))
-    return [output]
-
 @AITemplateIRTranslator.register("cat.nchw2nhwc")
 def _dispatch_cat_nchw2nhwc(op, inputs):
     ait_op = ait_ops.permute()
