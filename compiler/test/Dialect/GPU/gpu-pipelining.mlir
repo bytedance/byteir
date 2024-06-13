@@ -1,4 +1,4 @@
-// RUN: byteir-opt -gpu-pipelining="stages=3" -canonicalize -cse --verify-diagnostics %s | FileCheck %s
+// RUN: byteir-opt -gpu-pipelining="stages=3" -canonicalize --cse --verify-diagnostics %s | FileCheck %s
 
 #map = affine_map<(d0) -> (d0 * 128)>
 module {
@@ -33,29 +33,29 @@ module {
 
 // init:
 // CHECK: %[[ALLOCA:.*]] = memref.alloca() {__byteir_alloca_accumulator__} : memref<128x128xf16, #gpu.address_space<workgroup>>
-// CHECK: %[[ALLOCA0:.*]] = memref.alloca() {__byteir_alloca_matrix_b__} : memref<3x32x128xf16, #gpu.address_space<workgroup>>
-// CHECK: %[[ALLOCA1:.*]] = memref.alloca() {__byteir_alloca_matrix_a__} : memref<3x128x32xf16, #gpu.address_space<workgroup>>
-// CHECK: %[[IDX0:.*]] = arith.muli %arg2, %[[C128:.*]] : index
-// CHECK: %[[IDX1:.*]] = arith.muli %arg3, %[[C128:.*]] : index
+// CHECK: %[[ALLOCA0:.*]] = memref.alloca() {__byteir_alloca_matrix_b__} : memref<3x32x128xf16, #gpu.address_space<workgroup>
+// CHECK: %[[ALLOCA1:.*]] = memref.alloca() {__byteir_alloca_matrix_a__} : memref<3x128x32xf16, #gpu.address_space<workgroup>
+// CHECK: %[[IDX0:.*]] = affine.apply #map(%{{.*}})
+// CHECK: %[[IDX1:.*]] = affine.apply #map(%{{.*}})
 // CHECK: %[[SUBVIEW:.*]] = memref.subview %[[ALLOC:.*]][%[[IDX0]], %[[IDX1]]] [128, 128] [1, 1] : memref<5376x5376xf16> to memref<128x128xf16, strided<[5376, 1], offset: ?>>
 // CHECK: linalg.fill ins(%[[CST:.*]] : f16) outs(%[[ALLOCA]] : memref<128x128xf16, #gpu.address_space<workgroup>>)
 
 // prelogue0:
-// CHECK: %[[SUBVIEW2:.*]] = memref.subview %[[ALLOCA1]][0, 0, 0] [1, 128, 32] [1, 1, 1] : memref<3x128x32xf16, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1]>, #gpu.address_space<workgroup>>
-// CHECK: %[[CAST2:.*]] = memref.cast %[[SUBVIEW2]] : memref<128x32xf16, strided<[32, 1]>, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>>
-// CHECK: %[[SUBVIEW3:.*]] = memref.subview %[[ALLOCA0]][0, 0, 0] [1, 32, 128] [1, 1, 1] : memref<3x32x128xf16, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1]>, #gpu.address_space<workgroup>>
-// CHECK: %[[CAST3:.*]] = memref.cast %[[SUBVIEW3]] : memref<32x128xf16, strided<[128, 1]>, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>
-// CHECK: %[[SUBVIEW5:.*]] = memref.subview %arg0[%[[IDX0]], 0] [128, 32] [1, 1] : memref<5376x2048xf16> to memref<128x32xf16, strided<[2048, 1], offset: ?>>
-// CHECK: %[[SUBVIEW6:.*]] = memref.subview %arg1[0, %[[IDX1]]] [32, 128] [1, 1] : memref<2048x5376xf16> to memref<32x128xf16, strided<[5376, 1], offset: ?>>
+// CHECK: %[[SUBVIEW2:.*]] = memref.subview %[[ALLOCA1]][0, 0, 0] [1, 128, 32] [1, 1, 1] : memref<3x128x32xf16, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1]>, #gpu.address_space<workgroup>
+// CHECK: %[[CAST2:.*]] = memref.cast %[[SUBVIEW2]] : memref<128x32xf16, strided<[32, 1]>, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>
+// CHECK: %[[SUBVIEW3:.*]] = memref.subview %[[ALLOCA0]][0, 0, 0] [1, 32, 128] [1, 1, 1] : memref<3x32x128xf16, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1]>, #gpu.address_space<workgroup>
+// CHECK: %[[CAST3:.*]] = memref.cast %[[SUBVIEW3]] : memref<32x128xf16, strided<[128, 1]>, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>
+// CHECK: %[[SUBVIEW5:.*]] = memref.subview %arg0[%[[IDX0]], 0] [128, 32] [1, 1] : memref<5376x2048xf16> to memref<128x32xf16, strided<[2048, 1], offset: ?>
+// CHECK: %[[SUBVIEW6:.*]] = memref.subview %arg1[0, %[[IDX1]]] [32, 128] [1, 1] : memref<2048x5376xf16> to memref<32x128xf16, strided<[5376, 1], offset: ?>
 // CHECK: linalg.copy {__byteir_load_matrix_a__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[SUBVIEW5]] : memref<128x32xf16, strided<[2048, 1], offset: ?>>) outs(%[[SUBVIEW2]] : memref<128x32xf16, strided<[32, 1]>, #gpu.address_space<workgroup>>)
 // CHECK: linalg.copy {__byteir_load_matrix_b__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[SUBVIEW6]] : memref<32x128xf16, strided<[5376, 1], offset: ?>>) outs(%[[SUBVIEW3]] : memref<32x128xf16, strided<[128, 1]>, #gpu.address_space<workgroup>>)
 // CHECK: nvvm.cp.async.commit.group
 
 // prelogue1:
-// CHECK: %[[SUBVIEW7:.*]] = memref.subview %[[ALLOCA1]][1, 0, 0] [1, 128, 32] [1, 1, 1] : memref<3x128x32xf16, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: 4096>, #gpu.address_space<workgroup>>
-// CHECK: %[[CAST4:.*]] = memref.cast %[[SUBVIEW7]] : memref<128x32xf16, strided<[32, 1], offset: 4096>, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>>
-// CHECK: %[[SUBVIEW9:.*]] = memref.subview %[[ALLOCA0]][1, 0, 0] [1, 32, 128] [1, 1, 1] : memref<3x32x128xf16, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: 4096>, #gpu.address_space<workgroup>>
-// CHECK: %[[CAST5:.*]] = memref.cast %[[SUBVIEW9]] : memref<32x128xf16, strided<[128, 1], offset: 4096>, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>
+// CHECK: %[[SUBVIEW7:.*]] = memref.subview %[[ALLOCA1]][1, 0, 0] [1, 128, 32] [1, 1, 1] : memref<3x128x32xf16, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: 4096>, #gpu.address_space<workgroup>
+// CHECK: %[[CAST4:.*]] = memref.cast %[[SUBVIEW7]] : memref<128x32xf16, strided<[32, 1], offset: 4096>, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>
+// CHECK: %[[SUBVIEW9:.*]] = memref.subview %[[ALLOCA0]][1, 0, 0] [1, 32, 128] [1, 1, 1] : memref<3x32x128xf16, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: 4096>, #gpu.address_space<workgroup>
+// CHECK: %[[CAST5:.*]] = memref.cast %[[SUBVIEW9]] : memref<32x128xf16, strided<[128, 1], offset: 4096>, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>
 // CHECK: %[[SUBVIEW11:.*]] = memref.subview %arg0[%[[IDX0]], 32] [128, 32] [1, 1] : memref<5376x2048xf16> to memref<128x32xf16, strided<[2048, 1], offset: ?>
 // CHECK: %[[SUBVIEW12:.*]] = memref.subview %arg1[32, %[[IDX1]]] [32, 128] [1, 1] : memref<2048x5376xf16> to memref<32x128xf16, strided<[5376, 1], offset: ?>
 // CHECK: linalg.copy {__byteir_load_matrix_a__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[SUBVIEW11]] : memref<128x32xf16, strided<[2048, 1], offset: ?>>) outs(%[[SUBVIEW7]] : memref<128x32xf16, strided<[32, 1], offset: 4096>, #gpu.address_space<workgroup>>)
@@ -78,10 +78,9 @@ module {
 // CHECK: nvvm.cp.async.wait.group 2
 // CHECK: linalg.matmul {__byteir_gpu_tile_gemm_0, __byteir_mma__, __byteir_mma_level__ = "Threadblock", __byteir_target__ = "nv_sm_80"} ins(%arg5, %arg8 : memref<128x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>>, memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>>) outs(%[[ALLOCA]] : memref<128x128xf16, #gpu.address_space<workgroup>>)
 
-// CHECK: %[[IDX5:.*]] = affine.apply #map(%[[IDX4:.*]])
+// CHECK: %[[IDX5:.*]] = affine.apply #map1(%[[IDX4:.*]])
 // CHECK: %[[SUBVIEW19:.*]] = memref.subview %[[ALLOCA1]][%[[IDX5]], 0, 0] [1, 128, 32] [1, 1, 1] : memref<3x128x32xf16, #gpu.address_space<workgroup>> to memref<128x32xf16, strided<[32, 1], offset: ?>, #gpu.address_space<workgroup>
-// CHECK: %[[IDX7:.*]] = affine.apply #map(%[[IDX6:.*]])
-// CHECK: %[[SUBVIEW20:.*]] = memref.subview %[[ALLOCA0]][%[[IDX7]], 0, 0] [1, 32, 128] [1, 1, 1] : memref<3x32x128xf16, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>
+// CHECK: %[[SUBVIEW20:.*]] = memref.subview %[[ALLOCA0]][%[[IDX5]], 0, 0] [1, 32, 128] [1, 1, 1] : memref<3x32x128xf16, #gpu.address_space<workgroup>> to memref<32x128xf16, strided<[128, 1], offset: ?>, #gpu.address_space<workgroup>
 // CHECK: %[[SUBVIEW21:.*]] = memref.subview %arg0[%[[IDX0]], %[[IDX8:.*]]] [128, 32] [1, 1] : memref<5376x2048xf16> to memref<128x32xf16, strided<[2048, 1], offset: ?>
 // CHECK: %[[SUBVIEW22:.*]] = memref.subview %arg1[%[[IDX9:.*]], %[[IDX1]]] [32, 128] [1, 1] : memref<2048x5376xf16> to memref<32x128xf16, strided<[5376, 1], offset: ?>
 // CHECK: scf.if %[[CMP:.*]] {
