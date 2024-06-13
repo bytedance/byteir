@@ -5,15 +5,15 @@ set -x
 
 CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # path to byteir root
-ROOT_PROJ_DIR="$CUR_DIR/../.."
+ROOT_PROJ_DIR="$CUR_DIR/.."
 
 pushd $ROOT_PROJ_DIR
 # build compiler
-bash scripts/compiler/build_and_test.sh
+bash scripts/compiler/build_and_test.sh --no-test
 # build runtime
 bash scripts/runtime/build_and_test.sh --cuda --python --no-test
 # build torch_frontend
-bash frontends/torch-frontend/scripts/build_and_test.sh
+bash frontends/torch-frontend/scripts/build_and_test.sh --no-test
 
 pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl --force-reinstall
 pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl --force-reinstall
