@@ -141,7 +141,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         llvm::copy_if(getInputOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperand) {
-            return opOperand->get().getType().template isa<MemRefType>();
+            return isa<MemRefType>(opOperand->get().getType());
           });
         return result;
       }]
@@ -160,7 +160,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         llvm::copy_if(getInputOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperand) {
-            return opOperand->get().getType().template isa<RankedTensorType>();
+            return isa<RankedTensorType>(opOperand->get().getType());
           });
         return result;
       }]
@@ -229,7 +229,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         llvm::copy_if(getOutputOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperand) {
-            return opOperand->get().getType().template isa<MemRefType>();
+            return isa<MemRefType>(opOperand->get().getType());
           });
         return result;
       }]
@@ -248,7 +248,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         llvm::copy_if(getOutputOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperand) {
-            return opOperand->get().getType().template isa<RankedTensorType>();
+            return isa<RankedTensorType>(opOperand->get().getType());
           });
         return result;
       }]
@@ -323,7 +323,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*args=*/(ins "OpOperand *":$opOperand),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        if (!opOperand->get().getType().template isa<RankedTensorType>())
+        if (!isa<RankedTensorType>(opOperand->get().getType()))
           return false;
         if (opOperand->getOperandNumber() < $_op.getNumInputs())
           return true;
@@ -339,7 +339,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
       /*args=*/(ins "OpOperand *":$opOperand),
       /*methodBody=*/"",
       /*defaultImplementation=*/[{
-        if (!opOperand->get().getType().template isa<RankedTensorType>())
+        if (!isa<RankedTensorType>(opOperand->get().getType()))
           return false;
         if (opOperand->getOperandNumber() >= $_op.getNumInputs())
           return true;

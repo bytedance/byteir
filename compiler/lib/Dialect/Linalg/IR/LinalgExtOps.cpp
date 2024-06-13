@@ -1131,7 +1131,7 @@ mlir::LogicalResult verifySoftmaxLikeOp(SoftmaxLikeOp softmaxLikeOp) {
   if (softmaxLikeOp.getNumOutputs() != 4) {
     return op->emitOpError("expected 4 output operands");
   }
-  if (!softmaxLikeOp.input().getType().template isa<ShapedType>()) {
+  if (!isa<ShapedType>(softmaxLikeOp.input().getType())) {
     return op->emitOpError("expected first input element type to be shaped");
   }
 

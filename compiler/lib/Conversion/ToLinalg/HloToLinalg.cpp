@@ -298,9 +298,7 @@ struct ReduceWindowOpConversion
       Value input = std::get<1>(it);
       Value initValue = std::get<2>(it);
       auto resultType = cast<ShapedType>(result.getType());
-      if (!cast<ShapedType>(input.getType())
-               .getElementType()
-               isa<FloatType>()) {
+      if (!isa<FloatType>(cast<ShapedType>(input.getType()).getElementType())) {
         return rewriter.notifyMatchFailure(op,
                                            "expected element type to be float");
       }

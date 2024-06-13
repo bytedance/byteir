@@ -205,11 +205,11 @@ public:
     Value bias = adaptor.getBias();
     mlir::RankedTensorType weightBiasType =
         RankedTensorType::get(axisShape, outElementType);
-    if (weight.getType().template isa<Torch::NoneType>()) {
+    if (isa<Torch::NoneType>(weight.getType())) {
       weight = rewriter.create<stablehlo::ConstantOp>(
           op->getLoc(), getSplatFloatAttr(weightBiasType, 1.0));
     }
-    if (bias.getType().template isa<Torch::NoneType>()) {
+    if (isa<Torch::NoneType>(bias.getType())) {
       bias = rewriter.create<stablehlo::ConstantOp>(
           op->getLoc(), getSplatFloatAttr(weightBiasType, 0.0));
     }
