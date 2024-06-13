@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -set-op-space="entry-func=main space=cpu" -set-arg-space="entry-func=main all-space=cpu" -byre-host="device-file-name=your_file target=cpu" | FileCheck %s
+// RUN: byteir-opt %s -byre-host="device-file-name=your_file target=cpu" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
 

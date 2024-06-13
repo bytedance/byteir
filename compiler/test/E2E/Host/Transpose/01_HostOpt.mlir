@@ -4,8 +4,8 @@
 
 module {
   func.func private @Unknown0(%arg0: memref<1x32x64x64xf32>) -> memref<1x64x64x32xf32> attributes {__byteir_hlo_aggressive_fusion__} {
-    %c0 = arith.constant 0 : index
     %c1 = arith.constant 1 : index
+    %c0 = arith.constant 0 : index
     %c64 = arith.constant 64 : index
     %cst = arith.constant 0.000000e+00 : f32
     %c8 = arith.constant 8 : index
