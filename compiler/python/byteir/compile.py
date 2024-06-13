@@ -73,6 +73,9 @@ def _compile_cuda(
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
     with context:
+        PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
+    with context:
         PassManager().parse("builtin.module(hlo-opt{outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Opt:") if verbose else ...
     with context:
@@ -155,6 +158,10 @@ def _compile_cuda_with_ait_impl(
 
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
+
+    with context:
+        PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
 
     processor = IRProcessor(name, 
                             "./workspace", 
@@ -268,6 +275,9 @@ def _compile_cpu(
 
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
+    with context:
+        PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
     with context:
         PassManager().parse("builtin.module(hlo-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Opt:") if verbose else ...
@@ -401,4 +411,4 @@ def compile(
     if _compile_fn is not None:
         _compile_fn(compile_options)
     else:
-        raise NotImplemented("not implemented target: {}".format(target))
+        raise NotImplementedError("not implemented target: {}".format(target))

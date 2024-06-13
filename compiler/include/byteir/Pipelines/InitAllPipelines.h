@@ -26,6 +26,7 @@
 #include "byteir/Pipelines/ByreTensorOpt.h"
 #include "byteir/Pipelines/CatOpt.h"
 #include "byteir/Pipelines/CatPreprocess.h"
+#include "byteir/Pipelines/HloGraphOpt.h"
 #include "byteir/Pipelines/HloOpt.h"
 #include "byteir/Pipelines/LinalgMemrefOpt.h"
 #include "byteir/Pipelines/LinalgTensorOpt.h"
@@ -52,6 +53,7 @@ inline void registerAllByteIRCommonPipelines() {
   registerByreTensorOptPipeline();
   registerCatOptPipeline();
   registerCatPreprocessPipeline();
+  registerHloGraphOptPipeline();
   registerHloOptPipeline();
   registerLinalgMemrefOptPipeline();
   registerLinalgTensorOptPipeline();

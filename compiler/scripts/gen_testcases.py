@@ -45,7 +45,7 @@ class HostPipelineCollections:
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byre-tensor-opt=\"entry-func=main append-arg-types\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
+        "--hlo-graph-opt --hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byre-tensor-opt=\"entry-func=main append-arg-types\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
     ])
     HostOptPipeline = functools.partial(OptPipeline, HostOpt, [ByreHost, ToLLVM], [
         "--host-opt", "--byre-opt",
@@ -70,21 +70,21 @@ class HostPipelineBytecodeCollections:
     ByreHost    = Stage("byre_host", "02a_ByreHost.mlir")
     ByreSerial  = Stage("byre_out",  "03a_ByreSerial.mlir")
     ToLLVM      = Stage("to_llvm",   "02b_ToLLVM.mlir")
-    ToLLVMIR    = Stage("to_llvmbc", "03b_ToLLVMBC.mlir")
+    ToLLVMBC    = Stage("to_llvmbc", "03b_ToLLVMBC.mlir")
     MLIROut     = Stage("mlir_out",  "Output.mlirbc")
     LLVMOut     = Stage("llvm_out",  "Output.bc")
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
+        "--hlo-graph-opt --hlo-opt=\"target=CPU\"", "--linalg-tensor-opt=\"target=CPU\"", "--byteir-bufferize-opt", "--scf-opt=\"target=CPU\"",
     ])
     HostOptPipeline = functools.partial(OptPipeline, HostOpt, [ByreHost, ToLLVM], [
         "--host-opt=\"file-name=host_kernels.bc\"", "--byre-opt",
     ])
-    ToLLVMPipeline = functools.partial(OptPipeline, ToLLVM, [ToLLVMIR], [
+    ToLLVMPipeline = functools.partial(OptPipeline, ToLLVM, [ToLLVMBC], [
         "--to-llvm",
     ])
-    ToLLVMBCPipeline = functools.partial(TranslatePipeline, ToLLVMIR, [LLVMOut], [
+    ToLLVMBCPipeline = functools.partial(TranslatePipeline, ToLLVMBC, [LLVMOut], [
         "--mlir-to-llvmbc",
     ])
     ByreHostPipeline = functools.partial(OptPipeline, ByreHost, [ByreSerial], [
@@ -116,7 +116,7 @@ class E2ECollections:
 
     InputPipeline = functools.partial(OptPipeline, Input, [HloOpt], [])
     HloOptPipeline = functools.partial(OptPipeline, HloOpt, [LinalgTensorOpt], [
-        "-hlo-opt=\"outline-single-elemwise-op\"",
+        "-hlo-graph-opt -hlo-opt=\"outline-single-elemwise-op\"",
     ])
     LinalgTensorOptPipeline = functools.partial(OptPipeline, LinalgTensorOpt, [ByreTensorOpt], [
         "-linalg-tensor-opt",
@@ -138,6 +138,8 @@ class E2ECollections:
     def SetSpaceOptPipeline(filecheck, *, entryFunc="main"):
         return OptPipeline(E2ECollections.SetSpaceOpt, [E2ECollections.ByreOpt], [
             "-remove-func-body=\"anchor-attr=__byteir_elementwise_fusion__\"",
+            "--inline",
+            "--gpu-launch-func-to-byre",
             "-set-op-space=\"entry-func={} space=cuda\"".format(entryFunc),
             "-set-arg-space=\"entry-func={} all-space=cuda\"".format(entryFunc)
         ], filecheck)
