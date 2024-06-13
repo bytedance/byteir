@@ -129,16 +129,17 @@ struct MoveForallRegionIntoWarpOpPass
         Block *targetBlock = forallOp.getBody();
         Block::iterator insertionPoint = forallOp.getBody()->begin();
 
-        // create laneid        
+        // create laneid
         builder.setInsertionPointToStart(forallOp.getBody());
         auto laneId = builder.create<gpu::LaneIdOp>(loc);
 
         // create guard
         if (logicalWarpSize < warpSize) {
           auto predicate = builder.create<arith::CmpIOp>(
-            loc, arith::CmpIPredicate::ult, laneId, builder.create<arith::ConstantIndexOp>(loc, warpSize));
+              loc, arith::CmpIPredicate::ult, laneId,
+              builder.create<arith::ConstantIndexOp>(loc, logicalWarpSize));
           auto ifOp = builder.create<scf::IfOp>(loc, predicate,
-                                           /*withElseRegion=*/false);
+                                                /*withElseRegion=*/false);
           targetBlock = ifOp.thenBlock();
           insertionPoint = ifOp.thenBlock()->begin();
         }

@@ -31,6 +31,7 @@ class FuncOp;
 /// Generate the code for registering transforms passes.
 #define GEN_PASS_DECL_VECTORTRANSPOSELOWERINGPASS
 #define GEN_PASS_DECL_MOVEFORALLREGIONINTOWARPOPPASS
+#define GEN_PASS_DECL_SCALARVECTORLOWERINGPASS
 #define GEN_PASS_REGISTRATION
 #include "byteir/Dialect/Vector/Transforms/Passes.h.inc"
 

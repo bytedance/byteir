@@ -37,6 +37,7 @@
 
 namespace mlir {
 #define GEN_PASS_DEF_VECTORTRANSPOSELOWERINGPASS
+#define GEN_PASS_DEF_SCALARVECTORLOWERINGPASS
 #include "byteir/Dialect/Vector/Transforms/Passes.h.inc"
 } // namespace mlir
 
@@ -67,6 +68,24 @@ struct VectorTransposeLoweringPass
           /*benefit=*/100);
     }
 
+    if (failed(
+            applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
+      return signalPassFailure();
+  }
+};
+
+struct ScalarVectorLoweringPass
+    : public impl::ScalarVectorLoweringPassBase<ScalarVectorLoweringPass> {
+  using ScalarVectorLoweringPassBase::ScalarVectorLoweringPassBase;
+
+  void runOnOperation() override {
+    RewritePatternSet patterns(&getContext());
+    vector::populateVectorBroadcastLoweringPatterns(patterns);
+    vector::populateVectorToVectorCanonicalizationPatterns(patterns);
+    vector::populateBubbleVectorBitCastOpPatterns(patterns);
+    vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
+    vector::populateScalarVectorTransferLoweringPatterns(patterns,
+                                                         /*benefit=*/1, true);
     if (failed(
             applyPatternsAndFoldGreedily(getOperation(), std::move(patterns))))
       return signalPassFailure();
