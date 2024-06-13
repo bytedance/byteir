@@ -1,6 +1,6 @@
-//===- PassDetail.h -------------------------------------------*--- C++ -*-===//
+//===- ExtractSliceSpecialization.h ------------------------------- C++ --===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,30 +15,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_TENSOR_TRANSFORMS_PASSDETAIL_H
-#define BYTEIR_DIALECT_TENSOR_TRANSFORMS_PASSDETAIL_H
+#ifndef BYTEIR_DIALECT_SHAPE_TRANSFORMS_EXTRACTSLICESPECIALIZATION_H
+#define BYTEIR_DIALECT_SHAPE_TRANSFORMS_EXTRACTSLICESPECIALIZATION_H
 
-#include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
+#include <memory>
 
-// forward dialects for conversions
 namespace mlir {
 
-namespace scf {
-class SCFDialect;
-} // namespace scf
-
-namespace linalg {
-class LinalgDialect;
-} // namespace linalg
-
-namespace tensor {
-class TensorDialect;
-} // namespace tensor
-
-#define GEN_PASS_CLASSES
-#include "byteir/Dialect/Tensor/Passes.h.inc"
+std::unique_ptr<Pass> createExtractSliceSpecializationPass();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_TENSOR_TRANSFORMS_PASSDETAIL_H
+#endif // BYTEIR_DIALECT_SHAPE_TRANSFORMS_EXTRACTSLICESPECIALIZATION_H

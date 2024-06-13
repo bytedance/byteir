@@ -18,6 +18,7 @@
 #ifndef BYTEIR_DIALECT_TENSOR_PASSES_H
 #define BYTEIR_DIALECT_TENSOR_PASSES_H
 
+#include "byteir/Dialect/Tensor/Transforms/ExtractSliceSpecialization.h"
 #include "byteir/Dialect/Tensor/Transforms/TensorPadSpecialization.h"
 
 namespace mlir {
