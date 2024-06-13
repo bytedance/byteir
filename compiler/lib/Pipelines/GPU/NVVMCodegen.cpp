@@ -27,6 +27,7 @@
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -52,6 +53,7 @@ void createNVVMCodegenPipelineImpl(OpPassManager &pm,
   pm.addPass(createSimplifyLinearizedIndexPass());
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createCSEPass());
+  pm.addNestedPass<gpu::GPUModuleOp>(createConvertVectorToLLVMPass());
   pm.addNestedPass<gpu::GPUModuleOp>(createGPUToNVVMExtPass(
       useBarePtrCallConv, mlir::kDeriveIndexBitwidthFromDataLayout, gpuArch));
   pm.addPass(createCSEPass());
