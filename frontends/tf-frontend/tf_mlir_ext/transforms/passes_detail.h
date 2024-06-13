@@ -45,6 +45,10 @@ namespace tensor {
 class TensorDialect;
 } // namespace tensor
 
+namespace scf {
+class SCFDialect;
+} // namespace scf
+
 #define GEN_PASS_CLASSES
 #include "tf_mlir_ext/transforms/passes.h.inc"
 

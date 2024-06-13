@@ -29,6 +29,7 @@ def CustomizedTfToMhloPipeline : Pass<"customized-tf-to-mhlo", "mlir::ModuleOp">
     "mlir::chlo::ChloDialect",
     "mlir::stablehlo::StablehloDialect",
     "mlir::shape::ShapeDialect",
+    "mlir::scf::SCFDialect",
     "mlir::ace::AceDialect",
   ];
   let options = [

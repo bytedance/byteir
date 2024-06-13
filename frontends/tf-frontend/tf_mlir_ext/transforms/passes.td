@@ -67,6 +67,7 @@ def MhloLegalizeTfExt: Pass<"mhlo-legalize-tf-ext", "func::FuncOp"> {
     "mlir::TF::TensorFlowDialect",
     "mlir::mhlo::MhloDialect",
     "mlir::tensor::TensorDialect",
+    "mlir::scf::SCFDialect",
   ];
 }
 
@@ -124,6 +125,14 @@ def SetRepeatOutBatchSize : Pass<"set-repeat-out-batch-size", "func::FuncOp"> {
   let options = [
     Option<"repeatOutBatchSize", "repeat-out-batch-size", "int64_t", /*default=*/"-1",
            "batch size of repeat output tensor">,
+  ];
+}
+
+def InlineFuncCallInScfIf : Pass<"inline-func-call-in-scf-if", "ModuleOp"> {
+  let summary = "inline func::CallOp in scf.if op";
+  let constructor = "mlir::tfext::createInlineFuncCallInScfIfPass()";
+  let dependentDialects = [
+    "mlir::scf::SCFDialect",
   ];
 }
 
