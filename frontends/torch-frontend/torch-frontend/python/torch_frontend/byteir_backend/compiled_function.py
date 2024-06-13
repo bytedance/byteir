@@ -77,6 +77,16 @@ class ByteIRFunction:
 
     @functools.lru_cache
     def get_out_tensors(self, device):
+        """
+        The number of outputs is too large, which causes Torch to still take a significant amount of time even
+        with a memory pool. We just use a simple cache to reduce this overhead.
+        
+        NB. One should notice that: We made an assumption here, the subgraph will just be called once per 
+        training iteration. As the cached output tensor is not reusable inside a iteration.
+        
+        TODO: We could implement a memory pool or just reduce the amount of torch tensor allocation, e.g. Just
+        alloc a large tensor and split this to output tensors.
+        """
         outputs_ptr = [None] * self._outs_len
         results = [None] * (self._outs_len + len(self._none_indices))
 
