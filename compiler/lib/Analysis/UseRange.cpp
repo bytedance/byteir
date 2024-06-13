@@ -429,7 +429,7 @@ UserangeAnalysis::UserangeAnalysis(Operation *op, byteir::Liveness *liveness,
         // If the alias is a BlockArgument then the value is live with the first
         // operation inside that block. Otherwise the liveness analysis is
         // sufficient for the use range.
-        if (alias.isa<BlockArgument>()) {
+        if (isa<BlockArgument>(alias)) {
           aliasOperations.push_back(&alias.getParentBlock()->front());
           for (auto &use : alias.getUses())
             aliasOperations.push_back(use.getOwner());

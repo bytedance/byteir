@@ -150,7 +150,7 @@ bool mlir::isProjectedPermutationAndAllowConst(AffineMap map) {
         return false;
       seen[dim.getPosition()] = true;
     } else {
-      if (!expr.isa<AffineConstantExpr>())
+      if (!isa<AffineConstantExpr>(expr))
         return false;
     }
   }

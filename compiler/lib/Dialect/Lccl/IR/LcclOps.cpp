@@ -37,7 +37,7 @@ verifyReplicaGroups(std::optional<Location> location,
 
   if (dynamicReplicaGroups != nullptr) {
     MemRefType type = cast<MemRefType>(dynamicReplicaGroups.getType());
-    if (!type.getElementType().isa<IndexType, IntegerType>())
+    if (!isa<IndexType, IntegerType>(type.getElementType()))
       return emitOptionalError(
           location,
           "dynamic_replica_groups's element type should be index or integer");

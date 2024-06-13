@@ -56,7 +56,7 @@ SmallVector<Operation *> collectAllDenpendOps(SmallVector<Operation *> oriOps) {
     }
     retOps.emplace_back(curOp);
     for (auto &&operand : curOp->getOperands()) {
-      if (operand.getType().isa<MemRefType>()) {
+      if (isa<MemRefType>(operand.getType())) {
         continue;
       } else if (auto defOp = operand.getDefiningOp()) {
         opQueue.push(defOp);

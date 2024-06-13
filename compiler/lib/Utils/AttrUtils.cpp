@@ -102,11 +102,11 @@ std::optional<ElementsAttr> mlir::cloneSplatElementsAttr(ElementsAttr attr,
   if (!attr.isSplat())
     return std::nullopt;
 
-  if (attr.isa<DenseFPElementsAttr>()) {
+  if (isa<DenseFPElementsAttr>(attr)) {
     ElementsAttr ret =
         DenseElementsAttr::get(type, attr.getSplatValue<FloatAttr>());
     return ret;
-  } else if (attr.isa<DenseIntElementsAttr>()) {
+  } else if (isa<DenseIntElementsAttr>(attr)) {
     ElementsAttr ret =
         DenseElementsAttr::get(type, attr.getSplatValue<IntegerAttr>());
     return ret;

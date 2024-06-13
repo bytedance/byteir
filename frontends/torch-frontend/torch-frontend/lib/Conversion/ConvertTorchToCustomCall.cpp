@@ -610,7 +610,7 @@ public:
     Value input = adaptor.getSelf();
     auto inputType = cast<RankedTensorType>(input.getType());
     auto inputElemType = inputType.getElementType();
-    if (!inputElemType.isa<mlir::IntegerType>()) {
+    if (!isa<mlir::IntegerType>(inputElemType)) {
       return rewriter.notifyMatchFailure(op, "only int indices is allowed");
     }
     SmallVector<Value> bufferArgs({input});
@@ -911,7 +911,7 @@ public:
     if (!matchPattern(op.getIgnoreIndex(), m_TorchConstantInt(&ignoreIndex)))
       return rewriter.notifyMatchFailure(op, "ignore_index must be constant");
 
-    if (!weight.getType().isa<mlir::torch::Torch::NoneType>())
+    if (!isa<mlir::torch::Torch::NoneType>(weight.getType()))
       return rewriter.notifyMatchFailure(
           op, "Unimplemented, the weight operand is not incorporated.");
 

@@ -146,7 +146,7 @@ DTypeEnum GetElementDTypeEnum(mlir::Value val);
 
 template <typename T> inline bool IsElementType(mlir::Value val) {
   if (auto memref = llvm::dyn_cast<mlir::MemRefType>(val.getType())) {
-    return memref.getElementType().isa<T>();
+    return isa<T>(memref.getElementType());
   }
   return false;
 }

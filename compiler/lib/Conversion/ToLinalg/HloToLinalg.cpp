@@ -69,7 +69,7 @@ namespace {
 
 bool verifyHloOpBufferOrTensorSemantics(Operation *op) {
   auto verifyType = [&](Value val) -> bool {
-    return val.getType().isa<RankedTensorType>();
+    return isa<RankedTensorType>(val.getType());
   };
   if (!llvm::all_of(op->getOperands(), verifyType))
     return false;
@@ -300,7 +300,7 @@ struct ReduceWindowOpConversion
       auto resultType = cast<ShapedType>(result.getType());
       if (!cast<ShapedType>(input.getType())
                .getElementType()
-               .isa<FloatType>()) {
+               isa<FloatType>()) {
         return rewriter.notifyMatchFailure(op,
                                            "expected element type to be float");
       }

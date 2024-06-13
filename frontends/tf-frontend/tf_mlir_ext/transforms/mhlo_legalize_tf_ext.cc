@@ -534,12 +534,12 @@ public:
       return op->emitOpError("Round: input not tensor type");
     }
 
-    if (inputType.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(inputType.getElementType())) {
       rewriter.replaceOpWithNewOp<mhlo::RoundNearestEvenOp>(
           op, tfRoundOp.getY().getType(), tfRoundOp.getX());
       return success();
 
-    } else if (inputType.getElementType().isa<IntegerType>()) {
+    } else if (isa<IntegerType>(inputType.getElementType())) {
       rewriter.replaceAllUsesWith(tfRoundOp.getY(), tfRoundOp.getX());
       return success();
     }

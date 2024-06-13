@@ -201,7 +201,7 @@ common::Status StaticBRTExecutionPlan::ProloguePerSession(
       for (auto &&dim : memref.getShape()) {
         if (ShapedType::isDynamic(dim)) {
           auto dim_value = dynamic_sizes[dynamic_cnt++];
-          if (!dim_value.getType().isa<IndexType>()) {
+          if (!isa<IndexType>(dim_value.getType())) {
             status_internal =
                 Status(BRT, FAIL, "invalid dynamic dimension type");
             return WalkResult::interrupt();

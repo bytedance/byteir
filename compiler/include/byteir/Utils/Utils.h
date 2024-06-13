@@ -88,9 +88,9 @@ bool isSplatValue(DenseFPElementsAttr attr, double value);
 
 inline bool isSplatElementsAttribute(DenseIntOrFPElementsAttr attr,
                                      int64_t intValue, double doubleValue) {
-  if (attr.isa<DenseIntElementsAttr>()) {
+  if (isa<DenseIntElementsAttr>(attr)) {
     return isSplatValue(cast<DenseIntElementsAttr>(attr), intValue);
-  } else if (attr.isa<DenseFPElementsAttr>()) {
+  } else if (isa<DenseFPElementsAttr>(attr)) {
     return isSplatValue(cast<DenseFPElementsAttr>(attr), doubleValue);
   }
   assert(false && "attr must be DenseIntElementsAttr or DenseFPElementsAttr");

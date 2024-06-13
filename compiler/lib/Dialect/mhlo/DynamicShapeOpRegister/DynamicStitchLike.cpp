@@ -63,7 +63,7 @@ void mlir::registerDynamicStitchReifyReturnTypeShapes() {
         }
 
         bool allRankedTensor = llvm::all_of(
-            data, [](Value v) { return v.getType().isa<RankedTensorType>(); });
+            data, [](Value v) { return isa<RankedTensorType>(v.getType()); });
         if (!allRankedTensor)
           return failure();
 

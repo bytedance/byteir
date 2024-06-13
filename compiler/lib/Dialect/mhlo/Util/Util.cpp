@@ -596,10 +596,10 @@ mlir::createBroadcastedDenseElementsAttr(DenseElementsAttr originAttr,
     newBroadcastDims = llvm::to_vector(broadcastDims);
   }
 
-  if (valueType.getElementType().isa<FloatType>()) {
+  if (isa<FloatType>(valueType.getElementType())) {
     return createBroadcastedDenseElementsAttrImpl<APFloat>(originAttr, newType,
                                                            newBroadcastDims);
-  } else if (valueType.getElementType().isa<IntegerType>()) {
+  } else if (isa<IntegerType>(valueType.getElementType())) {
     return createBroadcastedDenseElementsAttrImpl<APInt>(originAttr, newType,
                                                          newBroadcastDims);
   }

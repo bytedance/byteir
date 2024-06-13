@@ -51,7 +51,7 @@ std::optional<TileConfig> getTileConfig(linalg::TransposeOp transposeOp) {
   SmallVector<std::pair<int64_t, int64_t>> splitPoints;
   SmallVector<int64_t> paddingDimensions;
 
-  if (!elementType.isa<IntegerType, FloatType>())
+  if (!isa<IntegerType, FloatType>(elementType))
     return std::nullopt;
 
   auto dim0 = numLoops - 1;
@@ -139,11 +139,11 @@ void createTileAndVectorizeTransposeTransformImpl(OpPassManager &pm,
     if (!tileConfig.paddingDimensions.empty()) {
       ArrayAttr paddingValues;
       auto &paddingType = tileConfig.paddingType;
-      if (paddingType.isa<FloatType>()) {
+      if (isa<FloatType>(paddingType)) {
         paddingValues = b.getArrayAttr(
             SmallVector<Attribute>(2, b.getFloatAttr(paddingType, 0.f)));
       } else {
-        assert(paddingType.isa<IntegerType>());
+        assert(isa<IntegerType>(paddingType));
         paddingValues = b.getArrayAttr(
             SmallVector<Attribute>(2, b.getIntegerAttr(paddingType, 0)));
       }

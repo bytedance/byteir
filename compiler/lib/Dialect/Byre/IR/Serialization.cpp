@@ -660,23 +660,23 @@ Type mlir::byre::mappingTypeTo(Type type) {
   }
 
   if (auto concreteType = dyn_cast<FloatType>(type)) {
-    if (concreteType.isa<BFloat16Type>())
+    if (isa<BFloat16Type>(concreteType))
       return FloatBF16V1Type::get(ctx);
-    if (concreteType.isa<Float16Type>())
+    if (isa<Float16Type>(concreteType))
       return FloatF16V1Type::get(ctx);
-    if (concreteType.isa<Float32Type>())
+    if (isa<Float32Type>(concreteType))
       return FloatF32V1Type::get(ctx);
-    if (concreteType.isa<Float64Type>())
+    if (isa<Float64Type>(concreteType))
       return FloatF64V1Type::get(ctx);
-    if (concreteType.isa<Float8E4M3FNType>())
+    if (isa<Float8E4M3FNType>(concreteType))
       return FloatF8E4M3FNV1Type::get(ctx);
-    if (concreteType.isa<Float8E5M2Type>())
+    if (isa<Float8E5M2Type>(concreteType))
       return FloatF8E5M2V1Type::get(ctx);
-    if (concreteType.isa<Float8E4M3FNUZType>())
+    if (isa<Float8E4M3FNUZType>(concreteType))
       return FloatF8E4M3FNUZV1Type::get(ctx);
-    if (concreteType.isa<Float8E5M2FNUZType>())
+    if (isa<Float8E5M2FNUZType>(concreteType))
       return FloatF8E5M2FNUZV1Type::get(ctx);
-    if (concreteType.isa<Float8E4M3B11FNUZType>())
+    if (isa<Float8E4M3B11FNUZType>(concreteType))
       return FloatF8E4M3B11FNUZV1Type::get(ctx);
   }
 
@@ -715,52 +715,52 @@ Type mlir::byre::mappingTypeFrom(Type type) {
     return {};
 
   auto ctx = type.getContext();
-  if (type.isa<BooleanV1Type>())
+  if (isa<BooleanV1Type>(type))
     return IntegerType::get(ctx, 1);
-  if (type.isa<IntegerI4V1Type>())
+  if (isa<IntegerI4V1Type>(type))
     return IntegerType::get(ctx, 4);
-  if (type.isa<IntegerUI4V1Type>())
+  if (isa<IntegerUI4V1Type>(type))
     return IntegerType::get(ctx, 4, IntegerType::Unsigned);
-  if (type.isa<IntegerI8V1Type>())
+  if (isa<IntegerI8V1Type>(type))
     return IntegerType::get(ctx, 8);
-  if (type.isa<IntegerUI8V1Type>())
+  if (isa<IntegerUI8V1Type>(type))
     return IntegerType::get(ctx, 8, IntegerType::Unsigned);
-  if (type.isa<IntegerI16V1Type>())
+  if (isa<IntegerI16V1Type>(type))
     return IntegerType::get(ctx, 16);
-  if (type.isa<IntegerUI16V1Type>())
+  if (isa<IntegerUI16V1Type>(type))
     return IntegerType::get(ctx, 16, IntegerType::Unsigned);
-  if (type.isa<IntegerI32V1Type>())
+  if (isa<IntegerI32V1Type>(type))
     return IntegerType::get(ctx, 32);
-  if (type.isa<IntegerUI32V1Type>())
+  if (isa<IntegerUI32V1Type>(type))
     return IntegerType::get(ctx, 32, IntegerType::Unsigned);
-  if (type.isa<IntegerI64V1Type>())
+  if (isa<IntegerI64V1Type>(type))
     return IntegerType::get(ctx, 64);
-  if (type.isa<IntegerUI64V1Type>())
+  if (isa<IntegerUI64V1Type>(type))
     return IntegerType::get(ctx, 64, IntegerType::Unsigned);
 
-  if (type.isa<IndexV1Type>())
+  if (isa<IndexV1Type>(type))
     return IndexType::get(ctx);
 
-  if (type.isa<FloatBF16V1Type>())
+  if (isa<FloatBF16V1Type>(type))
     return BFloat16Type::get(ctx);
-  if (type.isa<FloatF16V1Type>())
+  if (isa<FloatF16V1Type>(type))
     return Float16Type::get(ctx);
-  if (type.isa<FloatF32V1Type>())
+  if (isa<FloatF32V1Type>(type))
     return Float32Type::get(ctx);
-  if (type.isa<FloatF64V1Type>())
+  if (isa<FloatF64V1Type>(type))
     return Float64Type::get(ctx);
-  if (type.isa<FloatF8E4M3FNV1Type>())
+  if (isa<FloatF8E4M3FNV1Type>(type))
     return Float8E4M3FNType::get(ctx);
-  if (type.isa<FloatF8E5M2V1Type>())
+  if (isa<FloatF8E5M2V1Type>(type))
     return Float8E5M2Type::get(ctx);
-  if (type.isa<FloatF8E4M3FNUZV1Type>())
+  if (isa<FloatF8E4M3FNUZV1Type>(type))
     return Float8E4M3FNUZType::get(ctx);
-  if (type.isa<FloatF8E5M2FNUZV1Type>())
+  if (isa<FloatF8E5M2FNUZV1Type>(type))
     return Float8E5M2FNUZType::get(ctx);
-  if (type.isa<FloatF8E4M3B11FNUZV1Type>())
+  if (isa<FloatF8E4M3B11FNUZV1Type>(type))
     return Float8E4M3B11FNUZType::get(ctx);
 
-  if (type.isa<StringV1Type>())
+  if (isa<StringV1Type>(type))
     return ace::StringType::get(ctx);
 
   if (auto concreteType = dyn_cast<MemrefV1Type>(type)) {

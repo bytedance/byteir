@@ -38,9 +38,9 @@ LogicalResult foldConstantConvertOp(stablehlo::ConvertOp op,
   Type outputElementType =
       cast<ShapedType>(op.getResult().getType()).getElementType();
   auto getWidth = [](Type type) -> int64_t {
-    if (type.isa<FloatType>()) {
+    if (isa<FloatType>(type)) {
       return cast<FloatType>(type).getWidth();
-    } else if (type.isa<IntegerType>()) {
+    } else if (isa<IntegerType>(type)) {
       return cast<IntegerType>(type).getWidth();
     } else {
       return -1;

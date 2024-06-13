@@ -142,7 +142,7 @@ bool IsComptaibleShapeOf(const std::vector<int64_t> &shape, mlir::Value value) {
 
 bool IsByreStringType(mlir::Type type) {
   // TODO: introduce byre.string instead of ace.string
-  return type.isa<ace::StringType>();
+  return isa<ace::StringType>(type);
 }
 
 // TODO: introduce byre.string

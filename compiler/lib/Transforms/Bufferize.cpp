@@ -210,7 +210,7 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
   for (const auto &it : llvm::enumerate(callOp.getResultTypes())) {
     unsigned returnValIdx = it.index();
     Type returnType = it.value();
-    if (!returnType.isa<TensorType>()) {
+    if (!isa<TensorType>(returnType)) {
       // Non-tensor values are returned.
       retValMapping[returnValIdx] = resultTypes.size();
       resultTypes.push_back(returnType);
@@ -228,7 +228,7 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
     Value tensorOperand = opOperand.get();
 
     // Non-tensor operands are just copied.
-    if (!tensorOperand.getType().isa<TensorType>()) {
+    if (!isa<TensorType>(tensorOperand.getType())) {
       newOperands[idx] = tensorOperand;
       continue;
     }

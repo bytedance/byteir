@@ -124,7 +124,7 @@ void ByreDialect::printType(Type type, DialectAsmPrinter &os) const {
 LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
                                                     NamedAttribute attr) {
   // ContainerModuleAttr only applied to ModuleOp
-  if (attr.getValue().isa<UnitAttr>() &&
+  if (isa<UnitAttr>(attr.getValue()) &&
       attr.getName().getValue() == getContainerModuleAttrName()) {
     if (!isa<ModuleOp>(op)) {
       return op->emitError("expected '")
@@ -159,7 +159,7 @@ LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
   }
 
   // ModuleMemorySpaceAttr only applied to ModuleOp with ContainerModuleAttr
-  if (attr.getValue().isa<ArrayAttr>() &&
+  if (isa<ArrayAttr>(attr.getValue()) &&
       attr.getName().getValue() == getModuleMemorySpaceAttrName()) {
     if (!op->hasAttrOfType<UnitAttr>(getContainerModuleAttrName())) {
       return op->emitError("expected '")
@@ -172,7 +172,7 @@ LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
 
   // EntryPointFunctionAttr only applied to FuncOp,
   // which under ModuleOp with ContainerModuleAttrName
-  if (attr.getValue().isa<UnitAttr>() &&
+  if (isa<UnitAttr>(attr.getValue()) &&
       attr.getName().getValue() == getEntryPointFunctionAttrName()) {
     if (!isa<func::FuncOp>(op)) {
       return op->emitError("expected '")
@@ -238,7 +238,7 @@ LogicalResult ByreDialect::verifyOperationAttribute(Operation *op,
       // check argument name
       if (auto argNameAttr = funcOp.getArgAttr(
               idx, ByreDialect::getEntryPointFuncArgNameAttrName())) {
-        if (!argNameAttr.isa<StringAttr>()) {
+        if (!isa<StringAttr>(argNameAttr)) {
           return op->emitError("expected StringAttr in '")
                  << ByreDialect::getEntryPointFuncArgNameAttrName() << '\'';
         }
@@ -289,7 +289,7 @@ LogicalResult ComputeOp::verify() {
       return emitError("size of memory effects mismatch");
     }
     if (llvm::any_of(maybeMemoryEffects->getValue(), [](Attribute attr) {
-          return !attr.isa<MemoryEffectAttr>();
+          return !isa<MemoryEffectAttr>(attr);
         })) {
       return emitError("invalid memory effect attribute");
     }

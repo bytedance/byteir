@@ -29,13 +29,13 @@ namespace brt {
 bool IsLocalAlias(Operation *op) {
   if (!IsAliasOp(op))
     return false;
-  return op->getOperand(0).isa<mlir::OpResult>();
+  return isa<mlir::OpResult>(op->getOperand(0));
 }
 
 bool IsArgAlias(Operation *op) {
   if (!IsAliasOp(op))
     return false;
-  return op->getOperand(0).isa<mlir::BlockArgument>();
+  return isa<mlir::BlockArgument>(op->getOperand(0));
 }
 
 bool IsAliasOp(Operation *op) { return llvm::isa<mlir::byre::AliasOp>(op); }

@@ -467,7 +467,7 @@ mlir::LogicalResult mlir::linalg_ext::ScanOp::verify() {
   if (getNumOutputs() != 2) {
     return op->emitOpError("expected two output operands");
   }
-  if (!input().getType().isa<ShapedType>()) {
+  if (!isa<ShapedType>(input().getType())) {
     return op->emitOpError("expected first input element type to be shaped");
   }
   auto accumulatorType = cast<ShapedType>(accumulator().getType());
@@ -668,7 +668,7 @@ mlir::LogicalResult mlir::linalg_ext::ScatterOp::verify() {
     return op->emitOpError("expected one output operands src");
   }
   if (!llvm::all_of(op->getOperandTypes(), [](Type t) {
-        return t.isa<ShapedType>() && cast<ShapedType>(t).hasRank();
+        return isa<ShapedType>(t) && cast<ShapedType>(t).hasRank();
       })) {
     return op->emitOpError("expected ranked ShapedType for all operands");
   }
@@ -986,7 +986,7 @@ FailureOr<Value> getSoftmaxLikeScaleDiagMatmul(OpBuilder &b, mlir::Location loc,
 
   auto scale = op->getResult(3);
   if (auto scaleTensorTy = dyn_cast<TensorType>(scale.getType())) {
-    if (!consumerOutput.getType().isa<TensorType>()) {
+    if (!isa<TensorType>(consumerOutput.getType())) {
       // Not support mixing TensorType with other types
       return failure();
     }
@@ -1780,7 +1780,7 @@ void mlir::linalg_ext::BatchMatmulOp::build(
 
   // Add output types for `RankedTensorType` output arguments.
   Type initType = init.getType();
-  if (initType.isa<RankedTensorType>())
+  if (isa<RankedTensorType>(initType))
     result.addTypes(initType);
 
   // Create and fill the region of the structured operation.
@@ -1957,7 +1957,7 @@ mlir::LogicalResult mlir::linalg_ext::LayerNormOp::verify() {
   if (getNumOutputs() != 1 && getNumOutputs() != 3) {
     return op->emitOpError("expected one or three output operands");
   }
-  if (!input().getType().isa<ShapedType>()) {
+  if (!isa<ShapedType>(input().getType())) {
     return op->emitOpError("expected first input element type to be shaped");
   }
 
@@ -2252,7 +2252,7 @@ struct FoldTensorCastOp : public OpInterfaceRewritePattern<LinalgExtOp> {
     // If no operand comes from a tensor::CastOp and can be folded then fail.
     bool hasTensorCastOperand =
         llvm::any_of(op.getInputAndOutputOperands(), [&](OpOperand *opOperand) {
-          if (opOperand->get().isa<BlockArgument>())
+          if (isa<BlockArgument>(opOperand->get()))
             return false;
           auto castOp = opOperand->get().getDefiningOp<tensor::CastOp>();
           return castOp && canFoldIntoConsumerOp(castOp);
