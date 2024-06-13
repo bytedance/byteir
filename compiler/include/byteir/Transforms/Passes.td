@@ -313,6 +313,18 @@ def RewriteOpToStdCall : Pass<"rewrite-op-to-std-call", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ReorderMemrefCopy
+//===----------------------------------------------------------------------===//
+
+def ReorderMemrefCopy : Pass<"reorder-memref-copy", "mlir::func::FuncOp"> {
+  let summary = "Reorder memref copyOp to overlap IO and compute.";
+  let constructor = "mlir::createReorderMemrefCopyPass()";
+  let dependentDialects = [
+    "mlir::memref::MemRefDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // OneShotBufferize
 //===----------------------------------------------------------------------===//
 

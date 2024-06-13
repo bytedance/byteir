@@ -15,6 +15,7 @@ add_mlir_library(ByteIRTransforms
   LoopUnroll.cpp
   MemoryPlanning.cpp
   RemoveFuncBody.cpp
+  ReorderMemrefCopy.cpp
   RewriteOpToStdCall.cpp
   SetArgShape.cpp
   SetSpace.cpp
