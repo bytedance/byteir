@@ -12,33 +12,33 @@ temp_dir = tempfile.TemporaryDirectory()
 # test byteir.compile
 
 def test_compile_mlp_inference():
-    path = TEST_ROOT_DIR + "E2E/MLPInference/input.mlir"
+    path = TEST_ROOT_DIR + "E2E/CUDA/MLPInference/input.mlir"
     byteir.compile(path, temp_dir.name + "/test.mlir", entry_func="forward")
 
 def test_compile_ccl_inference():
-    path = TEST_ROOT_DIR + "E2E/CclInference/input.mlir"
+    path = TEST_ROOT_DIR + "E2E/CUDA/CclInference/input.mlir"
     byteir.compile(path, temp_dir.name + "./test_ccl.mlir", entry_func="forward")
 
 def test_compile_mlp_inference_cpu():
-    path = TEST_ROOT_DIR + "Pipelines/Host/E2E/Case0/00_Input.mlir"
+    path = TEST_ROOT_DIR + "E2E/Host/Case0/00_Input.mlir"
     byteir.compile(path, temp_dir.name + "/test_cpu.mlir", entry_func="main", target="cpu")
 
 def test_compile_mlp_inference_cpu_mlirbc():
-    path = TEST_ROOT_DIR + "Pipelines/Host/E2E/Case0/00_Input.mlir"
+    path = TEST_ROOT_DIR + "E2E/Host/Case0/00_Input.mlir"
     byteir.compile(path, temp_dir.name + "/test_cpu.mlirbc", entry_func="main", target="cpu")
 
 # ==============================================================================
 # test translate to llvm
 
 def test_translate_to_llvmbc():
-    path = TEST_ROOT_DIR + "Pipelines/Host/E2E/Case0/03b_ToLLVMIR.mlir"
+    path = TEST_ROOT_DIR + "E2E/Host/Case0/03b_ToLLVMIR.mlir"
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
         byteir.translate_to_llvmbc(module, temp_dir.name + "/test.ll.bc")
 
 def test_translate_to_llvmir():
-    path = TEST_ROOT_DIR + "Pipelines/Host/E2E/Case0/03b_ToLLVMIR.mlir"
+    path = TEST_ROOT_DIR + "E2E/Host/Case0/03b_ToLLVMIR.mlir"
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
