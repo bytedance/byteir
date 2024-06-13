@@ -18,6 +18,7 @@
 #ifndef BYTEIR_PIPELINES_GPU_REDUCTION_CODEGEN_H
 #define BYTEIR_PIPELINES_GPU_REDUCTION_CODEGEN_H
 
+#include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
 #include "mlir/Pass/PassRegistry.h"
@@ -140,6 +141,9 @@ struct GPUTileThreadReductionOptions
       *this, "annotate-prefix",
       llvm::cl::desc("An optional annotate prefix attribute on target ops."),
       llvm::cl::init("__byteir_gpu_tile_thread_reduction")};
+  Option<utils::IteratorType> iteratorType{
+      *this, "iterator-type", llvm::cl::desc("Specify the iteration type."),
+      llvm::cl::init(utils::IteratorType::parallel)};
 };
 
 void createGPUSplitGridReductionTransform(

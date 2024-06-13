@@ -16,10 +16,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Pipelines/LinalgTensorOpt.h"
-#include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
-#include "byteir/Pipelines/GPU/ReductionCodegen.h"
-#include "byteir/Pipelines/Host/Codegen.h"
-
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Tensor/Passes.h"
@@ -28,10 +24,14 @@
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
+#include "byteir/Pipelines/GPU/ReductionCodegen.h"
+#include "byteir/Pipelines/Host/Codegen.h"
 #include "byteir/Transforms/AnchoredPipeline.h"
 #include "byteir/Transforms/CanonicalizeExt.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
+#include "mlir/Dialect/SCF/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 #include "transforms/passes.h"
 
@@ -90,6 +90,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     pm.addPass(createCanonicalizerPass());
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createExtractSliceSpecializationPass());
       anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       anchoredPM.addPass(createCanonicalizeExtPass());
       anchoredPM.addPass(createCSEPass());
@@ -106,6 +108,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     pm.addPass(createTransformDialectInterpreter(true));
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createExtractSliceSpecializationPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
       anchoredPM.addPass(createCanonicalizeExtPass());
@@ -114,7 +118,7 @@ void addGenericLinalgPasses(OpPassManager &pm) {
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
     }
-    
+
     GPUTileBlockReductionOptions tileBlockRedOptions;
     tileBlockRedOptions.funcAnchor = reductionAnchor;
     tileBlockRedOptions.blockSize = 256;
@@ -122,6 +126,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     pm.addPass(createTransformDialectInterpreter(true));
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createExtractSliceSpecializationPass());
       anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
@@ -141,6 +147,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     pm.addPass(createTransformDialectInterpreter(true));
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createExtractSliceSpecializationPass());
       anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCanonicalizeExtPass());
@@ -158,6 +166,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     pm.addPass(createTransformDialectInterpreter(true));
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createExtractSliceSpecializationPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCanonicalizeExtPass());
       anchoredPM.addPass(createCSEPass());
@@ -166,15 +176,36 @@ void addGenericLinalgPasses(OpPassManager &pm) {
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
     }
 
+    // tiling and unroll parallel loops
     GPUTileThreadReductionOptions tileThreadRedOptions;
     tileThreadRedOptions.funcAnchor = reductionAnchor;
+    tileThreadRedOptions.iteratorType = utils::IteratorType::parallel;
     createGPUTileThreadReductionTransform(pm, tileThreadRedOptions);
     pm.addPass(createTransformDialectInterpreter(true));
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
-      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
-      anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createSCFForLoopCanonicalizationPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
+      pm.addNestedPass<func::FuncOp>(
+          createAnchoredPipelinePass(reductionAnchor, anchoredPM));
+    }
+
+    // tiling and unroll reduction loops
+    tileThreadRedOptions.iteratorType = utils::IteratorType::reduction;
+    createGPUTileThreadReductionTransform(pm, tileThreadRedOptions);
+    pm.addPass(createTransformDialectInterpreter(true));
+    {
+      OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createSCFForLoopCanonicalizationPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createCanonicalizeExtPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createLinalgFoldUnitExtentDimsPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
     }

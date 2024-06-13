@@ -50,6 +50,7 @@ namespace {
 
 static constexpr int64_t kGridSplitThreshold = 4096;
 static constexpr int64_t kGridTileNumThreshold = 64;
+static constexpr int64_t kThreadUnrollThreshold = 8;
 
 constexpr bool isPowerOf2(int64_t n) { return (!(n & (n - 1))); }
 
@@ -265,8 +266,9 @@ struct BlockTileConfig {
 };
 
 struct ThreadTileConfig {
-  SmallVector<int64_t> parallelTileSizes;
-  SmallVector<int64_t> reductionTileSizes;
+  bool applyLoopUnroll;
+  utils::IteratorType iterType;
+  SmallVector<int64_t> tileSizes;
   SmallVector<int64_t> unrollFactors;
   std::vector<ProducerSelector> initOperands;
 
@@ -595,26 +597,32 @@ void BlockTileConfig::apply(ImplicitLocOpBuilder &b, Value pdlV) {
 
 void ThreadTileConfig::apply(ImplicitLocOpBuilder &b, Value pdlV) {
   auto pdlType = pdl::OperationType::get(b.getContext());
-  auto numTiledParallelLoops = getNumTiledLoops(parallelTileSizes);
+  auto numTiledParallelLoops = getNumTiledLoops(tileSizes);
   SmallVector<Value> loops;
-  if (numTiledParallelLoops > 0) {
+  if (iterType == utils::IteratorType::parallel) {
     auto fuseOp = b.create<transform::FuseOp>(
         /* transformed */ pdlType,
         /* loops */
-        SmallVector<Type>(getNumTiledLoops(parallelTileSizes), pdlType),
+        SmallVector<Type>(numTiledParallelLoops, pdlType),
         /* target */ pdlV,
-        /* tile_sizes */ b.getI64ArrayAttr(parallelTileSizes),
+        /* tile_sizes */ b.getI64ArrayAttr(tileSizes),
         /* tile_interchange */ ArrayAttr());
     loops = fuseOp.getLoops();
     pdlV = fuseOp.getTransformed();
+  } else {
+    auto tileOp = b.create<transform::TileUsingForOp>(
+        /* target */ pdlV,
+        /* tileSizes */ tileSizes);
+    for (auto loop : tileOp.getLoops()) {
+      loops.emplace_back(loop);
+    }
   }
 
-  auto tileOp = b.create<transform::TileUsingForOp>(
-      /* target */ pdlV,
-      /* tillSizes */ reductionTileSizes);
-  loops.push_back(tileOp.getLoops()[0]);
-  for (auto &&[loop, factor] : llvm::reverse(llvm::zip(loops, unrollFactors))) {
-    b.create<transform::LoopUnrollOp>(loop, factor);
+  if (applyLoopUnroll) {
+    for (auto &&[loop, factor] :
+         llvm::reverse(llvm::zip(loops, unrollFactors))) {
+      b.create<transform::LoopUnrollOp>(loop, factor);
+    }
   }
 }
 
@@ -719,6 +727,10 @@ bool isThreadReductionOp(linalg::GenericOp genericOp) {
   // early return for manual tag
   if (genericOp->hasAttr(kThreadReduction))
     return true;
+
+  if (auto forallOp = genericOp->getParentOfType<scf::ForallOp>()) {
+    return isMappedToGPUThreads(forallOp);
+  }
 
   // nested in op which is mapped to GPU threads
   if (isMappedToGPUThreads(genericOp->getParentOp()))
@@ -1038,31 +1050,45 @@ std::optional<BlockTileConfig> getBlockTileConfig(linalg::GenericOp genericOp,
 }
 
 std::optional<ThreadTileConfig>
-getThreadTileConfig(linalg::GenericOp genericOp) {
+getThreadTileConfig(linalg::GenericOp genericOp,
+                    const utils::IteratorType &iterType) {
   if (!isThreadReductionOp(genericOp))
     return std::nullopt;
 
-  if (genericOp.hasDynamicShape()) {
+  bool applyLoopUnroll = true;
+  SmallVector<int64_t> unrollFactors;
+  int64_t numLoops = genericOp.getNumLoops();
+  SmallVector<int64_t> tileSizes(numLoops, 0);
+  auto reductionDim = *getReductionDim(genericOp);
+  SmallVector<unsigned> dims;
+  if (iterType == utils::IteratorType::parallel) {
+    genericOp.getParallelDims(dims);
+  } else {
+    genericOp.getReductionDims(dims);
+  }
+
+  if (dims.size() == 0) {
     return std::nullopt;
   }
 
-  int64_t numLoops = genericOp.getNumLoops();
-  SmallVector<int64_t> parallelTileSizes(numLoops, 1);
-  SmallVector<int64_t> reductionTileSizes(numLoops, 0);
-  auto reductionDim = *getReductionDim(genericOp);
+  SmallVector<int64_t> loopSizes =
+      cast<linalg::LinalgOp>(genericOp.getOperation()).getStaticLoopRanges();
 
-  parallelTileSizes[reductionDim] = 0;
-  reductionTileSizes[reductionDim] = 1;
-
-  SmallVector<int64_t> unrollFactors =
-      cast<linalg::LinalgOp>(genericOp.getOperation()).computeStaticLoopSizes();
+  for (auto d : dims) {
+    tileSizes[d] = 1;
+    unrollFactors.emplace_back(loopSizes[d]);
+    if (ShapedType::isDynamic(loopSizes[d]) ||
+        loopSizes[d] > kThreadUnrollThreshold) {
+      applyLoopUnroll = false;
+    }
+  }
 
   std::vector<ProducerSelector> initOperands;
   for (OpOperand &opOperand : genericOp.getDpsInitsMutable()) {
     ProducerSelector::detectFillOperand(&opOperand, initOperands);
   }
 
-  return ThreadTileConfig{parallelTileSizes, reductionTileSizes, unrollFactors,
+  return ThreadTileConfig{applyLoopUnroll, iterType, tileSizes, unrollFactors,
                           initOperands};
 }
 
@@ -1344,15 +1370,15 @@ void createGPUTileWarpReductionTransformImpl(OpPassManager &pm,
   pm.addPass(createGenericTransformInsertionPass(config));
 }
 
-void createGPUTileThreadReductionTransformImpl(OpPassManager &pm,
-                                               const std::string &anchor,
-                                               const std::string &prefix) {
+void createGPUTileThreadReductionTransformImpl(
+    OpPassManager &pm, const std::string &anchor, const std::string &prefix,
+    const utils::IteratorType iterType) {
   TransformInsertionConfig config;
   config.funcAnchor = anchor;
   config.matchPrefix = prefix;
   config.opFilter = [=](Operation *op) {
     if (auto genericOp = llvm::dyn_cast_or_null<linalg::GenericOp>(op)) {
-      return getThreadTileConfig(genericOp).has_value();
+      return getThreadTileConfig(genericOp, iterType).has_value();
     }
     return false;
   };
@@ -1360,7 +1386,8 @@ void createGPUTileThreadReductionTransformImpl(OpPassManager &pm,
   config.transformBuilder = [=](ImplicitLocOpBuilder &b, Operation *op,
                                 Value pdlV) {
     auto tileConfig =
-        getThreadTileConfig(llvm::cast<linalg::GenericOp>(op)).value();
+        getThreadTileConfig(llvm::cast<linalg::GenericOp>(op), iterType)
+            .value();
     tileConfig.apply(b, pdlV);
   };
 
@@ -1413,5 +1440,6 @@ void mlir::createGPUTileWarpReductionTransform(
 void mlir::createGPUTileThreadReductionTransform(
     OpPassManager &pm, const GPUTileThreadReductionOptions &options) {
   invokeOpPassPipelineBuilder(createGPUTileThreadReductionTransformImpl, pm,
-                              options.funcAnchor, options.annotatePrefix);
+                              options.funcAnchor, options.annotatePrefix,
+                              options.iteratorType);
 }
