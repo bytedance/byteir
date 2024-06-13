@@ -25,6 +25,10 @@
 namespace mlir {
 namespace byre {
 
+inline llvm::StringRef getByreDynamicLaunchConfigAttrName() {
+  return "byre_dynamic_launch_config";
+}
+
 // byre.compute attribute name
 inline llvm::StringRef getByreComputeName() { return "byre_compute_name"; }
 

@@ -55,6 +55,12 @@ public:
 // Adds a `byre.async.token` to the front of the argument list.
 void addAsyncDependency(Operation *op, Value token);
 
+namespace OpTrait {
+template <typename ConcreteType>
+class UsingOperandMeta
+    : public mlir::OpTrait::TraitBase<ConcreteType, UsingOperandMeta> {};
+
+} // end namespace OpTrait
 } // end namespace byre
 } // end namespace mlir
 
