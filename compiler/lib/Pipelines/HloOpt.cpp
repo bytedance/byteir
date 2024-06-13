@@ -66,27 +66,6 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
                               const std::string &target,
                               bool outlineSingleElemwiseOp, bool disableFusion,
                               bool outlineCatOp, bool aggressiveCatFusion) {
-  pm.addPass(createInlinerPass());
-  pm.addPass(createCanonicalizerPass());
-
-  // expand tuple
-  pm.addPass(createExpandHloTuplesPass(entryFunc));
-  pm.addPass(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(createFlattenTuplePass());
-
-  addCleanUpExtPassPipeline(pm);
-
-  // generic folding and simplify
-  pm.addNestedPass<func::FuncOp>(createUnfuseBatchNormPass());
-  pm.addNestedPass<func::FuncOp>(createHloFolderPass());
-  pm.addNestedPass<func::FuncOp>(createHloFolderPass());
-  pm.addNestedPass<func::FuncOp>(createHloSimplifyPass());
-  pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
-  pm.addPass(createConvertOpToCustomCallPass());
-
-  // rewrite with constraint
-  pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());
-
   addCleanUpExtPassPipeline(pm);
 
   // add fusion patterns
