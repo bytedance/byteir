@@ -789,7 +789,7 @@ static DiagnosedSilenceableFailure mapForallToBlocksExtOpImpl(
   }
 
   replaceUnitMappingIdsHelper<BlockIdOp>(rewriter, loc, parentBlock, zero,
-                                          staticGridDims);
+                                         staticGridDims);
   return DiagnosedSilenceableFailure::success();
 }
 
