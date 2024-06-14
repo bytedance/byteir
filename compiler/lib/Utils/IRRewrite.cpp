@@ -261,8 +261,8 @@ std::optional<SmallVector<Type>> mlir::mixTypes(TypeRange cloneFromElementTypes,
 
   for (auto item : llvm::zip(cloneFromElementTypes, cloneFromShapes)) {
 
-    if (!std::get<0>(item).isa<ShapedType>() ||
-        !std::get<1>(item).isa<ShapedType>()) {
+    if (!isa<ShapedType>(std::get<0>(item)) ||
+        !isa<ShapedType>(std::get<1>(item))) {
       return std::nullopt;
     }
 

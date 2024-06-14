@@ -417,7 +417,7 @@ fuseElementwiseOpsExt(RewriterBase &rewriter, OpOperand *fusedOperand) {
     fusedOutputOperands.push_back(opOperand.get());
     fusedIndexMaps.push_back(consumer.getMatchingIndexingMap(&opOperand));
     Type resultType = opOperand.get().getType();
-    if (!resultType.isa<MemRefType>())
+    if (!isa<MemRefType>(resultType))
       fusedResultTypes.push_back(resultType);
   }
 
@@ -669,7 +669,7 @@ getIndexingMapInExpandedOp(OpBuilder &builder, AffineMap indexingMap,
                            const ExpansionInfo &expansionInfo) {
   SmallVector<AffineExpr> newExprs;
   for (AffineExpr expr : indexingMap.getResults()) {
-    if (expr.isa<AffineConstantExpr>()) {
+    if (isa<AffineConstantExpr>(expr)) {
       newExprs.push_back(expr);
       continue;
     }
@@ -696,7 +696,7 @@ static RankedTensorType getExpandedType(RankedTensorType originalType,
   for (auto it : llvm::enumerate(indexingMap.getResults())) {
     AffineExpr expr = it.value();
     int64_t idx = it.index();
-    if (expr.isa<AffineConstantExpr>()) {
+    if (isa<AffineConstantExpr>(expr)) {
       expandedShape.push_back(originalType.getDimSize(idx));
       continue;
     }
@@ -721,7 +721,7 @@ getReassociationForExpansion(AffineMap indexingMap,
   SmallVector<ReassociationIndices> reassociation;
   unsigned numReshapeDims = 0;
   for (AffineExpr expr : indexingMap.getResults()) {
-    if (expr.isa<AffineConstantExpr>()) {
+    if (isa<AffineConstantExpr>(expr)) {
       reassociation.push_back({numReshapeDims++});
       continue;
     }

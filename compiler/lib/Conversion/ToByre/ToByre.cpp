@@ -327,7 +327,7 @@ static inline void relocateFuncOpResults(func::FuncOp func,
               opBuilder.getI64IntegerAttr(
                   removeAllocOps[allocOp.getOperation()].getArgNumber()));
         }
-      } else if (retVal.isa<BlockArgument>()) {
+      } else if (isa<BlockArgument>(retVal)) {
         // if return value is input from entry function, insert a memref.copy
         opBuilder.setInsertionPoint(retOp);
         opBuilder.create<memref::CopyOp>(

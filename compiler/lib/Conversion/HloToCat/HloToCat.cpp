@@ -264,7 +264,7 @@ struct ConvertSlice : public OpConversionPattern<mhlo::SliceOp> {
 
     auto elemTy = cast<RankedTensorType>(input.getType()).getElementType();
     // AIT doesn't support slice int yet
-    if (!elemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(elemTy))
       return failure();
 
     auto newOp = rewriter.create<cat::SliceOp>(op.getLoc(), op.getType(), input,
@@ -285,8 +285,8 @@ struct ConvertCast : public OpConversionPattern<mhlo::ConvertOp> {
     auto inputElemTy = cast<RankedTensorType>(input.getType()).getElementType();
     auto outputElemTy = cast<RankedTensorType>(op.getType()).getElementType();
     // only support f16/bf16/f32 => f16/bf16/f32
-    if (!outputElemTy.isa<mlir::FloatType>() ||
-        !inputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy) ||
+        !isa<mlir::FloatType>(inputElemTy))
       return failure();
 
     auto inputBitWidth = inputElemTy.getIntOrFloatBitWidth();
@@ -345,7 +345,7 @@ struct ConvertBinaryAdd : public OpConversionPattern<mhlo::AddOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
@@ -386,7 +386,7 @@ struct ConvertBinaryMul : public OpConversionPattern<mhlo::MulOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
@@ -427,7 +427,7 @@ struct ConvertBinaryDiv : public OpConversionPattern<mhlo::DivOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
@@ -468,7 +468,7 @@ struct ConvertBinarySub : public OpConversionPattern<mhlo::SubtractOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
@@ -509,7 +509,7 @@ struct ConvertBinaryPow : public OpConversionPattern<mhlo::PowOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
@@ -550,7 +550,7 @@ struct ConvertBinaryMax : public OpConversionPattern<mhlo::MaxOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto lhs = adaptor.getLhs();
     auto rhs = adaptor.getRhs();
@@ -591,7 +591,7 @@ struct ConvertNegate : public OpConversionPattern<mhlo::NegOp> {
       return failure();
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
 
     auto constType = RankedTensorType::get({1}, outputElemTy);
@@ -622,7 +622,7 @@ struct ConvertUnaryTanh : public OpConversionPattern<mhlo::TanhOp> {
     auto opType = rewriter.getStringAttr("tanh");
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto newOp = rewriter.create<cat::UnaryElementwiseOp>(
         op.getLoc(), op.getType(), adaptor.getOperand(), opType);
@@ -643,7 +643,7 @@ struct ConvertUnaryLogistic : public OpConversionPattern<mhlo::LogisticOp> {
     auto opType = rewriter.getStringAttr("log");
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto newOp = rewriter.create<cat::UnaryElementwiseOp>(
         op.getLoc(), op.getType(), adaptor.getOperand(), opType);
@@ -664,7 +664,7 @@ struct ConvertUnarySqrt : public OpConversionPattern<mhlo::SqrtOp> {
     auto opType = rewriter.getStringAttr("sqrt");
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto newOp = rewriter.create<cat::UnaryElementwiseOp>(
         op.getLoc(), op.getType(), adaptor.getOperand(), opType);
@@ -686,7 +686,7 @@ struct ConvertUnaryRsqrt : public OpConversionPattern<mhlo::RsqrtOp> {
     auto opType = rewriter.getStringAttr("sqrt");
     auto outputTy = cast<RankedTensorType>(op.getType());
     auto outputElemTy = outputTy.getElementType();
-    if (!outputElemTy.isa<mlir::FloatType>())
+    if (!isa<mlir::FloatType>(outputElemTy))
       return failure();
     auto sqrtOp = rewriter.create<cat::UnaryElementwiseOp>(
         op.getLoc(), op.getType(), adaptor.getOperand(), opType);

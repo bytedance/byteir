@@ -53,15 +53,15 @@ void ReplaceTFTypeToAceType(SmallVector<Type> &types, MLIRContext *ctx) {
   for (Type &ty : types) {
     auto tensor_type = dyn_cast<mlir::TensorType>(ty);
     if (tensor_type) {
-      if (tensor_type.getElementType().isa<TF::StringType>()) {
+      if (isa<TF::StringType>(tensor_type.getElementType())) {
         ty = tensor_type.cloneWith(std::nullopt, ace::StringType::get(ctx));
-      } else if (tensor_type.getElementType().isa<TF::ResourceType>()) {
+      } else if (isa<TF::ResourceType>(tensor_type.getElementType())) {
         ty = tensor_type.cloneWith(std::nullopt, ace::ResourceType::get(ctx));
       }
     } else {
-      if (ty.isa<TF::StringType>()) {
+      if (isa<TF::StringType>(ty)) {
         ty = ace::StringType::get(ctx);
-      } else if (ty.isa<TF::ResourceType>()) {
+      } else if (isa<TF::ResourceType>(ty)) {
         ty = ace::ResourceType::get(ctx);
       }
     }
@@ -106,7 +106,7 @@ void LowerToAceCustomCall(Operation *op) {
 void LowerToAceConstant(TF::ConstOp op) {
   ShapedType ty = dyn_cast<ShapedType>(op.getOutput().getType());
   // TODO(lyq): handle resource type
-  if (!ty || !ty.getElementType().isa<TF::StringType>()) {
+  if (!ty || !isa<TF::StringType>(ty.getElementType())) {
     return;
   }
   OpBuilder builder(op);
@@ -123,7 +123,7 @@ void LowerToAceConstant(TF::ConstOp op) {
 void LowerToAceReshape(TF::SqueezeOp op) {
   ShapedType ty = dyn_cast<ShapedType>(op.getOutput().getType());
   // TODO(lyq): handle resource type
-  if (!ty || !ty.getElementType().isa<TF::StringType>() ||
+  if (!ty || !isa<TF::StringType>(ty.getElementType()) ||
       !ty.hasStaticShape()) {
     return;
   }
@@ -157,9 +157,9 @@ struct TfFallbackToCustomCallPass
       auto tensor_type = dyn_cast<mlir::TensorType>(t);
       Type elementType =
           tensor_type == nullptr ? t : tensor_type.getElementType();
-      return elementType.isa<TF::StringType>() ||
-             elementType.isa<ace::StringType>() ||
-             elementType.isa<TF::ResourceType>();
+      return isa<TF::StringType>(elementType) ||
+             isa<ace::StringType>(elementType) ||
+             isa<TF::ResourceType>(elementType);
     };
 
     func::ReturnOp returnOp;

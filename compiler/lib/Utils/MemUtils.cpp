@@ -57,7 +57,7 @@ std::optional<Value> mlir::getDimSize(OpBuilder &b, Value val, unsigned idx) {
 std::optional<Value> mlir::createAlloc(OpBuilder &b, Value val,
                                        unsigned space) {
   // early termination if not a memref
-  if (!val.getType().isa<MemRefType>())
+  if (!isa<MemRefType>(val.getType()))
     return std::nullopt;
 
   auto oldMemRefType = cast<MemRefType>(val.getType());

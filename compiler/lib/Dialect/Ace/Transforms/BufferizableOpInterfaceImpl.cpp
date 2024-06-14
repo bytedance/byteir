@@ -83,7 +83,7 @@ struct CustomCallOpInterface
     // Bufferize arguments.
     SmallVector<Value> bufferArgs;
     for (OpOperand &operand : customCallOp->getOpOperands()) {
-      if (!operand.get().getType().isa<TensorType>())
+      if (!isa<TensorType>(operand.get().getType()))
         return failure();
       FailureOr<Value> operandBuffer =
           getBuffer(rewriter, operand.get(), options);

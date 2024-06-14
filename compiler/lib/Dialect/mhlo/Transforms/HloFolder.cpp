@@ -232,7 +232,7 @@ std::optional<ConstantOp> getBroadcastedConstOp(BroadcastInDimOp op,
     return std::nullopt;
   }
   auto constOp = op.getOperand().getDefiningOp<mhlo::ConstantOp>();
-  if (!constOp || !constOp.getValue().isa<DenseElementsAttr>()) {
+  if (!constOp || !isa<DenseElementsAttr>(constOp.getValue())) {
     return std::nullopt;
   }
   return constOp;
@@ -262,7 +262,7 @@ getConstOpWithType(Value op, int64_t featureDim) {
   } else {
     constOp = op.getDefiningOp<mhlo::ConstantOp>();
   }
-  if (!constOp || !constOp.getValue().isa<DenseElementsAttr>()) {
+  if (!constOp || !isa<DenseElementsAttr>(constOp.getValue())) {
     return std::nullopt;
   }
 

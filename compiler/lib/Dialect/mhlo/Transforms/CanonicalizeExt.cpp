@@ -618,7 +618,7 @@ struct EliminateRedundantConvertFromI1
         cast<TensorType>(convertOp.getOperand().getType()).getElementType();
     auto loc = rewriter.getFusedLoc({convertOp->getLoc(), op->getLoc()});
 
-    if (firstType.isa<IntegerType>() &&
+    if (isa<IntegerType>(firstType) &&
         cast<IntegerType>(firstType).getWidth() == 1) {
       mhlo::ConvertOp result = rewriter.create<mhlo::ConvertOp>(
           loc, op.getResult().getType(), convertOp.getOperand());
@@ -969,7 +969,7 @@ static Attribute BinaryFolder(Op *op, ArrayRef<Attribute> attrs) {
   Type etype = type.getElementType();
 
   // Evaluate for integer values.
-  if (!etype.isa<ElementType>()) {
+  if (!isa<ElementType>(etype)) {
     return {};
   }
 
@@ -1018,7 +1018,7 @@ static Attribute CompareFolder(mhlo::CompareOp op, ArrayRef<Attribute> attrs) {
   }
 
   auto etype = operandType.getElementType();
-  if (!etype.isa<ElementType>()) {
+  if (!isa<ElementType>(etype)) {
     return {};
   }
 
@@ -1134,10 +1134,10 @@ struct FoldLargeBinaryOp : OpRewritePattern<Op> {
     }
 
     Attribute result;
-    if (type.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(type.getElementType())) {
       result = BinaryFolder<Op, FloatType, APFloat, Func<APFloat>>(
           &op, ArrayRef<Attribute>{lhsOp.getValue(), rhsOp.getValue()});
-    } else if (type.getElementType().isa<IntegerType>()) {
+    } else if (isa<IntegerType>(type.getElementType())) {
       result = BinaryFolder<Op, IntegerType, APInt, Func<APSInt>>(
           &op, ArrayRef<Attribute>{lhsOp.getValue(), rhsOp.getValue()});
     }
@@ -1177,13 +1177,13 @@ struct FoldClampOp : public OpRewritePattern<mhlo::ClampOp> {
     }
 
     Attribute result;
-    if (operandType.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(operandType.getElementType())) {
       result = BinaryFolder<mhlo::ClampOp, FloatType, APFloat, Max<APFloat>>(
           &op, ArrayRef<Attribute>{minValue, constOp.getValue()});
       result = BinaryFolder<mhlo::ClampOp, FloatType, APFloat, Min<APFloat>>(
           &op, ArrayRef<Attribute>{maxValue, result});
 
-    } else if (operandType.getElementType().isa<IntegerType>()) {
+    } else if (isa<IntegerType>(operandType.getElementType())) {
       result = BinaryFolder<mhlo::ClampOp, IntegerType, APInt, Max<APSInt>>(
           &op, ArrayRef<Attribute>{minValue, constOp.getValue()});
       result = BinaryFolder<mhlo::ClampOp, IntegerType, APInt, Min<APSInt>>(
@@ -1211,7 +1211,7 @@ struct FoldLargeCompareOp : public OpRewritePattern<mhlo::CompareOp> {
     }
     auto elementType =
         cast<ShapedType>(lhsOp.getValue().getType()).getElementType();
-    if (elementType.isa<ComplexType>()) {
+    if (isa<ComplexType>(elementType)) {
       return failure();
     }
 
@@ -1341,11 +1341,11 @@ struct FoldLargeConcatenate : public OpRewritePattern<mhlo::ConcatenateOp> {
     newConstShape[op.getDimension()] +=
         secondConst.getType().getShape()[op.getDimension()];
     DenseElementsAttr newConstAttr = nullptr;
-    if (firstConst.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(firstConst.getElementType())) {
       newConstAttr = foldConcatenateHelper<APFloat>(
           op.getDimension(), firstConst.getElementType(), newConstShape,
           {firstConst, secondConst});
-    } else if (firstConst.getElementType().isa<IntegerType>()) {
+    } else if (isa<IntegerType>(firstConst.getElementType())) {
       newConstAttr = foldConcatenateHelper<APInt>(
           op.getDimension(), firstConst.getElementType(), newConstShape,
           {firstConst, secondConst});
@@ -1404,7 +1404,7 @@ struct CanonicalizeClamp : public OpRewritePattern<mhlo::ClampOp> {
       return success();
     }
     // remove op if min/max are out of range
-    if (op.getType().getElementType().isa<FloatType>() &&
+    if (isa<FloatType>(op.getType().getElementType()) &&
         minAttr.getSplatValue<FloatAttr>().getValue().isNegInfinity() &&
         maxAttr.getSplatValue<FloatAttr>().getValue().isPosInfinity()) {
       rewriter.replaceAllUsesWith(op.getResult(), op.getOperand());
@@ -1476,9 +1476,9 @@ struct FoldTransposeNonSplat : OpRewritePattern<mhlo::TransposeOp> {
     }
 
     DenseElementsAttr newValueAttr = nullptr;
-    if (valueAttr.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(valueAttr.getElementType())) {
       newValueAttr = foldTransposeHelper<APFloat>(op, valueAttr);
-    } else if (valueAttr.getElementType().isa<IntegerType>()) {
+    } else if (isa<IntegerType>(valueAttr.getElementType())) {
       newValueAttr = foldTransposeHelper<APInt>(op, valueAttr);
     }
 
@@ -1508,9 +1508,9 @@ struct FoldBeneficialConstantConvertOp : OpRewritePattern<mhlo::ConvertOp> {
     Type outputElementType =
         cast<ShapedType>(op.getResult().getType()).getElementType();
     auto getWidth = [](Type type) -> std::optional<int64_t> {
-      if (type.isa<FloatType>()) {
+      if (isa<FloatType>(type)) {
         return cast<FloatType>(type).getWidth();
-      } else if (type.isa<IntegerType>()) {
+      } else if (isa<IntegerType>(type)) {
         return cast<IntegerType>(type).getWidth();
       } else {
         return std::nullopt;
@@ -1653,7 +1653,7 @@ struct FoldLargeSliceOp : public OpRewritePattern<mhlo::SliceOp> {
       return failure();
 
     auto etype = elements.getType().getElementType();
-    if (etype.isa<IntegerType>()) {
+    if (isa<IntegerType>(etype)) {
       Attribute folded =
           foldSlice<DenseElementsAttr::IntElementIterator, APInt>(
               &op, elements.value_begin<APInt>());
@@ -1662,7 +1662,7 @@ struct FoldLargeSliceOp : public OpRewritePattern<mhlo::SliceOp> {
       rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, folded);
       return success();
     }
-    if (etype.isa<FloatType>()) {
+    if (isa<FloatType>(etype)) {
       Attribute folded =
           foldSlice<DenseElementsAttr::FloatElementIterator, APFloat>(
               &op, elements.value_begin<APFloat>());
@@ -1803,9 +1803,9 @@ struct SimplifyCumsumToIota : public OpRewritePattern<mhlo::ReduceWindowOp> {
     }
     TensorType inputType = cast<TensorType>(op.getInputs()[0].getType());
     Attribute one;
-    if (inputType.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(inputType.getElementType())) {
       one = rewriter.getFloatAttr(inputType.getElementType(), 1.0);
-    } else if (inputType.getElementType().isa<IntegerType>()) {
+    } else if (isa<IntegerType>(inputType.getElementType())) {
       one = rewriter.getIntegerAttr(inputType.getElementType(), 1);
     } else {
       return failure();
@@ -1968,9 +1968,9 @@ struct FoldReverseWithConstant : public OpRewritePattern<mhlo::ReverseOp> {
     } else {
       Attribute newConstAttr;
       auto etype = constVal.getElementType();
-      if (etype.isa<IntegerType>())
+      if (isa<IntegerType>(etype))
         newConstAttr = foldReverseHelper<APInt>(constVal, shapedType, dims);
-      if (etype.isa<FloatType>())
+      if (isa<FloatType>(etype))
         newConstAttr = foldReverseHelper<APFloat>(constVal, shapedType, dims);
       auto newConstOp =
           rewriter.create<mhlo::ConstantOp>(op.getLoc(), newConstAttr);

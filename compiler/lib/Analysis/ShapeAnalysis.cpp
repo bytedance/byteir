@@ -394,7 +394,7 @@ void ShapeAnalysis::visitOperation(Operation *op,
       ShapeLattice *resultLattice = std::get<2>(it);
 
       Type resultTy = result.getType();
-      if (!resultTy.isa<ShapedType>()) {
+      if (!isa<ShapedType>(resultTy)) {
         setToEntryState(resultLattice);
         continue;
       }
@@ -499,7 +499,7 @@ void ShapeValueAnalysis::visitOperation(
           if (elemType.isIntOrFloat()) {
             width = elemType.getIntOrFloatBitWidth();
           } else {
-            assert(elemType.isa<IndexType>());
+            assert(isa<IndexType>(elemType));
             width = IndexType::kInternalStorageBitWidth;
           }
 

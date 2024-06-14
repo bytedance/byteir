@@ -36,10 +36,10 @@ namespace {
 
 bool isSplatZero(ElementsAttr attr) {
   if (auto splatAttr = dyn_cast<SplatElementsAttr>(attr)) {
-    if (attr.getElementType().isa<FloatType>()) {
+    if (isa<FloatType>(attr.getElementType())) {
       return attr.getSplatValue<APFloat>().isZero();
     }
-    if (attr.getElementType().isa<IntegerType>()) {
+    if (isa<IntegerType>(attr.getElementType())) {
       return attr.getSplatValue<APInt>().isZero();
     }
   }

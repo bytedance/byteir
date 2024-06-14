@@ -44,7 +44,7 @@ struct ReshapeMovedownStringPattern : public OpRewritePattern<TF::EqualOp> {
     for (Type &ty : types) {
       auto tensor_type = dyn_cast<mlir::TensorType>(ty);
       if (tensor_type) {
-        if (!tensor_type.getElementType().isa<TF::StringType>()) {
+        if (!isa<TF::StringType>(tensor_type.getElementType())) {
           return failure();
         }
       }

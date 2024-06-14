@@ -186,8 +186,8 @@ struct UnrealizedCastToLinalgPass
 
     target.addDynamicallyLegalOp<UnrealizedConversionCastOp>(
         [&](UnrealizedConversionCastOp op) {
-          return !(op.getOperand(0).getType().isa<TensorType>() &&
-                   op.getResult(0).getType().isa<TensorType>());
+          return !(isa<TensorType>(op.getOperand(0).getType()) &&
+                   isa<TensorType>(op.getResult(0).getType()));
         });
 
     populateUnrealizedCastToLinalgConversionPattern(patterns);

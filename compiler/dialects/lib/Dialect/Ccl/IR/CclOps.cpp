@@ -39,7 +39,7 @@ verifyReplicaGroups(std::optional<Location> location,
 
   if (dynamicReplicaGroups != nullptr) {
     ShapedType type = cast<ShapedType>(dynamicReplicaGroups.getType());
-    if (!type.getElementType().isa<IndexType, IntegerType>())
+    if (!isa<IndexType, IntegerType>(type.getElementType()))
       return emitOptionalError(
           location,
           "dynamic_replica_groups's element type should be index or integer");

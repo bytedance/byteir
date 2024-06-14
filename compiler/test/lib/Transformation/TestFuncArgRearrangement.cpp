@@ -296,7 +296,7 @@ static Value reshapeAndPack2DArgs(OpBuilder &b, ArrayRef<unsigned> ids,
   SmallVector<Value> args;
   for (auto id : ids) {
     auto arg = values[id];
-    if (!arg.getType().isa<TensorType>()) {
+    if (!isa<TensorType>(arg.getType())) {
       return Value();
     }
     args.push_back(values[id]);

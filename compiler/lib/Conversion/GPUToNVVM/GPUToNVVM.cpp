@@ -115,7 +115,7 @@ public:
 private:
   mlir::Value maybeCast(mlir::Value operand, PatternRewriter &rewriter) const {
     mlir::Type type = operand.getType();
-    if (!type.isa<Float16Type>())
+    if (!isa<Float16Type>(type))
       return operand;
 
     return rewriter.create<LLVM::FPExtOp>(
@@ -128,9 +128,9 @@ private:
   }
 
   StringRef getFunctionName(mlir::Type type) const {
-    if (type.isa<Float32Type>())
+    if (isa<Float32Type>(type))
       return f32Func;
-    if (type.isa<Float64Type>())
+    if (isa<Float64Type>(type))
       return f64Func;
     return "";
   }

@@ -117,8 +117,8 @@ private:
     auto srcSpace = cast<MemRefType>(op.getSource().getType()).getMemorySpace();
     auto dstSpace = cast<MemRefType>(op.getTarget().getType()).getMemorySpace();
 
-    if (!srcSpace.isa_and_nonnull<StringAttr>() ||
-        !dstSpace.isa_and_nonnull<StringAttr>()) {
+    if (!isa_and_nonnull<StringAttr>(srcSpace) ||
+        !isa_and_nonnull<StringAttr>(dstSpace)) {
       return std::nullopt;
     }
 

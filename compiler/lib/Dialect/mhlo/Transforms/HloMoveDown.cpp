@@ -204,7 +204,7 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
     }
 
     const auto isStaticShapeArg = [](Value value) {
-      if (!value || !value.isa<BlockArgument>()) {
+      if (!value || !isa<BlockArgument>(value)) {
         return false;
       }
       const auto inputTy = dyn_cast<RankedTensorType>(value.getType());
