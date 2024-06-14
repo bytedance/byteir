@@ -1,12 +1,13 @@
-// RUN: byteir-opt %s -byre-host="device-file-name=your_file target=cpu" | FileCheck %s
+// RUN: byteir-opt %s --to-llvm | FileCheck %s
 
-// CHECK-LABEL: func.func @main
+// CHECK: llvm.func
+// CHECK: llvm.inline_asm asm_dialect = intel "vblendps $0, $1, $2, 0xcc", "=x,x,x"
 
 module attributes {byre.container_module} {
   module attributes {byteir.llvm_module} {
     func.func @Unknown0(%arg0: memref<1x32x64x64xf32>, %arg1: memref<1x64x64x32xf32>) attributes {__byre__kernel_name = "Unknown0", __byre__llvm_file_name = "host_kernels.ll", __byteir_hlo_aggressive_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "LLVMJITOp", byre_force_compute_name, llvm.emit_c_interface} {
-      %c0 = arith.constant 0 : index
       %c1 = arith.constant 1 : index
+      %c0 = arith.constant 0 : index
       %c64 = arith.constant 64 : index
       %cst = arith.constant 0.000000e+00 : f32
       %c8 = arith.constant 8 : index
