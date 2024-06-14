@@ -153,6 +153,9 @@ createShapeFuncForSpecificOutputs(OpBuilder &builder,
   computeShapeOp->setAttr("device",
                           StringAttr::get(funcOp.getContext(), "cpu"));
 
+  funcOp->setAttr(getByteIRShapeFuncAttrName(),
+                  UnitAttr::get(funcOp.getContext()));
+
   return {funcOp, computeShapeOp};
 }
 

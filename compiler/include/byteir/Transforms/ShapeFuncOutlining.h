@@ -25,6 +25,10 @@ namespace mlir {
 class ModuleOp;
 class OpBuilder;
 
+constexpr StringRef getByteIRShapeFuncAttrName() {
+  return "__byteir_shape_func__";
+}
+
 std::unique_ptr<OperationPass<ModuleOp>>
 createShapeFuncOutliningPass(llvm::StringRef entryFuncName = "main");
 
