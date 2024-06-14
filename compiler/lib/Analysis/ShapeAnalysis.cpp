@@ -93,6 +93,10 @@ ValueKnowledge ValueKnowledge::join(const ValueKnowledge &lhs,
   for (int i = 0, e = lhs.sizes.size(); i < e; i++) {
     if (lhs.sizes[i] == rhs.sizes[i]) {
       result.sizes[i] = lhs.sizes[i];
+    } else if (lhs.sizes[i] != ShapedType::kDynamic &&
+               rhs.sizes[i] != ShapedType::kDynamic) {
+      result.sizes[i] =
+          (lhs.sizes[i] > rhs.sizes[i]) ? lhs.sizes[i] : rhs.sizes[i];
     }
   }
 
@@ -169,95 +173,6 @@ void ValueKnowledge::print(raw_ostream &os) const {
   }
 }
 } // namespace shape_analysis
-
-namespace value_analysis {
-BoundedValueKnowledge BoundedValueKnowledge::getUninitializedValue() {
-  return BoundedValueKnowledge();
-}
-
-BoundedValueKnowledge BoundedValueKnowledge::getUnknownValue() {
-  BoundedValue boundedValue = {Attribute(), Attribute()};
-  BoundedValueKnowledge bv;
-  bv.boundedValue = boundedValue;
-  return bv;
-}
-BoundedValueKnowledge BoundedValueKnowledge::getKnownValue(Attribute lower,
-                                                           Attribute upper) {
-  assert(lower);
-  assert(upper);
-  BoundedValue boundedValue = {lower, upper};
-  BoundedValueKnowledge bv;
-  bv.boundedValue = boundedValue;
-  return bv;
-}
-
-Attribute BoundedValueKnowledge::lower() const { return (*boundedValue).lower; }
-
-Attribute BoundedValueKnowledge::upper() const { return (*boundedValue).upper; }
-
-BoundedValueKnowledge
-BoundedValueKnowledge::join(const BoundedValueKnowledge &lhs,
-                            const BoundedValueKnowledge &rhs) {
-  if (lhs.isUninitialized())
-    return rhs;
-  if (rhs.isUninitialized())
-    return lhs;
-  if (lhs == rhs)
-    return lhs;
-  return getUnknownValue();
-}
-
-BoundedValueKnowledge
-BoundedValueKnowledge::meet(const BoundedValueKnowledge &lhs,
-                            const BoundedValueKnowledge &rhs) {
-  auto res = getUnknownValue();
-  if (lhs.isUninitialized())
-    return rhs;
-  if (rhs.isUninitialized())
-    return lhs;
-
-  if (!((*(lhs.boundedValue)).lower)) {
-    (*(res.boundedValue)).lower = (*(rhs.boundedValue)).lower;
-  } else if (!((*(rhs.boundedValue)).lower)) {
-    (*(res.boundedValue)).lower = (*(lhs.boundedValue)).lower;
-  } else if ((*(lhs.boundedValue)).lower == (*(rhs.boundedValue)).lower) {
-    (*(res.boundedValue)).lower = (*(rhs.boundedValue)).lower;
-  } else {
-    (*(res.boundedValue)).lower = Attribute();
-  }
-
-  if (!((*(lhs.boundedValue)).upper)) {
-    (*(res.boundedValue)).upper = (*(rhs.boundedValue)).upper;
-  } else if (!((*(rhs.boundedValue)).upper)) {
-    (*(res.boundedValue)).upper = (*(lhs.boundedValue)).upper;
-  } else if ((*(lhs.boundedValue)).upper == (*(rhs.boundedValue)).upper) {
-    (*(res.boundedValue)).upper = (*(rhs.boundedValue)).upper;
-  } else {
-    (*(res.boundedValue)).upper = Attribute();
-  }
-  return res;
-}
-
-void BoundedValueKnowledge::print(raw_ostream &os) const {
-  if (isUninitialized()) {
-    os << "None\n";
-  } else if (isUnknown()) {
-    if ((*boundedValue).lower) {
-      os << "lower: " << (*boundedValue).lower << "\n";
-    } else {
-      os << "lower: Unknown\n";
-    }
-    if ((*boundedValue).upper) {
-      os << "upper: " << (*boundedValue).upper << "\n";
-    } else {
-      os << "upper: Unknown\n";
-    }
-  } else {
-    os << "lower: " << (*boundedValue).lower << "\n";
-    os << "upper: " << (*boundedValue).upper << "\n";
-  }
-}
-} // namespace value_analysis
 
 LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
     Operation *op, ShapeKnowledges shapeKnowledges,
@@ -520,11 +435,5 @@ void ShapeValueAnalysis::visitOperation(
       .Default([&](Operation *op) {
         SparseConstantPropagation::visitOperation(op, operands, results);
       });
-}
-
-void BoundedValueAnalysis::setToEntryState(BoundedValueLattice *lattice) {
-  value_analysis::BoundedValueKnowledge next =
-      value_analysis::BoundedValueKnowledge::getUnknownValue();
-  propagateIfChanged(lattice, lattice->join(next));
 }
 } // namespace mlir

@@ -24,6 +24,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
@@ -168,6 +169,31 @@ struct BoundedShapeInferencePass
       });
     }
     assert(returnOp && "there must be return op in func");
+    funcOp->walk([&](scf::IfOp op) {
+      auto resultTypes = op->getResultTypes();
+      auto *thenBlock = op.thenBlock();
+      auto *elseBlock = op.elseBlock();
+      if (thenBlock) {
+        auto *retOp = thenBlock->getTerminator();
+        auto operands = retOp->getOperands();
+        assert(operands.size() == resultTypes.size());
+        for (auto it : llvm::zip(operands, resultTypes)) {
+          auto operand = std::get<0>(it);
+          auto type = std::get<1>(it);
+          operand.setType(type);
+        }
+      }
+      if (elseBlock) {
+        auto *retOp = elseBlock->getTerminator();
+        auto operands = retOp->getOperands();
+        assert(operands.size() == resultTypes.size());
+        for (auto it : llvm::zip(operands, resultTypes)) {
+          auto operand = std::get<0>(it);
+          auto type = std::get<1>(it);
+          operand.setType(type);
+        }
+      }
+    });
 
     auto newFuncRetTypes = llvm::to_vector(returnOp.getOperandTypes());
     auto newFuncType =

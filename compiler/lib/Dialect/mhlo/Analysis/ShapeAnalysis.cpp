@@ -35,6 +35,96 @@ using namespace mlir::value_analysis;
 #define K_INITIAL -999
 
 namespace mlir {
+
+namespace value_analysis {
+BoundedValueKnowledge BoundedValueKnowledge::getUninitializedValue() {
+  return BoundedValueKnowledge();
+}
+
+BoundedValueKnowledge BoundedValueKnowledge::getUnknownValue() {
+  BoundedValue boundedValue = {Attribute(), Attribute()};
+  BoundedValueKnowledge bv;
+  bv.boundedValue = boundedValue;
+  return bv;
+}
+BoundedValueKnowledge BoundedValueKnowledge::getKnownValue(Attribute lower,
+                                                           Attribute upper) {
+  assert(lower);
+  assert(upper);
+  BoundedValue boundedValue = {lower, upper};
+  BoundedValueKnowledge bv;
+  bv.boundedValue = boundedValue;
+  return bv;
+}
+
+Attribute BoundedValueKnowledge::lower() const { return (*boundedValue).lower; }
+
+Attribute BoundedValueKnowledge::upper() const { return (*boundedValue).upper; }
+
+BoundedValueKnowledge
+BoundedValueKnowledge::join(const BoundedValueKnowledge &lhs,
+                            const BoundedValueKnowledge &rhs) {
+  if (lhs.isUninitialized())
+    return rhs;
+  if (rhs.isUninitialized())
+    return lhs;
+  if (lhs == rhs)
+    return lhs;
+  return getUnknownValue();
+}
+
+BoundedValueKnowledge
+BoundedValueKnowledge::meet(const BoundedValueKnowledge &lhs,
+                            const BoundedValueKnowledge &rhs) {
+  auto res = getUnknownValue();
+  if (lhs.isUninitialized())
+    return rhs;
+  if (rhs.isUninitialized())
+    return lhs;
+
+  if (!((*(lhs.boundedValue)).lower)) {
+    (*(res.boundedValue)).lower = (*(rhs.boundedValue)).lower;
+  } else if (!((*(rhs.boundedValue)).lower)) {
+    (*(res.boundedValue)).lower = (*(lhs.boundedValue)).lower;
+  } else if ((*(lhs.boundedValue)).lower == (*(rhs.boundedValue)).lower) {
+    (*(res.boundedValue)).lower = (*(rhs.boundedValue)).lower;
+  } else {
+    (*(res.boundedValue)).lower = Attribute();
+  }
+
+  if (!((*(lhs.boundedValue)).upper)) {
+    (*(res.boundedValue)).upper = (*(rhs.boundedValue)).upper;
+  } else if (!((*(rhs.boundedValue)).upper)) {
+    (*(res.boundedValue)).upper = (*(lhs.boundedValue)).upper;
+  } else if ((*(lhs.boundedValue)).upper == (*(rhs.boundedValue)).upper) {
+    (*(res.boundedValue)).upper = (*(rhs.boundedValue)).upper;
+  } else {
+    (*(res.boundedValue)).upper = Attribute();
+  }
+  return res;
+}
+
+void BoundedValueKnowledge::print(raw_ostream &os) const {
+  if (isUninitialized()) {
+    os << "None\n";
+  } else if (isUnknown()) {
+    if ((*boundedValue).lower) {
+      os << "lower: " << (*boundedValue).lower << "\n";
+    } else {
+      os << "lower: Unknown\n";
+    }
+    if ((*boundedValue).upper) {
+      os << "upper: " << (*boundedValue).upper << "\n";
+    } else {
+      os << "upper: Unknown\n";
+    }
+  } else {
+    os << "lower: " << (*boundedValue).lower << "\n";
+    os << "upper: " << (*boundedValue).upper << "\n";
+  }
+}
+} // namespace value_analysis
+
 LogicalResult MhloShapeAnalysis::inferResultShapesWithKnowledges(
     Operation *op, ShapeKnowledges shapeKnowledges,
     ShapeValueKnowledges shapeValueKnowledges,
@@ -564,6 +654,12 @@ void MhloShapeValueAnalysis::visitOperation(
       });
 }
 
+void MhloBoundedValueAnalysis::setToEntryState(BoundedValueLattice *lattice) {
+  value_analysis::BoundedValueKnowledge next =
+      value_analysis::BoundedValueKnowledge::getUnknownValue();
+  propagateIfChanged(lattice, lattice->join(next));
+}
+
 void MhloBoundedValueAnalysis::visitOperation(
     Operation *op, ArrayRef<const BoundedValueLattice *> operands,
     // ArrayRef<ShapeLattice *> shapeLattices,
@@ -967,7 +1063,7 @@ void MhloBoundedValueAnalysis::visitOperation(
         auto *rhsShapeValueLattice = shapeValueLattices[2];
 
         mhlo::CompareOp compareOp =
-            dyn_cast<mhlo::CompareOp>(selectOp.getPred().getDefiningOp());
+            selectOp.getPred().getDefiningOp<mhlo::CompareOp>();
         if (!compareOp) {
           return setAllToEntryStates(results);
         }

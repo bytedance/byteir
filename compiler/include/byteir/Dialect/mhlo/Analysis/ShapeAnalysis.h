@@ -21,6 +21,62 @@
 #include "byteir/Analysis/ShapeAnalysis.h"
 
 namespace mlir {
+namespace value_analysis {
+struct BoundedValueKnowledge {
+  struct BoundedValue {
+    Attribute lower;
+    Attribute upper;
+    bool operator==(const BoundedValue &rhs) const {
+      return lower == rhs.lower && upper == rhs.upper;
+    }
+    bool isUnknwon() const { return (!lower) || (!upper); }
+  };
+  explicit BoundedValueKnowledge() = default;
+  explicit BoundedValueKnowledge(BoundedValue bdValue)
+      : boundedValue(bdValue) {}
+  explicit BoundedValueKnowledge(Attribute lower, Attribute upper) {
+    BoundedValue bv;
+    bv.lower = lower;
+    bv.upper = upper;
+    boundedValue = bv;
+  }
+
+  // Get the static knowledge intrinsic to `type`.
+  static BoundedValueKnowledge getUninitializedValue();
+
+  static BoundedValueKnowledge getUnknownValue();
+
+  static BoundedValueKnowledge getKnownValue(Attribute lower, Attribute upper);
+
+  static BoundedValueKnowledge join(const BoundedValueKnowledge &lhs,
+                                    const BoundedValueKnowledge &rhs);
+
+  static BoundedValueKnowledge meet(const BoundedValueKnowledge &lhs,
+                                    const BoundedValueKnowledge &rhs);
+
+  /// Whether the state is uninitialized.
+  bool isUninitialized() const { return !boundedValue.has_value(); }
+
+  bool isUnknown() const {
+    return boundedValue.has_value() && boundedValue->isUnknwon();
+  }
+
+  bool isKnown() const {
+    return boundedValue.has_value() && !boundedValue->isUnknwon();
+  }
+
+  bool operator==(const BoundedValueKnowledge &rhs) const {
+    return boundedValue == rhs.boundedValue;
+  }
+
+  Attribute lower() const;
+  Attribute upper() const;
+
+  void print(raw_ostream &os) const;
+
+  std::optional<BoundedValue> boundedValue;
+};
+} // namespace value_analysis
 
 class MhloShapeAnalysis : public ShapeAnalysis {
 public:
@@ -55,10 +111,15 @@ public:
       llvm::SmallVectorImpl<::mlir::ShapedTypeComponents> &results) override;
 };
 
-class MhloBoundedValueAnalysis : public BoundedValueAnalysis {
-public:
-  using BoundedValueAnalysis::BoundedValueAnalysis;
+using BoundedValueLattice =
+    dataflow::Lattice<value_analysis::BoundedValueKnowledge>;
 
+class MhloBoundedValueAnalysis
+    : public dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice> {
+public:
+  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
+
+  void setToEntryState(BoundedValueLattice *lattice) override;
   void visitOperation(Operation *op,
                       ArrayRef<const BoundedValueLattice *> operands,
                       ArrayRef<BoundedValueLattice *> results) override;
