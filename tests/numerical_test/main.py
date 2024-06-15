@@ -16,10 +16,8 @@
 import argparse
 import os
 import re
-from execute import compile_and_run_mlir, compile_and_run_torch
 from torch_e2e_testing.registry import GLOBAL_TORCH_TEST_REGISTRY
 from torch_e2e_testing.test_suite import register_all_torch_tests
-from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
 from utils import report_results
 import sys
 
@@ -67,6 +65,7 @@ def _is_gpu_test_supported(gpu_arch, test_name):
 
 
 def run_mlir_test(target, gpu_arch, filter):
+    from execute import compile_and_run_mlir
     directory = os.path.join(CUR_DIR, "mlir_tests", "ops")
     mlir_tests = []
 
@@ -86,6 +85,7 @@ def run_mlir_test(target, gpu_arch, filter):
 
 
 def run_mlir_cpu_test(filter):
+    from execute import compile_and_run_mlir
     directory = os.path.join(CUR_DIR, "mlir_tests", "cpu_ops")
     cpu_target = "cpu"
     mlir_tests = []
@@ -123,6 +123,7 @@ def run_mlir_cpu_test(filter):
 
 
 def run_torch_test(target, gpu_arch, filter):
+    from execute import compile_and_run_torch
     tests = [
         test
         for test in GLOBAL_TORCH_TEST_REGISTRY
@@ -149,6 +150,7 @@ def run(config, target, filter, mode="numerical"):
     elif config == "torch":
         return run_torch_test(target, gpu_arch, filter)
     elif config == "dynamo":
+        from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
         # TODO(zzk): use test infra for dynamo tests
         run_torch_dynamo_tests(gpu_arch)
         return []
@@ -158,17 +160,11 @@ def run(config, target, filter, mode="numerical"):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-f",
-        "--filter",
-        type=str,
-        default=".*",
-        help="Regular expression specifying which tests to include in this run.",
-    )
-    parser.add_argument(
         "-c",
         "--config",
         type=str,
         choices=["all", "mlir", "torch", "dynamo"],
+        required=True,
         help="test sets to run.",
     )
     parser.add_argument(
@@ -191,6 +187,13 @@ def parse_args():
         choices=["numerical", "perf"],
         help="testing mode, `numerical` means numerical test, `perf` means performance test",
     )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        type=str,
+        default=".*",
+        help="Regular expression specifying which tests to include in this run.",
+    )
     args = parser.parse_args()
     return args
 
@@ -205,7 +208,6 @@ ALL_CONFIG = {
 
 def main():
     args = parse_args()
-    assert args.config is not None
 
     results = []
     if args.config == "all":
