@@ -473,7 +473,18 @@ struct RemoveIdentityAliasOp : public OpRewritePattern<AliasOp> {
 
 // verify AliasOp
 LogicalResult AliasOp::verify() {
-  return verifyOpInEntryPointFunc(this->getOperation());
+  auto *op = this->getOperation();
+
+  // check if src and dst has memory space.
+  auto srcMemSpace = cast<MemRefType>(getSource().getType()).getMemorySpace();
+  auto dstMemSpace = cast<MemRefType>(getTarget().getType()).getMemorySpace();
+  // TODO. W'd better set memory space explicitly but not use default mem space.
+  if ((srcMemSpace || dstMemSpace) &&
+      (!srcMemSpace || !dstMemSpace || srcMemSpace != dstMemSpace)) {
+    return op->emitError(
+        "expected explicit same memory space with source and target");
+  }
+  return verifyOpInEntryPointFunc(op);
 }
 
 void AliasOp::getCanonicalizationPatterns(RewritePatternSet &results,

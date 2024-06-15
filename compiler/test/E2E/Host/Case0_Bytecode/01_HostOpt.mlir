@@ -37,7 +37,7 @@ module {
     }
     return %alloc_0, %alloc : memref<1x128xi32>, memref<1x128xi32>
   }
-  func.func @main(%arg0: memref<1xi64>, %arg1: memref<1xi64>, %arg2: memref<1xi64>, %arg3: memref<1x128xi32>) -> (memref<1x128xi32>, memref<1x128xi32>) {
+  func.func @main(%arg0: memref<1xi64>, %arg1: memref<1xi64>, %arg2: memref<1xi64>, %arg3: memref<1x128xi32>) -> (memref<1x128xi32>, memref<1x128xi32>) attributes {__placeholder__byre.entry_point} {
     %0:2 = call @Unknown0(%arg0, %arg1, %arg2, %arg3) : (memref<1xi64>, memref<1xi64>, memref<1xi64>, memref<1x128xi32>) -> (memref<1x128xi32>, memref<1x128xi32>)
     return %0#0, %0#1 : memref<1x128xi32>, memref<1x128xi32>
   }

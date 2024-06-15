@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s --host-opt --byre-opt | FileCheck %s
+// RUN: byteir-opt %s --host-opt -set-op-space="entry-func=main space=cpu" -set-arg-space="entry-func=main all-space=cpu" --byre-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @Unknown
 
