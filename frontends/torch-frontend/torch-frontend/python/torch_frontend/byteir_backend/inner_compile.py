@@ -57,6 +57,7 @@ def inner_compile(gm: torch.fx.GraphModule,
                   example_inputs: List[torch.Tensor],
                   workdir: str = None,
                   compiler_type: str = "forward",
+                  aliased_out_indices: List[int] = None,
                   **kwargs) -> CompiledArtifact:
 
     graph_id = next(g_graph_counter)
@@ -83,6 +84,10 @@ def inner_compile(gm: torch.fx.GraphModule,
         with detect_fake_mode(example_inputs):
             #with FakeTensorMode(allow_non_fake_inputs=True):
             fake_outs = gm(*example_inputs)
+            if isinstance(fake_outs, tuple):
+                fake_outs = list(fake_outs)
+            elif isinstance(fake_outs, torch.Tensor):
+                fake_outs = [fake_outs]
         dump_tensors_meta_info(
             example_inputs,
             os.path.join(fx_graph_folder, "inputs_meta_info.pkl"))
@@ -112,34 +117,46 @@ def inner_compile(gm: torch.fx.GraphModule,
     log.debug("#### byteir compile success")
     none_indices = get_none_indices(gm)
 
-    compiled_artifact = CompiledArtifact(byre_file, none_indices)
+    compiled_artifact = CompiledArtifact(
+            byre_file,
+            none_indices,
+            aliased_out_indices,
+            fake_outs,
+    )
 
     return compiled_artifact
 
 
 def byteir_fx_compiler(gm: torch.fx.GraphModule,
                        example_inputs,
-                       is_backward=False):
+                       is_backward=False,
+                       aliased_out_info: List[Any]=None,
+):
     """
     The main entry function of byteir torch compiler backend.
     """
 
     compiler_type = "backward" if is_backward else "forward"
+    aliased_out_indices = None
+    if aliased_out_info is not None:
+        aliased_out_indices = [idx for idx, _ in aliased_out_info]
     log.info(
         f"########################### {'FORWARD' if not is_backward else 'BACKWARD'} ###########################"
     )
     log.info(torch._guards.TracingContext.get())
 
     if config.byteir_not_use_cache:
-        compiled_artifact = inner_compile(gm, example_inputs)
+        compiled_artifact = inner_compile(gm, example_inputs, aliased_out_indices=aliased_out_indices)
         byre_session = brt.Session(alloc_func=caching_allocator_alloc,
                                    free_func=caching_allocator_delete)
         byre_session.load(compiled_artifact.byre_file)
         byre_func = ByteIRFunction(byre_session,
-                                   compiled_artifact.none_indices)
+                                   compiled_artifact.none_indices,
+                                   compiled_artifact.aliased_out_indices,
+                                   compiled_artifact.output_meta_info,)
     else:
         byre_func = ByteIRFxGraphCache.Load(
-            functools.partial(inner_compile, compiler_type=compiler_type), gm,
+            functools.partial(inner_compile, compiler_type=compiler_type, aliased_out_indices=aliased_out_indices), gm,
             example_inputs)
 
     log.debug(f"Counters:\n{counters}")
