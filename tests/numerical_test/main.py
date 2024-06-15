@@ -139,8 +139,8 @@ def run_torch_test(target, gpu_arch, filter):
 def run(config, target, filter, mode="numerical"):
     if config == "mlir" and target == "cpu":
         return run_mlir_cpu_test(filter)
-    from byteir.utils import detect_cuda_with_nvidia_smi
-    gpu_arch = detect_cuda_with_nvidia_smi()
+    from byteir.utils import detect_gpu_arch_with_nvidia_smi
+    gpu_arch = detect_gpu_arch_with_nvidia_smi()
     assert gpu_arch != None
     assert gpu_arch.startswith("sm_")
     gpu_arch = int(gpu_arch[3:])
