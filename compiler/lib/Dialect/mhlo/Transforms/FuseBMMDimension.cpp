@@ -83,7 +83,7 @@ public:
     Value rhs = op.getRhs();
     int64_t lrank = cast<RankedTensorType>(lhs.getType()).getRank();
     int64_t rrank = cast<RankedTensorType>(rhs.getType()).getRank();
-    if (rank == 3 && lrank == 3 && rrank == 3)
+    if (rank <= 3 || lrank <= 3 || rrank <= 3)
       return failure();
 
     mhlo::DotDimensionNumbersAttr dims = op.getDotDimensionNumbers();
