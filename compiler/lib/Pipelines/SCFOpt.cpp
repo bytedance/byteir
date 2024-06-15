@@ -19,6 +19,7 @@
 
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
+#include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"
@@ -42,6 +43,9 @@ void addGenericSCFOptPasses(OpPassManager &pm) {
   pm.addPass(createLowerAffinePass());
   pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
   pm.addPass(arith::createIntRangeOptimizationsPass());
+  // for reduction
+  pm.addNestedPass<func::FuncOp>(
+      createFuseNestedForallPass(getByteIRReductionFusionAttrName()));
   addCleanUpExtPassPipeline(pm);
 }
 

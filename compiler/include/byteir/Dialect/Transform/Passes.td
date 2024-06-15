@@ -42,6 +42,9 @@ def DetensorizeTransformInsertion : Pass<"insert-detensorize-transform", "Module
   let summary = "Insert detensorize transform IR to functions.";
   let constructor = "mlir::createDetensorizeTransformInsertionPass()";
   let options = [
+    Option<"usingVectorizeOp", "using-vectorize-op", "bool",
+            /*default=*/"false",
+            "using vectorizeOp to detensorize linalg op.">,
     Option<"funcAnchorAttr", "func-anchor", "std::string",
             /*default=*/"",
             "An optional Unit attribute anchoring on target functions.">,

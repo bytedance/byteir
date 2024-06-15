@@ -18,6 +18,7 @@
 #ifndef BYTEIR_PIPELINES_GPU_REDUCTION_CODEGEN_H
 #define BYTEIR_PIPELINES_GPU_REDUCTION_CODEGEN_H
 
+#include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
 #include "mlir/Pass/PassRegistry.h"
@@ -54,9 +55,6 @@ struct GPUTileGridReductionOptions
                            llvm::cl::init(32)};
   Option<int64_t> blockSize{*this, "block-size", llvm::cl::desc("block size"),
                             llvm::cl::init(256)};
-  Option<bool> usingForall{*this, "using-forall",
-                           llvm::cl::desc("using forall"),
-                           llvm::cl::init(true)};
 };
 
 struct GPUSplitBlockReductionOptions
@@ -92,9 +90,44 @@ struct GPUTileBlockReductionOptions
                            llvm::cl::init(32)};
   Option<int64_t> blockSize{*this, "block-size", llvm::cl::desc("block size"),
                             llvm::cl::init(256)};
-  Option<bool> usingForall{*this, "using-forall",
-                           llvm::cl::desc("using forall"),
-                           llvm::cl::init(true)};
+};
+
+struct GPUTileSplitWarpReductionOptions
+    : public PassPipelineOptions<GPUTileSplitWarpReductionOptions> {
+  Option<std::string> funcAnchor{
+      *this, "func-anchor",
+      llvm::cl::desc(
+          "An optional Unit attribute anchoring on target functions."),
+      llvm::cl::init("")};
+  Option<std::string> annotatePrefix{
+      *this, "annotate-prefix",
+      llvm::cl::desc("An optional annotate prefix attribute on target ops."),
+      llvm::cl::init("__byteir_gpu_split_warp_reduction")};
+  Option<int64_t> blockSize{*this, "block-size", llvm::cl::desc("block size"),
+                            llvm::cl::init(256)};
+  Option<int64_t> warpSize{*this, "warp-size", llvm::cl::desc("warp size"),
+                           llvm::cl::init(32)};
+};
+
+struct GPUTileWarpReductionOptions
+    : public PassPipelineOptions<GPUTileWarpReductionOptions> {
+  Option<std::string> funcAnchor{
+      *this, "func-anchor",
+      llvm::cl::desc(
+          "An optional Unit attribute anchoring on target functions."),
+      llvm::cl::init("")};
+  Option<std::string> annotatePrefix{
+      *this, "annotate-prefix",
+      llvm::cl::desc("An optional annotate prefix attribute on target ops."),
+      llvm::cl::init("__byteir_gpu_warp_reduction")};
+  Option<int64_t> splitFactor{*this, "split-factor",
+                              llvm::cl::desc("split factor"),
+                              llvm::cl::init(32)};
+  Option<int64_t> warpSize{*this, "warp-size", llvm::cl::desc("warp size"),
+                           llvm::cl::init(32)};
+  Option<bool> usingGPUShuffle{*this, "using-gpu-shuffle",
+                               llvm::cl::desc("using gpu shuffle"),
+                               llvm::cl::init(true)};
 };
 
 struct GPUTileThreadReductionOptions
@@ -108,6 +141,9 @@ struct GPUTileThreadReductionOptions
       *this, "annotate-prefix",
       llvm::cl::desc("An optional annotate prefix attribute on target ops."),
       llvm::cl::init("__byteir_gpu_tile_thread_reduction")};
+  Option<utils::IteratorType> iteratorType{
+      *this, "iterator-type", llvm::cl::desc("Specify the iteration type."),
+      llvm::cl::init(utils::IteratorType::parallel)};
 };
 
 void createGPUSplitGridReductionTransform(
@@ -118,6 +154,10 @@ void createGPUSplitBlockReductionTransform(
     OpPassManager &pm, const GPUSplitBlockReductionOptions &options);
 void createGPUTileBlockReductionTransform(
     OpPassManager &pm, const GPUTileBlockReductionOptions &options);
+void createGPUTileSplitWarpReductionTransform(
+    OpPassManager &pm, const GPUTileSplitWarpReductionOptions &options);
+void createGPUTileWarpReductionTransform(
+    OpPassManager &pm, const GPUTileWarpReductionOptions &options);
 void createGPUTileThreadReductionTransform(
     OpPassManager &pm, const GPUTileThreadReductionOptions &options);
 
@@ -141,6 +181,16 @@ inline void registerGPUReductionCodegenPipelines() {
       "insert-gpu-tile-block-reduction-transform",
       "Insert transformation IR to tile linalg reduction op",
       createGPUTileBlockReductionTransform);
+
+  PassPipelineRegistration<GPUTileSplitWarpReductionOptions>(
+      "insert-gpu-tile-split-warp-reduction-transform",
+      "Insert transformation IR to split block reduction to warp",
+      createGPUTileSplitWarpReductionTransform);
+
+  PassPipelineRegistration<GPUTileWarpReductionOptions>(
+      "insert-gpu-tile-warp-reduction-transform",
+      "Insert transformation IR to vectorize warp redution",
+      createGPUTileWarpReductionTransform);
 
   PassPipelineRegistration<GPUTileThreadReductionOptions>(
       "insert-gpu-tile-thread-reduction-transform",

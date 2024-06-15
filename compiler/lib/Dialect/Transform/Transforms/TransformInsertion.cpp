@@ -93,11 +93,13 @@ void insertTransformIR(ModuleOp m, const TransformInsertionConfig &config) {
 struct DetensorizeTransformInsertionPass
     : public DetensorizeTransformInsertionBase<
           DetensorizeTransformInsertionPass> {
-  explicit DetensorizeTransformInsertionPass(const std::string &funcAnchor,
+  explicit DetensorizeTransformInsertionPass(const bool usingVectorizeOp,
+                                             const std::string &funcAnchor,
                                              const std::string &matchPrefix)
       : DetensorizeTransformInsertionBase() {
     this->funcAnchorAttr = funcAnchor;
     this->matchPrefix = matchPrefix;
+    this->usingVectorizeOp = usingVectorizeOp;
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {
@@ -135,9 +137,18 @@ struct DetensorizeTransformInsertionPass
       return false;
     };
 
-    auto transformBuilder = [](ImplicitLocOpBuilder &b, Operation *,
-                               Value pdlValue) {
-      b.create<transform::DetensorizeOp>(pdlValue);
+    auto transformBuilder = [=](ImplicitLocOpBuilder &b, Operation *op,
+                                Value pdlValue) {
+      if (usingVectorizeOp && llvm::isa<linalg::FillOp>(op)) {
+        b.create<transform::VectorizeOp>(
+            /* target */ pdlValue,
+            /* vector_sizes */ ValueRange{},
+            /* vectorize_nd_extract */ b.getUnitAttr(),
+            /* scalable_sizes */ SmallVector<bool>{},
+            /* static_vector_sizes */ SmallVector<int64_t>{});
+      } else {
+        b.create<transform::DetensorizeOp>(pdlValue);
+      }
     };
 
     insertTransformIR(getOperation(), {funcAnchorAttr, matchPrefix, opFilter,
@@ -256,10 +267,11 @@ struct RewriteInDPSTransformInsertionPass
 } // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createDetensorizeTransformInsertionPass(const std::string &funcAnchor,
+mlir::createDetensorizeTransformInsertionPass(const bool usingVectorizeOp,
+                                              const std::string &funcAnchor,
                                               const std::string &matchPrefix) {
-  return std::make_unique<DetensorizeTransformInsertionPass>(funcAnchor,
-                                                             matchPrefix);
+  return std::make_unique<DetensorizeTransformInsertionPass>(
+      usingVectorizeOp, funcAnchor, matchPrefix);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
