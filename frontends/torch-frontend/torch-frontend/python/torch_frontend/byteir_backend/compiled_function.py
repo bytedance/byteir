@@ -1,5 +1,7 @@
 import dataclasses
 import logging
+import math
+from enum import Enum
 from typing import Optional, Any, Callable, Dict, List, Sequence, Tuple, Union
 
 import torch
@@ -18,6 +20,8 @@ class CompiledArtifact:
     # TODO. serialize Session object.
     #byre_session: object
     none_indices: List[int]
+    aliased_out_indices: Optional[List[int]] = None  # fw only.
+    output_meta_info: Optional[List[torch.Tensor]] = None
     hash_key: Optional[str] = None
     # This is a string representation of an expression we serialize
     # with the object so the guards can be evaluated in a different
@@ -26,13 +30,21 @@ class CompiledArtifact:
     # ShapeEnv.produce_guards_expression()
     guards_expr: Optional[str] = None
 
+class _TensorType(Enum):
+    NORMAL = 1
+    ALIASED = 2
+    NONE = 3
 
 class ByteIRFunction:
     """
     Wrap the byteir compiled function and runtime as a callable object for dynamo, as dynamo caches callable in guards.
     """
 
-    def __init__(self, module_path_or_session, none_indices):
+    def __init__(self,
+                 module_path_or_session,
+                 none_indices,
+                 aliased_out_indices=None,
+                 output_meta_info=None):
         if isinstance(module_path_or_session, brt.Session):
             self._session = module_path_or_session
         else:
@@ -40,48 +52,273 @@ class ByteIRFunction:
                                         free_func=caching_allocator_delete)
             self._session.load(module_path_or_session)
         self._none_indices = none_indices
+        self._aliased_out_indices = aliased_out_indices
+        self._output_meta_info = output_meta_info
         self._req = self._session.new_request_context(
             torch.cuda.current_stream()._as_parameter_.value)
         self.input_arg_offsets = self._session.get_input_arg_offsets()
         self.output_arg_offsets = self._session.get_output_arg_offsets()
 
+        self.output_shape_and_dtype = [(
+            self._session.get_static_shape(offset),
+            brt_dtype_to_torch_dtype(self._session.get_data_type(offset)),
+        ) for offset in self._session.get_output_arg_offsets()]
+
+        self._outs_len = len(self.output_arg_offsets)
+        self.static_shape_and_dtype = [
+            (self._session.get_static_shape(offset),
+             brt_dtype_to_torch_dtype(self._session.get_data_type(offset)))
+            for offset in self.output_arg_offsets
+        ]
+
+        self.real_outs_index_map = self._get_outputs_index_map(
+            self._outs_len, self._none_indices)
+        self.strited_inputs_index = None
+
+        #TODO
+        self.out_builder = None
+        
+
+    def _get_outputs_index_map(self, out_lens: int, none_indices: List[int]):
+        res = []
+        none_lens = len(none_indices)
+        none_cnt = 0
+        for idx in range(out_lens + none_lens):
+            if none_cnt < none_lens and idx == none_indices[none_cnt]:
+                none_cnt += 1
+                continue
+            res.append(idx)
+
+        return res
+
+    @functools.lru_cache
+    def get_output_storage_size(self, fake_t):
+        _size = fake_t.size()
+        _stride = fake_t.stride()
+        _offset = fake_t.storage_offset()
+        sz = _offset
+        for d, s in zip(_size, _stride):
+            sz += (d - 1) * s
+        sz += 1
+        return sz
+
+    @functools.lru_cache
+    def get_out_tensors(self, device):
+        outputs_ptr = [None] * self._outs_len
+        results = [None] * (self._outs_len + len(self._none_indices))
+
+        # for idx, shape_dty in enumerate(self.static_shape_and_dtype):
+        #     _out = torch.empty(shape_dty[0], dtype=shape_dty[1], device=device)
+        #     results[self.real_outs_index_map[idx]] = _out
+        #     outputs_ptr[idx] = _out.data_ptr()
+
+        _visited_aliased_out_cnt = 0
+        for idx, shape_dty in enumerate(self.static_shape_and_dtype):
+            fake_t = self._output_meta_info[self.real_outs_index_map[idx]]
+            _aliased_out_len = 0 if self._aliased_out_indices is None else len(
+                self._aliased_out_indices)
+            if _visited_aliased_out_cnt < _aliased_out_len and idx == self._aliased_out_indices[
+                    _visited_aliased_out_cnt]:
+                _visited_aliased_out_cnt += 1
+                _out = torch.empty((1, self.get_output_storage_size(fake_t)),
+                                   dtype=fake_t.dtype,
+                                   device=device)
+                _out = _out.as_strided(size=fake_t.size(),
+                                       stride=fake_t.stride(),
+                                       storage_offset=fake_t.storage_offset())
+            else:
+                _out = torch.empty(shape_dty[0],
+                                   dtype=shape_dty[1],
+                                   device=device)
+            results[self.real_outs_index_map[idx]] = _out
+            outputs_ptr[idx] = _out.data_ptr()
+        return results, outputs_ptr
+
+    class TensorBuilder:
+
+
+        @dataclasses.dataclass
+        class _MetaInfo:
+            idx: int
+            real_idx: int
+            tensorTy: _TensorType
+            dtype: Optional[torch.dtype] = None
+            offset: Optional[int] = None
+            size: Optional[torch.Size] = None
+            stride: Optional[tuple] = None
+            storage_size: Optional[int] = None
+
+        def __init__(self, device, meta_info, none_indices, aliased_indices, index_map):
+            self._device = device
+            self._meta_info = meta_info
+            self._none_indices = none_indices
+            self._aliased_indices = aliased_indices
+            self._index_map = index_map
+            self._real_len = len(self._meta_info)
+            self._none_len = 0 if self._none_indices is None else len(self._none_indices)
+            self._brt_len = self._real_len - self._none_len
+            self._normal_meta_info = []
+            self._aliased_meta_info = []
+            self._large_tensors_sz = {}
+            # resources which need to be freed after allocation.
+            self._normal_tensors = {}
+            self._aliased_tensors = {}
+
+            self.preprocess()
+
+        def raw_major_stride(self, sz):
+            if len(sz) == 0:
+                return tuple()
+            stride = []
+            cur = 1
+            stride.append(cur)
+            for idx in range(len(sz) - 1, 0, -1):
+                cur *= sz[idx]
+                stride.append(cur)
+            return tuple(reversed(stride))
+
+        def get_storage_size(self, meta):
+            sz = meta.storage_offset()
+            for d,s in zip(meta.size(), meta.stride()):
+                sz += (d - 1) * s
+            sz += 1
+            sz = min(sz, meta.untyped_storage().size() / meta.element_size())
+            sz = max(sz, math.prod(meta.size()))
+            return sz
+
+        def preprocess(self):
+            _visited_aliased_cnt = 0
+            #for idx, fake_t in enumerate(self._meta_info):
+            for idx in range(self._brt_len):
+                real_idx = self._index_map[idx]
+                fake_t = self._meta_info[real_idx]
+                if fake_t is None:
+                    continue
+                _aliased_len = 0 if self._aliased_indices is None else len(
+                    self._aliased_indices)
+                if _visited_aliased_cnt < _aliased_len and real_idx == self._aliased_indices[
+                        _visited_aliased_cnt]:
+                    _visited_aliased_cnt += 1
+                    storage_size = self.get_storage_size(fake_t)
+                    self._aliased_meta_info.append(
+                        self._MetaInfo(idx, real_idx, _TensorType.ALIASED, fake_t.dtype,
+                                  fake_t.storage_offset(), fake_t.size(),
+                                  fake_t.stride(), storage_size))
+                else:
+                    numel = fake_t.numel()
+                    offset = 0
+                    if fake_t.dtype not in self._large_tensors_sz:
+                        self._large_tensors_sz[fake_t.dtype] = numel
+                    else:
+                        offset = self._large_tensors_sz[fake_t.dtype]
+                        self._large_tensors_sz[fake_t.dtype] += numel
+                    self._normal_meta_info.append(
+                        self._MetaInfo(idx, real_idx, _TensorType.NORMAL, fake_t.dtype,
+                                  offset, fake_t.size(), self.raw_major_stride(fake_t.size())))
+
+        def alloc_tensors(self):
+            outputs_ptr = [None] * self._brt_len
+            for dt, sz in self._large_tensors_sz.items():
+                t = torch.empty(size=(1, sz), dtype=dt, device=self._device)
+                self._normal_tensors[dt] = t
+            self._aliased_tensors = [None] * len(self._aliased_meta_info)
+            for idx, meta in enumerate(self._aliased_meta_info):
+                t = torch.empty(size=(1, meta.storage_size),
+                                dtype=dt,
+                                device=self._device)
+                t = t.as_strided(size=meta.size,
+                                stride=meta.stride,
+                                storage_offset=meta.offset)
+                self._aliased_tensors[idx] = t
+                # bind aliased tensors
+                outputs_ptr[meta.idx] = t.data_ptr()
+
+            # bind normal tensors
+            for meta in self._normal_meta_info:
+                outputs_ptr[meta.idx] = self._normal_tensors[meta.dtype].data_ptr() + meta.offset
+            
+            return outputs_ptr
+
+        def gen_torch_tensors(self):
+            results = [None] * (self._brt_len + len(self._none_indices)) # eq to len(self._meta_info)
+            for meta in self._normal_meta_info:
+                results[meta.real_idx] = self._normal_tensors[meta.dtype].as_strided(size=meta.size, stride=meta.stride, storage_offset=meta.offset)
+            for i, meta in enumerate(self._aliased_meta_info):
+                results[meta.real_idx] = self._aliased_tensors[i]
+            return results
+
+        def clear(self):
+            self._normal_tensors = {}
+            self._aliased_tensors = {}
+
+    def get_out_tensors_v2(self, device):
+        outputs_ptr = self.alloc_tensors()
+        results = self.gen_torch_tensors()
+
     def __call__(self, *inputs):
         from brt.utils import brt_dtype_to_torch_dtype
 
         log.debug(f"***** Run function compiled through byteir ******")
+        log.debug(f"_aliased_out_indices={self._aliased_out_indices}")
+        #log.debug(f"_output_meta_info={self._output_meta_info}")
 
         # FIXME. byteir requires all inputs on device side, move host side tensor to device.
         # Preprocess the strided tensor as byteir does not support yet.
-        new_inputs = []
+        new_inputs = [None] * len(inputs)
 
-        for i in range(0, len(inputs)):
-            _t = inputs[i]
-            if not _t.is_cuda:
-                log.warning(f"device error: type={type(_t)}, {_t.device}")
-                _t = _t.to("cuda")
-            new_inputs.append(_t.contiguous())
+        if self.strited_inputs_index is None:
+            self.strited_inputs_index = []
+            for i in range(0, len(inputs)):
+                _t = inputs[i]
+                if not _t.is_contiguous():
+                    _t = _t.contiguous()
+                    self.strited_inputs_index.append(i)
+                new_inputs[i] = _t
+        else:
+            for i in range(0, len(inputs)):
+                new_inputs[i] = inputs[i]
+            for i in self.strited_inputs_index:
+                new_inputs[i] = inputs[i].contiguous()
 
-        device = new_inputs[0].device
+        device = inputs[0].device
+        
+        if self.out_builder is None:
+            #import pdb; pdb.set_trace()
+            import time
+            for _ in range(5):
+                t0 = time.time()
+                self.out_builder = self.TensorBuilder(device, self._output_meta_info, self._none_indices, self._aliased_out_indices, self.real_outs_index_map)
+                t1 = time.time()
+                ptrs = self.out_builder.alloc_tensors()
+                t2 = time.time()
+                tens = self.out_builder.gen_torch_tensors()
+                t3 = time.time()
+                print(len(ptrs))
+                print(len(tens))
+                print(f"{(t1-t0)*1000}, {(t2-t1)*1000}, {(t3-t2)*1000} ms")
+                self.out_builder.clear()
+                del ptrs
+                del tens
+         
+        #TODO       
+        #ptrs = self.out_builder.alloc_tensors()
 
-        results = [
-            torch.empty(
-                self._session.get_static_shape(offset),
-                dtype=brt_dtype_to_torch_dtype(
-                    self._session.get_data_type(offset)),
-                device=device,
-            ) for offset in self._session.get_output_arg_offsets()
-        ]
+        results, outputs_ptr = self.get_out_tensors(device)
 
         inputOffsetAndArg = [None] * len(new_inputs)
-        outputOffsetAndArg = [None] * len(results)
-        for idx, (offset, inp) in enumerate(zip(self.input_arg_offsets, new_inputs)):
+        outputOffsetAndArg = [None] * len(outputs_ptr)
+        for idx, (offset,
+                  inp) in enumerate(zip(self.input_arg_offsets, new_inputs)):
             inputOffsetAndArg[idx] = (offset, inp.data_ptr())
-        for idx, (offset, out) in enumerate(zip(self.output_arg_offsets, results)):
-            outputOffsetAndArg[idx] = (offset, out.data_ptr())
+        for idx, (offset, output_ptr) in enumerate(
+                zip(self.output_arg_offsets, outputs_ptr)):
+            outputOffsetAndArg[idx] = (offset, output_ptr)
         self._req.bind_args(inputOffsetAndArg)
         self._req.bind_args(outputOffsetAndArg)
         self._req.finish_io_binding()
         self._req.run()
+        #TODO
+        #tens = self.out_builder.gen_torch_tensors()
         self._req.sync()
 
         # add None results to return values
@@ -98,4 +335,6 @@ class ByteIRFunction:
                 result_cnt += 1
         if len(rets) == 1:
             return rets[0]
+        #TODO
+        #self.out_builder._normal_tensors.clear()
         return rets
