@@ -20,6 +20,7 @@ class TestResult(NamedTuple):
     compilation_error: Optional[str]
     runtime_error: Optional[str]
     numerical_error: Optional[str]
+    performance_result: Optional[int]
 
 
 def report_results(results: List[TestResult]):
@@ -36,10 +37,13 @@ def report_results(results: List[TestResult]):
             fail_set.append('numerical failed: ' +
                             result.unique_name + "\n" + result.numerical_error)
         else:
-            pass_set.append(result.unique_name)
+            pass_set.append(result)
     print(f"\n****** PASS tests - {len(pass_set)} tests")
     for test in pass_set:
-        print(test, " --- PASS")
+        if test.performance_result is not None:
+            print(test.unique_name, f" {test.performance_result} ms")
+        else:
+            print(test.unique_name, " --- PASS")
     print(f"\n****** FAILED tests - {len(fail_set)} tests")
     for reason in fail_set:
         print(reason)
