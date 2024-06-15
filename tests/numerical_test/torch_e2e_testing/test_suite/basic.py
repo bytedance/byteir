@@ -114,6 +114,42 @@ class ReductionOneSizeModule(torch.nn.Module):
 def ReductionOneSizeModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(1024,1))
 
+class  Large1DReductionModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        return torch.ops.aten.mean(a)
+
+@register_test_case(module_factory=lambda: Large1DReductionModule())
+def Large1DReductionModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(10000))
+
+class ParallelReductionModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        return torch.ops.aten.sum(a, 1)
+
+@register_test_case(module_factory=lambda: ParallelReductionModule())
+def ParallelReductionModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(10000, 1000))
+
+class ReductionParallelModule(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, a,):
+        return torch.ops.aten.sum(a, 0)
+
+@register_test_case(module_factory=lambda: ReductionParallelModule())
+def ReductionParallelModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(60, 10000))
+
 class RngUniformModule(torch.nn.Module):
 
     def __init__(self):

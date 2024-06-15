@@ -29,6 +29,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
@@ -161,6 +162,32 @@ struct FoldZeroRankFromElementsInsertSlice
     return success();
   }
 };
+
+struct EliminateTensorExtractFromInsert
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp extractOp,
+                                PatternRewriter &rewriter) const override {
+    auto insertOp = extractOp.getTensor().getDefiningOp<tensor::InsertOp>();
+    if (!insertOp) {
+      return failure();
+    }
+
+    SmallVector<Value> insert_idx = insertOp.getIndices();
+    SmallVector<Value> extract_idx = insertOp.getIndices();
+    if (insert_idx.size() != extract_idx.size()) {
+      return failure();
+    }
+    for (auto [x, y] : llvm::zip(insert_idx, extract_idx)) {
+      if (!x || x != y) {
+        return failure();
+      }
+    }
+    rewriter.replaceOp(extractOp, insertOp.getScalar());
+    return success();
+  }
+};
 } // namespace
 
 void mlir::tensor::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
@@ -173,6 +200,7 @@ void mlir::tensor::populateCanonicalizeExtPatterns(RewritePatternSet &patterns,
 
   patterns.add<RankReducedExtractSliceCollapseShape>(ctx);
   patterns.add<FoldZeroRankFromElementsInsertSlice>(ctx);
+  patterns.add<EliminateTensorExtractFromInsert>(ctx);
 }
 
 void mlir::tensor::getCanonicalizationExtPatterns(RewritePatternSet &patterns,

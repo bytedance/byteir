@@ -1,6 +1,7 @@
 
 add_mlir_dialect_library(ByteIRTensorPasses
   CanonicalizeExt.cpp
+  ExtractSliceSpecialization.cpp
   TensorPadSpecialization.cpp
 
   ADDITIONAL_HEADER_DIRS

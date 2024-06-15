@@ -134,8 +134,8 @@ module {
 }
 
 // CHECK: #[[$MAP_TOTAL:.*]] = affine_map<()[s0, s1] -> (s0 * s1)>
-// CHECK: #[[$MAP_LINEAR_IDY:.*]] = affine_map<(d0, d1, d2)[s0, s1] -> ((d0 + d1 * s0 + (d2 * s0) * s1) floordiv s0)>
-// CHECK: #[[$MAP_LINEAR_IDX:.*]] = affine_map<(d0, d1, d2)[s0, s1] -> ((d0 + d1 * s0 + (d2 * s0) * s1) mod s0)>
+// CHECK: #[[$MAP_LINEAR_IDY:.*]] = affine_map<(d0)[s0] -> (d0 floordiv s0)>
+// CHECK: #[[$MAP_LINEAR_IDX:.*]] = affine_map<(d0)[s0] -> (d0 mod s0)>
 
 // CHECK-LABLE: func.func @block_linear_existing_launch
 // CHECK: %[[C1:.*]] = arith.constant 1 : index
@@ -145,10 +145,8 @@ module {
 // CHECK-DAG: %[[TOTAL_SIZE:.*]] = affine.apply #[[$MAP_TOTAL]]()[%[[DIM1]], %[[DIM0]]]
 // CHECK: gpu.launch async [%arg4] blocks(%arg5, %arg6, %arg7) in (%arg11 = %[[TOTAL_SIZE]], %arg12 = %[[C1]], %arg13 = %[[C1]])
 // CHECK-DAG: %[[BIDX:.*]] = gpu.block_id  x
-// CHECK-DAG: %[[BIDY:.*]] = gpu.block_id  y
-// CHECK-DAG: %[[BIDZ:.*]] = gpu.block_id  z
-// CHECK-DAG: %[[LINEAR_IDY:.*]] = affine.apply #[[$MAP_LINEAR_IDY]](%[[BIDX]], %[[BIDY]], %[[BIDZ]])[%[[DIM1]], %[[DIM0]]]
-// CHECK-DAG: %[[LINEAR_IDX:.*]] = affine.apply #[[$MAP_LINEAR_IDX]](%[[BIDX]], %[[BIDY]], %[[BIDZ]])[%[[DIM1]], %[[DIM0]]]
+// CHECK-DAG: %[[LINEAR_IDY:.*]] = affine.apply #[[$MAP_LINEAR_IDY]](%[[BIDX]])[%[[DIM1]]]
+// CHECK-DAG: %[[LINEAR_IDX:.*]] = affine.apply #[[$MAP_LINEAR_IDX]](%[[BIDX]])[%[[DIM1]]]
 // CHECK-DAG: %[[V0:.*]] = memref.load %arg0[%[[LINEAR_IDY]], %[[LINEAR_IDX]]] : memref<?x?xf32>
 // CHECK-DAG: %[[V1:.*]] = memref.load %arg1[%[[LINEAR_IDY]], %[[LINEAR_IDX]]] : memref<?x?xf32>
 // CHECK-DAG: %[[V2:.*]] = math.fma %arg3, %[[V0]], %[[V1]] : f32
@@ -185,7 +183,6 @@ module {
   }
 }
 
-// CHECK: #[[$MAPB:.*]] = affine_map<(d0) -> (d0 * 128)>
 // CHECK: #[[$MAPW:.*]] = affine_map<(d0, d1, d2) -> (d2 * 32 + ((d0 + d1 * 4) floordiv 32) * 32)>
 // CHECK-LABEL: func.func @simple_fill
 // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
@@ -193,9 +190,6 @@ module {
 // CHECK-DAG: %[[C4:.*]] = arith.constant 4 : index
 // CHECK-DAG: %[[C8:.*]] = arith.constant 8 : index
 // CHECK: gpu.launch blocks(%arg1, %arg2, %arg3) in (%arg7 = %[[C1]], %arg8 = %[[C1]], %arg9 = %[[C1]]) threads(%arg4, %arg5, %arg6) in (%arg10 = %[[C4]], %arg11 = %[[C8]], %arg12 = %[[C4]])
-    // CHECK: %[[BIDX:.*]] = gpu.block_id  x
-    // CHECK: %[[BLX:.*]] = affine.apply #[[$MAPB]](%[[BIDX]])
-    // CHECK: %subview = memref.subview %arg0[%1] [128] [1]
     // CHECK: %[[TIDX:.*]] = gpu.thread_id  x
     // CHECK: %[[TIDY:.*]] = gpu.thread_id  y
     // CHECK: %[[TIDZ:.*]] = gpu.thread_id  z
@@ -230,8 +224,8 @@ module {
   }
 }
 
-// CHECK-DAG: #[[$MAP_LINEAR_ID:.*]] = affine_map<(d0, d1, d2) -> (d0 + d1 * 12 + d2 * 108)>
-// CHECK-DAG: #[[$MAP_LINEAR_IDY:.*]] = affine_map<(d0, d1, d2) -> (d2 * 12 + (d0 + d1 * 12) floordiv 9)>
+// CHECK-DAG: #[[$MAP_LINEAR_ID:.*]] = affine_map<(d0, d1) -> (d0 + d1 * 12)>
+// CHECK-DAG: #[[$MAP_LINEAR_IDY:.*]] = affine_map<(d0, d1) -> ((d0 + d1 * 12) floordiv 9)>
 // CHECK-DAG: #[[$MAP_LINEAR_IDX:.*]] = affine_map<(d0, d1) -> ((d0 + d1 * 12) mod 9)>
 
 // CHECK-LABEL: func.func @block_linear_existing_launch
@@ -242,9 +236,8 @@ module {
 // CHECK: gpu.launch async [%arg4] blocks(%arg5, %arg6, %arg7) in (%arg11 = %[[C12]], %arg12 = %[[C9]], %arg13 = %c1)
 // CHECK-DAG: %[[BIDX:.*]] = gpu.block_id  x
 // CHECK-DAG: %[[BIDY:.*]] = gpu.block_id  y
-// CHECK-DAG: %[[BIDZ:.*]] = gpu.block_id  z
-// CHECK-DAG: %[[LINEAR_ID:.*]] = affine.apply #[[$MAP_LINEAR_ID]](%[[BIDX]], %[[BIDY]], %[[BIDZ]])
-// CHECK-DAG: %[[LINEAR_IDY:.*]] = affine.apply #[[$MAP_LINEAR_IDY]](%[[BIDX]], %[[BIDY]], %[[BIDZ]])
+// CHECK-DAG: %[[LINEAR_ID:.*]] = affine.apply #[[$MAP_LINEAR_ID]](%[[BIDX]], %[[BIDY]])
+// CHECK-DAG: %[[LINEAR_IDY:.*]] = affine.apply #[[$MAP_LINEAR_IDY]](%[[BIDX]], %[[BIDY]])
 // CHECK-DAG: %[[LINEAR_IDX:.*]] = affine.apply #[[$MAP_LINEAR_IDX]](%[[BIDX]], %[[BIDY]])
 // CHECK-DAG: %[[P:.*]] = arith.cmpi ult, %[[LINEAR_ID]], %[[C63]] : index
 // CHECK: scf.if %[[P]]
