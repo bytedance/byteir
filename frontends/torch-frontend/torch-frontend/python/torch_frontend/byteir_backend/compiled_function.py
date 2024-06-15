@@ -20,6 +20,8 @@ class CompiledArtifact:
     # TODO. serialize Session object.
     #byre_session: object
     none_indices: List[int]
+    aliased_out_indices: Optional[List[int]] = None # fw only.
+    output_meta_info: Optional[List[torch.Tensor]] = None
     hash_key: Optional[str] = None
     # This is a string representation of an expression we serialize
     # with the object so the guards can be evaluated in a different
@@ -34,7 +36,7 @@ class ByteIRFunction:
     Wrap the byteir compiled function and runtime as a callable object for dynamo, as dynamo caches callable in guards.
     """
 
-    def __init__(self, module_path_or_session, none_indices):
+    def __init__(self, module_path_or_session, none_indices, aliased_out_indices=None, output_meta_info=None):
         if isinstance(module_path_or_session, brt.Session):
             self._session = module_path_or_session
         else:
@@ -42,6 +44,8 @@ class ByteIRFunction:
                                         free_func=caching_allocator_delete)
             self._session.load(module_path_or_session)
         self._none_indices = none_indices
+        self._aliased_out_indices = aliased_out_indices
+        self._output_meta_info = output_meta_info
         self._req = self._session.new_request_context(
             torch.cuda.current_stream()._as_parameter_.value)
         self.input_arg_offsets = self._session.get_input_arg_offsets()
@@ -76,24 +80,48 @@ class ByteIRFunction:
         return res
 
     @functools.lru_cache
+    def get_output_storage_size(self, fake_t):
+        _size = fake_t.size()
+        _stride = fake_t.stride()
+        _offset = fake_t.storage_offset()
+        sz = _offset
+        for d,s in zip(_size, _stride):
+            sz += (d-1) * s
+        sz += 1
+        return sz
+
+    @functools.lru_cache
     def get_out_tensors(self, device):
         outputs_ptr = [None] * self._outs_len
         results = [None] * (self._outs_len + len(self._none_indices))
 
+        # for idx, shape_dty in enumerate(self.static_shape_and_dtype):
+        #     _out = torch.empty(shape_dty[0], dtype=shape_dty[1], device=device)
+        #     results[self.real_outs_index_map[idx]] = _out
+        #     outputs_ptr[idx] = _out.data_ptr()
+
+        _visited_aliased_out_cnt = 0
         for idx, shape_dty in enumerate(self.static_shape_and_dtype):
-            _out = torch.empty(shape_dty[0], dtype=shape_dty[1], device=device)
+            fake_t = self._output_meta_info[idx]
+            if _visited_aliased_out_cnt < len(self._aliased_out_indices) and idx == self._aliased_out_indices[_visited_aliased_out_cnt]:
+                _visited_aliased_out_cnt += 1
+                _out = torch.empty((1, self.get_output_storage_size(fake_t)), dtype=fake_t.dtype, device=device)
+                _out = _out.as_strided(size=fake_t.size(), stride=fake_t.stride(), storage_offset=fake_t.storage_offset())
+            else:
+                _out = torch.empty(shape_dty[0], dtype=shape_dty[1], device=device)
             results[self.real_outs_index_map[idx]] = _out
             outputs_ptr[idx] = _out.data_ptr()
-
         return results, outputs_ptr
 
     def __call__(self, *inputs):
 
         log.debug(f"***** Run function compiled through byteir ******")
+        log.debug(f"_aliased_out_indices={self._aliased_out_indices}")
+        #log.debug(f"_output_meta_info={self._output_meta_info}")
 
         # FIXME. byteir requires all inputs on device side, move host side tensor to device.
         # Preprocess the strided tensor as byteir does not support yet.
-        new_inputs_ptr = [None] * len(inputs)
+        new_inputs = [None] * len(inputs)
 
         if self.strited_inputs_index is None:
             self.strited_inputs_index = []
@@ -102,21 +130,21 @@ class ByteIRFunction:
                 if not _t.is_contiguous():
                     _t = _t.contiguous()
                     self.strited_inputs_index.append(i)
-                new_inputs_ptr[i] = _t.data_ptr()
+                new_inputs[i] = _t
         else:
             for i in range(0, len(inputs)):
-                new_inputs_ptr[i] = inputs[i].data_ptr()
+                new_inputs[i] = inputs[i]
             for i in self.strited_inputs_index:
-                new_inputs_ptr[i] = inputs[i].contiguous().data_ptr()
+                new_inputs[i] = inputs[i].contiguous()
 
         device = inputs[0].device
 
         results, outputs_ptr = self.get_out_tensors(device)
 
-        inputOffsetAndArg = [None] * len(new_inputs_ptr)
+        inputOffsetAndArg = [None] * len(new_inputs)
         outputOffsetAndArg = [None] * len(outputs_ptr)
-        for idx, (offset, input_ptr) in enumerate(zip(self.input_arg_offsets, new_inputs_ptr)):
-            inputOffsetAndArg[idx] = (offset, input_ptr)
+        for idx, (offset, inp) in enumerate(zip(self.input_arg_offsets, new_inputs)):
+            inputOffsetAndArg[idx] = (offset, inp.data_ptr())
         for idx, (offset, output_ptr) in enumerate(zip(self.output_arg_offsets, outputs_ptr)):
             outputOffsetAndArg[idx] = (offset, output_ptr)
         self._req.bind_args(inputOffsetAndArg)

@@ -483,7 +483,9 @@ class ByteIRFxGraphCache:
                                        free_func=caching_allocator_delete)
             byre_session.load(compiled_artifact.byre_file)
             compiled_func = ByteIRFunction(byre_session,
-                                           compiled_artifact.none_indices)
+                                           compiled_artifact.none_indices,
+                                           compiled_artifact.aliased_out_indices,
+                                           compiled_artifact.output_meta_info,)
             # save `ByteIRFunction` obj.
             ByteIRFxGraphCache._save_func(key, compiled_func)
 
