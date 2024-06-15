@@ -17,7 +17,8 @@ class NaiveModel(torch.nn.Module):
         r1 = torch.ops.aten.div(r0, x2)
         x0 = torch.ops.aten.mul(r1, r1) - x0
         r2 = torch.ops.aten.slice(x0, 1, 1, 3, 1)
-        return r1, r2
+        r3 = torch.ops.aten.slice(x0, 1, 1, 3, 1)
+        return r1, r2, r3
 
 model = NaiveModel()
 opt_mod = torch.compile(model, backend="byteir")
