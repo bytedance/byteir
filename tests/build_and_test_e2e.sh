@@ -21,6 +21,6 @@ pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl --force-reinstall
 pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl --force-reinstall
 pip3 install -r $ROOT_PROJ_DIR/frontends/torch-frontend/torch-requirements.txt
 pip3 install flash_attn==2.5.3
-python3 tests/numerical_test/main.py
+python3 tests/numerical_test/main.py --config all
 rm -rf ./local_test
 popd
