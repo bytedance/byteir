@@ -12,6 +12,7 @@ from torch._inductor.virtualized import V
 
 from .inner_compile import (byteir_fx_compiler)
 from .partitioners import fuse_aware_min_cut_partition
+from .utils import collect_outputs_aliased_inputs
 
 
 def byteir_decompositions():
@@ -41,8 +42,11 @@ def byteir_compiler(
     model_: torch.fx.GraphModule,
     example_inputs_: List[torch.Tensor],
 ):
+    # analysis output aliased to inputs in *fw*
+    aliased_out_info = collect_outputs_aliased_inputs(model_, example_inputs_)
+
     _byteir_compiler = aot_autograd(
-        fw_compiler=functools.partial(byteir_fx_compiler, is_backward=False),
+        fw_compiler=functools.partial(byteir_fx_compiler, is_backward=False, aliased_out_info=aliased_out_info),
         bw_compiler=functools.partial(byteir_fx_compiler, is_backward=True),
         decompositions=byteir_decompositions,
         partition_fn=byteir_partition_fn,
