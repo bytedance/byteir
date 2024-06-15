@@ -9,10 +9,10 @@ add_mlir_library(ByteIRPipelines
   ByreHost.cpp
   ByreOpt.cpp
   ByreTensorOpt.cpp
-  CatOpt.cpp
+  CatFusionOpt.cpp
   CatPreprocess.cpp
   HloGraphOpt.cpp
-  HloOpt.cpp
+  HloFusionOpt.cpp
   LinalgMemrefOpt.cpp
   LinalgTensorOpt.cpp
   SCFOpt.cpp

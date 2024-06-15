@@ -1,4 +1,4 @@
-//===- HloOpt.cpp ---------------------------------------------*--- C++ -*-===//
+//===- HloFusionOpt.cpp ---------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Pipelines/HloOpt.h"
+#include "byteir/Pipelines/HloFusionOpt.h"
 
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
@@ -62,10 +62,12 @@ void addCPUHloFusionPatterns(OpPassManager &pm, bool disableFusion) {
   pm.addPass(createCSEPass());
 }
 
-void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
-                              const std::string &target,
-                              bool outlineSingleElemwiseOp, bool disableFusion,
-                              bool outlineCatOp, bool aggressiveCatFusion) {
+void createHloFusionOptPipelineImpl(OpPassManager &pm,
+                                    const std::string &entryFunc,
+                                    const std::string &target,
+                                    bool outlineSingleElemwiseOp,
+                                    bool disableFusion, bool outlineCatOp,
+                                    bool aggressiveCatFusion) {
   addCleanUpExtPassPipeline(pm);
 
   // add fusion patterns
@@ -84,10 +86,10 @@ void createHloOptPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
 }
 } // namespace
 
-void mlir::createHloOptPipeline(OpPassManager &pm,
-                                const HloOptPipelineOptions &options) {
-  invokeOpPassPipelineBuilder(createHloOptPipelineImpl, pm, options.entryFunc,
-                              options.target, options.outlineSingleElemwiseOp,
-                              options.disableFusion, options.outlineCatOp,
-                              options.aggressiveCatFusion);
+void mlir::createHloFusionOptPipeline(
+    OpPassManager &pm, const HloFusionOptPipelineOptions &options) {
+  invokeOpPassPipelineBuilder(
+      createHloFusionOptPipelineImpl, pm, options.entryFunc, options.target,
+      options.outlineSingleElemwiseOp, options.disableFusion,
+      options.outlineCatOp, options.aggressiveCatFusion);
 }

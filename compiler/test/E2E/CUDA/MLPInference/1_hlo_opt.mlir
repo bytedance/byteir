@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -hlo-opt="outline-single-elemwise-op" | FileCheck %s
+// RUN: byteir-opt %s -hlo-fusion-opt="outline-single-elemwise-op" | FileCheck %s
 
 // CHECK-LABEL: func.func @forward
 

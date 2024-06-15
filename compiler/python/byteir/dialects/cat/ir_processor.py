@@ -62,40 +62,18 @@ class IRProcessor:
     def load_from_file(self, module_file):
         self.module = ir.Module.parse(Path(module_file).read_text())
 
-    def preprocess_pass(self):
-        with self.module.context:
-            pass_arg = "builtin.module(cat-preprocess)"
-            pm = PassManager.parse(pass_arg)
-            pm.run(self.module.operation)
-            _print_verbose(self.module, "// IR Dump After Cat Preprocess:") if self.verbose else ...
-        return self.module
-
-    def hlo_opt_pass(self, outline_single_elemwise_op=True, aggressive_mode=False):
-        with self.module.context:
-            if outline_single_elemwise_op:
-                if aggressive_mode:
-                    pass_arg = "builtin.module(hlo-opt{outline-single-elemwise-op outline-cat-op aggressive-cat-fusion})"
-                else:
-                    pass_arg = "builtin.module(hlo-opt{outline-single-elemwise-op outline-cat-op})"
-            else:
-                pass_arg = "builtin.module(hlo-opt{outline-cat-op})"
-            pm = PassManager.parse(pass_arg)
-            pm.run(self.module.operation)
-            _print_verbose(self.module, "// IR Dump After Hlo Opt (with Cat):") if self.verbose else ...
-        return self.module
-
     def cat_opt_pass(self, anchor_only=False, aggressive_mode=False):
         with self.module.context:
             if anchor_only:
-                pass_arg = "builtin.module(cat-opt{anchor-only})"
+                pass_arg = "builtin.module(cat-fusion-opt{anchor-only})"
             else:
                 if aggressive_mode:
-                    pass_arg = "builtin.module(cat-opt{aggressive-mode})"
+                    pass_arg = "builtin.module(cat-fusion-opt{aggressive-mode})"
                 else:
-                    pass_arg = "builtin.module(cat-opt)"
+                    pass_arg = "builtin.module(cat-fusion-opt)"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
-            _print_verbose(self.module, "// IR Dump After Cat Opt:") if self.verbose else ...
+            _print_verbose(self.module, "// IR Dump After Cat Fusion Opt:") if self.verbose else ...
         return self.module
 
     def ait_opt_pass(self, anchor_only=False):

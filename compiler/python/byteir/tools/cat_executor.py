@@ -9,9 +9,6 @@ from byteir.utils import mlir_type_to_np_dtype
 parser = argparse.ArgumentParser()
 parser.add_argument("input_mlir_path", type=str, help="path to mhlo ir")
 parser.add_argument(
-    "--preprocess", action="store_true", help="whether preprocess mhlo ir"
-)
-parser.add_argument(
     "--mode", type=str, default="numerical", choices=["numerical", "profile"], help="execution mode"
 )
 parser.add_argument(
@@ -50,8 +47,6 @@ if __name__ == "__main__":
     inputs = generate_inputs(func)
 
     # fuse mhlo to cat
-    if args.preprocess:
-        processor.preprocess_pass()
     processor.cat_opt_pass(anchor_only=True)
 
     if args.mode == "numerical":

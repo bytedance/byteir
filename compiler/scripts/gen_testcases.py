@@ -45,7 +45,7 @@ class HostPipelineCollections:
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-graph-opt --hlo-opt=\"target=CPU\"",
+        "--hlo-graph-opt --hlo-fusion-opt=\"target=CPU\"",
         "--linalg-tensor-opt=\"target=CPU\"",
         "--byre-tensor-opt=\"entry-func=main append-arg-types\"",
         "--byteir-bufferize-opt",
@@ -84,7 +84,7 @@ class HostPipelineBytecodeCollections:
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-graph-opt --hlo-opt=\"target=CPU\"",
+        "--hlo-graph-opt --hlo-fusion-opt=\"target=CPU\"",
         "--linalg-tensor-opt=\"target=CPU\"",
         "--byre-tensor-opt=\"entry-func=main append-arg-types\"",
         "--byteir-bufferize-opt",
@@ -129,7 +129,7 @@ class E2ECollections:
 
     InputPipeline = functools.partial(OptPipeline, Input, [HloOpt], [])
     HloOptPipeline = functools.partial(OptPipeline, HloOpt, [LinalgTensorOpt], [
-        "-hlo-graph-opt -hlo-opt=\"outline-single-elemwise-op\"",
+        "-hlo-graph-opt -hlo-fusion-opt=\"outline-single-elemwise-op\"",
     ])
     LinalgTensorOptPipeline = functools.partial(OptPipeline, LinalgTensorOpt, [ByreTensorOpt], [
         "-linalg-tensor-opt",

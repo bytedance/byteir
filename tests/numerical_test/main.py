@@ -18,7 +18,7 @@ import os
 import re
 from torch_e2e_testing.registry import GLOBAL_TORCH_TEST_REGISTRY
 from torch_e2e_testing.test_suite import register_all_torch_tests
-from utils import report_results
+from reporting import report_results
 import sys
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
