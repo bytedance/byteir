@@ -303,7 +303,7 @@ def _compile_cpu(
 
         PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(module.operation)
         _print_verbose(module, "// IR Dump After Set Op Space Opt:") if verbose else ...
-        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + " auto-deduce=true" "})").run(module.operation)
+        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Set Space Opt:") if verbose else ...
 
     with context:

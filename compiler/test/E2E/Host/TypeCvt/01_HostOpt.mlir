@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s --host-opt --byre-opt | FileCheck %s
+// RUN: byteir-opt %s --host-opt -set-op-space="entry-func=main space=cpu" -set-arg-space="entry-func=main all-space=cpu" --byre-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @Unknown
 //   CHECK: %[[COLLAPSE0:.*]] = memref.collapse_shape %{{.*}} {{\[}}[0, 1, 2, 3]] : memref<1x224x224x3xf32> into memref<150528xf32>
