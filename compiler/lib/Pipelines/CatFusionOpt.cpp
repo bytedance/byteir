@@ -1,4 +1,4 @@
-//===- CatOpt.cpp ---------------------------------------------*--- C++ -*-===//
+//===- CatFusionOpt.cpp ---------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "byteir/Pipelines/CatOpt.h"
+#include "byteir/Pipelines/CatFusionOpt.h"
 
 #include "byteir/Conversion/HloToCat/FuseHloToCat.h"
 #include "byteir/Conversion/HloToCat/HloToCat.h"
@@ -32,8 +32,8 @@ using namespace mlir;
 using namespace mlir::mhlo;
 
 namespace {
-void createCatOptPipelineImpl(OpPassManager &pm, bool anchor_only,
-                              bool aggressive_mode) {
+void createCatFusionOptPipelineImpl(OpPassManager &pm, bool anchor_only,
+                                    bool aggressive_mode) {
   if (anchor_only) {
     OpPassManager anchoredPM(func::FuncOp::getOperationName());
     anchoredPM.addPass(createFuseMhloToCatPass());
@@ -53,8 +53,8 @@ void createCatOptPipelineImpl(OpPassManager &pm, bool anchor_only,
 }
 } // namespace
 
-void mlir::createCatOptPipeline(OpPassManager &pm,
-                                const CatOptPipelineOptions &options) {
-  invokeOpPassPipelineBuilder(createCatOptPipelineImpl, pm, options.anchor_only,
-                              options.aggressive_mode);
+void mlir::createCatFusionOptPipeline(
+    OpPassManager &pm, const CatFusionOptPipelineOptions &options) {
+  invokeOpPassPipelineBuilder(createCatFusionOptPipelineImpl, pm,
+                              options.anchor_only, options.aggressive_mode);
 }

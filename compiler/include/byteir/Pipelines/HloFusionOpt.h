@@ -1,4 +1,4 @@
-//===- HloOpt.h -----------------------------------------------*--- C++ -*-===//
+//===- HloFusionOpt.h -----------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_PIPELINES_HLOOPT_H
-#define BYTEIR_PIPELINES_HLOOPT_H
+#ifndef BYTEIR_PIPELINES_HLOFUSIONOPT_H
+#define BYTEIR_PIPELINES_HLOFUSIONOPT_H
 
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Pass/PassOptions.h"
@@ -24,8 +24,8 @@
 #include <string>
 
 namespace mlir {
-struct HloOptPipelineOptions
-    : public PassPipelineOptions<HloOptPipelineOptions> {
+struct HloFusionOptPipelineOptions
+    : public PassPipelineOptions<HloFusionOptPipelineOptions> {
   Option<std::string> entryFunc{
       *this, "entry-func",
       llvm::cl::desc("An optional string to speicify entry function."),
@@ -53,14 +53,14 @@ struct HloOptPipelineOptions
       llvm::cl::init(false)};
 };
 
-void createHloOptPipeline(OpPassManager &pm,
-                          const HloOptPipelineOptions &options);
+void createHloFusionOptPipeline(OpPassManager &pm,
+                                const HloFusionOptPipelineOptions &options);
 
-inline void registerHloOptPipeline() {
-  PassPipelineRegistration<HloOptPipelineOptions>("hlo-opt", "Hlo Opt Pipeline",
-                                                  createHloOptPipeline);
+inline void registerHloFusionOptPipeline() {
+  PassPipelineRegistration<HloFusionOptPipelineOptions>(
+      "hlo-fusion-opt", "Hlo Fusion Opt Pipeline", createHloFusionOptPipeline);
 }
 
 } // namespace mlir
 
-#endif // BYTEIR_PIPELINES_HLOOPT_H
+#endif // BYTEIR_PIPELINES_HLOFUSIONOPT_H

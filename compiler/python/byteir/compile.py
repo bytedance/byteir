@@ -103,8 +103,8 @@ def _compile_cuda(
         PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
     with context:
-        PassManager().parse("builtin.module(hlo-opt{outline-single-elemwise-op})").run(module.operation)
-        _print_verbose(module, "// IR Dump After Hlo Opt:") if verbose else ...
+        PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Fusion Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
@@ -199,7 +199,15 @@ def _compile_cuda_with_ait_impl(
 
     processor.preprocess_pass()
     processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
-    processor.hlo_opt_pass(outline_single_elemwise_op=True, aggressive_mode=aggressive_mode)
+
+    with context:
+        if aggressive_mode:
+            pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op aggressive-cat-fusion})")
+        else:
+            pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op})")
+        pm.run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Hlo Fusion Opt (with Cat):") if verbose else ...
+
     # generate ait lib .so for subgraphs
     _, dll_paths = processor.ait_opt_pass(anchor_only=True)
     # move .so to output dir
@@ -306,8 +314,8 @@ def _compile_cpu(
         PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
     with context:
-        PassManager().parse("builtin.module(hlo-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
-        _print_verbose(module, "// IR Dump After Hlo Opt:") if verbose else ...
+        PassManager().parse("builtin.module(hlo-fusion-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Fusion Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt{" + "target={}".format(target.upper()) + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...

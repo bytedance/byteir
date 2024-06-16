@@ -28,7 +28,7 @@ import os
 import shutil
 import torch_frontend
 import traceback
-from utils import TestResult
+from reporting import TestResult
 
 
 def np_type_to_torch_type(np_dtype):
