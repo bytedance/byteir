@@ -77,6 +77,10 @@ def FuseTFOps : Pass<"fuse-tf-ops", "func::FuncOp"> {
   let dependentDialects = [
     "mlir::TF::TensorFlowDialect",
   ];
+  let options = [
+    Option<"replaceWhereToStatic", "replace-where-to-static", "bool", /*default=*/"false",
+           "replace where to mul+reduce_sum to convert to static shape">,
+  ];
 }
 
 

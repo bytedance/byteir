@@ -47,6 +47,8 @@ def CustomizedTfToMhloPipeline : Pass<"customized-tf-to-mhlo", "mlir::ModuleOp">
            "stop after rewrite customcall ops">,
     Option<"setAssumingToBeTrue", "set-assuming-to-be-true", "bool", /*default=*/"true",
            "remove cstr_reshapable,cstr_broadcastable, and set assuming to be true">,
+    Option<"replaceWhereToStatic", "replace-where-to-static", "bool", /*default=*/"true",
+           "replace where op to static shape op in fuse tf ops pass">,
     Option<"repeatOutBatchSize", "repeat-out-batch-size", "int64_t", /*default=*/"-1",
            "batch size of repeat output tensor">
   ];

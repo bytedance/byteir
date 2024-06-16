@@ -29,7 +29,8 @@ class FuncOp;
 
 namespace tfext {
 
-std::unique_ptr<OperationPass<func::FuncOp>> createFuseTFOpsPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createFuseTFOpsPass(bool replaceWhereToStatic = false);
 
 } // namespace tfext
 } // namespace mlir
