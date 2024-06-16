@@ -20,6 +20,6 @@ python3 gen_testcases.py --top-dir ../test/E2E/Host/TypeCvt --category HostPipel
 # Host Bytecode
 python3 gen_testcases.py --top-dir ../test/E2E/Host/Case0_Bytecode --category HostPipelineBytecode
 
-# git diff --quiet ../test
+git diff --quiet ../test
 
 popd

@@ -197,6 +197,7 @@ def _compile_cuda_with_ait_impl(
                             verbose=verbose)
     processor.module = module
 
+    processor.preprocess_pass()
     processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
 
     with context:

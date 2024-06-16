@@ -62,6 +62,14 @@ class IRProcessor:
     def load_from_file(self, module_file):
         self.module = ir.Module.parse(Path(module_file).read_text())
 
+    def preprocess_pass(self):
+        with self.module.context:
+            pass_arg = "builtin.module(cat-preprocess)"
+            pm = PassManager.parse(pass_arg)
+            pm.run(self.module.operation)
+            _print_verbose(self.module, "// IR Dump After Cat Preprocess:") if self.verbose else ...
+        return self.module
+
     def cat_opt_pass(self, anchor_only=False, aggressive_mode=False):
         with self.module.context:
             if anchor_only:
