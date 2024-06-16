@@ -162,7 +162,7 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
 
 
 
-def compile_and_run_mlir(mhlo_file, target, **kwargs):
+def compile_and_run_mlir(mhlo_file, target, verbose, **kwargs):
     np.random.seed(0)
     try:
         if target.lower() == "cpu":
@@ -189,7 +189,7 @@ def compile_and_run_mlir(mhlo_file, target, **kwargs):
         os.makedirs(TEMP_FOLDER + f"/{unique_name}", exist_ok=True)
         output_mlir_file_name = f'{TEMP_FOLDER}/{unique_name}/{unique_name}.rt.mlir'
         byteir.compile(mhlo_file, output_mlir_file_name,
-                       entry_func=func_name, target=target)
+                       entry_func=func_name, target=target, verbose=verbose)
     except Exception as e:
         return TestResult(unique_name=mhlo_file,
                           compilation_error="".join(
@@ -267,7 +267,7 @@ def compile_and_run_mlir(mhlo_file, target, **kwargs):
                       performance_result=None)
 
 
-def compile_and_run_torch(test, target):
+def compile_and_run_torch(test, target, verbose):
     # compile
     try:
         golden_trace = generate_golden_trace(test)
@@ -287,7 +287,7 @@ def compile_and_run_torch(test, target):
             compiled_graph.operation.print(file=fout,
                                            large_elements_limit=None)
         byteir.compile(mlir_file_name, output_mlir_file_name,
-                       entry_func="forward", target=target)
+                       entry_func="forward", target=target, verbose=verbose)
     except Exception as e:
         return TestResult(unique_name=test.unique_name,
                           compilation_error="".join(

@@ -12,11 +12,6 @@ from .utils import detect_gpu_arch_with_nvidia_smi
 
 import byteir
 
-def _print_verbose(module: ModuleOp, pipeline_msg: str):
-    print(pipeline_msg)
-    print(module.operation.get_asm(large_elements_limit=10))
-    print()
-
 class OutputType(Enum):
     MLIR = "mlir"
     MLIRBC = "mlirbc"
@@ -51,6 +46,38 @@ class CompileOptions:
         self.parallelism = parallelism
         self.disable_byteir_ait_cache = disable_byteir_ait_cache
         self.kwargs = kwargs
+
+class DebugType(Enum):
+    NO_DEBUG = 0
+    PRINT_AFTER_FAILURE = 1
+    PRINT_AFTER_ONLY_CHANGE = 2
+
+
+def _get_debug_parameters(debug: DebugType):
+    assert isinstance(debug, DebugType), "unknown debug type"
+    # note: if you want to set `print_module_scope = True``,
+    # you should set `module.context.enable_multithreading(False)`
+    debug_parameters = {}
+    if debug == DebugType.PRINT_AFTER_FAILURE:
+        debug_parameters = {"print_before_pass":False,
+                            "print_after_pass":True,
+                            "print_after_only_on_change":False,
+                            "print_after_only_on_failure":True,
+                            "print_module_scope":False,
+                            "large_elements_limit":10}
+    elif debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
+        debug_parameters = {"print_before_pass":False,
+                            "print_after_pass":True,
+                            "print_after_only_on_change":True,
+                            "print_after_only_on_failure":False,
+                            "print_module_scope":False,
+                            "large_elements_limit":10}
+    return debug_parameters
+
+def _print_verbose(module: ModuleOp, pipeline_msg: str):
+    print(pipeline_msg)
+    print(module.operation.get_asm(large_elements_limit=10))
+    print()
 
 
 @register_byteir_compiler_backend(target="cuda", device="cuda")

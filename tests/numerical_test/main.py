@@ -64,7 +64,7 @@ def _is_gpu_test_supported(gpu_arch, test_name):
     return True
 
 
-def run_mlir_test(target, gpu_arch, filter):
+def run_mlir_test(target, gpu_arch, filter, verbose):
     from execute import compile_and_run_mlir
     directory = os.path.join(CUR_DIR, "mlir_tests", "ops")
     mlir_tests = []
@@ -80,11 +80,11 @@ def run_mlir_test(target, gpu_arch, filter):
 
     results = []
     for test in mlir_tests:
-        results.append(compile_and_run_mlir(test, target))
+        results.append(compile_and_run_mlir(test, target, verbose))
     return results
 
 
-def run_mlir_cpu_test(filter):
+def run_mlir_cpu_test(filter, verbose):
     from execute import compile_and_run_mlir
     directory = os.path.join(CUR_DIR, "mlir_tests", "cpu_ops")
     cpu_target = "cpu"
@@ -107,7 +107,7 @@ def run_mlir_cpu_test(filter):
     results = []
     for test in mlir_tests:
         if test[1] is None:
-            results.append(compile_and_run_mlir(test[0], cpu_target))
+            results.append(compile_and_run_mlir(test[0], cpu_target, verbose))
         else:
             results.append(
                 compile_and_run_mlir(
@@ -122,7 +122,7 @@ def run_mlir_cpu_test(filter):
     return results
 
 
-def run_torch_test(target, gpu_arch, filter):
+def run_torch_test(target, gpu_arch, filter, verbose):
     from execute import compile_and_run_torch
     tests = [
         test
@@ -133,22 +133,23 @@ def run_torch_test(target, gpu_arch, filter):
     ]
     results = []
     for test in tests:
-        results.append(compile_and_run_torch(test, target))
+        results.append(compile_and_run_torch(test, target, verbose))
     return results
 
 
-def run(config, target, filter, mode="numerical"):
+def run(config, target, filter, mode="numerical", verbose=False):
     if config == "mlir" and target == "cpu":
-        return run_mlir_cpu_test(filter)
+        return run_mlir_cpu_test(filter, verbose)
+
     from byteir.utils import detect_gpu_arch_with_nvidia_smi
     gpu_arch = detect_gpu_arch_with_nvidia_smi()
     assert gpu_arch != None
     assert gpu_arch.startswith("sm_")
     gpu_arch = int(gpu_arch[3:])
     if config == "mlir":
-        return run_mlir_test(target, gpu_arch, filter)
+        return run_mlir_test(target, gpu_arch, filter, verbose)
     elif config == "torch":
-        return run_torch_test(target, gpu_arch, filter)
+        return run_torch_test(target, gpu_arch, filter, verbose)
     elif config == "dynamo":
         from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
         # TODO(zzk): use test infra for dynamo tests
@@ -184,8 +185,8 @@ def parse_args():
         "--mode",
         type=str,
         default="numerical",
-        choices=["numerical", "perf"],
-        help="testing mode, `numerical` means numerical test, `perf` means performance test",
+        choices=["numerical", "profile"],
+        help="testing mode, `numerical` means numerical test, `profile` means performance test",
     )
     parser.add_argument(
         "-f",
@@ -193,6 +194,18 @@ def parse_args():
         type=str,
         default=".*",
         help="Regular expression specifying which tests to include in this run.",
+    )
+    parser.add_argument(
+        "-s",
+        "--sequential",
+        default=False,
+        action="store_true",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        default=False,
+        action="store_true",
     )
     args = parser.parse_args()
     return args
@@ -214,7 +227,7 @@ def main():
         for config, target in ALL_CONFIG.items():
             results += run(config, target, args.filter)
     else:
-        results += run(args.config, args.target, args.filter, mode=args.mode)
+        results += run(args.config, args.target, args.filter, mode=args.mode, verbose=args.verbose)
 
     failed = report_results(results)
     sys.exit(1 if failed else 0)
