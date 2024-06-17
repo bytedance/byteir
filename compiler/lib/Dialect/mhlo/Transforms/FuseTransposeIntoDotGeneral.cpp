@@ -134,7 +134,7 @@ struct FuseDotGeneralTransposePattern
           rewriter.getContext(), /*lhsBatchingDimensions=*/{},
           /*rhsBatchingDimensions=*/{},
           /*lhsContractingDimension=*/{rhsContractingDimension},
-          /*lhsContractingDimension=*/{lhsContractingDimension});
+          /*rhsContractingDimension=*/{lhsContractingDimension});
 
       rewriter.replaceOpWithNewOp<mhlo::DotGeneralOp>(
           op, op.getResult().getType(), rhs, lhs, dimensionNumbers,
