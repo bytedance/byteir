@@ -130,9 +130,9 @@ void mlirPDLResultListEmplaceValues(MlirPDLResultListRef pdlResults,
   unwrap(pdlResults).push_back(ValueRange(valueRange));
 }
 
-void mlirRegisterPDLConstraintFn(MlirContext ctx, MlirStringRef name,
-                                 void *pfn) {
-  registerPDLConstraintFunction(
+bool mlirRegisterPDLConstraintFn(MlirContext ctx, MlirStringRef name, void *pfn,
+                                 bool override) {
+  return registerPDLConstraintFunction(
       unwrap(ctx), unwrap(name),
       [fn = *reinterpret_cast<std::function<bool(std::vector<MlirPDLValue>)> *>(
            pfn)](PatternRewriter &,
@@ -143,11 +143,13 @@ void mlirRegisterPDLConstraintFn(MlirContext ctx, MlirStringRef name,
           wrapped.push_back(wrap(i));
         }
         return success(fn(wrapped));
-      });
+      },
+      override);
 }
 
-void mlirRegisterPDLRewriteFn(MlirContext ctx, MlirStringRef name, void *pfn) {
-  registerPDLRewriteFunction(
+bool mlirRegisterPDLRewriteFn(MlirContext ctx, MlirStringRef name, void *pfn,
+                              bool override) {
+  return registerPDLRewriteFunction(
       unwrap(ctx), unwrap(name),
       [fn = *reinterpret_cast<std::function<bool(
            MlirOperation, MlirPDLResultListRef, std::vector<MlirPDLValue>,
@@ -172,5 +174,6 @@ void mlirRegisterPDLRewriteFn(MlirContext ctx, MlirStringRef name, void *pfn) {
           return failure();
 
         return success();
-      });
+      },
+      override);
 }

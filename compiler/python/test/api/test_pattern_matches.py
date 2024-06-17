@@ -1,6 +1,8 @@
 from byteir import ir
 from byteir.pattern_matches import PDLPatternManager, RewritePatternBase
 
+import pytest
+
 class TestRewriteAPattern(RewritePatternBase):
 
     op_name = "test.test_op_A"
@@ -66,3 +68,21 @@ func.func @foo(%arg0: index) -> index {
         func = mod.body.operations[0]
         operations = func.body.blocks[0].operations
         assert operations[0].name == "test.test_op_C"
+
+def test_pattern_manager_merge():
+    mgr0 = PDLPatternManager().add(TestRewriteAPattern())
+    mgr1 = PDLPatternManager().add(TestRewriteAPattern(), TestRewriteBPattern())
+    mgr0.merge(mgr1)
+    mgr0.emit_pass()
+
+def test_pattern_override():
+    ctx = ir.Context()
+    ctx.enable_multithreading(False)
+    mgr = PDLPatternManager().add(TestRewriteAPattern())
+    mgr.attach_to_ctx(ctx)
+
+    mgr = PDLPatternManager().add(TestRewriteAPattern())
+    mgr.attach_to_ctx(ctx, override=True)
+
+    with pytest.raises(Exception):
+        mgr.attach_to_ctx(ctx, override=False)

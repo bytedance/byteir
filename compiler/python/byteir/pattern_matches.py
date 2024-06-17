@@ -6,6 +6,7 @@ from byteir import register_pdl_constraint_fn as _register_pdl_constraint_fn
 from byteir import register_pdl_rewrite_fn as _register_pdl_rewrite_fn
 from byteir import PDLValueKind
 
+import copy
 import tempfile
 import functools
 from collections.abc import Iterable
@@ -68,7 +69,9 @@ class PDLPatternWrapper(PDLPatternBase):
         return builder
 
     def register_pdl_hooks(self, pdl_pattern_mgr):
+        assert getattr(self, "_match_fn", None) is None, "_match_fn has already been registered"
         self._match_fn = pdl_pattern_mgr.register_pdl_constraint_fn(self.pattern.match)
+        assert getattr(self, "_rewrite_fn", None) is None, "_rewrite_fn has already been registered"
         self._rewrite_fn = pdl_pattern_mgr.register_pdl_rewrite_fn(self.pattern.rewrite)
 
     def emit_pdl(self):
@@ -95,6 +98,12 @@ class PDLPatternWrapper(PDLPatternBase):
                     pdl.ReplaceOp(op, with_op=replOp)
                 else:
                     raise NotImplementedError("replace op should return value ranges or operation")
+
+    def __deepcopy__(self, memo):
+        pattern = copy.deepcopy(self.pattern, memo)
+        result = PDLPatternWrapper(pattern)
+        memo[id(self)] = result
+        return result
 
 class PDLPatternManager:
     def __init__(self):
@@ -159,12 +168,14 @@ class PDLPatternManager:
         self.rewrites.append(wrapper)
         return wrapper
 
-    def attach_to_ctx(self, context):
+    def attach_to_ctx(self, context, *, override=True):
         for fn in self.constraints:
-            _register_pdl_constraint_fn(context, fn.__qualname__, fn)
+            if not _register_pdl_constraint_fn(context, fn.__qualname__, fn, override):
+                raise RuntimeError(f"Failed to register constrant fn {fn.__qualname__}")
 
         for fn in self.rewrites:
-            _register_pdl_rewrite_fn(context, fn.__qualname__, fn, fn.__annotations__["return"])
+            if not _register_pdl_rewrite_fn(context, fn.__qualname__, fn, fn.__annotations__["return"], override):
+                raise RuntimeError(f"Failed to register rewrite fn {fn.__qualname__}")
 
     def add(self, *patterns):
         for pattern in patterns:
@@ -181,6 +192,9 @@ class PDLPatternManager:
             pattern.register_pdl_hooks(self)
 
         return self
+
+    def merge(self, other):
+        return self.add(copy.deepcopy(other.patterns))
 
     def finalize(self, file):
         with ir.Context(), ir.Location.unknown():
