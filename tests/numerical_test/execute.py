@@ -157,8 +157,8 @@ class BRTBackend:
 
     def execute(self, inputs, outputs):
         # TODO(lyq): how to support dynamic shape?
-        assert len(self.input_arg_offsets) == len(inputs)
-        assert len(self.output_arg_offsets) == len(outputs)
+        assert len(self.session.get_input_arg_offsets()) == len(inputs)
+        assert len(self.session.get_output_arg_offsets()) == len(outputs)
         for offset, arg in zip(self.session.get_input_arg_offsets(), inputs):
             assert list(self.session.get_static_shape(offset)) == list(arg.shape)
             self.req.bind_arg(offset, arg.data_ptr())
@@ -170,8 +170,8 @@ class BRTBackend:
         self.req.sync()
 
     def profile(self, inputs, outputs, warmup_trials=10, run_trials=50):
-        assert len(self.input_arg_offsets) == len(inputs)
-        assert len(self.output_arg_offsets) == len(outputs)
+        assert len(self.session.get_input_arg_offsets()) == len(inputs)
+        assert len(self.session.get_output_arg_offsets()) == len(outputs)
         for offset, arg in zip(self.session.get_input_arg_offsets(), inputs):
             assert list(self.session.get_static_shape(offset)) == list(arg.shape)
             self.req.bind_arg(offset, arg.data_ptr())
@@ -296,11 +296,12 @@ def compile_and_run_torch(test, target, verbose, mode="numerical"):
         compiled_graph = torch_frontend.compile(
             test.program_factory(), torch_inputs, 'stablehlo')
 
+        unique_name = test.unique_name + "." + target
         TEMP_FOLDER = "./local_test"
         os.makedirs(TEMP_FOLDER, exist_ok=True)
-        os.makedirs(TEMP_FOLDER + f"/{test.unique_name}", exist_ok=True)
-        mlir_file_name = f'{TEMP_FOLDER}/{test.unique_name}/{test.unique_name}.mhlo.mlir'
-        output_mlir_file_name = f'{TEMP_FOLDER}/{test.unique_name}/{test.unique_name}.rt.mlir'
+        os.makedirs(TEMP_FOLDER + f"/{unique_name}", exist_ok=True)
+        mlir_file_name = f'{TEMP_FOLDER}/{unique_name}/{test.unique_name}.stablehlo.mlir'
+        output_mlir_file_name = f'{TEMP_FOLDER}/{unique_name}/{test.unique_name}.rt.mlir'
         with open(mlir_file_name, "w+") as fout:
             compiled_graph.operation.print(file=fout,
                                            large_elements_limit=None)
