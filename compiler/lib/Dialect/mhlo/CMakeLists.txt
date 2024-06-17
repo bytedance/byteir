@@ -98,7 +98,6 @@ add_mlir_dialect_library(ByteIRMhloPasses
   Transforms/HloMoveDown.cpp
   Transforms/HloMoveUp.cpp
   Transforms/HloSimplify.cpp
-  Transforms/HloTransposeDotToDotGeneral.cpp
   Transforms/InsertShapeConstraint.cpp
   Transforms/IOConvertFusion.cpp
   Transforms/LayoutTransformation.cpp

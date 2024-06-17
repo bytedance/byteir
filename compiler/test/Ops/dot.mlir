@@ -1,4 +1,4 @@
-// RUN: byteir-opt -hlo-transpose-dot-to-dot-general -fusion-outlining -byre-tensor-opt --byteir-bufferize-opt -convert-to-byre %s | FileCheck %s
+// RUN: byteir-opt -mhlo-legalize-dot-to-dot-general -fuse-transpose-into-dot-general -fusion-outlining -byre-tensor-opt --byteir-bufferize-opt -convert-to-byre %s | FileCheck %s
 
 func.func @dot(%arg0 : tensor<64x128xf32> {__placeholder__byre.argname = "A"}, %arg1 : tensor<64x32xf32> {__placeholder__byre.argname = "B"}) -> (tensor<128x32xf32> {__placeholder__byre.argname = "C"}) attributes {__placeholder__byre.entry_point} {
     %0 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<64x128xf32>) -> tensor<128x64xf32>

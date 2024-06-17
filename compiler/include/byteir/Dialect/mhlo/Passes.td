@@ -185,15 +185,6 @@ def HloSimplify : Pass<"hlo-simplify", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// HloTransposeDotToDotGeneral
-//===----------------------------------------------------------------------===//
-
-def HloTransposeDotToDotGeneral : Pass<"hlo-transpose-dot-to-dot-general", "mlir::func::FuncOp"> {
-  let summary = "Fuse transpose dot to dot_general";
-  let constructor = "mlir::createHloTransposeDotToDotGeneralPass()";
-}
-
-//===----------------------------------------------------------------------===//
 // IOConvertFusion
 //===----------------------------------------------------------------------===//
 
