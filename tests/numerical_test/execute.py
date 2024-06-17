@@ -280,13 +280,14 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", **kwargs)
 
 
 def compile_and_run_torch(test, target, verbose, mode="numerical"):
+    cur_device = get_target_device(target)
     # compile
     try:
         golden_trace = generate_golden_trace(test)
         trace_item = golden_trace[0]
 
-        torch_inputs = [input.clone().cuda() for input in trace_item.inputs]
-        torch_outputs = [torch.empty(trace_item.output.shape, dtype=trace_item.output.dtype).cuda()]
+        torch_inputs = [input.clone().to(cur_device) for input in trace_item.inputs]
+        torch_outputs = [torch.empty(trace_item.output.shape, dtype=trace_item.output.dtype).to(cur_device)]
         compiled_graph = torch_frontend.compile(
             test.program_factory(), torch_inputs, 'stablehlo')
 
@@ -311,7 +312,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical"):
 
     # runtime
     try:
-        brt_backend = BRTBackend("cuda", output_mlir_file_name)
+        brt_backend = BRTBackend(cur_device, output_mlir_file_name)
         if mode == "numerical":
             brt_backend.execute(torch_inputs, torch_outputs)
         else:
