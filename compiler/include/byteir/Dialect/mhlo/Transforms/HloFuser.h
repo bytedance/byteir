@@ -84,7 +84,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> createConvBackwardFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvForwardFusionPass();
 
-std::unique_ptr<OperationPass<func::FuncOp>> createFuseTransposeIntoDotGeneralPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createFuseTransposeIntoDotGeneralPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createCatFusionPass(bool aggressiveMode = false);

@@ -93,7 +93,8 @@ static mhlo::DotDimensionNumbersAttr getDotDimensionNumbersAttrAfterPerm(
 }
 
 // mhlo.dot_general + mhlo.transpose -> mhlo.dot_general
-struct FuseDotGeneralTransposePattern : public OpRewritePattern<mhlo::TransposeOp> {
+struct FuseDotGeneralTransposePattern
+    : public OpRewritePattern<mhlo::TransposeOp> {
   using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
