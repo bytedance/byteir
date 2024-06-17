@@ -1,7 +1,9 @@
 from byteir import ir
-from byteir.dialects.cat.ait_cache import AITCache
 from byteir.dialects.builtin import ModuleOp
 from byteir.passmanager import PassManager
+from byteir.utils import get_gpu_type
+
+from .ait_cache import AITCache
 
 from pathlib import Path
 from shutil import copyfile, copymode
@@ -9,7 +11,6 @@ import os
 import time
 import multiprocessing
 import torch
-from byteir.utils import get_gpu_type
 import hashlib
 
 BYTEIR_CAT_ATTR = "__byteir_cat_fusion__"

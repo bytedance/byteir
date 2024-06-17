@@ -5,7 +5,6 @@ from shutil import copymode
 
 from . import ir
 from .passmanager import PassManager
-from .dialects.cat import IRProcessor
 from .dialects.builtin import ModuleOp
 from ._backend_registry import register_byteir_compiler_backend, get_target_device, look_up_backend
 from .utils import detect_gpu_arch_with_nvidia_smi
@@ -167,6 +166,8 @@ def _compile_cuda_with_ait_impl(
     compile_options: CompileOptions,
     aggressive_mode: bool,
 ) -> None:
+    from .dialects.cat import IRProcessor
+
     target = "cuda"
     module = compile_options.module
     entry_func = compile_options.entry_func
