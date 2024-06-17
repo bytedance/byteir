@@ -1,5 +1,6 @@
 from byteir import ir
 from byteir.dialects.cat.ait_cache import AITCache
+from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
 from byteir.dialects.builtin import ModuleOp
 from byteir.passmanager import PassManager
 
@@ -54,7 +55,6 @@ class IRProcessor:
     def _get_builder(self, module, subgraph_name, backend="ait"):
         assert module != None
         if backend == "ait":
-            from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
             return AITBuilder(module, workdir=self.workdir, subgraph_name=subgraph_name)
         else:
             raise RuntimeError(f"Unsupported runtime backend {backend}")
@@ -195,7 +195,6 @@ def _parallel_ait_compile(workdir: str, ir_str: str):
     module = ir.Module.parse(ir_str, context)
     assert len(module.body.operations) == 1
     func = module.body.operations[0]
-    from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
     builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value)
     builder.compile()
     builder.benchmark()

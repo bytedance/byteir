@@ -64,7 +64,7 @@ def _is_gpu_test_supported(gpu_arch, test_name):
     return True
 
 
-def run_mlir_test(target, gpu_arch, filter, verbose):
+def run_mlir_test(target, gpu_arch, filter, verbose, mode):
     from execute import compile_and_run_mlir
     directory = os.path.join(CUR_DIR, "mlir_tests", "ops")
     mlir_tests = []
@@ -80,7 +80,7 @@ def run_mlir_test(target, gpu_arch, filter, verbose):
 
     results = []
     for test in mlir_tests:
-        results.append(compile_and_run_mlir(test, target, verbose))
+        results.append(compile_and_run_mlir(test, target, verbose, mode))
     return results
 
 
@@ -113,7 +113,7 @@ def run_mlir_cpu_test(filter, verbose):
                 compile_and_run_mlir(
                     test[0],
                     cpu_target,
-                    mode=test[1][0],
+                    random_mode=test[1][0],
                     low=test[1][1],
                     high=test[1][2],
                 )
@@ -122,7 +122,7 @@ def run_mlir_cpu_test(filter, verbose):
     return results
 
 
-def run_torch_test(target, gpu_arch, filter, verbose):
+def run_torch_test(target, gpu_arch, filter, verbose, mode):
     from execute import compile_and_run_torch
     tests = [
         test
@@ -133,7 +133,7 @@ def run_torch_test(target, gpu_arch, filter, verbose):
     ]
     results = []
     for test in tests:
-        results.append(compile_and_run_torch(test, target, verbose))
+        results.append(compile_and_run_torch(test, target, verbose, mode))
     return results
 
 
@@ -147,9 +147,9 @@ def run(config, target, filter, mode="numerical", verbose=False):
     assert gpu_arch.startswith("sm_")
     gpu_arch = int(gpu_arch[3:])
     if config == "mlir":
-        return run_mlir_test(target, gpu_arch, filter, verbose)
+        return run_mlir_test(target, gpu_arch, filter, verbose, mode)
     elif config == "torch":
-        return run_torch_test(target, gpu_arch, filter, verbose)
+        return run_torch_test(target, gpu_arch, filter, verbose, mode)
     elif config == "dynamo":
         from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
         # TODO(zzk): use test infra for dynamo tests
@@ -200,12 +200,14 @@ def parse_args():
         "--sequential",
         default=False,
         action="store_true",
+        help="Run tests sequentially rather than in parallel",
     )
     parser.add_argument(
         "-v",
         "--verbose",
         default=False,
         action="store_true",
+        help="report test results with additional detail",
     )
     args = parser.parse_args()
     return args
