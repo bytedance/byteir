@@ -83,6 +83,23 @@ def mlir_attr_to_pyobj(attribute):
 
     raise NotImplementedError("unsupported attribute {}".format(attribute))
 
+def np_type_to_torch_type(np_dtype):
+    import torch
+    _map = {
+        np.single: torch.float32,
+        np.half: torch.float16,
+        np.float16: torch.float16,
+        np.float32: torch.float32,
+        np.float64: torch.float64,
+        np.double: torch.float64,
+        np.int8: torch.int8,
+        np.int16: torch.int16,
+        np.int32: torch.int32,
+        np.int64: torch.int64,
+        np.bool_: torch.bool,
+    }
+    return _map.get(np_dtype, None)
+
 def mlir_type_to_torch_str(mlir_type) -> str:
     _map = {
         "bf16": "bfloat16",
