@@ -156,6 +156,9 @@ class BRTBackend:
         self.req = self.session.new_request_context(_stream)
 
     def execute(self, inputs, outputs):
+        # TODO(lyq): how to support dynamic shape?
+        assert len(self.input_arg_offsets) == len(inputs)
+        assert len(self.output_arg_offsets) == len(outputs)
         for offset, arg in zip(self.session.get_input_arg_offsets(), inputs):
             assert list(self.session.get_static_shape(offset)) == list(arg.shape)
             self.req.bind_arg(offset, arg.data_ptr())
@@ -167,6 +170,8 @@ class BRTBackend:
         self.req.sync()
 
     def profile(self, inputs, outputs, warmup_trials=10, run_trials=50):
+        assert len(self.input_arg_offsets) == len(inputs)
+        assert len(self.output_arg_offsets) == len(outputs)
         for offset, arg in zip(self.session.get_input_arg_offsets(), inputs):
             assert list(self.session.get_static_shape(offset)) == list(arg.shape)
             self.req.bind_arg(offset, arg.data_ptr())
