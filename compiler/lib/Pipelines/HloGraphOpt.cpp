@@ -49,8 +49,9 @@ void createHloGraphOptPipelineImpl(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(createHloFolderPass());
   pm.addNestedPass<func::FuncOp>(createHloSimplifyPass());
 
-  // canonicalize dot and dot_general
-  pm.addNestedPass<func::FuncOp>(createHloTransposeDotToDotGeneralPass());
+  // fuse dot/dot_general with transpose
+  pm.addNestedPass<func::FuncOp>(mhlo::createLegalizeDotToDotGeneralPass());
+  pm.addNestedPass<func::FuncOp>(createFuseTransposeIntoDotGeneralPass());
 
   // convert mhlo.rng to mhlo.custom_call
   pm.addPass(createConvertOpToCustomCallPass());

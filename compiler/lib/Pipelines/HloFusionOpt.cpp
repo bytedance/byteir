@@ -41,7 +41,6 @@ void addGenericHloFusionPatterns(OpPassManager &pm,
 
   pm.addNestedPass<func::FuncOp>(createConvBackwardFusionPass());
   pm.addNestedPass<func::FuncOp>(createIOConvertFusionPass());
-  pm.addNestedPass<func::FuncOp>(createDotTransposeFusionPass());
 
   pm.addNestedPass<func::FuncOp>(createReductionFusionPass());
   pm.addNestedPass<func::FuncOp>(createConcatSliceFusionPass());
