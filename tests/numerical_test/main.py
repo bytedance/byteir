@@ -120,23 +120,25 @@ TEST_SET = {
     "cuda_with_ait": CUDA_AIT_ALL_SET,
 }
 
+def get_local_gpu_arch():
+    from byteir.utils import detect_gpu_arch_with_nvidia_smi
+    gpu_arch = detect_gpu_arch_with_nvidia_smi()
+    assert gpu_arch != None
+    assert gpu_arch.startswith("sm_")
+    gpu_arch = int(gpu_arch[3:])
+    return gpu_arch
 
 def run(target, filter, mode="numerical", verbose=False):
     if target == "dynamo":
         from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
-
+        gpu_arch = get_local_gpu_arch()
         # TODO(zzk): use test infra for dynamo tests
         run_torch_dynamo_tests(gpu_arch)
         return []
 
     test_set = TEST_SET[target]
     if target != "cpu":
-        from byteir.utils import detect_gpu_arch_with_nvidia_smi
-
-        gpu_arch = detect_gpu_arch_with_nvidia_smi()
-        assert gpu_arch != None
-        assert gpu_arch.startswith("sm_")
-        gpu_arch = int(gpu_arch[3:])
+        gpu_arch = get_local_gpu_arch()
         if target == "cuda_with_ait" and gpu_arch < 80:
             test_set -= CUDA_AIT_SM80PLUS_SET
 
