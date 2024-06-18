@@ -16,6 +16,7 @@ import torch
 from ..registry import register_test_case
 from ..framework import TestUtils
 
+# ==============================================================================
 
 class ElementwiseAddModule(torch.nn.Module):
 
@@ -30,6 +31,7 @@ class ElementwiseAddModule(torch.nn.Module):
 def ElementwiseAddModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(4), tu.rand())
 
+# ==============================================================================
 
 class MatmulF16Module(torch.nn.Module):
 
@@ -99,6 +101,7 @@ class BatchMatmulAddF32Module(torch.nn.Module):
 def BatchMatmulAddF32Module_basic(module, tu: TestUtils):
     module.forward(tu.rand(2, 5, 6), tu.rand(2, 6, 10), tu.rand(2, 5, 10))
 
+# ==============================================================================
 
 class ReductionPaddingModule(torch.nn.Module):
 
@@ -161,6 +164,8 @@ class ReductionParallelModule(torch.nn.Module):
 @register_test_case(module_factory=lambda: ReductionParallelModule())
 def ReductionParallelModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(60, 10000))
+
+# ==============================================================================
 
 class RngUniformModule(torch.nn.Module):
 

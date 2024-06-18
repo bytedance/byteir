@@ -16,35 +16,19 @@
 import argparse
 import os
 import re
-from torch_e2e_testing.registry import GLOBAL_TORCH_TEST_REGISTRY
-from torch_e2e_testing.test_suite import register_all_torch_tests
-from reporting import report_results
 import sys
 
+from execute import compile_and_run_torch, compile_and_run_mlir
+from reporting import report_results
+from torch_e2e_testing.registry import (
+    GLOBAL_TORCH_TEST_REGISTRY,
+    GLOBAL_TORCH_TEST_REGISTRY_NAMES,
+)
+from torch_e2e_testing.test_suite import register_all_torch_tests
+
+register_all_torch_tests()
+
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
-
-EXCLUDE_MLIR_TESTS = []
-
-# Unsupported ops
-EXCLUDE_MLIR_CPU_TESTS = [
-    "custom_call_tf_UpperBound.mlir",
-    "rng.mlir",
-]
-
-EXCLUDE_TORCH_TESTS = []
-
-MLIR_CPU_SPECIAL_INPUTS = {
-    "log_plus_one.mlir": ["uniform", 0.5, 1.0],
-}
-
-SM80_PLUS_TESTS = [
-    "dot_f32.mlir",
-    "bmm_rrr_permute_f16.mlir",
-    "bmm_rrr_permute_f32.mlir",
-    "MatmulF32Module_basic",
-    "BatchMatmulAddF32Module_basic",
-    "BatchMatmulF32Module_basic",
-]
 
 
 def _get_test_files_from_dir(directory):
@@ -57,129 +41,149 @@ def _get_test_files_from_dir(directory):
     return test_files
 
 
-def _is_gpu_test_supported(gpu_arch, test_name):
-    # TODO: other arch
-    if gpu_arch < 80:
-        return test_name not in SM80_PLUS_TESTS
-    return True
+##### CPU TEST SET #######
+CPU_MLIR_TEST_DIR = os.path.join(CUR_DIR, "mlir_tests", "cpu_ops")
+CPU_MLIR_TEST_SET = set(_get_test_files_from_dir(CPU_MLIR_TEST_DIR))
+CPU_TORCH_TEST_SET = set()
+CPU_XFAIL_SET = {
+    "custom_call_tf_UpperBound.mlir",
+    "rng.mlir",
+}
 
+CPU_ALL_SET = (CPU_MLIR_TEST_SET | CPU_TORCH_TEST_SET) - CPU_XFAIL_SET
 
-def run_mlir_test(target, gpu_arch, filter, verbose, mode):
-    from execute import compile_and_run_mlir
-    directory = os.path.join(CUR_DIR, "mlir_tests", "ops")
-    mlir_tests = []
+##### CUDA TEST SET #######
+CUDA_MLIR_TEST_DIR = os.path.join(CUR_DIR, "mlir_tests", "ops")
+CUDA_MLIR_TEST_SET = set(_get_test_files_from_dir(CUDA_MLIR_TEST_DIR))
+CUDA_TORCH_TEST_SET = set(GLOBAL_TORCH_TEST_REGISTRY_NAMES)
+CUDA_XFAIL_SET = {
+    "bmm_rcr.mlir",
+    "bmm_rrc.mlir",
+    "bmm_rrr_add_f16.mlir",
+    "bmm_rrr_f16.mlir",
+    "bmm_rrr_permute_f16.mlir",
+    "bmm_rrr_permute_f32.mlir",
+    "layernorm.mlir",
+    "softmax.mlir",
+    "transpose102.mlir",
+    "transpose1023.mlir",
+    "transpose120.mlir",
+    "transpose1203.mlir",
+    "transpose2013.mlir",
+    "transpose120.mlir",
+}
 
-    test_files = _get_test_files_from_dir(directory)
-    for filename in test_files:
-        if not re.match(filter, filename):
-            continue
-        if filename not in EXCLUDE_MLIR_TESTS and _is_gpu_test_supported(
-            gpu_arch, filename
-        ):
-            mlir_tests.append(os.path.join(directory, filename))
+CUDA_ALL_SET = (CUDA_MLIR_TEST_SET | CUDA_TORCH_TEST_SET) - CUDA_XFAIL_SET
 
-    results = []
-    for test in mlir_tests:
-        results.append(compile_and_run_mlir(test, target, verbose, mode))
-    return results
+##### CUDA AIT TEST SET #######
+CUDA_AIT_MLIR_TEST_SET = {
+    "bmm_rcr.mlir",
+    "bmm_rrc.mlir",
+    "bmm_rrr_add_f16.mlir",
+    "bmm_rrr_f16.mlir",
+    "bmm_rrr_permute_f16.mlir",
+    "bmm_rrr_permute_f32.mlir",
+    "gemm_crr_f16.mlir",
+    "gemm_rrr_f16.mlir",
+    "gemm_rrr_f32.mlir",
+    "layernorm.mlir",
+    "softmax.mlir",
+    "transpose102.mlir",
+    "transpose1023.mlir",
+    "transpose120.mlir",
+    "transpose1203.mlir",
+    "transpose2013.mlir",
+    "transpose120.mlir",
+}
+CUDA_AIT_TORCH_TEST_SET = {
+    "MatmulF16Module_basic",
+    "MatmulTransposeModule_basic",
+    "MatmulF32Module_basic",
+    "BatchMatmulF32Module_basic",
+    "BatchMatmulAddF32Module_basic",
+}
+CUDA_AIT_SM80PLUS_SET = {
+    "gemm_rrr_f32.mlir",
+    "bmm_rrr_permute_f16.mlir",
+    "bmm_rrr_permute_f32.mlir",
+    "MatmulF32Module_basic",
+    "BatchMatmulF32Module_basic",
+    "BatchMatmulAddF32Module_basic",
+}
 
+CUDA_AIT_ALL_SET = CUDA_AIT_MLIR_TEST_SET | CUDA_AIT_TORCH_TEST_SET
 
-def run_mlir_cpu_test(filter, verbose):
-    from execute import compile_and_run_mlir
-    directory = os.path.join(CUR_DIR, "mlir_tests", "cpu_ops")
-    cpu_target = "cpu"
-    mlir_tests = []
+##### TEST SET CONFIG #######
+TEST_SET = {
+    "cpu": CPU_ALL_SET,
+    "cuda": CUDA_ALL_SET,
+    "cuda_with_ait": CUDA_AIT_ALL_SET,
+}
 
-    test_files = _get_test_files_from_dir(directory)
-    for filename in test_files:
-        if not re.match(filter, filename):
-            continue
-        if filename not in EXCLUDE_MLIR_CPU_TESTS:
-            mlir_tests.append(
-                [
-                    os.path.join(directory, filename),
-                    MLIR_CPU_SPECIAL_INPUTS[filename]
-                    if filename in MLIR_CPU_SPECIAL_INPUTS
-                    else None,
-                ]
-            )
-
-    results = []
-    for test in mlir_tests:
-        if test[1] is None:
-            results.append(compile_and_run_mlir(test[0], cpu_target, verbose))
-        else:
-            results.append(
-                compile_and_run_mlir(
-                    test[0],
-                    cpu_target,
-                    random_mode=test[1][0],
-                    low=test[1][1],
-                    high=test[1][2],
-                )
-            )
-
-    return results
-
-
-def run_torch_test(target, gpu_arch, filter, verbose, mode):
-    from execute import compile_and_run_torch
-    tests = [
-        test
-        for test in GLOBAL_TORCH_TEST_REGISTRY
-        if re.match(filter, test.unique_name)
-        and test.unique_name not in EXCLUDE_TORCH_TESTS
-        and _is_gpu_test_supported(gpu_arch, test.unique_name)
-    ]
-    results = []
-    for test in tests:
-        results.append(compile_and_run_torch(test, target, verbose, mode))
-    return results
-
-
-def run(config, target, filter, mode="numerical", verbose=False):
-    if config == "mlir" and target == "cpu":
-        return run_mlir_cpu_test(filter, verbose)
-
+def get_local_gpu_arch():
     from byteir.utils import detect_gpu_arch_with_nvidia_smi
     gpu_arch = detect_gpu_arch_with_nvidia_smi()
     assert gpu_arch != None
     assert gpu_arch.startswith("sm_")
     gpu_arch = int(gpu_arch[3:])
-    if config == "mlir":
-        return run_mlir_test(target, gpu_arch, filter, verbose, mode)
-    elif config == "torch":
-        return run_torch_test(target, gpu_arch, filter, verbose, mode)
-    elif config == "dynamo":
+    return gpu_arch
+
+def run(target, filter, mode="numerical", verbose=False):
+    if target == "dynamo":
         from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
+        gpu_arch = get_local_gpu_arch()
         # TODO(zzk): use test infra for dynamo tests
         run_torch_dynamo_tests(gpu_arch)
         return []
-    assert False, f"unknown config: {config}"
+
+    test_set = TEST_SET[target]
+    if target != "cpu":
+        gpu_arch = get_local_gpu_arch()
+        if target == "cuda_with_ait" and gpu_arch < 80:
+            test_set -= CUDA_AIT_SM80PLUS_SET
+
+    results = []
+    for test in test_set:
+        if not re.match(filter, test):
+            continue
+        if test in GLOBAL_TORCH_TEST_REGISTRY_NAMES:
+            results.append(
+                compile_and_run_torch(
+                    GLOBAL_TORCH_TEST_REGISTRY[test], target, verbose, mode
+                )
+            )
+        else:
+            if target == "cpu":
+                results.append(
+                    compile_and_run_mlir(
+                        os.path.join(CPU_MLIR_TEST_DIR, test), target, verbose, mode
+                    )
+                )
+            else:
+                results.append(
+                    compile_and_run_mlir(
+                        os.path.join(CUDA_MLIR_TEST_DIR, test), target, verbose, mode
+                    )
+                )
+    return results
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-c",
-        "--config",
-        type=str,
-        choices=["all", "mlir", "torch", "dynamo"],
-        required=True,
-        help="test sets to run.",
-    )
-    parser.add_argument(
         "--target",
         type=str,
-        default="cuda_with_ait",
+        default="cuda",
         choices=[
+            "all",
             "cpu",
             "cuda",
             "cuda_with_ait",
             "cuda_with_ait_aggressive",
+            "dynamo",
             "native_torch",
         ],
-        help="target backend",
+        help="target backend to run",
     )
     parser.add_argument(
         "--mode",
@@ -213,28 +217,19 @@ def parse_args():
     return args
 
 
-ALL_CONFIG = {
-    "mlir": "cpu",
-    "mlir": "cuda_with_ait",
-    "torch": "cuda_with_ait",
-    "dynamo": None,
-}
-
-
 def main():
     args = parse_args()
 
     results = []
-    if args.config == "all":
-        for config, target in ALL_CONFIG.items():
-            results += run(config, target, args.filter)
+    if args.target == "all":
+        for target in ["cpu", "cuda", "cuda_with_ait", "dynamo"]:
+            results += run(target, args.filter)
     else:
-        results += run(args.config, args.target, args.filter, mode=args.mode, verbose=args.verbose)
+        results += run(args.target, args.filter, mode=args.mode, verbose=args.verbose)
 
     failed = report_results(results)
     sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":
-    register_all_torch_tests()
     main()
