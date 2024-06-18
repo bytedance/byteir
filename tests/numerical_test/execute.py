@@ -109,11 +109,8 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
         np.save(fpath, data)
 
     try:
-        if target.lower() == "cpu":
-            interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
-        else:
-            interp = Interpreter.load_from_file(mhlo_file)
-        func_name = get_entry_func_name(interp)
+        data_generator = MLIRDataGenerator(mhlo_file, target)
+        func_name = data_generator.entry_func_name
         unique_name = os.path.basename(mhlo_file).split(".")[0]
         unique_name = unique_name + "." + target
         iter_number = kwargs["num"] if "num" in kwargs else 5
@@ -123,15 +120,11 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
         os.makedirs(WORK_FOLDER, exist_ok=True)
 
         for idx in range(0, iter_number):
-            if "mode" in kwargs:
-                input_mode = kwargs["mode"]
-                low = kwargs["low"] if "low" in kwargs else None
-                high = kwargs["high"] if "high" in kwargs else None
-                np_inputs = generate_np_inputs(interp, input_mode, low, high)
-            else:
-                np_inputs = generate_np_inputs(interp)
+            np_inputs = data_generator.generate_np_inputs()
 
             # run golden
+            from mhlo_tools.ir_executor import Interpreter
+            interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
             golden_outputs = interp.call_function(func_name, np_inputs)
 
             # dump to local file

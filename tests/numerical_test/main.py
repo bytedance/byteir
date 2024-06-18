@@ -88,6 +88,12 @@ CUDA_AIT_MLIR_TEST_SET = {
     "gemm_rrr_f32.mlir",
     "layernorm.mlir",
     "softmax.mlir",
+    "transpose102.mlir",
+    "transpose1023.mlir",
+    "transpose120.mlir",
+    "transpose1203.mlir",
+    "transpose2013.mlir",
+    "transpose120.mlir",
 }
 CUDA_AIT_TORCH_TEST_SET = {
     "MatmulF16Module_basic",
