@@ -23,6 +23,7 @@ from torch._dispatch.python import enable_python_dispatcher
 from torch._dynamo.utils import dynamo_timed, lazy_format_graph_code, preserve_rng_state, detect_fake_mode
 from torch._decomp.decompositions_for_rng import PhiloxStateTracker, rng_decompositions
 from torch._functorch.aot_autograd import run_functionalized_fw_and_collect_metadata, OutputType
+import torch.utils._pytree as pytree
 from unittest.mock import patch
 from contextlib import contextmanager, nullcontext
 
@@ -176,16 +177,6 @@ def maybe_get_fake_mode(t):
     return None
 
 
-# @contextlib.contextmanager
-# def unset_fake_temporarily():
-#     old = torch._C._unset_dispatch_mode(torch._C._TorchDispatchModeKey.FAKE)
-#     try:
-#         yield old
-#     finally:
-#         if old is not None:
-#             torch._C._set_dispatch_mode(old)
-
-
 def record_execution_time(stage: str = "Unknown"):
 
     def decorator(func):
@@ -298,8 +289,13 @@ def create_real_tensor_from_fake(ft: FakeTensor):
 
 def create_fw_runtime_metadata(fn, args):
 
-    fake_mode = detect_fake_mode(args)
-    shape_env = fake_mode.shape_env
+    flat_args, _ = pytree.tree_flatten((args))
+    #TODO(chh) we should pass fake tensor in this util function.
+    #fake_mode = detect_fake_mode(flat_args)
+    #shape_env = fake_mode.shape_env
+    shape_env = None
+    fake_mode = FakeTensorMode(allow_non_fake_inputs=True)
+
     python_dispatcher_mode = (enable_python_dispatcher()
                               if shape_env is not None else nullcontext())
     with torch.autograd.set_multithreading_enabled(False), preserve_rng_state(
@@ -327,7 +323,7 @@ def create_fw_runtime_metadata(fn, args):
 
             return [convert(idx, x) for idx, x in enumerate(flat_args)]
 
-        fake_flat_args = process_inputs(args)
+        fake_flat_args = process_inputs(flat_args)
 
         needs_autograd = (any(x.requires_grad for x in fake_flat_args
                               if isinstance(x, torch.Tensor))
@@ -336,7 +332,7 @@ def create_fw_runtime_metadata(fn, args):
         with enable_python_dispatcher():
             # Patch set_rng_state as set_rng_state with fake tensors is
             # nonsensical. This does not affect the collection of metadata.
-            with patch("torch.cuda.set_rng_state", lambda *args: None):
+            with patch("torch.cuda.set_rng_state", lambda *flat_args: None):
                 fw_metadata = run_functionalized_fw_and_collect_metadata(
                     fn,
                     keep_input_mutations=False and not needs_autograd,
