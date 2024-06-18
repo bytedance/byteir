@@ -29,6 +29,7 @@
 #include "tf_mlir_ext/transforms/constant_folding.h"
 #include "tf_mlir_ext/transforms/convert_repeat_to_tile.h"
 #include "tf_mlir_ext/transforms/fuse_tf_ops.h"
+#include "tf_mlir_ext/transforms/inline_func_call_in_scf_if.h"
 #include "tf_mlir_ext/transforms/mhlo_legalize_tf_ext.h"
 #include "tf_mlir_ext/transforms/process_dynamic_stitch_as_static.h"
 #include "tf_mlir_ext/transforms/remove_control_flow.h"

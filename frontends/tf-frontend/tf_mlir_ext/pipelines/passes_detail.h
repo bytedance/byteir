@@ -45,6 +45,10 @@ namespace shape {
 class ShapeDialect;
 } // namespace shape
 
+namespace scf {
+class SCFDialect;
+} // namespace scf
+
 namespace ace {
 class AceDialect;
 } // namespace ace

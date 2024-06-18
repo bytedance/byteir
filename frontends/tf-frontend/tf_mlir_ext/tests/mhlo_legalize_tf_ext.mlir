@@ -44,3 +44,22 @@ func.func @round_int32(%arg0: tensor<6xi32>) -> tensor<6xi32> {
 // CHECK-LABEL: @round_int32
 // CHECK-NEXT: %0 = "tf.Abs"(%arg0) : (tensor<6xi32>) -> tensor<6xi32>
 // CHECK-NEXT: return %0 : tensor<6xi32>
+
+func.func @tile_right_dynamic(%arg0: tensor<1x64xf16>, %arg1: tensor<2xi32>) -> tensor<1x?xf16> {
+  %0 = "tf.Tile"(%arg0, %arg1) {device = ""} : (tensor<1x64xf16>, tensor<2xi32>) -> tensor<1x?xf16>
+  return %0 : tensor<1x?xf16>
+}
+// CHECK-LABEL: func.func @tile_right_dynamic(%arg0: tensor<1x64xf16>, %arg1: tensor<2xi32>) -> tensor<1x?xf16> {
+// CHECK-LABEL:   %c0 = arith.constant 0 : index
+// CHECK-LABEL:   %c1 = arith.constant 1 : index
+// CHECK-LABEL:   %c64 = arith.constant 64 : index
+// CHECK-LABEL:   %extracted = tensor.extract %arg1[%c0] : tensor<2xi32>
+// CHECK-LABEL:   %0 = arith.index_cast %extracted : i32 to index
+// CHECK-LABEL:   %extracted_0 = tensor.extract %arg1[%c1] : tensor<2xi32>
+// CHECK-LABEL:   %1 = arith.index_cast %extracted_0 : i32 to index
+// CHECK-LABEL:   %2 = arith.muli %1, %c64 : index
+// CHECK-LABEL:   %from_elements = tensor.from_elements %0, %c1, %1, %c64 : tensor<4xindex>
+// CHECK-LABEL:   %3 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %from_elements) {broadcast_dimensions = dense<[1, 3]> : tensor<2xi64>} : (tensor<1x64xf16>, tensor<4xindex>) -> tensor<?x1x?x64xf16>
+// CHECK-LABEL:   %from_elements_1 = tensor.from_elements %0, %2 : tensor<2xindex>
+// CHECK-LABEL:   %4 = mhlo.dynamic_reshape %3, %from_elements_1 : (tensor<?x1x?x64xf16>, tensor<2xindex>) -> tensor<1x?xf16>
+// CHECK-LABEL:   return %4 : tensor<1x?xf16>
