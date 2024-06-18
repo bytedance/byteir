@@ -103,7 +103,8 @@ class ByteIRFunction:
         _visited_aliased_out_cnt = 0
         for idx, shape_dty in enumerate(self.static_shape_and_dtype):
             fake_t = self._output_meta_info[idx]
-            if _visited_aliased_out_cnt < len(self._aliased_out_indices) and idx == self._aliased_out_indices[_visited_aliased_out_cnt]:
+            _aliased_out_len = 0 if self._aliased_out_indices is None else len(self._aliased_out_indices)
+            if  _visited_aliased_out_cnt < _aliased_out_len and idx == self._aliased_out_indices[_visited_aliased_out_cnt]:
                 _visited_aliased_out_cnt += 1
                 _out = torch.empty((1, self.get_output_storage_size(fake_t)), dtype=fake_t.dtype, device=device)
                 _out = _out.as_strided(size=fake_t.size(), stride=fake_t.stride(), storage_offset=fake_t.storage_offset())

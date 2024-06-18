@@ -3,6 +3,7 @@ from typing import Optional, Any, Callable, Dict, List, Sequence, Tuple, Union
 
 import torch
 from functorch.compile import min_cut_rematerialization_partition, default_partition
+from torch.fx.experimental.proxy_tensor import maybe_disable_fake_tensor_mode
 from torch._decomp import register_decomposition, get_decompositions, core_aten_decompositions
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.utils import (
@@ -42,6 +43,13 @@ def byteir_compiler(
     model_: torch.fx.GraphModule,
     example_inputs_: List[torch.Tensor],
 ):
+    """
+    # dump module before aot-autograd
+    with maybe_disable_fake_tensor_mode():
+        import tempfile
+        temp_dir = tempfile.mkdtemp(dir='/tmp/FxModule/')
+        model_.to_folder(folder=temp_dir, module_name="FxModule")
+    """
     # analysis output aliased to inputs in *fw*
     aliased_out_info = collect_outputs_aliased_inputs(model_, example_inputs_)
 
