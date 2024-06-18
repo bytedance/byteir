@@ -36,7 +36,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createGraphClusteringByDevicePass(
     std::string attrName = "device", std::string device = "test",
     std::string deviceAnchorName = "__byteir_test_device__",
     bool dupNonSplat = false, bool dupOutputs = false,
-    GraphClusteringAlgo clusterAlgo = GraphClusteringAlgo::kFallback);
+    GraphClusteringAlgo clusterAlgo = GraphClusteringAlgo::kFallback,
+    bool singleCluster = true);
 
 } // namespace mlir
 

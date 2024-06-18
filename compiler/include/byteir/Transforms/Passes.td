@@ -249,7 +249,9 @@ def GraphClusteringByDevice : Pass<"graph-clustering-by-device", "ModuleOp"> {
               clEnumValN(mlir::GraphClusteringAlgo::kTopDown, "TopDown", "Create and merge device cluster progressively from top to bottom"),
               clEnumValN(mlir::GraphClusteringAlgo::kBottomUp, "BottomUp", "Create and merge device cluster progressively from bottom to top"),
               clEnumValN(mlir::GraphClusteringAlgo::kGreedy, "Greedy", "Choose largest subgraph from BottomUp or TopDown strategy")
-            )}]>
+            )}]>,
+    Option<"singleCluster", "single-cluster", "bool", /*default=*/"true",
+           "create device func only for the largest cluster.">,
   ];
 }
 

@@ -368,7 +368,8 @@ class DeviceClusteringAlgoBaseHelper {
 public:
   std::optional<SmallVector<FunctionMetadata, 4>>
   getFunctionMetadatas(StringRef attrName, StringRef deviceAttr,
-                       StringRef deviceAnchorName, bool dupOutputs);
+                       StringRef deviceAnchorName, bool dupOutputs,
+                       bool singleCluster);
 
 protected:
   DeviceClusteringAlgoBaseHelper(func::FuncOp funcOp, StringRef attrName);
@@ -415,7 +416,8 @@ std::optional<SmallVector<FunctionMetadata, 4>>
 DeviceClusteringAlgoBaseHelper::getFunctionMetadatas(StringRef attrName,
                                                      StringRef deviceAttr,
                                                      StringRef deviceAnchorName,
-                                                     bool dupOutputs) {
+                                                     bool dupOutputs,
+                                                     bool singleCluster) {
   if (candidates.empty())
     return std::nullopt;
 
@@ -434,16 +436,22 @@ DeviceClusteringAlgoBaseHelper::getFunctionMetadatas(StringRef attrName,
     }
   }
 
-  FunctionMetadata deviceFuncMetadata;
-  deviceFuncMetadata.anchorName = deviceAnchorName;
-  deviceFuncMetadata.deviceAttr = deviceAttr;
-  deviceFuncMetadata.originalName = funcOp.getSymName();
-  deviceFuncMetadata.insertionPoint = ++Block::iterator(funcOp);
-  deviceFuncMetadata.ops = llvm::to_vector(firstCluster->operations);
-  deviceFuncMetadata.inputs = getInputsOfCluster(deviceFuncMetadata.ops);
-  deviceFuncMetadata.results = getOutputsOfCluster(
-      deviceFuncMetadata.ops, dupOutputs ? &retStats : nullptr);
-  metadatas.push_back(deviceFuncMetadata);
+  for (auto cluster : candidates) {
+    if (cluster->operations.empty())
+      continue;
+    FunctionMetadata deviceFuncMetadata;
+    deviceFuncMetadata.anchorName = deviceAnchorName;
+    deviceFuncMetadata.deviceAttr = deviceAttr;
+    deviceFuncMetadata.originalName = funcOp.getSymName();
+    deviceFuncMetadata.insertionPoint = ++Block::iterator(funcOp);
+    deviceFuncMetadata.ops = llvm::to_vector(cluster->operations);
+    deviceFuncMetadata.inputs = getInputsOfCluster(deviceFuncMetadata.ops);
+    deviceFuncMetadata.results = getOutputsOfCluster(
+        deviceFuncMetadata.ops, dupOutputs ? &retStats : nullptr);
+    metadatas.push_back(deviceFuncMetadata);
+    if (singleCluster)
+      break;
+  }
 
   return metadatas;
 }
@@ -648,7 +656,8 @@ struct GraphClusteringByDevicePass
   explicit GraphClusteringByDevicePass(std::string attrName, std::string device,
                                        std::string deviceAnchorName,
                                        bool dupNonSplat, bool dupOutputs,
-                                       GraphClusteringAlgo clusterAlgo)
+                                       GraphClusteringAlgo clusterAlgo,
+                                       bool singleCluster)
       : GraphClusteringByDeviceBase<
             GraphClusteringByDevicePass>::GraphClusteringByDeviceBase() {
     this->attrName = attrName;
@@ -657,6 +666,7 @@ struct GraphClusteringByDevicePass
     this->dupNonSplat = dupNonSplat;
     this->dupOutputs = dupOutputs;
     this->clusterAlgo = clusterAlgo;
+    this->singleCluster = singleCluster;
   }
 
   void runOnOperation() override;
@@ -699,13 +709,13 @@ void GraphClusteringByDevicePass::runOnOperation() {
     case GraphClusteringAlgo::kTopDown: {
       metadatas = TopDownDeviceClustering(funcOp, attrName)
                       .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                            dupOutputs);
+                                            dupOutputs, singleCluster);
       break;
     }
     case GraphClusteringAlgo::kBottomUp: {
       metadatas = BottomUpDeviceClustering(funcOp, attrName)
                       .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                            dupOutputs);
+                                            dupOutputs, singleCluster);
       break;
     }
     case GraphClusteringAlgo::kGreedy: {
@@ -717,31 +727,35 @@ void GraphClusteringByDevicePass::runOnOperation() {
       topDownMetadatas =
           TopDownDeviceClustering(topDownFunc, attrName)
               .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                    dupOutputs);
+                                    dupOutputs, singleCluster);
       bottomUpMetadatas =
           BottomUpDeviceClustering(bottomUpFunc, attrName)
               .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                    dupOutputs);
+                                    dupOutputs, singleCluster);
       if (topDownMetadatas && bottomUpMetadatas) {
         auto topDownSize = (*topDownMetadatas)[0].ops.size();
         auto bottomUpSize = (*bottomUpMetadatas)[0].ops.size();
         if (topDownSize > bottomUpSize) {
-          metadatas = TopDownDeviceClustering(funcOp, attrName)
-                          .getFunctionMetadatas(attrName, device,
-                                                deviceAnchorName, dupOutputs);
+          metadatas =
+              TopDownDeviceClustering(funcOp, attrName)
+                  .getFunctionMetadatas(attrName, device, deviceAnchorName,
+                                        dupOutputs, singleCluster);
         } else {
-          metadatas = BottomUpDeviceClustering(funcOp, attrName)
-                          .getFunctionMetadatas(attrName, device,
-                                                deviceAnchorName, dupOutputs);
+          metadatas =
+              BottomUpDeviceClustering(funcOp, attrName)
+                  .getFunctionMetadatas(attrName, device, deviceAnchorName,
+                                        dupOutputs, singleCluster);
         }
       } else if (topDownMetadatas) {
-        metadatas = TopDownDeviceClustering(funcOp, attrName)
-                        .getFunctionMetadatas(attrName, device,
-                                              deviceAnchorName, dupOutputs);
+        metadatas =
+            TopDownDeviceClustering(funcOp, attrName)
+                .getFunctionMetadatas(attrName, device, deviceAnchorName,
+                                      dupOutputs, singleCluster);
       } else if (bottomUpMetadatas) {
-        metadatas = BottomUpDeviceClustering(funcOp, attrName)
-                        .getFunctionMetadatas(attrName, device,
-                                              deviceAnchorName, dupOutputs);
+        metadatas =
+            BottomUpDeviceClustering(funcOp, attrName)
+                .getFunctionMetadatas(attrName, device, deviceAnchorName,
+                                      dupOutputs, singleCluster);
       }
       topDownFunc.erase();
       bottomUpFunc.erase();
@@ -782,7 +796,9 @@ mlir::createGraphClusteringByDevicePass(std::string attrName,
                                         std::string device,
                                         std::string deviceAnchorName,
                                         bool dupNonSplat, bool dupOutputs,
-                                        GraphClusteringAlgo clusterAlgo) {
+                                        GraphClusteringAlgo clusterAlgo,
+                                        bool singleCluster) {
   return std::make_unique<GraphClusteringByDevicePass>(
-      attrName, device, deviceAnchorName, dupNonSplat, dupOutputs, clusterAlgo);
+      attrName, device, deviceAnchorName, dupNonSplat, dupOutputs, clusterAlgo,
+      singleCluster);
 }
