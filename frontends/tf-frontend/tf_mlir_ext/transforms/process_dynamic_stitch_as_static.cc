@@ -35,11 +35,11 @@ using namespace llvm;
 namespace {
 
 bool isSplatZero(ElementsAttr attr) {
-  if (auto splatAttr = attr.dyn_cast<SplatElementsAttr>()) {
-    if (attr.getElementType().isa<FloatType>()) {
+  if (auto splatAttr = dyn_cast<SplatElementsAttr>(attr)) {
+    if (isa<FloatType>(attr.getElementType())) {
       return attr.getSplatValue<APFloat>().isZero();
     }
-    if (attr.getElementType().isa<IntegerType>()) {
+    if (isa<IntegerType>(attr.getElementType())) {
       return attr.getSplatValue<APInt>().isZero();
     }
   }
@@ -198,7 +198,7 @@ struct ConvertDynamicStitchToStatic
     Value rhs = stitchOp.getData()[0];
     for (int64_t idx = 1; idx < numData; idx++) {
       auto idxAttr = DenseIntElementsAttr::get(
-          stitchPartitions.getType().cast<RankedTensorType>(),
+          cast<RankedTensorType>(stitchPartitions.getType()),
           static_cast<int32_t>(idx));
       auto currentIdxOp =
           rewriter.create<TF::ConstOp>(UnknownLoc::get(context), idxAttr);

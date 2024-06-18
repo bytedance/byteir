@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s | FileCheck %s
+// RUN: byteir-opt %s --allow-unregistered-dialect| FileCheck %s
 
 func.func @custom_memref(%arg0: memref<1024x64xf32>, %arg1: memref<1024x64xf32>) {
   linalg_ext.custom  {target_name = "foo"} ins(%arg0 : memref<1024x64xf32>) outs(%arg1 : memref<1024x64xf32>) {

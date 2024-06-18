@@ -42,8 +42,8 @@ static inline bool matchConstantValueFloatOrSplat(mlir::Value value,
   SplatElementsAttr denseAttr;
   if (matchPattern(value, m_Constant(&denseAttr))) {
     auto splatValue = denseAttr.getSplatValue<Attribute>();
-    if (splatValue.isa<FloatAttr>()) {
-      *attr = splatValue.cast<FloatAttr>();
+    if (isa<FloatAttr>(splatValue)) {
+      *attr = cast<FloatAttr>(splatValue);
       return true;
     }
   }

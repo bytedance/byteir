@@ -778,22 +778,18 @@ static DiagnosedSilenceableFailure mapForallToBlocksExtOpImpl(
   assert(gridDims.size() == 3 && "Need 3-D gridDims");
 
   // Replace ids of dimensions known to be 1 by 0 to simplify the IR.
-  // Here, the result of mapping determines the available mapping sizes.
-  SmallVector<int64_t> staticMappingSizes;
-  for (auto sz : rewriteResult.mappingSizes) {
-    auto maybeIndex = getAsIndex(sz);
+  SmallVector<int64_t> staticGridDims;
+  for (auto dim : gridDims) {
+    auto maybeIndex = getConstantIntValue(dim);
     if (maybeIndex.has_value()) {
-      staticMappingSizes.emplace_back(maybeIndex.value());
+      staticGridDims.emplace_back(maybeIndex.value());
     } else {
-      staticMappingSizes.emplace_back(ShapedType::kDynamic);
+      staticGridDims.emplace_back(ShapedType::kDynamic);
     }
   }
-  while (staticMappingSizes.size() < 3)
-    staticMappingSizes.emplace_back(1);
 
-  replaceUnitMappingIdsHelper<BlockDimOp>(rewriter, loc, parentBlock, zero,
-                                          staticMappingSizes);
-
+  replaceUnitMappingIdsHelper<BlockIdOp>(rewriter, loc, parentBlock, zero,
+                                         staticGridDims);
   return DiagnosedSilenceableFailure::success();
 }
 

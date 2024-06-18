@@ -69,7 +69,7 @@ namespace {
 
 bool verifyHloOpBufferOrTensorSemantics(Operation *op) {
   auto verifyType = [&](Value val) -> bool {
-    return val.getType().isa<RankedTensorType>();
+    return isa<RankedTensorType>(val.getType());
   };
   if (!llvm::all_of(op->getOperands(), verifyType))
     return false;
@@ -78,10 +78,10 @@ bool verifyHloOpBufferOrTensorSemantics(Operation *op) {
 
 // Util
 Value fillTensorWithZeros(OpBuilder &builder, Location loc, Value tensor) {
-  auto type = tensor.getType().cast<ShapedType>();
+  auto type = cast<ShapedType>(tensor.getType());
   Value zero;
   // Complex numbers are a special case.
-  if (auto complexType = type.getElementType().dyn_cast<ComplexType>()) {
+  if (auto complexType = dyn_cast<ComplexType>(type.getElementType())) {
     auto zeroElement = builder.getZeroAttr(complexType.getElementType());
     auto zeroAttr = builder.getArrayAttr({zeroElement, zeroElement});
     zero = builder.create<complex::ConstantOp>(loc, complexType, zeroAttr);
@@ -159,7 +159,7 @@ remappingRegionFromMhloToLinalgExt(ConversionPatternRewriter &rewriter,
   Block *oldBlock = &oldRegion.front();
   SmallVector<Type> newBlockArgTypes =
       llvm::to_vector(llvm::map_range(oldBlock->getArgumentTypes(), [](Type t) {
-        return t.cast<ShapedType>().getElementType();
+        return cast<ShapedType>(t).getElementType();
       }));
   SmallVector<Location> newBlockArgLocs = llvm::to_vector(llvm::map_range(
       oldBlock->getArguments(), [](Value v) { return v.getLoc(); }));
@@ -176,7 +176,7 @@ remappingRegionFromMhloToLinalgExt(ConversionPatternRewriter &rewriter,
     SmallVector<Value> newOperands = llvm::to_vector(llvm::map_range(
         op.getOperands(), [&](Value v) { return bvm.lookup(v); }));
     Value newValue = mapMhloOpToScalarOp(
-        &op, op.getResult(0).getType().cast<ShapedType>().getElementType(),
+        &op, cast<ShapedType>(op.getResult(0).getType()).getElementType(),
         newOperands, rewriter);
     if (!newValue) {
       return failure();
@@ -211,7 +211,7 @@ struct ReduceWindowOpConversion
   static PoolingType getPoolingType(mhlo::ReduceWindowOp reduceOp,
                                     int resultIndex) {
     auto rank =
-        reduceOp.getResultTypes()[resultIndex].cast<ShapedType>().getRank();
+        cast<ShapedType>(reduceOp.getResultTypes()[resultIndex]).getRank();
     if (Operation *op = reduceOp.getReductionOp(resultIndex)) {
       if (isa<mhlo::MinOp>(*op) && rank == 4)
         return PoolingType::k2DMin;
@@ -233,7 +233,7 @@ struct ReduceWindowOpConversion
   matchAndRewrite(mhlo::ReduceWindowOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
-    int rank = op.getResultTypes()[0].cast<ShapedType>().getRank();
+    int rank = cast<ShapedType>(op.getResultTypes()[0]).getRank();
     if (rank != 4 && rank != 5) {
       return rewriter.notifyMatchFailure(
           op, "expected NHWC/NDHWC pooling-based op");
@@ -297,11 +297,8 @@ struct ReduceWindowOpConversion
       OpResult result = std::get<0>(it);
       Value input = std::get<1>(it);
       Value initValue = std::get<2>(it);
-      auto resultType = result.getType().cast<ShapedType>();
-      if (!input.getType()
-               .cast<ShapedType>()
-               .getElementType()
-               .isa<FloatType>()) {
+      auto resultType = cast<ShapedType>(result.getType());
+      if (!isa<FloatType>(cast<ShapedType>(input.getType()).getElementType())) {
         return rewriter.notifyMatchFailure(op,
                                            "expected element type to be float");
       }
@@ -322,9 +319,9 @@ struct ReduceWindowOpConversion
         } else {
           auto i = en.index() - 1;
           auto stride =
-              strides.cast<DenseIntElementsAttr>().getValues<int64_t>()[i];
+              cast<DenseIntElementsAttr>(strides).getValues<int64_t>()[i];
           auto dilation =
-              dilations.cast<DenseIntElementsAttr>().getValues<int64_t>()[i];
+              cast<DenseIntElementsAttr>(dilations).getValues<int64_t>()[i];
           // let j = i * stride
           // output[i] = reduce( input[j, j + window_size * dilation) )
           Value offset = rewriter.create<arith::ConstantIndexOp>(
@@ -410,7 +407,7 @@ struct SoftmaxCustomCallConverter
     int axis = axisAttr.getInt();
     rewriter.setInsertionPoint(op);
     auto resultType =
-        op->getResult(0).getType().dyn_cast_or_null<RankedTensorType>();
+        dyn_cast_or_null<RankedTensorType>(op->getResult(0).getType());
     assert(resultType && "Dynamic shape not supported yet.");
 
     SmallVector<int64_t> sizes;
@@ -426,7 +423,7 @@ struct SoftmaxCustomCallConverter
     Value zeroCst;
     Value negInf;
     if (IntegerType intType =
-            resultType.getElementType().dyn_cast<IntegerType>()) {
+            dyn_cast<IntegerType>(resultType.getElementType())) {
       zeroCst = rewriter.create<mlir::arith::ConstantIntOp>(loc, 0,
                                                             intType.getWidth());
       negInf = rewriter.create<mlir::arith::ConstantIntOp>(
@@ -435,7 +432,7 @@ struct SoftmaxCustomCallConverter
     }
 
     if (FloatType floatType =
-            resultType.getElementType().dyn_cast<FloatType>()) {
+            dyn_cast<FloatType>(resultType.getElementType())) {
       zeroCst = rewriter.create<mlir::arith::ConstantFloatOp>(
           loc, APFloat::getZero(floatType.getFloatSemantics()), floatType);
       negInf = rewriter.create<mlir::arith::ConstantFloatOp>(
@@ -478,7 +475,7 @@ struct DotGeneralLinalgExtBatchMatMulOpConversion
     if (!verifyHloOpBufferOrTensorSemantics(op)) {
       return failure();
     }
-    int64_t rank = op.getType().cast<RankedTensorType>().getRank();
+    int64_t rank = cast<RankedTensorType>(op.getType()).getRank();
     if (rank < 4) {
       return rewriter.notifyMatchFailure(
           op, "expected a batch matmul of rank >= 4");
@@ -532,7 +529,7 @@ struct DotGeneralLinalgExtBatchMatMulOpConversion
     // Convert unsigned to signed. This works because signed and unsigned
     // integer matmul is the same operation in two's complement.
     auto outputType =
-        typeConverter->convertType(op.getType()).cast<ShapedType>();
+        cast<ShapedType>(typeConverter->convertType(op.getType()));
     Value emptyTensor =
         getEmptyTensorFor(rewriter, loc, outputType, op, adaptor.getOperands());
     Value zeroTensor = fillTensorWithZeros(rewriter, loc, emptyTensor);
@@ -558,7 +555,7 @@ public:
     Value indices = adaptor.getScatterIndices(),
           update = adaptor.getUpdates()[0], src = adaptor.getInputs()[0];
     auto isRankedTensorType = [](Value v) {
-      if (auto tensorType = v.getType().dyn_cast_or_null<TensorType>()) {
+      if (auto tensorType = dyn_cast_or_null<TensorType>(v.getType())) {
         if (tensorType.hasRank()) {
           return true;
         }
@@ -571,9 +568,9 @@ public:
       return failure();
 
     Location loc = op.getLoc();
-    ShapedType indicesType = indices.getType().cast<ShapedType>(),
-               updateType = update.getType().cast<ShapedType>(),
-               srcType = src.getType().cast<ShapedType>();
+    ShapedType indicesType = cast<ShapedType>(indices.getType()),
+               updateType = cast<ShapedType>(update.getType()),
+               srcType = cast<ShapedType>(src.getType());
 
     mhlo::ScatterDimensionNumbersAttr scatterDimensionNumbers =
         adaptor.getScatterDimensionNumbers();
@@ -683,7 +680,7 @@ public:
 
     rewriter.setInsertionPoint(op);
     auto resultType =
-        op->getResult(0).getType().dyn_cast_or_null<RankedTensorType>();
+        dyn_cast_or_null<RankedTensorType>(op->getResult(0).getType());
     assert(resultType && "Dynamic shape not supported yet.");
     assert(resultType.getElementType().isIntOrFloat());
 
@@ -694,10 +691,10 @@ public:
                                                    resultType.getElementType());
     if (numResults > 1) {
       auto meanType =
-          op->getResult(1).getType().dyn_cast_or_null<RankedTensorType>();
+          dyn_cast_or_null<RankedTensorType>(op->getResult(1).getType());
       assert(meanType && "Dynamic shape not supported yet.");
       auto rstdType =
-          op->getResult(2).getType().dyn_cast_or_null<RankedTensorType>();
+          dyn_cast_or_null<RankedTensorType>(op->getResult(2).getType());
       assert(rstdType && "Dynamic shape not supported yet.");
       auto mean = rewriter.create<tensor::EmptyOp>(loc, meanType.getShape(),
                                                    resultType.getElementType());
@@ -793,7 +790,7 @@ public:
 
     auto loc = op.getLoc();
     auto input = adaptor.getInputs()[0];
-    auto inputType = input.getType().cast<ShapedType>();
+    auto inputType = cast<ShapedType>(input.getType());
     auto rank = inputType.getRank();
     SmallVector<AffineMap> affineMaps(2, rewriter.getMultiDimIdentityMap(rank));
     SmallVector<utils::IteratorType> iteratorTypes(
@@ -820,7 +817,7 @@ public:
 static Value castToIndexTensor(OpBuilder &builder, Location loc,
                                Value shapeOp) {
   ShapedType resultTy = shape::getExtentTensorType(
-      builder.getContext(), shapeOp.getType().cast<ShapedType>().getDimSize(0));
+      builder.getContext(), cast<ShapedType>(shapeOp.getType()).getDimSize(0));
   if (shapeOp.getType() == resultTy)
     return shapeOp; // Nothing to do.
   return builder.create<arith::IndexCastOp>(loc, resultTy, shapeOp);
@@ -906,14 +903,14 @@ public:
     if (op.getCallTargetName() != getRngUniformName())
       return failure();
     auto ctx = op.getContext();
-    auto minTy = adaptor.getOperands()[0].getType().dyn_cast<ShapedType>();
-    auto maxTy = adaptor.getOperands()[1].getType().dyn_cast<ShapedType>();
-    if (!minTy.getElementType().dyn_cast<FloatType>() ||
-        !maxTy.getElementType().dyn_cast<FloatType>()) {
+    auto minTy = dyn_cast<ShapedType>(adaptor.getOperands()[0].getType());
+    auto maxTy = dyn_cast<ShapedType>(adaptor.getOperands()[1].getType());
+    if (!dyn_cast<FloatType>(minTy.getElementType()) ||
+        !dyn_cast<FloatType>(maxTy.getElementType())) {
       return rewriter.notifyMatchFailure(
           op, "expected min/max for rng op to be FloatType");
     }
-    auto targetTy = op.getResults()[0].getType().cast<ShapedType>();
+    auto targetTy = cast<ShapedType>(op.getResults()[0].getType());
     if (!targetTy) {
       return rewriter.notifyMatchFailure(
           op, "expected target shape of rng op to be ShapedType");
@@ -991,14 +988,14 @@ public:
       return failure();
     auto ctx = op.getContext();
     auto loc = op.getLoc();
-    auto meanTy = adaptor.getOperands()[0].getType().dyn_cast<ShapedType>();
-    auto stdDevTy = adaptor.getOperands()[1].getType().dyn_cast<ShapedType>();
-    if (!meanTy.getElementType().dyn_cast<FloatType>() ||
-        !stdDevTy.getElementType().dyn_cast<FloatType>()) {
+    auto meanTy = dyn_cast<ShapedType>(adaptor.getOperands()[0].getType());
+    auto stdDevTy = dyn_cast<ShapedType>(adaptor.getOperands()[1].getType());
+    if (!dyn_cast<FloatType>(meanTy.getElementType()) ||
+        !dyn_cast<FloatType>(stdDevTy.getElementType())) {
       return rewriter.notifyMatchFailure(
           op, "expected min/max for rng op to be FloatType");
     }
-    auto targetTy = op.getResults()[0].getType().cast<ShapedType>();
+    auto targetTy = cast<ShapedType>(op.getResults()[0].getType());
     if (!targetTy) {
       return rewriter.notifyMatchFailure(
           op, "expected target shape of rng op to be ShapedType");
@@ -1114,9 +1111,9 @@ public:
     auto data = op->getOperand(0);
     auto time = op->getOperand(1);
     auto rest = op->getResult(0);
-    auto dataType = data.getType().dyn_cast<ShapedType>();
-    auto timeType = time.getType().dyn_cast<ShapedType>();
-    auto restType = rest.getType().dyn_cast<ShapedType>();
+    auto dataType = dyn_cast<ShapedType>(data.getType());
+    auto timeType = dyn_cast<ShapedType>(time.getType());
+    auto restType = dyn_cast<ShapedType>(rest.getType());
     if (!dataType || !timeType || !restType)
       return failure();
     if (dataType.getRank() == 0 || dataType.getRank() > 2 ||

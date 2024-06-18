@@ -145,9 +145,9 @@ struct FuseConvBackwardDataPattern
       assert((rhs_dilation == ArrayRef<int64_t>{1, 1}));
     }
 
-    auto input_shape = outputs[0].getType().cast<RankedTensorType>().getShape();
-    auto kernel_shape = inputs[1].getType().cast<RankedTensorType>().getShape();
-    auto output_shape = inputs[0].getType().cast<RankedTensorType>().getShape();
+    auto input_shape = cast<RankedTensorType>(outputs[0].getType()).getShape();
+    auto kernel_shape = cast<RankedTensorType>(inputs[1].getType()).getShape();
+    auto output_shape = cast<RankedTensorType>(inputs[0].getType()).getShape();
     int64_t paddingH =
         (output_shape[2] - 1) * stridesH + kernel_shape[2] - input_shape[2];
     paddingH = (paddingH + 1) / 2;
@@ -247,10 +247,9 @@ struct FuseConvBackwardFilterPattern
       assert((lhs_dilation == ArrayRef<int64_t>{1, 1}));
     }
 
-    auto input_shape = inputs[0].getType().cast<RankedTensorType>().getShape();
-    auto kernel_shape =
-        outputs[0].getType().cast<RankedTensorType>().getShape();
-    auto output_shape = inputs[1].getType().cast<RankedTensorType>().getShape();
+    auto input_shape = cast<RankedTensorType>(inputs[0].getType()).getShape();
+    auto kernel_shape = cast<RankedTensorType>(outputs[0].getType()).getShape();
+    auto output_shape = cast<RankedTensorType>(inputs[1].getType()).getShape();
     int64_t paddingH =
         (output_shape[2] - 1) * stridesH + kernel_shape[2] - input_shape[2];
     paddingH = (paddingH + 1) / 2;

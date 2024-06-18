@@ -83,7 +83,7 @@ def Byre_Dialect : Dialect {
 //===----------------------------------------------------------------------===//
 
 def Byre_AsyncToken : DialectType<
-  Byre_Dialect, CPred<"$_self.isa<::mlir::byre::AsyncTokenType>()">, "async token type">,
+  Byre_Dialect, CPred<"$isa<::mlir::byre::AsyncTokenType>(_self)">, "async token type">,
              BuildableType<"mlir::byre::AsyncTokenType::get($_builder.getContext())">;
 
 //===----------------------------------------------------------------------===//

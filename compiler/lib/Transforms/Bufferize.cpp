@@ -177,7 +177,7 @@ struct OneShotBufferizePass
 namespace CallOpBufferizableOpInterfacePatch {
 /// Return the FuncOp called by `callOp`.
 static func::FuncOp getCalledFunction(CallOpInterface callOp) {
-  SymbolRefAttr sym = callOp.getCallableForCallee().dyn_cast<SymbolRefAttr>();
+  SymbolRefAttr sym = dyn_cast<SymbolRefAttr>(callOp.getCallableForCallee());
   if (!sym)
     return nullptr;
   return dyn_cast_or_null<func::FuncOp>(
@@ -210,7 +210,7 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
   for (const auto &it : llvm::enumerate(callOp.getResultTypes())) {
     unsigned returnValIdx = it.index();
     Type returnType = it.value();
-    if (!returnType.isa<TensorType>()) {
+    if (!isa<TensorType>(returnType)) {
       // Non-tensor values are returned.
       retValMapping[returnValIdx] = resultTypes.size();
       resultTypes.push_back(returnType);
@@ -228,7 +228,7 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
     Value tensorOperand = opOperand.get();
 
     // Non-tensor operands are just copied.
-    if (!tensorOperand.getType().isa<TensorType>()) {
+    if (!isa<TensorType>(tensorOperand.getType())) {
       newOperands[idx] = tensorOperand;
       continue;
     }
@@ -247,8 +247,8 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
     // from dynamic to static offset or stride (the canonicalization cannot know
     // at this point that it is really cast compatible).
     auto isGuaranteedCastCompatible = [](Type source, Type target) {
-      MemRefType sourceMemRef = source.dyn_cast_or_null<MemRefType>();
-      MemRefType targetMemRef = target.dyn_cast_or_null<MemRefType>();
+      MemRefType sourceMemRef = dyn_cast_or_null<MemRefType>(source);
+      MemRefType targetMemRef = dyn_cast_or_null<MemRefType>(target);
       if (!sourceMemRef || !targetMemRef)
         return false;
 
@@ -295,9 +295,9 @@ LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
         if (failed(tensorAlloc))
           return failure();
         auto memrefType = MemRefType::get(
-            opOperand.get().getType().cast<TensorType>().getShape(),
-            opOperand.get().getType().cast<TensorType>().getElementType(),
-            AffineMap(), buffer.getType().cast<MemRefType>().getMemorySpace());
+            cast<TensorType>(opOperand.get().getType()).getShape(),
+            cast<TensorType>(opOperand.get().getType()).getElementType(),
+            AffineMap(), cast<MemRefType>(buffer.getType()).getMemorySpace());
         buffer = rewriter.create<bufferization::ToMemrefOp>(
             op->getLoc(), memrefType, *tensorAlloc);
       }
@@ -333,7 +333,7 @@ bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
          "expected that op implements DestinationStyleOpInterface");
 
   if (opOperand.getOperandNumber() == 1 &&
-      opOperand.get().getType().cast<RankedTensorType>().getRank() == 0) {
+      cast<RankedTensorType>(opOperand.get().getType()).getRank() == 0) {
     return false;
   }
 

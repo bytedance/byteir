@@ -64,7 +64,7 @@ size_t GetScalarIndexFromMLIRValue(const OpKernelInfo &info, mlir::Value val) {
 // Get Rank of MLIR Value, of ith argument of OpKernelInfo
 size_t GetRankFromOpArgIndex(const OpKernelInfo &info, unsigned int i) {
   auto value = info.GetOperation()->getOperand(i);
-  if (auto memref = value.getType().dyn_cast<mlir::MemRefType>()) {
+  if (auto memref = dyn_cast<mlir::MemRefType>(value.getType())) {
     return static_cast<size_t>(memref.getRank());
   }
   return 0;

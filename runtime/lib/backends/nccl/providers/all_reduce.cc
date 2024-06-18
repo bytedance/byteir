@@ -61,7 +61,7 @@ common::Status AllReduce::RunImpl(const ExecutionContext &ctx) {
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
   auto memref_type =
-      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+      cast<mlir::MemRefType>(info_.GetOperation()->getOperand(0).getType());
   nccl_backend->all_reduce(src, target, elem_num,
                            ConvertMLIRTypeToDType(memref_type.getElementType()),
                            GetReduceOp(reduce_op), replica_group_set,

@@ -36,5 +36,72 @@ def VectorTransposeLoweringPass : Pass<"vector-transpose-lowering", "func::FuncO
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// Move Forall Region Into WarpOp
+//===----------------------------------------------------------------------===//
 
+def MoveForallRegionIntoWarpOpPass : Pass<"move-forall-region-into-warp-op", "mlir::func::FuncOp"> {
+  let summary = "move region of forall into warp_execute_on_lane_0 op";
+  let constructor = "mlir::createMoveForallRegionIntoWarpOpPass()";
+  let dependentDialects = [
+    "memref::MemRefDialect",
+    "vector::VectorDialect",
+    "gpu::GPUDialect",
+  ];
+  let options = [
+    Option<"warpSize", "warp-size", "int64_t", "32", "warp size">,
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// Vector Warp Distribute
+//===----------------------------------------------------------------------===//
+
+def VectorWarpDistributePass : Pass<"vector-warp-distribute", "mlir::func::FuncOp"> {
+  let summary = "vector warp distribute transformation";
+  let constructor = "mlir::createVectorWarpDistributePass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "memref::MemRefDialect",
+    "vector::VectorDialect",
+    "gpu::GPUDialect",
+    "affine::AffineDialect",
+  ];
+  let options = [
+    Option<"warpOpToSCF", "rewrite-warp-ops-to-scf-if", "bool",
+          /*default=*/"false",
+          "Lower vector.warp_execute_on_lane0 to scf.if op">,
+
+    Option<"distributeTransferWriteOps", "distribute-transfer-write", "bool",
+          /*default=*/"false",
+          "distribution of transfer write">,
+
+    Option<"hoistUniform", "hoist-uniform", "bool",
+          /*default=*/"false",
+          "hoist-uniform">,
+
+    Option<"propagateDistribution", "propagate-distribution", "bool",
+          /*default=*/"false",
+          "distribution propgation">,
+
+    Option<"maxTransferWriteElements", "max-transfer-write-elements", "int64_t",
+          /*default=*/"1",
+          "Maximum number of transfer write elements to distribute">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// Scalar Vector Lowering
+//===----------------------------------------------------------------------===//
+
+def ScalarVectorLoweringPass : Pass<"scalar-vector-lowering", "func::FuncOp"> {
+  let summary = "Pass to lower scalar vector";
+  let dependentDialects = [
+    "memref::MemRefDialect",
+    "vector::VectorDialect"
+  ];
+}
 #endif // BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES

@@ -743,7 +743,7 @@ def LinalgExt_BatchMatmulOp : LinalgExtStructuredBase_Op<"batch_matmul",
 
     // Additional functions
     int64_t getFullRank() {
-      return getInit().getType().cast<ShapedType>().getRank() + 1;
+      return cast<ShapedType>(getInit().getType()).getRank() + 1;
     }
     
   }];

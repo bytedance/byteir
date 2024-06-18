@@ -38,8 +38,8 @@ FailureOr<Value> getBufferInValidLayout(RewriterBase &rewriter, Location loc,
   // from dynamic to static offset or stride (the canonicalization cannot know
   // at this point that it is really cast compatible).
   static auto isGuaranteedCastCompatible = [](Type source, Type target) {
-    MemRefType sourceMemRef = source.dyn_cast_or_null<MemRefType>();
-    MemRefType targetMemRef = target.dyn_cast_or_null<MemRefType>();
+    MemRefType sourceMemRef = dyn_cast_or_null<MemRefType>(source);
+    MemRefType targetMemRef = dyn_cast_or_null<MemRefType>(target);
     if (!sourceMemRef || !targetMemRef)
       return false;
 
@@ -66,9 +66,9 @@ FailureOr<Value> getBufferInValidLayout(RewriterBase &rewriter, Location loc,
   auto buffer = *bufferOrNot;
 
   auto memRefType = MemRefType::get(
-      opOperand.get().getType().cast<TensorType>().getShape(),
-      opOperand.get().getType().cast<TensorType>().getElementType(),
-      AffineMap(), buffer.getType().cast<MemRefType>().getMemorySpace());
+      cast<TensorType>(opOperand.get().getType()).getShape(),
+      cast<TensorType>(opOperand.get().getType()).getElementType(), AffineMap(),
+      cast<MemRefType>(buffer.getType()).getMemorySpace());
 
   // TODO: check whether buffer is in valid layout map, e.g. identity layout map
   if (buffer.getType() != memRefType) {
@@ -212,7 +212,7 @@ struct ByreCustomOpBufferization
     }
 
     for (auto &&opResult : op->getOpResults()) {
-      auto tensorType = opResult.getType().dyn_cast_or_null<RankedTensorType>();
+      auto tensorType = dyn_cast_or_null<RankedTensorType>(opResult.getType());
       if (!tensorType)
         return failure();
 

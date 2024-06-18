@@ -60,16 +60,16 @@ ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
   assert(func0EntryPointDict && func1EntryPointDict &&
          "byteir.entry_point should be dict attr.");
   auto func0OutputNamesAttr =
-      func0EntryPointDict.get("outputs").cast<mlir::ArrayAttr>();
+      cast<mlir::ArrayAttr>(func0EntryPointDict.get("outputs"));
   auto func1InputNamesAttr =
-      func1EntryPointDict.get("inputs").cast<mlir::ArrayAttr>();
+      cast<mlir::ArrayAttr>(func1EntryPointDict.get("inputs"));
   SmallVector<std::string> func0OutputNames =
       llvm::to_vector(llvm::map_range(func0OutputNamesAttr, [&](Attribute i) {
-        return i.cast<StringAttr>().getValue().str();
+        return cast<StringAttr>(i).getValue().str();
       }));
   SmallVector<std::string> func1InputNames =
       llvm::to_vector(llvm::map_range(func1InputNamesAttr, [&](Attribute i) {
-        return i.cast<StringAttr>().getValue().str();
+        return cast<StringAttr>(i).getValue().str();
       }));
 
   // get map of func1's inputs name to func0's index
@@ -127,10 +127,10 @@ ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
   newFunc1->removeAttr(getByteIREntryPointName());
   NamedAttribute newInputsAttr =
       NamedAttribute(builder.getStringAttr("inputs"),
-                     func0EntryPointDict.get("inputs").cast<ArrayAttr>());
+                     cast<ArrayAttr>(func0EntryPointDict.get("inputs")));
   NamedAttribute newOutputsAttr =
       NamedAttribute(builder.getStringAttr("outputs"),
-                     func1EntryPointDict.get("outputs").cast<ArrayAttr>());
+                     cast<ArrayAttr>(func1EntryPointDict.get("outputs")));
   mainFunc->setAttr(
       getByteIREntryPointName(),
       DictionaryAttr::get(context, {newInputsAttr, newOutputsAttr}));

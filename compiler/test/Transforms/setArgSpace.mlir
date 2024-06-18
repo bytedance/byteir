@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -set-arg-space="entry-func=main all-space=cpu" --split-input-file | FileCheck %s
+// RUN: byteir-opt %s -set-arg-space="entry-func=main all-space=cpu" --split-input-file --allow-unregistered-dialect| FileCheck %s
 
 func.func private @nested(%arg0 : memref<2x4xf32>, %arg1 : memref<2x4xf32>) -> (memref<2x4xf32>) attributes {device = "gpu"}
 // CHECK-LABEL: func.func private @nested(memref<2x4xf32, "gpu">, memref<2x4xf32, "gpu">) -> memref<2x4xf32, "gpu"> attributes {device = "gpu"}

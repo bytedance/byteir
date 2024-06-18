@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - ".github/workflows/e2e_test.yaml"
-      - "scripts/e2e/build_and_test_e2e.sh"
       - "tests/**"
   workflow_dispatch:
 
@@ -39,5 +38,5 @@ jobs:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Build and test e2e
-        run: ./scripts/e2e/build_and_test_e2e.sh
+        run: ./tests/build_and_test_e2e.sh
         shell: bash

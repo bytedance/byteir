@@ -112,7 +112,7 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
       int index = memref_alias.getLeaderIndex(val);
       offsets.push_back(index);
       visited.insert(index);
-      if (auto memref_type = val.getType().dyn_cast<MemRefType>()) {
+      if (auto memref_type = dyn_cast<MemRefType>(val.getType())) {
         ranks.push_back(memref_type.getRank());
       }
     }

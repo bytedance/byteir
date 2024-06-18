@@ -215,14 +215,14 @@ void MhloBoundedShapeAnalysis::visitOperation(
       ShapeLattice *resultLattice = std::get<2>(it);
 
       Type resultTy = result.getType();
-      if (!resultTy.isa<ShapedType>()) {
+      if (!isa<ShapedType>(resultTy)) {
         setToEntryState(resultLattice);
         continue;
       }
 
       // Compute the knowledge based on the inferred type.
       auto inferredKnowledge = ValueKnowledge::getPessimisticValueState();
-      inferredKnowledge.dtype = resultTy.cast<ShapedType>().getElementType();
+      inferredKnowledge.dtype = cast<ShapedType>(resultTy).getElementType();
       inferredKnowledge.hasRank = predictedShape.hasRank();
       if (predictedShape.hasRank()) {
         for (auto dim : predictedShape.getDims()) {
@@ -379,11 +379,11 @@ DenseElementsAttr Maximum(DenseElementsAttr lhsAttr, DenseElementsAttr rhsAttr,
 }
 
 bool getFloat(Type eleType, float val, APFloat &value) {
-  assert(eleType && eleType.isa<FloatType>());
+  assert(eleType && isa<FloatType>(eleType));
   APFloat epsilonFloat = APFloat(val);
   bool losesInfo = false;
   auto status =
-      epsilonFloat.convert(eleType.cast<FloatType>().getFloatSemantics(),
+      epsilonFloat.convert(cast<FloatType>(eleType).getFloatSemantics(),
                            APFloat::rmNearestTiesToEven, &losesInfo);
   if (losesInfo || status != llvm::APFloatBase::opStatus::opOK) {
     return false;
@@ -427,15 +427,13 @@ void MhloShapeValueAnalysis::visitOperation(
         if (!operand->getValue().getConstantValue()) {
           return setAllToEntryStates(results);
         }
-        RankedTensorType inputType = inputShapeLattice->getValue()
-                                         .getType()
-                                         .dyn_cast<RankedTensorType>();
+        RankedTensorType inputType =
+            dyn_cast<RankedTensorType>(inputShapeLattice->getValue().getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
-        RankedTensorType outputType = outputShapeLattice->getValue()
-                                          .getType()
-                                          .dyn_cast<RankedTensorType>();
+        RankedTensorType outputType = dyn_cast<RankedTensorType>(
+            outputShapeLattice->getValue().getType());
         if (!outputType || !outputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
@@ -447,21 +445,19 @@ void MhloShapeValueAnalysis::visitOperation(
           windowDimensions[dim] = inputShape[dim];
         }
         llvm::SmallVector<int64_t> windowStrides(inputShape.size(), 1);
-        DenseElementsAttr inputAttr = operand->getValue()
-                                          .getConstantValue()
-                                          .dyn_cast<DenseElementsAttr>();
+        DenseElementsAttr inputAttr =
+            dyn_cast<DenseElementsAttr>(operand->getValue().getConstantValue());
 
         Attribute outAttr;
-        if (outputType.getElementType().isa<FloatType>()) {
-          APFloat initValue(outputType.getElementType()
-                                .cast<FloatType>()
-                                .getFloatSemantics());
+        if (isa<FloatType>(outputType.getElementType())) {
+          APFloat initValue(
+              cast<FloatType>(outputType.getElementType()).getFloatSemantics());
           assert(getFloat(outputType.getElementType(), 1.0, initValue));
           std::function<APFloat(APFloat, APFloat)> mulFunctor =
               [](APFloat l, APFloat r) { return l * r; };
           outAttr = ReduceWindowOpFold(inputAttr, outputType, windowDimensions,
                                        windowStrides, initValue, mulFunctor);
-        } else if (outputType.getElementType().isa<IntegerType>()) {
+        } else if (isa<IntegerType>(outputType.getElementType())) {
           APInt initValue(inputAttr.getValues<APInt>()[0].getBitWidth(), 1);
           std::function<APInt(APInt, APInt)> mulFunctor = [](APInt l, APInt r) {
             return l * r;
@@ -520,11 +516,11 @@ void MhloShapeValueAnalysis::visitOperation(
         // ....]>, we need calculate firstly
         do {
           auto denseInt =
-              constShapeAttr.dyn_cast_or_null<DenseIntElementsAttr>();
+              dyn_cast_or_null<DenseIntElementsAttr>(constShapeAttr);
           if (denseInt == nullptr) {
             break;
           }
-          auto dataType = denseInt.getElementType().dyn_cast<IntegerType>();
+          auto dataType = dyn_cast<IntegerType>(denseInt.getElementType());
           // is int32
           if (dataType == nullptr || dataType.isUnsigned() ||
               dataType.getWidth() != 32) {
@@ -538,7 +534,7 @@ void MhloShapeValueAnalysis::visitOperation(
               shape, [](int32_t dimSize) { return dimSize < 0; });
 
           if (cntDynamic == 1) {
-            if (auto num = productAttr.dyn_cast_or_null<IntegerAttr>()) {
+            if (auto num = dyn_cast_or_null<IntegerAttr>(productAttr)) {
               int64_t number = num.getInt();
               if (number < 0) {
                 break;
@@ -579,7 +575,7 @@ void MhloBoundedValueAnalysis::visitOperation(
         auto *shapeValueLattice = shapeValueLattices[0];
 
         RankedTensorType inputType =
-            input.getType().dyn_cast<RankedTensorType>();
+            dyn_cast<RankedTensorType>(input.getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
@@ -587,15 +583,15 @@ void MhloBoundedValueAnalysis::visitOperation(
         auto eleType = inputType.getElementType();
         Attribute lowerAttr;
         Attribute upperAttr;
-        if (eleType.isa<FloatType>()) {
-          APFloat lowerFloat(eleType.cast<FloatType>().getFloatSemantics());
+        if (isa<FloatType>(eleType)) {
+          APFloat lowerFloat(cast<FloatType>(eleType).getFloatSemantics());
           assert(getFloat(eleType, -1.0, lowerFloat));
-          APFloat upperFloat(eleType.cast<FloatType>().getFloatSemantics());
+          APFloat upperFloat(cast<FloatType>(eleType).getFloatSemantics());
           assert(getFloat(eleType, +1.0, upperFloat));
 
           lowerAttr = DenseFPElementsAttr::get(inputType, lowerFloat);
           upperAttr = DenseFPElementsAttr::get(inputType, upperFloat);
-        } else if (eleType.isa<IntegerType>()) {
+        } else if (isa<IntegerType>(eleType)) {
           lowerAttr = DenseIntElementsAttr::get(inputType, -1);
           upperAttr = DenseIntElementsAttr::get(inputType, +1);
         } else {
@@ -612,16 +608,15 @@ void MhloBoundedValueAnalysis::visitOperation(
         auto *lhsShapeValueLattice = shapeValueLattices[0];
         auto *rhsShapeValueLattice = shapeValueLattices[1];
 
-        RankedTensorType inputType = lhs.getType().dyn_cast<RankedTensorType>();
+        RankedTensorType inputType = dyn_cast<RankedTensorType>(lhs.getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
 
         Attribute lowerAttr;
         Attribute upperAttr;
-        RankedTensorType resType =
-            output.getType().dyn_cast<RankedTensorType>().clone(
-                inputType.getShape());
+        RankedTensorType resType = dyn_cast<RankedTensorType>(output.getType())
+                                       .clone(inputType.getShape());
         lowerAttr = DenseElementsAttr::get(resType, false);
         upperAttr = DenseElementsAttr::get(resType, true);
         auto lattice = results[0];
@@ -654,26 +649,25 @@ void MhloBoundedValueAnalysis::visitOperation(
         if (!initShapeValueLattice->getValue().getConstantValue()) {
           return setAllToEntryStates(results);
         }
-        auto initAttr = initShapeValueLattice->getValue()
-                            .getConstantValue()
-                            .dyn_cast_or_null<SplatElementsAttr>();
+        auto initAttr = dyn_cast_or_null<SplatElementsAttr>(
+            initShapeValueLattice->getValue().getConstantValue());
         if (!initAttr) {
           return setAllToEntryStates(results);
         }
-        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+        RankedTensorType inputType = cast<RankedTensorType>(input.getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
         RankedTensorType outputType =
-            resShapeLattice->getValue().getType().cast<RankedTensorType>();
+            cast<RankedTensorType>(resShapeLattice->getValue().getType());
         if (!outputType || !outputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
 
         DenseElementsAttr lowerAttr =
-            operand->getValue().lower().dyn_cast<DenseElementsAttr>();
+            dyn_cast<DenseElementsAttr>(operand->getValue().lower());
         DenseElementsAttr upperAttr =
-            operand->getValue().upper().dyn_cast<DenseElementsAttr>();
+            dyn_cast<DenseElementsAttr>(operand->getValue().upper());
         assert(lowerAttr && upperAttr);
         DenseIntElementsAttr windowDimensions = reduceOp.getWindowDimensions();
         std::optional<DenseIntElementsAttr> windowStrides =
@@ -731,14 +725,14 @@ void MhloBoundedValueAnalysis::visitOperation(
                                    [](int64_t dim) { return dim == 0; });
 
         if (!padSizeZero) {
-          if (inputType.getElementType().isa<FloatType>()) {
+          if (isa<FloatType>(inputType.getElementType())) {
             APFloat padValue = APFloat::getZero(
                 lowerAttr.getValues<APFloat>()[0].getSemantics());
             lowerAttr = PadOpFold(lowerAttr, padValue, padType, edgePaddingLow,
                                   edgePaddingHigh, interiorPadding);
             upperAttr = PadOpFold(upperAttr, padValue, padType, edgePaddingLow,
                                   edgePaddingHigh, interiorPadding);
-          } else if (inputType.getElementType().isa<IntegerType>()) {
+          } else if (isa<IntegerType>(inputType.getElementType())) {
             APInt padValue =
                 APInt::getZero(lowerAttr.getValues<APInt>()[0].getBitWidth());
             lowerAttr = PadOpFold(lowerAttr, padValue, padType, edgePaddingLow,
@@ -750,7 +744,7 @@ void MhloBoundedValueAnalysis::visitOperation(
           }
           assert(lowerAttr && upperAttr);
         }
-        if (inputType.getElementType().isa<FloatType>()) {
+        if (isa<FloatType>(inputType.getElementType())) {
           APFloat initValue = initAttr.getSplatValue<APFloat>();
           std::function<APFloat(APFloat, APFloat)> addFunctor =
               [](APFloat l, APFloat r) { return l + r; };
@@ -758,7 +752,7 @@ void MhloBoundedValueAnalysis::visitOperation(
                                          strides, initValue, addFunctor);
           upperAttr = ReduceWindowOpFold(upperAttr, outputType, dimensions,
                                          strides, initValue, addFunctor);
-        } else if (inputType.getElementType().isa<IntegerType>()) {
+        } else if (isa<IntegerType>(inputType.getElementType())) {
           APInt initValue = initAttr.getSplatValue<APInt>();
           std::function<APInt(APInt, APInt)> addFunctor = [](APInt l, APInt r) {
             return l + r;
@@ -795,24 +789,23 @@ void MhloBoundedValueAnalysis::visitOperation(
         if (!initShapeValueLattice->getValue().getConstantValue()) {
           return setAllToEntryStates(results);
         }
-        RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+        RankedTensorType inputType = cast<RankedTensorType>(input.getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
         RankedTensorType outputType =
-            outputShapeLattice->getValue().getType().cast<RankedTensorType>();
+            cast<RankedTensorType>(outputShapeLattice->getValue().getType());
         if (!outputType || !outputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
         DenseElementsAttr lowerAttr =
-            operand->getValue().lower().dyn_cast<DenseElementsAttr>();
+            dyn_cast<DenseElementsAttr>(operand->getValue().lower());
         DenseElementsAttr upperAttr =
-            operand->getValue().upper().dyn_cast<DenseElementsAttr>();
+            dyn_cast<DenseElementsAttr>(operand->getValue().upper());
         assert(lowerAttr && upperAttr);
 
-        auto padValueAttr = initShapeValueLattice->getValue()
-                                .getConstantValue()
-                                .dyn_cast_or_null<SplatElementsAttr>();
+        auto padValueAttr = dyn_cast_or_null<SplatElementsAttr>(
+            initShapeValueLattice->getValue().getConstantValue());
         if (!padValueAttr) {
           return setAllToEntryStates(results);
         }
@@ -820,13 +813,13 @@ void MhloBoundedValueAnalysis::visitOperation(
         DenseIntElementsAttr edgePaddingLow = padOp.getEdgePaddingLow();
         DenseIntElementsAttr edgePaddingHigh = padOp.getEdgePaddingHigh();
         DenseIntElementsAttr interiorPadding = padOp.getInteriorPadding();
-        if (inputType.getElementType().isa<FloatType>()) {
+        if (isa<FloatType>(inputType.getElementType())) {
           APFloat padValue = padValueAttr.getSplatValue<APFloat>();
           lowerAttr = PadOpFold(lowerAttr, padValue, outputType, edgePaddingLow,
                                 edgePaddingHigh, interiorPadding);
           upperAttr = PadOpFold(upperAttr, padValue, outputType, edgePaddingLow,
                                 edgePaddingHigh, interiorPadding);
-        } else if (inputType.getElementType().isa<IntegerType>()) {
+        } else if (isa<IntegerType>(inputType.getElementType())) {
           APInt padValue = padValueAttr.getSplatValue<APInt>();
           lowerAttr = PadOpFold(lowerAttr, padValue, outputType, edgePaddingLow,
                                 edgePaddingHigh, interiorPadding);
@@ -869,20 +862,18 @@ void MhloBoundedValueAnalysis::visitOperation(
           return setAllToEntryStates(results);
         }
         RankedTensorType inputType =
-            input.getType().dyn_cast<RankedTensorType>();
+            dyn_cast<RankedTensorType>(input.getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
-        RankedTensorType outputType = outputShapeLattice->getValue()
-                                          .getType()
-                                          .dyn_cast<RankedTensorType>();
+        RankedTensorType outputType = dyn_cast<RankedTensorType>(
+            outputShapeLattice->getValue().getType());
         if (!outputType || !outputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
 
-        auto initValueAttr = initShapeValueLattice->getValue()
-                                 .getConstantValue()
-                                 .dyn_cast_or_null<SplatElementsAttr>();
+        auto initValueAttr = dyn_cast_or_null<SplatElementsAttr>(
+            initShapeValueLattice->getValue().getConstantValue());
         if (!initValueAttr) {
           return setAllToEntryStates(results);
         }
@@ -896,12 +887,12 @@ void MhloBoundedValueAnalysis::visitOperation(
         llvm::SmallVector<int64_t> windowStrides(inputShape.size(), 1);
 
         DenseElementsAttr lowerAttr =
-            operand->getValue().lower().dyn_cast<DenseElementsAttr>();
+            dyn_cast<DenseElementsAttr>(operand->getValue().lower());
         DenseElementsAttr upperAttr =
-            operand->getValue().upper().dyn_cast<DenseElementsAttr>();
+            dyn_cast<DenseElementsAttr>(operand->getValue().upper());
         assert(lowerAttr && upperAttr);
 
-        if (inputType.getElementType().isa<FloatType>()) {
+        if (isa<FloatType>(inputType.getElementType())) {
           APFloat initValue = initValueAttr.getSplatValue<APFloat>();
           std::function<APFloat(APFloat, APFloat)> maxFunctor =
               [](APFloat l, APFloat r) { return (l >= r) ? l : r; };
@@ -911,7 +902,7 @@ void MhloBoundedValueAnalysis::visitOperation(
           upperAttr =
               ReduceWindowOpFold(upperAttr, outputType, windowDimensions,
                                  windowStrides, initValue, maxFunctor);
-        } else if (inputType.getElementType().isa<IntegerType>()) {
+        } else if (isa<IntegerType>(inputType.getElementType())) {
           APInt initValue = initValueAttr.getSplatValue<APInt>();
           std::function<APInt(APInt, APInt)> maxFunctor = [](APInt l, APInt r) {
             return l.sge(r) ? l : r;
@@ -939,11 +930,11 @@ void MhloBoundedValueAnalysis::visitOperation(
         if (operand->getValue().isUnknown()) {
           return setAllToEntryStates(results);
         }
-        auto inputType = input.getType().dyn_cast<RankedTensorType>();
+        auto inputType = dyn_cast<RankedTensorType>(input.getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
-        auto indexType = index.getType().dyn_cast<RankedTensorType>();
+        auto indexType = dyn_cast<RankedTensorType>(index.getType());
         if (!indexType || !indexType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
@@ -1033,16 +1024,16 @@ void MhloBoundedValueAnalysis::visitOperation(
             !rhsDenseUpperAttr) {
           return setAllToEntryStates(results);
         }
-        auto onTrueVType = onTrueV.getType().dyn_cast<RankedTensorType>();
+        auto onTrueVType = dyn_cast<RankedTensorType>(onTrueV.getType());
         assert(onTrueVType);
-        if (onTrueVType.getElementType().isa<FloatType>()) {
+        if (isa<FloatType>(onTrueVType.getElementType())) {
           std::function<APFloat(APFloat, APFloat)> maxFunctor =
               [](APFloat l, APFloat r) { return (l >= r) ? l : r; };
           outputLowerAttr = Maximum<APFloat>(lhsDenseLowerAttr,
                                              rhsDenseLowerAttr, maxFunctor);
           outputUpperAttr = Maximum<APFloat>(lhsDenseUpperAttr,
                                              rhsDenseUpperAttr, maxFunctor);
-        } else if (onTrueVType.getElementType().isa<IntegerType>()) {
+        } else if (isa<IntegerType>(onTrueVType.getElementType())) {
           std::function<APInt(APInt, APInt)> maxFunctor = [](APInt l, APInt r) {
             return l.sge(r) ? l : r;
           };
@@ -1192,7 +1183,7 @@ void MhloBoundedValueAnalysis::visitOperation(
     if (shapeLattice->getValue().isUninitialized()) {
       missingValue = true;
     } else {
-      if (input.getType().dyn_cast<ShapedType>()) {
+      if (dyn_cast<ShapedType>(input.getType())) {
         auto shapeKnowledge = shapeLattice->getValue();
         if (shapeKnowledge && *shapeKnowledge.dtype) {
           valueTypeModification.Push(input, shapeKnowledge.getType());

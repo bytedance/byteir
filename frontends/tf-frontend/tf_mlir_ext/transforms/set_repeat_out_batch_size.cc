@@ -45,7 +45,7 @@ struct SetRepeatOutBatchSizePattern : public RewritePattern {
       return failure();
 
     RankedTensorType outType =
-        op->getResult(0).getType().dyn_cast<RankedTensorType>();
+        dyn_cast<RankedTensorType>(op->getResult(0).getType());
     if (!outType)
       return failure();
     llvm::SmallVector<int64_t> outShape;

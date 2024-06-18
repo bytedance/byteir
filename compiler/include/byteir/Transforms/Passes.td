@@ -465,4 +465,18 @@ def SetOpSpace: Pass<"set-op-space", "func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// Shape func outlining
+//===----------------------------------------------------------------------===//
+
+def ShapeFuncOutlining : Pass<"shape-func-outlining", "ModuleOp"> {
+  let summary = "Outline all shape computation in entry func to a shape func";
+  let constructor = "mlir::createShapeFuncOutliningPass()";
+  let options = [
+    Option<"entryFuncName", "entry-func-name", "std::string",
+            /*default=*/"\"main\"",
+            "Used to specify the entry-function.">
+  ];
+}
+
 #endif // BYTEIR_TRANSFORMS_PASSES

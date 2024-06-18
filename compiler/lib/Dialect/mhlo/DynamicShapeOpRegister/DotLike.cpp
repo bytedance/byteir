@@ -34,8 +34,8 @@ void mlir::registerDotReifyReturnTypeShapes() {
       [](Operation *op, OpBuilder &builder, ValueRange operands,
          SmallVectorImpl<::mlir::Value> &reifiedReturnShapes) {
         auto dotOp = cast<mhlo::DotOp>(op);
-        auto lhsType = dotOp.getLhs().getType().dyn_cast<ShapedType>();
-        auto rhsType = dotOp.getRhs().getType().dyn_cast<ShapedType>();
+        auto lhsType = dyn_cast<ShapedType>(dotOp.getLhs().getType());
+        auto rhsType = dyn_cast<ShapedType>(dotOp.getRhs().getType());
         if (!lhsType || !rhsType || !lhsType.hasRank() || !rhsType.hasRank()) {
           return failure();
         }
@@ -133,8 +133,8 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
          ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         mhlo::DotGeneralOp::Adaptor adaptor(operands, attrs, {}, regions);
-        auto lhsType = operands.getTypes()[0].dyn_cast<ShapedType>();
-        auto rhsType = operands.getTypes()[1].dyn_cast<ShapedType>();
+        auto lhsType = dyn_cast<ShapedType>(operands.getTypes()[0]);
+        auto rhsType = dyn_cast<ShapedType>(operands.getTypes()[1]);
         if (!lhsType || !rhsType)
           return failure();
 
@@ -168,7 +168,7 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
 
         auto outElement = lhsType.getElementType();
         Type retType = RankedTensorType::get(dimensions, outElement);
-        inferredReturnTypes.push_back(retType.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(retType));
 
         return success();
       });

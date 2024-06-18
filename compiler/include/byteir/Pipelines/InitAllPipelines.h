@@ -24,9 +24,10 @@
 #include "byteir/Pipelines/ByreHost.h"
 #include "byteir/Pipelines/ByreOpt.h"
 #include "byteir/Pipelines/ByreTensorOpt.h"
-#include "byteir/Pipelines/CatOpt.h"
+#include "byteir/Pipelines/CatFusionOpt.h"
 #include "byteir/Pipelines/CatPreprocess.h"
-#include "byteir/Pipelines/HloOpt.h"
+#include "byteir/Pipelines/HloFusionOpt.h"
+#include "byteir/Pipelines/HloGraphOpt.h"
 #include "byteir/Pipelines/LinalgMemrefOpt.h"
 #include "byteir/Pipelines/LinalgTensorOpt.h"
 #include "byteir/Pipelines/SCFOpt.h"
@@ -50,9 +51,10 @@ inline void registerAllByteIRCommonPipelines() {
   registerByreHostPipeline();
   registerByreOptPipeline();
   registerByreTensorOptPipeline();
-  registerCatOptPipeline();
+  registerCatFusionOptPipeline();
   registerCatPreprocessPipeline();
-  registerHloOptPipeline();
+  registerHloGraphOptPipeline();
+  registerHloFusionOptPipeline();
   registerLinalgMemrefOptPipeline();
   registerLinalgTensorOptPipeline();
   registerSCFOptPipeline();

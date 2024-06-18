@@ -204,10 +204,10 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
     }
 
     const auto isStaticShapeArg = [](Value value) {
-      if (!value || !value.isa<BlockArgument>()) {
+      if (!value || !isa<BlockArgument>(value)) {
         return false;
       }
-      const auto inputTy = value.getType().dyn_cast<RankedTensorType>();
+      const auto inputTy = dyn_cast<RankedTensorType>(value.getType());
       return inputTy && inputTy.hasStaticShape();
     };
 
@@ -276,10 +276,8 @@ struct ReshapeMoveDownPattern : public HloMoveDownPattern<mhlo::ReshapeOp> {
           OpBuilder::InsertionGuard guard(rewriter);
           rewriter.setInsertionPointAfterValue(operand);
 
-          DenseElementsAttr oldConstAttr =
-              operand.getDefiningOp<mhlo::ConstantOp>()
-                  .getValue()
-                  .cast<DenseElementsAttr>();
+          DenseElementsAttr oldConstAttr = cast<DenseElementsAttr>(
+              operand.getDefiningOp<mhlo::ConstantOp>().getValue());
 
           auto newConstAttr =
               reshapeDenseElementsAttr(oldConstAttr, operandType);
@@ -443,9 +441,9 @@ struct BroadcastMoveDownPattern
 
 inline bool checkReshapeRemoveFirstNumberOneDimension(ReshapeOp op) {
   ArrayRef<int64_t> inShape =
-      op.getOperand().getType().cast<RankedTensorType>().getShape();
+      cast<RankedTensorType>(op.getOperand().getType()).getShape();
   ArrayRef<int64_t> outShape =
-      op.getResult().getType().cast<RankedTensorType>().getShape();
+      cast<RankedTensorType>(op.getResult().getType()).getShape();
   bool isRemoveFirst =
       (outShape.size() == (inShape.size() - 1)) && (inShape[0] == 1);
   for (size_t i = 1; i < inShape.size(); ++i) {
@@ -497,9 +495,9 @@ struct BroadcastReshapeMoveDownPattern
       return failure();
     }
 
-    ArrayRef<int64_t> ishape = operandType.cast<RankedTensorType>().getShape();
+    ArrayRef<int64_t> ishape = cast<RankedTensorType>(operandType).getShape();
     ArrayRef<int64_t> oshapeReshape =
-        reshape.getType().cast<RankedTensorType>().getShape();
+        cast<RankedTensorType>(reshape.getType()).getShape();
 
     // infer new output shape of reshape
     SmallVector<int64_t> newReshapeOShape;
@@ -507,8 +505,7 @@ struct BroadcastReshapeMoveDownPattern
       newReshapeOShape.push_back(ishape[i]);
     }
     RankedTensorType newReshapeOType = RankedTensorType::get(
-        newReshapeOShape,
-        operandType.cast<RankedTensorType>().getElementType());
+        newReshapeOShape, cast<RankedTensorType>(operandType).getElementType());
 
     // infer the new broadcast dimensions
     SmallVector<int64_t> newBCastDim;
@@ -528,7 +525,7 @@ struct BroadcastReshapeMoveDownPattern
         cloneAndReplaceResultTypes(rewriter, reshape, bvm, newReshapeOType);
 
     RankedTensorType newOtypeBcast = RankedTensorType::get(
-        oshapeReshape, operandType.cast<RankedTensorType>().getElementType());
+        oshapeReshape, cast<RankedTensorType>(operandType).getElementType());
 
     rewriter.replaceOpWithNewOp<mhlo::BroadcastInDimOp>(
         consumer, newOtypeBcast, newProducer->getResult(0), newBcastAttr);
@@ -557,7 +554,7 @@ struct ReshapeBroadcastDotMoveDownPattern
     }
     ::mlir::Value input = reshape.getOperand();
     ::mlir::Value weight = op.getOperand(1);
-    Type dtype = input.getType().cast<RankedTensorType>().getElementType();
+    Type dtype = cast<RankedTensorType>(input.getType()).getElementType();
 
     if (!checkReshapeRemoveFirstNumberOneDimension(reshape)) {
       return failure();
@@ -572,9 +569,9 @@ struct ReshapeBroadcastDotMoveDownPattern
 
     // infer output type
     ArrayRef<int64_t> inputShape =
-        input.getType().cast<RankedTensorType>().getShape();
+        cast<RankedTensorType>(input.getType()).getShape();
     ArrayRef<int64_t> weightShape =
-        weight.getType().cast<RankedTensorType>().getShape();
+        cast<RankedTensorType>(weight.getType()).getShape();
     SmallVector<int64_t> newDotOShape({inputShape[0], weightShape[1]});
     RankedTensorType newDotOType = RankedTensorType::get(newDotOShape, dtype);
     auto newDot = cloneAndReplaceResultTypes(rewriter, op, bvm, newDotOType);
@@ -631,7 +628,7 @@ private:
   void patternMatch(const Value &root, SmallVector<Operation *> &slices,
                     SmallVector<Operation *> &sliceUsers,
                     Value &binaryCommonOperand) const {
-    auto rootTy = root.getType().dyn_cast<RankedTensorType>();
+    auto rootTy = dyn_cast<RankedTensorType>(root.getType());
     int64_t rank = rootTy.getRank();
     std::string userOpName;
 
@@ -716,9 +713,9 @@ private:
                                     Value &binaryCommonOperand,
                                     PatternRewriter &rewriter) const {
     auto beforeBroadcastType =
-        binaryCommonOperand.getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(binaryCommonOperand.getType());
     auto afterBroadcastType =
-        slices[0]->getOperand(0).getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(slices[0]->getOperand(0).getType());
     llvm::SmallVector<int64_t> broadcastDimensions(
         beforeBroadcastType.getRank());
     std::iota(broadcastDimensions.begin(), broadcastDimensions.end(), 0);

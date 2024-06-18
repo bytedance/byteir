@@ -103,12 +103,12 @@ def ConvertOpToCustomCall : Pass<"convert-op-to-customcall", "ModuleOp"> {
 //}
 
 //===----------------------------------------------------------------------===//
-// DotTransposeFusion : this pass should run after HloTransposeDotToDotGeneral
+// FuseTransposeIntoDotGeneral
 //===----------------------------------------------------------------------===//
 
-def DotTransposeFusion : Pass<"fuse-dot-transpose", "mlir::func::FuncOp"> {
-  let summary = "Fuse dot/dot_general + transpose";
-  let constructor = "mlir::createDotTransposeFusionPass()";
+def FuseTransposeIntoDotGeneral : Pass<"fuse-transpose-into-dot-general", "mlir::func::FuncOp"> {
+  let summary = "Fuse transposeOp into dotGeneralOp";
+  let constructor = "mlir::createFuseTransposeIntoDotGeneralPass()";
 }
 
 //===----------------------------------------------------------------------===//
@@ -182,15 +182,6 @@ def HloFolder : Pass<"hlo-fold", "mlir::func::FuncOp"> {
 def HloSimplify : Pass<"hlo-simplify", "func::FuncOp"> {
   let summary = "Graph simplify for hlo ops";
   let constructor = "mlir::createHloSimplifyPass()";
-}
-
-//===----------------------------------------------------------------------===//
-// HloTransposeDotToDotGeneral
-//===----------------------------------------------------------------------===//
-
-def HloTransposeDotToDotGeneral : Pass<"hlo-transpose-dot-to-dot-general", "mlir::func::FuncOp"> {
-  let summary = "Fuse transpose dot to dot_general";
-  let constructor = "mlir::createHloTransposeDotToDotGeneralPass()";
 }
 
 //===----------------------------------------------------------------------===//

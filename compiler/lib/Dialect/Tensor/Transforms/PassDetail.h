@@ -28,6 +28,10 @@ namespace scf {
 class SCFDialect;
 } // namespace scf
 
+namespace linalg {
+class LinalgDialect;
+} // namespace linalg
+
 namespace tensor {
 class TensorDialect;
 } // namespace tensor

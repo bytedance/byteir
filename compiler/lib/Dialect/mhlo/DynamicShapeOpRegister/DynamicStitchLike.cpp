@@ -37,7 +37,7 @@ void mlir::registerDynamicMaskStitchReifyReturnTypeShapes() {
         SmallVector<Value> dims;
         dims.push_back(dim0);
         for (int64_t i = 1;
-             i < op->getOperand(0).getType().cast<RankedTensorType>().getRank();
+             i < cast<RankedTensorType>(op->getOperand(0).getType()).getRank();
              ++i) {
           dims.push_back(builder.create<tensor::DimOp>(op->getLoc(),
                                                        op->getOperand(0), i));
@@ -63,7 +63,7 @@ void mlir::registerDynamicStitchReifyReturnTypeShapes() {
         }
 
         bool allRankedTensor = llvm::all_of(
-            data, [](Value v) { return v.getType().isa<RankedTensorType>(); });
+            data, [](Value v) { return isa<RankedTensorType>(v.getType()); });
         if (!allRankedTensor)
           return failure();
 
@@ -77,7 +77,7 @@ void mlir::registerDynamicStitchReifyReturnTypeShapes() {
         SmallVector<Value> dims;
         dims.push_back(dim0);
         for (int64_t i = 1;
-             i < data[0].getType().cast<RankedTensorType>().getRank(); ++i) {
+             i < cast<RankedTensorType>(data[0].getType()).getRank(); ++i) {
           dims.push_back(
               builder.create<tensor::DimOp>(op->getLoc(), data[0], i));
         }

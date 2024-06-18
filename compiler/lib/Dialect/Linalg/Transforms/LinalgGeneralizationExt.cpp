@@ -86,7 +86,7 @@ struct LinalgGeneralizationExtPattern
     } else {
       auto &&newBlockArgTypes = llvm::to_vector(
           llvm::map_range(genericOp->getOperandTypes(), [](Type t) {
-            if (auto shapedType = t.dyn_cast_or_null<ShapedType>()) {
+            if (auto shapedType = dyn_cast_or_null<ShapedType>(t)) {
               return shapedType.getElementType();
             }
             return t;

@@ -82,7 +82,7 @@ DiagnosedSilenceableFailure transform_ext::CanonicalizeExtOp::apply(
     payloadResults.push_back(topLevel);
   }
   if (auto result = getResults())
-    results.set(result.cast<OpResult>(), payloadResults);
+    results.set(cast<OpResult>(result), payloadResults);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -119,7 +119,7 @@ transform_ext::CleanupOp::apply(mlir::transform::TransformRewriter &rewriter,
     payloadResults.push_back(topLevel);
   }
   if (auto result = getResults())
-    results.set(result.cast<OpResult>(), payloadResults);
+    results.set(cast<OpResult>(result), payloadResults);
   return DiagnosedSilenceableFailure::success();
 }
 

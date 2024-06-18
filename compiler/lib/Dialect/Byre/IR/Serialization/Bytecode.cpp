@@ -76,23 +76,23 @@ enum class AttrKind : uint32_t {
 };
 
 const llvm::fltSemantics &getFloatSemantics(Type type) {
-  if (type.isa<FloatBF16V1Type>())
+  if (isa<FloatBF16V1Type>(type))
     return APFloat::BFloat();
-  if (type.isa<FloatF16V1Type>())
+  if (isa<FloatF16V1Type>(type))
     return APFloat::IEEEhalf();
-  if (type.isa<FloatF32V1Type>())
+  if (isa<FloatF32V1Type>(type))
     return APFloat::IEEEsingle();
-  if (type.isa<FloatF64V1Type>())
+  if (isa<FloatF64V1Type>(type))
     return APFloat::IEEEdouble();
-  if (type.isa<FloatF8E4M3FNUZV1Type>())
+  if (isa<FloatF8E4M3FNUZV1Type>(type))
     return APFloat::Float8E4M3FNUZ();
-  if (type.isa<FloatF8E4M3B11FNUZV1Type>())
+  if (isa<FloatF8E4M3B11FNUZV1Type>(type))
     return APFloat::Float8E4M3B11FNUZ();
-  if (type.isa<FloatF8E4M3FNV1Type>())
+  if (isa<FloatF8E4M3FNV1Type>(type))
     return APFloat::Float8E4M3FN();
-  if (type.isa<FloatF8E5M2FNUZV1Type>())
+  if (isa<FloatF8E5M2FNUZV1Type>(type))
     return APFloat::Float8E5M2FNUZ();
-  if (type.isa<FloatF8E5M2V1Type>())
+  if (isa<FloatF8E5M2V1Type>(type))
     return APFloat::Float8E5M2();
   llvm::report_fatal_error("unsupported floating-point type");
 }
@@ -100,19 +100,19 @@ const llvm::fltSemantics &getFloatSemantics(Type type) {
 unsigned getBitWidthForIntegerType(Type type) {
   static_assert(IndexType::kInternalStorageBitWidth == 64,
                 "unexpected bit width when resolving index type");
-  if (type.isa<IndexV1Type>())
+  if (isa<IndexV1Type>(type))
     return IndexType::kInternalStorageBitWidth;
-  if (type.isa<BooleanV1Type>())
+  if (isa<BooleanV1Type>(type))
     return 1;
-  if (type.isa<IntegerI4V1Type>() || type.isa<IntegerUI4V1Type>())
+  if (isa<IntegerI4V1Type>(type) || isa<IntegerUI4V1Type>(type))
     return 4;
-  if (type.isa<IntegerI8V1Type>() || type.isa<IntegerUI8V1Type>())
+  if (isa<IntegerI8V1Type>(type) || isa<IntegerUI8V1Type>(type))
     return 8;
-  if (type.isa<IntegerI16V1Type>() || type.isa<IntegerUI16V1Type>())
+  if (isa<IntegerI16V1Type>(type) || isa<IntegerUI16V1Type>(type))
     return 16;
-  if (type.isa<IntegerI32V1Type>() || type.isa<IntegerUI32V1Type>())
+  if (isa<IntegerI32V1Type>(type) || isa<IntegerUI32V1Type>(type))
     return 32;
-  if (type.isa<IntegerI64V1Type>() || type.isa<IntegerUI64V1Type>())
+  if (isa<IntegerI64V1Type>(type) || isa<IntegerUI64V1Type>(type))
     return 64;
   llvm::report_fatal_error("unsupported integer type");
 }

@@ -98,7 +98,7 @@ template <typename X, typename OP> X getOnePossibleOp(OP op) {
 Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
                    Value axes, Attribute epsilon_attr) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "L2Norm input type must be ranked");
 
   ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
@@ -108,7 +108,7 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
     axis = inputType.getRank() + axis;
   }
   double epsilon =
-      (*epsilon_attr.dyn_cast<ElementsAttr>().getValues<APFloat>().begin())
+      (*dyn_cast<ElementsAttr>(epsilon_attr).getValues<APFloat>().begin())
           .convertToDouble();
   assert(0 < epsilon && epsilon < 1e-7 && "epsilon out of range for L2Norm");
 
@@ -131,7 +131,7 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
 Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
                              Value input, Value axes) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "L2Norm input type must be ranked");
 
   ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
@@ -160,7 +160,7 @@ Value createL2NormWithoutEps(PatternRewriter &rewriter, Location loc,
 Value createL2NormWithOutsideSqrtEps(PatternRewriter &rewriter, Location loc,
                                      Value input, Value axes, Value epsValue) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "L2Norm input type must be ranked");
 
   ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
@@ -201,11 +201,11 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
                                IntegerAttr axis_attr, Value output) {
 
   RankedTensorType outputType =
-      output.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(output.getType());
   assert(outputType != nullptr &&
          "Quantize/Dequantize's output type must be ranked");
   RankedTensorType scaleType =
-      scale.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(scale.getType());
   assert(scaleType != nullptr &&
          "Quantize/Dequantize's scale type must be ranked");
   assert(scaleType.getRank() <= 1 &&
@@ -242,7 +242,7 @@ Value createQuantizeDequantize(PatternRewriter &rewriter, Location loc,
 Value createSoftmax(PatternRewriter &rewriter, Location loc, Value input,
                     IntegerAttr axis_attr) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "Softmax input type must be ranked");
 
   int64_t axis = axis_attr.getSInt();
@@ -273,7 +273,7 @@ Value createLayerNormAndAffine(PatternRewriter &rewriter, Location loc,
                                Value input, Value scale, Value B,
                                FloatAttr epsilon_attr) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "Input type must be ranked");
   int64_t rank = inputType.getRank(); // N, C, D1, D2, ..., Dn
   assert(rank >= 3 && "Input type must be of rank >= 3");
@@ -335,7 +335,7 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
                    StringAttr coordinate_transformation_mode, StringAttr mode,
                    StringAttr nearest_mode, Value output) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "Resize input type must be ranked");
 
   Value target;
@@ -380,7 +380,7 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
 Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
                           int axis) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   int64_t inputRank = inputType.getRank();
   if (inputRank == 1)
     return input;
@@ -396,7 +396,7 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
                       Value scale, Value B, Value axes,
                       Attribute epsilon_attr) {
   RankedTensorType inputType =
-      input.getType().dyn_cast_or_null<RankedTensorType>();
+      dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "Input type must be ranked");
   ElementsAttr axis_attr = onnx_mlir::getElementAttributeFromONNXValue(axes);
   int64_t axis = axis_attr.getValues<APInt>()[0].getSExtValue();
@@ -404,7 +404,7 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
     axis = inputType.getRank() + axis;
   Value squeezedScale = createSqueezedValue(rewriter, loc, scale, axis);
   Value squeezedB = createSqueezedValue(rewriter, loc, B, axis);
-  double eps = (*epsilon_attr.cast<ElementsAttr>().getValues<APFloat>().begin())
+  double eps = (*cast<ElementsAttr>(epsilon_attr).getValues<APFloat>().begin())
                    .convertToDouble();
   std::string call_target_name = getLayerNormNameWithPrefix();
   stablehlo::CustomCallOp customCallOp =
@@ -441,7 +441,7 @@ Value createLayerNormWithoutLastAdd(PatternRewriter &rewriter, Location loc,
 // GeLU
 //===----------------------------------------------------------------------===//
 bool isSplatFP(Attribute attr, double value) {
-  ElementsAttr elementsAttr = attr.cast<ElementsAttr>();
+  ElementsAttr elementsAttr = cast<ElementsAttr>(attr);
   if (!elementsAttr)
     return false;
   return elementsAttr.isSplat() &&
@@ -449,7 +449,7 @@ bool isSplatFP(Attribute attr, double value) {
 }
 
 bool isSplatFPCloseTo(Attribute attr, double value, double eps = 1e-5) {
-  ElementsAttr elementsAttr = attr.cast<ElementsAttr>();
+  ElementsAttr elementsAttr = cast<ElementsAttr>(attr);
   if (!elementsAttr)
     return false;
   if (!elementsAttr.isSplat())
@@ -516,7 +516,7 @@ Value createGeLUWithoutLastMul(PatternRewriter &rewriter, Location loc,
                                Value input) {
   Value result = createGeLU(rewriter, loc, input);
 
-  Type elemType = input.getType().cast<TensorType>().getElementType();
+  Type elemType = cast<TensorType>(input.getType()).getElementType();
   RankedTensorType tensorType = RankedTensorType::get({}, elemType);
   llvm::SmallVector<float, 1> values{2.0};
   Attribute attr = DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
@@ -532,7 +532,7 @@ Value createOneHot(PatternRewriter &rewriter, Location loc, Value indices,
                    Value depthValue, Value values, IntegerAttr axisAttr,
                    Value output) {
   // indices
-  RankedTensorType indicesType = indices.getType().dyn_cast<RankedTensorType>();
+  RankedTensorType indicesType = dyn_cast<RankedTensorType>(indices.getType());
   assert(indicesType && indicesType.hasStaticShape() &&
          "indices must be static");
   int64_t indicesRank = indicesType.getRank();
@@ -540,7 +540,7 @@ Value createOneHot(PatternRewriter &rewriter, Location loc, Value indices,
   // depth
   ONNXConstantOp depthOp = depthValue.getDefiningOp<ONNXConstantOp>();
   assert(depthOp && "onnx.OneHot's depth should be constant");
-  ElementsAttr depthAttr = depthOp.getValueAttr().dyn_cast<ElementsAttr>();
+  ElementsAttr depthAttr = dyn_cast<ElementsAttr>(depthOp.getValueAttr());
   int64_t depth = depthAttr.getValues<APInt>()[0].getSExtValue();
   // axis
   int64_t axis = axisAttr.getSInt();
@@ -555,7 +555,7 @@ Value createOneHot(PatternRewriter &rewriter, Location loc, Value indices,
   Value broadcastZero = rewriter.create<stablehlo::BroadcastInDimOp>(
       loc, indicesType, zero, rewriter.getI64TensorAttr({}));
   Value broadcastDepth;
-  int64_t depthRank = depthValue.getType().cast<RankedTensorType>().getRank();
+  int64_t depthRank = cast<RankedTensorType>(depthValue.getType()).getRank();
   if (depthRank == 1)
     broadcastDepth = rewriter.create<stablehlo::BroadcastInDimOp>(
         loc, indicesType, depthValue, rewriter.getI64TensorAttr({0}));
@@ -571,7 +571,7 @@ Value createOneHot(PatternRewriter &rewriter, Location loc, Value indices,
   // values
   ONNXConstantOp ValuesOp = values.getDefiningOp<ONNXConstantOp>();
   assert(ValuesOp && "onnx.OneHot's values should be constant");
-  ElementsAttr valuesAttr = ValuesOp.getValueAttr().dyn_cast<ElementsAttr>();
+  ElementsAttr valuesAttr = dyn_cast<ElementsAttr>(ValuesOp.getValueAttr());
   assert(valuesAttr && valuesAttr.size() == 2 &&
          "value should keep ElementsAttr with size = 2");
   Attribute off_value = valuesAttr.getValues<Attribute>()[0];

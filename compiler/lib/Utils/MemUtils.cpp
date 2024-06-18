@@ -31,14 +31,14 @@ Attribute mlir::wrapIntegerMemorySpace(unsigned space, MLIRContext *ctx) {
 }
 
 std::optional<int64_t> mlir::getRank(Value val) {
-  if (auto shapedType = val.getType().dyn_cast<ShapedType>()) {
+  if (auto shapedType = dyn_cast<ShapedType>(val.getType())) {
     return shapedType.getRank();
   }
   return std::nullopt;
 }
 
 std::optional<Value> mlir::getDimSize(OpBuilder &b, Value val, unsigned idx) {
-  if (auto shapedType = val.getType().dyn_cast<ShapedType>()) {
+  if (auto shapedType = dyn_cast<ShapedType>(val.getType())) {
     auto loc = val.getLoc();
     if (shapedType.isDynamicDim(idx)) {
       auto dimOp = b.create<memref::DimOp>(loc, val, idx);
@@ -57,10 +57,10 @@ std::optional<Value> mlir::getDimSize(OpBuilder &b, Value val, unsigned idx) {
 std::optional<Value> mlir::createAlloc(OpBuilder &b, Value val,
                                        unsigned space) {
   // early termination if not a memref
-  if (!val.getType().isa<MemRefType>())
+  if (!isa<MemRefType>(val.getType()))
     return std::nullopt;
 
-  auto oldMemRefType = val.getType().cast<MemRefType>();
+  auto oldMemRefType = cast<MemRefType>(val.getType());
 
   auto spaceAttr = wrapIntegerMemorySpace(space, b.getContext());
 
@@ -93,7 +93,7 @@ std::optional<Value> mlir::createAlloc(OpBuilder &b, Value val,
 // return std::nullopt, if val is not of type MemRefType or it could not be
 // determined.
 std::optional<int64_t> mlir::getByteShiftFromAllocOrArgument(Value val) {
-  auto memRefType = val.getType().dyn_cast_or_null<MemRefType>();
+  auto memRefType = dyn_cast_or_null<MemRefType>(val.getType());
   if (!memRefType)
     return std::nullopt;
   Operation *op = val.getDefiningOp();
@@ -102,8 +102,7 @@ std::optional<int64_t> mlir::getByteShiftFromAllocOrArgument(Value val) {
   } else if (auto viewOp = dyn_cast<memref::ViewOp>(op)) {
     Value offsetVal = viewOp.getByteShift();
     if (auto offsetOp = offsetVal.getDefiningOp<arith::ConstantOp>()) {
-      if (auto offsetLit =
-              offsetOp.getValue().dyn_cast_or_null<IntegerAttr>()) {
+      if (auto offsetLit = dyn_cast_or_null<IntegerAttr>(offsetOp.getValue())) {
         int64_t curOffset = offsetLit.getInt();
         std::optional<int64_t> subOffset =
             getByteShiftFromAllocOrArgument(viewOp.getSource());
@@ -129,7 +128,7 @@ std::optional<int64_t> mlir::getByteShiftFromAllocOrArgument(Value val) {
 }
 
 bool mlir::isStatic(MemRefType t) {
-  ShapedType shape = t.dyn_cast_or_null<ShapedType>();
+  ShapedType shape = dyn_cast_or_null<ShapedType>(t);
   if (!shape)
     return false;
   if (!shape.hasStaticShape())
@@ -154,7 +153,7 @@ std::optional<int64_t> mlir::getSizeInBits(MemRefType t) {
   int64_t offset;
   assert(succeeded(getStridesAndOffset(t, strides, offset)));
   int64_t numElems = offset;
-  ArrayRef<int64_t> shapes = t.cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shapes = cast<ShapedType>(t).getShape();
   for (auto strideAndShape : zip(strides, shapes)) {
     int64_t stride = std::get<0>(strideAndShape);
     int64_t shape = std::get<1>(strideAndShape);
@@ -165,7 +164,7 @@ std::optional<int64_t> mlir::getSizeInBits(MemRefType t) {
   if (elementType.isIntOrFloat())
     return elementType.getIntOrFloatBitWidth() * numElems;
 
-  if (auto complexType = elementType.dyn_cast<ComplexType>()) {
+  if (auto complexType = dyn_cast<ComplexType>(elementType)) {
     elementType = complexType.getElementType();
     return elementType.getIntOrFloatBitWidth() * numElems * 2;
   }

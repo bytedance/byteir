@@ -281,7 +281,7 @@ LogicalResult mlir::yieldTiledValuesForMultiDst(
         assert(loops.size() == 1 && "only single loop is supported currently.");
         // TODO: handling the init value for all-reduce
         // if (OpResult yieldedValueResult =
-        //         yieldedValue.value().dyn_cast<OpResult>()) {
+        //         dyn_cast<OpResult>(yieldedValue.value())) {
         //   FailureOr<Value> initValue =
         //       tensor::getOrCreateDestination(rewriter, loc,
         //       yieldedValueResult);

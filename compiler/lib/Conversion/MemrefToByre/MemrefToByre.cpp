@@ -114,18 +114,16 @@ public:
 private:
   static std::optional<StringAttr> getCalleeAttr(memref::CopyOp op) {
     auto ctx = op->getContext();
-    auto srcSpace =
-        op.getSource().getType().cast<MemRefType>().getMemorySpace();
-    auto dstSpace =
-        op.getTarget().getType().cast<MemRefType>().getMemorySpace();
+    auto srcSpace = cast<MemRefType>(op.getSource().getType()).getMemorySpace();
+    auto dstSpace = cast<MemRefType>(op.getTarget().getType()).getMemorySpace();
 
-    if (!srcSpace.isa_and_nonnull<StringAttr>() ||
-        !dstSpace.isa_and_nonnull<StringAttr>()) {
+    if (!isa_and_nonnull<StringAttr>(srcSpace) ||
+        !isa_and_nonnull<StringAttr>(dstSpace)) {
       return std::nullopt;
     }
 
-    auto srcRef = srcSpace.cast<StringAttr>().strref();
-    auto dstRef = dstSpace.cast<StringAttr>().strref();
+    auto srcRef = cast<StringAttr>(srcSpace).strref();
+    auto dstRef = cast<StringAttr>(dstSpace).strref();
     return StringAttr::get(ctx, srcRef + "2" + dstRef);
   }
 };

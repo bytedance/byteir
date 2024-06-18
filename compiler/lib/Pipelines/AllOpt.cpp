@@ -23,7 +23,7 @@
 #include "byteir/Pipelines/ByreOpt.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Pipelines/GPU/GPUOpt.h"
-#include "byteir/Pipelines/HloOpt.h"
+#include "byteir/Pipelines/HloFusionOpt.h"
 #include "byteir/Pipelines/LinalgTensorOpt.h"
 #include "byteir/Pipelines/SCFOpt.h"
 #include "byteir/Pipelines/ShapeOpt.h"
@@ -36,11 +36,11 @@ namespace {
 void createByteIRAllOptPipelineImpl(OpPassManager &pm,
                                     const std::string &entryFunc,
                                     const std::string &target) {
-  HloOptPipelineOptions hloOptOptions;
+  HloFusionOptPipelineOptions hloOptOptions;
   hloOptOptions.entryFunc = entryFunc;
   hloOptOptions.target = target;
   hloOptOptions.outlineSingleElemwiseOp = true;
-  createHloOptPipeline(pm, hloOptOptions);
+  createHloFusionOptPipeline(pm, hloOptOptions);
 
   LinalgTensorOptPipelineOptions linalgTensorOptOptions;
   linalgTensorOptOptions.target = target;

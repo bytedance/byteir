@@ -19,6 +19,7 @@
 #include "byteir/Utils/AttrUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Affine/Utils.h"
 #include "mlir/Dialect/Affine/ViewLikeInterfaceUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
@@ -54,31 +55,21 @@ resolveSourceIndicesCollapseShape(Location loc, PatternRewriter &rewriter,
   SmallVector<OpFoldResult> dynamicIndices;
   for (ArrayRef<int64_t> groups : collapseShapeOp.getReassociationIndices()) {
     assert(!groups.empty() && "association indices groups cannot be empty");
-    dynamicIndices.push_back(indices[cnt++]);
+    Value index = indices[cnt++];
     int64_t groupSize = groups.size();
 
-    // Calculate suffix product for all collapse op source dimension sizes.
-    SmallVector<int64_t> sizes(groupSize);
-    for (int64_t i = 0; i < groupSize; ++i)
-      sizes[i] = collapseShapeOp.getSrcType().getDimSize(groups[i]);
-    SmallVector<int64_t> suffixProduct = computeSuffixProduct(sizes);
+    SmallVector<Value> sizes;
+    for (int64_t i = 0; i < groupSize; ++i) {
+      sizes.emplace_back(rewriter.create<tensor::DimOp>(
+          loc, collapseShapeOp.getSrc(), groups[i]));
+    }
 
     // Derive the index values along all dimensions of the source corresponding
     // to the index wrt to collapsed shape op output.
-    auto d0 = rewriter.getAffineDimExpr(0);
-    SmallVector<AffineExpr> delinearizingExprs = delinearize(d0, suffixProduct);
-
-    // Construct the AffineApplyOp for each delinearizingExpr.
-    for (int64_t i = 0; i < groupSize; i++) {
-      OpFoldResult ofr = affine::makeComposedFoldedAffineApply(
-          rewriter, loc,
-          AffineMap::get(/*numDims=*/1, /*numSymbols=*/0,
-                         delinearizingExprs[i]),
-          dynamicIndices);
-      sourceIndices.push_back(
-          getValueOrCreateConstantIndexOp(rewriter, loc, ofr));
-    }
-    dynamicIndices.clear();
+    SmallVector<Value> delinearizingExprs(
+        mlir::affine::delinearizeIndex(rewriter, loc, index, sizes).value());
+    sourceIndices.insert(sourceIndices.end(), delinearizingExprs.begin(),
+                         delinearizingExprs.end());
   }
   if (collapseShapeOp.getReassociationIndices().empty()) {
     auto zeroAffineMap = rewriter.getConstantAffineMap(0);

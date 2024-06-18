@@ -23,8 +23,8 @@ include "src/Dialect/ONNX/ONNX.td"  // third_party/onnx-mlir/src/Dialect/ONNX/ON
 def IsOneSize : Constraint<CPred<"$0.size() == 1">, "is of size one">;
 def IsOneSizeElements : Constraint<And<[
     CPred<" $0 ">,
-    CPred<" $0.isa<ElementsAttr>() ">,
-    CPred<" $0.cast<ElementsAttr>().size() == 1 ">]>, "is a DenseElementsAttr of size one">;
+    CPred<" isa<ElementsAttr>($0) ">,
+    CPred<" cast<ElementsAttr>($0).size() == 1 ">]>, "is a DenseElementsAttr of size one">;
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are actually the same">;
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">, "value has exactly one use">;
@@ -218,12 +218,12 @@ def ValueOne : Constraint<CPred<"isSplatFP($0, 1.0)">, "value attr is not splat 
 def ValueHalf : Constraint<CPred<"isSplatFPCloseTo($0, 0.5)">, "value attr is not splat value of 0.5">;
 def IsTwoTimes : Constraint<Or<[
   And<[
-    CPred< "$0.isa<SplatElementsAttr>()" >,
-    CPred< "$1.isa<SplatElementsAttr>()" >,
+    CPred< "isa<SplatElementsAttr>($0)" >,
+    CPred< "isa<SplatElementsAttr>($1)" >,
     CPred< "isFPAttrTimesCloseTo($0.cast<SplatElementsAttr>(), $1.cast<SplatElementsAttr>(), 2.0)">]>,
   And<[
-    CPred< "$0.isa<DenseElementsAttr>()" >,
-    CPred< "$1.isa<DenseElementsAttr>()" >,
+    CPred< "isa<DenseElementsAttr>($0)" >,
+    CPred< "isa<DenseElementsAttr>($1)" >,
     CPred< "isFPAttrTimesCloseTo($0.cast<DenseElementsAttr>(), $1.cast<DenseElementsAttr>(), 2.0)">]>]>, "value attr $0 is not 2 times of $1">;
 
 def RewriteGeLU : Pat<

@@ -185,7 +185,7 @@ mlir::ConvertOnlyCheckElementType::checkArg(func::FuncOp func, size_t offset,
     type = funcType.getInput(offset);
   else
     type = funcType.getResult(offset);
-  if (auto TensorTy = type.dyn_cast<TensorType>()) {
+  if (auto TensorTy = dyn_cast<TensorType>(type)) {
     auto elementTy = TensorTy.getElementType();
     if (convertElementType.count(elementTy) > 0) {
       return TensorTy.clone(convertElementType[elementTy]);

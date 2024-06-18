@@ -78,15 +78,15 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
       ShapedType vShapeTy;
       ShapedType oShapeTy;
       if (callee == getFlashAttnFwdName()) {
-        qShapeTy = op.getOperand(0).getType().dyn_cast<ShapedType>();
-        kShapeTy = op.getOperand(1).getType().dyn_cast<ShapedType>();
-        vShapeTy = op.getOperand(2).getType().dyn_cast<ShapedType>();
-        oShapeTy = op.getResult(0).getType().dyn_cast<ShapedType>();
+        qShapeTy = dyn_cast<ShapedType>(op.getOperand(0).getType());
+        kShapeTy = dyn_cast<ShapedType>(op.getOperand(1).getType());
+        vShapeTy = dyn_cast<ShapedType>(op.getOperand(2).getType());
+        oShapeTy = dyn_cast<ShapedType>(op.getResult(0).getType());
       } else {
-        qShapeTy = op.getOperand(1).getType().dyn_cast<ShapedType>();
-        kShapeTy = op.getOperand(2).getType().dyn_cast<ShapedType>();
-        vShapeTy = op.getOperand(3).getType().dyn_cast<ShapedType>();
-        oShapeTy = op.getOperand(4).getType().dyn_cast<ShapedType>();
+        qShapeTy = dyn_cast<ShapedType>(op.getOperand(1).getType());
+        kShapeTy = dyn_cast<ShapedType>(op.getOperand(2).getType());
+        vShapeTy = dyn_cast<ShapedType>(op.getOperand(3).getType());
+        oShapeTy = dyn_cast<ShapedType>(op.getOperand(4).getType());
       }
       if (!qShapeTy || !qShapeTy.hasStaticShape() || !kShapeTy ||
           !kShapeTy.hasStaticShape() || !vShapeTy ||
@@ -128,16 +128,14 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
       uint32_t oHeadStride = oShape[3];
 
       DictionaryAttr byteirAttrs =
-          op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+          cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
       if (!byteirAttrs)
         assert(false && "byteir attribute not found!");
-      bool causal = byteirAttrs.get("causal").cast<BoolAttr>().getValue();
-      float softmaxScale = byteirAttrs.get("softmax_scale")
-                               .cast<FloatAttr>()
+      bool causal = cast<BoolAttr>(byteirAttrs.get("causal")).getValue();
+      float softmaxScale = cast<FloatAttr>(byteirAttrs.get("softmax_scale"))
                                .getValue()
                                .convertToDouble();
-      float dropoutP = byteirAttrs.get("dropout_p")
-                           .cast<FloatAttr>()
+      float dropoutP = cast<FloatAttr>(byteirAttrs.get("dropout_p"))
                            .getValue()
                            .convertToDouble();
       int windowSizeLeft = -1;
@@ -178,14 +176,14 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
       return ArrayAttr::get(rewriter.getContext(), extraArgs);
     } else if (callee == getFlashAttnKVCacheName()) {
       OpBuilder rewriter(op);
-      ShapedType qShapeTy = op.getOperand(0).getType().dyn_cast<ShapedType>();
+      ShapedType qShapeTy = dyn_cast<ShapedType>(op.getOperand(0).getType());
       ShapedType kcacheShapeTy =
-          op.getOperand(1).getType().dyn_cast<ShapedType>();
+          dyn_cast<ShapedType>(op.getOperand(1).getType());
       ShapedType vcacheShapeTy =
-          op.getOperand(2).getType().dyn_cast<ShapedType>();
-      ShapedType kShapeTy = op.getOperand(3).getType().dyn_cast<ShapedType>();
-      ShapedType vShapeTy = op.getOperand(4).getType().dyn_cast<ShapedType>();
-      ShapedType oShapeTy = op.getResult(0).getType().dyn_cast<ShapedType>();
+          dyn_cast<ShapedType>(op.getOperand(2).getType());
+      ShapedType kShapeTy = dyn_cast<ShapedType>(op.getOperand(3).getType());
+      ShapedType vShapeTy = dyn_cast<ShapedType>(op.getOperand(4).getType());
+      ShapedType oShapeTy = dyn_cast<ShapedType>(op.getResult(0).getType());
       if (!qShapeTy || !qShapeTy.hasStaticShape() || !kShapeTy ||
           !kShapeTy.hasStaticShape() || !vShapeTy ||
           !vShapeTy.hasStaticShape() || !kcacheShapeTy ||
@@ -239,12 +237,11 @@ ByreCustomConfig mlir::getCudaByreCustomConfig() {
       uint32_t oHeadStride = oShape[3];
 
       DictionaryAttr byteirAttrs =
-          op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+          cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
       if (!byteirAttrs)
         assert(false && "byteir attribute not found!");
-      bool causal = byteirAttrs.get("causal").cast<BoolAttr>().getValue();
-      float softmaxScale = byteirAttrs.get("softmax_scale")
-                               .cast<FloatAttr>()
+      bool causal = cast<BoolAttr>(byteirAttrs.get("causal")).getValue();
+      float softmaxScale = cast<FloatAttr>(byteirAttrs.get("softmax_scale"))
                                .getValue()
                                .convertToDouble();
       int windowSizeLeft = -1;

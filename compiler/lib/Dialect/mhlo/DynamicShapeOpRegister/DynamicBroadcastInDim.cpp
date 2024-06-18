@@ -33,7 +33,7 @@ void mlir::registerDynamicBroadcastInDimReifyReturnTypeShapes() {
       [](Operation *op, OpBuilder &builder, ValueRange,
          SmallVectorImpl<::mlir::Value> &reifiedReturnShapes) {
         Value dynamicShape = op->getOperand(1);
-        if (auto type = dynamicShape.getType().dyn_cast<RankedTensorType>()) {
+        if (auto type = dyn_cast<RankedTensorType>(dynamicShape.getType())) {
           SmallVector<Value> dims;
           for (int64_t i = 0; i < type.getRank(); ++i) {
             dims.push_back(builder.create<shape::GetExtentOp>(op->getLoc(),
@@ -53,7 +53,7 @@ void mlir::registerDynamicBroadcastInDimInferReturnTypeComponents() {
       [](MLIRContext *context, std::optional<Location>,
          ValueShapeRange operands, DictionaryAttr attr, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        auto inputType = operands[0].getType().dyn_cast<RankedTensorType>();
+        auto inputType = dyn_cast<RankedTensorType>(operands[0].getType());
         if (inputType == nullptr) {
           return failure();
         }
@@ -64,8 +64,8 @@ void mlir::registerDynamicBroadcastInDimInferReturnTypeComponents() {
 
         ShapedTypeComponents dynamicShape;
         dynamicShapeAdaptor.getDims(dynamicShape);
-        auto bcastDimensions = attr.get("broadcast_dimensions")
-                                   .dyn_cast_or_null<DenseIntElementsAttr>();
+        auto bcastDimensions = dyn_cast_or_null<DenseIntElementsAttr>(
+            attr.get("broadcast_dimensions"));
         if (bcastDimensions == nullptr) {
           return failure();
         }
@@ -81,7 +81,7 @@ void mlir::registerDynamicBroadcastInDimInferReturnTypeComponents() {
         }
         Type type =
             RankedTensorType::get(outputShape, IntegerType::get(context, 64));
-        inferredReturnTypes.push_back(type.cast<ShapedType>());
+        inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
 }
