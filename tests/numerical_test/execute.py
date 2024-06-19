@@ -223,7 +223,7 @@ class BRTBackend:
         return ((end - start) * 1000) / run_trials
 
 
-def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="./local_test", **kwargs):
+def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="./local_test", unique_name=None, **kwargs):
     try:
         data_generator = MLIRDataGenerator(mhlo_file, target)
         entry_func_name = data_generator.entry_func_name
@@ -236,7 +236,8 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
             golden_outputs = interp.call_function(entry_func_name, np_inputs)
 
-        unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
+        if unique_name is None:
+            unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
         # byteir compile
         os.makedirs(workdir, exist_ok=True)
         os.makedirs(workdir + f"/{unique_name}", exist_ok=True)

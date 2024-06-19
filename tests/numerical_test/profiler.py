@@ -21,6 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_mlir_path")
     parser.add_argument("--workdir", type=str, default="./profiling", help="workspace directory")
+    parser.add_argument("--name", type=str, default="model")
     parser.add_argument("--target", type=str, default="cuda", choices=["cpu", "cuda", "cuda_with_ait"])
     parser.add_argument("--mode", type=str, default="profile", choices=["numerical", "profile"])
     parser.add_argument("-v", "--verbose", default=False, action="store_true")
@@ -29,5 +30,5 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    result = compile_and_run_mlir(args.input_mlir_path, args.target, args.verbose, mode=args.mode, workdir=args.workdir)
+    result = compile_and_run_mlir(args.input_mlir_path, args.target, args.verbose, mode=args.mode, workdir=args.workdir, unique_name=args.name)
     report_results([result])
