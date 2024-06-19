@@ -60,7 +60,8 @@ struct CustomizedTfToMhloPipelinePass
       bool stop_after_rewrite_custom_call,
       const std::unordered_map<std::string, Attribute>
           &additional_main_func_attrs,
-      bool set_assuming_to_be_true, int64_t repeat_out_batch_size) {
+      bool set_assuming_to_be_true, bool replace_where_to_static,
+      int64_t repeat_out_batch_size) {
     this->customCallOps = customcall_ops;
     this->removeControlFlow = remove_control_flow;
     this->staticalizeDynamicShape = staticalize_dynamic_shape;
@@ -68,6 +69,7 @@ struct CustomizedTfToMhloPipelinePass
     this->stopAfterRewriteCustomCall = stop_after_rewrite_custom_call;
     this->additional_main_func_attrs = additional_main_func_attrs;
     this->setAssumingToBeTrue = set_assuming_to_be_true;
+    this->replaceWhereToStatic = replace_where_to_static;
     this->repeatOutBatchSize = repeat_out_batch_size;
   }
 
@@ -166,7 +168,8 @@ struct CustomizedTfToMhloPipelinePass
     // fuse dilated conv
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::TFL::CreateIdentifyDilatedConvPass());
-    pm.addNestedPass<mlir::func::FuncOp>(mlir::tfext::createFuseTFOpsPass());
+    pm.addNestedPass<mlir::func::FuncOp>(
+        mlir::tfext::createFuseTFOpsPass(replaceWhereToStatic));
 
     pm.addPass(
         mlir::tfext::createRewriteToCustomCallOpsPass(customCallOps,
@@ -275,10 +278,11 @@ mlir::tfext::createCustomizedTfToMhloPipelinePass(
     const std::unordered_map<std::string, Attribute>
         &additional_main_func_attrs /*= {}*/,
     bool set_assuming_to_be_true /*= true*/,
+    bool replace_where_to_static /*= false*/,
     int64_t repeat_out_batch_size /*= -1*/) {
   return std::make_unique<CustomizedTfToMhloPipelinePass>(
       customcall_ops, remove_control_flow, staticalize_dynamic_shape,
       stop_after_convert_to_tf_dialect, stop_after_rewrite_custom_call,
       additional_main_func_attrs, set_assuming_to_be_true,
-      repeat_out_batch_size);
+      replace_where_to_static, repeat_out_batch_size);
 }
