@@ -223,7 +223,7 @@ class BRTBackend:
         return ((end - start) * 1000) / run_trials
 
 
-def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", **kwargs):
+def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="./local_test", **kwargs):
     try:
         data_generator = MLIRDataGenerator(mhlo_file, target)
         entry_func_name = data_generator.entry_func_name
@@ -238,10 +238,9 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", **kwargs)
 
         unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
         # byteir compile
-        TEMP_FOLDER = "./local_test"
-        os.makedirs(TEMP_FOLDER, exist_ok=True)
-        os.makedirs(TEMP_FOLDER + f"/{unique_name}", exist_ok=True)
-        output_mlir_file_name = f"{TEMP_FOLDER}/{unique_name}/{unique_name}.rt.mlir"
+        os.makedirs(workdir, exist_ok=True)
+        os.makedirs(workdir + f"/{unique_name}", exist_ok=True)
+        output_mlir_file_name = f"{workdir}/{unique_name}/{unique_name}.rt.mlir"
         byteir.compile(
             mhlo_file,
             output_mlir_file_name,
@@ -317,7 +316,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", **kwargs)
     )
 
 
-def compile_and_run_torch(test, target, verbose, mode="numerical"):
+def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./local_test"):
     import torch_frontend
 
     cur_device = get_target_device(target)
@@ -339,11 +338,10 @@ def compile_and_run_torch(test, target, verbose, mode="numerical"):
 
         unique_name = test.unique_name + "." + target
         # byteir compile
-        TEMP_FOLDER = "./local_test"
-        os.makedirs(TEMP_FOLDER, exist_ok=True)
-        os.makedirs(TEMP_FOLDER + f"/{unique_name}", exist_ok=True)
-        mlir_file_name = f"{TEMP_FOLDER}/{unique_name}/{unique_name}.stablehlo.mlir"
-        output_mlir_file_name = f"{TEMP_FOLDER}/{unique_name}/{unique_name}.rt.mlir"
+        os.makedirs(workdir, exist_ok=True)
+        os.makedirs(workdir + f"/{unique_name}", exist_ok=True)
+        mlir_file_name = f"{workdir}/{unique_name}/{unique_name}.stablehlo.mlir"
+        output_mlir_file_name = f"{workdir}/{unique_name}/{unique_name}.rt.mlir"
         with open(mlir_file_name, "w+") as fout:
             compiled_graph.operation.print(file=fout, large_elements_limit=None)
         byteir.compile(
