@@ -256,6 +256,30 @@ PYBIND11_MODULE(MODULE_NAME, m) {
              THROW_ON_FAIL(
                  req.Context().BindArg(offset, reinterpret_cast<void *>(ptr)));
            })
+      .def("bind_args",
+           [](ReqeustContextWithSession &req, py::list offset_and_args) {
+             for (auto handle : offset_and_args) {
+               PyObject *obj = handle.ptr();
+               if (!PyTuple_Check(obj) || PyTuple_Size(obj) != 2) {
+                 PyErr_SetString(PyExc_TypeError,
+                                 "expect pair of offset and arg");
+                 return;
+               }
+
+               PyObject *offset = PyTuple_GetItem(obj, 0);
+               PyObject *arg = PyTuple_GetItem(obj, 1);
+               if (!PyLong_Check(offset)) {
+                 PyErr_SetString(PyExc_TypeError, "offset should be integer");
+                 return;
+               }
+               if (!PyLong_Check(arg)) {
+                 PyErr_SetString(PyExc_TypeError, "arg should be integer");
+                 return;
+               }
+               THROW_ON_FAIL(req.Context().BindArg(PyLong_AsSize_t(offset),
+                                                   PyLong_AsVoidPtr(arg)));
+             }
+           })
       .def("get_arg",
            [](ReqeustContextWithSession &req, size_t offset) {
              void *ptr = req.Context().GetArg(offset);
