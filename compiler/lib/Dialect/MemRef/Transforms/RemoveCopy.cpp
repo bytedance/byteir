@@ -242,6 +242,7 @@ public:
       }
       rewriter.replaceOp(srcAllocOp, {reshapeTarget});
       rewriter.eraseOp(copyOp);
+      return success();
     }
 
     return failure();
