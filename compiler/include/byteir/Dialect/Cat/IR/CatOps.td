@@ -33,11 +33,6 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 class Cat_Op<string mnemonic, list<Trait> traits = []>
     : Op<Cat_Dialect, mnemonic, traits>;
 
-def Cat_CastOp : Cat_Op<"cast", [Cat_CatOpInterface, Pure]> {
-  let summary = "type cast operator";
-  let arguments = (ins AnyTensor : $input);
-  let results = (outs AnyTensor : $output);
-}
 
 def Cat_Conv2dOp : Cat_Op<"conv2d", [Cat_CatOpInterface, Pure]> {
   let summary = "conv2d operator";
@@ -190,16 +185,6 @@ def Cat_BMMSoftmaxBMMOp : Cat_Op<"bmm_softmax_bmm", [Cat_CatOpInterface, Pure]> 
   let results = (outs AnyTensor : $output);
 }
 
-def Cat_BatchNormOp : Cat_Op<"batch_norm", [Cat_CatOpInterface, Pure]> {
-  let summary = "batch norm operator";
-  let arguments = (ins AnyTensor : $input,
-                       AnyTensor : $gamma,
-                       AnyTensor : $beta,
-                       AnyTensor : $mean, 
-                       AnyTensor : $var);
-  let results = (outs AnyTensor : $output);
-}
-
 def Cat_Pooling2dOp : Cat_Op<"pooling2d", [Cat_CatOpInterface, Pure]> {
   let summary = "pooling2d operator";
   let arguments = (ins AnyTensor : $input,
@@ -210,21 +195,9 @@ def Cat_Pooling2dOp : Cat_Op<"pooling2d", [Cat_CatOpInterface, Pure]> {
   let results = (outs AnyTensor : $output);
 }
 
-def Cat_ReluOp : Cat_Op<"relu", [Cat_CatOpInterface, Pure]> {
-  let summary = "relu operator";
-  let arguments = (ins AnyTensor : $input);
-  let results = (outs AnyTensor : $output);
-}
-
 def Cat_ReduceOp : Cat_Op<"reduce", [Cat_CatOpInterface, Pure]> {
   let summary = "reduce operator";
   let arguments = (ins AnyTensor : $input, I64ElementsAttr : $dims, StrAttr : $reduce_type);
-  let results = (outs AnyTensor : $output);
-}
-
-def Cat_SliceOp : Cat_Op<"slice", [Cat_CatOpInterface, Pure]> {
-  let summary = "slice operator";
-  let arguments = (ins AnyTensor : $input, I64ElementsAttr : $start_indices, I64ElementsAttr : $end_indices);
   let results = (outs AnyTensor : $output);
 }
 
@@ -308,17 +281,6 @@ def Cat_SoftmaxOp : Cat_Op<"softmax", [Cat_CatOpInterface, Pure]> {
   let results = (outs AnyTensor : $output);
 }
 
-def Cat_UnaryElementwiseOp : Cat_Op<"unary_elementwise", [Cat_CatOpInterface, Pure]> {
-  let summary = "unary elementwise operator";
-  let arguments = (ins AnyTensor : $input, StrAttr : $op_type);
-  let results = (outs AnyTensor : $output);
-}
-
-def Cat_BinaryElementwiseOp : Cat_Op<"binary_elementwise", [Cat_CatOpInterface, Pure]> {
-  let summary = "binary elementwise operator";
-  let arguments = (ins AnyTensor : $lhs, AnyTensor : $rhs, StrAttr : $op_type);
-  let results = (outs AnyTensor : $output);
-}
 
 def Cat_BMMRRROp : Cat_Op<"bmm_rrr", [Cat_CatOpInterface, Pure]> {
   let summary = "batch matmul operator (rrr layout)";
@@ -373,21 +335,6 @@ def Cat_BMMCCCOp : Cat_Op<"bmm_ccc", [Cat_CatOpInterface, Pure]> {
   let summary = "batch matmul operator (ccc layout)";
   let arguments = (ins AnyTensor : $lhs,
                        AnyTensor : $rhs);
-  let results = (outs AnyTensor : $output);
-}
-
-def Cat_ConcatenateOp : Cat_Op<"concatenate", [Cat_CatOpInterface, Pure]> {
-  let summary = "concatenate operator";
-  let arguments = (ins Variadic<AnyTensor> : $val,
-                       I64Attr:$dimension);
-  let results = (outs AnyTensor : $output);
-}
-
-def Cat_WhereOp : Cat_Op<"where", [Cat_CatOpInterface, Pure]> {
-  let summary = "where operator";
-  let arguments = (ins AnyTensor : $condition,
-                       AnyTensor : $on_true,
-                       AnyTensor : $on_false);
   let results = (outs AnyTensor : $output);
 }
 
