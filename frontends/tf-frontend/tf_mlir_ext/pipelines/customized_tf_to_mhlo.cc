@@ -29,6 +29,7 @@
 #include "tf_mlir_ext/transforms/passes.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -150,6 +151,9 @@ struct CustomizedTfToMhloPipelinePass
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::tfext::createSetRepeatOutBatchSizePass(repeatOutBatchSize));
     }
+    pm.addPass(mlir::TF::CreateTFFunctionalControlFlowToRegions());
+    pm.addPass(mlir::TF::createConvertTfControlFlowToScfPass());
+    pm.addPass(mlir::tfext::createInlineFuncCallInScfIfPass());
 
     pm.addNestedPass<mlir::func::FuncOp>(
         mlir::tfext::createConstantFoldingPass());

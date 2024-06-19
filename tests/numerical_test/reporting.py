@@ -28,16 +28,19 @@ def report_results(results: List[TestResult]):
     pass_set = []
     for result in results:
         if result.compilation_error is not None:
-            fail_set.append('compilation failed: ' +
-                            result.unique_name + "\n" + result.compilation_error)
+            fail_set.append([result.unique_name, 'compilation failed: ' +
+                            result.unique_name + "\n" + result.compilation_error])
         elif result.runtime_error is not None:
-            fail_set.append('runtime failed: ' +
-                            result.unique_name + "\n" + result.runtime_error)
+            fail_set.append([result.unique_name, 'runtime failed: ' +
+                            result.unique_name + "\n" + result.runtime_error])
         elif result.numerical_error is not None:
-            fail_set.append('numerical failed: ' +
-                            result.unique_name + "\n" + result.numerical_error)
+            fail_set.append([result.unique_name, 'numerical failed: ' +
+                            result.unique_name + "\n" + result.numerical_error])
         else:
             pass_set.append(result)
+    pass_set.sort(key=lambda x:x.unique_name)
+    fail_set.sort(key=lambda x:x[0])
+
     print(f"\n****** PASS tests - {len(pass_set)} tests")
     for test in pass_set:
         if test.performance_result is not None:
@@ -45,6 +48,9 @@ def report_results(results: List[TestResult]):
         else:
             print(test.unique_name, " --- PASS")
     print(f"\n****** FAILED tests - {len(fail_set)} tests")
-    for reason in fail_set:
-        print(reason)
+    for test in fail_set:
+        print(test[1])
+    print(f"\n****** FAILED tests - {len(fail_set)} tests")
+    for test in fail_set:
+        print(test[0])
     return len(fail_set) > 0

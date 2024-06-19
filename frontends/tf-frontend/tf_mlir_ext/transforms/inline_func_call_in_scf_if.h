@@ -1,4 +1,4 @@
-//===- ShapeFuncOutlining.h -------------------------------*--- C++ -*-===//
+//===- inline_func_call_in_scf_if.h ---------------------------*--- C++ -*-===//
 //
 // Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +15,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_TRANSFORMS_SHAPEFUNCOUTLINING_H
-#define BYTEIR_TRANSFORMS_SHAPEFUNCOUTLINING_H
+#ifndef TFEXT_TRANSFORMS_INLINE_FUNC_CALL_IN_SCF_IF
+#define TFEXT_TRANSFORMS_INLINE_FUNC_CALL_IN_SCF_IF
 
-#include "mlir/Pass/Pass.h"
-#include <memory>
+#include "mlir/IR/MLIRContext.h"  // from @llvm-project
+#include "mlir/IR/PatternMatch.h" // from @llvm-project
+#include "mlir/Pass/Pass.h"       // from @llvm-project
 
 namespace mlir {
-class ModuleOp;
-class OpBuilder;
+namespace tfext {
 
-constexpr StringRef getByteIRShapeFuncAttrName() {
-  return "__byteir_shape_func__";
-}
+// -------------------------------------------
+std::unique_ptr<OperationPass<ModuleOp>> createInlineFuncCallInScfIfPass();
 
-std::unique_ptr<OperationPass<ModuleOp>>
-createShapeFuncOutliningPass(llvm::StringRef entryFuncName = "main");
-
+} // namespace tfext
 } // namespace mlir
 
-#endif // BYTEIR_TRANSFORMS_SHAPEFUNCOUTLINING_H
+#endif // TFEXT_TRANSFORMS_INLINE_FUNC_CALL_IN_SCF_IF
