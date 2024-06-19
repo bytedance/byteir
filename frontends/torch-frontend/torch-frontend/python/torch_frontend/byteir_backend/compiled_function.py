@@ -42,6 +42,8 @@ class ByteIRFunction:
         self._none_indices = none_indices
         self._req = self._session.new_request_context(
             torch.cuda.current_stream()._as_parameter_.value)
+        self.input_arg_offsets = self._session.get_input_arg_offsets()
+        self.output_arg_offsets = self._session.get_output_arg_offsets()
 
     def __call__(self, *inputs):
         from brt.utils import brt_dtype_to_torch_dtype
@@ -70,12 +72,14 @@ class ByteIRFunction:
             ) for offset in self._session.get_output_arg_offsets()
         ]
 
-        for offset, input in zip(self._session.get_input_arg_offsets(),
-                                 new_inputs):
-            self._req.bind_arg(offset, input.data_ptr())
-        for offset, output in zip(self._session.get_output_arg_offsets(),
-                                  results):
-            self._req.bind_arg(offset, output.data_ptr())
+        inputOffsetAndArg = [None] * len(new_inputs)
+        outputOffsetAndArg = [None] * len(results)
+        for idx, (offset, inp) in enumerate(zip(self.input_arg_offsets, new_inputs)):
+            inputOffsetAndArg[idx] = (offset, inp.data_ptr())
+        for idx, (offset, out) in enumerate(zip(self.output_arg_offsets, results)):
+            outputOffsetAndArg[idx] = (offset, out.data_ptr())
+        self._req.bind_args(inputOffsetAndArg)
+        self._req.bind_args(outputOffsetAndArg)
         self._req.finish_io_binding()
         self._req.run()
         self._req.sync()
