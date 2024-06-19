@@ -24,6 +24,16 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+// Some code comes from
+// compiler/src/iree/compiler/Codegen/Utils/GPUUtils.cpp
+// of IREE project
+// Original licence:
+// Copyright 2021 The IREE Authors
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/Linalg/Transforms/LinalgPromotion.h"
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
@@ -125,11 +135,14 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
   OpBuilder::InsertionGuard guard(b);
 
   auto op = src.getDefiningOp();
+  // get the only scf.for op inside the scf.forall op.
   scf::ForallOp forallOp = op->getParentOfType<scf::ForallOp>();
-  // copyWorkgroupMemoryToGlobalMemory before the GPU kernel end.
-  Operation *terminator = forallOp.getBody()->getTerminator();
-  b.setInsertionPoint(terminator);
+  auto forOps = llvm::to_vector(forallOp.getOps<scf::ForOp>());
+  if (forOps.size() != 1)
+    return forallOp.emitError("expected a single scf.for op");
 
+  // copyWorkgroupMemoryToGlobalMemory after gemm compute ends.
+  b.setInsertionPointAfter(forOps[0]);
   Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
                                 getCopyRelatedToWorkgroupMemoryMarker());
@@ -167,6 +180,81 @@ static LogicalResult promotionImpl(OpBuilder &builder, Operation *op) {
   return success();
 }
 
+// Split input/output operand from copy from shared memory into a separate
+// input.
+static void insertInputValueIntoGeneric(Value source,
+                                        linalg::GenericOp genericOp) {
+  Location loc = genericOp.getLoc();
+  SmallVector<Value> inputOperands;
+  SmallVector<AffineMap> operandMaps;
+
+  // Get and add existing input operands and their corresponding indexing maps.
+  for (OpOperand *inputOperand : genericOp.getDpsInputOperands()) {
+    inputOperands.push_back(inputOperand->get());
+    operandMaps.push_back(genericOp.getMatchingIndexingMap(inputOperand));
+  }
+
+  // Add the new input operand.
+  inputOperands.push_back(source);
+
+  // Ensure there is only one output operand.
+  assert(genericOp.getNumDpsInits() == 1);
+  OpOperand *outputOperand = genericOp.getDpsInitOperand(0);
+
+  // Add indexing maps for the output operand.
+  operandMaps.push_back(genericOp.getMatchingIndexingMap(outputOperand));
+  operandMaps.push_back(genericOp.getMatchingIndexingMap(outputOperand));
+
+  SmallVector<utils::IteratorType> iteratorTypes(genericOp.getNumLoops(),
+                                                 utils::IteratorType::parallel);
+
+  OpBuilder builder(genericOp);
+
+  // Create a new GenericOp.
+  auto newGenericOp = builder.create<linalg::GenericOp>(
+      loc, inputOperands, outputOperand->get(), operandMaps, iteratorTypes);
+
+  // Move the original operation's blocks to the new operation.
+  newGenericOp.getRegion().getBlocks().splice(
+      newGenericOp.getRegion().begin(), genericOp.getRegion().getBlocks());
+
+  // Add a new argument to the payload.
+  Block &payload = newGenericOp.getRegion().front();
+  payload.addArgument(payload.getArguments().back().getType(), loc);
+
+  // Set the Linalg transformation marker.
+  setLinalgTransformationMarker(newGenericOp,
+                                getCopyRelatedToWorkgroupMemoryMarker());
+}
+
+/// Propagate the shared memory copy into the consumer op if it's a fully
+/// parallel linalg.generic.
+static bool
+propagateCopySourceIntoConsumerGeneric(linalg::CopyOp copyOp,
+                                       SmallVector<Operation *> &toDelete) {
+  // Look for a generic Op reading the copyOp target.
+  Operation *nextOp = copyOp->getNextNode();
+  while (nextOp) {
+    if (isMemoryEffectFree(nextOp)) {
+      nextOp = nextOp->getNextNode();
+      continue;
+    }
+    auto consumer = dyn_cast<linalg::GenericOp>(nextOp);
+    if (!consumer || consumer.getNumDpsInits() != 1 ||
+        !consumer.getMatchingIndexingMap(consumer.getDpsInitOperand(0))
+             .isIdentity())
+      break;
+    auto linalgCopyTarget = copyOp.getDpsInitOperand(0)->get();
+    auto linalgCopySource = copyOp.getDpsInputOperand(0)->get();
+    if (*consumer.getOutputs().begin() != linalgCopyTarget)
+      break;
+    insertInputValueIntoGeneric(linalgCopySource, consumer);
+    toDelete.push_back(consumer);
+    return true;
+  }
+  return false;
+}
+
 struct LinalgPromotionPass : public LinalgPromotionBase<LinalgPromotionPass> {
 public:
   LinalgPromotionPass() = default;
@@ -187,22 +275,40 @@ public:
       if (isa<linalg::MatmulOp, linalg::BatchMatmulOp>(linalgOp))
         toPromote.push_back(linalgOp);
     });
+    if (toPromote.empty())
+      return;
 
-    for (auto linalgOp : toPromote) {
-      OpBuilder builder(linalgOp);
+    assert(toPromote.size() == 1);
+    auto linalgContractOp = toPromote[0];
+    OpBuilder builder(linalgContractOp);
 
-      // As we want to mark every generated op, so we do promote seperately.
-      (void)promotionImpl<MatmulOperands::A>(builder, linalgOp);
-      (void)promotionImpl<MatmulOperands::B>(builder, linalgOp);
+    // As we want to mark every generated op, so we do promote seperately.
+    (void)promotionImpl<MatmulOperands::A>(builder, linalgContractOp);
+    (void)promotionImpl<MatmulOperands::B>(builder, linalgContractOp);
 
-      // TODO:
-      // If we do promotion before we split K, it will be much easier.
-      // The right order should be split i, j, promote C, split k, promote A\B
-      // As we know linalg.matmul is in a scf.for, and the subview promotionImpl
-      // inserts should be in the scf.forall op.
-      auto forOp = linalgOp->getParentOfType<scf::ForOp>();
-      builder.setInsertionPoint(forOp); // before forOp
-      (void)promotionImpl<MatmulOperands::C>(builder, linalgOp);
+    // TODO:
+    // If we do promotion before we split K, it will be much easier.
+    // The right order should be split i, j, promote C, split k, promote A\B
+    // As we know linalg.matmul is in a scf.for, and the subview promotionImpl
+    // inserts should be in the scf.forall op.
+    auto forOp = linalgContractOp->getParentOfType<scf::ForOp>();
+    builder.setInsertionPoint(forOp); // before forOp
+    (void)promotionImpl<MatmulOperands::C>(builder, linalgContractOp);
+
+    // The linalg.copy should be fused with its consumer linalg.generic.
+    // So first to find linalg.copy which has marker
+    // "__byteir_store_matrix_c__"
+    linalg::CopyOp copyToGlobalOp;
+    forallOp.walk([&](linalg::CopyOp copyOp) {
+      if (hasMarker(copyOp, copyMarker[MatmulOperands::C])) {
+        copyToGlobalOp = copyOp;
+      }
+    });
+    SmallVector<Operation *> toDelete;
+    if (propagateCopySourceIntoConsumerGeneric(copyToGlobalOp, toDelete)) {
+      toDelete.push_back(copyToGlobalOp);
+      for (Operation *op : toDelete)
+        op->erase();
     }
   }
 };

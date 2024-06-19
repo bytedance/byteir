@@ -45,10 +45,8 @@ void createCatFusionOptPipelineImpl(OpPassManager &pm, bool anchor_only,
   } else {
     pm.addNestedPass<func::FuncOp>(createFuseMhloToCatPass());
     pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
-    if (aggressive_mode) {
-      pm.addNestedPass<func::FuncOp>(createMhloToCatPass());
-      pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
-    }
+    pm.addNestedPass<func::FuncOp>(createMhloToCatPass());
+    pm.addNestedPass<func::FuncOp>(createCanonicalizeExtPass());
   }
 }
 } // namespace

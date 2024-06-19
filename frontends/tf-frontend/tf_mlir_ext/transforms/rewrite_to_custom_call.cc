@@ -242,7 +242,7 @@ Value createLayerNormWithoutGamma(PatternRewriter &rewriter, Location loc,
                                   ElementsAttr axis) {
   auto betaShapedType = cast<ShapedType>(beta.getType());
   auto gammaAttr = getSplatFpElementsAttr(betaShapedType, 1.0f);
-  assert(betaAttr);
+  assert(gammaAttr);
   auto gammaOp = rewriter.create<TF::ConstOp>(loc, gammaAttr);
   Value gamma = gammaOp.getOutput();
   return createLayerNorm(rewriter, loc, input, gamma, beta, epsilon, axis);
@@ -619,9 +619,6 @@ struct RewriteRepeat : public RewritePattern {
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
-
-public:
-  int64_t outBatchSize;
 };
 
 //===----------------------------------------------------------------------===//

@@ -21,11 +21,15 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/IR/DeviceMappingInterface.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
+#include "tensorflow/compiler/mlir/tensorflow/utils/dynamic_shape_utils.h"
+#include "tensorflow/compiler/mlir/tf2xla/transforms/utils.h"
 #include "tf_mlir_ext/transforms/passes_detail.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -135,7 +139,7 @@ public:
     if (!dims_to_reverse.empty())
       input = rewriter.create<mhlo::ReverseOp>(
           loc, input_ty, op.getInput(),
-          GetI64ElementsAttr(dims_to_reverse, &rewriter));
+          mhlo::GetI64ElementsAttr(dims_to_reverse, &rewriter));
 
     if (has_dynamic_shape) {
       if (op.getNewAxisMask() != 0 || op.getShrinkAxisMask() != 0) {
@@ -219,12 +223,12 @@ public:
   }
 
 protected:
-  static DenseIntElementsAttr GetI64ElementsAttr(ArrayRef<int64_t> values,
-                                                 Builder *builder) {
-    RankedTensorType ty = RankedTensorType::get(
-        {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
-    return DenseIntElementsAttr::get(ty, values);
-  }
+  // static DenseIntElementsAttr GetI64ElementsAttr(ArrayRef<int64_t> values,
+  //                                                Builder *builder) {
+  //   RankedTensorType ty = RankedTensorType::get(
+  //       {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
+  //   return DenseIntElementsAttr::get(ty, values);
+  // }
 
   // The sparse spec of strided slice does not correspond to the number of
   // dimensions. For example, sparse spec for foo[..., 3:10] for foo of shape
@@ -547,11 +551,131 @@ public:
   }
 };
 
+class ConvertTileOp : public OpRewritePattern<TF::TileOp> {
+public:
+  using OpRewritePattern<TF::TileOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::TileOp tileOp,
+                                PatternRewriter &rewriter) const override {
+    auto loc = tileOp->getLoc();
+    auto input = tileOp.getInput();
+    auto multiples = tileOp.getMultiples();
+    auto inputType = input.getType().dyn_cast<RankedTensorType>();
+    auto multiType = multiples.getType().dyn_cast<RankedTensorType>();
+    int64_t inputRank = inputType.getRank();
+    int64_t multiRank = multiType.getRank();
+
+    if (!inputType || !multiType || !inputType.hasStaticShape() ||
+        !multiType.hasStaticShape())
+      return failure();
+    ;
+    DenseIntElementsAttr multiplesAttr;
+    if (matchPattern(multiples, m_Constant(&multiplesAttr)))
+      return failure();
+    assert(multiRank == 1);
+    assert(inputRank == multiType.getDimSize(0));
+
+    auto inputEleType = inputType.getElementType();
+    Type indexType = rewriter.getIndexType();
+
+    SmallVector<int64_t, 4> broadcastShape(inputRank * 2, ShapedType::kDynamic);
+    SmallVector<int64_t, 4> broadcastDimensions(inputRank, 0);
+    SmallVector<Value> shapeValues;
+    SmallVector<Value> outShapeValues;
+    for (int64_t i = 0; i < inputRank; ++i) {
+      int64_t constDimSize = inputType.getDimSize(i);
+      int64_t broadcastIndex = 1 + 2 * i;
+      broadcastShape[broadcastIndex] = constDimSize;
+      broadcastDimensions[i] = broadcastIndex;
+
+      Value index =
+          rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(i));
+      Value multiplesSize =
+          rewriter.create<tensor::ExtractOp>(loc, multiples, ValueRange{index});
+      Value multiplesSizeCasted =
+          rewriter.create<arith::IndexCastOp>(loc, indexType, multiplesSize);
+      Value constDimSizeValue = rewriter.create<arith::ConstantOp>(
+          loc, rewriter.getIndexAttr(constDimSize));
+      Value dimSizeValue = rewriter.create<mlir::arith::MulIOp>(
+          loc, multiplesSizeCasted, constDimSizeValue);
+
+      shapeValues.push_back(dimSizeValue);
+      outShapeValues.push_back(multiplesSizeCasted);
+      outShapeValues.push_back(constDimSizeValue);
+    }
+
+    auto broadcastDimsAttr =
+        mhlo::GetI64ElementsAttr(broadcastDimensions, &rewriter);
+    RankedTensorType broadcastType =
+        tensorflow::GetTypeFromTFTensorShape(broadcastShape, inputEleType);
+
+    Value outDimSizeTensor = rewriter.create<tensor::FromElementsOp>(
+        loc,
+        tensorflow::GetTypeFromTFTensorShape(
+            {static_cast<int64_t>(outShapeValues.size())}, indexType),
+        outShapeValues);
+    Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, broadcastType, input, outDimSizeTensor, broadcastDimsAttr);
+    Value shape = rewriter.create<tensor::FromElementsOp>(
+        loc, tensorflow::GetTypeFromTFTensorShape({inputRank}, indexType),
+        shapeValues);
+    rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+        tileOp, tileOp.getOutput().getType(), broadcast, shape);
+
+    return success();
+  }
+};
+
+class ConvertScfIfOp : public OpRewritePattern<scf::IfOp> {
+public:
+  using OpRewritePattern<scf::IfOp>::OpRewritePattern;
+  void inlineSCFRegionIntoMhloRegion(PatternRewriter &rewriter, Region &scf,
+                                     Region &mhlo) const {
+    // Remove an existing block, then move the region over.
+    if (!mhlo.empty())
+      rewriter.eraseBlock(&scf.back());
+    rewriter.inlineRegionBefore(scf, mhlo, mhlo.end());
+    // Fix up the terminator.
+    PatternRewriter::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToEnd(&mhlo.back());
+    auto *terminator = mhlo.back().getTerminator();
+    rewriter.replaceOpWithNewOp<mhlo::ReturnOp>(terminator,
+                                                terminator->getOperands());
+  }
+
+  LogicalResult matchAndRewrite(scf::IfOp ifOp,
+                                PatternRewriter &rewriter) const override {
+
+    Value pred;
+    Value condition = ifOp.getCondition();
+    Operation *defOp = condition.getDefiningOp();
+    if (defOp && dyn_cast<tensor::ExtractOp>(defOp)) {
+      pred = defOp->getOperand(0);
+    } else {
+      auto predType = RankedTensorType::get({}, condition.getType());
+      pred = rewriter.create<tensor::FromElementsOp>(ifOp->getLoc(), predType,
+                                                     condition);
+    }
+    auto mhloIfOp = rewriter.create<mhlo::IfOp>(ifOp->getLoc(),
+                                                ifOp->getResultTypes(), pred);
+    Region &thenRegion = ifOp.getThenRegion();
+    Region &trueRegion = mhloIfOp.getTrueBranch();
+    inlineSCFRegionIntoMhloRegion(rewriter, thenRegion, trueRegion);
+    Region &elseRegion = ifOp.getElseRegion();
+    Region &falseRegion = mhloIfOp.getFalseBranch();
+    inlineSCFRegionIntoMhloRegion(rewriter, elseRegion, falseRegion);
+    rewriter.replaceOp(ifOp, mhloIfOp->getResults());
+    return success();
+  }
+};
+
 void PopulateMhloLegalizeTfExtPatterns(MLIRContext *context,
                                        RewritePatternSet *patterns) {
   patterns->add(std::make_unique<ConvertStridedSliceOp>(context));
   patterns->add(std::make_unique<ConvertBatchMatMulV2Op>(context));
   patterns->add(std::make_unique<ConvertRoundOp>(context));
+  patterns->add(std::make_unique<ConvertTileOp>(context));
+  // patterns->add(std::make_unique<ConvertScfIfOp>(context));
 }
 
 struct MhloLegalizeTfExtPass

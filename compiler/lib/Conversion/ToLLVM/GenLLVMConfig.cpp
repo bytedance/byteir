@@ -18,6 +18,7 @@
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
+#include "byteir/Transforms/ShapeFuncOutlining.h"
 #include "byteir/Utils/FuncUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
@@ -48,7 +49,8 @@ struct GenLLVMConfigPass : public GenLLVMConfigBase<GenLLVMConfigPass> {
   void runOnOperation() override {
     func::FuncOp func = getOperation();
     if (func->hasAttr(getByteIRHloAggressiveFusionAttrName()) ||
-        func->hasAttr(getByteIRElementwiseFusionAttrName())) {
+        func->hasAttr(getByteIRElementwiseFusionAttrName()) ||
+        func->hasAttr(getByteIRShapeFuncAttrName())) {
       AttachLLVMConfigToAttr(func, this->fileName);
     }
   }
