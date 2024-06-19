@@ -136,6 +136,11 @@ static llvm::cl::opt<bool> set_assuming_to_be_true(
                    "and remove assuming"),
     llvm::cl::init(true));
 
+static llvm::cl::opt<bool> replace_where_to_static(
+    "replace-where-to-static",
+    llvm::cl::desc("replace where to static op in fuse tf ops pass"),
+    llvm::cl::init(false));
+
 int main(int argc, char **argv) {
   tensorflow::InitMlir y(&argc, &argv);
 
@@ -271,7 +276,7 @@ int main(int argc, char **argv) {
           customcall_ops_array, remove_control_flow, staticalize_dynamic_shape,
           stop_after_convert_to_tf_dialect, stop_after_rewrite_customcall,
           additional_main_func_attrs, set_assuming_to_be_true,
-          tfext_repeat_out_batch_size));
+          replace_where_to_static, tfext_repeat_out_batch_size));
   if (mlir::failed(tf_frontend_manager.run(*module))) {
     llvm::outs() << "tf frontend customized-tf-to-mhlo pipeline failed\n";
     return 1;
