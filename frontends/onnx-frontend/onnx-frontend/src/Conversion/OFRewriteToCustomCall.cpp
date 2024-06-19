@@ -110,7 +110,6 @@ Value createL2Norm(PatternRewriter &rewriter, Location loc, Value input,
   double epsilon =
       (*dyn_cast<ElementsAttr>(epsilon_attr).getValues<APFloat>().begin())
           .convertToDouble();
-  assert(0 < epsilon && epsilon < 1e-7 && "epsilon out of range for L2Norm");
 
   std::string call_target_name = getL2NormNameWithPrefix();
   stablehlo::CustomCallOp customCallOp =
@@ -173,7 +172,6 @@ Value createL2NormWithOutsideSqrtEps(PatternRewriter &rewriter, Location loc,
       onnx_mlir::getElementAttributeFromONNXValue(epsValue);
   double epsilon =
       (*epsilon_attr.getValues<APFloat>().begin()).convertToDouble();
-  assert(0 < epsilon && epsilon < 1e-7 && "epsilon out of range for L2Norm");
 
   std::string call_target_name = getL2NormNameWithPrefix();
   stablehlo::CustomCallOp customCallOp =
