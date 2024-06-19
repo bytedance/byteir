@@ -6,6 +6,7 @@ import transformers
 import torch.nn.functional as F
 import copy
 from typing import Dict, List
+import pytest
 
 def make_data(model, device):
     batch_size = 2
@@ -56,6 +57,7 @@ def trival_compile_fx(model_: torch.fx.GraphModule, inputs):
     module = aot_module(model_, fw_compiler=trival_compile_fx_inner)
     return module
 
+@pytest.mark.attention_rewriter
 def test_flash_attn_gpt2_pattern():
     torch.cuda.empty_cache()
     torch.manual_seed(0)
@@ -91,6 +93,7 @@ def test_flash_attn_gpt2_pattern():
     torch.testing.assert_close(golden_logits, flash_logits, atol=4e-3, rtol=1e-5)
 
 
+@pytest.mark.attention_rewriter
 def test_flash_attn_llama_pattern():
     torch.cuda.empty_cache()
     torch.manual_seed(0)
@@ -123,6 +126,7 @@ def test_flash_attn_llama_pattern():
     torch.testing.assert_close(golden_logits, flash_logits, atol=3e-2, rtol=1e-6)
 
 
+@pytest.mark.attention_rewriter
 def test_flash_attn_bloom_pattern():
     torch.cuda.empty_cache()
     torch.manual_seed(0)
@@ -156,6 +160,7 @@ def test_flash_attn_bloom_pattern():
     torch.testing.assert_close(golden_loss, flash_loss, atol=1e-3, rtol=1e-6)
 
 
+@pytest.mark.attention_rewriter
 def test_flash_attn_opt_pattern():
     torch.cuda.empty_cache()
     torch.manual_seed(0)
@@ -190,6 +195,7 @@ def test_flash_attn_opt_pattern():
     torch.testing.assert_close(golden_logits, flash_logits, atol=3e-3, rtol=1e-6)
 
 
+@pytest.mark.attention_rewriter
 def test_flash_attn_llama_inference_pattern():
     torch.cuda.empty_cache()
 
