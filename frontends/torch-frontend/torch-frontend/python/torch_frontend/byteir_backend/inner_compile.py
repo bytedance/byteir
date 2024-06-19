@@ -95,8 +95,7 @@ def inner_compile(gm: torch.fx.GraphModule,
             module = torch_frontend.compile_dynamo_model(
                 gm,
                 output_type="stablehlo",
-                backend_legal_ops=BACKEND_LEGAL_OPS,
-                debug=DebugType.PRINT_AFTER_FALIURE)
+                backend_legal_ops=BACKEND_LEGAL_OPS)
             with open(stablehlo_file, "w") as f:
                 print(module.operation.get_asm(), file=f)
         if not os.path.exists(byre_file):
