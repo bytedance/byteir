@@ -39,7 +39,7 @@ createGenericTransformInsertionPass(const TransformInsertionConfig &config);
 
 std::unique_ptr<OperationPass<ModuleOp>>
 createDetensorizeTransformInsertionPass(
-    const std::string &funcAnchor = "",
+    const bool usingVectorizeOp = false, const std::string &funcAnchor = "",
     const std::string &matchPrefix = "__byteir_detensorize");
 
 std::unique_ptr<OperationPass<ModuleOp>> createFuseExtTransformInsertionPass(

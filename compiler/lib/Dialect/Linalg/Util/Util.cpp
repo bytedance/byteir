@@ -102,7 +102,7 @@ ParseResult mlir::parseDstStyleOp(
 
   // Add result types.
   for (Type outputType : outputTypes) {
-    if (outputType.isa<RankedTensorType>())
+    if (isa<RankedTensorType>(outputType))
       result.addTypes(outputType);
   }
 
@@ -121,13 +121,13 @@ void mlir::getGenericEffectsImpl(
         &effects,
     ValueRange results, ValueRange inputs, ValueRange outputs) {
   for (auto input : inputs) {
-    if (!input.getType().isa<MemRefType>())
+    if (!isa<MemRefType>(input.getType()))
       continue;
     effects.emplace_back(MemoryEffects::Read::get(), input,
                          SideEffects::DefaultResource::get());
   }
   for (auto output : outputs) {
-    if (!output.getType().isa<MemRefType>())
+    if (!isa<MemRefType>(output.getType()))
       continue;
     effects.emplace_back(MemoryEffects::Read::get(), output,
                          SideEffects::DefaultResource::get());
@@ -234,7 +234,7 @@ FailureOr<TilingResult> mlir::commonGenerateResultTileValue(
   }
   for (const auto &resultExpr : llvm::enumerate(indexingMap.getResults())) {
     unsigned dimPosition =
-        resultExpr.value().cast<AffineDimExpr>().getPosition();
+        cast<AffineDimExpr>(resultExpr.value()).getPosition();
     iterationTileOffsets[dimPosition] = offsets[resultExpr.index()];
     iterationTileSizes[dimPosition] = sizes[resultExpr.index()];
   }
@@ -264,7 +264,7 @@ void mlir::fillStructuredOpRegion(OpBuilder &opBuilder, Region &region,
                                   TypeRange inputTypes, TypeRange outputTypes,
                                   ArrayRef<NamedAttribute> attrs,
                                   RegionBuilderFn regionBuilder) {
-  assert(llvm::all_of(outputTypes, [](Type t) { return t.isa<ShapedType>(); }));
+  assert(llvm::all_of(outputTypes, [](Type t) { return isa<ShapedType>(t); }));
 
   // TODO: atm all operands go through getElementTypeOrSelf,
   // reconsider when we have evidence we need to.

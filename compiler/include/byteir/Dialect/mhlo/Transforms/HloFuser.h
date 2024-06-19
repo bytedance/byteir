@@ -69,7 +69,7 @@ void populateFuseConvForwardPatterns(RewritePatternSet &patterns);
 void populateFuseConvBackwardPatterns(RewritePatternSet &patterns);
 
 // fuse Dot with transpose
-void populateDotTransposeFusionPattern(RewritePatternSet &patterns);
+void populateFuseTransposeIntoDotGeneralPattern(RewritePatternSet &patterns);
 
 // fuse BatchNorm with its IOConvert
 void populateIOConvertBatchNormPattern(RewritePatternSet &patterns);
@@ -84,7 +84,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> createConvBackwardFusionPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>> createConvForwardFusionPass();
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDotTransposeFusionPass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createFuseTransposeIntoDotGeneralPass();
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createCatFusionPass(bool aggressiveMode = false);

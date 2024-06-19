@@ -69,12 +69,12 @@ struct ConvertSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
     if (op.getCallTargetName() != getSoftmaxName())
       return failure();
     DictionaryAttr byteirAttrs =
-        op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
     if (!byteirAttrs)
       return failure();
-    auto axisAttr = byteirAttrs.get("axis").cast<IntegerAttr>();
-    auto resultTy = op.getResultTypes()[0].cast<ShapedType>();
-    auto inputTy = op.getOperands()[0].getType().cast<ShapedType>();
+    auto axisAttr = cast<IntegerAttr>(byteirAttrs.get("axis"));
+    auto resultTy = cast<ShapedType>(op.getResultTypes()[0]);
+    auto inputTy = cast<ShapedType>(op.getOperands()[0].getType());
     auto softmaxTy = resultTy;
     bool needConvert = resultTy.getElementType() != inputTy.getElementType();
     if (needConvert) {
@@ -102,7 +102,7 @@ struct ConvertLayerNorm : public OpRewritePattern<mhlo::CustomCallOp> {
     if (op.getCallTargetName() != getLayerNormName())
       return failure();
     DictionaryAttr byteirAttrs =
-        op->getAttr(getCustomCallAttrName()).cast<DictionaryAttr>();
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
     if (!byteirAttrs)
       return failure();
     if (op.getResults().size() > 1)
@@ -202,9 +202,9 @@ struct ConvertTransposeReshapeBmmRrrToBmmRcr
       return failure();
     }
     auto reshapeOperandShape =
-        reshapeOp.getOperand().getType().cast<ShapedType>().getShape();
+        cast<ShapedType>(reshapeOp.getOperand().getType()).getShape();
     auto reshapeResultShape =
-        reshapeOp.getResult().getType().cast<ShapedType>().getShape();
+        cast<ShapedType>(reshapeOp.getResult().getType()).getShape();
     if (reshapeResultShape.size() != 3) {
       return failure();
     }
@@ -254,9 +254,9 @@ struct ConvertBmmReshapeTransposeToBmmReshape
       return failure();
     }
     auto reshapeOperandShape =
-        reshapeOp.getOperand().getType().cast<ShapedType>().getShape();
+        cast<ShapedType>(reshapeOp.getOperand().getType()).getShape();
     auto reshapeResultShape =
-        reshapeOp.getResult().getType().cast<ShapedType>().getShape();
+        cast<ShapedType>(reshapeOp.getResult().getType()).getShape();
     if (reshapeOperandShape.size() != 3) {
       return failure();
     }
@@ -267,7 +267,7 @@ struct ConvertBmmReshapeTransposeToBmmReshape
       return failure();
     }
 
-    auto srcBmmOpType = srcBmmOp.getType().template cast<ShapedType>();
+    auto srcBmmOpType = cast<ShapedType>(srcBmmOp.getType());
     // build dst bmm op
     RankedTensorType dstBmmOpResultType = RankedTensorType::get(
         {srcBmmOpType.getDimSize(0), srcBmmOpType.getDimSize(2),
@@ -293,8 +293,8 @@ struct ConvertBmmRRRBroadcastToReshapeGemmRRRReshape
     if (!bCastOp) {
       return failure();
     }
-    auto lhsType = op.getLhs().getType().cast<ShapedType>();
-    auto rhsType = op.getRhs().getType().cast<ShapedType>();
+    auto lhsType = cast<ShapedType>(op.getLhs().getType());
+    auto rhsType = cast<ShapedType>(op.getRhs().getType());
     if (!lhsType.hasStaticShape() || !rhsType.hasStaticShape()) {
       return failure();
     }

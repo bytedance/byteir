@@ -68,10 +68,10 @@ void mlir::registerRealDynamicSliceInferReturnTypeComponents() {
           dimensions[i] =
               (limitIndices[i] - startIndices[i] + strides[i] - 1) / strides[i];
 
-        if (auto inputType = operands[0].getType().dyn_cast<ShapedType>()) {
+        if (auto inputType = dyn_cast<ShapedType>(operands[0].getType())) {
           auto outElement = inputType.getElementType();
           Type retType = RankedTensorType::get(dimensions, outElement);
-          inferredReturnTypes.push_back(retType.cast<ShapedType>());
+          inferredReturnTypes.push_back(cast<ShapedType>(retType));
           return success();
         }
 

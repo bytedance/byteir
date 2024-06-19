@@ -84,16 +84,14 @@ bool isFusibleCandidateAggressive(Operation *op) {
   if (isa<mhlo::ReshapeOp>(op))
     return true;
   if (auto constantOp = dyn_cast<mhlo::ConstantOp>(op)) {
-    auto elemTy = constantOp.getOutput()
-                      .getType()
-                      .cast<RankedTensorType>()
+    auto elemTy = cast<RankedTensorType>(constantOp.getOutput().getType())
                       .getElementType();
     auto width = elemTy.getIntOrFloatBitWidth();
     // only support int1/8/16/32/64, float32/64
-    if (elemTy.isa<IntegerType>())
+    if (isa<IntegerType>(elemTy))
       return width == 1 || width == 8 || width == 16 || width == 32 ||
              width == 64;
-    if (elemTy.isa<FloatType>())
+    if (isa<FloatType>(elemTy))
       return width == 32 || width == 64;
     return false;
   }

@@ -53,7 +53,7 @@ static LogicalResult promoteTensorValue(OpBuilder &b, mlir::Value val,
   // TODO: use placeType to support space and/or alloca
 
   // only support Tensor only
-  auto valType = val.getType().dyn_cast<TensorType>();
+  auto valType = dyn_cast<TensorType>(val.getType());
 
   if (!valType) {
     return failure();
@@ -66,7 +66,7 @@ static LogicalResult promoteTensorValue(OpBuilder &b, mlir::Value val,
   }
 
   // override DefiningOp init with an empty
-  auto opOperand = destOp.getTiedOpOperand(val.cast<OpResult>());
+  auto opOperand = destOp.getTiedOpOperand(cast<OpResult>(val));
   b.setInsertionPoint(destOp);
   // create an empty for overriding
   tensor::EmptyOp emptyOp = b.create<tensor::EmptyOp>(
@@ -100,7 +100,7 @@ static void dataPlaceImpl(OpBuilder &b, LinalgOp op) {
 
   if (auto arrayAttr = op->getAttrOfType<ArrayAttr>(getDataPlaceAttrName())) {
     for (auto attr : arrayAttr) {
-      if (auto intAttr = attr.dyn_cast<IntegerAttr>()) {
+      if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
         memSpaces.push_back(intAttr.getInt());
       } else {
         memSpaces.push_back(getUnplacedSpace());

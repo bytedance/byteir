@@ -9,6 +9,10 @@ while [[ $# -gt 0 ]]; do
       TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER=OFF
       shift
       ;;
+    --no-test)
+      TORCH_FRONTEND_TEST=OFF
+      shift
+      ;;
     *)
       echo "Invalid option: $1"
       exit 1
@@ -17,6 +21,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER:-ON}
+TORCH_FRONTEND_TEST=${TORCH_FRONTEND_TEST:-ON}
 
 # path to script
 CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -43,6 +48,8 @@ cmake -S . \
 
 cmake --build ./build --target all
 
-PYTHONPATH=build/python_packages/:build/torch_mlir_build/python_packages/torch_mlir python3 -m pytest torch-frontend/python/test
+if [[ $TORCH_FRONTEND_TEST == "ON" ]]; then
+  PYTHONPATH=build/python_packages/:build/torch_mlir_build/python_packages/torch_mlir python3 -m pytest torch-frontend/python/test
+fi
 
 popd

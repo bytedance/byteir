@@ -72,7 +72,7 @@ mlir::reshapeSplatElementsAttr(ElementsAttr attr,
 
 std::optional<ElementsAttr>
 mlir::reshapeSplatElementsAttr(ElementsAttr attr, ShapedType newShape) {
-  if (auto splat = attr.dyn_cast_or_null<SplatElementsAttr>()) {
+  if (auto splat = dyn_cast_or_null<SplatElementsAttr>(attr)) {
     return reshapeDenseElementsAttr(splat, newShape);
   }
   return std::nullopt;
@@ -102,11 +102,11 @@ std::optional<ElementsAttr> mlir::cloneSplatElementsAttr(ElementsAttr attr,
   if (!attr.isSplat())
     return std::nullopt;
 
-  if (attr.isa<DenseFPElementsAttr>()) {
+  if (isa<DenseFPElementsAttr>(attr)) {
     ElementsAttr ret =
         DenseElementsAttr::get(type, attr.getSplatValue<FloatAttr>());
     return ret;
-  } else if (attr.isa<DenseIntElementsAttr>()) {
+  } else if (isa<DenseIntElementsAttr>(attr)) {
     ElementsAttr ret =
         DenseElementsAttr::get(type, attr.getSplatValue<IntegerAttr>());
     return ret;

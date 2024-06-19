@@ -47,7 +47,7 @@ mlir::LogicalResult byteir::opCntStatistics(ModuleOp moduleOp,
   llvm::StringMap<std::set<std::string>> opInDTypes, opOutDTypes;
 
   auto collectTypes = [&](Type type, StringRef key, bool isOperand) {
-    if (auto shapedType = type.dyn_cast_or_null<ShapedType>()) {
+    if (auto shapedType = dyn_cast_or_null<ShapedType>(type)) {
       auto dtype = shapedType.getElementType();
       // type to string
       std::string typeStr;

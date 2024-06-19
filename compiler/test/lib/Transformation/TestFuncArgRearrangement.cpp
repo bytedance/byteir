@@ -68,35 +68,35 @@ static void createRearrange(SmallVector<RearrangeType> &rearrangeTys,
                             DictionaryAttr dict, StringRef key, unsigned size) {
   if (auto attr = dict.get(key)) {
 
-    if (auto arrOfArr = attr.dyn_cast<ArrayAttr>()) {
+    if (auto arrOfArr = dyn_cast<ArrayAttr>(attr)) {
 
       for (auto attr : arrOfArr) {
-        if (auto arr = attr.dyn_cast<ArrayAttr>()) {
+        if (auto arr = dyn_cast<ArrayAttr>(attr)) {
           // at least 2
           if (arr.size() < 2) {
             continue; // skip illegal
           }
 
-          if (auto kindStrAttr = arr[0].dyn_cast<StringAttr>()) {
+          if (auto kindStrAttr = dyn_cast<StringAttr>(arr[0])) {
             RearrangeType ty;
             if (kindStrAttr.str() == "pack") {
               ty.kind = RearrangeKind::kPack;
               for (unsigned i = 1; i < arr.size(); ++i) {
-                if (auto intAttr = arr[i].dyn_cast<IntegerAttr>()) {
+                if (auto intAttr = dyn_cast<IntegerAttr>(arr[i])) {
                   ty.ids.push_back(intAttr.getInt());
                 }
               }
             } else if (kindStrAttr.str() == "pack2d") {
               ty.kind = RearrangeKind::kPack2D;
               for (unsigned i = 1; i < arr.size(); ++i) {
-                if (auto intAttr = arr[i].dyn_cast<IntegerAttr>()) {
+                if (auto intAttr = dyn_cast<IntegerAttr>(arr[i])) {
                   ty.ids.push_back(intAttr.getInt());
                 }
               }
             } else {
               // identity
               ty.kind = RearrangeKind::kIdentity;
-              if (auto intAttr = arr[1].dyn_cast<IntegerAttr>()) {
+              if (auto intAttr = dyn_cast<IntegerAttr>(arr[1])) {
                 ty.ids.push_back(intAttr.getInt());
               } else {
                 ty.ids.push_back(0); // fallback
@@ -137,7 +137,7 @@ static bool checkAndComputeReverse(SmallVector<ReverseType> &reverseTys,
 static Type packLastInferType(ArrayRef<Type> types) {
   auto firstTy = types.front();
 
-  if (auto firstTensorTy = firstTy.dyn_cast<TensorType>()) {
+  if (auto firstTensorTy = dyn_cast<TensorType>(firstTy)) {
 
     auto firstShape = firstTensorTy.getShape();
 
@@ -148,7 +148,7 @@ static Type packLastInferType(ArrayRef<Type> types) {
     }
 
     for (unsigned i = 1; i < types.size(); ++i) {
-      if (auto tensorTy = types[i].dyn_cast<TensorType>()) {
+      if (auto tensorTy = dyn_cast<TensorType>(types[i])) {
         auto curShape = tensorTy.getShape();
 
         // check every shape except last
@@ -194,7 +194,7 @@ static TensorType reshape2DLast(TensorType tensorTy) {
 static Type reshapeAndPackLastInferType(ArrayRef<Type> types) {
   auto firstTy = types.front();
 
-  if (auto firstTensorTy = firstTy.dyn_cast<TensorType>()) {
+  if (auto firstTensorTy = dyn_cast<TensorType>(firstTy)) {
 
     auto reshapedFirstTy = reshape2DLast(firstTensorTy);
     if (reshapedFirstTy.getShape().back() == ShapedType::kDynamic) {
@@ -205,7 +205,7 @@ static Type reshapeAndPackLastInferType(ArrayRef<Type> types) {
                                    reshapedFirstTy.getShape().end());
 
     for (unsigned i = 1; i < types.size(); ++i) {
-      if (auto tensorTy = types[i].dyn_cast<TensorType>()) {
+      if (auto tensorTy = dyn_cast<TensorType>(types[i])) {
         auto reshapedCurTy = reshape2DLast(tensorTy);
         auto reshapedCurShape = reshapedCurTy.getShape();
 
@@ -280,7 +280,7 @@ static Value packArgs(OpBuilder &b, ArrayRef<unsigned> ids,
     args.push_back(values[id]);
   }
 
-  if (auto tensorTy = args.back().getType().dyn_cast<TensorType>()) {
+  if (auto tensorTy = dyn_cast<TensorType>(args.back().getType())) {
     auto rank = tensorTy.getRank();
     // only support last dim for now
     auto concat = b.create<mhlo::ConcatenateOp>(UnknownLoc::get(b.getContext()),
@@ -296,7 +296,7 @@ static Value reshapeAndPack2DArgs(OpBuilder &b, ArrayRef<unsigned> ids,
   SmallVector<Value> args;
   for (auto id : ids) {
     auto arg = values[id];
-    if (!arg.getType().isa<TensorType>()) {
+    if (!isa<TensorType>(arg.getType())) {
       return Value();
     }
     args.push_back(values[id]);
@@ -304,7 +304,7 @@ static Value reshapeAndPack2DArgs(OpBuilder &b, ArrayRef<unsigned> ids,
 
   SmallVector<Value> reshapedArgs;
   for (auto arg : args) {
-    auto argTensorTy = arg.getType().cast<TensorType>();
+    auto argTensorTy = cast<TensorType>(arg.getType());
     auto reshapedTensorTy = reshape2DLast(argTensorTy);
     auto reshape = b.create<mhlo::ReshapeOp>(UnknownLoc::get(b.getContext()),
                                              reshapedTensorTy, arg);
@@ -319,7 +319,7 @@ static Value reshapeAndPack2DArgs(OpBuilder &b, ArrayRef<unsigned> ids,
 static void setFixedDimOfShape(SmallVector<int64_t> &begins,
                                SmallVector<int64_t> &ends, Type ty,
                                bool hasReshape) {
-  if (auto tensorTy = ty.dyn_cast<TensorType>()) {
+  if (auto tensorTy = dyn_cast<TensorType>(ty)) {
     auto targetTy = hasReshape ? reshape2DLast(tensorTy) : tensorTy;
     for (unsigned i = 0; i < ends.size() - 1; ++i) {
       begins[i] = 0;
@@ -330,7 +330,7 @@ static void setFixedDimOfShape(SmallVector<int64_t> &begins,
 
 static void accumulateDimOfStaticShape(SmallVector<int64_t> &ends, Type ty,
                                        bool hasReshape) {
-  if (auto tensorTy = ty.dyn_cast<TensorType>()) {
+  if (auto tensorTy = dyn_cast<TensorType>(ty)) {
     auto targetTy = hasReshape ? reshape2DLast(tensorTy) : tensorTy;
     ends.back() += targetTy.getShape().back();
   }
@@ -357,7 +357,7 @@ static void computeBeginAndEndForUnPack(SmallVector<int64_t> &begins,
 static Value unPackArg(OpBuilder &b, ArrayRef<int64_t> begins,
                        ArrayRef<int64_t> ends, ArrayRef<int64_t> strides,
                        Value val) {
-  if (auto tesorTy = val.getType().dyn_cast<TensorType>()) {
+  if (auto tesorTy = dyn_cast<TensorType>(val.getType())) {
     auto indicesTy = RankedTensorType::get(tesorTy.getRank(), b.getI64Type());
     auto slice =
         b.create<mhlo::SliceOp>(UnknownLoc::get(b.getContext()), val,
@@ -463,7 +463,7 @@ public:
         auto newVal = newValues[p.second];
         SmallVector<int64_t> begins;
         SmallVector<int64_t> ends;
-        if (auto newTensorTy = newVal.getType().dyn_cast<TensorType>()) {
+        if (auto newTensorTy = dyn_cast<TensorType>(newVal.getType())) {
           auto rank = newTensorTy.getRank();
           bool hasReshape = p.first == RearrangeKind::kPack2D;
 
@@ -522,7 +522,7 @@ public:
         SmallVector<int64_t> begins;
         SmallVector<int64_t> ends;
 
-        if (auto newTensorTy = newVal.getType().dyn_cast<TensorType>()) {
+        if (auto newTensorTy = dyn_cast<TensorType>(newVal.getType())) {
           auto rank = newTensorTy.getRank();
           bool hasReshape = p.first == RearrangeKind::kPack2D;
 

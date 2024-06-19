@@ -32,7 +32,6 @@
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Dialect/mhlo/Transforms/HloMove.h"
 #include "byteir/Dialect/mhlo/Transforms/HloSimplify.h"
-#include "byteir/Dialect/mhlo/Transforms/HloTransposeDotToDotGeneral.h"
 #include "byteir/Dialect/mhlo/Transforms/InsertShapeConstraint.h"
 #include "byteir/Dialect/mhlo/Transforms/LayoutTransformation.h"
 #include "byteir/Dialect/mhlo/Transforms/MatmulLayoutTransform.h"

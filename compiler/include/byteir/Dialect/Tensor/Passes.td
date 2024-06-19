@@ -32,4 +32,17 @@ def TensorPadSpecialization : Pass<"tensor-pad-specialization", ""> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ExtractSliceSpecialization
+//===----------------------------------------------------------------------===//
+
+def ExtractSliceSpecialization : Pass<"extract-slice", ""> {
+  let summary = "Specialize for extract slice Op";
+  let constructor = "mlir::createExtractSliceSpecializationPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "linalg::LinalgDialect",
+  ];
+}
+
 #endif // BYTEIR_DIALECT_TENSOR_PASSES

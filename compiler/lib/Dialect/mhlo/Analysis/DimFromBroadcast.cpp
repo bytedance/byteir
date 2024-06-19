@@ -49,7 +49,7 @@ SmallVector<bool> reshapeHandleFlag(mhlo::ReshapeOp op, int64_t rank,
                                     DimFlagAnalysis *analysis) {
   SmallVector<bool> res(rank, false);
   Value inp = op.getOperand();
-  auto inpShapedType = inp.getType().dyn_cast<ShapedType>();
+  auto inpShapedType = dyn_cast<ShapedType>(inp.getType());
   if (!inpShapedType || !inpShapedType.hasRank()) {
     return res;
   }
@@ -95,7 +95,7 @@ SmallVector<bool> binaryElementwiseHandleFlag(Operation *op,
 } // namespace
 
 SmallVector<bool> DimFromBroadcast::compute(Value v) {
-  auto shapedType = v.getType().dyn_cast<ShapedType>();
+  auto shapedType = dyn_cast<ShapedType>(v.getType());
   if (!shapedType || !shapedType.hasRank()) {
     return SmallVector<bool>();
   }

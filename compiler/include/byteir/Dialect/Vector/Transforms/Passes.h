@@ -18,13 +18,20 @@
 #ifndef BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
 #define BYTEIR_DIALECT_VECTOR_TRANSFORMS_PASSES_H
 
+#include "byteir/Dialect/Vector/Transforms/MoveForallRegionIntoWarpOp.h"
+#include "byteir/Dialect/Vector/Transforms/VectorWarpDistribute.h"
 #include "mlir/Pass/Pass.h"
 #include <memory>
 
 namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
 /// Generate the code for registering transforms passes.
 #define GEN_PASS_DECL_VECTORTRANSPOSELOWERINGPASS
+#define GEN_PASS_DECL_MOVEFORALLREGIONINTOWARPOPPASS
+#define GEN_PASS_DECL_SCALARVECTORLOWERINGPASS
 #define GEN_PASS_REGISTRATION
 #include "byteir/Dialect/Vector/Transforms/Passes.h.inc"
 

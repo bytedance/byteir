@@ -20,26 +20,32 @@
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
-void registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
-                                   PDLConstraintFunction constraintFn);
+bool registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
+                                   PDLConstraintFunction constraintFn,
+                                   bool override);
 
 template <typename ConstraintFnT>
-void registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
-                                   ConstraintFnT &&constraintFn) {
-  registerPDLConstraintFunction(ctx, name,
-                                detail::pdl_function_builder::buildConstraintFn(
-                                    std::forward<ConstraintFnT>(constraintFn)));
+bool registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
+                                   ConstraintFnT &&constraintFn,
+                                   bool override) {
+  return registerPDLConstraintFunction(
+      ctx, name,
+      detail::pdl_function_builder::buildConstraintFn(
+          std::forward<ConstraintFnT>(constraintFn)),
+      override);
 }
 
-void registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
-                                PDLRewriteFunction rewriteFn);
+bool registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
+                                PDLRewriteFunction rewriteFn, bool override);
 
 template <typename RewriteFnT>
-void registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
-                                RewriteFnT &&rewriteFn) {
-  registerPDLRewriteFunction(ctx, name,
-                             detail::pdl_function_builder::buildRewriteFn(
-                                 std::forward<RewriteFnT>(rewriteFn)));
+bool registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
+                                RewriteFnT &&rewriteFn, bool override) {
+  return registerPDLRewriteFunction(
+      ctx, name,
+      detail::pdl_function_builder::buildRewriteFn(
+          std::forward<RewriteFnT>(rewriteFn)),
+      override);
 }
 
 void applyPDLPatternHooks(PDLPatternModule &pdlPattern);

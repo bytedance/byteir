@@ -23,5 +23,4 @@ namespace onnx_frontend {
 
 std::unique_ptr<mlir::Pass> createOFModifyEntryPointPass();
 
-}  // namespace onnx_frontend
-
+} // namespace onnx_frontend

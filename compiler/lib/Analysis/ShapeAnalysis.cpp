@@ -33,7 +33,7 @@ namespace shape_analysis {
 
 ValueKnowledge ValueKnowledge::getKnowledgeFromType(Type type) {
   ValueKnowledge result = getPessimisticValueState();
-  if (auto shapedType = type.dyn_cast_or_null<ShapedType>()) {
+  if (auto shapedType = dyn_cast_or_null<ShapedType>(type)) {
     if (shapedType.hasRank()) {
       result.hasRank = true;
       result.sizes.reserve(shapedType.getRank());
@@ -273,9 +273,9 @@ LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
     }
     if (knowledge) {
       for (auto &&resultType : op->getResultTypes()) {
-        if (auto shapedType = resultType.dyn_cast_or_null<ShapedType>()) {
+        if (auto shapedType = dyn_cast_or_null<ShapedType>(resultType)) {
           knowledge.dtype = shapedType.getElementType();
-          results.push_back(knowledge.getType().cast<ShapedType>());
+          results.push_back(cast<ShapedType>(knowledge.getType()));
         } else {
           results.push_back(ShapedTypeComponents{});
         }
@@ -318,7 +318,7 @@ LogicalResult ShapeAnalysis::inferResultShapesWithKnowledges(
             .succeeded()) {
       results.assign(llvm::to_vector(llvm::map_range(
           inferredType, [](mlir::Type t) -> ShapedTypeComponents {
-            if (auto st = t.dyn_cast_or_null<ShapedType>())
+            if (auto st = dyn_cast_or_null<ShapedType>(t))
               return st;
             return {};
           })));
@@ -394,14 +394,14 @@ void ShapeAnalysis::visitOperation(Operation *op,
       ShapeLattice *resultLattice = std::get<2>(it);
 
       Type resultTy = result.getType();
-      if (!resultTy.isa<ShapedType>()) {
+      if (!isa<ShapedType>(resultTy)) {
         setToEntryState(resultLattice);
         continue;
       }
 
       // Compute the knowledge based on the inferred type.
       auto inferredKnowledge = ValueKnowledge::getPessimisticValueState();
-      inferredKnowledge.dtype = resultTy.cast<ShapedType>().getElementType();
+      inferredKnowledge.dtype = cast<ShapedType>(resultTy).getElementType();
       inferredKnowledge.hasRank = predictedShape.hasRank();
       if (predictedShape.hasRank()) {
         for (auto dim : predictedShape.getDims()) {
@@ -464,12 +464,12 @@ void ShapeValueAnalysis::visitOperation(
           return;
         }
         auto inputType =
-            shapeLattice->getValue().getType().dyn_cast<RankedTensorType>();
+            dyn_cast<RankedTensorType>(shapeLattice->getValue().getType());
         if (!inputType || !inputType.hasStaticShape()) {
           return setAllToEntryStates(results);
         }
         auto shape = inputType.getShape();
-        auto outType = op->getResult(0).getType().dyn_cast<RankedTensorType>();
+        auto outType = dyn_cast<RankedTensorType>(op->getResult(0).getType());
         auto resultAttr = DenseIntElementsAttr::get(outType, shape);
         auto lattice = results[0];
         propagateIfChanged(lattice, lattice->join(ConstantValue(
@@ -487,13 +487,11 @@ void ShapeValueAnalysis::visitOperation(
           return;
         }
         Attribute constAttr = index->getValue().getConstantValue();
-        if (auto denseInt =
-                constAttr.dyn_cast_or_null<DenseIntElementsAttr>()) {
+        if (auto denseInt = dyn_cast_or_null<DenseIntElementsAttr>(constAttr)) {
 
-          auto newType = denseInt.getType().clone(cast<arith::IndexCastOp>(op)
-                                                      .getType()
-                                                      .cast<RankedTensorType>()
-                                                      .getElementType());
+          auto newType = denseInt.getType().clone(
+              cast<RankedTensorType>(cast<arith::IndexCastOp>(op).getType())
+                  .getElementType());
 
           SmallVector<APInt> newDenseInt;
           uint32_t width;
@@ -501,7 +499,7 @@ void ShapeValueAnalysis::visitOperation(
           if (elemType.isIntOrFloat()) {
             width = elemType.getIntOrFloatBitWidth();
           } else {
-            assert(elemType.isa<IndexType>());
+            assert(isa<IndexType>(elemType));
             width = IndexType::kInternalStorageBitWidth;
           }
 

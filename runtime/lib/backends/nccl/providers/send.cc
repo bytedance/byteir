@@ -58,7 +58,7 @@ common::Status Send::RunImpl(const ExecutionContext &ctx) {
       static_cast<CUDAWorkQueue *>(ctx.work_queue)->GetComputeStream();
   std::shared_ptr<DContext> d_context = std::make_shared<CudaContext>(stream);
   auto memref_type =
-      info_.GetOperation()->getOperand(0).getType().cast<mlir::MemRefType>();
+      cast<mlir::MemRefType>(info_.GetOperation()->getOperand(0).getType());
   nccl_backend->send(src, elem_num,
                      ConvertMLIRTypeToDType(memref_type.getElementType()), rank,
                      d_context);

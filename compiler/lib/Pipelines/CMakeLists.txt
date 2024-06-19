@@ -9,9 +9,10 @@ add_mlir_library(ByteIRPipelines
   ByreHost.cpp
   ByreOpt.cpp
   ByreTensorOpt.cpp
-  CatOpt.cpp
+  CatFusionOpt.cpp
   CatPreprocess.cpp
-  HloOpt.cpp
+  HloGraphOpt.cpp
+  HloFusionOpt.cpp
   LinalgMemrefOpt.cpp
   LinalgTensorOpt.cpp
   SCFOpt.cpp
@@ -30,6 +31,7 @@ add_mlir_library(ByteIRPipelines
   ByteIRMemRefPasses
   ByteIRTransforms
   ByteIRUtils
+  MLIRBufferTransforms
 
   LINK_LIBS PUBLIC
   ByteIRGPUPipelines
@@ -52,4 +54,5 @@ add_mlir_library(ByteIRPipelines
   ByteIRToByre
   ByteIRToGPU
   ByteIRToLinalg
+  MLIRBufferTransforms
 )

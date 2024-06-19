@@ -66,7 +66,7 @@ transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
 
     int64_t axis = static_cast<int64_t>(getAxis());
     Value oldResult = allReduceOp.getResult();
-    ShapedType oldResultType = oldResult.getType().cast<ShapedType>();
+    ShapedType oldResultType = cast<ShapedType>(oldResult.getType());
     if (!oldResultType.hasRank()) {
       DiagnosedSilenceableFailure diag =
           emitSilenceableError()
@@ -100,8 +100,8 @@ transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
         reduceScatterResultShape[axis] = oldShape[axis] / replicaSize;
     }
     TensorType reduceScatterResultType =
-        oldResult.getType().cast<RankedTensorType>().clone(
-            reduceScatterResultShape);
+        cast<RankedTensorType>(oldResult.getType())
+            .clone(reduceScatterResultShape);
 
     OpBuilder builder(target);
     ccl::ReduceScatterOp reduceScatterOp = builder.create<ccl::ReduceScatterOp>(
@@ -121,8 +121,8 @@ transform::DecomposeAllReduceOp::apply(TransformRewriter &rewriter,
     allGathers.push_back(allGatherOp);
   }
 
-  transformResults.set(getReduceScatter().cast<OpResult>(), reduceScatters);
-  transformResults.set(getAllGather().cast<OpResult>(), allGathers);
+  transformResults.set(cast<OpResult>(getReduceScatter()), reduceScatters);
+  transformResults.set(cast<OpResult>(getAllGather()), allGathers);
   return DiagnosedSilenceableFailure::success();
 }
 

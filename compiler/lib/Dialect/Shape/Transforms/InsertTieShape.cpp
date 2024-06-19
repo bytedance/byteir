@@ -34,7 +34,7 @@ struct InsertTieShapePass : public InsertTieShapeBase<InsertTieShapePass> {
     OpBuilder builder(funcOp);
 
     auto insertTie = [&](Value result) {
-      if (auto shape = result.getType().dyn_cast<RankedTensorType>()) {
+      if (auto shape = dyn_cast<RankedTensorType>(result.getType())) {
         if (!shape.hasStaticShape()) {
           SmallVector<Value> dims;
           for (int64_t i = 0; i < shape.getRank(); ++i) {

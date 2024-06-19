@@ -46,7 +46,7 @@ struct UnpackPublicFunctionReturnPass
       return;
     }
     bool hasListType = llvm::any_of(funcOp.getResultTypes(), [](Type ty) {
-      return ty.isa<Torch::ListType>();
+      return isa<Torch::ListType>(ty);
     });
     if (!hasListType) {
       return;
@@ -57,7 +57,7 @@ struct UnpackPublicFunctionReturnPass
     SmallVector<Value> newResults;
     SmallVector<Type> newResultTypes;
     for (auto operand : returnOp.getOperands()) {
-      if (operand.getType().isa<Torch::ListType>()) {
+      if (isa<Torch::ListType>(operand.getType())) {
         auto primListConstructOp =
             operand.getDefiningOp<Torch::PrimListConstructOp>();
         if (primListConstructOp) {

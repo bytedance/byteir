@@ -82,15 +82,17 @@ mlirPDLResultListEmplaceValues(MlirPDLResultListRef pdlResults,
                                MlirValue *values, intptr_t nvalues);
 
 // fn -> std::function<bool(std::vector<MlirPDLValue>)>
-MLIR_CAPI_EXPORTED void
-mlirRegisterPDLConstraintFn(MlirContext ctx, MlirStringRef name, void *pfn);
+MLIR_CAPI_EXPORTED bool mlirRegisterPDLConstraintFn(MlirContext ctx,
+                                                    MlirStringRef name,
+                                                    void *pfn, bool override);
 
 // fn -> std::function<bool(MlirOperation,
 //                          MlirPDLResultList,
 //                          std::vector<MlirPDLValue>,
 //                          std::function<void(MlirOperation)>)>
-MLIR_CAPI_EXPORTED void mlirRegisterPDLRewriteFn(MlirContext ctx,
-                                                 MlirStringRef name, void *pfn);
+MLIR_CAPI_EXPORTED bool mlirRegisterPDLRewriteFn(MlirContext ctx,
+                                                 MlirStringRef name, void *pfn,
+                                                 bool override);
 
 #ifdef __cplusplus
 }

@@ -107,7 +107,7 @@ struct TransposeMoveUpPattern : public HloMoveUpPattern<mhlo::TransposeOp> {
       IRMapping bvmTrans;
       bvmTrans.map(op.getOperand(), input);
       auto newTransType =
-          mixType(/*cloneFromElementType*/ input.getType().cast<ShapedType>(),
+          mixType(/*cloneFromElementType*/ cast<ShapedType>(input.getType()),
                   /*cloneFromShapes*/ op.getType());
       auto newTrans =
           cloneAndReplaceResultTypes(rewriter, op, bvmTrans, {newTransType});
@@ -189,7 +189,7 @@ struct ReshapeMoveUpPattern : public HloMoveUpPattern<mhlo::ReshapeOp> {
       bvmReshape.map(op.getOperand(), input);
 
       auto newReshapeType =
-          mixType(/*cloneFromElementType*/ input.getType().cast<ShapedType>(),
+          mixType(/*cloneFromElementType*/ cast<ShapedType>(input.getType()),
                   /*cloneFromShapes*/ op.getType());
 
       auto newReshape = cloneAndReplaceResultTypes(rewriter, op, bvmReshape,

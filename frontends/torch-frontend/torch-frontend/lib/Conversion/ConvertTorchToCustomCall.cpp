@@ -205,11 +205,11 @@ public:
     Value bias = adaptor.getBias();
     mlir::RankedTensorType weightBiasType =
         RankedTensorType::get(axisShape, outElementType);
-    if (weight.getType().template isa<Torch::NoneType>()) {
+    if (isa<Torch::NoneType>(weight.getType())) {
       weight = rewriter.create<stablehlo::ConstantOp>(
           op->getLoc(), getSplatFloatAttr(weightBiasType, 1.0));
     }
-    if (bias.getType().template isa<Torch::NoneType>()) {
+    if (isa<Torch::NoneType>(bias.getType())) {
       bias = rewriter.create<stablehlo::ConstantOp>(
           op->getLoc(), getSplatFloatAttr(weightBiasType, 0.0));
     }
@@ -610,7 +610,7 @@ public:
     Value input = adaptor.getSelf();
     auto inputType = cast<RankedTensorType>(input.getType());
     auto inputElemType = inputType.getElementType();
-    if (!inputElemType.isa<mlir::IntegerType>()) {
+    if (!isa<mlir::IntegerType>(inputElemType)) {
       return rewriter.notifyMatchFailure(op, "only int indices is allowed");
     }
     SmallVector<Value> bufferArgs({input});
@@ -734,10 +734,8 @@ public:
 
     SmallVector<Type> resultTypes;
     for (size_t i = 0; i < op.getNumResults(); i++) {
-      RankedTensorType resultType =
-          getTypeConverter()
-              ->convertType(op->getResult(i).getType())
-              .cast<RankedTensorType>();
+      RankedTensorType resultType = cast<RankedTensorType>(
+          getTypeConverter()->convertType(op->getResult(i).getType()));
       resultTypes.push_back(resultType);
     }
 
@@ -913,7 +911,7 @@ public:
     if (!matchPattern(op.getIgnoreIndex(), m_TorchConstantInt(&ignoreIndex)))
       return rewriter.notifyMatchFailure(op, "ignore_index must be constant");
 
-    if (!weight.getType().isa<mlir::torch::Torch::NoneType>())
+    if (!isa<mlir::torch::Torch::NoneType>(weight.getType()))
       return rewriter.notifyMatchFailure(
           op, "Unimplemented, the weight operand is not incorporated.");
 
@@ -1181,7 +1179,7 @@ public:
   matchAndRewrite(AtenNonzeroOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = input.getType().template cast<RankedTensorType>();
+    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (!resultType) {

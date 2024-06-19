@@ -21,9 +21,9 @@ from .framework import Test
 import torch
 
 # The global registry of tests.
-GLOBAL_TORCH_TEST_REGISTRY = []
+GLOBAL_TORCH_TEST_REGISTRY = {}
 # Ensure that there are no duplicate names in the global test registry.
-_SEEN_UNIQUE_NAMES = set()
+GLOBAL_TORCH_TEST_REGISTRY_NAMES = set()
 
 
 def register_test_case(module_factory: Callable[[], torch.nn.Module]):
@@ -34,18 +34,19 @@ def register_test_case(module_factory: Callable[[], torch.nn.Module]):
     test's `program_factory` is taken from `module_factory`, and the
     `program_invoker` is the decorated function.
     """
+
     def decorator(f):
         # Ensure that there are no duplicate names in the global test registry.
-        if f.__name__ in _SEEN_UNIQUE_NAMES:
+        if f.__name__ in GLOBAL_TORCH_TEST_REGISTRY_NAMES:
             raise Exception(
-                f"Duplicate test name: '{f.__name__}'. Please make sure that the function wrapped by `register_test_case` has a unique name.")
-        _SEEN_UNIQUE_NAMES.add(f.__name__)
+                f"Duplicate test name: '{f.__name__}'. Please make sure that the function wrapped by `register_test_case` has a unique name."
+            )
+        GLOBAL_TORCH_TEST_REGISTRY_NAMES.add(f.__name__)
 
         # Store the test in the registry.
-        GLOBAL_TORCH_TEST_REGISTRY.append(
-            Test(unique_name=f.__name__,
-                 program_factory=module_factory,
-                 program_invoker=f))
+        GLOBAL_TORCH_TEST_REGISTRY[f.__name__] = Test(
+            unique_name=f.__name__, program_factory=module_factory, program_invoker=f
+        )
         return f
 
     return decorator

@@ -57,7 +57,7 @@ static SmallVector<Value, 2> extractDynamicSizes(OpBuilder &b, Location loc,
                                                  Value tensor,
                                                  Value shape_tensor = nullptr,
                                                  AffineMap permutation = {}) {
-  auto tensor_type = tensor.getType().dyn_cast<RankedTensorType>();
+  auto tensor_type = dyn_cast<RankedTensorType>(tensor.getType());
   if (!tensor_type)
     return {};
   SmallVector<Value, 2> dynSizes(tensor_type.getRank());
@@ -115,7 +115,7 @@ public:
 
     // Find maximum rank / number of loops.
     auto getRank = [](Value v) {
-      return v.getType().cast<ShapedType>().getRank();
+      return cast<ShapedType>(v.getType()).getRank();
     };
 
     auto isScalar = [&](Value v) { return getRank(v) == 0; };
@@ -123,8 +123,7 @@ public:
     int64_t nloops = getRank(maxRankArg);
 
     // Find result type, if on tensors.
-    ShapedType resultTy =
-        op->getResultTypes().front().template dyn_cast<ShapedType>();
+    ShapedType resultTy = dyn_cast<ShapedType>(op->getResultTypes().front());
 
     // Find input/output values and types.
     auto loc = op.getLoc();
@@ -187,8 +186,8 @@ struct UnrealizedCastToLinalgPass
 
     target.addDynamicallyLegalOp<UnrealizedConversionCastOp>(
         [&](UnrealizedConversionCastOp op) {
-          return !(op.getOperand(0).getType().isa<TensorType>() &&
-                   op.getResult(0).getType().isa<TensorType>());
+          return !(isa<TensorType>(op.getOperand(0).getType()) &&
+                   isa<TensorType>(op.getResult(0).getType()));
         });
 
     populateUnrealizedCastToLinalgConversionPattern(patterns);

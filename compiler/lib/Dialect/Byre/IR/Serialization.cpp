@@ -158,9 +158,8 @@ Attribute mappingAttrFrom(Attribute attr) {
   if (auto dictAttr = llvm::dyn_cast<DictionaryV1Attr>(attr)) {
     llvm::SmallVector<NamedAttribute> attrs;
     for (auto p : dictAttr.getValue()) {
-      attrs.push_back(
-          NamedAttribute(mappingAttrFrom(p.first).cast<StringAttr>(),
-                         mappingAttrFrom(p.second)));
+      attrs.push_back(NamedAttribute(cast<StringAttr>(mappingAttrFrom(p.first)),
+                                     mappingAttrFrom(p.second)));
     }
     return DictionaryAttr::get(ctx, attrs);
   }
@@ -172,23 +171,23 @@ Attribute mappingAttrFrom(Attribute attr) {
   }
   if (auto symbolRefAttr = llvm::dyn_cast<SymbolRefV1Attr>(attr)) {
     mlir::StringAttr rootReferences =
-        mappingAttrFrom(symbolRefAttr.getRootReference()).cast<StringAttr>();
+        cast<StringAttr>(mappingAttrFrom(symbolRefAttr.getRootReference()));
     llvm::SmallVector<mlir::FlatSymbolRefAttr> nestedReferences;
     for (auto i : symbolRefAttr.getNestedReferences()) {
       nestedReferences.push_back(
-          SymbolRefAttr::get(mappingAttrFrom(i).cast<StringAttr>()));
+          SymbolRefAttr::get(cast<StringAttr>(mappingAttrFrom(i))));
     }
     return SymbolRefAttr::get(ctx, rootReferences, nestedReferences);
   }
   if (auto tensorAttr = llvm::dyn_cast<DenseIntOrFPElementsV1Attr>(attr)) {
     auto rankedTensorType =
-        mappingTypeFrom(tensorAttr.getType()).cast<RankedTensorType>();
+        cast<RankedTensorType>(mappingTypeFrom(tensorAttr.getType()));
     return DenseIntOrFPElementsAttr::getFromRawBuffer(rankedTensorType,
                                                       tensorAttr.getData());
   }
   if (auto denseStringAttr = llvm::dyn_cast<DenseStringElementsV1Attr>(attr)) {
     return DenseStringElementsAttr::get(
-        mappingTypeFrom(denseStringAttr.getType()).cast<ShapedType>(),
+        cast<ShapedType>(mappingTypeFrom(denseStringAttr.getType())),
         denseStringAttr.getValue());
   }
   if (auto denseArrayAttr = llvm::dyn_cast<DenseArrayV1Attr>(attr)) {
@@ -496,8 +495,7 @@ LogicalResult replaceByreSerialWithByreImpl(FuncOpV1 func) {
   if (auto entryFuncArgAliasIndexs =
           newFunc->getAttrOfType<ArrayAttr>("byre_arg_alias_indexs")) {
     for (size_t i = 0; i < entryFuncArgAliasIndexs.size(); i += 2) {
-      newFunc.setArgAttr(entryFuncArgAliasIndexs[i]
-                             .cast<IntegerAttr>()
+      newFunc.setArgAttr(cast<IntegerAttr>(entryFuncArgAliasIndexs[i])
                              .getValue()
                              .getSExtValue(),
                          ByreDialect::getEntryPointFuncArgAliasIndexAttrName(),
@@ -630,7 +628,7 @@ Type mlir::byre::mappingTypeTo(Type type) {
     return type;
 
   auto ctx = type.getContext();
-  if (auto concreteType = type.dyn_cast<IntegerType>()) {
+  if (auto concreteType = dyn_cast<IntegerType>(type)) {
     if (!concreteType.isSignless() && !concreteType.isUnsigned())
       return {};
 
@@ -640,66 +638,66 @@ Type mlir::byre::mappingTypeTo(Type type) {
     bool isSignless = concreteType.isSignless();
     switch (concreteType.getWidth()) {
     case 4:
-      return isSignless ? IntegerI4V1Type::get(ctx).cast<Type>()
-                        : IntegerUI4V1Type::get(ctx).cast<Type>();
+      return isSignless ? cast<Type>(IntegerI4V1Type::get(ctx))
+                        : cast<Type>(IntegerUI4V1Type::get(ctx));
     case 8:
-      return isSignless ? IntegerI8V1Type::get(ctx).cast<Type>()
-                        : IntegerUI8V1Type::get(ctx).cast<Type>();
+      return isSignless ? cast<Type>(IntegerI8V1Type::get(ctx))
+                        : cast<Type>(IntegerUI8V1Type::get(ctx));
     case 16:
-      return isSignless ? IntegerI16V1Type::get(ctx).cast<Type>()
-                        : IntegerUI16V1Type::get(ctx).cast<Type>();
+      return isSignless ? cast<Type>(IntegerI16V1Type::get(ctx))
+                        : cast<Type>(IntegerUI16V1Type::get(ctx));
     case 32:
-      return isSignless ? IntegerI32V1Type::get(ctx).cast<Type>()
-                        : IntegerUI32V1Type::get(ctx).cast<Type>();
+      return isSignless ? cast<Type>(IntegerI32V1Type::get(ctx))
+                        : cast<Type>(IntegerUI32V1Type::get(ctx));
     case 64:
-      return isSignless ? IntegerI64V1Type::get(ctx).cast<Type>()
-                        : IntegerUI64V1Type::get(ctx).cast<Type>();
+      return isSignless ? cast<Type>(IntegerI64V1Type::get(ctx))
+                        : cast<Type>(IntegerUI64V1Type::get(ctx));
     }
   }
 
-  if (auto concreteType = type.dyn_cast<IndexType>()) {
+  if (auto concreteType = dyn_cast<IndexType>(type)) {
     return IndexV1Type::get(ctx);
   }
 
-  if (auto concreteType = type.dyn_cast<FloatType>()) {
-    if (concreteType.isa<BFloat16Type>())
+  if (auto concreteType = dyn_cast<FloatType>(type)) {
+    if (isa<BFloat16Type>(concreteType))
       return FloatBF16V1Type::get(ctx);
-    if (concreteType.isa<Float16Type>())
+    if (isa<Float16Type>(concreteType))
       return FloatF16V1Type::get(ctx);
-    if (concreteType.isa<Float32Type>())
+    if (isa<Float32Type>(concreteType))
       return FloatF32V1Type::get(ctx);
-    if (concreteType.isa<Float64Type>())
+    if (isa<Float64Type>(concreteType))
       return FloatF64V1Type::get(ctx);
-    if (concreteType.isa<Float8E4M3FNType>())
+    if (isa<Float8E4M3FNType>(concreteType))
       return FloatF8E4M3FNV1Type::get(ctx);
-    if (concreteType.isa<Float8E5M2Type>())
+    if (isa<Float8E5M2Type>(concreteType))
       return FloatF8E5M2V1Type::get(ctx);
-    if (concreteType.isa<Float8E4M3FNUZType>())
+    if (isa<Float8E4M3FNUZType>(concreteType))
       return FloatF8E4M3FNUZV1Type::get(ctx);
-    if (concreteType.isa<Float8E5M2FNUZType>())
+    if (isa<Float8E5M2FNUZType>(concreteType))
       return FloatF8E5M2FNUZV1Type::get(ctx);
-    if (concreteType.isa<Float8E4M3B11FNUZType>())
+    if (isa<Float8E4M3B11FNUZType>(concreteType))
       return FloatF8E4M3B11FNUZV1Type::get(ctx);
   }
 
-  if (auto concreteType = type.dyn_cast<ace::StringType>()) {
+  if (auto concreteType = dyn_cast<ace::StringType>(type)) {
     return StringV1Type::get(ctx);
   }
 
-  if (auto concreteType = type.dyn_cast<MemRefType>()) {
+  if (auto concreteType = dyn_cast<MemRefType>(type)) {
     // TODO: support layout
     return MemrefV1Type::get(ctx, concreteType.getShape(),
                              mappingTypeTo(concreteType.getElementType()),
                              mappingAttrTo(concreteType.getMemorySpace()));
   }
 
-  if (auto concreteType = type.dyn_cast<RankedTensorType>()) {
+  if (auto concreteType = dyn_cast<RankedTensorType>(type)) {
     return RankedTensorV1Type::get(ctx, concreteType.getShape(),
                                    mappingTypeTo(concreteType.getElementType()),
                                    mappingAttrTo(concreteType.getEncoding()));
   }
 
-  if (auto concreteType = type.dyn_cast<FunctionType>()) {
+  if (auto concreteType = dyn_cast<FunctionType>(type)) {
     llvm::SmallVector<Type> inputs, outputs;
     for (auto i : concreteType.getInputs()) {
       inputs.push_back(mappingTypeTo(i));
@@ -717,55 +715,55 @@ Type mlir::byre::mappingTypeFrom(Type type) {
     return {};
 
   auto ctx = type.getContext();
-  if (type.isa<BooleanV1Type>())
+  if (isa<BooleanV1Type>(type))
     return IntegerType::get(ctx, 1);
-  if (type.isa<IntegerI4V1Type>())
+  if (isa<IntegerI4V1Type>(type))
     return IntegerType::get(ctx, 4);
-  if (type.isa<IntegerUI4V1Type>())
+  if (isa<IntegerUI4V1Type>(type))
     return IntegerType::get(ctx, 4, IntegerType::Unsigned);
-  if (type.isa<IntegerI8V1Type>())
+  if (isa<IntegerI8V1Type>(type))
     return IntegerType::get(ctx, 8);
-  if (type.isa<IntegerUI8V1Type>())
+  if (isa<IntegerUI8V1Type>(type))
     return IntegerType::get(ctx, 8, IntegerType::Unsigned);
-  if (type.isa<IntegerI16V1Type>())
+  if (isa<IntegerI16V1Type>(type))
     return IntegerType::get(ctx, 16);
-  if (type.isa<IntegerUI16V1Type>())
+  if (isa<IntegerUI16V1Type>(type))
     return IntegerType::get(ctx, 16, IntegerType::Unsigned);
-  if (type.isa<IntegerI32V1Type>())
+  if (isa<IntegerI32V1Type>(type))
     return IntegerType::get(ctx, 32);
-  if (type.isa<IntegerUI32V1Type>())
+  if (isa<IntegerUI32V1Type>(type))
     return IntegerType::get(ctx, 32, IntegerType::Unsigned);
-  if (type.isa<IntegerI64V1Type>())
+  if (isa<IntegerI64V1Type>(type))
     return IntegerType::get(ctx, 64);
-  if (type.isa<IntegerUI64V1Type>())
+  if (isa<IntegerUI64V1Type>(type))
     return IntegerType::get(ctx, 64, IntegerType::Unsigned);
 
-  if (type.isa<IndexV1Type>())
+  if (isa<IndexV1Type>(type))
     return IndexType::get(ctx);
 
-  if (type.isa<FloatBF16V1Type>())
+  if (isa<FloatBF16V1Type>(type))
     return BFloat16Type::get(ctx);
-  if (type.isa<FloatF16V1Type>())
+  if (isa<FloatF16V1Type>(type))
     return Float16Type::get(ctx);
-  if (type.isa<FloatF32V1Type>())
+  if (isa<FloatF32V1Type>(type))
     return Float32Type::get(ctx);
-  if (type.isa<FloatF64V1Type>())
+  if (isa<FloatF64V1Type>(type))
     return Float64Type::get(ctx);
-  if (type.isa<FloatF8E4M3FNV1Type>())
+  if (isa<FloatF8E4M3FNV1Type>(type))
     return Float8E4M3FNType::get(ctx);
-  if (type.isa<FloatF8E5M2V1Type>())
+  if (isa<FloatF8E5M2V1Type>(type))
     return Float8E5M2Type::get(ctx);
-  if (type.isa<FloatF8E4M3FNUZV1Type>())
+  if (isa<FloatF8E4M3FNUZV1Type>(type))
     return Float8E4M3FNUZType::get(ctx);
-  if (type.isa<FloatF8E5M2FNUZV1Type>())
+  if (isa<FloatF8E5M2FNUZV1Type>(type))
     return Float8E5M2FNUZType::get(ctx);
-  if (type.isa<FloatF8E4M3B11FNUZV1Type>())
+  if (isa<FloatF8E4M3B11FNUZV1Type>(type))
     return Float8E4M3B11FNUZType::get(ctx);
 
-  if (type.isa<StringV1Type>())
+  if (isa<StringV1Type>(type))
     return ace::StringType::get(ctx);
 
-  if (auto concreteType = type.dyn_cast<MemrefV1Type>()) {
+  if (auto concreteType = dyn_cast<MemrefV1Type>(type)) {
     // TODO: support layout
     return MemRefType::get(concreteType.getShape(),
                            mappingTypeFrom(concreteType.getElementType()),
@@ -773,13 +771,13 @@ Type mlir::byre::mappingTypeFrom(Type type) {
                            mappingAttrFrom(concreteType.getMemorySpace()));
   }
 
-  if (auto concreteType = type.dyn_cast<RankedTensorV1Type>()) {
+  if (auto concreteType = dyn_cast<RankedTensorV1Type>(type)) {
     return RankedTensorType::get(concreteType.getShape(),
                                  mappingTypeFrom(concreteType.getElementType()),
                                  mappingAttrFrom(concreteType.getEncoding()));
   }
 
-  if (auto concreteType = type.dyn_cast<FunctionV1Type>()) {
+  if (auto concreteType = dyn_cast<FunctionV1Type>(type)) {
     llvm::SmallVector<Type> inputs, outputs;
     for (auto i : concreteType.getInputs()) {
       inputs.push_back(mappingTypeFrom(i));

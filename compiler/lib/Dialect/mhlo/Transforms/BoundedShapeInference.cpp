@@ -51,7 +51,7 @@ LogicalResult constructNewArgumentTypes(func::FuncOp funcOp,
   for (unsigned i = 0; i < funcOp.getNumArguments(); ++i) {
     Type origType = funcOp.getArgumentTypes()[i];
 
-    auto origRankedType = origType.dyn_cast<RankedTensorType>();
+    auto origRankedType = dyn_cast<RankedTensorType>(origType);
     if (!origRankedType) {
       LLVM_DEBUG(llvm::dbgs()
                  << "Argument " << i << "is not of type RankedTensorType.\n");
@@ -136,7 +136,7 @@ struct BoundedShapeInferencePass
 
       funcOp->walk([&](Operation *op) {
         for (auto &&it : op->getResults()) {
-          auto originalType = it.getType().dyn_cast<ShapedType>();
+          auto originalType = dyn_cast<ShapedType>(it.getType());
           if (!originalType || originalType.hasStaticShape())
             continue;
 
@@ -144,14 +144,14 @@ struct BoundedShapeInferencePass
           if (auto *lattice = solver.lookupState<ShapeLattice>(it)) {
             if (!lattice->getValue().isUninitialized()) {
               assert(lattice->getValue().getType());
-              newType = lattice->getValue().getType().dyn_cast<ShapedType>();
+              newType = dyn_cast<ShapedType>(lattice->getValue().getType());
             }
           }
 
           if (!newType || !newType.hasRank())
             continue;
 
-          auto tx = it.getType().dyn_cast<RankedTensorType>();
+          auto tx = dyn_cast<RankedTensorType>(it.getType());
 
           ArrayRef<int64_t> shape = newType.getShape();
           OpBuilder builder(op);

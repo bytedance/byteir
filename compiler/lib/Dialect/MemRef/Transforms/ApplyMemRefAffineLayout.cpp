@@ -43,7 +43,7 @@ void applyAffineLayout(OpBuilder &b, ArrayRef<Operation *> collector) {
       if (layoutRegistry.registry.count(layoutName) == 0)
         return;
 
-      auto firstMemref = op->getResult(0).getType().dyn_cast<MemRefType>();
+      auto firstMemref = dyn_cast<MemRefType>(op->getResult(0).getType());
       auto maybeAttrMap = layoutRegistry.registry[layoutName].createAffineMap(
           b.getContext(), firstMemref);
 
@@ -56,7 +56,7 @@ void applyAffineLayout(OpBuilder &b, ArrayRef<Operation *> collector) {
 
       for (unsigned i = 0; i < op->getNumResults(); ++i) {
         if (auto memref =
-                cloned->getResult(i).getType().dyn_cast<MemRefType>()) {
+                dyn_cast<MemRefType>(cloned->getResult(i).getType())) {
           MemRefType newMemref =
               MemRefType::get(memref.getShape(), memref.getElementType(),
                               *maybeAttrMap, memref.getMemorySpaceAsInt());
@@ -76,7 +76,7 @@ void applyAffineLayout(OpBuilder &b, ArrayRef<Operation *> collector) {
 
       for (unsigned i = 0; i < op->getNumResults(); ++i) {
         if (auto memref =
-                cloned->getResult(i).getType().dyn_cast<MemRefType>()) {
+                dyn_cast<MemRefType>(cloned->getResult(i).getType())) {
           MemRefType newMemref =
               MemRefType::get(memref.getShape(), memref.getElementType(),
                               affMap, memref.getMemorySpaceAsInt());

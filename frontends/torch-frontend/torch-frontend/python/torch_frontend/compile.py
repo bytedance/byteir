@@ -49,7 +49,7 @@ NOT_DECOMPOSE_OPS = [
 
 class DebugType(Enum):
     NO_DEBUG = 0
-    PRINT_AFTER_FALIURE = 1
+    PRINT_AFTER_FAILURE = 1
     PRINT_AFTER_ONLY_CHANGE = 2
 
 
@@ -58,7 +58,7 @@ def _get_debug_parameters(debug: DebugType):
     # note: if you want to set `print_module_scope = True``,
     # you should set `module.context.enable_multithreading(False)`
     debug_parameters = {}
-    if debug == DebugType.PRINT_AFTER_FALIURE:
+    if debug == DebugType.PRINT_AFTER_FAILURE:
         debug_parameters = {
             "print_before_pass": False,
             "print_after_pass": True,

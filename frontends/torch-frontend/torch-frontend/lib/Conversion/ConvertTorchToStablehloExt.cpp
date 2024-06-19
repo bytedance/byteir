@@ -227,15 +227,14 @@ struct ConvertAtenMaxPool2dWithIndicesBackwardOp
     // Constant zero
     auto constType = RankedTensorType::get({}, inputElemTy);
     Value initVal;
-    if (inputElemTy.isa<mlir::FloatType>()) {
+    if (isa<mlir::FloatType>(inputElemTy)) {
       auto constAttr = DenseElementsAttr::get(
-          constType,
-          {APFloat::getZero(
-              inputElemTy.cast<mlir::FloatType>().getFloatSemantics(),
-              /*negative=*/false)});
+          constType, {APFloat::getZero(
+                         cast<mlir::FloatType>(inputElemTy).getFloatSemantics(),
+                         /*negative=*/false)});
       initVal = rewriter.create<stablehlo::ConstantOp>(op->getLoc(), constType,
                                                        constAttr);
-    } else if (inputElemTy.isa<mlir::IntegerType>() &&
+    } else if (isa<mlir::IntegerType>(inputElemTy) &&
                inputElemTy.getIntOrFloatBitWidth() != 8) {
       auto constAttr = DenseElementsAttr::get(
           constType, {APInt::getZero(inputElemTy.getIntOrFloatBitWidth())});

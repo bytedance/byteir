@@ -104,8 +104,8 @@ struct ComposeSubViewOfView : public OpRewritePattern<memref::SubViewOp> {
     // Because we only support input strides of 1, the output stride is also
     // always 1.
     if (llvm::all_of(strides, [](OpFoldResult &valueOrAttr) {
-          Attribute attr = valueOrAttr.dyn_cast<Attribute>();
-          return attr && attr.cast<IntegerAttr>().getInt() == 1;
+          Attribute attr = dyn_cast<Attribute>(valueOrAttr);
+          return attr && cast<IntegerAttr>(attr).getInt() == 1;
         })) {
     } else {
       return failure();
@@ -118,8 +118,8 @@ struct ComposeSubViewOfView : public OpRewritePattern<memref::SubViewOp> {
       if (opOffset.is<Value>()) {
         return failure();
       }
-      Attribute opOffsetAttr = opOffset.dyn_cast<Attribute>();
-      offsets.push_back(opOffsetAttr.cast<IntegerAttr>().getInt());
+      Attribute opOffsetAttr = dyn_cast<Attribute>(opOffset);
+      offsets.push_back(cast<IntegerAttr>(opOffsetAttr).getInt());
     }
 
     auto maybeInt = getLinearizeOffset(offsets, srcView.getType().getShape());
@@ -226,31 +226,31 @@ struct ComposeSubViewOfSubView : public OpRewritePattern<memref::SubViewOp> {
         return failure();
       }
       auto sourceStrideInt =
-          sourceStride.dyn_cast<Attribute>().cast<IntegerAttr>().getInt();
+          cast<IntegerAttr>(dyn_cast<Attribute>(sourceStride)).getInt();
       auto opStrideInt =
-          opStride.dyn_cast<Attribute>().cast<IntegerAttr>().getInt();
+          cast<IntegerAttr>(dyn_cast<Attribute>(opStride)).getInt();
 
       sizes.push_back(opSize);
       strides.push_back(
           rewriter.getI64IntegerAttr(sourceStrideInt * opStrideInt));
-      Attribute opOffsetAttr = opOffset.dyn_cast<Attribute>(),
-                sourceOffsetAttr = sourceOffset.dyn_cast<Attribute>();
+      Attribute opOffsetAttr = dyn_cast<Attribute>(opOffset),
+                sourceOffsetAttr = dyn_cast<Attribute>(sourceOffset);
 
       if (opOffsetAttr && sourceOffsetAttr) {
         // If both offsets are static we can simply calculate the combined
         // offset statically.
         offsets.push_back(rewriter.getI64IntegerAttr(
-            opOffsetAttr.cast<IntegerAttr>().getInt() * sourceStrideInt +
-            sourceOffsetAttr.cast<IntegerAttr>().getInt()));
+            cast<IntegerAttr>(opOffsetAttr).getInt() * sourceStrideInt +
+            cast<IntegerAttr>(sourceOffsetAttr).getInt()));
       } else {
         // When either offset is dynamic, we must emit an additional affine
         // transformation to add the two offsets together dynamically.
         SmallVector<Value> affineApplyOperands;
         auto getExpr = [&affineApplyOperands,
                         &rewriter](OpFoldResult attrOrValue) {
-          if (auto attr = attrOrValue.dyn_cast<Attribute>()) {
+          if (auto attr = dyn_cast<Attribute>(attrOrValue)) {
             return rewriter.getAffineConstantExpr(
-                attr.cast<IntegerAttr>().getInt());
+                cast<IntegerAttr>(attr).getInt());
           } else {
             auto ret = rewriter.getAffineSymbolExpr(affineApplyOperands.size());
             affineApplyOperands.push_back(attrOrValue.get<Value>());

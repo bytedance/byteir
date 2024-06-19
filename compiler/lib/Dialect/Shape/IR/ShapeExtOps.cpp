@@ -46,7 +46,7 @@ struct TieWithConst : public OpRewritePattern<shape_ext::TieOp> {
   LogicalResult matchAndRewrite(shape_ext::TieOp op,
                                 PatternRewriter &rewriter) const override {
     Value value = op.getValue();
-    RankedTensorType shapeType = value.getType().cast<RankedTensorType>();
+    RankedTensorType shapeType = cast<RankedTensorType>(value.getType());
     SmallVector<int64_t> shape = llvm::to_vector(shapeType.getShape());
     auto dims = op.getDims();
     SmallVector<Value> keepedDims;
@@ -100,7 +100,7 @@ void mlir::shape_ext::TieOp::getCanonicalizationPatterns(
 }
 
 LogicalResult mlir::shape_ext::TieOp::verify() {
-  auto rankedTensorType = getValue().getType().dyn_cast<RankedTensorType>();
+  auto rankedTensorType = dyn_cast<RankedTensorType>(getValue().getType());
   if (!rankedTensorType)
     return emitError() << "The value's type should be RankedTensorType";
   auto numDynShape =

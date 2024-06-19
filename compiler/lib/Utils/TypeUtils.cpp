@@ -29,7 +29,7 @@ RankedTensorType mlir::appendTensorEncodingAttr(RankedTensorType origin,
     return origin;
   }
   llvm::SmallVector<NamedAttribute> originAttrs;
-  if (auto dict = origin.getEncoding().dyn_cast_or_null<DictionaryAttr>()) {
+  if (auto dict = dyn_cast_or_null<DictionaryAttr>(origin.getEncoding())) {
     // copy origin type's encoding with DictionaryAttr
     originAttrs = llvm::to_vector(dict.getValue());
   }

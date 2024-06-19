@@ -37,9 +37,9 @@ LogicalResult constantFoldingWhereOp(Operation *op) {
   if (!const_input) {
     return failure();
   }
-  auto input_attr = const_input.getValue().cast<DenseElementsAttr>();
+  auto input_attr = cast<DenseElementsAttr>(const_input.getValue());
   auto input_type = input_attr.getType();
-  auto output_type = whereOp.getType().cast<RankedTensorType>();
+  auto output_type = cast<RankedTensorType>(whereOp.getType());
   if (input_type.getElementType().isInteger(1) &&
       output_type.getElementType().isInteger(64)) {
     // TODO(liuyuanqiang): add multi-rank support

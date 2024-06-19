@@ -38,7 +38,7 @@ struct ConstOpInterface
 
     // Allocate outputs.
     auto output = constOp.getOutput();
-    auto tensorType = output.getType().cast<RankedTensorType>();
+    auto tensorType = cast<RankedTensorType>(output.getType());
     if (!tensorType)
       return failure();
     // don't dealloc constant, alawys mark as escaped
@@ -83,7 +83,7 @@ struct CustomCallOpInterface
     // Bufferize arguments.
     SmallVector<Value> bufferArgs;
     for (OpOperand &operand : customCallOp->getOpOperands()) {
-      if (!operand.get().getType().isa<TensorType>())
+      if (!isa<TensorType>(operand.get().getType()))
         return failure();
       FailureOr<Value> operandBuffer =
           getBuffer(rewriter, operand.get(), options);
@@ -94,7 +94,7 @@ struct CustomCallOpInterface
 
     // Allocate outputs.
     for (OpResult result : customCallOp->getOpResults()) {
-      auto tensorType = result.getType().cast<RankedTensorType>();
+      auto tensorType = cast<RankedTensorType>(result.getType());
       if (!tensorType)
         return failure();
       AnalysisState analysisState(options);

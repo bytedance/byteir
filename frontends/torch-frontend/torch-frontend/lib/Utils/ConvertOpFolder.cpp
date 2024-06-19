@@ -40,8 +40,8 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
   bool isOldTypeUnsigned = oldType.isInteger(1) || oldType.isUnsignedInteger();
   bool isNewTypeUnsigned = newType.isInteger(1) || newType.isUnsignedInteger();
 
-  if (oldType.isa<mlir::FloatType>()) {
-    if (auto newFloatType = newType.dyn_cast<mlir::FloatType>()) {
+  if (isa<mlir::FloatType>(oldType)) {
+    if (auto newFloatType = dyn_cast<mlir::FloatType>(newType)) {
       // Float -> Float
       return cast<DenseIntOrFPElementsAttr>(elements).mapValues(
           newType, [&](const APFloat &floatVal) -> APInt {
@@ -63,7 +63,7 @@ mlir::ElementsAttr convertElementsAttr(const mlir::ElementsAttr &elements,
   }
 
   // old_type is Integer
-  if (auto newFloatType = newType.dyn_cast<mlir::FloatType>()) {
+  if (auto newFloatType = dyn_cast<mlir::FloatType>(newType)) {
     // Int -> Float
     return cast<DenseIntOrFPElementsAttr>(elements).mapValues(
         newType, [&](const APInt &intVal) -> APInt {

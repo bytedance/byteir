@@ -40,7 +40,7 @@ static constexpr char TransformationDisableKey[] = "__transformaion_disable__";
 
 Value createNCHW2NHWCValue(PatternRewriter &rewriter, Location loc,
                            Value input) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   assert(inputType.getRank() == 4);
   auto shape = inputType.getShape();
   RankedTensorType newType = RankedTensorType::get(
@@ -51,7 +51,7 @@ Value createNCHW2NHWCValue(PatternRewriter &rewriter, Location loc,
 
 Value createNHWC2NCHWValue(PatternRewriter &rewriter, Location loc,
                            Value input) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   assert(inputType.getRank() == 4);
   auto shape = inputType.getShape();
   RankedTensorType newType = RankedTensorType::get(
@@ -62,7 +62,7 @@ Value createNHWC2NCHWValue(PatternRewriter &rewriter, Location loc,
 
 Value createHWCN2NHWCValue(PatternRewriter &rewriter, Location loc,
                            Value input) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   assert(inputType.getRank() == 4);
   auto shape = inputType.getShape();
   RankedTensorType newType = RankedTensorType::get(
@@ -72,7 +72,7 @@ Value createHWCN2NHWCValue(PatternRewriter &rewriter, Location loc,
 }
 
 RankedTensorType createNCHW2NHWCType(Type type) {
-  auto rankedTy = type.cast<RankedTensorType>();
+  auto rankedTy = cast<RankedTensorType>(type);
   assert(rankedTy.getRank() == 4);
   auto shape = rankedTy.getShape();
   return RankedTensorType::get({shape[0], shape[2], shape[3], shape[1]},
@@ -104,7 +104,7 @@ DenseIntElementsAttr createNCHW2NHWCAttr2(PatternRewriter &rewriter,
 
 Value createNCDHW2NDHWCValue(PatternRewriter &rewriter, Location loc,
                              Value input) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   assert(inputType.getRank() == 5);
   auto shape = inputType.getShape();
   RankedTensorType newType =
@@ -116,7 +116,7 @@ Value createNCDHW2NDHWCValue(PatternRewriter &rewriter, Location loc,
 
 Value createNDHWC2NCDHWValue(PatternRewriter &rewriter, Location loc,
                              Value input) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   assert(inputType.getRank() == 5);
   auto shape = inputType.getShape();
   RankedTensorType newType =
@@ -127,7 +127,7 @@ Value createNDHWC2NCDHWValue(PatternRewriter &rewriter, Location loc,
 }
 
 RankedTensorType createNCDHW2NDHWCType(Type type) {
-  auto rankedTy = type.cast<RankedTensorType>();
+  auto rankedTy = cast<RankedTensorType>(type);
   assert(rankedTy.getRank() == 5);
   auto shape = rankedTy.getShape();
   return RankedTensorType::get(
@@ -607,7 +607,7 @@ struct BatchNormInferenceLayoutTransformationPattern
     if (op->hasAttr(TransformationDisableKey)) {
       return failure();
     }
-    // auto inputType = op.getOperand().getType().cast<RankedTensorType>();
+    // auto inputType = cast<RankedTensorType>(op.getOperand().getType());
     if (targetLayout == "NHWC") {
       Value inputTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
@@ -644,7 +644,7 @@ struct BatchNormGradLayoutTransformationPattern
     if (op->hasAttr(TransformationDisableKey)) {
       return failure();
     }
-    // auto inputType = op.getOperand().getType().cast<RankedTensorType>();
+    // auto inputType = cast<RankedTensorType>(op.getOperand().getType());
     if (targetLayout == "NHWC") {
       Value operandTranspose =
           createNCHW2NHWCValue(rewriter, op->getLoc(), op.getOperand());
@@ -704,7 +704,7 @@ struct LayoutTransformationPass
 
   void runOnOperation() override {
     func::FuncOp funcOp = getOperation();
-    auto attr = funcOp->getAttr("byteir.layout").dyn_cast_or_null<StringAttr>();
+    auto attr = dyn_cast_or_null<StringAttr>(funcOp->getAttr("byteir.layout"));
     std::string globalLayoutStr;
     if (attr) {
       globalLayoutStr = attr.str();

@@ -1,7 +1,7 @@
-// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning,canonicalize,cse))' | FileCheck %s
-// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning{alignment=64},canonicalize,cse))' | byteir-stat --alloc-cnt | FileCheck %s --check-prefix CHECK-STAT
-// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning{alloca},canonicalize,cse))' | FileCheck %s --check-prefix CHECK-ALLOCA
-// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning{alloca mem-space=2},canonicalize,cse))' | FileCheck %s --check-prefix CHECK-SPACE
+// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning,canonicalize,cse))' --allow-unregistered-dialect | FileCheck %s
+// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning{alignment=64},canonicalize,cse))' --allow-unregistered-dialect | byteir-stat --alloc-cnt | FileCheck %s --check-prefix CHECK-STAT
+// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning{alloca},canonicalize,cse))' --allow-unregistered-dialect | FileCheck %s --check-prefix CHECK-ALLOCA
+// RUN: byteir-opt %s --pass-pipeline='builtin.module(func.func(memory-planning{alloca mem-space=2},canonicalize,cse))' --allow-unregistered-dialect | FileCheck %s --check-prefix CHECK-SPACE
 
 func.func @test_basic_reuse(%arg0 : memref<256xf32>, %arg1 : memref<256xf32>) -> memref<256xf32> attributes {__placeholder__byre.entry_point} {
   %0 = memref.alloc() : memref<256xf32>

@@ -1,4 +1,4 @@
-// RUN: byteir-opt -hlo-opt %s | FileCheck %s
+// RUN: byteir-opt -hlo-graph-opt -hlo-fusion-opt %s | FileCheck %s
 
 module @uniform_rng {
     func.func @uniform_rngf32() -> tensor<2x128x128xf32> {
