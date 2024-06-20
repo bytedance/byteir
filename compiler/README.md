@@ -31,6 +31,7 @@ cmake -H./llvm \
       -DCMAKE_INSTALL_PREFIX=$(pwd)/build/install
 # via -DCMAKE_C_COMPILER=gcc/clang and -DCMAKE_CXX_COMPILER=g++/clang++
 # to specify gcc>=8.5 or clang>=7 
+# for Mac users, set -DLLVM_TARGETS_TO_BUILD="AArch64;NVPTX"
 
 cmake --build ./build --target all --target install
 ```
