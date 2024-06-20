@@ -59,12 +59,12 @@ namespace elementwise {
 
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) &&
-         (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-          isSplatMhloConstantLike(op) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op) ||
-          isCustomMhloRngOp(op));
+  return isMhlo(op) && (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
+                        op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
+                        isSplatMhloConstantLike(op) ||
+                        isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp,
+                            mhlo::ReshapeOp, mhlo::TransposeOp>(op) ||
+                        isCustomMhloRngOp(op));
 }
 
 // every candidate can start
@@ -97,8 +97,8 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) {
   return target->hasTrait<::mlir::OpTrait::Elementwise>() ||
          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
          isSplatMhloConstantLike(target) ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp,
+             mhlo::TransposeOp>(target) ||
          isCustomMhloRngOp(target);
 }
 
@@ -111,7 +111,8 @@ bool isFusibleWithNoElementwiseFuse(Operation *target, Operation * /*start*/) {
 bool isValidSingleOp(Operation *op) {
   return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp,
+             mhlo::TransposeOp>(op) ||
          isCustomMhloRngOp(op);
 }
 
