@@ -76,6 +76,14 @@ def RemoveTrivialLoops : Pass<"remove-trivial-loops", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// GPUDistributeSharedMemoryCopy
+//===----------------------------------------------------------------------===//
+def GPUDistributeSharedMemoryCopy : Pass<"gpu-distribute-shared-memory-copy", "func::FuncOp"> {
+  let summary = "Pass to distribute Linalg CopyOp to Vector TransferReadOp.";
+  let constructor = "mlir::createGPUDistributeSharedMemoryCopyPass()";
+}
+
+//===----------------------------------------------------------------------===//
 // GPUTensorCoreVectorization
 //===----------------------------------------------------------------------===//
 def GPUTensorCoreVectorization : Pass<"gpu-tensorcore-vectorization", "func::FuncOp"> {
