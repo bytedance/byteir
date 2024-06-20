@@ -345,7 +345,8 @@ struct ConvertTorchToStablehloExtPass
                            arith::ArithDialect>();
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
-    TorchConversion::setupBackendTypeConversion(target, typeConverter);
+    TorchConversion::setupBackendTypeConversionForStablehlo(target,
+                                                            typeConverter);
 
     RewritePatternSet patterns(context);
     target.addIllegalOp<Aten_IndexPutImplOp>();
