@@ -1,8 +1,8 @@
 diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
-index f328bc5d..e47e6bf6 100644
+index 2a73325c..344b7473 100644
 --- a/python/torch_mlir/extras/fx_importer.py
 +++ b/python/torch_mlir/extras/fx_importer.py
-@@ -52,6 +52,10 @@ from torch._subclasses import (
+@@ -54,6 +54,10 @@ from torch._subclasses import (
      FakeTensor as TorchFakeTensor,
  )
  
@@ -13,7 +13,7 @@ index f328bc5d..e47e6bf6 100644
  from torch.fx import (
      Graph,
      GraphModule,
-@@ -935,6 +939,19 @@ class ContextCache:
+@@ -1046,6 +1050,19 @@ class ContextCache:
              tensor_meta = node.meta.get("tensor_meta")
              val = node.meta.get("val")
              sparsity = node.meta.get("sparsity", None)
@@ -33,15 +33,15 @@ index f328bc5d..e47e6bf6 100644
          except KeyError as e:
              raise RuntimeError(
                  f"FIXME: Illegal access to torch.fx.Node.meta: {e} ({node.meta.keys()} : {node.meta})"
-@@ -1051,6 +1068,7 @@ class GraphNodeImporter:
-         "_on_node_produced",
+@@ -1209,6 +1226,7 @@ class GraphNodeImporter:
          "_v",
+         "_symbol_to_value",
          "_multi_result_nodes",
 +        "_list_return_nodes",
          "fx_importer",
      ]
  
-@@ -1074,6 +1092,9 @@ class GraphNodeImporter:
+@@ -1234,6 +1252,9 @@ class GraphNodeImporter:
          # They will have their getitem calls short-circuited.
          self._multi_result_nodes: Set[torch_fx.Node] = set()
  
@@ -51,7 +51,7 @@ index f328bc5d..e47e6bf6 100644
      def bind_node_value(
          self,
          node: Node,
-@@ -1229,6 +1250,23 @@ class GraphNodeImporter:
+@@ -1421,6 +1442,23 @@ class GraphNodeImporter:
                                      f"notify developers if this case happens "
                                      f"(at {loc})."
                                  )
@@ -75,7 +75,7 @@ index f328bc5d..e47e6bf6 100644
                          else:
                              raise NotImplementedError(
                                  f"General getitem access to non-multi-result ops"
-@@ -1739,6 +1777,10 @@ class GraphNodeImporter:
+@@ -1997,6 +2035,10 @@ class GraphNodeImporter:
              # Unary return directly maps a single meta["val"] and cannot be subscripted.
              # if "tensor_meta" is None, this will throw unsupported placeholder node error
              result_types = [self._cc.node_val_to_type(node)]
@@ -86,7 +86,7 @@ index f328bc5d..e47e6bf6 100644
          elif return_count == 0:
              # Some torch ops do have 0 returns, and these are supported with ZeroResults
              # op trait. Python bindings for IR creation allow us to pass empty result_types
-@@ -1783,6 +1825,8 @@ def _make_vtensor_literal_op(
+@@ -2041,6 +2083,8 @@ def _make_vtensor_literal_op(
  ) -> Operation:
      mapping = py_attr_tracker.track(tensor)
      if mapping.is_empty:
@@ -95,7 +95,7 @@ index f328bc5d..e47e6bf6 100644
          # check support for bfloat16
          assert not (
              tensor.dtype == torch.bfloat16 and ml_dtypes is None
-@@ -1798,11 +1842,17 @@ def _make_vtensor_literal_op(
+@@ -2056,11 +2100,17 @@ def _make_vtensor_literal_op(
          # detach() which throws an error as we are operating in a FakeTensorMode, hence the simplest way to get this raw
          # buffer is via the indirection: Tensor -> list -> numpy array. This allows us to create a vtensor literal as
          # desired, but also limits which data types we can support in this function (see TORCH_DTYPE_TO_NPY_TYPE above)
