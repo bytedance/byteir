@@ -2182,6 +2182,53 @@ struct CanonicalizeBroadcastToBroadcastInDim
   }
 };
 
+struct FoldReduceOp : public OpRewritePattern<mhlo::ReduceOp> {
+  using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ReduceOp op,
+                                PatternRewriter &rewriter) const override {
+    if (isRegularReduceOp<mhlo::AddOp>(op)) {
+      auto input = op.getInputs()[0].getDefiningOp<mhlo::ConstantOp>();
+      auto initValue = op.getInitValues()[0].getDefiningOp<mhlo::ConstantOp>();
+      if (!input || !initValue) {
+        return failure();
+      }
+      if (isZeroAttribute(input.getValue()) &&
+          isZeroAttribute(initValue.getValue())) {
+        auto type = cast<ShapedType>(op.getResults()[0].getType());
+        auto resizeSplat =
+            cast<SplatElementsAttr>(input.getValue()).resizeSplat(type);
+        rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, resizeSplat);
+        return success();
+      }
+      return failure();
+    }
+    return failure();
+  }
+};
+
+struct DotGeneralZero : public OpRewritePattern<mhlo::DotGeneralOp> {
+  using OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
+                                PatternRewriter &rewriter) const override {
+    auto lhs = op.getLhs().getDefiningOp<mhlo::ConstantOp>();
+    auto rhs = op.getRhs().getDefiningOp<mhlo::ConstantOp>();
+    auto type = cast<ShapedType>(op.getType());
+    if (lhs && isZeroAttribute(lhs.getValue())) {
+      auto resizeSplat =
+          cast<SplatElementsAttr>(lhs.getValue()).resizeSplat(type);
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, resizeSplat);
+      return success();
+    }
+    if (rhs && isZeroAttribute(rhs.getValue())) {
+      auto resizeSplat =
+          cast<SplatElementsAttr>(rhs.getValue()).resizeSplat(type);
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, resizeSplat);
+      return success();
+    }
+    return failure();
+  }
+};
+
 } // namespace
 
 void mlir::mhlo::populateFoldMultiplyZeroPattern(RewritePatternSet &patterns) {
@@ -2201,6 +2248,8 @@ void mlir::mhlo::populateFoldLargeBinaryOpPatterns(
   patterns.add<FoldLargeBinaryOp<mhlo::PowOp, Pow>>(ctx);
   patterns.add<FoldLargeCompareOp>(ctx);
   patterns.add<FoldClampOp>(ctx);
+  patterns.add<FoldReduceOp>(ctx);
+  patterns.add<DotGeneralZero>(ctx);
 }
 
 void mlir::mhlo::populateConvertOpPattern(RewritePatternSet &patterns,
