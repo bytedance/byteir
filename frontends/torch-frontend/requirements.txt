@@ -26,7 +26,7 @@ pyyaml
 
 # Test Requirements
 pillow
-pytest
+pytest==8.1.0
 dill
 multiprocess
 expecttest
