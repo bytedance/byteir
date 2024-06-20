@@ -259,11 +259,12 @@ static GenericFuserConfig config{getByteIRMatmulEpilogueFusionAttrName(),
 namespace reduction {
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) && (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-                        op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-                        isSplatMhloConstantLike(op) ||
-                        isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp,
-                            mhlo::ReshapeOp, mhlo::ReduceOp>(op));
+  return isMhlo(op) &&
+         (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
+          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
+          isSplatMhloConstantLike(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp,
+              mhlo::ReduceOp, mhlo::TransposeOp>(op));
 }
 
 // every candidate can start
@@ -272,7 +273,7 @@ bool isFusibleStart(Operation *op) { return true; }
 bool isFusibleTrigger(Operation *op) {
   if (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
       op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-      isa<mhlo::ReshapeOp>(op)) {
+      isa<mhlo::ReshapeOp, mhlo::TransposeOp>(op)) {
     return true;
   }
 
@@ -301,8 +302,8 @@ bool isFusibleWith(Operation *target, Operation * /*start*/) {
   return (target->hasTrait<::mlir::OpTrait::Elementwise>() ||
           target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
           isSplatMhloConstantLike(target) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-              target)) &&
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp,
+              mhlo::TransposeOp>(target)) &&
          target->hasOneUse();
 }
 
