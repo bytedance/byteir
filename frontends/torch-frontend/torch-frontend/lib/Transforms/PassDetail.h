@@ -20,6 +20,7 @@
 
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 // forward dialects for conversions
 namespace mlir {

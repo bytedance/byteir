@@ -2,9 +2,9 @@
 
 // CHECK-LABEL:   func.func @torch.aten._index_put_impl(
 // CHECK-SAME:          %[[ARG0:.*]]: !torch.vtensor<[10,8],f32>, %[[ARG1:.*]]: !torch.vtensor<[2,5],si64>, %[[ARG2:.*]]: !torch.vtensor<[2,5,8],f32>) -> !torch.vtensor<[10,8],f32> {
-// CHECK:         %[[V0:.*]] = torch_c.to_builtin_tensor %[[ARG0]] : !torch.vtensor<[10,8],f32> -> tensor<10x8xf32>
-// CHECK:         %[[V1:.*]] = torch_c.to_builtin_tensor %[[ARG2]] : !torch.vtensor<[2,5,8],f32> -> tensor<2x5x8xf32>
-// CHECK:         %[[V2:.*]] = torch_c.to_builtin_tensor %[[ARG1]] : !torch.vtensor<[2,5],si64> -> tensor<2x5xi64>
+// CHECK-DAG:         %[[V0:.*]] = torch_c.to_builtin_tensor %[[ARG0]] : !torch.vtensor<[10,8],f32> -> tensor<10x8xf32>
+// CHECK-DAG:         %[[V1:.*]] = torch_c.to_builtin_tensor %[[ARG2]] : !torch.vtensor<[2,5,8],f32> -> tensor<2x5x8xf32>
+// CHECK-DAG:         %[[V2:.*]] = torch_c.to_builtin_tensor %[[ARG1]] : !torch.vtensor<[2,5],si64> -> tensor<2x5xi64>
 // CHECK:         %[[V3:.*]] = stablehlo.reshape %[[V2]] : (tensor<2x5xi64>) -> tensor<10x1xi64>
 // CHECK:         %[[V4:.*]] = stablehlo.reshape %[[V1]] : (tensor<2x5x8xf32>) -> tensor<10x8xf32>
 // CHECK:         %[[V5:.*]] = "stablehlo.scatter"(%[[V0]], %[[V3]], %[[V4]]) <{indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false}> ({

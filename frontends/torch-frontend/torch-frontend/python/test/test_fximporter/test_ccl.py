@@ -52,7 +52,7 @@ class DistributedCollectiveTest(DistributedTestBase):
     def test_reduce_scatter(self):
         module = ReduceScatterModule()
         inputs = [torch.tensor([1, 2, 3, 4], dtype=torch.float32)]
-        prog = torch.export.export(module, tuple(inputs), constraints=None)
+        prog = torch.export.export(module, tuple(inputs))
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
@@ -68,7 +68,7 @@ class DistributedCollectiveTest(DistributedTestBase):
     def test_all_reduce(self):
         module = AllReduceModule()
         inputs = [torch.tensor([1, 2, 3, 4], dtype=torch.float32)]
-        prog = torch.export.export(module, tuple(inputs), constraints=None)
+        prog = torch.export.export(module, tuple(inputs))
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
@@ -80,7 +80,7 @@ class DistributedCollectiveTest(DistributedTestBase):
     def test_all_gather(self):
         module = AllGatherModule()
         inputs = [torch.tensor([1, 2, 3, 4], dtype=torch.float32)]
-        prog = torch.export.export(module, tuple(inputs), constraints=None)
+        prog = torch.export.export(module, tuple(inputs))
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
@@ -93,7 +93,7 @@ class DistributedCollectiveTest(DistributedTestBase):
     def test_broadcast(self):
         module = BroadcastModule()
         inputs = [torch.tensor([1, 2, 3, 4], dtype=torch.float32)]
-        prog = torch.export.export(module, tuple(inputs), constraints=None)
+        prog = torch.export.export(module, tuple(inputs))
         if dist.get_rank() == 0:
             module = compile_dynamo_model(prog, "stablehlo")
             ir = module.operation.get_asm()
@@ -127,7 +127,7 @@ class DistributedCollectiveE2ETest(DistributedTestBase):
     def test_mlp_e2e(self):
         module = MLP(hidden_dim=4, world_size=self.world_size)
         x = torch.rand(3, 4)
-        prog = torch.export.export(module, (x,), constraints=None)
+        prog = torch.export.export(module, (x,))
 
         module = compile_dynamo_model(prog, "stablehlo")
 
