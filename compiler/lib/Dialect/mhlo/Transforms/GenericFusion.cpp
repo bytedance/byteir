@@ -52,6 +52,15 @@ bool isCustomMhloByteirRepeatOp(Operation *op) {
   return false;
 }
 
+bool isSimpleArithmeticMhloOp(Operation *op) {
+  if (isa_and_nonnull<mhlo::AddOp, mhlo::SubtractOp, mhlo::MulOp, mhlo::DivOp,
+                      mhlo::NegOp>(op)) {
+    auto type = cast<ShapedType>(op->getResult(0).getType());
+    return type.getRank() == 0;
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // ElementwiseFusion
 //===----------------------------------------------------------------------===//
@@ -84,8 +93,10 @@ bool isFusibleTrigger(Operation *op) {
     if (isDeepMhloFoldable(src.getDefiningOp())) {
       return true;
     }
-    // otherwise, check it is only used in broadcast
-    // return useCount(src) == 1;
+    // otherwise, check it is simple arithmetic op and only used in broadcast
+    if (isSimpleArithmeticMhloOp(src.getDefiningOp())) {
+      return useCount(src) == 1;
+    }
     // LWC FIXME: change back to above after broadcast fusion resolve.
     return false;
   }
@@ -272,8 +283,10 @@ bool isFusibleTrigger(Operation *op) {
     if (isDeepMhloFoldable(src.getDefiningOp())) {
       return true;
     }
-    // otherwise, check it is only used in broadcast
-    // return useCount(src) == 1;
+    // otherwise, check it is simple arithmetic op and only used in broadcast
+    if (isSimpleArithmeticMhloOp(src.getDefiningOp())) {
+      return useCount(src) == 1;
+    }
     // LWC FIXME: change back to above after broadcast fusion resolve.
     return false;
   }
