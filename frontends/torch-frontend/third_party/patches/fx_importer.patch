@@ -1,5 +1,5 @@
 diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
-index 2a73325c..f4e06365 100644
+index 2a73325c..2f91c7ac 100644
 --- a/python/torch_mlir/extras/fx_importer.py
 +++ b/python/torch_mlir/extras/fx_importer.py
 @@ -54,6 +54,10 @@ from torch._subclasses import (
@@ -28,6 +28,36 @@ index 2a73325c..f4e06365 100644
  }
  
  TORCH_DTYPE_TO_MLIR_TYPE: Dict[torch.dtype, Callable[[], IrType]] = {
+@@ -173,10 +177,10 @@ TORCH_DTYPE_TO_MLIR_TYPE: Dict[torch.dtype, Callable[[], IrType]] = {
+     torch.complex32: lambda: ComplexType.get(F16Type.get()),
+     torch.complex64: lambda: ComplexType.get(F32Type.get()),
+     torch.complex128: lambda: ComplexType.get(F64Type.get()),
+-    torch.float8_e5m2: lambda: Float8E5M2Type.get(),
+-    torch.float8_e5m2fnuz: lambda: Float8E5M2FNUZType.get(),
+-    torch.float8_e4m3fn: lambda: Float8E4M3FNType.get(),
+-    torch.float8_e4m3fnuz: lambda: Float8E4M3FNUZType.get(),
++    # torch.float8_e5m2: lambda: Float8E5M2Type.get(),
++    # torch.float8_e5m2fnuz: lambda: Float8E5M2FNUZType.get(),
++    # torch.float8_e4m3fn: lambda: Float8E4M3FNType.get(),
++    # torch.float8_e4m3fnuz: lambda: Float8E4M3FNUZType.get(),
+ }
+ 
+ TORCH_DTYPE_TO_NPY_TYPE = {
+@@ -215,10 +219,10 @@ TORCH_DTYPE_TO_INT = {
+     # torch.quint8: 13,
+     # torch.qint32 14
+     torch.bfloat16: 15,
+-    torch.float8_e5m2: 23,
+-    torch.float8_e4m3fn: 24,
+-    torch.float8_e5m2fnuz: 25,
+-    torch.float8_e4m3fnuz: 26,
++    # torch.float8_e5m2: 23,
++    # torch.float8_e4m3fn: 24,
++    # torch.float8_e5m2fnuz: 25,
++    # torch.float8_e4m3fnuz: 26,
+ }
+ 
+ TORCH_MEMORY_FORMAT_TO_INT = {
 @@ -1046,6 +1050,19 @@ class ContextCache:
              tensor_meta = node.meta.get("tensor_meta")
              val = node.meta.get("val")
