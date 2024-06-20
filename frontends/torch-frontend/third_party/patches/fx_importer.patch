@@ -1,5 +1,5 @@
 diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
-index 2a73325c..344b7473 100644
+index 2a73325c..f4e06365 100644
 --- a/python/torch_mlir/extras/fx_importer.py
 +++ b/python/torch_mlir/extras/fx_importer.py
 @@ -54,6 +54,10 @@ from torch._subclasses import (
@@ -13,6 +13,21 @@ index 2a73325c..344b7473 100644
  from torch.fx import (
      Graph,
      GraphModule,
+@@ -151,10 +155,10 @@ TORCH_DTYPE_TO_MLIR_TYPE_ASM = {
+     torch.complex32: "complex<f16>",
+     torch.complex64: "complex<f32>",
+     torch.complex128: "complex<f64>",
+-    torch.float8_e5m2: "f8E5M2",
+-    torch.float8_e4m3fn: "f8E4M3FN",
+-    torch.float8_e5m2fnuz: "f8E5M2FNUZ",
+-    torch.float8_e4m3fnuz: "f8E4M3FNUZ",
++    # torch.float8_e5m2: "f8E5M2",
++    # torch.float8_e4m3fn: "f8E4M3FN",
++    # torch.float8_e5m2fnuz: "f8E5M2FNUZ",
++    # torch.float8_e4m3fnuz: "f8E4M3FNUZ",
+ }
+ 
+ TORCH_DTYPE_TO_MLIR_TYPE: Dict[torch.dtype, Callable[[], IrType]] = {
 @@ -1046,6 +1050,19 @@ class ContextCache:
              tensor_meta = node.meta.get("tensor_meta")
              val = node.meta.get("val")
