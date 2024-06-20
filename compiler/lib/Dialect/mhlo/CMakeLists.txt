@@ -122,6 +122,7 @@ add_mlir_dialect_library(ByteIRMhloPasses
   ByteIRMhloAnalysis
   ByteIRMhloDynamicShapeOpRegister
   MLIRAceDialect
+  MLIRCatDialect
 
   LINK_LIBS PUBLIC
   MLIRIR
