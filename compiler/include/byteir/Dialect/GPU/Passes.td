@@ -34,6 +34,14 @@ def ShmAllocaToWorkgroupArg : Pass<"shm-alloca-to-workgroup-arg", "gpu::GPUModul
 }
 
 //===----------------------------------------------------------------------===//
+// OptimizeVectorTransfer
+//===----------------------------------------------------------------------===//
+def OptimizeVectorTransfer: Pass<"optimize-vector-tranfer", "func::FuncOp"> {
+  let summary = "Remove redundant transfer-write.";
+  let constructor = "mlir::createOptimizeVectorTransferPass()";
+}
+
+//===----------------------------------------------------------------------===//
 // GPUBlockSwizzle
 //===----------------------------------------------------------------------===//
 def GPUBlockSwizzle : Pass<"gpu-block-swizzle", "func::FuncOp"> {
