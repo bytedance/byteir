@@ -202,10 +202,7 @@ def _compile_cuda_with_ait(
     processor.cat_opt_pass(anchor_only=False)
 
     with context:
-        if aggressive_mode:
-            pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op aggressive-cat-fusion})")
-        else:
-            pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op})")
+        pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op})")
         pm.run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Hlo Fusion Opt (with Cat):") if verbose else ...
 

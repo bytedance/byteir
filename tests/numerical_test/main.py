@@ -88,7 +88,7 @@ CUDA_AIT_MLIR_TEST_SET = {
     "gemm_rrr_f32.mlir",
     "layernorm.mlir",
     "softmax.mlir",
-    "transpace2d.mlir",
+    "transpose2d.mlir",
     "transpose102.mlir",
     "transpose1023.mlir",
     "transpose120.mlir",
