@@ -17,6 +17,7 @@
 
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 
+#include "byteir/Dialect/Cat/IR/CatDialect.h"
 #include "byteir/Dialect/mhlo/Transforms/GenericFusionCommon.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Dialect/mhlo/Util/FusionUtil.h"
@@ -375,6 +376,36 @@ static GenericFuserConfig no_fuse_config{
 } // namespace aggressive_fusion
 
 //===----------------------------------------------------------------------===//
+// CatFusion
+//===----------------------------------------------------------------------===//
+
+namespace cat_fusion {
+
+bool isFusibleCandidate(Operation *op) {
+  if (isa<cat::CatOpInterface>(op))
+    return true;
+  return false;
+}
+
+bool isFusibleStart(Operation *op) { return true; }
+
+bool isFusibleTrigger(Operation *op) { return false; }
+
+bool isFusibleWith(Operation *target, Operation * /*start*/) { return false; }
+
+bool isValidSingleOp(Operation *op) { return true; }
+
+bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
+
+static GenericFuserConfig config{
+    getByteIRCatFusionAttrName(),    cat_fusion::isFusibleCandidate,
+    cat_fusion::isFusibleStart,      cat_fusion::isFusibleTrigger,
+    cat_fusion::isFusibleWith,       cat_fusion::isValidSingleOp,
+    cat_fusion::isValidFusionPattern};
+
+} // namespace cat_fusion
+
+//===----------------------------------------------------------------------===//
 // Fusion Passes
 //===----------------------------------------------------------------------===//
 
@@ -546,6 +577,36 @@ struct HloAggressiveFusionPass
           "disable fusion strategy, only outline single operation"),
       ::llvm::cl::init(false)};
 };
+
+// a derived fusion pass for cat op
+struct CatFusionPass : public GenericFusionPass<CatFusionPass> {
+
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(CatFusionPass)
+
+  CatFusionPass() : GenericFusionPass(true) {}
+
+  CatFusionPass(const CatFusionPass &other)
+      : GenericFusionPass<CatFusionPass>(other) {}
+
+  /// Returns the command-line argument attached to this pass.
+  static constexpr ::llvm::StringLiteral getArgumentName() {
+    return ::llvm::StringLiteral("cat-fusion");
+  }
+  ::llvm::StringRef getArgument() const override { return "cat-fusion"; }
+
+  ::llvm::StringRef getDescription() const override {
+    return "Fuse cat subgraph";
+  }
+
+  /// Returns the derived pass name.
+  static constexpr ::llvm::StringLiteral getPassName() {
+    return ::llvm::StringLiteral("CatFusion");
+  }
+  ::llvm::StringRef getName() const override { return "CatFusion"; }
+
+  const GenericFuserConfig &getConfig() { return cat_fusion::config; }
+};
+
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
@@ -572,4 +633,8 @@ std::unique_ptr<OperationPass<func::FuncOp>> mlir::createReductionFusionPass() {
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createHloAggressiveFusionPass(bool disableFusion) {
   return std::make_unique<HloAggressiveFusionPass>(disableFusion);
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createCatFusionPass() {
+  return std::make_unique<CatFusionPass>();
 }

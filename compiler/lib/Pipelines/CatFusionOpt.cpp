@@ -32,8 +32,7 @@ using namespace mlir;
 using namespace mlir::mhlo;
 
 namespace {
-void createCatFusionOptPipelineImpl(OpPassManager &pm, bool anchor_only,
-                                    bool aggressive_mode) {
+void createCatFusionOptPipelineImpl(OpPassManager &pm, bool anchor_only) {
   if (anchor_only) {
     OpPassManager anchoredPM(func::FuncOp::getOperationName());
     anchoredPM.addPass(createFuseMhloToCatPass());
@@ -54,5 +53,5 @@ void createCatFusionOptPipelineImpl(OpPassManager &pm, bool anchor_only,
 void mlir::createCatFusionOptPipeline(
     OpPassManager &pm, const CatFusionOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createCatFusionOptPipelineImpl, pm,
-                              options.anchor_only, options.aggressive_mode);
+                              options.anchor_only);
 }

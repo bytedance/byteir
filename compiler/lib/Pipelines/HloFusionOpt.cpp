@@ -31,11 +31,10 @@ using namespace mlir::mhlo;
 namespace {
 void addGenericHloFusionPatterns(OpPassManager &pm,
                                  bool outlineSingleElemwiseOp,
-                                 bool disableFusion, bool outlineCatOp,
-                                 bool aggressiveCatFusion) {
+                                 bool disableFusion, bool outlineCatOp) {
   // Fusion passes
   if (outlineCatOp) {
-    pm.addNestedPass<func::FuncOp>(createCatFusionPass(aggressiveCatFusion));
+    pm.addNestedPass<func::FuncOp>(createCatFusionPass());
     pm.addPass(createFusionOutliningPass());
   }
 
@@ -65,8 +64,7 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
                                     const std::string &entryFunc,
                                     const std::string &target,
                                     bool outlineSingleElemwiseOp,
-                                    bool disableFusion, bool outlineCatOp,
-                                    bool aggressiveCatFusion) {
+                                    bool disableFusion, bool outlineCatOp) {
   addCleanUpExtPassPipeline(pm);
 
   // add fusion patterns
@@ -74,7 +72,7 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
     addCPUHloFusionPatterns(pm, disableFusion);
   } else {
     addGenericHloFusionPatterns(pm, outlineSingleElemwiseOp, disableFusion,
-                                outlineCatOp, aggressiveCatFusion);
+                                outlineCatOp);
   }
 
   // note don't apply sccp
@@ -87,8 +85,8 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
 
 void mlir::createHloFusionOptPipeline(
     OpPassManager &pm, const HloFusionOptPipelineOptions &options) {
-  invokeOpPassPipelineBuilder(
-      createHloFusionOptPipelineImpl, pm, options.entryFunc, options.target,
-      options.outlineSingleElemwiseOp, options.disableFusion,
-      options.outlineCatOp, options.aggressiveCatFusion);
+  invokeOpPassPipelineBuilder(createHloFusionOptPipelineImpl, pm,
+                              options.entryFunc, options.target,
+                              options.outlineSingleElemwiseOp,
+                              options.disableFusion, options.outlineCatOp);
 }

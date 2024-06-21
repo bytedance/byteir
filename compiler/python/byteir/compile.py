@@ -162,9 +162,9 @@ def _compile_cuda(
         f.write(module.operation.get_asm())
 
 
-def _compile_cuda_with_ait_impl(
+@register_byteir_compiler_backend(target="cuda_with_ait", device="cuda")
+def _compile_cuda_with_ait(
     compile_options: CompileOptions,
-    aggressive_mode: bool,
 ) -> None:
     from .dialects.cat import IRProcessor
 
@@ -199,7 +199,7 @@ def _compile_cuda_with_ait_impl(
     processor.module = module
 
     processor.preprocess_pass()
-    processor.cat_opt_pass(anchor_only=False, aggressive_mode=aggressive_mode)
+    processor.cat_opt_pass(anchor_only=False)
 
     with context:
         if aggressive_mode:
@@ -271,24 +271,6 @@ def _compile_cuda_with_ait_impl(
     assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
     with open(os.path.join(output_file_dir, output_file_prefix + "." + output_type.value), "w") as f:
         f.write(processor.module.operation.get_asm())
-
-
-@register_byteir_compiler_backend(target="cuda_with_ait", device="cuda")
-def _compile_cuda_with_ait(
-    compile_options: CompileOptions,
-) -> None:
-    return _compile_cuda_with_ait_impl(
-            compile_options=compile_options,
-            aggressive_mode=False,)
-
-
-@register_byteir_compiler_backend(target="cuda_with_ait_aggressive", device="cuda")
-def _compile_cuda_with_ait_aggressive(
-    compile_options: CompileOptions,
-) -> None:
-    return _compile_cuda_with_ait_impl(
-            compile_options=compile_options,
-            aggressive_mode=True,)
 
 
 @register_byteir_compiler_backend(target="cpu", device="cpu")

@@ -71,15 +71,12 @@ class IRProcessor:
             _print_verbose(self.module, "// IR Dump After Cat Preprocess:") if self.verbose else ...
         return self.module
 
-    def cat_opt_pass(self, anchor_only=False, aggressive_mode=False):
+    def cat_opt_pass(self, anchor_only=False):
         with self.module.context:
             if anchor_only:
                 pass_arg = "builtin.module(cat-fusion-opt{anchor-only})"
             else:
-                if aggressive_mode:
-                    pass_arg = "builtin.module(cat-fusion-opt{aggressive-mode})"
-                else:
-                    pass_arg = "builtin.module(cat-fusion-opt)"
+                pass_arg = "builtin.module(cat-fusion-opt)"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
             _print_verbose(self.module, "// IR Dump After Cat Fusion Opt:") if self.verbose else ...
