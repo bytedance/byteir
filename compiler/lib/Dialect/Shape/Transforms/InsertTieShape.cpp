@@ -18,6 +18,7 @@
 #include "byteir/Dialect/Shape/Transforms/InsertTieShape.h"
 
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
+#include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -27,6 +28,25 @@
 using namespace mlir;
 
 namespace {
+
+bool isFakeConvertOp(Operation *op) {
+  if (!op)
+    return false;
+  auto convertOp = dyn_cast<mhlo::ConvertOp>(op);
+  if (!convertOp)
+    return false;
+  auto operandType =
+      convertOp.getOperand().getType().dyn_cast<RankedTensorType>();
+  auto resultType =
+      convertOp.getResult().getType().dyn_cast<RankedTensorType>();
+  if (!operandType || !resultType)
+    return false;
+  if (operandType.hasStaticShape() && !resultType.hasStaticShape() &&
+      operandType.getElementType() == resultType.getElementType()) {
+    return true;
+  }
+  return false;
+}
 
 struct InsertTieShapePass : public InsertTieShapeBase<InsertTieShapePass> {
   void runOnOperation() override {
@@ -55,6 +75,8 @@ struct InsertTieShapePass : public InsertTieShapeBase<InsertTieShapePass> {
     }
 
     funcOp.walk([&](Operation *op) {
+      if (isFakeConvertOp(op))
+        return;
       for (Value result : op->getResults()) {
         builder.setInsertionPointAfter(op);
         insertTie(result);

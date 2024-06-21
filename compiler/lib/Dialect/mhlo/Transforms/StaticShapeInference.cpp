@@ -100,8 +100,8 @@ LogicalResult mlir::runStaticShapeInfer(func::FuncOp funcOp,
     }
 
     DataFlowSolver solver;
-    solver.load<MhloShapeAnalysis>();
-    solver.load<MhloShapeValueAnalysis>();
+    solver.load<MhloStaticShapeAnalysis>();
+    solver.load<MhloStaticShapeValueAnalysis>();
     solver.load<DeadCodeAnalysis>();
     if (failed(solver.initializeAndRun(funcOp)))
       return failure();
@@ -118,7 +118,7 @@ LogicalResult mlir::runStaticShapeInfer(func::FuncOp funcOp,
           continue;
 
         ShapedType newType;
-        if (auto lattice = solver.lookupState<ShapeLattice>(it)) {
+        if (auto lattice = solver.lookupState<StaticShapeLattice>(it)) {
           if (!lattice->getValue().isUninitialized())
             newType = dyn_cast<ShapedType>(lattice->getValue().getType());
         }
