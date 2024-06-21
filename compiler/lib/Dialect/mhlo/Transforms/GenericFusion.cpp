@@ -381,9 +381,26 @@ static GenericFuserConfig no_fuse_config{
 
 namespace cat_fusion {
 
+bool matchPermute(mhlo::TransposeOp op, ArrayRef<int64_t> target_perm) {
+  auto perm = op.getPermutation().getValues<int64_t>();
+  if (perm.size() != target_perm.size())
+    return false;
+  for (size_t i = 0; i < target_perm.size(); ++i)
+    if (perm[i] != target_perm[i])
+      return false;
+  return true;
+}
+
 bool isFusibleCandidate(Operation *op) {
   if (isa<cat::CatOpInterface>(op))
     return true;
+  if (isa<mhlo::TransposeOp>(op)) {
+    auto transOp = cast<mhlo::TransposeOp>(*op);
+    if (!matchPermute(transOp, {0, 2, 3, 1}) &&
+        !matchPermute(transOp, {0, 3, 1, 2}))
+      // BRT support TBD, offload to AIT
+      return true;
+  }
   return false;
 }
 
