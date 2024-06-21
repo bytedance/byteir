@@ -26,7 +26,7 @@ def ShapeExtDialect : Dialect {
   let summary = "Extension for shape dialect";
 
   let cppNamespace = "::mlir::shape_ext";
-  let dependentDialects = ["arith::ArithDialect", "tensor::TensorDialect", "shape::ShapeDialect"];
+  let dependentDialects = ["arith::ArithDialect", "tensor::TensorDialect", "shape::ShapeDialect", "scf::SCFDialect"];
 
   // let useDefaultTypePrinterParser = 1;
   // let hasConstantMaterializer = 1;

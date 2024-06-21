@@ -116,6 +116,7 @@ add_mlir_dialect_library(ByteIRMhloPasses
   ByteIRMhloPassIncGen
   ByteIRAnalysis
   MhloDialect
+  MLIRSCFDialect
   ByteIRMhloUtils
   ByteIRUtils
   ByteIRMhloAnalysis
@@ -126,6 +127,7 @@ add_mlir_dialect_library(ByteIRMhloPasses
   LINK_LIBS PUBLIC
   MLIRIR
   MhloDialect
+  MLIRSCFDialect
   MLIRMhloUtils
   MLIRSideEffectInterfaces
   MLIRSupport

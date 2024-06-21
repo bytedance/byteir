@@ -36,6 +36,10 @@ namespace shape_ext {
 class ShapeExtDialect;
 } // namespace shape_ext
 
+namespace mhlo {
+class MhloDialect;
+} // namespace mhlo
+
 #define GEN_PASS_CLASSES
 #include "byteir/Dialect/Shape/Passes.h.inc"
 

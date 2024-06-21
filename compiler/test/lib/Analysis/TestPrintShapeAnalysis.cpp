@@ -44,8 +44,8 @@ struct TestPrintShapeAnalysisPass
     Operation *top = getOperation();
 
     DataFlowSolver solver;
-    solver.load<MhloShapeAnalysis>();
-    solver.load<MhloShapeValueAnalysis>();
+    solver.load<MhloStaticShapeAnalysis>();
+    solver.load<MhloStaticShapeValueAnalysis>();
     solver.load<DeadCodeAnalysis>();
     if (failed(solver.initializeAndRun(top)))
       return signalPassFailure();
@@ -54,7 +54,7 @@ struct TestPrintShapeAnalysisPass
         llvm::outs() << "for operation : " << *op
                      << ", inferred shapes are:\n\t";
         for (Value value : op->getResults()) {
-          if (auto lattice = solver.lookupState<ShapeLattice>(value)) {
+          if (auto lattice = solver.lookupState<StaticShapeLattice>(value)) {
             if (!lattice->getValue().isUninitialized()) {
               lattice->getValue().print(llvm::outs());
             }

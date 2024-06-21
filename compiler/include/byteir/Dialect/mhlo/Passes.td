@@ -34,6 +34,9 @@ def BoundedShapeInference : Pass<"bounded-shape-infer", "func::FuncOp"> {
     and reuse the static operations' shape inference implementation. 
   }];
   let constructor = "mlir::createBoundedShapeInferencePass()";
+  let dependentDialects = [
+    "mlir::scf::SCFDialect"
+  ];
 }
 
 //===----------------------------------------------------------------------===//

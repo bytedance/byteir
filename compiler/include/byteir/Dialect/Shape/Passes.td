@@ -44,6 +44,7 @@ def InsertTieShape : Pass<"insert-tie-shape", "mlir::func::FuncOp"> {
   }];
   let constructor = "mlir::createInsertTieShapePass()";
   let dependentDialects = [
+    "mlir::mhlo::MhloDialect",
     "mlir::shape_ext::ShapeExtDialect",
     "mlir::tensor::TensorDialect",
   ];
