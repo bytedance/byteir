@@ -79,7 +79,6 @@ add_mlir_dialect_library(ByteIRMhloAnalysis
 add_mlir_dialect_library(ByteIRMhloPasses
   Transforms/BoundedShapeInference.cpp
   Transforms/CanonicalizeExt.cpp
-  Transforms/CatFusion.cpp
   Transforms/ClusterConstraint.cpp
   Transforms/ConvBackwardFusion.cpp
   Transforms/ConvForwardFusion.cpp
