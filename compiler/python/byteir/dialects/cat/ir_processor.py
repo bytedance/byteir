@@ -15,6 +15,19 @@ import hashlib
 
 BYTEIR_CAT_ATTR = "__byteir_cat_fusion__"
 
+# FIXME(lyq): using cat op's python binding
+SUPPORTED_CAT_OPS = [
+    "cat.gemm_rrr",
+    "cat.gemm_rcr",
+    "cat.gemm_rrr_bias",
+    "cat.gemm_rcr_bias",
+    "cat.gemm_rcr_bias_relu",
+    "cat.bmm_rrr",
+    "cat.bmm_rcr",
+    "cat.bmm_crr",
+    "cat.bmm_ccr",
+]
+
 available_cuda_device_num = torch.cuda.device_count()
 MAX_COMPILATION_PARALLELISM = available_cuda_device_num
 
@@ -73,10 +86,7 @@ class IRProcessor:
 
     def cat_opt_pass(self, anchor_only=False):
         with self.module.context:
-            if anchor_only:
-                pass_arg = "builtin.module(cat-fusion-opt{anchor-only})"
-            else:
-                pass_arg = "builtin.module(cat-fusion-opt)"
+            pass_arg = "builtin.module(func.func(convert-hlo-to-cat{valid-cat-ops=" + ",".join(SUPPORTED_CAT_OPS) + "}))"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
             _print_verbose(self.module, "// IR Dump After Cat Fusion Opt:") if self.verbose else ...

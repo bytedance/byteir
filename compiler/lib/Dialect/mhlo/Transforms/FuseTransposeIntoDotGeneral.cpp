@@ -97,12 +97,11 @@ struct FuseDotGeneralTransposePattern
   using OpRewritePattern<mhlo::TransposeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(mhlo::TransposeOp op,
                                 PatternRewriter &rewriter) const override {
-    if (op->getParentOfType<mhlo::FusionOp>()) {
-      return failure();
-    }
-
     if (mhlo::DotGeneralOp dotGeneral =
             op.getOperand().getDefiningOp<mhlo::DotGeneralOp>()) {
+      if (!op.getOperand().hasOneUse()) {
+        return failure();
+      }
       if (cast<ShapedType>(dotGeneral.getLhs().getType()).getRank() != 2) {
         return failure();
       }
