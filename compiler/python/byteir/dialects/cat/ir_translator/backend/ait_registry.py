@@ -285,27 +285,6 @@ def _dispatch_cat_softmax(op, inputs):
     Y = ait_op(inputs[0], dim=dim)
     return [Y]
 
-def _cat_elem_op_type_to_ait(op_type: str) -> ait_func_enum:
-    op_map = {
-        "add": ait_func_enum.ADD,
-        "sub": ait_func_enum.SUB,
-        "mul": ait_func_enum.MUL,
-        "div": ait_func_enum.DIV,
-        "tanh": ait_func_enum.TANH,
-        "pow": ait_func_enum.POW,
-        "sqrt": ait_func_enum.SQRT,
-        "log": ait_func_enum.LOGE,
-        "max": ait_func_enum.MAX,
-    }
-    return op_map.get(op_type, None)
-
-@AITemplateIRTranslator.register("mhlo.reshape")
-def _dispatch_mhlo_reshape(op, inputs):
-    shaped_type = ir.ShapedType(op.result.type)
-    from aitemplate.compiler.ops.common.view_ops import reshape
-    Y = reshape()(inputs[0], shaped_type.shape)
-    return [Y]
-
 @AITemplateIRTranslator.register("cat.layernorm")
 def _dispatch_cat_layernorm(op, inputs):
     ait_op = ait_ops.layernorm()
