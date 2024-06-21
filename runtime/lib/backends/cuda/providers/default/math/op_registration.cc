@@ -53,6 +53,13 @@ void RegisterMathOps(KernelRegistry *registry) {
       });
 
   registry->Register(
+      "BatchMatmulOp_f16f16_f16",
+      [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
+        auto kernel =
+            std::shared_ptr<OpKernel>(new cuda::BatchMatmul<__half>(info));
+        return kernel;
+      });
+  registry->Register(
       "BatchMatmulOp_f32f32_f32",
       [](const brt::OpKernelInfo &info) -> std::shared_ptr<brt::OpKernel> {
         auto kernel =

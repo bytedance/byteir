@@ -35,7 +35,7 @@ public:
 private:
   int m, n, k, batch_count;
   long long int batch_stride_A, batch_stride_B, batch_stride_C;
-  float alpha = 1.0f, beta = 0.0f;
+  bool lhs_transpose, rhs_transpose;
 };
 
 template <typename T>
