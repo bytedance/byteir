@@ -13,6 +13,7 @@
 # ==============================================================================
 
 import argparse
+import sys
 
 from execute import compile_and_run_mlir
 from reporting import report_results
@@ -31,4 +32,5 @@ if __name__ == "__main__":
     args = parse_args()
 
     result = compile_and_run_mlir(args.input_mlir_path, args.target, args.verbose, mode=args.mode, workdir=args.workdir, unique_name=args.name)
-    report_results([result])
+    failed = report_results([result])
+    sys.exit(1 if failed else 0)

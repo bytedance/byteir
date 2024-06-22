@@ -206,12 +206,8 @@ def _compile_cuda_with_ait(
         pm.run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Hlo Fusion Opt (with Cat):") if verbose else ...
 
-    # generate ait lib .so for subgraphs
-    _, dll_paths = processor.ait_opt_pass(anchor_only=True)
-    # move .so to output dir
-    for dll_path in dll_paths:
-        print("cp -p {} {}".format(dll_path, output_file_dir))
-        os.system("cp -p {} {}".format(dll_path, output_file_dir))
+    # generate ait lib .so for cat functions
+    module = processor.ait_opt_pass(output_file_dir)
 
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(processor.module.operation)
