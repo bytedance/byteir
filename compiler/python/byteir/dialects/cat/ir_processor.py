@@ -27,6 +27,8 @@ SUPPORTED_CAT_OPS = [
     "cat.bmm_rcr",
     "cat.bmm_crr",
     "cat.bmm_ccr",
+    "cat.softmax",
+    "cat.layernorm",
 ]
 
 MAX_COMPILATION_PARALLELISM = torch.cuda.device_count()
@@ -64,12 +66,12 @@ class IRProcessor:
         if not disable_byteir_ait_cache:
             self.byteir_cache.load_or_create_cache()
 
-    def _get_builder(self, module, subgraph_name, backend="ait"):
-        assert module != None
-        assert isinstance(module, FuncOp)
+    def _get_builder(self, func, subgraph_name, backend="ait"):
+        assert func != None
+        assert isinstance(func, FuncOp)
         if backend == "ait":
             from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
-            return AITBuilder(module, workdir=self.workdir, subgraph_name=subgraph_name)
+            return AITBuilder(func, workdir=self.workdir, subgraph_name=subgraph_name)
         else:
             raise RuntimeError(f"Unsupported runtime backend {backend}")
 
@@ -152,7 +154,7 @@ class IRProcessor:
             func = self.module.body.operations[0]
         else:
             func = ir.SymbolTable(self.module.operation)[func_name]
-        builder = self._get_builder(module=func, subgraph_name=func.name.value, backend=backend)
+        builder = self._get_builder(func=func, subgraph_name=func.name.value, backend=backend)
         builder.compile()
         return builder.execute(inputs)
 
@@ -161,7 +163,7 @@ class IRProcessor:
             func = self.module.body.operations[0]
         else:
             func = ir.SymbolTable(self.module.operation)[func_name]
-        builder = self._get_builder(module=func, subgraph_name=func.name.value, backend=backend)
+        builder = self._get_builder(func=func, subgraph_name=func.name.value, backend=backend)
         builder.compile()
         builder.benchmark(num_trials)
 

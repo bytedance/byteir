@@ -267,6 +267,51 @@ struct ConvertToCatBmm : public OpRewritePattern<mhlo::DotGeneralOp> {
   std::string layout;
 };
 
+struct ConvertSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getSoftmaxName())
+      return failure();
+    DictionaryAttr byteirAttrs =
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
+    if (!byteirAttrs)
+      return failure();
+    auto axisAttr = cast<IntegerAttr>(byteirAttrs.get("axis"));
+    auto newOp = rewriter.create<cat::SoftmaxOp>(
+        op.getLoc(), op.getResultTypes()[0], op.getOperands()[0], axisAttr);
+    rewriter.replaceOp(op, newOp.getResult());
+    return success();
+  }
+};
+
+struct ConvertLayerNorm : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getLayerNormName())
+      return failure();
+    if (op.getResults().size() != 1)
+      return failure();
+    DictionaryAttr byteirAttrs =
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
+    if (!byteirAttrs)
+      return failure();
+
+    auto axisAttr = byteirAttrs.getAs<ArrayAttr>("axis");
+    assert(axisAttr && "LayerNorm custom call axis attribute not found.");
+    auto epsAttr = byteirAttrs.getAs<FloatAttr>("epsilon");
+    assert(epsAttr && "LayerNorm custom call epsilon attribute not found.");
+
+    rewriter.replaceOpWithNewOp<cat::LayerNormOp>(
+        op, op.getResultTypes()[0], op.getOperands()[0], op.getOperands()[1],
+        op.getOperands()[2], axisAttr, epsAttr);
+    return success();
+  }
+};
+
 struct ConvertHloToCatPass : public ConvertHloToCatBase<ConvertHloToCatPass> {
   ConvertHloToCatPass(ArrayRef<std::string> validCatOps) {
     this->validCatOps = validCatOps;
@@ -306,6 +351,13 @@ struct ConvertHloToCatPass : public ConvertHloToCatBase<ConvertHloToCatPass> {
     }
     if (validCatOpsSet.contains("cat.bmm_ccr")) {
       patterns.add<ConvertToCatBmm>(context, "ccr");
+    }
+
+    if (validCatOpsSet.contains("cat.softmax")) {
+      patterns.add<ConvertSoftmax>(context);
+    }
+    if (validCatOpsSet.contains("cat.layernorm")) {
+      patterns.add<ConvertLayerNorm>(context);
     }
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
