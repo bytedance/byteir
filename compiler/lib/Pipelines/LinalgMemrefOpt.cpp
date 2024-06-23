@@ -56,9 +56,7 @@ void addGemmOptPasses(OpPassManager &pm) {
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
       anchoredPM.addPass(createCanonicalizerPass());
-      // anchoredPM.addPass(createGPUPipeliningPass());
-      // anchoredPM.addPass(createCSEPass());
-      // anchoredPM.addPass(createCanonicalizerPass());
+
       anchoredPM.addPass(createGPUDistributeToWarpPass());
       anchoredPM.addPass(createRemoveTrivialLoopsPass());
       anchoredPM.addPass(createGPUTensorCoreVectorizationPass());
@@ -87,7 +85,6 @@ void addGemmOptPasses(OpPassManager &pm) {
       pm.addPass(memref::createFoldMemRefAliasOpsPass());
     }
 
-    // anchoredPM.addPass(createGPUPipeliningPass());
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
       anchoredPM.addPass(createGPUPackSharedMemoryAllocPass());

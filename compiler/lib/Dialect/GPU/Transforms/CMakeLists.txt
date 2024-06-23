@@ -5,7 +5,6 @@ add_mlir_dialect_library(ByteIRGPUPasses
   GPUDistributeToWarp.cpp
   GPUTensorCoreVectorization.cpp
   GPUPackSharedMemoryAlloc.cpp
-  GPUPipelining.cpp
   GPUVectorToGPU.cpp
   OptimizeVectorTransfer.cpp
   RemoveTrivialLoops.cpp

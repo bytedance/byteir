@@ -23,7 +23,6 @@
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeSharedMemoryCopy.h"
 #include "byteir/Dialect/GPU/Transforms/GPUDistributeToWarp.h"
 #include "byteir/Dialect/GPU/Transforms/GPUPackSharedMemoryAlloc.h"
-#include "byteir/Dialect/GPU/Transforms/GPUPipelining.h"
 #include "byteir/Dialect/GPU/Transforms/GPUTensorCoreVectorization.h"
 #include "byteir/Dialect/GPU/Transforms/GPUVectorToGPU.h"
 #include "byteir/Dialect/GPU/Transforms/OptimizeVectorTransfer.h"
