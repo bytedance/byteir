@@ -147,7 +147,7 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
 
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
             ),
@@ -157,7 +157,7 @@ def gen_golden_mlir(mhlo_file, target, **kwargs):
         )
 
     res = TestResult(
-        unique_name=mhlo_file,
+        unique_name=unique_name,
         compilation_error=None,
         runtime_error=None,
         numerical_error=None,
@@ -251,7 +251,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
         )
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
             ),
@@ -275,7 +275,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
         else:
             avg_time = brt_backend.profile(torch_inputs, torch_outputs)
             return TestResult(
-                unique_name=mhlo_file,
+                unique_name=unique_name,
                 compilation_error=None,
                 runtime_error=None,
                 numerical_error=None,
@@ -283,7 +283,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             )
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
@@ -300,7 +300,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             torch.testing.assert_close(golden, output)
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error=None,
             numerical_error="".join(
@@ -309,7 +309,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             performance_result=None,
         )
     return TestResult(
-        unique_name=mhlo_file,
+        unique_name=unique_name,
         compilation_error=None,
         runtime_error=None,
         numerical_error=None,
@@ -354,7 +354,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
         )
     except Exception as e:
         return TestResult(
-            unique_name=test.unique_name,
+            unique_name=unique_name,
             compilation_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
             ),
@@ -371,7 +371,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
         else:
             avg_time = brt_backend.profile(torch_inputs, torch_outputs)
             return TestResult(
-                unique_name=test.unique_name,
+                unique_name=unique_name,
                 compilation_error=None,
                 runtime_error=None,
                 numerical_error=None,
@@ -379,7 +379,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
             )
     except Exception as e:
         return TestResult(
-            unique_name=test.unique_name,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
@@ -394,7 +394,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
         torch.testing.assert_close(golden_output, actual_output)
     except Exception as e:
         return TestResult(
-            unique_name=test.unique_name,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error=None,
             numerical_error="".join(
@@ -403,7 +403,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
             performance_result=None,
         )
     return TestResult(
-        unique_name=test.unique_name,
+        unique_name=unique_name,
         compilation_error=None,
         runtime_error=None,
         numerical_error=None,

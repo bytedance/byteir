@@ -267,6 +267,53 @@ struct ConvertToCatBmm : public OpRewritePattern<mhlo::DotGeneralOp> {
   std::string layout;
 };
 
+struct ConvertToCatBmmAdd : public OpRewritePattern<mhlo::AddOp> {
+  ConvertToCatBmmAdd(MLIRContext *context, llvm::StringRef layout,
+                     PatternBenefit benefit = 2)
+      : OpRewritePattern<mhlo::AddOp>(context, benefit), layout(layout.str()) {}
+  LogicalResult matchAndRewrite(mhlo::AddOp op,
+                                PatternRewriter &rewriter) const override {
+    Value add;
+    mhlo::DotGeneralOp dotOp = op.getLhs().getDefiningOp<mhlo::DotGeneralOp>();
+    if (!dotOp) {
+      dotOp = op.getRhs().getDefiningOp<mhlo::DotGeneralOp>();
+      if (!dotOp) {
+        return failure();
+      }
+      add = op.getLhs();
+    } else {
+      add = op.getRhs();
+    }
+    if (!dotOp.getResult().hasOneUse()) {
+      return failure();
+    }
+
+    if (!isNormalizedBmm(dotOp, layout)) {
+      return failure();
+    }
+    if (layout == "rrr") {
+      rewriter.replaceOpWithNewOp<cat::BMMRRRAddOp>(
+          op, op.getType(), dotOp.getLhs(), dotOp.getRhs(), add);
+      return success();
+    } else if (layout == "rcr") {
+      rewriter.replaceOpWithNewOp<cat::BMMRCRAddOp>(
+          op, op.getType(), dotOp.getLhs(), dotOp.getRhs(), add);
+      return success();
+    } else if (layout == "crr") {
+      rewriter.replaceOpWithNewOp<cat::BMMCRRAddOp>(
+          op, op.getType(), dotOp.getLhs(), dotOp.getRhs(), add);
+      return success();
+    } else if (layout == "ccr") {
+      rewriter.replaceOpWithNewOp<cat::BMMCCRAddOp>(
+          op, op.getType(), dotOp.getLhs(), dotOp.getRhs(), add);
+      return success();
+    }
+    return failure();
+  }
+
+  std::string layout;
+};
+
 struct ConvertSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
   using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
 
@@ -351,6 +398,18 @@ struct ConvertHloToCatPass : public ConvertHloToCatBase<ConvertHloToCatPass> {
     }
     if (validCatOpsSet.contains("cat.bmm_ccr")) {
       patterns.add<ConvertToCatBmm>(context, "ccr");
+    }
+    if (validCatOpsSet.contains("cat.bmm_rrr_add")) {
+      patterns.add<ConvertToCatBmmAdd>(context, "rrr");
+    }
+    if (validCatOpsSet.contains("cat.bmm_rcr_add")) {
+      patterns.add<ConvertToCatBmmAdd>(context, "rcr");
+    }
+    if (validCatOpsSet.contains("cat.bmm_crr_add")) {
+      patterns.add<ConvertToCatBmmAdd>(context, "crr");
+    }
+    if (validCatOpsSet.contains("cat.bmm_ccr_add")) {
+      patterns.add<ConvertToCatBmmAdd>(context, "ccr");
     }
 
     if (validCatOpsSet.contains("cat.softmax")) {

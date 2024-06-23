@@ -27,6 +27,10 @@ SUPPORTED_CAT_OPS = [
     "cat.bmm_rcr",
     "cat.bmm_crr",
     "cat.bmm_ccr",
+    "cat.bmm_rrr_add",
+    "cat.bmm_rcr_add",
+    "cat.bmm_crr_add",
+    "cat.bmm_ccr_add",
     "cat.softmax",
     "cat.layernorm",
 ]
