@@ -103,4 +103,36 @@ def GPUPackSharedMemoryAlloc : Pass<"gpu-pack-shared-memory-alloc", "func::FuncO
   let constructor = "mlir::createGPUPackSharedMemoryAllocPass()";
 }
 
+//===----------------------------------------------------------------------===//
+// GPUPipelining
+//===----------------------------------------------------------------------===//
+def GPUPipelining : Pass<"gpu-pipelining", "func::FuncOp"> {
+  let summary = "Pipelining async copy and mma oprations to improve performance.";
+  let constructor = "mlir::createGPUPipeliningPass()";
+  let options = [
+    Option<"stages", "stages", "int64_t", /*default=*/"0", "the number of stages for pipelining">,
+  ];
+  let dependentDialects = [
+    "NVVM::NVVMDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// GPUVectorToGPU
+//===----------------------------------------------------------------------===//
+def GPUVectorToGPU : Pass<"gpu-vector-to-gpu", "func::FuncOp"> {
+  let summary = "Transform vector.contract to gpu.mma.sync.";
+  let constructor = "mlir::createGPUVectorToGPUPass()";
+  let dependentDialects = [
+    "nvgpu::NVGPUDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// LegalizeGPULaunch
+//===----------------------------------------------------------------------===//
+def LegalizeGPULaunch : Pass<"legalize-gpu-launch", "func::FuncOp"> {
+  let summary = "Legalize GPU launch ops.";
+  let constructor = "mlir::createLegalizeGPULaunchPass()";
+}
 #endif // BYTEIR_DIALECT_GPU_PASSES

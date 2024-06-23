@@ -45,7 +45,7 @@ using namespace mlir;
 
 namespace {
 static int64_t getAllocSize(Operation *op, DataLayout &dataLayout) {
-  auto allocOp = cast<memref::AllocaOp>(op);
+  auto allocOp = cast<memref::AllocOp>(op);
   int64_t numElements = allocOp.getType().getNumElements();
   return (dataLayout.getTypeSizeInBits(allocOp.getType().getElementType()) *
           numElements) /
@@ -59,7 +59,7 @@ using AliasGroup = SmallVector<Operation *>;
 void analyseAllocsForPacking(scf::ForallOp forallOp,
                              ArrayRef<Operation *> allocs,
                              SmallVector<AliasGroup> &aliasGroups) {
-  // Represent of a group of allocations with overlapping liverange and the
+  // Represent of a group of allocOptions with overlapping liverange and the
   // liveness of the overall group.
   struct AllocGroup {
     SmallVector<Operation *> allocs;
@@ -152,7 +152,7 @@ void packAllocs(OpBuilder &builder, scf::ForallOp forallOp,
   MemRefType allocType = MemRefType::get({maxAlloc}, builder.getI8Type(),
                                          AffineMap(), memorySpace);
   Value packedAlloc =
-      builder.create<memref::AllocaOp>(forallOp.getLoc(), allocType);
+      builder.create<memref::AllocOp>(forallOp.getLoc(), allocType);
   for (size_t i = 0; i < aliasGroups.size(); i++) {
     int64_t offset = 0;
     for (Operation *alloc : aliasGroups[i]) {
@@ -205,9 +205,9 @@ void sinkOpsInCFG(const SmallVector<Operation *> &allocs,
 void packSharedMemoryAlloc(scf::ForallOp forallOp) {
   DominanceInfo dominators(forallOp);
   SmallVector<Operation *> allocs;
-  forallOp.walk([&](memref::AllocaOp alloca) {
-    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(alloca.getType())) {
-      allocs.push_back(alloca);
+  forallOp.walk([&](memref::AllocOp allocOp) {
+    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(allocOp.getType())) {
+      allocs.push_back(allocOp);
     }
   });
   // First sink the alloc as low as possible in the CFG.
@@ -216,7 +216,10 @@ void packSharedMemoryAlloc(scf::ForallOp forallOp) {
   analyseAllocsForPacking(forallOp, allocs, aliasGroups);
   // If there is 1 or less alias group there is nothing to do.
   if (aliasGroups.size() <= 1)
+  {
+    llvm::errs() << "Found " << aliasGroups.size() << " alias groups\n";
     return;
+  }
 
   OpBuilder builder(forallOp.getContext());
   packAllocs(builder, forallOp, aliasGroups);
@@ -228,7 +231,7 @@ public:
   void runOnOperation() override {
     auto funcOp = getOperation();
     if (!hasGemmTileConfig(funcOp)) {
-      return signalPassFailure();
+      return;
     }
     auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
     if (!forallOpOptional.has_value()) {

@@ -51,6 +51,30 @@ static constexpr StringRef getCopyRelatedToWorkgroupMemoryMarker() {
 
 static constexpr StringRef getVectorizeMarker() { return "vectorizeMarker"; }
 
+static constexpr StringRef getAllocSharedMemoryAMarker() {
+  return "__byteir_alloca_matrix_a__";
+};
+
+static constexpr StringRef getAllocSharedMemoryBMarker() {
+  return "__byteir_alloca_matrix_b__";
+};
+
+static constexpr StringRef getAllocSharedMemoryAccMarker() {
+  return "__byteir_alloca_accumulator__";
+};
+
+static constexpr StringRef getCopyToSharedMemoryAMarker() {
+  return "__byteir_load_matrix_a__";
+};
+
+static constexpr StringRef getCopyToSharedMemoryBMarker() {
+  return "__byteir_load_matrix_b__";
+};
+
+static constexpr StringRef getCopyFromSharedMemoryAccMarker() {
+  return "__byteir_store_matrix_c__";
+};
+
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);

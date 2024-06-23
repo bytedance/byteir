@@ -25,6 +25,7 @@
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
+#include "byteir/Pipelines/GPU/GemmCodegen.h"
 #include "byteir/Pipelines/GPU/ReductionCodegen.h"
 #include "byteir/Pipelines/Host/Codegen.h"
 #include "byteir/Transforms/AnchoredPipeline.h"
@@ -43,6 +44,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
       createHloFusionToLinalgPass(getByteIRElementwiseFusionAttrName()));
   pm.addNestedPass<func::FuncOp>(
       createHloFusionToLinalgPass(getByteIRReductionFusionAttrName()));
+  pm.addNestedPass<func::FuncOp>(
+      createHloFusionToLinalgPass(getByteIRMatmulEpilogueFusionAttrName()));
   pm.addNestedPass<func::FuncOp>(createUnrealizedCastToLinalgPass());
   pm.addPass(createLinalgElementwiseFusionExtPass(
       /*enableSharedInput*/ true, /*enableDiffShapes*/ false));
@@ -224,6 +227,26 @@ void addGenericLinalgPasses(OpPassManager &pm) {
       anchoredPM.addPass(bufferization::createEmptyTensorEliminationPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(reductionAnchor, anchoredPM));
+    }
+    { // gemm codegen
+      auto gemmAnchor = getByteIRMatmulEpilogueFusionAttrName().str();
+
+      SmallVector<int64_t> tileSizeConfig = {128, 128, 32};
+      SmallVector<int64_t> workgroupSize = {64, 2, 1};
+      int64_t stages = 3;
+      // Annotate fusion with gemm config
+      GPUGemmCodegenConfigOptions gemmConfigOptions;
+      gemmConfigOptions.funcAnchor = gemmAnchor;
+      gemmConfigOptions.tileSizeConfig = tileSizeConfig;
+      gemmConfigOptions.workgroupSize = workgroupSize;
+      gemmConfigOptions.stages = stages;
+      createGPUAddGemmCodegenLoweringConfigTransform(pm, gemmConfigOptions);
+      pm.addPass(createTransformDialectInterpreter(true));
+
+      GPUGemmGeneralOptions options;
+      options.funcAnchor = gemmAnchor;
+      createGPUTileGemmTransform(pm, options);
+      pm.addPass(createTransformDialectInterpreter(true));
     }
   }
 }

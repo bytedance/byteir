@@ -208,25 +208,30 @@ static GenericFuserConfig config_concat_slice_fuse{
 namespace matmul_epilogue {
 
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) && (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-                        op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-                        isMhloConstantLike(op) ||
-                        isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp,
-                            mhlo::ReshapeOp, mhlo::DotOp>(op));
+  return isMhlo(op) &&
+         (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
+          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
+          isMhloConstantLike(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp,
+              mhlo::DotOp, mhlo::DotGeneralOp>(op));
 }
 
-bool isFusibleStart(Operation *op) { return isa<mhlo::DotOp>(op); }
+bool isFusibleStart(Operation *op) {
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
+}
 
 bool isFusibleTrigger(Operation *op) {
   // trigger fuse for anything but dot
-  return !isa<mhlo::DotOp>(op);
+  return !isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
 }
 
 bool isFusibleWith(Operation * /*target*/, Operation * /*start*/) {
   return true;
 }
 
-bool isValidSingleOp(Operation *op) { return false; }
+bool isValidSingleOp(Operation *op) {
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
+}
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
 
@@ -501,7 +506,7 @@ struct MatmulEpilogueFusionPass
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MatmulEpilogueFusionPass)
 
-  MatmulEpilogueFusionPass() : GenericFusionPass(false) {}
+  MatmulEpilogueFusionPass() : GenericFusionPass(true) {}
 
   /// Returns the command-line argument attached to this pass.
   static constexpr ::llvm::StringLiteral getArgumentName() {

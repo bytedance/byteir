@@ -42,6 +42,7 @@ void addGenericHloFusionPatterns(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(createIOConvertFusionPass());
 
   pm.addNestedPass<func::FuncOp>(createReductionFusionPass());
+  pm.addNestedPass<func::FuncOp>(createMatmulEpilogueFusionPass());
   pm.addNestedPass<func::FuncOp>(createConcatSliceFusionPass());
   // Element fusion (always last?)
   // Note: if outlineSingleElemwiseOp is set, element fusion must be the last

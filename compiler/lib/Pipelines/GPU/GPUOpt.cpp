@@ -108,13 +108,13 @@ void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
 
   createGPUMappingForallTransform(pm, options);
   pm.addPass(createTransformDialectInterpreter(true));
-  pm.addPass(createCSEPass());
-  pm.addPass(createCanonicalizerPass());
-  pm.addPass(createGpuLauchSinkIndexComputationsPass());
 
   {
     OpPassManager anchoredPM(func::FuncOp::getOperationName());
 
+    anchoredPM.addPass(createCSEPass());
+    anchoredPM.addPass(createCanonicalizerPass());
+    anchoredPM.addPass(createGpuLauchSinkIndexComputationsPass());
     anchoredPM.addPass(createPromoteBuffersToStackPass(
         /*isSmallAlloc =*/[](Value value) {
           return value.getParentRegion()->getParentOfType<gpu::LaunchOp>();
@@ -126,10 +126,44 @@ void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
   pm.addPass(createGpuKernelOutliningPass());
 }
 
+void createGemmGPUOptPipelineImpl(OpPassManager &pm) {
+  GPUMappingForallOptions options;
+  options.funcAnchor = getByteIRMatmulEpilogueFusionAttrName().str();
+  options.annotatePrefix = "__byteir_gpu_gemm_tile";
+  createGPUMappingForallTransform(pm, options);
+  pm.addPass(createTransformDialectInterpreter(true));
+  {
+    OpPassManager anchoredPM(func::FuncOp::getOperationName());
+
+    anchoredPM.addPass(createCSEPass());
+    anchoredPM.addPass(createCanonicalizerPass());
+    anchoredPM.addPass(createGpuLauchSinkIndexComputationsPass());
+
+    anchoredPM.addPass(createPromoteBuffersToStackPass(
+        /*isSmallAlloc =*/[](Value value) {
+          return value.getParentRegion()->getParentOfType<gpu::LaunchOp>();
+        }));
+
+    pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
+        getByteIRMatmulEpilogueFusionAttrName(), anchoredPM));
+  }
+  {
+    OpPassManager anchoredPM(func::FuncOp::getOperationName());
+    
+    anchoredPM.addPass(createLegalizeGPULaunchPass());
+    // anchoredPM.addPass(createSetSharedMemorySizePass());
+
+    pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
+        getByteIRMatmulEpilogueFusionAttrName(), anchoredPM));
+  }
+  pm.addPass(createGpuKernelOutliningPass());
+}
+
 void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
                               const std::string &target) {
   createElementwiseGPUOptPipelineImpl(pm, useBarePtrCallConv, target);
   createReductionGPUOptPipelineImpl(pm);
+  createGemmGPUOptPipelineImpl(pm);
   pm.addPass(createCollectGPUKernelPass("unified", false));
 }
 
