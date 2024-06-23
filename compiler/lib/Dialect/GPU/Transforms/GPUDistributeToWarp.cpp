@@ -164,8 +164,7 @@ static LogicalResult tileToWarp(scf::ForallOp forallOp,
       .addFilter([](Operation *op) {
         // linalg.copy will be handled by GPUDistributeSharedMemoryCopy pass.
         // So we should not tile it here.
-        return success(
-            isa<linalg::FillOp, linalg::MatmulOp, linalg::BatchMatmulOp>(op));
+        return success(isa<linalg::FillOp>(op) || isLinalgOpMatmul(op));
       })
       .setMatchByDefault();
   return distributeLinalgOpsWithFilter(forallOp, tilingOptions, filter);

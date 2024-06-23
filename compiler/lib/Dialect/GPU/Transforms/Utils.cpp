@@ -44,7 +44,7 @@
 #define LDBG(X) LLVM_DEBUG(DBGS() << X << "\n")
 
 using namespace mlir;
-
+using namespace llvm;
 namespace mlir {
 
 //===----------------------------------------------------------------------===//
@@ -293,5 +293,40 @@ bool hasAnyLinalgTransformationMarker(Operation *op,
                   llvm::any_of(marker, [&attr](StringRef markerValue) {
                     return attr.getValue() == markerValue;
                   }));
+}
+
+// a helper function to judge if a linalg generic op do matmul
+// Result should not be transposed
+bool isLinalgOpMatmul(Operation *op) {
+  if (!llvm::isa<linalg::LinalgOp>(op))
+    return false;
+
+  linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
+  if (!(isa<linalg::MatmulOp>(linalgOp) ||
+        isa<linalg::BatchMatmulOp>(linalgOp) ||
+        linalg::isaContractionOpInterface(linalgOp))) {
+    // If this is not a named op matmul check some properties to make sure that
+    // we can map it to tensorcore ops. We should have only mulAdd in the region
+    // and the output map should have no permutation and the last dimension
+    // should be a reduce.
+    Region &body = linalgOp->getRegion(0);
+    Region::OpIterator it = body.op_begin();
+    if (it == body.op_end() || !isa<arith::MulFOp>(*(it++)))
+      return false;
+    if (it == body.op_end() || !isa<arith::AddFOp>(*(it++)))
+      return false;
+    if (it == body.op_end() || !isa<linalg::YieldOp>(*(it++)))
+      return false;
+    AffineMap outputMap =
+        linalgOp.getMatchingIndexingMap(linalgOp.getDpsInitOperand(0));
+    if (outputMap.getNumResults() != outputMap.getNumDims() - 1)
+      return false;
+    OpBuilder b(linalgOp);
+    for (unsigned i = 0, e = outputMap.getNumResults(); i < e - 1; i++) {
+      if (outputMap.getResult(i) != b.getAffineDimExpr(i))
+        return false;
+    }
+  }
+  return true;
 }
 } // namespace mlir

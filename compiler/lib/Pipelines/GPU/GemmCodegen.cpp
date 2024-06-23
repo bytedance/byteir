@@ -102,7 +102,7 @@ struct GridTileConfig {
 std::optional<GridTileConfig>
 getGridTileConfig(linalg::LinalgOp linalgOp,
                   SmallVector<int64_t, 3> tileSizes) {
-  if (!llvm::isa<linalg::MatmulOp>(linalgOp))
+  if (!isLinalgOpMatmul(linalgOp))
     return std::nullopt;
 
   std::vector<ProducerSelector> fuseCandidates;
@@ -158,7 +158,9 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
   config.funcAnchor = anchor;
   config.matchPrefix = prefix;
   config.opFilter = [=](Operation *op) {
-    if (auto linalgOp = llvm::dyn_cast_or_null<linalg::MatmulOp>(op)) {
+    if (!isLinalgOpMatmul(op))
+      return false;
+    if (auto linalgOp = llvm::dyn_cast_or_null<linalg::LinalgOp>(op)) {
       func::FuncOp funcOp = op->getParentOfType<func::FuncOp>();
       SmallVector<int64_t, 3> tileSizeConfig = getGemmTileSize(funcOp).value();
 
@@ -247,7 +249,7 @@ void createGPUAddGemmCodegenLoweringConfigTransformImpl(
   config.matchPrefix = prefix;
 
   config.opFilter = [=](Operation *op) {
-    if (llvm::isa<linalg::MatmulOp>(op)) {
+    if (isLinalgOpMatmul(op)) {
       // TODO: check if the matmul op is already annotated
       // TODO: Add different lowering config for different matmul op size
       return true;

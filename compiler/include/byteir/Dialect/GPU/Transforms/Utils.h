@@ -128,6 +128,8 @@ LogicalResult
 distributeLinalgOpsWithFilter(IRRewriter &rewriter, Operation *root,
                               linalg::LinalgTilingOptions tilingOptions,
                               linalg_ext::LinalgTransformationFilter filter);
+
+bool isLinalgOpMatmul(Operation *op);
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_GPU_CODEGEN_UTILS_H

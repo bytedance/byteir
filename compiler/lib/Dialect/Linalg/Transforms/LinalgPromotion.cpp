@@ -271,7 +271,7 @@ public:
 
     scf::ForallOp forallOp = *forallOptional;
     forallOp.walk([&](linalg::LinalgOp linalgOp) {
-      if (isa<linalg::MatmulOp, linalg::BatchMatmulOp>(linalgOp))
+      if (isLinalgOpMatmul(linalgOp))
         toPromote.push_back(linalgOp);
     });
     if (toPromote.empty())
