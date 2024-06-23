@@ -149,9 +149,7 @@ void createGemmGPUOptPipelineImpl(OpPassManager &pm) {
   }
   {
     OpPassManager anchoredPM(func::FuncOp::getOperationName());
-    
     anchoredPM.addPass(createLegalizeGPULaunchPass());
-    // anchoredPM.addPass(createSetSharedMemorySizePass());
 
     pm.addNestedPass<func::FuncOp>(createAnchoredPipelinePass(
         getByteIRMatmulEpilogueFusionAttrName(), anchoredPM));

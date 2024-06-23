@@ -117,7 +117,8 @@ static void ConvertToDynamicSharedMemory(GPUModuleOp moduleOp) {
   // Replace the addressOfOps with correctly offseted pointers to dynamic
   // shared memory.
   for (auto addressOfOp : addressOfOps) {
-    uint32_t offset = globalMemoryOffsetMap[addressOfOp.getGlobal(symbolTableCollection)];
+    uint32_t offset =
+        globalMemoryOffsetMap[addressOfOp.getGlobal(symbolTableCollection)];
     auto loc = addressOfOp.getLoc();
     builder.setInsertionPoint(addressOfOp);
     LLVM::AddressOfOp globalPtr =

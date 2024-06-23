@@ -27,8 +27,7 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createGPUVectorToGPUPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createGPUVectorToGPUPass();
 
 } // namespace mlir
 

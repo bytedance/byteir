@@ -84,9 +84,9 @@ struct GPUVectorToGPUPass : public GPUVectorToGPUBase<GPUVectorToGPUPass> {
     if (failed(convertVectorToNVVMCompatibleMMASync(rewriter, funcOp))) {
       return signalPassFailure();
     }
-    // As we do linalg prefetch first, so problem maybe occurs here. So we didn't need to
-    // createAsyncGroups to support gpu async copy lowering.
-    // In this step, we lowering transfer read into cp.async
+    // As we do linalg prefetch first, so problem maybe occurs here. So we
+    // didn't need to createAsyncGroups to support gpu async copy lowering. In
+    // this step, we lowering transfer read into cp.async
     nvgpu::createAsyncGroups(rewriter, funcOp, /* bypassL1 */ true);
 
     // Last step:
