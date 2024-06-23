@@ -202,6 +202,32 @@ void sinkOpsInCFG(const SmallVector<Operation *> &allocs,
   }
 }
 
+static void addBarrier(scf::ForallOp forallOp, Operation *alloc,
+                       ArrayRef<Operation *> aliasGroup) {
+  Block *entryBlock = forallOp.getBody();
+  bool needBarrier = false;
+  if (alloc->getBlock() != entryBlock) {
+    needBarrier = true;
+  } else {
+    for (Operation &op : entryBlock->getOperations()) {
+      if (&op == alloc)
+        break;
+      if (op.getNumRegions() != 0) {
+        needBarrier = true;
+        break;
+      }
+      if (isa<memref::AllocaOp>(&op) && !llvm::is_contained(aliasGroup, &op)) {
+        needBarrier = true;
+        break;
+      }
+    }
+  }
+  if (!needBarrier)
+    return;
+  OpBuilder builder(alloc);
+  builder.create<gpu::BarrierOp>(alloc->getLoc());
+}
+
 void packSharedMemoryAlloc(scf::ForallOp forallOp) {
   DominanceInfo dominators(forallOp);
   SmallVector<Operation *> allocs;
@@ -216,8 +242,12 @@ void packSharedMemoryAlloc(scf::ForallOp forallOp) {
   analyseAllocsForPacking(forallOp, allocs, aliasGroups);
   // If there is 1 or less alias group there is nothing to do.
   if (aliasGroups.size() <= 1) {
-    llvm::errs() << "Found " << aliasGroups.size() << " alias groups\n";
     return;
+  }
+  for (size_t i = 0; i < aliasGroups.size(); i++) {
+    for (Operation *alloc : aliasGroups[i]) {
+      addBarrier(forallOp, alloc, aliasGroups[i]);
+    }
   }
 
   OpBuilder builder(forallOp.getContext());
