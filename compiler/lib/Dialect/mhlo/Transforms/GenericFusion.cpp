@@ -207,6 +207,27 @@ static GenericFuserConfig config_concat_slice_fuse{
 
 namespace matmul_epilogue {
 
+static bool isInputFP16(Operation *op) {
+  if (auto dotOp = dyn_cast<mhlo::DotOp>(op)) {
+    for (auto operand : dotOp.getOperands()) {
+      auto tensorType = operand.getType().dyn_cast<RankedTensorType>();
+      if (!tensorType || !tensorType.getElementType().isa<FloatType>() ||
+          tensorType.getElementType().cast<FloatType>().getWidth() != 16) {
+        return false;
+      }
+    }
+  } else if (auto dotGeneralOp = dyn_cast<mhlo::DotGeneralOp>(op)) {
+    for (auto operand : dotGeneralOp.getOperands()) {
+      auto tensorType = operand.getType().dyn_cast<RankedTensorType>();
+      if (!tensorType || !tensorType.getElementType().isa<FloatType>() ||
+          tensorType.getElementType().cast<FloatType>().getWidth() != 16) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 bool isFusibleCandidate(Operation *op) {
   return isMhlo(op) &&
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
@@ -217,7 +238,7 @@ bool isFusibleCandidate(Operation *op) {
 }
 
 bool isFusibleStart(Operation *op) {
-  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
 }
 
 bool isFusibleTrigger(Operation *op) {
@@ -230,7 +251,7 @@ bool isFusibleWith(Operation * /*target*/, Operation * /*start*/) {
 }
 
 bool isValidSingleOp(Operation *op) {
-  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
 }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
