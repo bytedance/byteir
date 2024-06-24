@@ -249,7 +249,7 @@ void addCPULinalgOptPasses(OpPassManager &pm) {
 
 void createLinalgTensorOptPipelineImpl(OpPassManager &pm,
                                        const std::string &target) {
-  if (target == "CPU") {
+  if (target == "cpu") {
     addCPULinalgOptPasses(pm);
   } else {
     addGenericLinalgPasses(pm);
