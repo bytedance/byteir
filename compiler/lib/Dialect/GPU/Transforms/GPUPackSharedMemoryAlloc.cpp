@@ -225,6 +225,16 @@ static void addBarrier(scf::ForallOp forallOp, Operation *alloc,
   if (!needBarrier)
     return;
   OpBuilder builder(alloc);
+  // TODO: make it a option if needed.
+  bool hasAsyncCopies = true;
+  if (hasAsyncCopies) {
+    Value groupToken = builder.create<nvgpu::DeviceAsyncCreateGroupOp>(
+        forallOp.getLoc(),
+        nvgpu::DeviceAsyncTokenType::get(forallOp.getContext()),
+        SmallVector<Value>());
+    builder.create<nvgpu::DeviceAsyncWaitOp>(forallOp.getLoc(), groupToken,
+                                             builder.getI32IntegerAttr(0));
+  }
   builder.create<gpu::BarrierOp>(alloc->getLoc());
 }
 
