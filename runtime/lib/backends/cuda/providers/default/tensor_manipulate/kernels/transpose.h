@@ -26,6 +26,9 @@ template <typename T>
 void transpose_naive_2d(const T *input, T *output, int m, int n, dim3 grid,
                         dim3 block, cudaStream_t stream);
 
+template <typename T>
+void batch_transpose(int32_t batch, int32_t row, int32_t col, const T *inp_ptr,
+                     T *out_ptr, cudaStream_t stream);
 } // namespace kernel
 } // namespace cuda
 } // namespace brt

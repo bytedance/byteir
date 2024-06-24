@@ -64,6 +64,38 @@ static void CheckTranspose2D(T *input, T *output,
 }
 
 template <typename T>
+static void CheckTranspose3D(T *input, T *output,
+                             const std::vector<int64_t> &input_shape) {
+  T *h_input =
+      (T *)malloc(input_shape[0] * input_shape[1] * input_shape[2] * sizeof(T));
+  T *h_output =
+      (T *)malloc(input_shape[0] * input_shape[1] * input_shape[2] * sizeof(T));
+  cudaMemcpy(h_input, input,
+             input_shape[0] * input_shape[1] * input_shape[2] * sizeof(T),
+             cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_output, output,
+             input_shape[0] * input_shape[1] * input_shape[2] * sizeof(T),
+             cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
+
+  int B = input_shape[0];
+  int m = input_shape[1];
+  int n = input_shape[2];
+  for (int64_t t = 0; t < B; ++t) {
+    for (int64_t i = 0; i < m; ++i) {
+      for (int64_t j = 0; j < n; ++j) {
+        int in_idx = t * m * n + i * n + j;
+        int out_idx = t * m * n + j * m + i;
+        EXPECT_EQ(h_output[out_idx], h_input[in_idx]);
+      }
+    }
+  }
+
+  free(h_input);
+  free(h_output);
+}
+
+template <typename T>
 static void CheckTranspose4D(T *input, T *output,
                              const std::vector<int64_t> &input_shape,
                              const std::vector<int64_t> &perm) {
@@ -142,6 +174,8 @@ static void TestTranspose(std::vector<int64_t> shape_input,
 
   if (shape_input.size() == 2) {
     CheckTranspose2D<T>(d_input, d_output, shape_input);
+  } else if (shape_input.size() == 3) {
+    CheckTranspose3D<T>(d_input, d_output, shape_input);
   } else if (shape_input.size() == 4) {
     CheckTranspose4D<T>(d_input, d_output, shape_input, perm);
   } else {
@@ -150,8 +184,16 @@ static void TestTranspose(std::vector<int64_t> shape_input,
 }
 
 TEST(CUDAOpKerenlTest, TransposeOp) {
+  // 2D transpose
   TestTranspose<float>({32, 64}, {64, 32}, {1, 0});
+  TestTranspose<float>({2, 1}, {1, 2}, {1, 0});
+  TestTranspose<float>({1007, 13}, {13, 1007}, {1, 0});
+  TestTranspose<float>({2007, 4339}, {4339, 2007}, {1, 0});
   TestTranspose<float>({1000, 512}, {512, 1000}, {1, 0});
+  // 3D Batch transpose
+  TestTranspose<float>({13, 789, 1234}, {13, 1234, 789}, {0, 2, 1});
+  TestTranspose<float>({65536, 32, 50}, {65536, 50, 32}, {0, 2, 1});
+  TestTranspose<float>({65536, 2, 50}, {65536, 50, 2}, {0, 2, 1});
   // NCHW 2 NHWC
   TestTranspose<float>({10, 20, 30, 40}, {10, 30, 40, 20}, {0, 2, 3, 1});
   // NHWC 2 NCHW
@@ -159,8 +201,14 @@ TEST(CUDAOpKerenlTest, TransposeOp) {
 }
 
 TEST(CUDAOpKerenlTest, TransposeOpFp16) {
+  // 2D transpose
   TestTranspose<__half>({32, 64}, {64, 32}, {1, 0});
+  TestTranspose<__half>({2, 1}, {1, 2}, {1, 0});
+  TestTranspose<__half>({1007, 13}, {13, 1007}, {1, 0});
+  TestTranspose<__half>({2007, 4339}, {4339, 2007}, {1, 0});
   TestTranspose<__half>({1000, 512}, {512, 1000}, {1, 0});
+  // 3D Batch transpose
+  TestTranspose<__half>({13, 789, 1234}, {13, 1234, 789}, {0, 2, 1});
   // NCHW 2 NHWC
   TestTranspose<__half>({10, 20, 30, 40}, {10, 30, 40, 20}, {0, 2, 3, 1});
   // NHWC 2 NCHW
