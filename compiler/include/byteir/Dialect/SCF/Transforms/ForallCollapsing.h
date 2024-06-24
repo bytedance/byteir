@@ -1,6 +1,6 @@
-//===- Passes.h --------------------------------------------------- C++ --===//
+//===- ForallCollapsing.h ------------------------------------- C++ --===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,19 +15,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_SCF_PASSES_H
-#define BYTEIR_DIALECT_SCF_PASSES_H
+#ifndef BYTEIR_DIALECT_SCF_TRANSFORMS_FORALLCOLLAPSING_H
+#define BYTEIR_DIALECT_SCF_TRANSFORMS_FORALLCOLLAPSING_H
 
-#include "byteir/Dialect/SCF/Transforms/ForallCollapsing.h"
-#include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
-#include "byteir/Dialect/SCF/Transforms/InsertTrivialSCFLoop.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/SCF/Passes.h.inc"
+std::unique_ptr<OperationPass<func::FuncOp>>
+createForallCollapsingPass(llvm::StringRef anchorTag = "");
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_SCF_PASSES_H
+#endif // BYTEIR_DIALECT_SCF_TRANSFORMS_FORALLCOLLAPSING_H
