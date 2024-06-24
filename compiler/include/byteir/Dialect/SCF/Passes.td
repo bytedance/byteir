@@ -55,4 +55,21 @@ def FuseNestedForall : Pass<"fuse-nested-forall", "mlir::func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ForallCollapsing
+//===----------------------------------------------------------------------===//
+
+def ForallCollapsing : Pass<"forall-collapsing", "mlir::func::FuncOp"> {
+  let summary = "collapse forall";
+  let constructor = "mlir::createForallCollapsingPass()";
+  let dependentDialects = [
+    "scf::SCFDialect"
+  ];
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
 #endif // BYTEIR_DIALECT_SCF_PASSES
