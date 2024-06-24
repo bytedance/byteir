@@ -160,7 +160,7 @@ void collapseForallImpl(scf::ForallOp forallOp) {
         insideBuilder.create<scf::InParallelOp>(loc);
       });
 
-  // Replace the old loop with the new loop.
+  // Replace the old forall with the new forall.
   newForall.getBody()->getOperations().splice(
       Block::iterator(newForall.getBody()->back()),
       forallOp.getBody()->getOperations());

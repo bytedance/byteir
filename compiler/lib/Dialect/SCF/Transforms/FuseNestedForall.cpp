@@ -179,13 +179,12 @@ scf::ForallOp fuseNestedForallImpl(scf::ForallOp parentForall,
   }
 
   rewriter.setInsertionPoint(parentForall);
-  std::optional<ArrayAttr> maybeMapping = std::nullopt;
+  std::optional<ArrayAttr> optionalMapping = std::nullopt;
   if (mappingAttrs.size() > 0) {
-    maybeMapping = rewriter.getArrayAttr(mappingAttrs);
+    optionalMapping = rewriter.getArrayAttr(mappingAttrs);
   }
-  auto newForallOp =
-      rewriter.create<scf::ForallOp>(loc, mixedLb, mixedUb, mixedStep, outputs,
-                                     maybeMapping);
+  auto newForallOp = rewriter.create<scf::ForallOp>(
+      loc, mixedLb, mixedUb, mixedStep, outputs, optionalMapping);
   newForallOp.getTerminator()->erase();
 
   Block *parentForallLoopBody = parentForall.getBody();
