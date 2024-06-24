@@ -38,16 +38,6 @@ using namespace mlir;
 
 namespace {
 void addGemmOptPasses(OpPassManager &pm) {
-  // createTileGemmTransform.
-  // -linalg-prefetch="alloc-op-type=alloc"
-  // -cse -canonicalize
-  // -gpu-distributed-to-warp -remove-single-iteration-loop
-  // --gpu-tensorcore-vectorization
-  // -fold-memref-alias-ops -cse -optimize-vector-transfer
-  // -gpu-generalize-named-ops // linalg.copy => linalg.generic // add tag
-  // --gpu-distributed-shared-memory-copy -canonicalize -cse
-  // -fold-memref-alias-ops
-  // --gpuvector-to-gpu -canonicalize -cse
   {
     auto gemmAnchor = getByteIRMatmulEpilogueFusionAttrName().str();
     {
@@ -72,6 +62,11 @@ void addGemmOptPasses(OpPassManager &pm) {
       anchoredPM.addPass(createGPUVectorToGPUPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(memref::createFoldMemRefAliasOpsPass());
+      // shared memory swizzle
+      anchoredPM.addPass(createGPUInputSharedMemorySwizzlePass());
+      anchoredPM.addPass(createCanonicalizerPass());
+      anchoredPM.addPass(createCSEPass());
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(gemmAnchor, anchoredPM));
     }
@@ -87,7 +82,11 @@ void addGemmOptPasses(OpPassManager &pm) {
 
     {
       OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      // Pack shared memory alloc to reuse it
       anchoredPM.addPass(createGPUPackSharedMemoryAllocPass());
+      anchoredPM.addPass(createCanonicalizerPass());
+      anchoredPM.addPass(createCSEPass());
+      anchoredPM.addPass(createGPUBlockSwizzlePass(3));
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(gemmAnchor, anchoredPM));
     }
