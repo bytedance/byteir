@@ -72,4 +72,28 @@ def ForallCollapsing : Pass<"forall-collapsing", "mlir::func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ForallTiling
+//===----------------------------------------------------------------------===//
+
+def ForallTiling : Pass<"forall-tiling"> {
+  let summary = "tile forall Op with specific tileSize";
+  let constructor = "mlir::createForallTilingPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "affine::AffineDialect"
+  ];
+  let options = [
+    ListOption<"tileSizes", "tile-sizes", "int64_t",
+               "Factors to tile forall">,
+    Option<"noMinMaxBounds", "no-min-max-bounds", "bool",
+           /*default=*/"false",
+           "Perform tiling with fixed upper bound with inbound check "
+           "inside the internal loops">,
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">,
+  ];
+}
+
 #endif // BYTEIR_DIALECT_SCF_PASSES

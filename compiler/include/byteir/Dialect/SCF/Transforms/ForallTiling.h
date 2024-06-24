@@ -1,6 +1,6 @@
-//===- Passes.h --------------------------------------------------- C++ --===//
+//===- ForallTiling.h ------------------------------------- C++ --===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,20 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_SCF_PASSES_H
-#define BYTEIR_DIALECT_SCF_PASSES_H
+#ifndef BYTEIR_DIALECT_SCF_TRANSFORMS_FORALLTILING_H
+#define BYTEIR_DIALECT_SCF_TRANSFORMS_FORALLTILING_H
 
-#include "byteir/Dialect/SCF/Transforms/ForallCollapsing.h"
-#include "byteir/Dialect/SCF/Transforms/ForallTiling.h"
-#include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
-#include "byteir/Dialect/SCF/Transforms/InsertTrivialSCFLoop.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/SCF/Passes.h.inc"
+std::unique_ptr<Pass>
+createForallTilingPass(llvm::ArrayRef<int64_t> tileSize = {},
+                       bool noMinMaxBounds = false,
+                       llvm::StringRef anchorTag = "");
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_SCF_PASSES_H
+#endif // BYTEIR_DIALECT_SCF_TRANSFORMS_FORALLTILING_H

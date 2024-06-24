@@ -27,6 +27,10 @@ namespace scf {
 class SCFDialect;
 } // namespace scf
 
+namespace affine {
+class AffineDialect;
+} // namepsace affine
+
 #define GEN_PASS_CLASSES
 #include "byteir/Dialect/SCF/Passes.h.inc"
 
