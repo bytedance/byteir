@@ -121,4 +121,12 @@ def LegalizeGPULaunch : Pass<"legalize-gpu-launch", "func::FuncOp"> {
   let summary = "Legalize GPU launch ops.";
   let constructor = "mlir::createLegalizeGPULaunchPass()";
 }
+
+//===----------------------------------------------------------------------===//
+// GPUInputSharedMemorySwizzle
+//===----------------------------------------------------------------------===//
+def GPUInputSharedMemorySwizzle: Pass<"gpu-input-shared-memory-swizzle", "func::FuncOp"> {
+  let summary = "Swizzle shared memory for gemm's input to improve performance.";
+  let constructor = "mlir::createGPUInputSharedMemorySwizzlePass()";
+}
 #endif // BYTEIR_DIALECT_GPU_PASSES

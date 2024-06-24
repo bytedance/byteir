@@ -3,6 +3,7 @@ add_mlir_dialect_library(ByteIRGPUPasses
   GPUBlockSwizzle.cpp
   GPUDistributeSharedMemoryCopy.cpp
   GPUDistributeToWarp.cpp
+  GPUInputSharedMemorySwizzle.cpp
   GPUTensorCoreVectorization.cpp
   GPUPackSharedMemoryAlloc.cpp
   GPUVectorToGPU.cpp
