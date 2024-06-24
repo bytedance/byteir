@@ -303,14 +303,19 @@ bool isLinalgOpMatmul(Operation *op) {
 
   linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
   if (!(isa<linalg::MatmulOp>(linalgOp) ||
-        isa<linalg::BatchMatmulOp>(linalgOp) ||
-        linalg::isaContractionOpInterface(linalgOp))) {
+        isa<linalg::BatchMatmulOp>(linalgOp))) {
+    if (!linalg::isaContractionOpInterface(linalgOp)) {
+      return false;
+    }
     // If this is not a named op matmul check some properties to make sure that
     // we can map it to tensorcore ops. We should have only mulAdd in the region
     // and the output map should have no permutation and the last dimension
     // should be a reduce.
     Region &body = linalgOp->getRegion(0);
     Region::OpIterator it = body.op_begin();
+    // jump two arith ext ops(optional)
+    while (it != body.op_end() && isa<arith::ExtFOp>(*it))
+      it++;
     if (it == body.op_end() || !isa<arith::MulFOp>(*(it++)))
       return false;
     if (it == body.op_end() || !isa<arith::AddFOp>(*(it++)))
