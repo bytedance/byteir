@@ -354,6 +354,17 @@ struct GPUTensorCoreVectorizationPass
         funcOp->dump();
       });
 
+      // Step 1(b). Fold arithmetic extensions into vector contraction ops.
+      // Linalg to vector conversion introduces arithmetic extensions on the
+      // operands of vector contraction ops for mixed precision computation.
+      // This pattern folds the arithmetic extensions into the vector.contract.
+      RewritePatternSet foldArithExtPatterns(context);
+      vector::populateFoldArithExtensionPatterns(foldArithExtPatterns);
+      if (failed(applyPatternsAndFoldGreedily(
+              funcOp, std::move(foldArithExtPatterns)))) {
+        return signalPassFailure();
+      }
+
       // Step 3. Prepare vector operations to be lowered to native tensor core
       // operations (nvgpu.mmasync, nvgpu.ldmatrix).
       RewritePatternSet vectorContractPatterns(funcOp.getContext());
