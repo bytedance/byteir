@@ -356,6 +356,8 @@ void createGPUPipeliningTransformImpl(OpPassManager &pm,
       scf::ForOp forOp = forOps[0];
       if (numIterations(forOp) <= pipelineStageOptional.value())
         return false;
+      else
+        return true;
     }
     return false;
   };
