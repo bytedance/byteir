@@ -1,5 +1,6 @@
 from byteir import ir
 from byteir.dialects.builtin import ModuleOp
+from byteir.dialects.func import FuncOp
 from byteir.passmanager import PassManager
 from byteir.utils import get_gpu_type
 
@@ -15,8 +16,26 @@ import hashlib
 
 BYTEIR_CAT_ATTR = "__byteir_cat_fusion__"
 
-available_cuda_device_num = torch.cuda.device_count()
-MAX_COMPILATION_PARALLELISM = available_cuda_device_num
+# FIXME(lyq): using cat op's python binding
+SUPPORTED_CAT_OPS = [
+    "cat.gemm_rrr",
+    "cat.gemm_rcr",
+    "cat.gemm_rrr_bias",
+    "cat.gemm_rcr_bias",
+    "cat.gemm_rcr_bias_relu",
+    "cat.bmm_rrr",
+    "cat.bmm_rcr",
+    "cat.bmm_crr",
+    "cat.bmm_ccr",
+    "cat.bmm_rrr_add",
+    "cat.bmm_rcr_add",
+    "cat.bmm_crr_add",
+    "cat.bmm_ccr_add",
+    "cat.softmax",
+    "cat.layernorm",
+]
+
+MAX_COMPILATION_PARALLELISM = torch.cuda.device_count()
 
 def _print_verbose(module: ModuleOp, pipeline_msg: str):
     print(pipeline_msg)
@@ -34,13 +53,12 @@ class IRProcessor:
     def __init__(self, 
                  job_name, 
                  workdir, 
-                 compile_parallelism = MAX_COMPILATION_PARALLELISM,
+                 compile_parallelism = 1,
                  disable_byteir_ait_cache = False,
                  verbose = False):
         self.job_name = job_name
         self.workdir = workdir
         self.module = None
-        self.ait_reuse_recorder = {} # key: hash str, value: Tuple(dll_name, ait_module_path)
         self.compile_parallelism = min(compile_parallelism, MAX_COMPILATION_PARALLELISM)
         if self.compile_parallelism > 1:
             self.pool = multiprocessing.Pool(compile_parallelism)
@@ -52,11 +70,12 @@ class IRProcessor:
         if not disable_byteir_ait_cache:
             self.byteir_cache.load_or_create_cache()
 
-    def _get_builder(self, module, subgraph_name, backend="ait"):
-        assert module != None
+    def _get_builder(self, func, subgraph_name, backend="ait"):
+        assert func != None
+        assert isinstance(func, FuncOp)
         if backend == "ait":
             from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
-            return AITBuilder(module, workdir=self.workdir, subgraph_name=subgraph_name)
+            return AITBuilder(func, workdir=self.workdir, subgraph_name=subgraph_name)
         else:
             raise RuntimeError(f"Unsupported runtime backend {backend}")
 
@@ -73,82 +92,47 @@ class IRProcessor:
 
     def cat_opt_pass(self, anchor_only=False):
         with self.module.context:
-            if anchor_only:
-                pass_arg = "builtin.module(cat-fusion-opt{anchor-only})"
-            else:
-                pass_arg = "builtin.module(cat-fusion-opt)"
+            pass_arg = "builtin.module(func.func(convert-hlo-to-cat{valid-cat-ops=" + ",".join(SUPPORTED_CAT_OPS) + "}))"
             pm = PassManager.parse(pass_arg)
             pm.run(self.module.operation)
             _print_verbose(self.module, "// IR Dump After Cat Fusion Opt:") if self.verbose else ...
         return self.module
 
-    def ait_opt_pass(self, anchor_only=False):
-        if not anchor_only:
-            builder = self._get_builder()
-            builder.compile()
-            return self.module
-        funcNameArg = ""
-        aitLibPathArg = ""
-        dllPaths = []
-        
+    def ait_opt_pass(self, output_dir):
+        funcNameArg = []
+        aitLibPathArg = []
+
         gpu_type = get_gpu_type()
         if gpu_type == None:
             raise RuntimeError("No gpu found in this machine! cannot perform ait-opt-pass")
-        dedup_work_items = [] # deduplicated work items
-        libs_to_add_to_cache = {} # key: hash_str, value: lib path 
+        work_items = [] # work items of FuncOp
+        libs_to_add_to_cache = {} # key: hash_str, value: lib path
         for func in self.module.body.operations:
             if BYTEIR_CAT_ATTR not in func.attributes:
                 continue
-            func_ir_str = func.get_asm(large_elements_limit=None)
+            output_lib_path = os.path.join(output_dir, func.name.value + ".so")
             hash_str = func_hash_str(func, gpu_type)
-            if self.verbose:
-                print("ait op:")
-                print(func_ir_str)
-                print("hash str for this ait op:")
-                print(hash_str)
-            # perform ait reuse to remove duplicated work items
-            if hash_str in self.ait_reuse_recorder:
-                funcNameArg += func.name.value + ","
-                aitLibPathArg += self.ait_reuse_recorder[hash_str][0] + ","
-                dllPaths.append(self.ait_reuse_recorder[hash_str][1])
-            else:
-                builder = self._get_builder(module=func, subgraph_name=func.name.value, backend="ait")
-                # builder.benchmark()
-                funcNameArg += func.name.value + ","
-                aitLibPathArg += builder.dll_name + ","
-                dllPaths.append(builder.ait_module_path)
-                self.ait_reuse_recorder[hash_str] = (builder.dll_name, builder.ait_module_path)
-                libs_to_add_to_cache[hash_str] = builder.ait_module_path
-                dedup_work_items.append((hash_str, func_ir_str))
-
-        # search in byteir cache
-        work_items_not_in_cache = []
-        for hash_str, func_ir_str in dedup_work_items:
             cached_lib = self.byteir_cache.find(gpu_type, hash_str)
-            if cached_lib != None:
-                # hit, copy cached lib
-                context = ir.Context()
-                _module = ir.Module.parse(func_ir_str, context)
-                assert len(_module.body.operations) == 1
-                _func = _module.body.operations[0]
-                builder = self._get_builder(module=_func, subgraph_name=_func.name.value, backend="ait")
-                os.makedirs(os.path.dirname(builder.ait_module_path), exist_ok=True)
-                copyfile(cached_lib, builder.ait_module_path)
-                copymode(cached_lib, builder.ait_module_path)
-                continue
+            if cached_lib:
+                print(f"func {func.name.value} cache hit")
+                copyfile(cached_lib, output_lib_path)
+                copymode(cached_lib, output_lib_path)
             else:
-                # miss, add to work_items
-                work_items_not_in_cache.append(func_ir_str)
+                work_items.append(func)
+                libs_to_add_to_cache[hash_str] = output_lib_path
+            funcNameArg.append(func.name.value)
+            aitLibPathArg.append(func.name.value + ".so")
 
         # compile and benchmark
-        print("compile ait module using {} processes".format(min(len(work_items_not_in_cache), self.compile_parallelism)))
+        print("compile ait module using {} processes".format(min(len(work_items), self.compile_parallelism)))
+        print("\n".join([str(func) for func in work_items]))
         t_st = time.time()
-        for func_ir_str in work_items_not_in_cache:
+        for func in work_items:
+            output_lib_path = os.path.join(output_dir, func.name.value + ".so")
             if self.pool:
-                self.pool.apply_async(_parallel_ait_compile, (self.workdir, func_ir_str))
+                self.pool.apply_async(_parallel_ait_compile, (self.workdir, func, output_lib_path))
             else:
-                _parallel_ait_compile(self.workdir, func_ir_str)
-
+                _parallel_ait_compile(self.workdir, func, output_lib_path)
         if self.pool:
             self.pool.close()
             self.pool.join()
@@ -163,23 +147,27 @@ class IRProcessor:
             self.byteir_cache.close_cache()
 
         with self.module.context:
-            pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(funcNameArg, aitLibPathArg))
+            pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(",".join(funcNameArg), ",".join(aitLibPathArg)))
             pm.run(self.module.operation)
             _print_verbose(self.module, "// IR Dump After Gen AIT Config:") if self.verbose else ...
 
-        return self.module, dllPaths
+        return self.module
 
-    def execute(self, inputs, backend="ait"):
-        module = self.module.body.operations[0]
-        subgraph_name = module.name.value
-        builder = self._get_builder(module=module, subgraph_name=subgraph_name, backend=backend)
+    def execute(self, inputs, func_name=None, backend="ait"):
+        if func_name is None:
+            func = self.module.body.operations[0]
+        else:
+            func = ir.SymbolTable(self.module.operation)[func_name]
+        builder = self._get_builder(func=func, subgraph_name=func.name.value, backend=backend)
         builder.compile()
         return builder.execute(inputs)
 
-    def benchmark(self, backend="ait", num_trials=5):
-        module = self.module.body.operations[0]
-        subgraph_name = module.name.value
-        builder = self._get_builder(module=module, subgraph_name=subgraph_name, backend=backend)
+    def benchmark(self, func_name=None, backend="ait", num_trials=5):
+        if func_name is None:
+            func = self.module.body.operations[0]
+        else:
+            func = ir.SymbolTable(self.module.operation)[func_name]
+        builder = self._get_builder(func=func, subgraph_name=func.name.value, backend=backend)
         builder.compile()
         builder.benchmark(num_trials)
 
@@ -187,13 +175,11 @@ class IRProcessor:
         pass
 
 
-def _parallel_ait_compile(workdir: str, ir_str: str):
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
-    context = ir.Context()
-    module = ir.Module.parse(ir_str, context)
-    assert len(module.body.operations) == 1
-    func = module.body.operations[0]
+def _parallel_ait_compile(workdir: str, func: FuncOp, output_lib_path):
+    # os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
     from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
     builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value)
     builder.compile()
     builder.benchmark()
+    copyfile(builder.ait_module_path, output_lib_path)
+    copymode(builder.ait_module_path, output_lib_path)

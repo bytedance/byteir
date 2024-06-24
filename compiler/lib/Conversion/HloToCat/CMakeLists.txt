@@ -3,6 +3,7 @@ mlir_tablegen(FuseHloToCatPattern.inc -gen-rewriters)
 add_public_tablegen_target(FuseHloToCatPatternIncGen)
 
 add_byteir_conversion_library(ByteIRHloToCat
+  ConvertHloToCat.cpp
   HloToCat.cpp
   FuseHloToCat.cpp
 

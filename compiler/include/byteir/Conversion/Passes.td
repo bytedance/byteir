@@ -242,6 +242,22 @@ def CollectFuncToLLVM : Pass<"collect-func-to-llvm", "mlir::ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ConvertHloToCat
+//===----------------------------------------------------------------------===//
+
+def ConvertHloToCat : Pass<"convert-hlo-to-cat", "func::FuncOp"> {
+  let summary = "convert hlo ops to cat op.";
+  let constructor = "mlir::createConvertHloToCatPass(/*validCatOps=*/{})";
+  let options = [
+    ListOption<"validCatOps", "valid-cat-ops", "std::string",
+               "List of cat ops could be converted to">,
+  ];
+  let dependentDialects = [
+    "mlir::cat::CatDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // FuseMhloToCat
 //===----------------------------------------------------------------------===//
 

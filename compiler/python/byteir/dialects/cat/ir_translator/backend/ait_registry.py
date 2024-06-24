@@ -137,26 +137,32 @@ def _dispatch_cat_reduce(op, inputs):
         raise RuntimeError("Currently we do not support this kind of reduce")
 
 @AITemplateIRTranslator.register("cat.gemm_rrr")
-def _dispatch_cat_gemm(op, inputs):
+def _dispatch_cat_gemm_rrr(op, inputs):
     ait_op = ait_ops.gemm_rrr()
     Y = ait_op(inputs[0], inputs[1])
     return [Y]
 
 @AITemplateIRTranslator.register("cat.gemm_rcr")
-def _dispatch_cat_gemm(op, inputs):
+def _dispatch_cat_gemm_rcr(op, inputs):
     ait_op = ait_ops.gemm_rcr()
     Y = ait_op(inputs[0], inputs[1])
     return [Y]
 
 @AITemplateIRTranslator.register("cat.gemm_rrr_bias")
-def _dispatch_cat_gemm_bias(op, inputs):
+def _dispatch_cat_gemm_rrr_bias(op, inputs):
     ait_op = ait_ops.gemm_rrr_bias()
     Y = ait_op(inputs[0], inputs[1], inputs[2])
     return [Y]
 
 @AITemplateIRTranslator.register("cat.gemm_rcr_bias")
-def _dispatch_cat_gemm_bias(op, inputs):
+def _dispatch_cat_gemm_rcr_bias(op, inputs):
     ait_op = ait_ops.gemm_rcr_bias()
+    Y = ait_op(inputs[0], inputs[1], inputs[2])
+    return [Y]
+
+@AITemplateIRTranslator.register("cat.gemm_rcr_bias_relu")
+def _dispatch_cat_gemm_rcr_bias_relu(op, inputs):
+    ait_op = ait_ops.gemm_rcr_bias_relu()
     Y = ait_op(inputs[0], inputs[1], inputs[2])
     return [Y]
 
