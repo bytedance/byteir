@@ -77,7 +77,7 @@ def ForallCollapsing : Pass<"forall-collapsing", "mlir::func::FuncOp"> {
 //===----------------------------------------------------------------------===//
 
 def ForallTiling : Pass<"forall-tiling"> {
-  let summary = "tile forall Op with specific tileSize";
+  let summary = "tile forall Op with given tileSize";
   let constructor = "mlir::createForallTilingPass()";
   let dependentDialects = [
     "scf::SCFDialect",
