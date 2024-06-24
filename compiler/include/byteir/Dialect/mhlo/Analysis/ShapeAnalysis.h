@@ -96,8 +96,9 @@ using BoundedValueLattice =
 template <typename ShapeKnowledgeType>
 class MhloShapeAnalysisBase : public ShapeAnalysis<ShapeKnowledgeType> {
 public:
-  using ShapeAnalysis<ShapeKnowledgeType>::ShapeAnalysis;
-  using ShapeLattice = typename ShapeAnalysis<ShapeKnowledgeType>::ShapeLattice;
+  using BaseT = ShapeAnalysis<ShapeKnowledgeType>;
+  using BaseT::BaseT;
+  using ShapeLattice = typename BaseT::ShapeLattice;
 
   LogicalResult inferResultShapesWithKnowledges(
       Operation *op, ShapeKnowledges shapeKnowledges,
@@ -111,7 +112,7 @@ public:
     }
     if (nullptr == inferFunc) {
       // fallback to generic shape analysis
-      return ShapeAnalysis<ShapeKnowledgeType>::inferResultShapesWithKnowledges(
+      return BaseT::inferResultShapesWithKnowledges(
           op, shapeKnowledges, shapeValueKnowledges, results);
     }
     shape_analysis::ValueTypeModificatoinRAII valueTypeModification;
@@ -150,7 +151,8 @@ public:
 class MhloBoundedShapeAnalysis
     : public MhloShapeAnalysisBase<shape_analysis::BoundedShapeKnowledge> {
 public:
-  using MhloShapeAnalysisBase::MhloShapeAnalysisBase;
+  using BaseT = MhloShapeAnalysisBase<shape_analysis::BoundedShapeKnowledge>;
+  using BaseT::BaseT;
   using ShapeLattice = dataflow::Lattice<shape_analysis::BoundedShapeKnowledge>;
 
   void visitOperation(Operation *op, ArrayRef<const ShapeLattice *> operands,
@@ -328,7 +330,7 @@ public:
           assert(num == 1);
           Operation &innerOp = *reduceOp.getBody().front().begin();
           if (!dyn_cast<mhlo::MulOp>(&innerOp)) {
-            return this->template setAllToEntryStates(results);
+            return this->setAllToEntryStates(results);
           }
           Value input = reduceOp.getInputs()[0];
           Value output = op->getResult(0);
@@ -352,17 +354,17 @@ public:
           }
 
           if (!operand->getValue().getConstantValue()) {
-            return this->template setAllToEntryStates(results);
+            return this->setAllToEntryStates(results);
           }
           RankedTensorType inputType = dyn_cast<RankedTensorType>(
               inputShapeLattice->getValue().getType());
           if (!inputType || !inputType.hasStaticShape()) {
-            return this->template setAllToEntryStates(results);
+            return this->setAllToEntryStates(results);
           }
           RankedTensorType outputType = dyn_cast<RankedTensorType>(
               outputShapeLattice->getValue().getType());
           if (!outputType || !outputType.hasStaticShape()) {
-            return this->template setAllToEntryStates(results);
+            return this->setAllToEntryStates(results);
           }
 
           auto inputShape = inputType.getShape();
@@ -398,9 +400,9 @@ public:
           }
 
           auto lattice = results[0];
-          this->template propagateIfChanged(
-              lattice, lattice->join(mlir::dataflow::ConstantValue(
-                           outAttr, op->getDialect())));
+          this->propagateIfChanged(lattice,
+                                   lattice->join(mlir::dataflow::ConstantValue(
+                                       outAttr, op->getDialect())));
         })
         .template Case<mhlo::ComputeReshapeShapeOp>([&](Operation *op) {
           mhlo::ComputeReshapeShapeOp computeReshapeShapeOp =
@@ -423,11 +425,11 @@ public:
           }
 
           if (!product->getValue().getConstantValue()) {
-            return this->template setAllToEntryStates(results);
+            return this->setAllToEntryStates(results);
           }
           if (!shapeValue->getValue().getConstantValue() &&
               boundedShapeValue->getValue().isUnknown()) {
-            return this->template setAllToEntryStates(results);
+            return this->setAllToEntryStates(results);
           }
           Attribute productAttr = product->getValue().getConstantValue();
           Attribute constShapeAttr = shapeValue->getValue().getConstantValue();
@@ -485,9 +487,9 @@ public:
           } while (0);
 
           LLVM_DEBUG(llvm::dbgs() << "Folded to constant: " << resAttr << "\n");
-          this->template propagateIfChanged(
-              lattice, lattice->join(mlir::dataflow::ConstantValue(
-                           resAttr, op->getDialect())));
+          this->propagateIfChanged(lattice,
+                                   lattice->join(mlir::dataflow::ConstantValue(
+                                       resAttr, op->getDialect())));
         })
         .Default([&](Operation *op) {
           ShapeValueAnalysis<ShapeKnowledgeType>::visitOperation(op, operands,
@@ -499,7 +501,8 @@ public:
 class MhloBoundedValueAnalysis
     : public dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice> {
 public:
-  using SparseForwardDataFlowAnalysis::SparseForwardDataFlowAnalysis;
+  using BaseT = dataflow::SparseForwardDataFlowAnalysis<BoundedValueLattice>;
+  using BaseT::BaseT;
   using ShapeLattice = dataflow::Lattice<shape_analysis::BoundedShapeKnowledge>;
 
   void setToEntryState(BoundedValueLattice *lattice) override;

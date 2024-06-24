@@ -152,7 +152,7 @@ class ShapeAnalysis : public dataflow::SparseForwardDataFlowAnalysis<
 public:
   using ShapeLattice = dataflow::Lattice<ShapeKnowledgeType>;
   using BaseT = dataflow::SparseForwardDataFlowAnalysis<ShapeLattice>;
-  using BaseT::SparseForwardDataFlowAnalysis;
+  using BaseT::BaseT;
 
   void visitOperation(Operation *op, ArrayRef<const ShapeLattice *> operands,
                       ArrayRef<ShapeLattice *> results) override {
@@ -234,16 +234,16 @@ public:
           }
         }
 
-        this->template propagateIfChanged(
-            resultLattice, resultLattice->join(inferredKnowledge));
+        this->propagateIfChanged(resultLattice,
+                                 resultLattice->join(inferredKnowledge));
       }
     } else {
-      return this->template setAllToEntryStates(results);
+      return this->setAllToEntryStates(results);
     }
   }
 
   void setToEntryState(ShapeLattice *lattice) override {
-    this->template propagateIfChanged(
+    this->propagateIfChanged(
         lattice, lattice->join(ShapeKnowledgeType::getPessimisticValueState(
                      lattice->getPoint())));
   }
@@ -328,7 +328,8 @@ protected:
 template <typename ShapeKnowledgeType>
 class ShapeValueAnalysis : public dataflow::SparseConstantPropagation {
 public:
-  using dataflow::SparseConstantPropagation::SparseConstantPropagation;
+  using BaseT = dataflow::SparseConstantPropagation;
+  using BaseT::BaseT;
   using ShapeLattice = dataflow::Lattice<ShapeKnowledgeType>;
 
   void visitOperation(Operation *op,
@@ -394,13 +395,11 @@ public:
                                             resultAttr, op->getDialect())));
 
           } else {
-            dataflow::SparseConstantPropagation::visitOperation(op, operands,
-                                                                results);
+            BaseT::visitOperation(op, operands, results);
           }
         })
         .template Default([&](Operation *op) {
-          dataflow::SparseConstantPropagation::visitOperation(op, operands,
-                                                              results);
+          BaseT::visitOperation(op, operands, results);
         });
   }
 
@@ -434,7 +433,7 @@ protected:
     if (missingShape)
       return;
 
-    dataflow::SparseConstantPropagation::visitOperation(op, operands, results);
+    BaseT::visitOperation(op, operands, results);
   }
 };
 } // namespace mlir

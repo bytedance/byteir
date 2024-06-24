@@ -128,9 +128,8 @@ LogicalResult MhloBoundedShapeAnalysis::inferResultShapesWithKnowledges(
 
   if (nullptr == inferFunc) {
     // fallback to static mhlo shape analysis
-    return MhloShapeAnalysisBase<shape_analysis::BoundedShapeKnowledge>::
-        inferResultShapesWithKnowledges(op, shapeKnowledges,
-                                        shapeValueKnowledges, results);
+    return BaseT::inferResultShapesWithKnowledges(
+        op, shapeKnowledges, shapeValueKnowledges, results);
   }
 
   ValueTypeModificatoinRAII valueTypeModification;
