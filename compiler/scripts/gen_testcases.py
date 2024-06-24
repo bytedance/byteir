@@ -45,12 +45,12 @@ class HostPipelineCollections:
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-graph-opt --hlo-fusion-opt=\"target=CPU\"",
-        "--linalg-tensor-opt=\"target=CPU\"",
+        "--hlo-graph-opt --hlo-fusion-opt=\"target=cpu\"",
+        "--linalg-tensor-opt=\"target=cpu\"",
         "--byre-tensor-opt=\"entry-func=main append-arg-types\"",
         "--byteir-bufferize-opt",
         "--linalg-memref-opt",
-        "--scf-opt=\"target=CPU\"",
+        "--scf-opt=\"target=cpu\"",
     ])
     HostOptPipeline = functools.partial(OptPipeline, HostOpt, [ByreHost, ToLLVM], [
         "--host-opt",
@@ -84,12 +84,12 @@ class HostPipelineBytecodeCollections:
 
     # pipelines
     InputPipeline = functools.partial(OptPipeline, Input, [HostOpt], [
-        "--hlo-graph-opt --hlo-fusion-opt=\"target=CPU\"",
-        "--linalg-tensor-opt=\"target=CPU\"",
+        "--hlo-graph-opt --hlo-fusion-opt=\"target=cpu\"",
+        "--linalg-tensor-opt=\"target=cpu\"",
         "--byre-tensor-opt=\"entry-func=main append-arg-types\"",
         "--byteir-bufferize-opt",
         "--linalg-memref-opt",
-        "--scf-opt=\"target=CPU\"",
+        "--scf-opt=\"target=cpu\"",
     ])
     HostOptPipeline = functools.partial(OptPipeline, HostOpt, [ByreHost, ToLLVM], [
         "--host-opt=\"file-name=host_kernels.bc\"", "--byre-opt",

@@ -64,7 +64,7 @@ void addCPUSCFOptPasses(OpPassManager &pm) {
 }
 
 void createSCFOptPipelineImpl(OpPassManager &pm, const std::string &target) {
-  if (target == "CPU") {
+  if (target == "cpu") {
     addCPUSCFOptPasses(pm);
   } else {
     addGenericSCFOptPasses(pm);

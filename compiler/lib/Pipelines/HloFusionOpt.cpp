@@ -68,7 +68,7 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
   addCleanUpExtPassPipeline(pm);
 
   // add fusion patterns
-  if (target == "CPU") {
+  if (target == "cpu") {
     addCPUHloFusionPatterns(pm, disableFusion);
   } else {
     addGenericHloFusionPatterns(pm, outlineSingleElemwiseOp, disableFusion,

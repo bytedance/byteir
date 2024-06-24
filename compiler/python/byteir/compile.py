@@ -290,10 +290,10 @@ def _compile_cpu(
         PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
     with context:
-        PassManager().parse("builtin.module(hlo-fusion-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
+        PassManager().parse("builtin.module(hlo-fusion-opt{" + entry_func_str + " " + target_str + " outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Fusion Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(linalg-tensor-opt{" + "target={}".format(target.upper()) + "})").run(module.operation)
+        PassManager.parse("builtin.module(linalg-tensor-opt{" + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
@@ -358,6 +358,7 @@ def compile(
     entry_func: str = "main",
     target: str = "cuda",
     gpu_arch: str = "local",
+    cpu_arch: str = "x86_64",
     byre_serial_version: str = "1.0.0",
     verbose: bool = False,
     parallelism: int = 1,
@@ -373,7 +374,7 @@ def compile(
     if _device == "cuda":
         print(f"Compiling PTX to {gpu_arch}")
     elif _device  == "cpu":
-        print(f"Compiling to cpu backend")
+        print(f"Compiling to {cpu_arch} backend")
 
     ### load from .mlir or .mlirbc
     from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
@@ -410,7 +411,7 @@ def compile(
         output_type=output_type,
         entry_func=entry_func,
         gpu_arch=gpu_arch,
-        cpu_arch='',
+        cpu_arch=cpu_arch,
         byre_serial_version=byre_serial_version,
         verbose=verbose,
         parallelism=parallelism,
