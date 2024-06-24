@@ -46,6 +46,10 @@ namespace tensor {
 class TensorDialect;
 }
 
+namespace scf {
+class SCFDialect;
+}
+
 #define GEN_PASS_CLASSES
 #include "byteir/Dialect/mhlo/Passes.h.inc"
 

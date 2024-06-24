@@ -70,6 +70,25 @@ void insertOpsRecursively(Operation *op, SmallDenseSet<Operation *> &opSet) {
   }
 }
 
+bool isHostOp(Operation &op, StringRef attrName) {
+  for (auto &region : op.getRegions()) {
+    for (auto &block : region.getBlocks()) {
+      for (auto &innerOp : block.getOperations()) {
+        if (isHostOp(innerOp, attrName))
+          return true;
+      }
+    }
+  }
+
+  if (op.hasAttr(attrName)) {
+    StringAttr attr = op.getAttrOfType<StringAttr>(attrName);
+    if (attr.getValue().str() == DEVICE_ATTR_HOST) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::optional<SmallVector<FunctionMetadata, 4>>
 getFunctionMetadatasFallback(func::FuncOp funcOp, StringRef attrName,
                              StringRef deviceAttr, StringRef deviceAnchorName,
@@ -77,11 +96,8 @@ getFunctionMetadatasFallback(func::FuncOp funcOp, StringRef attrName,
   SmallVector<FunctionMetadata, 4> metadatas;
   SmallDenseSet<Operation *> hostOps;
   for (Operation &op : funcOp.front().without_terminator()) {
-    if (op.hasAttr(attrName)) {
-      StringAttr attr = op.getAttrOfType<StringAttr>(attrName);
-      if (attr.getValue().str() == DEVICE_ATTR_HOST) {
-        insertOpsRecursively(&op, hostOps);
-      }
+    if (isHostOp(op, attrName)) {
+      insertOpsRecursively(&op, hostOps);
     }
   }
 
@@ -175,6 +191,16 @@ private:
                            OpClusterMap &op2cluster);
 
   static bool anyDefIn(Operation *op, const OpList &operations) {
+    for (auto &region : op->getRegions()) {
+      for (auto &block : region.getBlocks()) {
+        for (auto &innerOp : block.getOperations()) {
+          if (anyDefIn(&innerOp, operations)) {
+            return true;
+          }
+        }
+      }
+    }
+
     for (auto &&operand : op->getOperands())
       if (operations.count(operand.getDefiningOp()))
         return true;
@@ -182,9 +208,15 @@ private:
   }
 
   static bool anyUseIn(Operation *op, const OpList &operations) {
-    for (auto &&use : op->getUses())
-      if (operations.count(use.getOwner()))
+    for (auto &&use : op->getUses()) {
+      auto *owner = use.getOwner();
+      for (auto *op : operations)
+        if (op->isAncestor(owner))
+          return true;
+
+      if (operations.count(owner))
         return true;
+    }
     return false;
   }
 
@@ -365,20 +397,14 @@ DeviceClusteringAlgoBaseHelper::DeviceClusteringAlgoBaseHelper(
     func::FuncOp funcOp, StringRef attrName)
     : funcOp(funcOp) {
   for (auto &&op : funcOp.front().without_terminator()) {
-    if (op.hasAttr(attrName)) {
-      StringAttr attr = op.getAttrOfType<StringAttr>(attrName);
-      if (attr.getValue().str() == DEVICE_ATTR_HOST) {
-        continue;
-      }
+    if (isHostOp(op, attrName)) {
+      continue;
     }
     // if a constant is only used by host op, mark it as host
     if (isMhloConstantLike(&op) && op.getResult(0).hasOneUse()) {
       Operation *user = *op.getResult(0).getUsers().begin();
-      if (user->hasAttr(attrName)) {
-        StringAttr attr = user->getAttrOfType<StringAttr>(attrName);
-        if (attr.getValue().str() == DEVICE_ATTR_HOST) {
-          continue;
-        }
+      if (isHostOp(*user, attrName)) {
+        continue;
       }
     }
     op2cluster.try_emplace(&op, ActiveDeviceCluster(&op));

@@ -30,6 +30,7 @@ add_mlir_library(ByteIRTransforms
   ByteIRTensorPasses
   ByteIRTransformsPassIncGen
   ByteIRUtils
+  MLIRSCFDialect
 
   LINK_LIBS PUBLIC
   ByteIRAnalysis

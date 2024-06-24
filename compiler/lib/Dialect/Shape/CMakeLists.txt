@@ -25,6 +25,7 @@ add_mlir_dialect_library(ByteIRShapePasses
   ByteIRShapePassIncGen
   ByteIRUtils
   MLIRShapeExt
+  MhloDialect
 
   LINK_LIBS PUBLIC
   ByteIRUtils

@@ -18,6 +18,7 @@
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Matchers.h"
@@ -42,6 +43,69 @@ namespace {
 
 struct TieWithConst : public OpRewritePattern<shape_ext::TieOp> {
   using OpRewritePattern<shape_ext::TieOp>::OpRewritePattern;
+
+  void setTypeForScfIf(PatternRewriter &rewriter, Value value,
+                       RankedTensorType &originShapeType,
+                       SmallVector<int64_t> &newShape) const {
+    auto newShapeType = originShapeType.clone(newShape);
+    if (value.getDefiningOp() && dyn_cast<scf::IfOp>(value.getDefiningOp())) {
+      SmallVector<int64_t> originShape =
+          llvm::to_vector(originShapeType.getShape());
+      auto opResult = dyn_cast<OpResult>(value);
+      auto ifOp = dyn_cast<scf::IfOp>(value.getDefiningOp());
+      auto thenYield = ifOp.thenYield();
+      auto elseYield = ifOp.elseYield();
+      auto thenValue = thenYield.getResults()[opResult.getResultNumber()];
+      auto elseValue = elseYield.getResults()[opResult.getResultNumber()];
+      thenValue.setType(newShapeType);
+      elseValue.setType(newShapeType);
+
+      int64_t index = 0;
+      SmallVector<int64_t> removeIndex;
+      for (int64_t i = 0; i < static_cast<int64_t>(newShape.size()); ++i) {
+        if (originShape[i] == ShapedType::kDynamic) {
+          if (newShape[i] == ShapedType::kDynamic) {
+            removeIndex.push_back(index);
+          }
+          index++;
+        }
+      }
+      for (auto *user : thenValue.getUsers()) {
+        if (dyn_cast<shape_ext::TieOp>(user)) {
+          auto tieOp = dyn_cast<shape_ext::TieOp>(user);
+          auto originDims = tieOp.getDims();
+          SmallVector<Value> newDims;
+          for (auto ind : removeIndex) {
+            newDims.push_back(originDims[ind]);
+          }
+          if (!newDims.empty()) {
+            PatternRewriter::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(user);
+            rewriter.create<shape_ext::TieOp>(user->getLoc(), thenValue,
+                                              newDims);
+          }
+          user->erase();
+        }
+      }
+      for (auto *user : elseValue.getUsers()) {
+        if (dyn_cast<shape_ext::TieOp>(user)) {
+          auto tieOp = dyn_cast<shape_ext::TieOp>(user);
+          auto originDims = tieOp.getDims();
+          SmallVector<Value> newDims;
+          for (auto ind : removeIndex) {
+            newDims.push_back(originDims[ind]);
+          }
+          if (!newDims.empty()) {
+            PatternRewriter::InsertionGuard guard(rewriter);
+            rewriter.setInsertionPoint(user);
+            rewriter.create<shape_ext::TieOp>(user->getLoc(), thenValue,
+                                              newDims);
+          }
+          user->erase();
+        }
+      }
+    }
+  }
 
   LogicalResult matchAndRewrite(shape_ext::TieOp op,
                                 PatternRewriter &rewriter) const override {
@@ -77,6 +141,8 @@ struct TieWithConst : public OpRewritePattern<shape_ext::TieOp> {
     if (keepedDims.size() == dims.size())
       return failure();
     value.setType(shapeType.clone(shape));
+    setTypeForScfIf(rewriter, value, shapeType, shape);
+
     func::FuncOp funcOp = op->getParentOfType<func::FuncOp>();
     if (keepedDims.size() == 0) {
       op->erase();

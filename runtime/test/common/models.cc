@@ -27,6 +27,7 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include <unordered_set>
+#include <vector>
 
 using namespace brt;
 using namespace brt::ir;
@@ -267,10 +268,6 @@ const void *CreateMatmul(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
     BRT_THROW("invalid data type");
   }
 
-  // int64_t m = 128;
-  // int64_t k = 32;
-  // int64_t n = 64;
-
   llvm::SmallVector<int64_t, 4> shape_A =
       lhs_contracting_dimension == 1 ? llvm::SmallVector<int64_t>{m, k}
                                      : llvm::SmallVector<int64_t>{k, m};
@@ -387,30 +384,60 @@ const void *CreateMatmul2(brt::ir::ByREBuilder &byre_builder,
 }
 
 const void *CreateBatchMatmul(brt::ir::ByREBuilder &byre_builder,
-                              const std::string &space) {
+                              DTypeEnum dataType, const std::string &space,
+                              llvm::ArrayRef<int64_t> b, int64_t m, int64_t n,
+                              int64_t k, int64_t lhs_contracting_dimension,
+                              int64_t rhs_contracting_dimension) {
   mlir::ModuleOp module_op = byre_builder.GetModuleOp();
   auto ctx = byre_builder.GetMLIRContext();
   auto op_builder = OpBuilder(ctx);
 
-  int64_t batch_count0 = 2;
-  int64_t batch_count1 = 17;
-  int64_t m = 128;
-  int64_t k = 32;
-  int64_t n = 64;
-
   auto space_attr = StringAttr::get(ctx, space);
+  std::string op_name = "BatchMatmulOp";
+  mlir::Type type;
+  if (dataType == DTypeEnum::Float32) {
+    op_name = op_name + "_f32f32_f32";
+    type = op_builder.getF32Type();
+  } else if (dataType == DTypeEnum::Float16) {
+    op_name = op_name + "_f16f16_f16";
+    type = op_builder.getF16Type();
+  } else {
+    BRT_THROW("invalid data type");
+  }
 
-  llvm::SmallVector<int64_t, 4> shape_A{batch_count0, batch_count1, m, k};
-  auto type_A = MemRefType::get(shape_A, op_builder.getF32Type(),
-                                MemRefLayoutAttrInterface{}, space_attr);
+  int64_t rank = b.size() + 2;
 
-  llvm::SmallVector<int64_t, 4> shape_B{batch_count0, batch_count1, k, n};
-  auto type_B = MemRefType::get(shape_B, op_builder.getF32Type(),
-                                MemRefLayoutAttrInterface{}, space_attr);
+  llvm::SmallVector<int64_t, 4> shape_A(b);
+  if (lhs_contracting_dimension == rank - 1) {
+    shape_A.push_back(m);
+    shape_A.push_back(k);
+  } else if (lhs_contracting_dimension == rank - 2) {
+    shape_A.push_back(k);
+    shape_A.push_back(m);
+  } else {
+    BRT_THROW("invalid lhs_contracting_dimension");
+  }
+  auto type_A =
+      MemRefType::get(shape_A, type, MemRefLayoutAttrInterface{}, space_attr);
 
-  llvm::SmallVector<int64_t, 4> shape_C{batch_count0, batch_count1, m, n};
-  auto type_C = MemRefType::get(shape_C, op_builder.getF32Type(),
-                                MemRefLayoutAttrInterface{}, space_attr);
+  llvm::SmallVector<int64_t, 4> shape_B(b);
+  if (rhs_contracting_dimension == rank - 2) {
+    shape_B.push_back(k);
+    shape_B.push_back(n);
+  } else if (rhs_contracting_dimension == rank - 1) {
+    shape_B.push_back(n);
+    shape_B.push_back(k);
+  } else {
+    BRT_THROW("invalid rhs_contracting_dimension");
+  }
+  auto type_B =
+      MemRefType::get(shape_B, type, MemRefLayoutAttrInterface{}, space_attr);
+
+  llvm::SmallVector<int64_t, 4> shape_C(b);
+  shape_C.push_back(m);
+  shape_C.push_back(n);
+  auto type_C =
+      MemRefType::get(shape_C, type, MemRefLayoutAttrInterface{}, space_attr);
 
   // create an entry func
   func::FuncOp func_op = byre_builder.CreateEntryPointFuncSignature(
@@ -424,18 +451,20 @@ const void *CreateBatchMatmul(brt::ir::ByREBuilder &byre_builder,
 
   // insert Op
   auto compute_op = op_builder.create<byre::ComputeOp>(
-      UnknownLoc::get(ctx), "BatchMatmulOp_f32f32_f32",
+      UnknownLoc::get(ctx), op_name,
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
 
   compute_op->setAttr("lhs_batching_dimensions",
-                      op_builder.getI64ArrayAttr({0, 1}));
+                      op_builder.getI64ArrayAttr(
+                          llvm::to_vector(llvm::seq<int64_t>(0, b.size()))));
   compute_op->setAttr("rhs_batching_dimensions",
-                      op_builder.getI64ArrayAttr({0, 1}));
+                      op_builder.getI64ArrayAttr(
+                          llvm::to_vector(llvm::seq<int64_t>(0, b.size()))));
   compute_op->setAttr("lhs_contracting_dimension",
-                      op_builder.getI64IntegerAttr(3));
+                      op_builder.getI64IntegerAttr(lhs_contracting_dimension));
   compute_op->setAttr("rhs_contracting_dimension",
-                      op_builder.getI64IntegerAttr(2));
+                      op_builder.getI64IntegerAttr(rhs_contracting_dimension));
 
   //  insert ReturnOp
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
