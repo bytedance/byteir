@@ -1,5 +1,6 @@
 add_mlir_dialect_library(ByteIRSCFPasses
   ForallCollapsing.cpp
+  ForallTiling.cpp
   FuseNestedForall.cpp
   InsertTrivialSCFLoop.cpp
   TilingInterfaceToSCFFor.cpp
@@ -21,4 +22,4 @@ add_mlir_dialect_library(ByteIRSCFPasses
   MLIRSCFTransforms
   MLIRSideEffectInterfaces
   MLIRSupport
-  )
+)
