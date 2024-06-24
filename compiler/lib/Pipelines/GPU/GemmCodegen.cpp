@@ -308,6 +308,29 @@ void mlir::createGPUAddGemmCodegenLoweringConfigTransform(
 }
 
 namespace {
+
+int numIterations(scf::ForOp forOp) {
+  Value lowerBound = forOp.getLowerBound();
+  Value upperBound = forOp.getUpperBound();
+  Value step = forOp.getStep();
+
+  // get def constant value
+  auto defLowerBound = lowerBound.getDefiningOp<arith::ConstantOp>();
+  auto defUpperBound = upperBound.getDefiningOp<arith::ConstantOp>();
+  auto defStep = step.getDefiningOp<arith::ConstantOp>();
+
+  if (defLowerBound && defUpperBound && defStep) {
+    auto lowerBoundValue = defLowerBound.getValue();
+    auto upperBoundValue = defUpperBound.getValue();
+    auto stepValue = defStep.getValue();
+
+    auto lowerBoundInt = cast<IntegerAttr>(lowerBoundValue).getInt();
+    auto upperBoundInt = cast<IntegerAttr>(upperBoundValue).getInt();
+    auto stepInt = cast<IntegerAttr>(stepValue).getInt();
+    return (upperBoundInt - lowerBoundInt) / stepInt;
+  }
+  return -1;
+}
 void createGPUPipeliningTransformImpl(OpPassManager &pm,
                                       const std::string &anchor,
                                       const std::string &prefix) {
@@ -318,7 +341,21 @@ void createGPUPipeliningTransformImpl(OpPassManager &pm,
 
   config.opFilter = [=](Operation *op) {
     if (auto forallOp = llvm::dyn_cast_or_null<scf::ForallOp>(op)) {
-      return isMappedToGPUBlocks(forallOp);
+      if (!isMappedToGPUBlocks(forallOp)) {
+        return false;
+      }
+      func::FuncOp funcOp = forallOp->getParentOfType<func::FuncOp>();
+      auto pipelineStageOptional = getGemmPipelineDepth(funcOp);
+      if (!pipelineStageOptional) {
+        return false;
+      }
+      SmallVector<scf::ForOp> forOps;
+      forallOp.walk([&](scf::ForOp forOp) { forOps.push_back(forOp); });
+      if (forOps.size() != 1)
+        return false;
+      scf::ForOp forOp = forOps[0];
+      if (numIterations(forOp) <= pipelineStageOptional.value())
+        return false;
     }
     return false;
   };

@@ -136,11 +136,12 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
   // get the only scf.for op inside the scf.forall op.
   scf::ForallOp forallOp = op->getParentOfType<scf::ForallOp>();
   auto forOps = llvm::to_vector(forallOp.getOps<scf::ForOp>());
-  if (forOps.size() != 1)
-    return forallOp.emitError("expected a single scf.for op");
 
   // copyWorkgroupMemoryToGlobalMemory after gemm compute ends.
-  b.setInsertionPointAfter(forOps[0]);
+  if (forOps.size() == 1)
+    b.setInsertionPointAfter(forOps[0]);
+  if (forOps.size() > 1)
+    return failure();
   b.create<gpu::BarrierOp>(src.getLoc());
   Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
@@ -291,7 +292,10 @@ public:
     // As we know linalg.matmul is in a scf.for, and the subview promotionImpl
     // inserts should be in the scf.forall op.
     auto forOp = linalgContractOp->getParentOfType<scf::ForOp>();
-    builder.setInsertionPoint(forOp); // before forOp
+    if (forOp)
+      builder.setInsertionPoint(forOp); // before forOp
+    else
+      builder.setInsertionPoint(linalgContractOp); // before linalgContractOp
     (void)promotionImpl<MatmulOperands::C>(builder, linalgContractOp);
 
     // The linalg.copy should be fused with its consumer linalg.generic.
