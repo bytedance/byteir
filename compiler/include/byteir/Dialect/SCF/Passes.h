@@ -20,6 +20,7 @@
 
 #include "byteir/Dialect/SCF/Transforms/ForallCollapsing.h"
 #include "byteir/Dialect/SCF/Transforms/ForallTiling.h"
+#include "byteir/Dialect/SCF/Transforms/ForallNormalize.h"
 #include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
 #include "byteir/Dialect/SCF/Transforms/InsertTrivialSCFLoop.h"
 
