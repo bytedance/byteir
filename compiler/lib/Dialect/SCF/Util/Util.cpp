@@ -14,15 +14,142 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+// Some code comes from mlir/lib/Dialect/SCF/Utils/Utils.cpp in LLVM project
+// Orignal license:
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/SCF/Util/Util.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/Transforms/RegionUtils.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 
 using namespace mlir;
 using namespace scf;
+
+mlir::scf::LoopParams mlir::scf::normalizeLoop(OpBuilder &boundsBuilder,
+                                               OpBuilder &insideLoopBuilder,
+                                               Location loc, Value lowerBound,
+                                               Value upperBound, Value step,
+                                               Value inductionVar) {
+  // Check if the loop is already known to have a constant zero lower bound or
+  // a constant one step.
+  bool isZeroBased = false;
+  if (auto ubCst = getConstantIntValue(lowerBound))
+    isZeroBased = ubCst.value() == 0;
+
+  bool isStepOne = false;
+  if (auto stepCst = getConstantIntValue(step))
+    isStepOne = stepCst.value() == 1;
+
+  // Compute the number of iterations the loop executes: ceildiv(ub - lb, step)
+  // assuming the step is strictly positive.  Update the bounds and the step
+  // of the loop to go from 0 to the number of iterations, if necessary.
+  if (isZeroBased && isStepOne)
+    return {/*lowerBound=*/lowerBound, /*upperBound=*/upperBound,
+            /*step=*/step};
+
+  Value diff = boundsBuilder.create<arith::SubIOp>(loc, upperBound, lowerBound);
+  Value newUpperBound =
+      boundsBuilder.create<arith::CeilDivSIOp>(loc, diff, step);
+
+  Value newLowerBound =
+      isZeroBased ? lowerBound
+                  : boundsBuilder.create<arith::ConstantOp>(
+                        loc, boundsBuilder.getZeroAttr(lowerBound.getType()));
+  Value newStep =
+      isStepOne ? step
+                : boundsBuilder.create<arith::ConstantOp>(
+                      loc, boundsBuilder.getIntegerAttr(step.getType(), 1));
+
+  // Insert code computing the value of the original loop induction variable
+  // from the "normalized" one.
+  Value scaled =
+      isStepOne
+          ? inductionVar
+          : insideLoopBuilder.create<arith::MulIOp>(loc, inductionVar, step);
+  Value shifted =
+      isZeroBased
+          ? scaled
+          : insideLoopBuilder.create<arith::AddIOp>(loc, scaled, lowerBound);
+
+  SmallPtrSet<Operation *, 2> preserve{scaled.getDefiningOp(),
+                                       shifted.getDefiningOp()};
+  inductionVar.replaceAllUsesExcept(shifted, preserve);
+  return {/*lowerBound=*/newLowerBound, /*upperBound=*/newUpperBound,
+          /*step=*/newStep};
+}
+
+void collapseForallImpl(scf::ForallOp forallOp) {
+  OpBuilder outsideBuilder(forallOp);
+  Location loc = forallOp.getLoc();
+
+  // Normalize forallOp's iteration pattern.
+  SmallVector<Value> normalizedLowerBounds, normalizedSteps,
+      normalizedUpperBounds;
+  SmallVector<Value> oriLowerBounds, oriSteps, oriUpperBounds;
+  oriLowerBounds = forallOp.getLowerBound(outsideBuilder);
+  oriSteps = forallOp.getStep(outsideBuilder);
+  oriUpperBounds = forallOp.getUpperBound(outsideBuilder);
+
+  for (size_t i = 0, e = forallOp.getRank(); i < e; ++i) {
+    OpBuilder insideLoopBuilder = OpBuilder::atBlockBegin(forallOp.getBody());
+    auto resultBounds = normalizeLoop(
+        outsideBuilder, insideLoopBuilder, loc, oriLowerBounds[i],
+        oriUpperBounds[i], oriSteps[i], forallOp.getBody()->getArgument(i));
+
+    normalizedLowerBounds.push_back(resultBounds.lowerBound);
+    normalizedUpperBounds.push_back(resultBounds.upperBound);
+    normalizedSteps.push_back(resultBounds.step);
+  }
+  Value newUpperBound = outsideBuilder.create<arith::ConstantIndexOp>(loc, 1);
+  // after normalize: lowerBound = 0, step = 1
+  auto cst0 = outsideBuilder.create<arith::ConstantIndexOp>(loc, 0);
+  auto cst1 = outsideBuilder.create<arith::ConstantIndexOp>(loc, 1);
+  for (size_t i = 0, e = forallOp.getRank(); i < e; ++i) {
+    newUpperBound = outsideBuilder.create<arith::MulIOp>(
+        loc, newUpperBound, normalizedUpperBounds[i]);
+  }
+
+  auto outputs = llvm::to_vector(forallOp.getOutputs());
+  auto newForall = outsideBuilder.create<scf::ForallOp>(
+      loc, ArrayRef<OpFoldResult>({cst0}),
+      ArrayRef<OpFoldResult>({newUpperBound}), ArrayRef<OpFoldResult>({cst1}),
+      outputs, std::nullopt,
+      [&](OpBuilder &insideBuilder, Location loc, ValueRange regionArgs) {
+        Value previous = regionArgs[0];
+        for (int64_t i = forallOp.getRank() - 1; i > 0; --i) {
+
+          Value iv = insideBuilder.create<arith::RemSIOp>(
+              loc, previous, normalizedUpperBounds[i]);
+          replaceAllUsesInRegionWith(forallOp.getBody()->getArgument(i), iv,
+                                     forallOp.getRegion());
+
+          previous = insideBuilder.create<arith::DivSIOp>(
+              loc, previous, normalizedUpperBounds[i]);
+        }
+
+        replaceAllUsesInRegionWith(forallOp.getBody()->getArgument(0), previous,
+                                   forallOp.getRegion());
+        insideBuilder.create<scf::InParallelOp>(loc);
+      });
+
+  // Replace the old forall with the new forall.
+  newForall.getBody()->getOperations().splice(
+      Block::iterator(newForall.getBody()->back()),
+      forallOp.getBody()->getOperations());
+  // erase redudant scf.forall.in_parallel
+  newForall.getBody()->back().erase();
+  // erase old forall
+  forallOp.erase();
+}
 
 SmallVector<scf::ForOp> mlir::scf::createNestedEmptyScfForOps(
     OpBuilder &b, Location loc, ArrayRef<Value> lowerBounds,

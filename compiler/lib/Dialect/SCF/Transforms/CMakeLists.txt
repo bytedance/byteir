@@ -1,5 +1,6 @@
 add_mlir_dialect_library(ByteIRSCFPasses
   ForallCollapsing.cpp
+  ForallNormalize.cpp
   ForallTiling.cpp
   FuseNestedForall.cpp
   InsertTrivialSCFLoop.cpp

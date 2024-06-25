@@ -26,6 +26,20 @@
 
 namespace mlir {
 namespace scf {
+// This structure is to pass and return sets of loop parameters without
+// confusing the order.
+struct LoopParams {
+  Value lowerBound;
+  Value upperBound;
+  Value step;
+};
+
+/// Return the new lower bound, upper bound, and step in that order. Insert any
+/// additional bounds calculations before the given builder and any additional
+/// conversion back to the original loop induction value inside the given Block.
+LoopParams normalizeLoop(OpBuilder &boundsBuilder, OpBuilder &insideLoopBuilder,
+                         Location loc, Value lowerBound, Value upperBound,
+                         Value step, Value inductionVar);
 
 SmallVector<scf::ForOp> createNestedEmptyScfForOps(OpBuilder &b, Location loc,
                                                    ArrayRef<Value> lowerBounds,

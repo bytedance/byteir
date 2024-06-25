@@ -96,4 +96,22 @@ def ForallTiling : Pass<"forall-tiling"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ForallNormalize
+//===----------------------------------------------------------------------===//
+
+def ForallNormalize : Pass<"forall-normalize"> {
+  let summary = "norlize forall";
+  let constructor = "mlir::createForallNormalizePass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "affine::AffineDialect"
+  ];
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
 #endif // BYTEIR_DIALECT_SCF_PASSES
