@@ -93,13 +93,20 @@ static SmallVector<Value>
 calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
                              Operation *operation) {
   func::FuncOp funcOp = operation->getParentOfType<func::FuncOp>();
-  auto blockTileSizeOptional = getGemmTileSize(funcOp);
-  if (!blockTileSizeOptional.has_value())
+  auto gemmTileSizeOptional = getGemmTileSize(funcOp);
+  if (!gemmTileSizeOptional.has_value())
     return {};
-  SmallVector<int64_t, 3> blockTileSize = getGemmTileSize(funcOp).value();
+
+  SmallVector<int64_t, 3> gemmTileSize = gemmTileSizeOptional.value();
+  SmallVector<int64_t> blockTileSize;
   SmallVector<Value> tileSizesVal;
 
   auto linalgOp = cast<linalg::LinalgOp>(operation);
+  if (linalgOp.getNumParallelLoops() == 3) { // bmm
+    blockTileSize = {0, gemmTileSize[0], gemmTileSize[1]};
+  } else { // matmul
+    blockTileSize = {gemmTileSize[0], gemmTileSize[1]};
+  }
 
   // Use partitionedLoop to know what loop needs to be distributed.
   auto partitionedLoops = getPartitionableLoops(linalgOp, std::nullopt);
@@ -118,6 +125,7 @@ calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
   for (unsigned depth : partitionedLoops) {
     if (depth >= blockTileSize.size())
       continue;
+    // tileSize means a warp should handle.
     tileSizesVal[depth] = builder.create<arith::ConstantIndexOp>(
         operation->getLoc(),
         llvm::divideCeil(blockTileSize[depth], distributedDim[idIdx++]));
