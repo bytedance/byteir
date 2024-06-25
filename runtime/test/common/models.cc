@@ -383,7 +383,8 @@ const void *CreateBatchMatmul(brt::ir::ByREBuilder &byre_builder,
                               DTypeEnum dataType, const std::string &space,
                               llvm::ArrayRef<int64_t> b, int64_t m, int64_t n,
                               int64_t k, int64_t lhs_contracting_dimension,
-                              int64_t rhs_contracting_dimension) {
+                              int64_t rhs_contracting_dimension,
+                              DTypeEnum computeType /*=DTypeEnum::Invalid*/) {
   mlir::ModuleOp module_op = byre_builder.GetModuleOp();
   auto ctx = byre_builder.GetMLIRContext();
   auto op_builder = OpBuilder(ctx);
@@ -461,6 +462,11 @@ const void *CreateBatchMatmul(brt::ir::ByREBuilder &byre_builder,
                       op_builder.getI64IntegerAttr(lhs_contracting_dimension));
   compute_op->setAttr("rhs_contracting_dimension",
                       op_builder.getI64IntegerAttr(rhs_contracting_dimension));
+  if (computeType != DTypeEnum::Invalid) {
+    compute_op->setAttr(
+        "compute_type",
+        mlir::TypeAttr::get(ConvertDTypeToMLIRType(computeType, ctx)));
+  }
 
   //  insert ReturnOp
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));

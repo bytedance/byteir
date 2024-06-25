@@ -80,7 +80,8 @@ template <typename T>
 static void TestBatchMatmulOp(float eps, llvm::ArrayRef<int64_t> batch,
                               int64_t shape_m, int64_t shape_n, int64_t shape_k,
                               int64_t lhs_contracting_dimension,
-                              int64_t rhs_contracting_dimension) {
+                              int64_t rhs_contracting_dimension,
+                              DTypeEnum compute_type = DTypeEnum::Invalid) {
   auto dtype = dtype_enum_v<T>;
   ByREBuilder byre_builder;
   Session session;
@@ -92,7 +93,7 @@ static void TestBatchMatmulOp(float eps, llvm::ArrayRef<int64_t> batch,
   auto status_load = session.LoadFromMemory(
       CreateBatchMatmul(byre_builder, dtype, "cuda", batch, shape_m, shape_n,
                         shape_k, lhs_contracting_dimension,
-                        rhs_contracting_dimension),
+                        rhs_contracting_dimension, compute_type),
       "byre");
 
   BRT_TEST_CHECK_STATUS(status_load);
@@ -172,6 +173,17 @@ TEST(CUDAOpKernelTest, BatchMatmulOp) {
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 2, 2);
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 2, 3);
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 3, 3);
+}
+
+TEST(CUDAOpKernelTest, BatchMatmulOpTF32SM80) {
+  TestBatchMatmulOp<float>(5e-3f, {2, 5}, 128, 64, 32, 3, 2,
+                           /*compute_type=*/DTypeEnum::TF32);
+  TestBatchMatmulOp<float>(5e-3f, {2, 5}, 128, 64, 32, 2, 2,
+                           /*compute_type=*/DTypeEnum::TF32);
+  TestBatchMatmulOp<float>(5e-3f, {2, 5}, 128, 64, 32, 2, 3,
+                           /*compute_type=*/DTypeEnum::TF32);
+  TestBatchMatmulOp<float>(5e-3f, {2, 5}, 128, 64, 32, 3, 3,
+                           /*compute_type=*/DTypeEnum::TF32);
 }
 
 TEST(CUDAOpKernelTest, BatchMatmulOpFp16) {

@@ -81,40 +81,46 @@ template <>
 void BatchMatmulImpl<float>::Execute(const float *a_val, const float *b_val,
                                      float *c_val, cublasHandle_t handle,
                                      cudaStream_t stream) {
-  const float alpha = 1.0f;
-  const float beta = 0.0f;
+  const float alpha = 1.0f, beta = 0.0f;
+  cublasComputeType_t computeType =
+      (this->compute_type == DTypeEnum::TF32 ? CUBLAS_COMPUTE_32F_FAST_TF32
+                                             : CUBLAS_COMPUTE_32F);
   if (!lhs_transpose && !rhs_transpose) {
     const int lda = k;
     const int ldb = n;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasSgemmStridedBatched(
-        handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val, CUDA_R_32F,
+        ldb, batch_stride_B, a_val, CUDA_R_32F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_32F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   } else if (!lhs_transpose && rhs_transpose) {
     const int lda = k;
     const int ldb = k;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasSgemmStridedBatched(
-        handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, b_val, CUDA_R_32F,
+        ldb, batch_stride_B, a_val, CUDA_R_32F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_32F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   } else if (lhs_transpose && !rhs_transpose) {
     const int lda = m;
     const int ldb = n;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasSgemmStridedBatched(
-        handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k, &alpha, b_val, CUDA_R_32F,
+        ldb, batch_stride_B, a_val, CUDA_R_32F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_32F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   } else {
     const int lda = m;
     const int ldb = k;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasSgemmStridedBatched(
-        handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k, &alpha, b_val, CUDA_R_32F,
+        ldb, batch_stride_B, a_val, CUDA_R_32F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_32F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   }
 }
 
@@ -122,40 +128,44 @@ template <>
 void BatchMatmulImpl<__half>::Execute(const __half *a_val, const __half *b_val,
                                       __half *c_val, cublasHandle_t handle,
                                       cudaStream_t stream) {
-  const __half alpha = 1.0f;
-  const __half beta = 0.0f;
+  const float alpha = 1.0f, beta = 0.0f;
+  cublasComputeType_t computeType = CUBLAS_COMPUTE_32F;
   if (!lhs_transpose && !rhs_transpose) {
     const int lda = k;
     const int ldb = n;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasHgemmStridedBatched(
-        handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val, CUDA_R_16F,
+        ldb, batch_stride_B, a_val, CUDA_R_16F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_16F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   } else if (!lhs_transpose && rhs_transpose) {
     const int lda = k;
     const int ldb = k;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasHgemmStridedBatched(
-        handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, b_val, CUDA_R_16F,
+        ldb, batch_stride_B, a_val, CUDA_R_16F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_16F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   } else if (lhs_transpose && !rhs_transpose) {
     const int lda = m;
     const int ldb = n;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasHgemmStridedBatched(
-        handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k, &alpha, b_val, CUDA_R_16F,
+        ldb, batch_stride_B, a_val, CUDA_R_16F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_16F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   } else {
     const int lda = m;
     const int ldb = k;
     const int ldc = n;
-    BRT_CUBLAS_CHECK(cublasHgemmStridedBatched(
-        handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k, &alpha, b_val, ldb,
-        batch_stride_B, a_val, lda, batch_stride_A, &beta, c_val, ldc,
-        batch_stride_C, batch_count));
+    BRT_CUBLAS_CHECK(cublasGemmStridedBatchedEx(
+        handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k, &alpha, b_val, CUDA_R_16F,
+        ldb, batch_stride_B, a_val, CUDA_R_16F, lda, batch_stride_A, &beta,
+        c_val, CUDA_R_16F, ldc, batch_stride_C, batch_count, computeType,
+        CUBLAS_GEMM_DEFAULT));
   }
 }
 
