@@ -36,6 +36,7 @@ void addCustomizedONNXToStablehloPasses(
     pm.addPass(onnx_mlir::createShapeInferencePass());
     pm.addPass(onnx_frontend::createOFCanonicalizerPass());
     pm.addPass(onnx_mlir::createShapeInferencePass());
+    pm.addPass(onnx_frontend::createOFInsertNecessaryCastPass());
     pm.addNestedPass<mlir::func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
   }
