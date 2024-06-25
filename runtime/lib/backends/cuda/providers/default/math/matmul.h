@@ -18,6 +18,7 @@
 #pragma once
 
 #include "brt/backends/cuda/device/utils/op_kernel_impl_helpers.h"
+#include "brt/core/framework/dtype.h"
 #include "brt/core/framework/op_kernel.h"
 
 namespace brt {
@@ -34,10 +35,9 @@ public:
                cudaStream_t stream);
 
 private:
-  bool lhs_transpose = false, rhs_transpose = false, output_transpose = false;
+  bool lhs_transpose = false, rhs_transpose = false;
   int m, n, k;
-  bool compute_on_fp16 = false;
-  float alpha = 1.0f, beta = 0.0f;
+  DTypeEnum compute_type = DTypeEnum::Invalid;
 };
 
 template <typename T>

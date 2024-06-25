@@ -248,8 +248,7 @@ const void *CreateMatmul(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
                          const std::string &space, int64_t m, int64_t n,
                          int64_t k, int64_t lhs_contracting_dimension /*=1*/,
                          int64_t rhs_contracting_dimension /*=0*/,
-                         bool output_transpose /*=false*/,
-                         bool compute_on_fp16 /*=false*/) {
+                         DTypeEnum computeType /*=DTypeEnum::Invalid*/) {
 
   mlir::ModuleOp module_op = byre_builder.GetModuleOp();
   auto ctx = byre_builder.GetMLIRContext();
@@ -280,9 +279,7 @@ const void *CreateMatmul(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
   auto type_B =
       MemRefType::get(shape_B, type, MemRefLayoutAttrInterface{}, space_attr);
 
-  llvm::SmallVector<int64_t, 4> shape_C =
-      output_transpose ? llvm::SmallVector<int64_t>{n, m}
-                       : llvm::SmallVector<int64_t>{m, n};
+  llvm::SmallVector<int64_t, 4> shape_C = llvm::SmallVector<int64_t>{m, n};
   auto type_C =
       MemRefType::get(shape_C, type, MemRefLayoutAttrInterface{}, space_attr);
 
@@ -305,11 +302,10 @@ const void *CreateMatmul(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
                       op_builder.getI64IntegerAttr(lhs_contracting_dimension));
   compute_op->setAttr("rhs_contracting_dimension",
                       op_builder.getI64IntegerAttr(rhs_contracting_dimension));
-  if (output_transpose) {
-    compute_op->setAttr("output_transpose", op_builder.getUnitAttr());
-  }
-  if (compute_on_fp16) {
-    compute_op->setAttr("compute_on_fp16", op_builder.getUnitAttr());
+  if (computeType != DTypeEnum::Invalid) {
+    compute_op->setAttr(
+        "compute_type",
+        mlir::TypeAttr::get(ConvertDTypeToMLIRType(computeType, ctx)));
   }
 
   //  insert ReturnOp

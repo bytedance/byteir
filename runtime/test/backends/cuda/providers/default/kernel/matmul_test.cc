@@ -73,11 +73,7 @@ static void CheckMatmul(T *d_A, T *d_B, T *d_C, int64_t m, int64_t n, int64_t k,
           sum = sum + static_cast<CompOn>(temp);
         }
       }
-      if (!output_transpose) {
-        EXPECT_NEAR(h_C[i * n + j], static_cast<T>(sum), eps);
-      } else {
-        EXPECT_NEAR(h_C[i + j * m], static_cast<T>(sum), eps);
-      }
+      EXPECT_NEAR(h_C[i * n + j], static_cast<T>(sum), eps);
     }
   }
 
@@ -90,7 +86,7 @@ template <typename T>
 static void TestMatmulOp(float eps, int64_t m, int64_t n, int64_t k,
                          int64_t lhs_contracting_dimension,
                          int64_t rhs_contracting_dimension,
-                         bool output_transpose, bool compute_on_fp16 = false) {
+                         DTypeEnum compute_type = DTypeEnum::Invalid) {
   auto dtype = dtype_enum_v<T>;
   ByREBuilder byre_builder;
   Session session;
@@ -102,7 +98,7 @@ static void TestMatmulOp(float eps, int64_t m, int64_t n, int64_t k,
   auto status_load = session.LoadFromMemory(
       CreateMatmul(byre_builder, dtype, "cuda", m, n, k,
                    lhs_contracting_dimension, rhs_contracting_dimension,
-                   output_transpose, compute_on_fp16),
+                   compute_type),
       "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
@@ -135,13 +131,8 @@ static void TestMatmulOp(float eps, int64_t m, int64_t n, int64_t k,
   } else {
     BRT_THROW("invalid rhs_contracting_dimension");
   }
-  if (!output_transpose) {
-    EXPECT_EQ(m, shape_C[0]);
-    EXPECT_EQ(n, shape_C[1]);
-  } else {
-    EXPECT_EQ(m, shape_C[1]);
-    EXPECT_EQ(n, shape_C[0]);
-  }
+  EXPECT_EQ(m, shape_C[0]);
+  EXPECT_EQ(n, shape_C[1]);
 
   // initiate A
   T *d_A = (T *)request->GetArg(0);
@@ -161,57 +152,50 @@ static void TestMatmulOp(float eps, int64_t m, int64_t n, int64_t k,
   BRT_TEST_CHECK_STATUS(status_sync);
 
   T *d_C = (T *)request->GetArg(2);
-  // float eps = dtype == DTypeEnum::Float32 ? 1e-4f : 1e-2f;
-  if (compute_on_fp16) {
+  if (compute_type == DTypeEnum::Float16) {
     CheckMatmul<T, __half>(d_A, d_B, d_C, m, n, k, eps,
-                           lhs_contracting_dimension, rhs_contracting_dimension,
-                           output_transpose);
+                           lhs_contracting_dimension,
+                           rhs_contracting_dimension);
   } else {
     CheckMatmul<T, float>(d_A, d_B, d_C, m, n, k, eps,
-                          lhs_contracting_dimension, rhs_contracting_dimension,
-                          output_transpose);
+                          lhs_contracting_dimension, rhs_contracting_dimension);
   }
 }
 
-TEST(CUDAOpKerenlTest, MatmulOp) {
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 1, 0, false);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 1, 1, false);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 0, 0, false);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 0, 1, false);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 1, 0, true);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 1, 1, true);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 0, 0, true);
-  TestMatmulOp<float>(1e-4f, 128, 64, 32, 0, 1, true);
+TEST(CUDAOpKernelTest, MatmulOp) {
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 1, 0);
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 1, 1);
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 0, 0);
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 0, 1);
 }
 
-TEST(CUDAOpKerenlTest, MatmulOpFp16) {
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 1, 0, false);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 1, 1, false);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 0, 0, false);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 0, 1, false);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 1, 0, true);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 1, 1, true);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 0, 0, true);
-  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 0, 1, true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 1, 0, false,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 1, 1, false,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 0, 0, false,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 0, 1, false,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 1, 0, true,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 1, 1, true,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 0, 0, true,
-                       /*compute_on_fp16=*/true);
-  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 0, 1, true,
-                       /*compute_on_fp16=*/true);
+TEST(CUDAOpKernelTest, MatmulOpTF32SM80) {
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 1, 0,
+                      /*compute_type=*/DTypeEnum::TF32);
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 1, 1,
+                      /*compute_type=*/DTypeEnum::TF32);
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 0, 0,
+                      /*compute_type=*/DTypeEnum::TF32);
+  TestMatmulOp<float>(1e-5f, 128, 64, 32, 0, 1,
+                      /*compute_type=*/DTypeEnum::TF32);
 }
 
-TEST(CUDAOpKerenlTest, MatmulOp2) {
+TEST(CUDAOpKernelTest, MatmulOpFp16) {
+  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 1, 0);
+  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 1, 1);
+  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 0, 0);
+  TestMatmulOp<__half>(1e-2f, 128, 64, 32, 0, 1);
+  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 1, 0,
+                       /*compute_type=*/DTypeEnum::Float16);
+  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 1, 1,
+                       /*compute_type=*/DTypeEnum::Float16);
+  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 0, 0,
+                       /*compute_type=*/DTypeEnum::Float16);
+  TestMatmulOp<__half>(5e-2f, 128, 64, 32, 0, 1,
+                       /*compute_type=*/DTypeEnum::Float16);
+}
+
+TEST(CUDAOpKernelTest, MatmulOp2) {
   ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);

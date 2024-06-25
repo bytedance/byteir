@@ -41,6 +41,7 @@ enum class DTypeEnum : uint32_t {
   Int16 = 12,
   UInt16 = 13,
   UInt64 = 14,
+  TF32 = 15,
   LastDType,
   Unsupported = LastDType,
 };

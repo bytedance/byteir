@@ -167,14 +167,14 @@ static void TestBatchMatmulOp(float eps, llvm::ArrayRef<int64_t> batch,
                    rhs_contracting_dimension != rank - 2);
 }
 
-TEST(CUDAOpKerenlTest, BatchMatmulOp) {
+TEST(CUDAOpKernelTest, BatchMatmulOp) {
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 3, 2);
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 2, 2);
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 2, 3);
   TestBatchMatmulOp<float>(1e-4f, {2, 17}, 128, 64, 32, 3, 3);
 }
 
-TEST(CUDAOpKerenlTest, BatchMatmulOpFp16) {
+TEST(CUDAOpKernelTest, BatchMatmulOpFp16) {
   TestBatchMatmulOp<__half>(2e-2f, {2, 17}, 128, 64, 32, 3, 2);
   TestBatchMatmulOp<__half>(2e-2f, {2, 17}, 128, 64, 32, 2, 2);
   TestBatchMatmulOp<__half>(2e-2f, {2, 17}, 128, 64, 32, 2, 3);
