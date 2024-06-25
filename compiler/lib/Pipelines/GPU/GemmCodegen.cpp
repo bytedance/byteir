@@ -172,6 +172,9 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
   config.transformBuilder = [=](ImplicitLocOpBuilder &b, Operation *op,
                                 Value pdlV) {
     func::FuncOp funcOp = op->getParentOfType<func::FuncOp>();
+    linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
+    bool isBMM = linalgOp.getNumParallelLoops() == 3;
+
     SmallVector<int64_t, 3> tileSizeConfig = getGemmTileSize(funcOp).value();
     SmallVector<int64_t, 3> workgroupSize = getGemmBlockSize(funcOp).value();
     int64_t stages = getGemmPipelineDepth(funcOp).value();
@@ -199,22 +202,37 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
         /* type */ pdl::AttributeType::get(b.getContext()),
         /* value */ b.getI64IntegerAttr(stages));
 
-    auto mapping =
-        llvm::to_vector(llvm::map_range(SmallVector{1, 0}, [](int64_t i) {
-          return static_cast<gpu::MappingId>(i);
-        }));
+    SmallVector<int64_t> mappingIdx;
+    if (isBMM) {
+      mappingIdx = {2, 1, 0};
+    } else {
+      mappingIdx = {1, 0};
+    }
+    auto mapping = llvm::to_vector(llvm::map_range(
+        mappingIdx, [](int64_t i) { return static_cast<gpu::MappingId>(i); }));
     auto mappingAttrs = llvm::to_vector(
         llvm::map_range(mapping, [&](gpu::MappingId dim) -> Attribute {
           return gpu::GPUBlockMappingAttr::get(b.getContext(), dim);
         }));
 
-    auto tileMatmulOp = tileToForallAndFuseImpl(
-        b, pdlV, SmallVector{tileSizeConfig[0], tileSizeConfig[1]},
-        mappingAttrs, gridTileConfig.fuseCandidates);
+    SmallVector<int64_t> parrallelTileSizes;
+    if (isBMM) {
+      parrallelTileSizes = {1, tileSizeConfig[0], tileSizeConfig[1]};
+    } else {
+      parrallelTileSizes = {tileSizeConfig[0], tileSizeConfig[1]};
+    }
+    auto tileMatmulOp =
+        tileToForallAndFuseImpl(b, pdlV, parrallelTileSizes, mappingAttrs,
+                                gridTileConfig.fuseCandidates);
 
+    SmallVector<int64_t> reductionTileSizes;
+    if (isBMM)
+      reductionTileSizes = {0, 0, 0, tileSizeConfig[2]};
+    else
+      reductionTileSizes = {0, 0, tileSizeConfig[2]};
     pdlV = tileMatmulOp.getTiledOp();
-    auto tileKMatmulOp = b.create<transform::TileUsingForOp>(
-        pdlV, SmallVector<int64_t>{0, 0, tileSizeConfig[2]});
+    auto tileKMatmulOp =
+        b.create<transform::TileUsingForOp>(pdlV, reductionTileSizes);
     pdlV = tileKMatmulOp.getTiledLinalgOp();
 
     b.create<transform::AnnotateOp>(pdlV, getLinalgMMALevelAttrName(),
