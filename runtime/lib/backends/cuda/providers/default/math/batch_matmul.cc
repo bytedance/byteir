@@ -71,6 +71,10 @@ BatchMatmulImpl<T>::BatchMatmulImpl(const OpAccessor &accessor) {
   batch_stride_A = (long long int)m * (long long int)k;
   batch_stride_B = (long long int)k * (long long int)n;
   batch_stride_C = (long long int)m * (long long int)n;
+
+  if (accessor.HasAttr("compute_type")) {
+    compute_type = accessor.GetAttrAsType("compute_type");
+  }
 }
 
 template <>

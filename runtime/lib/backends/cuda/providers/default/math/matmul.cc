@@ -73,50 +73,34 @@ void MatmulImpl<float>::Execute(const float *a_val, const float *b_val,
                                 float *c_val, cublasHandle_t handle,
                                 cudaStream_t) {
   const float alpha = 1.0f, beta = 0.0f;
+  cublasComputeType_t computeType =
+      (this->compute_type == DTypeEnum::TF32 ? CUBLAS_COMPUTE_32F_FAST_TF32
+                                             : CUBLAS_COMPUTE_32F);
   if (!lhs_transpose && !rhs_transpose) {
     // CT = (AB)T = BT @ AT
-    if (compute_type == DTypeEnum::TF32) {
-      BRT_CUBLAS_CHECK(cublasGemmEx(
-          handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val, CUDA_R_32F,
-          n, a_val, CUDA_R_32F, k, &beta, c_val, CUDA_R_32F, n,
-          CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT));
-      return;
-    }
-    BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                                 &alpha, b_val, n, a_val, k, &beta, c_val, n));
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, n, a_val,
+                                  CUDA_R_32F, k, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
     return;
   } else if (!lhs_transpose & rhs_transpose) {
-    if (compute_type == DTypeEnum::TF32) {
-      BRT_CUBLAS_CHECK(cublasGemmEx(
-          handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, b_val, CUDA_R_32F,
-          k, a_val, CUDA_R_32F, k, &beta, c_val, CUDA_R_32F, n,
-          CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT));
-      return;
-    }
-    BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
-                                 &alpha, b_val, k, a_val, k, &beta, c_val, n));
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, k, a_val,
+                                  CUDA_R_32F, k, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
     return;
+
   } else if (lhs_transpose & !rhs_transpose) {
-    if (compute_type == DTypeEnum::TF32) {
-      BRT_CUBLAS_CHECK(cublasGemmEx(
-          handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k, &alpha, b_val, CUDA_R_32F,
-          n, a_val, CUDA_R_32F, m, &beta, c_val, CUDA_R_32F, n,
-          CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT));
-      return;
-    }
-    BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
-                                 &alpha, b_val, n, a_val, m, &beta, c_val, n));
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, n, a_val,
+                                  CUDA_R_32F, m, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
     return;
   } else {
-    if (compute_type == DTypeEnum::TF32) {
-      BRT_CUBLAS_CHECK(cublasGemmEx(
-          handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k, &alpha, b_val, CUDA_R_32F,
-          k, a_val, CUDA_R_32F, m, &beta, c_val, CUDA_R_32F, n,
-          CUBLAS_COMPUTE_32F_FAST_TF32, CUBLAS_GEMM_DEFAULT));
-      return;
-    }
-    BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
-                                 &alpha, b_val, k, a_val, m, &beta, c_val, n));
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, k, a_val,
+                                  CUDA_R_32F, m, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
     return;
   }
 }
