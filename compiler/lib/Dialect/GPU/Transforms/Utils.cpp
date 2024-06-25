@@ -164,8 +164,7 @@ bool isMappedToGPUThreads(Operation *op) {
 std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp) {
   std::vector<scf::ForallOp> forallOps;
   funcOp.walk([&](scf::ForallOp forallOp) {
-    if (isMappedToGPUBlocks(forallOp) &&
-        forallOp.getMappingAttr().getValue().size() == 2)
+    if (isMappedToGPUBlocks(forallOp))
       forallOps.push_back(forallOp);
   });
   if (forallOps.size() != 1) {
@@ -304,7 +303,9 @@ bool isLinalgOpMatmul(Operation *op) {
   linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
   if (!(isa<linalg::MatmulOp>(linalgOp) ||
         isa<linalg::BatchMatmulOp>(linalgOp))) {
-    if (!linalg::isaContractionOpInterface(linalgOp)) {
+    if (!(linalg::isaContractionOpInterface(linalgOp) &&
+          linalgOp.getNumParallelLoops() >= 2 &&
+          linalgOp.getNumParallelLoops() <= 3)) {
       return false;
     }
     // If this is not a named op matmul check some properties to make sure that

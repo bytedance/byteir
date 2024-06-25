@@ -230,7 +230,11 @@ void addGenericLinalgPasses(OpPassManager &pm) {
     }
     { // gemm codegen
       auto gemmAnchor = getByteIRMatmulEpilogueFusionAttrName().str();
-
+      OpPassManager anchoredPM(func::FuncOp::getOperationName());
+      // Try to fuse possible epilogue linalg elementwise ops
+      anchoredPM.addPass(createLinalgElementwiseOpFusionPass());
+      pm.addNestedPass<func::FuncOp>(
+          createAnchoredPipelinePass(gemmAnchor, anchoredPM));
       SmallVector<int64_t> tileSizeConfig = {128, 128, 32};
       SmallVector<int64_t> workgroupSize = {64, 2, 1};
       int64_t stages = 3;

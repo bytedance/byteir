@@ -41,8 +41,6 @@ using namespace mlir;
 
 namespace {
 
-/// copy from ReductionCodegen.cpp. Should make it to a util.
-
 constexpr StringRef getLinalgToGPUAttrName() { return "__byteir_to_gpu__"; }
 
 constexpr StringRef getLinalgMMALevelAttrName() {
@@ -53,103 +51,7 @@ constexpr StringRef getMMAPatternAttrName() { return "__byteir_mma__"; }
 
 constexpr StringRef getLinalgTargetAttrName() { return "__byteir_target__"; }
 
-struct ProducerSelector {
-  uint64_t operandNumber;
-  llvm::StringRef opName;
-  std::vector<ProducerSelector> producerSelectors;
-
-  ProducerSelector(uint64_t operandNumber, llvm::StringRef opName)
-      : operandNumber(operandNumber), opName(opName) {}
-
-  static bool detectFillOperand(OpOperand *opOperand,
-                                std::vector<ProducerSelector> &selectors) {
-    if (opOperand->get().getDefiningOp<linalg::FillOp>()) {
-      selectors.emplace_back(opOperand->getOperandNumber(),
-                             linalg::FillOp::getOperationName());
-      return true;
-    }
-    return false;
-  }
-
-  static bool detectPadOperand(OpOperand *opOperand,
-                               std::vector<ProducerSelector> &selectors) {
-    Operation *definingOp = opOperand->get().getDefiningOp();
-    if (!definingOp)
-      return false;
-
-    if (llvm::isa<tensor::ExpandShapeOp, tensor::CollapseShapeOp>(definingOp)) {
-      ProducerSelector selector(opOperand->getOperandNumber(),
-                                definingOp->getName().getStringRef());
-      if (detectPadOperand(&definingOp->getOpOperand(0),
-                           selector.producerSelectors)) {
-        selectors.emplace_back(std::move(selector));
-        return true;
-      }
-    } else if (llvm::isa<tensor::PadOp>(definingOp)) {
-      selectors.emplace_back(opOperand->getOperandNumber(),
-                             tensor::PadOp::getOperationName());
-      return true;
-    }
-    return false;
-  }
-};
-
-struct GridTileConfig {
-  SmallVector<int64_t, 3> tileSizes;
-  std::vector<ProducerSelector> fuseCandidates;
-};
-
-std::optional<GridTileConfig>
-getGridTileConfig(linalg::LinalgOp linalgOp,
-                  SmallVector<int64_t, 3> tileSizes) {
-  if (!isLinalgOpMatmul(linalgOp))
-    return std::nullopt;
-
-  std::vector<ProducerSelector> fuseCandidates;
-  for (OpOperand &opOperand : linalgOp.getDpsInitsMutable()) {
-    ProducerSelector::detectFillOperand(&opOperand, fuseCandidates);
-  }
-
-  return GridTileConfig{tileSizes, fuseCandidates};
-}
-
-void processProducerSelectors(
-    ImplicitLocOpBuilder &b,
-    const std::vector<ProducerSelector> &producerSelectors, Value fuseInto,
-    SmallVector<Value> &selected, Type producerType = nullptr) {
-  for (auto selector : producerSelectors) {
-    auto producer = b.create<transform::GetProducerOfOperand>(
-        /* producer type */ producerType
-            ? producerType
-            : transform::OperationType::get(b.getContext(), selector.opName),
-        /* target */ fuseInto,
-        /* operand number */ selector.operandNumber);
-    selected.push_back(producer.getProducer());
-    processProducerSelectors(b, selector.producerSelectors, selected.back(),
-                             selected);
-  }
-}
-
-transform::TileUsingForallOp
-tileToForallAndFuseImpl(ImplicitLocOpBuilder &b, Value toTile,
-                        const SmallVector<int64_t> &tileSizes,
-                        const SmallVector<Attribute> &mapping,
-                        const std::vector<ProducerSelector> &fuseCandidates) {
-  SmallVector<Value> toBeFused;
-  processProducerSelectors(b, fuseCandidates, toTile, toBeFused);
-
-  auto tileOp = b.create<transform::TileUsingForallOp>(
-      /* target */ toTile,
-      /* staticTileSizes */ tileSizes,
-      /* ctor tag */ transform::TileSizesSpec(),
-      /* mapping */ b.getArrayAttr(mapping));
-  for (auto &&producerOp : toBeFused) {
-    b.create<transform::FuseIntoContainingOp>(
-        /* producerOp */ producerOp,
-        /* containingOp */ tileOp.getForallOp());
-  }
-  return tileOp;
-}
+constexpr StringRef getEpilogueMarker() { return "__byteir_epilogue__"; }
 
 void createGPUTileGemmTransformImpl(OpPassManager &pm,
                                     const std::string &anchor,
@@ -160,36 +62,37 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
   config.opFilter = [=](Operation *op) {
     if (!isLinalgOpMatmul(op))
       return false;
-    if (auto linalgOp = llvm::dyn_cast_or_null<linalg::LinalgOp>(op)) {
-      func::FuncOp funcOp = op->getParentOfType<func::FuncOp>();
-      SmallVector<int64_t, 3> tileSizeConfig = getGemmTileSize(funcOp).value();
-
-      return getGridTileConfig(linalgOp, tileSizeConfig).has_value();
-    }
-    return false;
+    return true;
   };
 
   config.transformBuilder = [=](ImplicitLocOpBuilder &b, Operation *op,
                                 Value pdlV) {
     func::FuncOp funcOp = op->getParentOfType<func::FuncOp>();
     linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
+    Operation *user = *linalgOp->getUsers().begin();
+    bool hasEpilogue = isa<linalg::GenericOp>(user);
+
+    if (hasEpilogue) {
+      setMarker(user, getEpilogueMarker());
+    }
+
     bool isBMM = linalgOp.getNumParallelLoops() == 3;
 
     SmallVector<int64_t, 3> tileSizeConfig = getGemmTileSize(funcOp).value();
-    SmallVector<int64_t, 3> workgroupSize = getGemmBlockSize(funcOp).value();
-    int64_t stages = getGemmPipelineDepth(funcOp).value();
+    
+    auto func = b.create<transform::GetParentOp>(
+        pdlV.getType(), pdlV,
+        /* isolated_from_above */ false,
+        /* allow_empty_results */ false,
+        /* op_name */ b.getStringAttr(func::FuncOp::getOperationName()),
+        /* deduplicate */ false,
+        /* nth_parent */ 1);
 
-    auto gridTileConfig =
-        getGridTileConfig(llvm::cast<linalg::LinalgOp>(op), tileSizeConfig)
-            .value();
-
-    Value block_idx_y = b.create<transform::ParamConstantOp>(
-        /* type */ pdl::AttributeType::get(b.getContext()),
-        /* value */ b.getStringAttr("block_id.y"));
-
-    Value block_idx_x = b.create<transform::ParamConstantOp>(
-        /* type */ pdl::AttributeType::get(b.getContext()),
-        /* value */ b.getStringAttr("block_id.x"));
+    auto anyType = transform::AnyOpType::get(b.getContext());
+    auto linalgFillType = transform::OperationType::get(
+        b.getContext(), linalg::FillOp::getOperationName());
+    auto linalgFill = b.create<transform::MatchOp>(
+        linalgFillType, func, linalg::FillOp::getOperationName());
 
     Value mmaLevel = b.create<transform::ParamConstantOp>(
         /* type */ pdl::AttributeType::get(b.getContext()),
@@ -197,10 +100,6 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
     Value target = b.create<transform::ParamConstantOp>(
         /* type */ pdl::AttributeType::get(b.getContext()),
         /* value */ b.getStringAttr("nv_sm_80"));
-
-    Value stagesParam = b.create<transform::ParamConstantOp>(
-        /* type */ pdl::AttributeType::get(b.getContext()),
-        /* value */ b.getI64IntegerAttr(stages));
 
     SmallVector<int64_t> mappingIdx;
     if (isBMM) {
@@ -221,24 +120,63 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
     } else {
       parrallelTileSizes = {tileSizeConfig[0], tileSizeConfig[1]};
     }
-    auto tileMatmulOp =
-        tileToForallAndFuseImpl(b, pdlV, parrallelTileSizes, mappingAttrs,
-                                gridTileConfig.fuseCandidates);
+    Value tiledMatmulOp;
+    if (hasEpilogue) {
+      auto linalgGenericType = transform::OperationType::get(
+          b.getContext(), linalg::GenericOp::getOperationName());
+      auto epilogue = b.create<transform::MatchOp>(
+          linalgGenericType, func,
+          b.getStrArrayAttr({linalg::GenericOp::getOperationName()}),
+          /*matchInterfaceEnum=*/transform::MatchInterfaceEnumAttr(),
+          /*opAttrs=*/
+          b.getDictionaryAttr({NamedAttribute(
+              b.getStringAttr(getEpilogueMarker()), b.getUnitAttr())}),
+          /*filterResultType=*/TypeAttr(),
+          /*filterOperandTYpes=*/ArrayAttr());
+
+      transform::TileUsingForallOp tileOp =
+          b.create<transform::TileUsingForallOp>(
+              /* target */ epilogue,
+              /* staticTileSizes */ parrallelTileSizes,
+              /* ctor tag */ transform::TileSizesSpec(),
+              /* mapping */ b.getArrayAttr(mappingAttrs));
+      transform::FuseIntoContainingOp fuse =
+          b.create<transform::FuseIntoContainingOp>(
+              /* producerOp */ pdlV,
+              /* containingOp */ tileOp.getForallOp());
+      b.create<transform::FuseIntoContainingOp>(
+          /* producerOp */ linalgFill,
+          /* containingOp */ fuse.getNewContainingOp());
+      tiledMatmulOp = fuse.getFusedOp();
+    } else {
+      transform::TileUsingForallOp tileOp =
+          b.create<transform::TileUsingForallOp>(
+              /* target */ pdlV,
+              /* staticTileSizes */ parrallelTileSizes,
+              /* ctor tag */ transform::TileSizesSpec(),
+              /* mapping */ b.getArrayAttr(mappingAttrs));
+
+      b.create<transform::FuseIntoContainingOp>(
+          /* producerOp */ linalgFill,
+          /* containingOp */ tileOp.getForallOp());
+      tiledMatmulOp = tileOp.getTiledOp();
+    }
 
     SmallVector<int64_t> reductionTileSizes;
     if (isBMM)
       reductionTileSizes = {0, 0, 0, tileSizeConfig[2]};
     else
       reductionTileSizes = {0, 0, tileSizeConfig[2]};
-    pdlV = tileMatmulOp.getTiledOp();
     auto tileKMatmulOp =
-        b.create<transform::TileUsingForOp>(pdlV, reductionTileSizes);
-    pdlV = tileKMatmulOp.getTiledLinalgOp();
+        b.create<transform::TileUsingForOp>(tiledMatmulOp, reductionTileSizes);
+    auto matmulKOp = tileKMatmulOp.getTiledLinalgOp();
 
-    b.create<transform::AnnotateOp>(pdlV, getLinalgMMALevelAttrName(),
+    b.create<transform::AnnotateOp>(matmulKOp, getLinalgMMALevelAttrName(),
                                     mmaLevel);
-    b.create<transform::AnnotateOp>(pdlV, getLinalgTargetAttrName(), target);
-    b.create<transform::AnnotateOp>(pdlV, getMMAPatternAttrName(), Value());
+    b.create<transform::AnnotateOp>(matmulKOp, getLinalgTargetAttrName(),
+                                    target);
+    b.create<transform::AnnotateOp>(matmulKOp, getMMAPatternAttrName(),
+                                    Value());
   };
 
   pm.addPass(createGenericTransformInsertionPass(config));
