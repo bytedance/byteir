@@ -38,6 +38,23 @@ def test_aten_normal_functional():
     assert "NORMAL" in mlir_str
 
 # ==============================================================================
+# uint8
+
+class AtenBitwiseAndUint8Module(torch.nn.Module):
+    def forward(self, x, y):
+        return torch.bitwise_and(x, y)
+
+def test_uint8():
+    input_shape = [1024, 2048]
+    x = torch.randint(0, 256, input_shape, dtype=torch.uint8)
+    y = torch.randint(0, 256, input_shape, dtype=torch.uint8)
+    inputs = [x, y]
+    module = compile(AtenBitwiseAndUint8Module(), inputs, "stablehlo")
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.and" in mlir_str
+    assert "uint8" in mlir_str
+
+# ==============================================================================
 
 class AtenCudaModule(torch.nn.Module):
     def __init__(self):
