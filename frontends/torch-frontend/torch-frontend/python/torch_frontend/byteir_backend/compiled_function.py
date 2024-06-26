@@ -1,9 +1,10 @@
-import functools
 import dataclasses
+import functools
 import logging
 import math
 from enum import Enum
 from typing import Optional, Any, Callable, Dict, List, Sequence, Tuple, Union
+from brt.utils import brt_dtype_to_torch_dtype
 
 import torch
 
@@ -46,7 +47,6 @@ class ByteIRFunction:
                  none_indices,
                  aliased_out_indices=None,
                  output_meta_info=None):
-        from brt.utils import brt_dtype_to_torch_dtype
         if isinstance(module_path_or_session, brt.Session):
             self._session = module_path_or_session
         else:
@@ -258,7 +258,6 @@ class ByteIRFunction:
         results = self.gen_torch_tensors()
 
     def __call__(self, *inputs):
-        from brt.utils import brt_dtype_to_torch_dtype
 
         log.debug(f"***** Run function compiled through byteir ******")
         log.debug(f"_aliased_out_indices={self._aliased_out_indices}")
@@ -284,6 +283,7 @@ class ByteIRFunction:
 
         device = inputs[0].device
         
+        """
         if self.out_builder is None:
             #import pdb; pdb.set_trace()
             import time
@@ -301,6 +301,7 @@ class ByteIRFunction:
                 self.out_builder.clear()
                 del ptrs
                 del tens
+        """
          
         #TODO       
         #ptrs = self.out_builder.alloc_tensors()
@@ -323,18 +324,8 @@ class ByteIRFunction:
         #tens = self.out_builder.gen_torch_tensors()
         self._req.sync()
 
-        # add None results to return values
-        rets = []
-        none_cnt = 0
-        result_cnt = 0
-        for i in range(len(results) + len(self._none_indices)):
-            if none_cnt < len(
-                    self._none_indices) and i == self._none_indices[none_cnt]:
-                rets.append(None)
-                none_cnt += 1
-            else:
-                rets.append(results[result_cnt])
-                result_cnt += 1
+        rets = results
+
         if len(rets) == 1:
             return rets[0]
         #TODO

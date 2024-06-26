@@ -49,6 +49,8 @@ from . import config
 log = logging.getLogger(__name__)
 g_graph_counter = count(0)
 
+BACKEND_LEGAL_OPS = ["aten.max.dim"]
+
 
 #@dynamo_utils.dynamo_timed(phase_name="byteir_compile")
 def inner_compile(gm: torch.fx.GraphModule,
@@ -98,7 +100,7 @@ def inner_compile(gm: torch.fx.GraphModule,
             module = torch_frontend.compile_dynamo_model(
                 gm,
                 output_type="stablehlo",
-                backend_legal_ops=[])
+                backend_legal_ops=BACKEND_LEGAL_OPS,)
             with open(stablehlo_file, "w") as f:
                 print(module.operation.get_asm(), file=f)
         if not os.path.exists(byre_file):

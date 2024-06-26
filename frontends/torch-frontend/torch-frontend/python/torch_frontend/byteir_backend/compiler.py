@@ -60,6 +60,7 @@ def byteir_compiler(
         partition_fn=byteir_partition_fn,
         #partition_fn=min_cut_rematerialization_partition,
         #partition_fn=default_partition,
+        keep_inference_input_mutations=False,
     )
 
     fake_mode = detect_fake_mode(
