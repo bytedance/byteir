@@ -384,7 +384,7 @@ def compile(
         assert local_gpu_arch is not None, "seems it doesn't have gpu on local"
         gpu_arch = local_gpu_arch
     if _device == "cuda":
-        gpu_arch_num = int([gpu_arch[2:]])
+        gpu_arch_num = int(gpu_arch[3:])
         if enable_tf32:
             assert gpu_arch_num >= 80, "1xtf32 only support on gpu >= sm_80"
         print(f"Compiling PTX to {gpu_arch}")
