@@ -129,6 +129,7 @@ void BatchMatmulImpl<__half>::Execute(const __half *a_val, const __half *b_val,
                                       __half *c_val, cublasHandle_t handle,
                                       cudaStream_t stream) {
   const float alpha = 1.0f, beta = 0.0f;
+  // TODO(lyq): support compute_type = f16
   cublasComputeType_t computeType = CUBLAS_COMPUTE_32F;
   if (!lhs_transpose && !rhs_transpose) {
     const int lda = k;
