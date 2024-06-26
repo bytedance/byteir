@@ -49,8 +49,6 @@ from . import config
 log = logging.getLogger(__name__)
 g_graph_counter = count(0)
 
-BACKEND_LEGAL_OPS = ["aten.max.dim"]
-
 
 #@dynamo_utils.dynamo_timed(phase_name="byteir_compile")
 def inner_compile(gm: torch.fx.GraphModule,
@@ -95,14 +93,15 @@ def inner_compile(gm: torch.fx.GraphModule,
             module = torch_frontend.compile_dynamo_model(
                 gm,
                 output_type="stablehlo",
-                backend_legal_ops=BACKEND_LEGAL_OPS)
+                backend_legal_ops=[])
             with open(stablehlo_file, "w") as f:
                 print(module.operation.get_asm(), file=f)
         if not os.path.exists(byre_file):
             byteir.compile(stablehlo_file,
                            byre_file,
                            verbose=False,
-                           target="cuda")
+                           target="cuda",
+                           enable_tf32=config.byteir_enable_tf32)
             #byteir.compile(stablehlo_file, byre_file, verbose=False, target="cuda_with_ait")
 
         byre_session = brt.Session(alloc_func=caching_allocator_alloc,
