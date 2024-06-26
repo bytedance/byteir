@@ -52,13 +52,15 @@ def func_hash_str(func, gpu_type):
 class IRProcessor:
     def __init__(self, 
                  job_name, 
-                 workdir, 
+                 workdir,
+                 enable_tf32 = False,
                  compile_parallelism = 1,
                  disable_byteir_ait_cache = False,
                  verbose = False):
         self.job_name = job_name
         self.workdir = workdir
         self.module = None
+        self.enable_tf32 = enable_tf32
         self.compile_parallelism = min(compile_parallelism, MAX_COMPILATION_PARALLELISM)
         if self.compile_parallelism > 1:
             self.pool = multiprocessing.Pool(compile_parallelism)
@@ -75,7 +77,7 @@ class IRProcessor:
         assert isinstance(func, FuncOp)
         if backend == "ait":
             from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
-            return AITBuilder(func, workdir=self.workdir, subgraph_name=subgraph_name)
+            return AITBuilder(func, workdir=self.workdir, subgraph_name=subgraph_name, enable_tf32=self.enable_tf32)
         else:
             raise RuntimeError(f"Unsupported runtime backend {backend}")
 
@@ -130,9 +132,9 @@ class IRProcessor:
         for func in work_items:
             output_lib_path = os.path.join(output_dir, func.name.value + ".so")
             if self.pool:
-                self.pool.apply_async(_parallel_ait_compile, (self.workdir, func, output_lib_path))
+                self.pool.apply_async(_parallel_ait_compile, (self.workdir, func, output_lib_path, self.enable_tf32))
             else:
-                _parallel_ait_compile(self.workdir, func, output_lib_path)
+                _parallel_ait_compile(self.workdir, func, output_lib_path, self.enable_tf32)
         if self.pool:
             self.pool.close()
             self.pool.join()
@@ -175,10 +177,10 @@ class IRProcessor:
         pass
 
 
-def _parallel_ait_compile(workdir: str, func: FuncOp, output_lib_path):
+def _parallel_ait_compile(workdir: str, func: FuncOp, output_lib_path, enable_tf32):
     # os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
     from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
-    builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value)
+    builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
     builder.compile()
     builder.benchmark()
     copyfile(builder.ait_module_path, output_lib_path)
