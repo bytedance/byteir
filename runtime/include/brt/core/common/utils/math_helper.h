@@ -27,8 +27,7 @@ namespace matmul {
 std::vector<int64_t> DeduceOutputShape(const std::vector<int64_t> &lhs_shape,
                                        const std::vector<int64_t> &rhs_shape,
                                        int64_t lhs_contracting_dimension,
-                                       int64_t rhs_contracting_dimension,
-                                       bool output_transpose);
+                                       int64_t rhs_contracting_dimension);
 } // namespace matmul
 
 namespace batchmatmul {

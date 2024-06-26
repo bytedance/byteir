@@ -18,6 +18,7 @@
 #pragma once
 
 #include "brt/backends/cuda/device/utils/op_kernel_impl_helpers.h"
+#include "brt/core/framework/dtype.h"
 #include "brt/core/framework/op_kernel.h"
 
 namespace brt {
@@ -36,6 +37,7 @@ private:
   int m, n, k, batch_count;
   long long int batch_stride_A, batch_stride_B, batch_stride_C;
   bool lhs_transpose, rhs_transpose;
+  DTypeEnum compute_type = DTypeEnum::Invalid;
 };
 
 template <typename T>

@@ -45,8 +45,7 @@ const void *CreateMatmul(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
                          const std::string &space, int64_t m, int64_t n,
                          int64_t k, int64_t lhs_contracting_dimension = 1,
                          int64_t rhs_contracting_dimension = 0,
-                         bool output_transpose = false,
-                         bool compute_on_fp16 = false);
+                         DTypeEnum computeType = DTypeEnum::Invalid);
 
 const void *CreateMatmul2(brt::ir::ByREBuilder &byre_builder,
                           const std::string &space);
@@ -55,7 +54,8 @@ const void *CreateBatchMatmul(brt::ir::ByREBuilder &byre_builder,
                               DTypeEnum dataType, const std::string &space,
                               llvm::ArrayRef<int64_t> b, int64_t m, int64_t n,
                               int64_t k, int64_t lhs_contracting_dimension,
-                              int64_t rhs_contracting_dimension);
+                              int64_t rhs_contracting_dimension,
+                              DTypeEnum computeType = DTypeEnum::Invalid);
 
 const void *CreateConv(brt::ir::ByREBuilder &byre_builder, const std::string op,
                        DTypeEnum dataType, const std::string &space, int64_t N,
