@@ -25,6 +25,9 @@ if __name__ == "__main__":
                         help="specify target cpu arch")
     parser.add_argument("--serial_version", type=str, default="1.0.0", help="byre serialize version")
     parser.add_argument("-v", "--verbose", default=False, action="store_true")
+
+    # gpu options
+    parser.add_argument("--enable_tf32", default=False, action="store_true")
     parser.add_argument("--ait_parallelism", type=int, default=1, help="number of processes to compile ait op")
     parser.add_argument("--disable_byteir_cache", default=False, action="store_true")
 
@@ -37,5 +40,6 @@ if __name__ == "__main__":
                    cpu_arch=args.cpu_arch,
                    byre_serial_version=args.serial_version,
                    verbose=args.verbose,
+                   enable_tf32=args.enable_tf32,
                    parallelism=args.ait_parallelism,
                    disable_byteir_ait_cache=args.disable_byteir_cache)

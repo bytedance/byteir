@@ -34,7 +34,7 @@ using namespace mlir::byre;
 
 namespace {
 void createByreTensorOptPipelineImpl(OpPassManager &pm, std::string entryFunc,
-                                     bool appendArgTypes) {
+                                     bool appendArgTypes, bool enableTF32) {
   pm.addPass(createFuncTagPass(
       /*anchorTag=*/"",
       getAttrPlaceholderName(ByreDialect::getEntryPointFunctionAttrName()),
@@ -54,5 +54,6 @@ void createByreTensorOptPipelineImpl(OpPassManager &pm, std::string entryFunc,
 void mlir::createByreTensorOptPipeline(
     OpPassManager &pm, const ByreTensorOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createByreTensorOptPipelineImpl, pm,
-                              options.entryFunc, options.appendArgTypes);
+                              options.entryFunc, options.appendArgTypes,
+                              options.enableTF32);
 }

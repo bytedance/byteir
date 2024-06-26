@@ -40,7 +40,7 @@ class AITBuilder:
     _op2parent_block = None
     _im_vals = None
 
-    def __init__(self, func, workdir="./workspace", subgraph_name="model"):
+    def __init__(self, func, workdir="./workspace", subgraph_name="model", enable_tf32=False):
         self.func = func
         self._value2tensor = {}
         self._op2parent_block = {}
@@ -53,6 +53,7 @@ class AITBuilder:
 
         self.subgraph_name = subgraph_name
         self.workdir = workdir
+        self.enable_tf32 = enable_tf32
         self.test_name = "./" + subgraph_name
         self.dll_name = subgraph_name + ".so"
         self.constants = {}
@@ -117,7 +118,7 @@ class AITBuilder:
         return self._value2tensor[val]
 
     def _gen_ait_module(self, results):
-        target = detect_target(use_fp16_acc=False, no_tf32=True)
+        target = detect_target(use_fp16_acc=False, no_tf32=(not self.enable_tf32))
         constants = {}
 
         idx = 0
