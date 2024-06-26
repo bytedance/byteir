@@ -18,9 +18,10 @@
 #ifndef BYTEIR_DIALECT_SCF_PASSES_H
 #define BYTEIR_DIALECT_SCF_PASSES_H
 
+#include "byteir/Dialect/SCF/Transforms/ForToForall.h"
 #include "byteir/Dialect/SCF/Transforms/ForallCollapsing.h"
-#include "byteir/Dialect/SCF/Transforms/ForallTiling.h"
 #include "byteir/Dialect/SCF/Transforms/ForallNormalize.h"
+#include "byteir/Dialect/SCF/Transforms/ForallTiling.h"
 #include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
 #include "byteir/Dialect/SCF/Transforms/InsertTrivialSCFLoop.h"
 

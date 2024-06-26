@@ -101,11 +101,28 @@ def ForallTiling : Pass<"forall-tiling"> {
 //===----------------------------------------------------------------------===//
 
 def ForallNormalize : Pass<"forall-normalize"> {
-  let summary = "norlize forall";
+  let summary = "normalize forall";
   let constructor = "mlir::createForallNormalizePass()";
   let dependentDialects = [
     "scf::SCFDialect",
     "affine::AffineDialect"
+  ];
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ForallNormalize
+//===----------------------------------------------------------------------===//
+
+def ForToForall : Pass<"for-to-forall"> {
+  let summary = "convert for to forall";
+  let constructor = "mlir::createForToForallPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
   ];
   let options = [
     Option<"anchorTag", "anchor-tag", "std::string",
