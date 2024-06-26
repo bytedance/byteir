@@ -1,5 +1,7 @@
 import os
 
+byteir_enable_tf32 = os.environ.get("BYTEIR_ENABLE_TF32") == "1"
+
 byteir_not_use_cache = os.environ.get("BYTEIR_NOT_USE_CACHE") == "1"
 
 # TODO. default not save fx graph.
