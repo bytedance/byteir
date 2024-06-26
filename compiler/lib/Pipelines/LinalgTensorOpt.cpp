@@ -251,6 +251,8 @@ void addGenericLinalgPasses(OpPassManager &pm) {
       options.funcAnchor = gemmAnchor;
       createGPUTileGemmTransform(pm, options);
       pm.addPass(createTransformDialectInterpreter(true));
+      pm.addPass(createCanonicalizerPass());
+      pm.addPass(createCSEPass());
     }
   }
 }

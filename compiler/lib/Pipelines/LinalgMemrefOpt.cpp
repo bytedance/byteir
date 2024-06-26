@@ -86,7 +86,7 @@ void addGemmOptPasses(OpPassManager &pm) {
       anchoredPM.addPass(createGPUPackSharedMemoryAllocPass());
       anchoredPM.addPass(createCanonicalizerPass());
       anchoredPM.addPass(createCSEPass());
-      anchoredPM.addPass(createGPUBlockSwizzlePass(3));
+      // anchoredPM.addPass(createGPUBlockSwizzlePass(3));
       pm.addNestedPass<func::FuncOp>(
           createAnchoredPipelinePass(gemmAnchor, anchoredPM));
     }
