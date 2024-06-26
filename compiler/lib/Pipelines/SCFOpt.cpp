@@ -22,6 +22,7 @@
 #include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
+#include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
 #include "byteir/Transforms/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/Affine/Passes.h"
@@ -36,6 +37,11 @@ using namespace mlir::affine;
 
 namespace {
 void addGenericSCFOptPasses(OpPassManager &pm) {
+  // for elementwise op
+  GPUTileElementwiseInSCFOptions tileOptions;
+  tileOptions.maxBlockSize = 256;
+  createGPUTileElementwiseInSCF(pm, tileOptions);
+
   pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
   pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
   // lower affine.apply in case there is some

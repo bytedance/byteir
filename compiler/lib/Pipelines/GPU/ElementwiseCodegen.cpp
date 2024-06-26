@@ -227,6 +227,38 @@ struct MappingElementwiseToGPUPass
   }
 };
 
+struct elementwiseForallSpecializationPass
+    : PassWrapper<elementwiseForallSpecializationPass,
+                  OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MappingElementwiseToGPUPass)
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<gpu::GPUDialect>();
+  }
+
+  void runOnOperation() override {
+    func::FuncOp funcOp = getOperation();
+    bool hasForOp = (!funcOp.getOps<scf::ForOp>().empty());
+    PassManager pm(funcOp->getContext(), func::FuncOp::getOperationName());
+    if (!hasForOp) {
+      // Note: a trivial loop will be removed by canonicalizer
+      // so no canonicalizer before used
+      pm.addPass(createInsertTrivialSCFLoopPass());
+    }
+    pm.addPass(createForToForallPass());
+    pm.addPass(createFuseNestedForallPass());
+    pm.addPass(createForallCollapsingPass());
+
+    if (hasForOp) {
+      pm.addPass(createCanonicalizerPass());
+      pm.addPass(createCSEPass());
+    }
+    if (mlir::failed(runPipeline(pm, funcOp))) {
+      signalPassFailure();
+    }
+  }
+};
+
 void createGPUTileElementwiseTransformImpl(OpPassManager &pm,
                                            const std::string &anchor,
                                            const std::string &prefix,
@@ -267,7 +299,7 @@ void createGPUTileElementwiseInSCFImpl(OpPassManager &pm,
                                        int64_t maxBlockSize) {
   auto elementwiseAnchor = getByteIRElementwiseFusionAttrName().str();
   OpPassManager anchoredPM(func::FuncOp::getOperationName());
-  anchoredPM.addPass(createForallCollapsingPass());
+  anchoredPM.addPass(std::make_unique<elementwiseForallSpecializationPass>());
   anchoredPM.addPass(createForallTilingPass({maxBlockSize}));
   anchoredPM.addPass(std::make_unique<MappingElementwiseToGPUPass>());
   anchoredPM.addPass(createForallNormalizePass());

@@ -58,28 +58,11 @@ void createElementwiseGPUOptPipelineImpl(OpPassManager &pm,
         getByteIRElementwiseFusionAttrName(), anchoredPM));
   }
 
-  // Note: a trivial loop will be removed by canonicalizer
-  // so no canonicalizer before used
-  pm.addNestedPass<func::FuncOp>(
-      createInsertTrivialSCFLoopPass(getByteIRElementwiseFusionAttrName()));
-
-  // attach ToGPUAttr
-  pm.addPass(createFuncTagPass(getByteIRElementwiseFusionAttrName(),
-                               getToGPUAttrName()));
-
-  std::string iteratorAttr =
-      getLoopToSIMTAttrName().str() + ":String:" + getLinearIdXName().str();
-
-  pm.addNestedPass<func::FuncOp>(
-      createLoopTagPass(getByteIRElementwiseFusionAttrName(), iteratorAttr));
-
-  pm.addNestedPass<func::FuncOp>(createLoopTagPass(
-      getByteIRElementwiseFusionAttrName(), getCoarsenSIMTAttrName().str()));
-
-  pm.addPass(createConvertFuncToGPUPass(/*bs=*/{256, 1, 1}));
-
-  addCleanUpExtPassPipeline(pm);
-  pm.addNestedPass<func::FuncOp>(createGenPTXConfigPass(useBarePtrCallConv));
+  // pm.addNestedPass<func::FuncOp>(createGenPTXConfigPass(useBarePtrCallConv));
+  GPUMappingForallOptions mappingOptions;
+  mappingOptions.funcAnchor = getByteIRElementwiseFusionAttrName().str();
+  mappingOptions.blockDimsHint = llvm::cl::KernelDims{256, 1, 1};
+  createGPUMappingForallTransform(pm, mappingOptions);
 }
 
 void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
