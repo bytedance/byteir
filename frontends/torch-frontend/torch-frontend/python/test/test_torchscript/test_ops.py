@@ -52,7 +52,7 @@ def test_uint8():
     module = compile(AtenBitwiseAndUint8Module(), inputs, "stablehlo")
     mlir_str = module.operation.get_asm()
     assert "stablehlo.and" in mlir_str
-    assert "uint8" in mlir_str
+    assert "tensor<1024x2048xui8>" in mlir_str
 
 # ==============================================================================
 
