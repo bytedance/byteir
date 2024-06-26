@@ -238,7 +238,8 @@ bool isFusibleCandidate(Operation *op) {
 }
 
 bool isFusibleStart(Operation *op) {
-  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
+  // return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
 }
 
 bool isFusibleTrigger(Operation *op) {
@@ -251,7 +252,8 @@ bool isFusibleWith(Operation * /*target*/, Operation * /*start*/) {
 }
 
 bool isValidSingleOp(Operation *op) {
-  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
+  // return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
 }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }

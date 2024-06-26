@@ -20,11 +20,15 @@ add_mlir_dialect_library(ByteIRGPUPasses
   ByteIRGPUPassIncGen
   ByteIRUtils
   MLIRGPUDialect
+  MLIRNVGPUDialect
+  MLIRNVGPUTransforms
 
   LINK_LIBS PUBLIC
   ByteIRUtils
   MLIRIR
   MLIRGPUDialect
+  MLIRNVGPUDialect
+  MLIRNVGPUTransforms
   MLIRMemRefDialect
   MLIRSupport
 )
