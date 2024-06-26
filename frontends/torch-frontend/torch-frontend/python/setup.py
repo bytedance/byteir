@@ -17,7 +17,7 @@ def get_git_commit(src_dir):
 
 def get_torch_frontend_version(version_txt_path):
     with open(version_txt_path) as f:
-        version = f.readline()
+        version = f.readline().strip()
     return version
 
 def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path, output_version_file_path, root_dir, *, enable_jitir=False):
