@@ -228,9 +228,10 @@ void addGenericLinalgPasses(OpPassManager &pm) {
   }
 }
 
-void addCPULinalgOptPasses(OpPassManager &pm) {
+void addCPULinalgOptPasses(OpPassManager &pm, const std::string &target,
+                           const std::string &arch) {
   pm.addNestedPass<func::FuncOp>(createHloFusionToLinalgPass(
-      getByteIRHloAggressiveFusionAttrName(), true));
+      getByteIRHloAggressiveFusionAttrName(), true, target, arch));
   pm.addNestedPass<func::FuncOp>(createUnrealizedCastToLinalgPass());
   {
     TileAndVectorizeTransposeOptions options;
@@ -248,9 +249,10 @@ void addCPULinalgOptPasses(OpPassManager &pm) {
 }
 
 void createLinalgTensorOptPipelineImpl(OpPassManager &pm,
-                                       const std::string &target) {
+                                       const std::string &target,
+                                       const std::string &arch) {
   if (target == "cpu") {
-    addCPULinalgOptPasses(pm);
+    addCPULinalgOptPasses(pm, target, arch);
   } else {
     addGenericLinalgPasses(pm);
   }
@@ -260,5 +262,5 @@ void createLinalgTensorOptPipelineImpl(OpPassManager &pm,
 void mlir::createLinalgTensorOptPipeline(
     OpPassManager &pm, const LinalgTensorOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createLinalgTensorOptPipelineImpl, pm,
-                              options.target);
+                              options.target, options.arch);
 }

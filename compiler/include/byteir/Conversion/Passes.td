@@ -63,7 +63,11 @@ def HloFusionToLinalg : Pass<"hlo-fusion-to-linalg", "func::FuncOp"> {
     Option<"enablePrimitiveOps", "enable-primitive-ops", "bool",
             /*default=*/"false",
             "Lower to primitive Linalg ops (map, reduce and "
-            "transpose) when possible, instead of linalg.generic">
+            "transpose) when possible, instead of linalg.generic">,
+    Option<"target", "target", "std::string", /*default*/ "",
+           "Specificy the target">,
+    Option<"arch", "arch", "std::string", /*default*/ "",
+           "Specificy the target arch">
   ];
 }
 

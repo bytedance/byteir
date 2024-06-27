@@ -41,11 +41,13 @@ void populateTensorToLinalgConversionPatterns(RewritePatternSet &patterns);
 void populateLinalgExtToLinalgConversionPatterns(RewritePatternSet &patterns);
 
 void populateHloToLinalgExtConversionPattern(TypeConverter &typeConverter,
-                                             RewritePatternSet &patterns);
+                                             RewritePatternSet &patterns,
+                                             const std::string &target = "",
+                                             const std::string &arch = "");
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createHloFusionToLinalgPass(llvm::StringRef anchorTag = "",
-                            bool enablePrimitiveOps = false);
+std::unique_ptr<OperationPass<func::FuncOp>> createHloFusionToLinalgPass(
+    llvm::StringRef anchorTag = "", bool enablePrimitiveOps = false,
+    const std::string &target = "", const std::string &arch = "");
 
 std::unique_ptr<OperationPass<func::FuncOp>> createUnrealizedCastToLinalgPass();
 
