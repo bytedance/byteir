@@ -53,7 +53,6 @@ void addGenericSCFOptPasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       createFuseNestedForallPass(getByteIRReductionFusionAttrName()));
   addCleanUpExtPassPipeline(pm);
-  pm.addPass(createHorizontalFusionPass());
 }
 
 void addCPUSCFOptPasses(OpPassManager &pm) {
