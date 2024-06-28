@@ -32,6 +32,7 @@
 #include "byteir/Pipelines/LinalgTensorOpt.h"
 #include "byteir/Pipelines/SCFOpt.h"
 #include "byteir/Pipelines/ShapeOpt.h"
+#include "byteir/Pipelines/VectorOpt.h"
 
 #include "byteir/Pipelines/GPU/ElementwiseCodegen.h"
 #include "byteir/Pipelines/GPU/GPUOpt.h"
@@ -58,6 +59,7 @@ inline void registerAllByteIRCommonPipelines() {
   registerLinalgMemrefOptPipeline();
   registerLinalgTensorOptPipeline();
   registerSCFOptPipeline();
+  registerVectorOptPipeline();
   registerShapeOptPipeline();
   registerByteIRBufferizeOptPipeline();
   registerByteIRAllOptPipeline();

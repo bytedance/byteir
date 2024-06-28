@@ -17,6 +17,7 @@ add_mlir_library(ByteIRPipelines
   LinalgTensorOpt.cpp
   SCFOpt.cpp
   ShapeOpt.cpp
+  VectorOpt.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${BYTEIR_SRC_INCLUDE_DIR}/byteir/Pipelines

@@ -87,3 +87,7 @@ module {
   }
 }
 
+// CHECK-LABEL: func.func @main
+// CHECK: scf.forall
+// CHECK: scf.forall
+// CHECK-not: scf.forall
