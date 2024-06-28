@@ -297,6 +297,7 @@ def _compile_cpu(
 
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
+    arch_str="arch={}".format(cpu_arch)
     with context:
         PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
@@ -304,7 +305,7 @@ def _compile_cpu(
         PassManager().parse("builtin.module(hlo-fusion-opt{" + entry_func_str + " " + target_str + " outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Fusion Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(linalg-tensor-opt{" + target_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(linalg-tensor-opt{" + target_str + " " + arch_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)

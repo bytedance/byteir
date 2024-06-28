@@ -1267,13 +1267,110 @@ public:
   }
 };
 
+/// Code below is copied from legalize_to_linalg.cc
+/// Remove this when upstream FPToSIOp solves inf/nan convert.
+Value coerceTensorShape(OpBuilder &builder, Location loc,
+                        TypedValue<ShapedType> value, ShapedType targetType) {
+  return builder.createOrFold<tensor::CastOp>(
+      loc, targetType.cloneWith(std::nullopt, value.getType().getElementType()),
+      value);
+}
+
+inline Value mapFPToSIConvertOpToStdScalarOp(Location loc,
+                                             ArrayRef<Type> targetTypes,
+                                             ArrayRef<Type> resultTypes,
+                                             ValueRange args, OpBuilder *b) {
+  assert(targetTypes.size() == 1 && "ConvertOp should return a single result");
+  assert(resultTypes.size() == 1 && "ConvertOp should return a single result");
+  assert(args.size() == 1 && "ConvertOp should take a single argument");
+
+  Type targetType = getElementTypeOrSelf(targetTypes.front());
+  Type convertedSourceType = getElementTypeOrSelf(args.front());
+
+  if (mlir::arith::FPToSIOp::areCastCompatible(convertedSourceType,
+                                               targetType)) {
+    Value infValue = b->create<mlir::arith::ConstantOp>(
+        loc,
+        b->getFloatAttr(
+            convertedSourceType,
+            APFloat::getInf(
+                dyn_cast<FloatType>(convertedSourceType).getFloatSemantics())));
+    Value isInf = b->create<mlir::arith::CmpFOp>(loc, arith::CmpFPredicate::OEQ,
+                                                 args.front(), infValue);
+    Value isNan = b->create<mlir::arith::CmpFOp>(loc, arith::CmpFPredicate::UNE,
+                                                 args.front(), args.front());
+    Value maxIntval = b->create<arith::ConstantOp>(
+        loc,
+        b->getIntegerAttr(targetType, APInt::getSignedMaxValue(
+                                          targetType.getIntOrFloatBitWidth())));
+    Value zeroIntval =
+        b->create<arith::ConstantOp>(loc, b->getZeroAttr(targetType));
+    return b->create<::mlir::arith::SelectOp>(
+        loc, isInf, maxIntval,
+        b->create<::mlir::arith::SelectOp>(
+            loc, isNan, zeroIntval,
+            b->create<mlir::arith::FPToSIOp>(loc, resultTypes, args,
+                                             std::nullopt)));
+  }
+  return nullptr;
+}
+
+class FPToSIConvertOpConverter : public OpConversionPattern<mhlo::ConvertOp> {
+public:
+  using OpConversionPattern<mhlo::ConvertOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::ConvertOp op, typename mhlo::ConvertOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const final {
+    auto loc = op.getLoc();
+    RankedTensorType inputType =
+        dyn_cast<RankedTensorType>(op.getOperand().getType());
+    RankedTensorType outType = dyn_cast<RankedTensorType>(op.getType());
+    if (!inputType || !outType) {
+      return failure();
+    }
+    // Apply only if convert type is FPToInt32
+    if (!inputType.getElementType().isF32() ||
+        !outType.getElementType().isSignlessInteger(32)) {
+      return failure();
+    }
+    // Find input/output values and types.
+    std::optional<ShapedType> resultTy =
+        dyn_cast<ShapedType>(this->typeConverter->convertType(op.getType()));
+    Value emptyTensor =
+        getEmptyTensorFor(rewriter, loc, *resultTy, op, adaptor.getOperands());
+    // Mapped inputs are cast to the same shape as the init tensor.
+    SmallVector<Value> mappedInputs;
+    for (Value input : adaptor.getOperands()) {
+      mappedInputs.push_back(
+          coerceTensorShape(rewriter, loc, cast<TypedValue<ShapedType>>(input),
+                            cast<ShapedType>(emptyTensor.getType())));
+    }
+
+    auto mapOp = rewriter.create<linalg::MapOp>(
+        loc, mappedInputs, emptyTensor,
+        [&](OpBuilder &b, Location loc, ValueRange args) {
+          Value innerResult = mapFPToSIConvertOpToStdScalarOp(
+              op.getLoc(), op.getType(), getElementTypeOrSelf(emptyTensor),
+              args, &b);
+          b.create<linalg::YieldOp>(loc, innerResult);
+        },
+        linalg::getPrunedAttributeList(op));
+    rewriter.replaceOp(op, mapOp->getResults());
+    return success();
+  }
+};
+
 struct HloFusionToLinalgPass
     : public HloFusionToLinalgBase<HloFusionToLinalgPass> {
 
-  HloFusionToLinalgPass(StringRef tag, bool enablePrimitiveOps)
+  HloFusionToLinalgPass(StringRef tag, bool enablePrimitiveOps,
+                        StringRef target, StringRef arch)
       : HloFusionToLinalgBase() {
     anchorTag = tag.str();
     this->enablePrimitiveOps = enablePrimitiveOps;
+    this->target = target.str();
+    this->arch = arch.str();
   }
 
   void getDependentDialects(DialectRegistry &registry) const final {
@@ -1293,13 +1390,13 @@ struct HloFusionToLinalgPass
 
     MLIRContext &ctx = getContext();
     RewritePatternSet patterns(&ctx);
-    ConversionTarget target(ctx);
-    target.addLegalDialect<
+    ConversionTarget conversionTarget(ctx);
+    conversionTarget.addLegalDialect<
         arith::ArithDialect, cf::ControlFlowDialect, func::FuncDialect,
         linalg::LinalgDialect, math::MathDialect, tensor::TensorDialect,
         scf::SCFDialect, shape::ShapeDialect, linalg_ext::LinalgExtDialect>();
 
-    target.addLegalOp<UnrealizedConversionCastOp>();
+    conversionTarget.addLegalOp<UnrealizedConversionCastOp>();
 
     auto typeConverter = createHloToLinalgTypeConverter();
 
@@ -1308,22 +1405,31 @@ struct HloFusionToLinalgPass
         [](Operation *op) { return isInBodyOfLinalgOps(op); });
     mhlo::populateHloToLinalgConversionPattern(&ctx, *typeConverter, &patterns,
                                                enablePrimitiveOps);
-    populateHloToLinalgExtConversionPattern(*typeConverter, patterns);
+    populateHloToLinalgExtConversionPattern(*typeConverter, patterns,
+                                            this->target, this->arch);
 
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-    if (failed(applyPartialConversion(func, target, frozenPatterns))) {
+    if (failed(
+            applyPartialConversion(func, conversionTarget, frozenPatterns))) {
       signalPassFailure();
     }
   }
 };
+
 } // namespace
 
-void mlir::populateHloToLinalgExtConversionPattern(
-    TypeConverter &typeConverter, RewritePatternSet &patterns) {
+void mlir::populateHloToLinalgExtConversionPattern(TypeConverter &typeConverter,
+                                                   RewritePatternSet &patterns,
+                                                   const std::string &target,
+                                                   const std::string &arch) {
   auto ctx = patterns.getContext();
   patterns.add<ReduceWindowOpConversion>(typeConverter, ctx, PatternBenefit(2));
   patterns.add<DotGeneralLinalgExtBatchMatMulOpConversion>(typeConverter, ctx,
                                                            PatternBenefit(2));
+  if (target == "cpu" && arch == "x86_64") {
+    patterns.add<FPToSIConvertOpConverter>(typeConverter, ctx,
+                                           PatternBenefit(2));
+  }
   patterns.add<SoftmaxCustomCallConverter>(ctx);
   patterns.add<ScatterOpConversion>(ctx);
   patterns.add<LayerNormCustomCallConverter>(ctx);
@@ -1333,8 +1439,9 @@ void mlir::populateHloToLinalgExtConversionPattern(
   patterns.add<ByteirRepeatCustomCallConverter>(ctx);
 }
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createHloFusionToLinalgPass(llvm::StringRef anchorTag,
-                                  bool enablePrimitiveOps) {
-  return std::make_unique<HloFusionToLinalgPass>(anchorTag, enablePrimitiveOps);
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createHloFusionToLinalgPass(
+    llvm::StringRef anchorTag, bool enablePrimitiveOps,
+    const std::string &target, const std::string &arch) {
+  return std::make_unique<HloFusionToLinalgPass>(anchorTag, enablePrimitiveOps,
+                                                 target, arch);
 }

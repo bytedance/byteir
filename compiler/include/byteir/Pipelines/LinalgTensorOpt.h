@@ -30,6 +30,9 @@ struct LinalgTensorOptPipelineOptions
       *this, "target",
       llvm::cl::desc("An optional attribute to speicify target."),
       llvm::cl::init("")};
+  Option<std::string> arch{
+      *this, "arch", llvm::cl::desc("An optional attribute to speicify arch."),
+      llvm::cl::init("")};
 };
 
 void createLinalgTensorOptPipeline(
