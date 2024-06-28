@@ -34,6 +34,10 @@ struct ByreTensorOptPipelineOptions
       *this, "append-arg-types",
       llvm::cl::desc("whether to append arg types to Byre"),
       llvm::cl::init(false)};
+  Option<bool> enableTF32{
+      *this, "enable-tf32",
+      llvm::cl::desc("whether to enable 1xTF32 on f32 gemm/bmm"),
+      llvm::cl::init(false)};
 };
 
 void createByreTensorOptPipeline(OpPassManager &pm,

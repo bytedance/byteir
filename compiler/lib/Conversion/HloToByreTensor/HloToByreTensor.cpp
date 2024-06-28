@@ -447,28 +447,42 @@ private:
 class ConvertDotGeneralOpToByrePattern
     : public OpConversionPattern<mhlo::DotGeneralOp> {
 public:
-  ConvertDotGeneralOpToByrePattern(MLIRContext *ctx, bool appendTypes)
+  ConvertDotGeneralOpToByrePattern(MLIRContext *ctx, bool appendTypes,
+                                   bool enableTF32)
       : OpConversionPattern<mhlo::DotGeneralOp>(ctx),
-        appendArgTypes(appendTypes) {}
+        appendArgTypes(appendTypes), enableTF32(enableTF32) {}
 
   LogicalResult
   matchAndRewrite(mlir::mhlo::DotGeneralOp op,
                   mlir::mhlo::DotGeneralOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-
     auto dotDimensionNumbers = adaptor.getDotDimensionNumbers();
-    assert(dotDimensionNumbers.getLhsContractingDimensions().size() == 1);
-    assert(dotDimensionNumbers.getRhsContractingDimensions().size() == 1);
-    if (dotDimensionNumbers.getLhsBatchingDimensions().size() == 0) {
+    if (dotDimensionNumbers.getLhsContractingDimensions().size() != 1) {
+      return failure();
+    }
+    if (dotDimensionNumbers.getRhsContractingDimensions().size() != 1) {
+      return failure();
+    }
+    auto lhsBatchs = dotDimensionNumbers.getLhsBatchingDimensions();
+    auto rhsBatchs = dotDimensionNumbers.getRhsBatchingDimensions();
+    size_t lhsRank = cast<ShapedType>(op.getLhs().getType()).getRank();
+    size_t rhsRank = cast<ShapedType>(op.getRhs().getType()).getRank();
+    if (lhsRank != rhsRank) {
+      return failure();
+    }
+    if (lhsRank != lhsBatchs.size() + 2 || rhsRank != rhsBatchs.size() + 2) {
+      return failure();
+    }
 
+    if (dotDimensionNumbers.getLhsBatchingDimensions().size() == 0 &&
+        dotDimensionNumbers.getRhsBatchingDimensions().size() == 0) {
+      // convert to MatmulOp
       auto failureOrComputeOnTensorOp = replaceMhloOpWithByreComputeOnTensorOp(
           rewriter, op, "MatmulOp", adaptor.getOperands(), appendArgTypes);
       if (failed(failureOrComputeOnTensorOp)) {
         return failure();
       }
       auto computeOnTensorOp = *failureOrComputeOnTensorOp;
-      // append attribute 'lhsContractingDimension' and
-      // 'rhsContractingDimension'
       int64_t lhsContractingDimension =
           dotDimensionNumbers.getLhsContractingDimensions()[0];
       int64_t rhsContractingDimension =
@@ -479,14 +493,14 @@ public:
       computeOnTensorOp->setAttr(
           "rhs_contracting_dimension",
           rewriter.getI64IntegerAttr(rhsContractingDimension));
+      if (this->enableTF32) {
+        computeOnTensorOp->setAttr("compute_type",
+                                   TypeAttr::get(rewriter.getTF32Type()));
+      }
     } else {
       // convert to BatchMatmulOp
-      SmallVector<int64_t> batchingDimensions;
-      for (int64_t i = 0,
-                   e = cast<ShapedType>(op->getResult(0).getType()).getRank();
-           i < e - 2; i++) {
-        batchingDimensions.push_back(i);
-      }
+      SmallVector<int64_t> batchingDimensions =
+          to_vector(llvm::seq<int64_t>(0, lhsRank - 2));
       if (!dotDimensionNumbers.getLhsBatchingDimensions().equals(
               batchingDimensions) ||
           !dotDimensionNumbers.getRhsBatchingDimensions().equals(
@@ -522,12 +536,17 @@ public:
       computeOnTensorOp->setAttr(
           "rhs_batching_dimensions",
           rewriter.getI64ArrayAttr(rhsBatchingDimensions));
+      if (this->enableTF32) {
+        computeOnTensorOp->setAttr("compute_type",
+                                   TypeAttr::get(rewriter.getTF32Type()));
+      }
     }
     return success();
   }
 
 private:
   bool appendArgTypes;
+  bool enableTF32;
 };
 
 class ConvertConvOpToByrePattern
@@ -757,9 +776,10 @@ public:
 struct ConvertHloToByreTensorPass
     : public ConvertHloToByreTensorBase<ConvertHloToByreTensorPass> {
 public:
-  ConvertHloToByreTensorPass(bool appendArgTypes)
+  ConvertHloToByreTensorPass(bool appendArgTypes, bool enableTF32)
       : ConvertHloToByreTensorBase() {
     this->appendArgTypes = appendArgTypes;
+    this->enableTF32 = enableTF32;
 
     supportMap.insert({"mhlo.transpose", "TransposeOp"});
   }
@@ -770,7 +790,8 @@ public:
     ConversionTarget target(ctx);
     auto funcOp = getOperation();
 
-    populateHloToByreTensorPattern(patterns, supportMap, appendArgTypes);
+    populateHloToByreTensorPattern(patterns, supportMap, appendArgTypes,
+                                   enableTF32);
     target.addIllegalDialect<mhlo::MhloDialect>();
     target.addLegalDialect<tensor::TensorDialect, byre::ByreDialect,
                            shape::ShapeDialect, arith::ArithDialect>();
@@ -788,19 +809,22 @@ private:
 
 void mlir::populateHloToByreTensorPattern(
     RewritePatternSet &patterns,
-    const llvm::StringMap<llvm::StringRef> &supportMap, bool appendArgTypes) {
+    const llvm::StringMap<llvm::StringRef> &supportMap, bool appendArgTypes,
+    bool enableTF32) {
 
   patterns.add<ConvertToByrePattern<mhlo::AddOp>,
                ConvertToByrePattern<mhlo::ConvertOp>,
                ConvertToByrePattern<mhlo::TransposeOp, /*keepAttrs*/ true>>(
       patterns.getContext(), supportMap, appendArgTypes);
 
+  patterns.add<ConvertDotGeneralOpToByrePattern>(patterns.getContext(),
+                                                 appendArgTypes, enableTF32);
+
   patterns.add<ConvertCustomCallOpToByrePattern<mhlo::CustomCallOp>,
                ConvertCustomCallOpToByrePattern<ace::CustomCallOp>,
                ConvertGatherOpToByrePattern, ConvertScatterOpToByrePattern,
-               ConvertDotOpToByrePattern, ConvertDotGeneralOpToByrePattern,
-               ConvertConvOpToByrePattern, ConvertReduceOpToByrePattern,
-               ConvertReduceWindowOpToByrePattern,
+               ConvertDotOpToByrePattern, ConvertConvOpToByrePattern,
+               ConvertReduceOpToByrePattern, ConvertReduceWindowOpToByrePattern,
                ConvertSelectAndScatterOpToByrePattern>(patterns.getContext(),
                                                        appendArgTypes);
 
@@ -811,6 +835,7 @@ void mlir::populateHloToByreTensorPattern(
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createConvertHloToByreTensorPass(bool appendArgTypes) {
-  return std::make_unique<ConvertHloToByreTensorPass>(appendArgTypes);
+mlir::createConvertHloToByreTensorPass(bool appendArgTypes, bool enableTF32) {
+  return std::make_unique<ConvertHloToByreTensorPass>(appendArgTypes,
+                                                      enableTF32);
 }

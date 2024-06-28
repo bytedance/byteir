@@ -31,10 +31,12 @@ class FuncOp;
 
 void populateHloToByreTensorPattern(
     RewritePatternSet &patterns,
-    const llvm::StringMap<llvm::StringRef> &supportMap, bool appendArgTypes);
+    const llvm::StringMap<llvm::StringRef> &supportMap, bool appendArgTypes,
+    bool enableTF32);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createConvertHloToByreTensorPass(bool appendArgTypes = false);
+createConvertHloToByreTensorPass(bool appendArgTypes = false,
+                                 bool enableTF32 = false);
 
 } // namespace mlir
 

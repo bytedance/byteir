@@ -298,6 +298,8 @@ def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "func::FuncOp"> {
   let options = [
     Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
            "append arg types to Byre">,
+    Option<"enableTF32", "enable-tf32", "bool", /*default=*/"false",
+           "enable 1xTF32 on fp32 gemm/bmm">,
   ];
 }
 
