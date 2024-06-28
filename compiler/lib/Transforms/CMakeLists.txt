@@ -10,6 +10,7 @@ add_mlir_library(ByteIRTransforms
   FuncTag.cpp
   GenericDeviceConfig.cpp
   GraphClusteringByDevice.cpp
+  HorizontalFusion.cpp
   InsertUniqueId.cpp
   LoopTag.cpp
   LoopUnroll.cpp

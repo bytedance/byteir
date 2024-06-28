@@ -38,6 +38,7 @@
 #include "byteir/Transforms/SetSpace.h"
 #include "byteir/Transforms/ShapeFuncOutlining.h"
 #include "byteir/Transforms/TryCatchModulePipeline.h"
+#include "byteir/Transforms/HorizontalFusion.h"
 
 namespace mlir {
 

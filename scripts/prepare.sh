@@ -25,9 +25,9 @@ function install_mhlo_tools() {
 
 function copy_external_libs() {
   PREBUILT_FLASH_ATTN="/data00/external_libraries/libflash_attn.so"
-  mkdir $ROOT_PROJ_DIR/external_libs/libs
+  mkdir -p $ROOT_PROJ_DIR/external_libs/libs
   cp $PREBUILT_FLASH_ATTN $ROOT_PROJ_DIR/external_libs/libs
-  mkdir $ROOT_PROJ_DIR/runtime/test/test_files/external_libs/
+  mkdir -p $ROOT_PROJ_DIR/runtime/test/test_files/external_libs/
   cp $PREBUILT_FLASH_ATTN $ROOT_PROJ_DIR/runtime/test/test_files/external_libs/
 }
 
