@@ -13,6 +13,7 @@ add_public_tablegen_target(OFRewriteCustomOnnxOpsIncGen)
 add_onnx_frontend_library(OFConversion
   OFCanonicalizer.cpp
   OFCheckNonLowered.cpp
+  OFInsertNecessaryCast.cpp
   OFModifyEntryPoint.cpp
   OFRewriteCustomOnnxOps.cpp
   OFRewriteToCustomCall.cpp

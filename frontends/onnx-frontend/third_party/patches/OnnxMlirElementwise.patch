@@ -1,0 +1,24 @@
+diff --git a/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp b/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp
+index b5b58f2b..8b32b1a5 100644
+--- a/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp
++++ b/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp
+@@ -81,6 +81,11 @@ struct StablehloDialectOp<ONNXNegOp> {
+   using Op = stablehlo::NegOp;
+ };
+ 
++template <>
++struct StablehloDialectOp<ONNXNotOp> {
++  using Op = stablehlo::NotOp;
++};
++
+ template <>
+ struct StablehloDialectOp<ONNXPowOp> {
+   using Op = stablehlo::PowOp;
+@@ -444,6 +449,7 @@ void populateLoweringONNXElementwiseOpToStablehloPattern(
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLeakyReluOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLogOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXNegOp>,
++      ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXNotOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXSigmoidOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXSinOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXSqrtOp>,

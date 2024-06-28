@@ -60,4 +60,9 @@ def OFModifyEntryPoint: Pass<"of-modify-entry-point", "mlir::ModuleOp"> {
   let constructor = "onnx_frontend::createOFModifyEntryPointPass()";
 }
 
+def OFInsertNecessaryCast: Pass<"of-insert-necessary-cast", "mlir::func::FuncOp"> {
+  let summary = "insert cast to make type compatible";
+  let constructor = "onnx_frontend::createOFInsertNecessaryCastPass()";
+}
+
 #endif // ONNX_FRONTEND_SRC_CONVERSION_OFPASSES_TD
