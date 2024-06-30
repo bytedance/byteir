@@ -1,0 +1,31 @@
+diff --git a/test/mlir/conversion/onnx_to_stablehlo/NN/Pooling.mlir b/test/mlir/conversion/onnx_to_stablehlo/NN/Pooling.mlir
+index 545184be..71ae2d83 100644
+--- a/test/mlir/conversion/onnx_to_stablehlo/NN/Pooling.mlir
++++ b/test/mlir/conversion/onnx_to_stablehlo/NN/Pooling.mlir
+@@ -288,3 +288,26 @@ func.func @test_averagepool_dynamic_shape(%arg0 : tensor<?x5x32x32xf32>) -> tens
+ // CHECK:           [[VAR_6_:%.+]] = stablehlo.divide [[VAR_2_]], [[VAR_5_]] : tensor<?x5x30x30xf32>
+ // CHECK:           return [[VAR_6_]] : tensor<?x5x30x30xf32>
+ // CHECK:         }
++
++// -----
++
++/// Test the behavior of CumSum with default exclusive and reverse
++func.func @test_cumsum_default(%arg0 : tensor<32x256xi64>) -> (tensor<32x256xi64>) {
++  %cst = onnx.Constant dense<-1> : tensor<i32>
++  %0 = "onnx.CumSum"(%arg0, %cst) {exclusive = 0 : si64, reverse = 0 : si64} : (tensor<32x256xi64>, tensor<i32>) -> tensor<32x256xi64>
++  "func.return"(%0) : (tensor<32x256xi64>) -> ()
++}
++
++// CHECK-LABEL: func.func @test_cumsum_default
++// CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<32x256xi64>) -> tensor<32x256xi64> {
++// CHECK-DAG:      [[VAR_0_:%.+]] = stablehlo.constant dense<0> : tensor<i64>
++// CHECK-DAG:      [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
++// CHECK:          ^bb0(%arg1: tensor<i64>, %arg2: tensor<i64>):
++// CHECK:            [[VAR_2_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<i64>
++// CHECK:            stablehlo.return [[VAR_2_]] : tensor<i64>
++// CHECK:          }) {padding = dense<{{.}}[0, 0], [255, 0]{{.}}> : tensor<2x2xi64>, window_dilations = dense<1> : tensor<2xi64>, window_dimensions = dense<[1, 256]> : tensor<2xi64>, window_strides = dense<1> : tensor<2xi64>} : (tensor<32x256xi64>, tensor<i64>) -> tensor<32x256xi64>
++// CHECK:          return [[VAR_1_]] : tensor<32x256xi64>
++// CHECK:         }
++
++// :          }) {padding = dense<[[0, 0], [255, 0]]> : tensor<2x2xi64>, window_dilations = dense<1> : tensor<2xi64>, window_dimensions = dense<[1, 256]> : tensor<2xi64>, window_strides = dense<1> : tensor<2xi64>} : (tensor<32x256xi64>, tensor<i64>) -> tensor<32x256xi64>
++// -----
