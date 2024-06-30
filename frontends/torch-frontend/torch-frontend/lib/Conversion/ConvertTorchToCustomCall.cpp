@@ -482,70 +482,23 @@ public:
 
 } // namespace
 
-// torch.aten.argmax
-namespace {
-class ConvertAtenArgmaxOp : public OpConversionPattern<AtenArgmaxOp> {
-public:
-  using OpConversionPattern::OpConversionPattern;
-  LogicalResult
-  matchAndRewrite(AtenArgmaxOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value input = adaptor.getSelf();
-    auto inputType = cast<RankedTensorType>(input.getType());
-    SmallVector<Value> bufferArgs({input});
-    RankedTensorType resultType = cast<RankedTensorType>(
-        getTypeConverter()->convertType(op->getResult(0).getType()));
-    int64_t dimInt;
-    if (!matchPattern(op.getDim(), m_TorchConstantInt(&dimInt))) {
-      return rewriter.notifyMatchFailure(op, "unimplemented: "
-                                             "dim is not constant int");
-    }
-    dimInt = toPositiveDim(dimInt, inputType.getRank());
-    if (!isValidDim(dimInt, inputType.getRank())) {
-      return rewriter.notifyMatchFailure(op, "invalid dim detected");
-    }
-    bool keepDim = false;
-    if (!matchPattern(op.getKeepdim(), m_TorchConstantBool(&keepDim))) {
-      return rewriter.notifyMatchFailure(op, "unimplemented: "
-                                             "keepdim is not constant bool");
-    }
-    std::vector<NamedAttribute> byteir_attrs;
-    byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
-                              rewriter.getI64IntegerAttr(dimInt));
-    byteir_attrs.emplace_back(rewriter.getStringAttr("keep_dims"),
-                              rewriter.getBoolAttr(keepDim));
-    byteir_attrs.emplace_back(rewriter.getStringAttr("select_last_index"),
-                              rewriter.getBoolAttr(false));
-
-    auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getArgMaxName()));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                       rewriter.getDictionaryAttr(byteir_attrs));
-
-    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>(attrs));
-    rewriter.replaceOp(op, customCallOp->getResults());
-    return success();
-  }
-};
-} // namespace
-
 // torch.aten.max.dim
 namespace {
-class ConvertAtenMaxDimOp : public OpConversionPattern<AtenMaxDimOp> {
+template <typename AtenOpT>
+class ConvertAtenMinMaxDimOp : public OpConversionPattern<AtenOpT> {
 public:
-  using OpConversionPattern::OpConversionPattern;
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
   LogicalResult
-  matchAndRewrite(AtenMaxDimOp op, OpAdaptor adaptor,
+  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
     auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
 
     SmallVector<Type> resultTypes;
-    if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
-                                                resultTypes))) {
+    if (failed(OpConversionPattern<AtenOpT>::getTypeConverter()->convertTypes(
+            op.getResultTypes(), resultTypes))) {
       return op.emitError("could not convert output types");
     }
     int64_t dimInt;
@@ -576,8 +529,13 @@ public:
                               rewriter.getBoolAttr(false));
 
     auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getArgMaxName()));
+    if (isa<AtenMaxDimOp>(op)) {
+      attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                         rewriter.getStringAttr(getArgMaxName()));
+    } else if (isa<AtenMinDimOp>(op)) {
+      attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                         rewriter.getStringAttr(getArgMinName()));
+    }
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
@@ -1288,15 +1246,19 @@ public:
       target.addIllegalOp<AtenGeluOp>();
       patterns.add<ConvertAtenGeluOp>(typeConverter, context);
     }
-    if (validCustomCallOpsSet.contains("aten.argmax")) {
-      target.addIllegalOp<AtenArgmaxOp>();
-      patterns.add<ConvertAtenArgmaxOp>(typeConverter, context);
-    }
     if (validCustomCallOpsSet.contains("aten.max.dim")) {
       target.addIllegalOp<AtenMaxDimOp>();
       target.addDynamicallyLegalOp<AtenMaxDimOp>(
           [](AtenMaxDimOp op) { return op.getIndices().use_empty(); });
-      patterns.add<ConvertAtenMaxDimOp>(typeConverter, context);
+      patterns.add<ConvertAtenMinMaxDimOp<AtenMaxDimOp>>(typeConverter,
+                                                         context);
+    }
+    if (validCustomCallOpsSet.contains("aten.min.dim")) {
+      target.addIllegalOp<AtenMinDimOp>();
+      target.addDynamicallyLegalOp<AtenMinDimOp>(
+          [](AtenMinDimOp op) { return op.getIndices().use_empty(); });
+      patterns.add<ConvertAtenMinMaxDimOp<AtenMinDimOp>>(typeConverter,
+                                                         context);
     }
     if (validCustomCallOpsSet.contains("aten.one_hot")) {
       target.addIllegalOp<AtenOneHotOp>();

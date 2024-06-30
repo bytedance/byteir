@@ -1,4 +1,4 @@
-// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=aten.native_layer_norm,aten.layer_norm,aten.native_group_norm,aten.group_norm,aten._softmax,aten.softmax.int,aten._log_softmax,aten.log_softmax.int,aten.nll_loss_forward,aten.nll_loss_backward,aten.gelu,aten.argmax,aten.max.dim,aten.one_hot,aten.topk" --canonicalize-ext | FileCheck %s
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=aten.native_layer_norm,aten.layer_norm,aten.native_group_norm,aten.group_norm,aten._softmax,aten.softmax.int,aten._log_softmax,aten.log_softmax.int,aten.nll_loss_forward,aten.nll_loss_backward,aten.gelu,aten.max.dim,aten.min.dim,aten.one_hot,aten.topk" --canonicalize-ext | FileCheck %s
 
 // RUN: torch-frontend-opt %s -convert-torch-to-custom-call --canonicalize-ext | FileCheck %s --check-prefix NONE
 
@@ -102,18 +102,6 @@ func.func @torch.aten._log_softmax(%arg0: !torch.vtensor<[?,?,?],f32>) -> !torch
 // CHECK-SAME: @byteir.log_softmax
 // CHECK: byteir_attrs = {axis = 0 : i64}
 // CHECK-NOT: torch.aten._log_softmaxcd
-
-func.func @torch.aten.argmax(%arg0: !torch.vtensor<[?,?,?],f32>) -> !torch.vtensor<[?,?],si64> {
-  %int0 = torch.constant.int 0
-  %false = torch.constant.bool false
-  %0 = torch.aten.argmax %arg0, %int0, %false : !torch.vtensor<[?,?,?],f32>, !torch.int, !torch.bool -> !torch.vtensor<[?,?],si64>
-  return %0 : !torch.vtensor<[?,?],si64>
-}
-// CHECK-LABEL: func.func @torch.aten.argmax
-// CHECK: stablehlo.custom_call
-// CHECK-SAME: @byteir.arg_max
-// CHECK: byteir_attrs = {axis = 0 : i64, keep_dims = false, select_last_index = false}
-// CHECK-NOT: torch.aten.argmax
 
 func.func @torch.aten.max.dim(%arg0: !torch.vtensor<[32,64,21128],f32>) -> !torch.vtensor<[32,64],f32> {
   %int-1 = torch.constant.int -1

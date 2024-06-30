@@ -139,6 +139,17 @@ def test_max_dim():
     inputs = [tu.randn(3, 4)]
     custom_test_helper(MaxDimModule(), inputs, "byteir.arg_max")
 
+class MinDimModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.min(x, dim=1)
+
+def test_min_dim():
+    inputs = [tu.randn(3, 4)]
+    custom_test_helper(MinDimModule(), inputs, "byteir.arg_min")
+
 class MaxDimKeepDimModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -171,6 +182,27 @@ class MaxDimKeepDimOnlyIndicesModule(torch.nn.Module):
 def test_max_dim_keepdim_only_indices():
     inputs = [tu.randn(3, 4)]
     custom_test_helper(MaxDimKeepDimOnlyIndicesModule(), inputs, "byteir.arg_max")
+
+class ArgmaxModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.argmax(x)
+
+def test_argmax_flatten():
+    custom_test_helper(ArgmaxModule(), [tu.randn(4, 5)], "byteir.arg_max")
+
+class ArgmaxDimModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.argmax(x, dim=1)
+
+def test_argmax_dim():
+    custom_test_helper(ArgmaxDimModule(), [tu.randn(4, 5)], "byteir.arg_max")
+
+class ArgminDimModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.argmin(x, dim=1)
+
+def test_argmin_dim():
+    custom_test_helper(ArgminDimModule(), [tu.randn(4, 5)], "byteir.arg_min")
 
 # ==============================================================================
 
