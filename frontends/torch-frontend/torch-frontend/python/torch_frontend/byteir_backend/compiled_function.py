@@ -169,6 +169,9 @@ class ByteIRFunction:
             self.preprocess()
 
         def raw_major_stride(self, sz):
+            """ same to
+            return torch.empty(size=(sz), device="meta").stride()
+            """
             if len(sz) == 0:
                 return tuple()
             stride = []
@@ -190,14 +193,14 @@ class ByteIRFunction:
 
         def preprocess(self):
             _visited_aliased_cnt = 0
+            _aliased_len = 0 if self._aliased_indices is None else len(
+                self._aliased_indices)
             #for idx, fake_t in enumerate(self._meta_info):
             for idx in range(self._brt_len):
                 real_idx = self._index_map[idx]
                 fake_t = self._meta_info[real_idx]
                 if fake_t is None:
                     continue
-                _aliased_len = 0 if self._aliased_indices is None else len(
-                    self._aliased_indices)
                 if _visited_aliased_cnt < _aliased_len and real_idx == self._aliased_indices[
                         _visited_aliased_cnt]:
                     _visited_aliased_cnt += 1
@@ -237,8 +240,8 @@ class ByteIRFunction:
 
             # bind normal tensors
             for meta in self._normal_meta_info:
-                outputs_ptr[meta.idx] = self._normal_tensors[meta.dtype].data_ptr() + meta.offset
-            
+                outputs_ptr[meta.idx] = self._normal_tensors[meta.dtype].data_ptr() + meta.offset * meta.dtype.itemsize
+
             return outputs_ptr
 
         def gen_torch_tensors(self):
@@ -262,6 +265,8 @@ class ByteIRFunction:
         log.debug(f"***** Run function compiled through byteir ******")
         log.debug(f"_aliased_out_indices={self._aliased_out_indices}")
         #log.debug(f"_output_meta_info={self._output_meta_info}")
+
+        NOT_USE_LRUCACHE = False
 
         # FIXME. byteir requires all inputs on device side, move host side tensor to device.
         # Preprocess the strided tensor as byteir does not support yet.
@@ -302,11 +307,13 @@ class ByteIRFunction:
                 del ptrs
                 del tens
         """
+        if NOT_USE_LRUCACHE and self.out_builder is None:
+            self.out_builder = self.TensorBuilder(device, self._output_meta_info, self._none_indices, self._aliased_out_indices, self.real_outs_index_map)
          
-        #TODO       
-        #ptrs = self.out_builder.alloc_tensors()
-
-        results, outputs_ptr = self.get_out_tensors(device)
+        if NOT_USE_LRUCACHE:
+            outputs_ptr = self.out_builder.alloc_tensors()
+        else:
+            results, outputs_ptr = self.get_out_tensors(device)
 
         inputOffsetAndArg = [None] * len(new_inputs)
         outputOffsetAndArg = [None] * len(outputs_ptr)
@@ -319,15 +326,16 @@ class ByteIRFunction:
         self._req.bind_args(inputOffsetAndArg)
         self._req.bind_args(outputOffsetAndArg)
         self._req.finish_io_binding()
+
         self._req.run()
-        #TODO
-        #tens = self.out_builder.gen_torch_tensors()
+        if NOT_USE_LRUCACHE:
+            results = self.out_builder.gen_torch_tensors()
         self._req.sync()
 
         rets = results
 
         if len(rets) == 1:
             return rets[0]
-        #TODO
-        #self.out_builder._normal_tensors.clear()
+        if NOT_USE_LRUCACHE:
+            self.out_builder.clear()
         return rets

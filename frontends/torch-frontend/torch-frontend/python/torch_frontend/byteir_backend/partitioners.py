@@ -660,7 +660,6 @@ def fuse_aware_min_cut_partition(
         recomputable_ops=None,
         *,
         num_fwd_outputs) -> Tuple[fx.GraphModule, fx.GraphModule]:
-    print("num_fwd_outputs : ", num_fwd_outputs)
     """
     Partitions the joint graph such that the backward recomputes the forward.
     Recomputing helps in trading off memory bandwidth with computation.
