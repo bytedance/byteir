@@ -26,7 +26,7 @@ Usage:
     This directory implements the code for compatibilty test framework. One should pass a test dir which contains:
     (1) subdirs for each tese case
     (2) byre compilation artifacts named as {model_name}/{model_name}.rt.mlir
-    (3) several inputs and goldens named as inputs.{num}.npy and outputs.{num}.npy
+    (3) several inputs and goldens named as inputs.{num}.npz and outputs.{num}.npz
 """
 
 def parse_args():

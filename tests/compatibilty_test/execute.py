@@ -72,8 +72,8 @@ class BRTBackend:
 
 
 def run_and_check_mlir(name, testdir, target):
-    inps_pattern = re.compile(r'inputs\.\d\.npy$')
-    outs_pattern = re.compile(r'outputs\.\d\.npy$')
+    inps_pattern = re.compile(r'inputs\.\d\.npz$')
+    outs_pattern = re.compile(r'outputs\.\d\.npz$')
     inp_files = [
         file for file in os.listdir(testdir) if inps_pattern.search(file)
         and os.path.isfile(os.path.join(testdir, file))
@@ -93,12 +93,12 @@ def run_and_check_mlir(name, testdir, target):
 
     cmp_res = []
     for idx in range(len(inp_files)):
-        input_file = os.path.join(testdir, f"inputs.{idx}.npy")
-        target_file = os.path.join(testdir, f"outputs.{idx}.npy")
+        input_file = os.path.join(testdir, f"inputs.{idx}.npz")
+        target_file = os.path.join(testdir, f"outputs.{idx}.npz")
         inp = np.load(input_file, allow_pickle=True)
-        inp = torch.from_numpy(inp).contiguous().to(_device.lower())
+        inp = [torch.from_numpy(inp[f]).contiguous().to(_device.lower()) for f in inp.files]
         tgt = np.load(target_file, allow_pickle=True)
-        tgt = torch.from_numpy(tgt).contiguous().to(_device.lower())
+        tgt = [torch.from_numpy(tgt[f]).contiguous().to(_device.lower()) for f in tgt.files]
         if brt_backend.compare(inp, tgt):
             cmp_res.append(TestResult(name + str(idx), numerical_error=None))
         else:
