@@ -29,8 +29,10 @@ public:
 
   PDLPatternHooksInterface(Dialect *dialect) : Base(dialect) {}
 
-  bool add(StringRef name, PDLConstraintFunction constraintFn, bool override);
-  bool add(StringRef name, PDLRewriteFunction rewriteFn, bool override);
+  bool addConstraintFunction(StringRef name, PDLConstraintFunction constraintFn,
+                             bool override);
+  bool addRewriteFunction(StringRef name, PDLRewriteFunction rewriteFn,
+                          bool override);
 
   void apply(PDLPatternModule &pdlModule) const;
 
@@ -41,9 +43,8 @@ private:
   llvm::StringMap<PDLRewriteFunction> rewriteFunctions;
 };
 
-bool PDLPatternHooksInterface::add(StringRef name,
-                                   PDLConstraintFunction constraintFn,
-                                   bool override) {
+bool PDLPatternHooksInterface::addConstraintFunction(
+    StringRef name, PDLConstraintFunction constraintFn, bool override) {
   if (override) {
     constraintFunctions.insert_or_assign(name, std::move(constraintFn));
     return true;
@@ -53,8 +54,9 @@ bool PDLPatternHooksInterface::add(StringRef name,
   }
 }
 
-bool PDLPatternHooksInterface::add(StringRef name, PDLRewriteFunction rewriteFn,
-                                   bool override) {
+bool PDLPatternHooksInterface::addRewriteFunction(StringRef name,
+                                                  PDLRewriteFunction rewriteFn,
+                                                  bool override) {
   if (override) {
     rewriteFunctions.insert_or_assign(name, std::move(rewriteFn));
     return true;
@@ -88,7 +90,7 @@ bool mlir::registerPDLConstraintFunction(MLIRContext *ctx, StringRef name,
   if (!iface)
     return false;
 
-  return iface->add(name, std::move(constraintFn), override);
+  return iface->addConstraintFunction(name, std::move(constraintFn), override);
 }
 
 bool mlir::registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
@@ -98,7 +100,7 @@ bool mlir::registerPDLRewriteFunction(MLIRContext *ctx, StringRef name,
   if (!iface)
     return false;
 
-  return iface->add(name, std::move(rewriteFn), override);
+  return iface->addRewriteFunction(name, std::move(rewriteFn), override);
 }
 
 void mlir::applyPDLPatternHooks(PDLPatternModule &pdlPattern) {

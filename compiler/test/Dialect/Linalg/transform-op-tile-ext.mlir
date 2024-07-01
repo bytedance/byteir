@@ -201,7 +201,7 @@ transform.sequence failures(propagate) {
 }
 
 func.func @expand_shape_simple(%arg0: tensor<128x1024x4096xf32>) -> tensor<128x1024x16x256xf32> {
-  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x16x256xf32>
+  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] output_shape [128, 1024, 16, 256] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x16x256xf32>
   return %expanded : tensor<128x1024x16x256xf32>
 }
 // CHECK-LABEL: func.func @expand_shape_simple
@@ -220,7 +220,7 @@ transform.sequence failures(propagate) {
 }
 
 func.func @expand_shape_tiling_on_expanded_dim(%arg0: tensor<128x1024x4096xf32>) -> tensor<128x1024x512x8xf32> {
-  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
+  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] output_shape [128, 1024, 512, 8] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
   return %expanded : tensor<128x1024x512x8xf32>
 }
 // CHECK-LABEL: func.func @expand_shape_tiling_on_expanded_dim
@@ -241,7 +241,9 @@ transform.sequence failures(propagate) {
 }
 
 func.func @expand_shape_tiling_on_dynamic_dim(%arg0: tensor<128x?xf32>) -> tensor<128x1x?x1xf32> {
-  %expanded = tensor.expand_shape %arg0 [[0], [1, 2, 3]] {__root__} : tensor<128x?xf32> into tensor<128x1x?x1xf32>
+  %c1 = arith.constant 1 : index
+  %dim = tensor.dim %arg0, %c1 : tensor<128x?xf32>
+  %expanded = tensor.expand_shape %arg0 [[0], [1, 2, 3]] output_shape [128, 1, %dim, 1] {__root__} : tensor<128x?xf32> into tensor<128x1x?x1xf32>
   return %expanded : tensor<128x1x?x1xf32>
 }
 // CHECK-LABEL: func.func @expand_shape_tiling_on_dynamic_dim

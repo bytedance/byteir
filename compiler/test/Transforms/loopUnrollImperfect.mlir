@@ -36,14 +36,14 @@ func.func @many_tripcount(%arg0 : memref<?xf32>) {
 }
 // UNROLLFULL-LABEL: func.func @many_tripcount
 // UNROLLFULL-SAME: (%[[ARG0:[a-zA-Z0-9]+]]: memref<?xf32>)
-// UNROLLFULL: %[[V4:.*]] = arith.constant 4 : index
-// UNROLLFULL: %[[V6:.*]] = arith.constant 6 : index
-// UNROLLFULL: %[[V8:.*]] = arith.constant 8 : index
-// UNROLLFULL: %[[V10:.*]] = arith.constant 10 : index
-// UNROLLFULL: %[[V12:.*]] = arith.constant 12 : index
-// UNROLLFULL: %[[Vcst:.*]] = arith.constant 7.000000e+00 : f32
-// UNROLLFULL: %[[V0:.*]] = arith.constant 0 : index
-// UNROLLFULL: %[[V2:.*]] = arith.constant 2 : index
+// UNROLLFULL-DAG: %[[V4:.*]] = arith.constant 4 : index
+// UNROLLFULL-DAG: %[[V6:.*]] = arith.constant 6 : index
+// UNROLLFULL-DAG: %[[V8:.*]] = arith.constant 8 : index
+// UNROLLFULL-DAG: %[[V10:.*]] = arith.constant 10 : index
+// UNROLLFULL-DAG: %[[V12:.*]] = arith.constant 12 : index
+// UNROLLFULL-DAG: %[[Vcst:.*]] = arith.constant 7.000000e+00 : f32
+// UNROLLFULL-DAG: %[[V0:.*]] = arith.constant 0 : index
+// UNROLLFULL-DAG: %[[V2:.*]] = arith.constant 2 : index
 // UNROLLFULL: memref.store %[[Vcst]], %[[ARG0]][%[[V0]]] : memref<?xf32>
 // UNROLLFULL: memref.store %[[Vcst]], %[[ARG0]][%[[V2]]] : memref<?xf32>
 // UNROLLFULL: memref.store %[[Vcst]], %[[ARG0]][%[[V4]]] : memref<?xf32>
@@ -55,12 +55,12 @@ func.func @many_tripcount(%arg0 : memref<?xf32>) {
 
 // UNROLL3-LABEL: func.func @many_tripcount
 // UNROLL3-SAME: (%[[ARG0:[a-zA-Z0-9]+]]: memref<?xf32>)
-// UNROLL3: %[[V4:.*]] = arith.constant 4 : index
-// UNROLL3: %[[Vcst:.*]] = arith.constant 7.000000e+00 : f32
-// UNROLL3: %[[V0:.*]] = arith.constant 0 : index
-// UNROLL3: %[[V2:.*]] = arith.constant 2 : index
-// UNROLL3: %[[V12:.*]] = arith.constant 12 : index
-// UNROLL3: %[[V6:.*]] = arith.constant 6 : index
+// UNROLL3-DAG: %[[V4:.*]] = arith.constant 4 : index
+// UNROLL3-DAG: %[[Vcst:.*]] = arith.constant 7.000000e+00 : f32
+// UNROLL3-DAG: %[[V0:.*]] = arith.constant 0 : index
+// UNROLL3-DAG: %[[V2:.*]] = arith.constant 2 : index
+// UNROLL3-DAG: %[[V12:.*]] = arith.constant 12 : index
+// UNROLL3-DAG: %[[V6:.*]] = arith.constant 6 : index
 // UNROLL3: scf.for
 // UNROLL3-SAME: %[[ARG1:[a-zA-Z0-9]+]] = %[[V0]] to %[[V12]] step %[[V6]] {
 // UNROLL3:   memref.store %[[Vcst]], %[[ARG0]][%[[ARG1]]] : memref<?xf32>

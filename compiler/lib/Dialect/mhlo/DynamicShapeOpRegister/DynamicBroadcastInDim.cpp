@@ -51,7 +51,8 @@ void mlir::registerDynamicBroadcastInDimInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::DynamicBroadcastInDimOp::getOperationName(),
       [](MLIRContext *context, std::optional<Location>,
-         ValueShapeRange operands, DictionaryAttr attr, RegionRange,
+         ValueShapeRange operands, DictionaryAttr attr,
+         OpaqueProperties properties, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         auto inputType = dyn_cast<RankedTensorType>(operands[0].getType());
         if (inputType == nullptr) {

@@ -24,7 +24,7 @@ func.func @regular(%arg0: memref<1x128xi64>, %arg1: memref<128xi64>, %arg2: memr
     %10 = arith.select %9, %8, %5 : i64
     affine.store %10, %2[%arg4] : memref<128xi64>
   }
-  %3 = memref.expand_shape %2 [[0, 1]] : memref<128xi64> into memref<128x1xi64>
+  %3 = memref.expand_shape %2 [[0, 1]] output_shape [128, 1] : memref<128xi64> into memref<128x1xi64>
   %4 = memref.alloc() : memref<128xi1>
   affine.for %arg4 = 0 to 128 {
     %5 = affine.load %0[%arg4] : memref<128xi64>
@@ -40,7 +40,7 @@ func.func @regular(%arg0: memref<1x128xi64>, %arg1: memref<128xi64>, %arg2: memr
 
 // CHECK-LABEL: withApply
 func.func @withApply(%arg0: memref<128x128xf32>, %arg1: memref<128xf32>, %arg2: memref<1x128x128xf32>, %arg3: memref<1x128x128xf32>, %arg4: memref<1x128x128xf32>, %arg5: memref<1x128x128xf32>, %arg6: memref<1x128x128xf32>, %arg7: memref<1x128x128xf32>, %arg8: memref<1x128x128xf32>, %arg9: memref<1x128x128xf32>, %arg10: memref<1x128x128xf32>, %arg11: memref<1x128x128xf32>, %arg12: memref<1x128x128xf32>, %arg13: memref<1x128x128xf32>, %arg14: memref<1x128x128xf32>, %arg15: memref<1x128x128xf32>, %arg16: memref<1x128x128xf32>, %arg17: memref<1x128x128xf32>, %arg18: memref<1x128x128xf32>, %arg19: memref<1x128x128xf32>, %arg20: memref<1x128x128xf32>, %arg21: memref<1x128x128xf32>) -> (memref<1x128x128xf32>, memref<1x128x128xf32>) attributes {__byteir_elementwise_fusion__} {
-  %0 = memref.expand_shape %arg0 [[0, 1], [2]] : memref<128x128xf32> into memref<1x128x128xf32>
+  %0 = memref.expand_shape %arg0 [[0, 1], [2]] output_shape [1, 128, 128] : memref<128x128xf32> into memref<1x128x128xf32>
   %1 = memref.alloc() : memref<1x128x128xf32>
   affine.for %arg22 = 0 to 16384 {
     %3 = affine.apply #map0(%arg22)

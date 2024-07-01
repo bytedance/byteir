@@ -139,9 +139,9 @@ func.func @multihead_attention_with_prologue_proj(%arg0: tensor<4x1024x512xf32>,
   %4 = linalg_ext.batch_matmul ins(%arg0, %broadcasted_1 : tensor<4x1024x512xf32>, tensor<4x512x512xf32>) outs(%2 : tensor<4x1024x512xf32>) layout = "nn"
   %broadcasted_2 = linalg.broadcast ins(%arg3 : tensor<512x512xf32>) outs(%0 : tensor<4x512x512xf32>) dimensions = [0]
   %5 = linalg_ext.batch_matmul ins(%arg0, %broadcasted_2 : tensor<4x1024x512xf32>, tensor<4x512x512xf32>) outs(%2 : tensor<4x1024x512xf32>) layout = "nn"
-  %expanded = tensor.expand_shape %3 [[0], [1], [2, 3]] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
-  %expanded_3 = tensor.expand_shape %4 [[0], [1], [2, 3]] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
-  %expanded_4 = tensor.expand_shape %5 [[0], [1], [2, 3]] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
+  %expanded = tensor.expand_shape %3 [[0], [1], [2, 3]] output_shape [4, 1024, 8, 64] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
+  %expanded_3 = tensor.expand_shape %4 [[0], [1], [2, 3]] output_shape [4, 1024, 8, 64] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
+  %expanded_4 = tensor.expand_shape %5 [[0], [1], [2, 3]] output_shape [4, 1024, 8, 64] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
   %6 = tensor.empty() : tensor<4x8x1024x64xf32>
   %7 = tensor.empty() : tensor<4x8x64x1024xf32>
   %transposed = linalg.transpose ins(%expanded : tensor<4x1024x8x64xf32>) outs(%6 : tensor<4x8x1024x64xf32>) permutation = [0, 2, 1, 3]
@@ -207,7 +207,7 @@ func.func @multiquery_attention_with_prologue_proj(%arg0: tensor<4x1024x512xf32>
   %7 = linalg_ext.batch_matmul ins(%arg0, %broadcasted_1 : tensor<4x1024x512xf32>, tensor<4x512x64xf32>) outs(%5 : tensor<4x1024x64xf32>) layout = "nn" {__stop__}
   %broadcasted_2 = linalg.broadcast ins(%arg3 : tensor<512x64xf32>) outs(%1 : tensor<4x512x64xf32>) dimensions = [0] 
   %8 = linalg_ext.batch_matmul ins(%arg0, %broadcasted_2 : tensor<4x1024x512xf32>, tensor<4x512x64xf32>) outs(%5 : tensor<4x1024x64xf32>) layout = "nn" {__stop__}
-  %expanded = tensor.expand_shape %6 [[0], [1], [2, 3]] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
+  %expanded = tensor.expand_shape %6 [[0], [1], [2, 3]] output_shape [4, 1024, 8, 64] : tensor<4x1024x512xf32> into tensor<4x1024x8x64xf32>
   %9 = tensor.empty() : tensor<4x8x1024x64xf32>
   %10 = tensor.empty() : tensor<4x64x1024xf32>
   %transposed = linalg.transpose ins(%expanded : tensor<4x1024x8x64xf32>) outs(%9 : tensor<4x8x1024x64xf32>) permutation = [0, 2, 1, 3] 

@@ -1,5 +1,8 @@
 add_subdirectory(${BYTEIR_SRC_DIR}/../external/mlir-hlo ${CMAKE_CURRENT_BINARY_DIR}/mlir-hlo EXCLUDE_FROM_ALL)
 
+# FIXME: remove this
+target_link_libraries(ChloPasses PUBLIC StablehloPasses)
+
 include_directories(${BYTEIR_SRC_DIR}/../external/mlir-hlo)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/mlir-hlo)
 include_directories(${BYTEIR_SRC_DIR}/../external/mlir-hlo/stablehlo)

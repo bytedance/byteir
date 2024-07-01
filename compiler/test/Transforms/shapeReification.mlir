@@ -69,7 +69,7 @@ func.func @dot_general(%arg0: tensor<?x?x4xf32>, %arg1: tensor<?x4x128xf32>) -> 
   // CHECK-DAG: %[[C0:.+]] = arith.constant 0 : index
   // CHECK-DAG: %[[C1:.+]] = arith.constant 1 : index
   %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<?x?x4xf32>, tensor<?x4x128xf32>) -> tensor<?x?x128xf32>
-  // CHECK-DAG: %[[V0:.+]] = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<?x?x4xf32>, tensor<?x4x128xf32>) -> tensor<?x?x128xf32>
+  // CHECK-DAG: %[[V0:.+]] = "mhlo.dot_general"(%arg0, %arg1) <{dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>}> : (tensor<?x?x4xf32>, tensor<?x4x128xf32>) -> tensor<?x?x128xf32>
   // CHECK-DAG: %[[V1:.+]] = tensor.dim %arg0, %[[C0]] : tensor<?x?x4xf32>
   // CHECK-DAG: %[[V2:.+]] = tensor.dim %arg0, %[[C1]] : tensor<?x?x4xf32>
   %1 = tensor.dim %0, %c0 : tensor<?x?x128xf32>

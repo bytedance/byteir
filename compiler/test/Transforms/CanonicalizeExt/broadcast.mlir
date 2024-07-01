@@ -7,7 +7,7 @@ func.func @canonicalize_const_broadcast() -> tensor<1x10x2xi64> {
 }
 // CHECK-LABEL: canonicalize_const_broadcast
 // CHECK: %[[V0:.*]] = mhlo.constant dense<[2, 3]> : tensor<2xi64>
-// CHECK: "mhlo.broadcast_in_dim"(%[[V0]]) {broadcast_dimensions = dense<2> : tensor<1xi64>} : (tensor<2xi64>) -> tensor<1x10x2xi64>
+// CHECK: "mhlo.broadcast_in_dim"(%[[V0]]) <{broadcast_dimensions = dense<2> : tensor<1xi64>}> : (tensor<2xi64>) -> tensor<1x10x2xi64>
 
 func.func @broacast_reshape_case0(%arg0: tensor<75xi64>) -> tensor<75x1x75xi64> {
   %0 = mhlo.reshape %arg0 : (tensor<75xi64>) -> tensor<1x1x75xi64>

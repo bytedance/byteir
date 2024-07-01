@@ -126,7 +126,7 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
         } else {
           resSliceParameters.offsets.push_back(
               b.create<affine::AffineApplyOp>(
-                   loc, AffineMap::inferFromExprList({expr}).front(),
+                   loc, AffineMap::inferFromExprList({expr}, ctx).front(),
                    dyn_cast<Value>(collapsedOffset))
                   ->getResult(0));
         }
@@ -215,7 +215,7 @@ static FailureOr<TensorSliceParameters> getExpandedSliceParameters(
     resSliceParameters.sizes.push_back(b.getIndexAttr(collapsedIntTileSize));
     AffineMap map =
         AffineMap::inferFromExprList(
-            {mlir::getAffineDimExpr(0, ctx).floorDiv(productOfDimSizes)})
+            {mlir::getAffineDimExpr(0, ctx).floorDiv(productOfDimSizes)}, ctx)
             .front();
     resSliceParameters.offsets.push_back(
         b.create<affine::AffineApplyOp>(loc, map, collapsedOffsetVal)
@@ -285,7 +285,7 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
           expandedSliceParams.sizes[expandedIndicesRef.back()]);
       resSliceParameters.offsets.push_back(
           b.create<affine::AffineApplyOp>(
-               loc, AffineMap::inferFromExprList({offsetExpr}).front(),
+               loc, AffineMap::inferFromExprList({offsetExpr}, ctx).front(),
                offsetValues)
               ->getResult(0));
       continue;
@@ -372,7 +372,7 @@ static FailureOr<TensorSliceParameters> getCollapsedSliceParameters(
     resSliceParameters.sizes.push_back(b.getIndexAttr(collaspedTileSize));
     AffineMap map =
         AffineMap::inferFromExprList(
-            {mlir::getAffineDimExpr(0, ctx) * productOfExpandedTileSize})
+            {mlir::getAffineDimExpr(0, ctx) * productOfExpandedTileSize}, ctx)
             .front();
     resSliceParameters.offsets.push_back(
         b.create<affine::AffineApplyOp>(loc, map, firstNotOneOffsetVal)
@@ -440,7 +440,7 @@ struct ExpandShapeOpTiling
         else {
           AffineMap map =
               AffineMap::inferFromExprList(
-                  {mlir::getAffineDimExpr(0, ctx).floorDiv(product)})
+                  {mlir::getAffineDimExpr(0, ctx).floorDiv(product)}, ctx)
                   .front();
           loopRanges[dynamicDim].size =
               b.create<affine::AffineApplyOp>(loc, map, dynDimSize)
@@ -507,8 +507,11 @@ struct ExpandShapeOpTiling
         }));
     auto resType = expandShapeOp.getResultType().clone(resShape);
 
-    Operation *tiledExpandShapeOp =
-        b.create<tensor::ExpandShapeOp>(loc, resType, tiledSrc, op->getAttrs());
+    // TODO(wujiawei): other tensor.expand_shape may need be handled.
+    Operation *tiledExpandShapeOp = b.create<tensor::ExpandShapeOp>(
+        loc, resType, tiledSrc, expandShapeOp.getReassociation(),
+        ValueRange(expandShapeOp.getOutputShape()),
+        expandShapeOp.getStaticOutputShapeAttr());
 
     return TilingResult{{tiledExpandShapeOp},
                         SmallVector<Value>(tiledExpandShapeOp->getResults())};
@@ -572,7 +575,7 @@ struct CollapseShapeOpTiling
           loopRanges[dim].size = dynDimSize;
         else {
           AffineMap map = AffineMap::inferFromExprList(
-                              {mlir::getAffineDimExpr(0, ctx) * product})
+                              {mlir::getAffineDimExpr(0, ctx) * product}, ctx)
                               .front();
           loopRanges[dim].size =
               b.create<affine::AffineApplyOp>(loc, map, dynDimSize)

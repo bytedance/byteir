@@ -3,22 +3,22 @@
 
 
 func.func @emitc_constant() {
-  %c0 = "emitc.constant"(){value = #emitc.opaque<""> : i32} : () -> i32
+  %c0 = "emitc.constant"(){value = #emitc.opaque<"INT_MAX">} : () -> i32
   %c1 = "emitc.constant"(){value = 42 : i32} : () -> i32
   %c2 = "emitc.constant"(){value = -1 : i32} : () -> i32
   %c3 = "emitc.constant"(){value = -1 : si8} : () -> si8
   %c4 = "emitc.constant"(){value = 255 : ui8} : () -> ui8
-  %c5 = "emitc.constant"(){value = #emitc.opaque<""> : !emitc.ptr<!emitc.opaque<"int32_t">>} : () -> !emitc.ptr<!emitc.opaque<"int32_t">>
+  %c5 = "emitc.constant"(){value = #emitc.opaque<"INT_MAX"> : !emitc.ptr<!emitc.opaque<"int32_t">>} : () -> !emitc.ptr<!emitc.opaque<"int32_t">>
   %c6 = "emitc.constant"(){value = #emitc.opaque<"NULL"> : !emitc.ptr<!emitc.opaque<"int32_t">>} : () -> !emitc.ptr<!emitc.opaque<"int32_t">>
   return
 }
 // CPP-DEFAULT: void emitc_constant() {
-// CPP-DEFAULT-NEXT: int32_t [[V0:[^ ]*]];
+// CPP-DEFAULT-NEXT: int32_t [[V0:[^ ]*]] = INT_MAX;
 // CPP-DEFAULT-NEXT: int32_t [[V1:[^ ]*]] = 42;
 // CPP-DEFAULT-NEXT: int32_t [[V2:[^ ]*]] = -1;
 // CPP-DEFAULT-NEXT: int8_t [[V3:[^ ]*]] = -1;
 // CPP-DEFAULT-NEXT: uint8_t [[V4:[^ ]*]] = 255;
-// CPP-DEFAULT-NEXT: int32_t* [[V5:[^ ]*]];
+// CPP-DEFAULT-NEXT: int32_t* [[V5:[^ ]*]] = INT_MAX;
 // CPP-DEFAULT-NEXT: int32_t* [[V6:[^ ]*]] = NULL;
 
 // CPP-DECLTOP: void emitc_constant() {

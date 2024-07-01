@@ -40,15 +40,15 @@
 #include "byteir/Utils/AffineUtils.h"
 #include "byteir/Utils/GraphUtils.h"
 #include "byteir/Utils/LoopUtils.h"
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/Matchers.h"
-#include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 
@@ -87,7 +87,7 @@ public:
     SmallVector<AffineMap> indexingMaps = linalgOp.getIndexingMapsArray();
     SmallVector<utils::IteratorType> iterators =
         linalgOp.getIteratorTypesArray();
-    SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+    SmallVector<Type> resultTypes = linalgOp.hasPureTensorSemantics()
                                         ? TypeRange(ValueRange(outputs))
                                         : TypeRange{};
     GenericOp genericOp =
@@ -1066,7 +1066,7 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
   llvm::SmallDenseMap<Value, int64_t> yieldedValueToResultNumber;
   {
     FailureOr<scf::SCFTilingResult> tilingResult =
-        tileUsingSCFForOp(rewriter, consumer, options.tilingOptions);
+        tileUsingSCF(rewriter, consumer, options.tilingOptions);
     if (failed(tilingResult))
       return rewriter.notifyMatchFailure(consumer, "failed to tile consumer");
 
@@ -1432,7 +1432,10 @@ mlir::scf::tileConsumerAndFuseProducerUsingSCFForOpExt(
     } // for (const auto &p : fusedOps)
   }
 
-  tileAndFuseResult.loops = getAsOperations(tileAndFuseResultLoops);
+  tileAndFuseResult.loops = llvm::to_vector(
+      llvm::map_range(tileAndFuseResultLoops, [](scf::ForOp loop) {
+        return cast<LoopLikeOpInterface>(loop.getOperation());
+      }));
   return tileAndFuseResult;
 }
 
@@ -1495,7 +1498,10 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
   auto tileAndFuseResultLoops =
       scf::createNestedEmptyScfForOpsWithZeroLbAndOneStep(rewriter, loc,
                                                           validTileNums);
-  tileAndFuseResult.loops = getAsOperations(tileAndFuseResultLoops);
+  tileAndFuseResult.loops = llvm::to_vector(
+      llvm::map_range(tileAndFuseResultLoops, [](scf::ForOp loop) {
+        return cast<LoopLikeOpInterface>(loop.getOperation());
+      }));
 
   // If there are no loops generated, fusion is immaterial.
   if (tileAndFuseResult.loops.empty())
@@ -1753,7 +1759,10 @@ mlir::scf::tileConsumerArrayAndFuseProducerGreedilyUsingSCFFor(
     }
   }
 
-  tileAndFuseResult.loops = getAsOperations(tileAndFuseResultLoops);
+  tileAndFuseResult.loops = llvm::to_vector(
+      llvm::map_range(tileAndFuseResultLoops, [](scf::ForOp loop) {
+        return cast<LoopLikeOpInterface>(loop.getOperation());
+      }));
   return tileAndFuseResult;
 }
 

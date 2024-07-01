@@ -11,7 +11,7 @@ func.func @broadcast_output(%arg0: tensor<96x1024x1024xf16>, %arg1: tensor<1x1x1
   %cst = arith.constant 0xFC00 : f16
   %cst_0 = arith.constant 0.000000e+00 : f32
   %cst_1 = arith.constant 1.250000e-01 : f16
-  %expanded = tensor.expand_shape %arg0 [[0, 1], [2], [3]] : tensor<96x1024x1024xf16> into tensor<8x12x1024x1024xf16>
+  %expanded = tensor.expand_shape %arg0 [[0, 1], [2], [3]] output_shape [8, 12, 1024, 1024] : tensor<96x1024x1024xf16> into tensor<8x12x1024x1024xf16>
   %collapsed = tensor.collapse_shape %arg1 [[0], [1], [2, 3]] : tensor<1x1x1024x1024xf32> into tensor<1x1x1048576xf32>
   %collapsed_2 = tensor.collapse_shape %expanded [[0], [1], [2, 3]] : tensor<8x12x1024x1024xf16> into tensor<8x12x1048576xf16>
   %0 = tensor.empty() : tensor<1x1x1048576xi1>
@@ -41,8 +41,8 @@ func.func @broadcast_output(%arg0: tensor<96x1024x1024xf16>, %arg1: tensor<1x1x1
     %inserted_slice_7 = tensor.insert_slice %3 into %arg4[0, 0, %arg2] [1, 1, 128] [1, 1, 1] : tensor<1x1x128xi1> into tensor<1x1x1048576xi1>
     scf.yield %inserted_slice, %inserted_slice_7 : tensor<8x12x1048576xf16>, tensor<1x1x1048576xi1>
   } {__byteir_parallel__, __byteir_loop_to_simt__ = "block_id.x"}
-  %expanded_3 = tensor.expand_shape %2#0 [[0], [1], [2, 3]] : tensor<8x12x1048576xf16> into tensor<8x12x1024x1024xf16>
-  %expanded_4 = tensor.expand_shape %2#1 [[0], [1], [2, 3]] : tensor<1x1x1048576xi1> into tensor<1x1x1024x1024xi1>
+  %expanded_3 = tensor.expand_shape %2#0 [[0], [1], [2, 3]] output_shape [8, 12, 1024, 1024] : tensor<8x12x1048576xf16> into tensor<8x12x1024x1024xf16>
+  %expanded_4 = tensor.expand_shape %2#1 [[0], [1], [2, 3]] output_shape [1, 1, 1024, 1024] : tensor<1x1x1048576xi1> into tensor<1x1x1024x1024xi1>
   return %expanded_4, %expanded_3 : tensor<1x1x1024x1024xi1>, tensor<8x12x1024x1024xf16>
 }
 

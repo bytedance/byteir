@@ -115,7 +115,8 @@ void mlir::registerDynamicReshapeInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::DynamicReshapeOp::getOperationName(),
       [](MLIRContext *context, std::optional<Location>,
-         ValueShapeRange operands, DictionaryAttr, RegionRange,
+         ValueShapeRange operands, DictionaryAttr, OpaqueProperties properties,
+         RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         mlir::ShapeAdaptor shapeAdaptor = operands.getValueAsShape(1);
         if (!shapeAdaptor)

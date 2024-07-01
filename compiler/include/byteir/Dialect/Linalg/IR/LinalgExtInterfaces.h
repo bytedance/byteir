@@ -44,12 +44,12 @@ namespace detail {
 LogicalResult verifyLinalgExtOpInterface(Operation *op);
 }
 
+} // namespace linalg_ext
+} // namespace mlir
+
 #include "byteir/Dialect/Linalg/IR/LinalgExtOps.h.inc" // IWYU pragma: export
 
 /// Include the generated interface declarations.
 #include "byteir/Dialect/Linalg/IR/LinalgExtOpInterfaces.h.inc" // IWYU pragma: export
-
-} // namespace linalg_ext
-} // namespace mlir
 
 #endif // BYTEIR_DIALECT_LINALG_IR_LINALGEXTINTERFACES_H

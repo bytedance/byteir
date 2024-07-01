@@ -222,7 +222,8 @@ void SerializeToPTX::translateToISA(llvm::Module &llvmModule,
   llvm::OptimizationLevel optLevel = mapToLevel(optLevelAsInt);
   llvm::PassBuilder pB(&targetMachine);
 
-  targetMachine.registerPassBuilderCallbacks(pB);
+  targetMachine.registerPassBuilderCallbacks(
+      pB, /*PopulateClassToPassNames=*/false);
 
   // Register all basic analyses
   llvm::LoopAnalysisManager lAM;
@@ -238,18 +239,17 @@ void SerializeToPTX::translateToISA(llvm::Module &llvmModule,
 
   llvm::FunctionPassManager fPM = pB.buildFunctionSimplificationPipeline(
       optLevel, llvm::ThinOrFullLTOPhase::None);
-  llvm::ModulePassManager mPM = pB.buildPerModuleDefaultPipeline(optLevel);
+  llvm::ModulePassManager mPM;
 
   fAM.registerPass([&] { return targetMachine.getTargetIRAnalysis(); });
 
   addOptimizationPasses(fPM, mPM, optLevel);
 
+  mPM.addPass(llvm::VerifierPass());
+  mPM.addPass(createModuleToFunctionPassAdaptor(std::move(fPM)));
+  mPM.addPass(pB.buildPerModuleDefaultPipeline(optLevel));
+  mPM.addPass(llvm::VerifierPass());
   mPM.run(llvmModule, mAM);
-  for (auto &f : llvmModule) {
-    if (!f.empty()) {
-      fPM.run(f, fAM);
-    }
-  }
 
   llvm::legacy::PassManager codegenPasses;
   codegenPasses.add(llvm::createVerifierPass());

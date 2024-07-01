@@ -61,7 +61,7 @@ static LogicalResult promoteTensorValue(OpBuilder &b, mlir::Value val,
 
   // support DestinationStyleOpInterface and TensorSemantics only
   auto destOp = val.getDefiningOp<DestinationStyleOpInterface>();
-  if (!destOp || !destOp.hasTensorSemantics()) {
+  if (!destOp || !destOp.hasPureTensorSemantics()) {
     return failure();
   }
 
@@ -248,7 +248,7 @@ void mlir::genericElementwiseTensorCollector(
 
   auto linalgGeneric = dyn_cast<linalg::GenericOp>(op);
   // only support GenericOp with tesnor now
-  if (!linalgGeneric || !linalgGeneric.hasTensorSemantics()) {
+  if (!linalgGeneric || !linalgGeneric.hasPureTensorSemantics()) {
     return;
   }
 

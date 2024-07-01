@@ -393,7 +393,7 @@ module {
     return %alloc : memref<1000x512xf16>
   }
   func.func private @Unknown60(%arg0: memref<1000xf32>, %arg1: memref<1x1000xf16>) -> memref<1x1000xf16> attributes {__byteir_elementwise_fusion__} {
-    %expand_shape = memref.expand_shape %arg0 [[0, 1]] : memref<1000xf32> into memref<1x1000xf32>
+    %expand_shape = memref.expand_shape %arg0 [[0, 1]] output_shape [1, 1000] : memref<1000xf32> into memref<1x1000xf32>
     %alloc = memref.alloc() : memref<1x1000xf16>
     linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%arg1, %expand_shape : memref<1x1000xf16>, memref<1x1000xf32>) outs(%alloc : memref<1x1000xf16>) {
     ^bb0(%in: f16, %in_0: f32, %out: f16):

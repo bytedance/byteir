@@ -16,7 +16,7 @@ func.func @simple(%arg0: tensor<?x4xf32>, %arg1: tensor<4x4xf32>, %arg2: tensor<
 // CHECK-NEXT:     %dim_1 = tensor.dim %0, %c0_0 : tensor<?x4xf32>
 // CHECK-NEXT:     "shape_ext.tie"(%0, %dim_1) : (tensor<?x4xf32>, index) -> ()
 // CHECK-NEXT:     %1 = shape.shape_of %0 : tensor<?x4xf32> -> tensor<2xindex>
-// CHECK-NEXT:     %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
+// CHECK-NEXT:     %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
 // CHECK-NEXT:     %c0_2 = arith.constant 0 : index
 // CHECK-NEXT:     %dim_3 = tensor.dim %2, %c0_2 : tensor<?x4xf32>
 // CHECK-NEXT:     "shape_ext.tie"(%2, %dim_3) : (tensor<?x4xf32>, index) -> ()

@@ -23,7 +23,7 @@
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
-#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
 

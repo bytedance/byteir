@@ -114,7 +114,7 @@ func.func @linalg_ext_scatter_with_trailing_one(%arg0: tensor<51200xi32>, %arg1:
 }
 // NOTAG-LABEL: func.func @linalg_ext_scatter_with_trailing_one
 //   NOTAG-SAME: %[[ARG0:.*]]: tensor<51200xi32>, %[[ARG1:.*]]: tensor<100x1296xi32>, %[[ARG2:.*]]: tensor<100x1296xi32>
-//   NOTAG: %[[EXPAND:.*]] = tensor.expand_shape %[[ARG1]] {{\[}}[0], [1, 2]{{\]}} : tensor<100x1296xi32> into tensor<100x1296x1xi32>
+//   NOTAG: %[[EXPAND:.*]] = tensor.expand_shape %[[ARG1]] {{\[}}[0], [1, 2]{{\]}} output_shape [100, 1296, 1] : tensor<100x1296xi32> into tensor<100x1296x1xi32>
 //   NOTAG: %[[EMPTY:.*]] = tensor.empty() : tensor<51200xi32>
 //   NOTAG: %[[COPY:.*]] = linalg.copy ins(%[[ARG0]] : tensor<51200xi32>) outs(%[[EMPTY]] : tensor<51200xi32>)
 //   NOTAG: %[[SCATTER:.*]] = linalg_ext.scatter ins(%[[EXPAND]], %[[ARG2]] : tensor<100x1296x1xi32>, tensor<100x1296xi32>) outs(%[[COPY]] : tensor<51200xi32>)

@@ -61,8 +61,8 @@ class Ccl_ReplicaGroupsOp<string mnemonic, list<Trait> traits = []> :
       SmallVector<ReplicaGroupsIndices, 4> replicaGroupsIndices;
       for (auto attr : *maybeReplicaGroups)
         replicaGroupsIndices.push_back(llvm::to_vector(
-            llvm::map_range(attr.cast<ArrayAttr>(), [&](Attribute indexAttr) {
-              return indexAttr.cast<IntegerAttr>().getInt();
+            llvm::map_range(cast<ArrayAttr>(attr), [&](Attribute indexAttr) {
+              return cast<IntegerAttr>(indexAttr).getInt();
             })));
       return replicaGroupsIndices;
     };

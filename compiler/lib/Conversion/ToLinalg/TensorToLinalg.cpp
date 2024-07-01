@@ -215,8 +215,7 @@ LogicalResult mlir::simplifyTensorReshapeLikeOp(RewriterBase &rewriter,
     auto expandOutputShape = expandResultTy.getShape();
   } else if (auto collapseShapeOp =
                  src.getDefiningOp<tensor::ExpandShapeOp>()) {
-    auto collpaseInputTy =
-        cast<TensorType>(collapseShapeOp.getOperand().getType());
+    auto collpaseInputTy = cast<TensorType>(collapseShapeOp.getSrc().getType());
     auto collpaseInputShape = collpaseInputTy.getShape();
     auto maps = getLinearizedReassociationMaps(
         ctx, collapseShapeOp.getReassociationMaps(),
