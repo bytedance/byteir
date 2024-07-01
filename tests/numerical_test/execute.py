@@ -29,8 +29,8 @@ from typing import List
 
 np.random.seed(0)
 MLIR_TEST_SPECIAL_INPUTS = {
-    "cpu@log_plus_one.mlir": [
-        np.random.uniform(low=0.5, high=1.0, size=(256, 64)).astype(np.float16)
+    "cpu@log_plus_one_f16.mlir": [
+        np.random.uniform(low=0.5, high=1.0, size=(256, 1)).astype(np.float16)
     ],
     "cpu@convert_f32_i32_special_val.mlir": [
         np.array([[np.inf, -np.inf, np.nan], [1., 999.999, -np.inf]], dtype=np.float32),

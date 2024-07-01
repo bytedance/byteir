@@ -36,6 +36,11 @@ parser.add_argument("-g",
                     type=str,
                     default="./local_golden",
                     help="mlir test golden path")
+parser.add_argument("--byre_serial_version",
+                    type=str,
+                    default="1.0.0",
+                    choices=["1.0.0"],
+                    help="Byre serialization target version")
 args = parser.parse_args()
 
 # Unsupported ops
@@ -44,7 +49,7 @@ EXCLUDE_MLIR_CPU_TESTS = [
     "rng.mlir",
 ]
 
-def gen_golden_mlir(mhlo_file, target, golden_dir, num=5):
+def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
     """
     Arguements:
         @param mhlo_file: Source stablehlo/mhlo file.
@@ -61,7 +66,6 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=5):
         data_generator = MLIRDataGenerator(mhlo_file, target)
         func_name = data_generator.entry_func_name
 
-        os.makedirs(golden_dir, exist_ok=True)
         WORK_FOLDER = golden_dir + f"/{unique_name}"
         os.makedirs(WORK_FOLDER, exist_ok=True)
 
@@ -126,9 +130,11 @@ def gen_mlir_cpu_golden():
     directory = os.path.dirname(os.path.realpath(__file__))
     directory = directory + "/mlir_tests/cpu_ops"
     cpu_target = "cpu"
-    mlir_tests = []
     os.makedirs(args.golden, exist_ok=True)
+    golden_dir = f"{args.golden}/CPU_BYRE_{args.byre_serial_version.replace('.', '_')}"
+    os.makedirs(golden_dir, exist_ok=True)
 
+    mlir_tests = []
     for filename in os.listdir(directory):
         if filename.startswith('.'):
             continue
@@ -140,11 +146,9 @@ def gen_mlir_cpu_golden():
     results = []
     for test in mlir_tests:
         fpath = test
-        cur_golden_dir = args.golden
         res = gen_golden_mlir(fpath,
                               cpu_target,
-                              cur_golden_dir,
-                              num=5)
+                              golden_dir)
         results.append(res)
     return results
 
