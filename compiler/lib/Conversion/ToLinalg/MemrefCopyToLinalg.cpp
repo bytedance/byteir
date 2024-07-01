@@ -26,12 +26,12 @@
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Utils/Utils.h"
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Transforms/TopologicalSortUtils.h"
 
 #include <queue>
 

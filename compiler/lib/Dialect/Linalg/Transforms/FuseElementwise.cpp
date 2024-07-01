@@ -531,7 +531,7 @@ static bool isFusableWithReshapeByDimExpansion(GenericOp genericOp,
   //   permutations.
   // - The fused tensor is not a scalar.
   // - All the loops are parallel loops.
-  return genericOp.hasTensorSemantics() &&
+  return genericOp.hasPureTensorSemantics() &&
          llvm::all_of(llvm::enumerate(genericOp.getIndexingMaps().getValue()),
                       [&](auto it) {
                         Attribute attr = it.value();

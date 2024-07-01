@@ -135,7 +135,7 @@ bool mlirRegisterPDLConstraintFn(MlirContext ctx, MlirStringRef name, void *pfn,
   return registerPDLConstraintFunction(
       unwrap(ctx), unwrap(name),
       [fn = *reinterpret_cast<std::function<bool(std::vector<MlirPDLValue>)> *>(
-           pfn)](PatternRewriter &,
+           pfn)](PatternRewriter &, PDLResultList &,
                  ArrayRef<PDLValue> pdlValues) -> LogicalResult {
         std::vector<MlirPDLValue> wrapped;
         wrapped.reserve(pdlValues.size());
@@ -167,7 +167,8 @@ bool mlirRegisterPDLRewriteFn(MlirContext ctx, MlirStringRef name, void *pfn,
           insertionPoint = wrap(&*rewriter.getInsertionPoint());
 
         auto onOperationInserted = [&](MlirOperation op) {
-          rewriter.getListener()->notifyOperationInserted(unwrap(op));
+          rewriter.getListener()->notifyOperationInserted(unwrap(op),
+                                                          /*previous=*/{});
         };
 
         if (!fn(insertionPoint, wrap(resultList), wrapped, onOperationInserted))

@@ -21,6 +21,8 @@ limitations under the License.
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+
 using namespace mlir;
 using namespace byteir;
 

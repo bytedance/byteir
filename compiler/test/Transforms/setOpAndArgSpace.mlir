@@ -53,7 +53,7 @@ module attributes {byre.container_module} {
 // CHECK-NEXT:    %0 = mhlo.constant {device = "cpu"} dense<0.000000e+00> : tensor<f32>
 // CHECK-NEXT:    %1 = mhlo.constant {device = "cpu"} dense<1.000000e+00> : tensor<f32>
 // CHECK-NEXT:    %2 = mhlo.constant {device = "cpu"} dense<[1, 97]> : tensor<2xi64>
-// CHECK-NEXT:    %3 = "mhlo.rng"(%0, %1, %2) {device = "host", rng_distribution = #mhlo.rng_distribution<UNIFORM>} : (tensor<f32>, tensor<f32>, tensor<2xi64>) -> tensor<1x97xf32>
+// CHECK-NEXT:    %3 = "mhlo.rng"(%0, %1, %2) <{rng_distribution = #mhlo.rng_distribution<UNIFORM>}> {device = "host"} : (tensor<f32>, tensor<f32>, tensor<2xi64>) -> tensor<1x97xf32>
 // CHECK-NEXT:    %4 = bufferization.to_memref %3 {device = "cpu"} : memref<1x97xf32, "cpu">
 // CHECK-NEXT:    return %4 : memref<1x97xf32, "cpu">
 // CHECK-NEXT:  }

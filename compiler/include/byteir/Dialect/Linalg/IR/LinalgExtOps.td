@@ -221,7 +221,7 @@ def LinalgExt_SoftmaxOp : LinalgExt_Op<"softmax",
       return getOutputOperand(3)->get();
     }
     ShapedType getOperandType() {
-      return output().getType().cast<ShapedType>();
+      return cast<ShapedType>(output().getType());
     }
     int64_t getOperandRank() {
       return getOperandType().getRank();
@@ -292,7 +292,7 @@ def LinalgExt_UnnormalizedSoftmaxOp : LinalgExt_Op<"unnorm_softmax",
       return getOutputOperand(3)->get();
     }
     ShapedType getOperandType() {
-      return output().getType().cast<ShapedType>();
+      return cast<ShapedType>(output().getType());
     }
     int64_t getOperandRank() {
       return getOperandType().getRank();
@@ -352,7 +352,7 @@ def LinalgExt_DiagOp : LinalgExt_Op<"diag",
       return getOutputOperand(0)->get();
     }
     ShapedType getOperandType() {
-      return output().getType().cast<ShapedType>();
+      return cast<ShapedType>(output().getType());
     }
     int64_t getOperandRank() {
       return getOperandType().getRank();
@@ -413,7 +413,7 @@ def LinalgExt_ScanOp : LinalgExt_Op<"scan",
       return getOutputOperand(0)->get();
     }
     ShapedType getOperandType() {
-      return input().getType().cast<ShapedType>();
+      return cast<ShapedType>(input().getType());
     }
     int64_t getOperandRank() {
       return getOperandType().getRank();
@@ -498,13 +498,13 @@ def LinalgExt_ScatterOp : LinalgExt_Op<"scatter",
       return getOutputOperand(0)->get();
     }
     ShapedType getUpdateType() {
-      return update().getType().cast<ShapedType>();
+      return cast<ShapedType>(update().getType());
     }
     ShapedType getIndicesType() {
-      return indices().getType().cast<ShapedType>();
+      return cast<ShapedType>(indices().getType());
     }
     ShapedType getSrcType() {
-      return src().getType().cast<ShapedType>();
+      return cast<ShapedType>(src().getType());
     }
     int64_t getUpdateRank() {
       return getUpdateType().getRank();
@@ -573,7 +573,7 @@ def LinalgExt_TopkOp : LinalgExt_Op<"topk",
       return getOutputOperand(1)->get();
     }
     ShapedType getInputType() {
-      return values().getType().cast<ShapedType>();
+      return cast<ShapedType>(values().getType());
     }
     int64_t getInputRank() {
       return getInputType().getRank();
@@ -679,7 +679,7 @@ def LinalgExt_LayerNormOp : LinalgExt_Op<"layer_norm",
       return getOutputOperand(2)->get();
     }
     ShapedType getOperandType(int64_t idx) {
-      return getInputOperand(idx)->get().getType().cast<ShapedType>();
+      return cast<ShapedType>(getInputOperand(idx)->get().getType());
     }
     int64_t getOperandRank(int64_t idx) {
       return getOperandType(idx).getRank();

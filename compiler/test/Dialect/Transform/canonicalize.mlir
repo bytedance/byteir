@@ -89,7 +89,7 @@ func.func @canonicalize_const_broadcast() -> tensor<1x10x2xi64> {
 }
 // CHECK-LABEL: canonicalize_const_broadcast
 // CHECK: %[[V0:.*]] = mhlo.constant dense<[2, 3]> : tensor<2xi64>
-// CHECK: "mhlo.broadcast_in_dim"(%[[V0]]) {broadcast_dimensions = dense<2> : tensor<1xi64>} : (tensor<2xi64>) -> tensor<1x10x2xi64>
+// CHECK: "mhlo.broadcast_in_dim"(%[[V0]]) <{broadcast_dimensions = dense<2> : tensor<1xi64>}> : (tensor<2xi64>) -> tensor<1x10x2xi64>
 
 func.func @simplify_byteir_addn(%arg0: tensor<150x768xf16>, %arg1: tensor<150x768xf16>) -> tensor<150x768xf16> {
   %0 = "mhlo.custom_call"(%arg0, %arg1) {api_version = 1 : i32, backend_config = "", byteir_attrs = {_grappler_ArithmeticOptimizer_AddOpsRewriteStage = true}, call_target_name = "byteir.addn", called_computations = [], has_side_effect = false, output_operand_aliases = []} : (tensor<150x768xf16>, tensor<150x768xf16>) -> tensor<150x768xf16>
