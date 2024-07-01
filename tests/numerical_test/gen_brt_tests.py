@@ -31,11 +31,15 @@ parser.add_argument("--target",
                     default="cpu",
                     choices=["all", "cuda", "cpu"],
                     help="target device name")
-parser.add_argument("-g",
-                    "--golden",
+parser.add_argument("--output_dir",
                     type=str,
                     default="./local_golden",
-                    help="mlir test golden path")
+                    help="output directory path")
+parser.add_argument("-f",
+                    "--filter",
+                    type=str,
+                    default=".*",
+                    help="Regular expression specifying which tests to include in this run.")
 parser.add_argument("--byre_serial_version",
                     type=str,
                     default="1.0.0",
@@ -58,7 +62,7 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
     """
 
     def save_np_data(fpath: str, data):
-        np.save(fpath, data)
+        np.savez(fpath, *data)
 
     file_base_name = os.path.basename(mhlo_file).split(".")[0]
     unique_name = file_base_name + "." + target
@@ -82,8 +86,8 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
             golden_outputs = interp.call_function(func_name, np_inputs)
 
             # dump to local file
-            save_np_data(WORK_FOLDER + f"/inputs.{str(idx)}.npy", np_inputs)
-            save_np_data(WORK_FOLDER + f"/outputs.{str(idx)}.npy", golden_outputs)
+            save_np_data(WORK_FOLDER + f"/inputs.{str(idx)}.npz", np_inputs)
+            save_np_data(WORK_FOLDER + f"/outputs.{str(idx)}.npz", golden_outputs)
 
             del np_inputs, golden_outputs
 
@@ -130,13 +134,15 @@ def gen_mlir_cpu_golden():
     directory = os.path.dirname(os.path.realpath(__file__))
     directory = directory + "/mlir_tests/cpu_ops"
     cpu_target = "cpu"
-    os.makedirs(args.golden, exist_ok=True)
-    golden_dir = f"{args.golden}/CPU_BYRE_{args.byre_serial_version.replace('.', '_')}"
+    os.makedirs(args.output_dir, exist_ok=True)
+    golden_dir = f"{args.output_dir}/CPU_BYRE_{args.byre_serial_version.replace('.', '_')}"
     os.makedirs(golden_dir, exist_ok=True)
 
     mlir_tests = []
     for filename in os.listdir(directory):
         if filename.startswith('.'):
+            continue
+        if not re.match(args.filter, filename):
             continue
         f = os.path.join(directory, filename)
         # checking if it is a file
