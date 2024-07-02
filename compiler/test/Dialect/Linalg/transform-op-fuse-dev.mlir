@@ -178,7 +178,7 @@ func.func @fuse_expand_shape(%arg0: tensor<15x4x32x32x1xf16>, %arg1: tensor<15x4
   // CHECK:         tensor.extract_slice
   // CHECK:         tensor.expand_shape
   // CHECK:         linalg.generic
-  %expanded = tensor.expand_shape %arg2 [[0], [1], [2], [3, 4]] : tensor<15x4x32x32xf16> into tensor<15x4x32x32x1xf16>
+  %expanded = tensor.expand_shape %arg2 [[0], [1], [2], [3, 4]] output_shape [15, 4, 32, 32, 1] : tensor<15x4x32x32xf16> into tensor<15x4x32x32x1xf16>
   %0 = tensor.empty() : tensor<15x4x32x32x1xf16>
   %1 = linalg.generic {indexing_maps = [#map, #map, #map, #map, #map], iterator_types = ["parallel", "parallel", "parallel", "parallel", "parallel"]} ins(%arg0, %arg1, %expanded, %expanded : tensor<15x4x32x32x1xf16>, tensor<15x4x32x32x1xf16>, tensor<15x4x32x32x1xf16>, tensor<15x4x32x32x1xf16>) outs(%0 : tensor<15x4x32x32x1xf16>) attrs =  {__root__} {
   ^bb0(%in: f16, %in_1: f16, %in_2: f16, %in_3: f16, %out: f16):

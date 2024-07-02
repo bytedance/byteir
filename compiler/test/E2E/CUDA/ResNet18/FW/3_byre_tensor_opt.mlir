@@ -513,7 +513,7 @@ module {
     return %1 : tensor<1000x512xf16>
   }
   func.func private @Unknown60(%arg0: tensor<1000xf32>, %arg1: tensor<1x1000xf16>) -> tensor<1x1000xf16> attributes {__byteir_elementwise_fusion__} {
-    %expanded = tensor.expand_shape %arg0 [[0, 1]] : tensor<1000xf32> into tensor<1x1000xf32>
+    %expanded = tensor.expand_shape %arg0 [[0, 1]] output_shape [1, 1000] : tensor<1000xf32> into tensor<1x1000xf32>
     %0 = tensor.empty() : tensor<1x1000xf16>
     %1 = linalg.generic {indexing_maps = [#map1, #map1, #map1], iterator_types = ["parallel", "parallel"]} ins(%arg1, %expanded : tensor<1x1000xf16>, tensor<1x1000xf32>) outs(%0 : tensor<1x1000xf16>) {
     ^bb0(%in: f16, %in_0: f32, %out: f16):

@@ -29,7 +29,7 @@ func.func @test_collapse_shape(%arg0 : memref<2x2xf32>) -> memref<4xf32> attribu
 // -----
 
 func.func @test_expand_shape(%arg0 : memref<4xf32>) -> memref<2x2xf32> attributes {__placeholder__byre.entry_point} {
-  %0 = memref.expand_shape %arg0[[0, 1]] : memref<4xf32> into memref<2x2xf32>
+  %0 = memref.expand_shape %arg0[[0, 1]] output_shape [2, 2] : memref<4xf32> into memref<2x2xf32>
   return %0 : memref<2x2xf32>
 }
 // CHECK: byre.alias

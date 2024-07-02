@@ -38,6 +38,7 @@
 #include "byteir/Utils/Hoist.h"
 #include "byteir/Utils/TileUtils.h"
 #include "byteir/Utils/Utils.h"
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/AsmParser/AsmParser.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -49,7 +50,7 @@
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
 #include "mlir/Dialect/Transform/IR/TransformDialect.h"
-#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Matchers.h"
@@ -60,7 +61,6 @@
 #include "mlir/Interfaces/TilingInterface.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "mlir/Transforms/RegionUtils.h"
-#include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
@@ -130,20 +130,20 @@ transform::CollapseDimsOp::apply(transform::TransformRewriter &rewriter,
 
     SimpleRewriter rewriter(getContext());
     rewriter.setInsertionPoint(target);
-    std::optional<SmallVector<Value>> replacements =
-        collapseOpIterationDims<linalg::GenericOp>(
+    FailureOr<CollapseResult> replacementsInfo =
+        mlir::linalg::collapseOpIterationDims(
             genericOp, getReassociationIndices(), rewriter);
-    if (!replacements)
+    if (failed(replacementsInfo))
       return emitDefaultDefiniteFailure(target) << " failed to collapsed dims";
-
-    Operation *definingOp = (*replacements)[0].getDefiningOp();
+    auto replacements = (*replacementsInfo).results;
+    Operation *definingOp = replacements[0].getDefiningOp();
     if (llvm::isa<tensor::ExpandShapeOp>(definingOp))
       definingOp = definingOp->getOperand(0).getDefiningOp();
 
     if (!llvm::isa<linalg::GenericOp>(definingOp))
       return emitDefaultDefiniteFailure(target) << " failed to collapsed dims";
 
-    genericOp->replaceAllUsesWith(*replacements);
+    genericOp->replaceAllUsesWith(replacements);
     genericOp->erase();
 
     collapsed.push_back(definingOp);
@@ -157,7 +157,7 @@ transform::CollapseDimsOp::apply(transform::TransformRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 namespace {
 LogicalResult detensorizeLinalgOp(OpBuilder &b, linalg::LinalgOp linalgOp) {
-  if (!linalgOp.hasTensorSemantics())
+  if (!linalgOp.hasPureTensorSemantics())
     return failure();
 
   if (linalgOp.getNumLoops())
@@ -517,7 +517,8 @@ static LogicalResult applyTilingToAll(
         return true;
       };
 
-      rewriter.replaceOpWithIf(toReplace, replacements, allowReplacement);
+      rewriter.replaceUsesWithIf(toReplace->getResults(), replacements,
+                                 allowReplacement);
 
       // simplify tensor::DimOp
       simplifyTensorDimOpUsedInLinalgWithinOp(*funcOp.getOperation());
@@ -1041,7 +1042,7 @@ transform::TileExtOp::apply(TransformRewriter &rewriter,
     tilingOptions.setInterchange(getInterchange());
     SimpleRewriter rewriter(en.value()->getContext());
 
-    FailureOr<scf::SCFTilingResult> maybeTilingResult = tileUsingSCFForOp(
+    FailureOr<scf::SCFTilingResult> maybeTilingResult = tileUsingSCF(
         rewriter, cast<TilingInterface>(en.value()), tilingOptions);
 
     if (failed(maybeTilingResult))
@@ -1288,7 +1289,7 @@ DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
     ArrayAttr replicaGroupAttrs =
         builder.getArrayAttr({builder.getI64ArrayAttr(replicaGroup)});
 
-    BlockArgument loopOutBlockArg = loopOp.getOutputBlockArguments()[0];
+    BlockArgument loopOutBlockArg = loopOp.getRegionIterArgs()[0];
     if (!all_of(loopOutBlockArg.getUsers(), [](Operation *op) {
           return isa<tensor::ExtractSliceOp, tensor::ParallelInsertSliceOp>(op);
         })) {
@@ -1377,7 +1378,7 @@ DiagnosedSilenceableFailure transform::SharedOutputToDistributedStyleOp::apply(
     SmallVector<OpFoldResult> strides(rank, builder.getIndexAttr(1));
     builder.create<tensor::ParallelInsertSliceOp>(
         retVal.getLoc(), finalMergeOp->getResult(0),
-        loopOp.getOutputBlockArguments()[0], offsets, sizes, strides);
+        loopOp.getRegionIterArgs()[0], offsets, sizes, strides);
 
     // replace all uses of original merge op
     mergeOp->getResult(0).replaceAllUsesWith(loopOp->getResult(0));

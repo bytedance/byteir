@@ -44,7 +44,7 @@ func.func @dynamic_partition_and_stitch(%arg0: tensor<4x4xf32>, %arg1: tensor<4x
 // CHECK-DAG:     %[[V4:.*]] = tensor.dim %arg0, %[[V2]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     %[[V5:.*]] = "mhlo.dot"(%arg0, %[[V0]]) : (tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>, tensor<4x4xf32>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     %[[V6:.*]] = tensor.from_elements %[[V4]], %[[V3]] : tensor<2xindex>
-// CHECK-DAG:     %[[V7:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V1]], %[[V6]]) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
+// CHECK-DAG:     %[[V7:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V1]], %[[V6]]) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     %[[V8:.*]] = mhlo.add %[[V5]], %[[V7]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:    return %[[V8]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 
@@ -56,7 +56,7 @@ func.func @dynamic_partition_and_stitch(%arg0: tensor<4x4xf32>, %arg1: tensor<4x
 // CHECK-DAG:     %[[V4:.*]] = tensor.dim %arg0, %[[V2]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     %[[V5:.*]] = "mhlo.dot"(%arg0, %[[V0]]) : (tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>, tensor<4x4xf32>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     %[[V6:.*]] = tensor.from_elements %[[V4]], %[[V3]] : tensor<2xindex>
-// CHECK-DAG:     %[[V7:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V1]], %[[V6]]) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
+// CHECK-DAG:     %[[V7:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V1]], %[[V6]]) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     %[[V8:.*]] = mhlo.add %[[V5]], %[[V7]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:     return %[[V8]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 
@@ -115,7 +115,7 @@ func.func @dynamic_partition_and_mask_stitch(%arg0: tensor<4x4xf32>, %arg1: tens
 // CHECK-DAG:   %[[D0:.*]] = tensor.dim %arg0, %[[C0]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:   %[[V2:.*]] = "mhlo.dot"(%arg0, %[[V1]]) : (tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>, tensor<4x4xf32>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:   %[[F0:.*]] = tensor.from_elements %[[D0]], %[[C4]] : tensor<2xindex>
-// CHECK-DAG:   %[[V3:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V0]], %[[F0]]) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
+// CHECK-DAG:   %[[V3:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V0]], %[[F0]]) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:   %[[V4:.*]] = mhlo.add %[[V2]], %[[V3]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK:     return %[[V4]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 
@@ -127,7 +127,7 @@ func.func @dynamic_partition_and_mask_stitch(%arg0: tensor<4x4xf32>, %arg1: tens
 // CHECK-DAG:   %[[D0:.*]] = tensor.dim %arg0, %[[C0]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:   %[[V2:.*]] = "mhlo.dot"(%arg0, %[[V1]]) : (tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>, tensor<4x4xf32>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:   %[[F0:.*]] = tensor.from_elements %[[D0]], %[[C4]] : tensor<2xindex>
-// CHECK-DAG:   %[[V3:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V0]], %[[F0]]) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
+// CHECK-DAG:   %[[V3:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[V0]], %[[F0]]) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK-DAG:   %[[V4:.*]] = mhlo.add %[[V2]], %[[V3]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 // CHECK:     return %[[V4]] : tensor<?x4xf32, {byteir.bounded_shape = [4, 4]}>
 

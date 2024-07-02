@@ -344,7 +344,7 @@ void tileReductionToForallAndFuseImpl(ImplicitLocOpBuilder &b, Value toTile,
       /* param */ Value());
 
   b.create<transform::FuseIntoContainingOp>(
-      /* producerOp */ tileReductionOp.getFillOp(),
+      /* producerOp */ tileReductionOp.getFillOp()[0],
       /* containingOp */ tileReductionOp.getForallOp());
 }
 
@@ -437,10 +437,11 @@ void BlockSplitConfig::apply(ImplicitLocOpBuilder &b, Value pdlV) {
         /*padding_values=*/b.getArrayAttr(padValues),
         /*padding_dimensions=*/
         b.getI64ArrayAttr(padDims),
-        /*padToMultipleOf=*/ArrayAttr{},
+        /*pad_to_multiple_of=*/ValueRange{},
+        /*static_pad_to_multiple_of=*/b.getDenseI64ArrayAttr({}),
         /*pack_paddings=*/ArrayAttr{},
         /*transpose_paddings=*/ArrayAttr{},
-        /*copyBack=*/transform::PadOp::kCopyOpNone);
+        /*copy_back_op=*/transform::PadOp::kCopyOpNone);
     pdlV = padOp.getPadded();
   }
   if (!splitFactors.empty()) {
@@ -542,7 +543,7 @@ void BlockTileConfig::apply(ImplicitLocOpBuilder &b, Value pdlV) {
           /*mapping*/ b.getArrayAttr(mappingAttrs));
 
       b.create<transform::FuseIntoContainingOp>(
-          /* producerOp */ tiledRedutionOp.getFillOp(),
+          /* producerOp */ tiledRedutionOp.getFillOp()[0],
           /* containingOp */ tiledRedutionOp.getForallOp());
 
       // attch block_redution to combineOp
@@ -1277,7 +1278,7 @@ void createGPUTileSplitWarpReductionTransformImpl(OpPassManager &pm,
       auto producer = b.create<transform::GetProducerOfOperand>(
           /* producer type */ transform::OperationType::get(
               b.getContext(), tensor::EmptyOp::getOperationName()),
-          /* target */ tileReductionOp.getFillOp(),
+          /* target */ tileReductionOp.getFillOp()[0],
           /* operand number */ i);
 
       // promote to WorkGroup
@@ -1289,7 +1290,7 @@ void createGPUTileSplitWarpReductionTransformImpl(OpPassManager &pm,
 
     // fuse fill
     b.create<transform::FuseIntoContainingOp>(
-        /* producerOp */ tileReductionOp.getFillOp(),
+        /* producerOp */ tileReductionOp.getFillOp()[0],
         /* containingOp */ tileReductionOp.getForallOp());
   };
 
@@ -1356,9 +1357,9 @@ void createGPUTileWarpReductionTransformImpl(OpPassManager &pm,
     b.create<transform::VectorizeOp>(
         /* target */ toVectorize,
         /* vector_sizes */ ValueRange{},
+        /* static_vector_sizes */ SmallVector<int64_t>{},
         /* vectorize_nd_extract */ b.getUnitAttr(),
-        /* scalable_sizes */ SmallVector<bool>{},
-        /* static_vector_sizes */ SmallVector<int64_t>{});
+        /* scalable_sizes */ SmallVector<bool>{});
 
     // lower vector.multi_reduction to vector.reduction
     b.create<transform::ApplyPatternsOp>(

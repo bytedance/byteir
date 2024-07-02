@@ -44,11 +44,11 @@ func.func @max_pool(%arg0: tensor<4x126x126x16xf32>) -> tensor<4x63x63x16xf32> a
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<4x126x126x16xf32>) -> tensor<4x63x63x16xf32> attributes {__byteir_unit_test__} {
 // CHECK-NEXT:   %[[V0:.*]] = mhlo.constant dense<0xFC00> : tensor<f16>
 // CHECK-NEXT:   %[[V1:.*]] = mhlo.convert %[[ARG0]] : (tensor<4x126x126x16xf32>) -> tensor<4x126x126x16xf16>
-// CHECK-NEXT:   %[[V2:.*]] = "mhlo.reduce_window"(%[[V1]], %[[V0]]) ({
+// CHECK-NEXT:   %[[V2:.*]] = "mhlo.reduce_window"(%[[V1]], %[[V0]]) <{window_dimensions = dense<[1, 2, 2, 1]> : tensor<4xi64>, window_strides = dense<[1, 2, 2, 1]> : tensor<4xi64>}> ({
 // CHECK-NEXT:   ^bb0(%[[ARG1:.*]]: tensor<f16>, %[[ARG2:.*]]: tensor<f16>):
 // CHECK-NEXT:     %[[V4:.*]] = mhlo.maximum %[[ARG1]], %[[ARG2]] : tensor<f16>
 // CHECK-NEXT:     mhlo.return %[[V4]] : tensor<f16>
-// CHECK-NEXT:   }) {window_dimensions = dense<[1, 2, 2, 1]> : tensor<4xi64>, window_strides = dense<[1, 2, 2, 1]> : tensor<4xi64>} : (tensor<4x126x126x16xf16>, tensor<f16>) -> tensor<4x63x63x16xf16>
+// CHECK-NEXT:   }) : (tensor<4x126x126x16xf16>, tensor<f16>) -> tensor<4x63x63x16xf16>
 // CHECK-NEXT:   %[[V3:.*]] = mhlo.convert %[[V2]] : (tensor<4x63x63x16xf16>) -> tensor<4x63x63x16xf32>
 // CHECK-NEXT:   return %[[V1:.*]] : tensor<4x63x63x16xf32>
 

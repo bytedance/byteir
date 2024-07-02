@@ -10,7 +10,7 @@ func.func @InferShapedTypeOpInterface(%arg0 : tensor<8x4xi32>, %arg1 : tensor<8x
 
 // CHECK-LABEL: @InferSlice
 func.func @InferSlice(%arg0: tensor<2x56x56x96xf16>) -> tensor<2x?x56x96xf16> {
-// CHECK-NEXT: %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[2, 56, 56, 96]> : tensor<4xi64>, start_indices = dense<[0, 3, 0, 0]> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>} : (tensor<2x56x56x96xf16>) -> tensor<2x53x56x96xf16>
+// CHECK-NEXT: %0 = "mhlo.slice"(%arg0) <{limit_indices = dense<[2, 56, 56, 96]> : tensor<4xi64>, start_indices = dense<[0, 3, 0, 0]> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>}> : (tensor<2x56x56x96xf16>) -> tensor<2x53x56x96xf16>
   %0 = "mhlo.slice"(%arg0) {limit_indices = dense<[2, 56, 56, 96]> : tensor<4xi64>, start_indices = dense<[0, 3, 0, 0]> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>} : (tensor<2x56x56x96xf16>) -> tensor<2x?x56x96xf16>
 // CHECK-NEXT: return %0 : tensor<2x53x56x96xf16>
   return %0 : tensor<2x?x56x96xf16>
@@ -19,7 +19,7 @@ func.func @InferSlice(%arg0: tensor<2x56x56x96xf16>) -> tensor<2x?x56x96xf16> {
 // CHECK-LABEL: @InferReshapeSlice
 func.func @InferReshapeSlice(%arg0: tensor<2x2x28x56x96xf16>) -> tensor<2x?x56x96xf16>  {
   %0 = mhlo.reshape %arg0 : (tensor<2x2x28x56x96xf16>) -> tensor<2x56x56x96xf16>
-// CHECK: %[[V1:.*]] = "mhlo.slice"(%0) {limit_indices = dense<[2, 56, 56, 96]> : tensor<4xi64>, start_indices = dense<[0, 3, 0, 0]> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>} : (tensor<2x56x56x96xf16>) -> tensor<2x53x56x96xf16>
+// CHECK: %[[V1:.*]] = "mhlo.slice"(%0) <{limit_indices = dense<[2, 56, 56, 96]> : tensor<4xi64>, start_indices = dense<[0, 3, 0, 0]> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>}> : (tensor<2x56x56x96xf16>) -> tensor<2x53x56x96xf16>
   %1 = "mhlo.slice"(%0) {limit_indices = dense<[2, 56, 56, 96]> : tensor<4xi64>, start_indices = dense<[0, 3, 0, 0]> : tensor<4xi64>, strides = dense<1> : tensor<4xi64>} : (tensor<2x56x56x96xf16>) -> tensor<2x?x56x96xf16>
 // CHECK-NEXT: return %[[V1]] : tensor<2x53x56x96xf16>
   return %1 : tensor<2x?x56x96xf16>
@@ -41,7 +41,7 @@ func.func @several_ops(%arg0: tensor<?x4xf32> {byteir.static_shape = [8, 4]}, %a
 // CHECK-NEXT: %0 = "mhlo.dot"(%arg0, %arg1) : (tensor<8x4xf32>, tensor<4x4xf32>) -> tensor<8x4xf32>
   %1 = shape.shape_of %0 : tensor<?x4xf32> -> tensor<2xindex>
   %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
-// CHECK-NEXT: %1 = "mhlo.broadcast_in_dim"(%arg2) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>) -> tensor<8x4xf32>
+// CHECK-NEXT: %1 = "mhlo.broadcast_in_dim"(%arg2) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>) -> tensor<8x4xf32>
   %3 = mhlo.add %0, %2 : tensor<?x4xf32>
 // CHECK-NEXT: %2 = mhlo.add %0, %1 : tensor<8x4xf32>
   return %3 : tensor<?x4xf32>

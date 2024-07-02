@@ -93,4 +93,5 @@ module {
 // CHECK-DAG: %[[COLLAPSED1:.*]] = tensor.collapse_shape %arg1 {{\[}}[0, 1], [2]] : tensor<32x64x?xf16> into tensor<2048x?xf16>
 // CHECK-DAG: %[[COLLAPSED2:.*]] = tensor.collapse_shape %arg2 {{\[}}[0], [1, 2]] : tensor<?x16x?xf16> into tensor<?x?xf16>
 // CHECK-DAG: %[[COLLAPSED3:.*]] = tensor.collapse_shape %[[EMPTY]] {{\[}}[0], [1, 2], [3], [4, 5]] : tensor<?x32x64x?x16x?xf16> into tensor<?x2048x?x?xf16>
-// CHECK-DAG: %expanded = tensor.expand_shape %{{.*}} {{\[}}[0], [1, 2], [3], [4, 5]] : tensor<?x2048x?x?xf16> into tensor<?x32x64x?x16x?xf16>
+// CHECK-DAG: %expanded = tensor.expand_shape %{{.*}} {{\[}}[0], [1, 2], [3], [4, 5]]
+// CHECK-DAG: return %expanded : tensor<?x32x64x?x16x?xf16>

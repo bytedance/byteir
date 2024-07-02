@@ -69,7 +69,7 @@ struct LinalgGeneralizationExtPattern
     SmallVector<AffineMap> indexingMaps = linalgOp.getIndexingMapsArray();
     SmallVector<utils::IteratorType> iterators =
         linalgOp.getIteratorTypesArray();
-    SmallVector<Type> resultTypes = linalgOp.hasTensorSemantics()
+    SmallVector<Type> resultTypes = linalgOp.hasPureTensorSemantics()
                                         ? TypeRange(ValueRange(outputs))
                                         : TypeRange{};
 

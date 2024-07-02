@@ -152,10 +152,11 @@ void createTileAndVectorizeTransposeTransformImpl(OpPassManager &pm,
           /*padding_values=*/paddingValues,
           /*padding_dimensions=*/
           b.getI64ArrayAttr(tileConfig.paddingDimensions),
-          /*padToMultipleOf=*/ArrayAttr{},
+          /*pad_to_multiple_of=*/ValueRange{},
+          /*static_pad_to_multiple_of=*/b.getDenseI64ArrayAttr({}),
           /*pack_paddings=*/ArrayAttr{},
           /*transpose_paddings=*/ArrayAttr{},
-          /*copyBack=*/transform::PadOp::kCopyOpNone);
+          /*copy_back_op=*/transform::PadOp::kCopyOpNone);
     }
     b.create<transform::VectorizeChildrenAndApplyPatternsOp>(
         outlineOp.getFunctions(),

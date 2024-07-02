@@ -54,7 +54,7 @@ reifyDimsInSliceOp(Operation *op, RewriterBase &rewriter, int64_t dim) {
   if (auto expandOp = llvm::dyn_cast<tensor::ExpandShapeOp>(op)) {
     auto ReassociationIndices = expandOp.getReassociationIndices();
     auto src = expandOp.getSrc();
-    RankedTensorType resType = expandOp.getType();
+    RankedTensorType resType = cast<RankedTensorType>(expandOp.getType());
     if (RankedTensorType srcType = src.getType().dyn_cast<RankedTensorType>()) {
       int64_t dynDimCount = 0;
 

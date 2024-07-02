@@ -19,7 +19,7 @@
 #define BYTEIR_DIALECT_LINALG_TRANSFORMOPS_LINALGEXTTRANSFORMOPS_H
 
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
-#include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Dialect/Transform/Interfaces/TransformInterfaces.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/StringRef.h"

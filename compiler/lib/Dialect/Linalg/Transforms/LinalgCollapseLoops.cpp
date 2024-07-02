@@ -369,7 +369,7 @@ static Value getCollapsedOpOperand(Location loc, GenericOp genericOp,
     return operand;
 
   // Insert a reshape to collapse the dimensions.
-  if (genericOp.hasBufferSemantics()) {
+  if (genericOp.hasPureBufferSemantics()) {
     auto reshapeOp = builder.create<memref::CollapseShapeOp>(
         loc, operand, operandReassociation);
     return reshapeOp.getResult();
@@ -491,7 +491,7 @@ FailureOr<SmallVector<Value>> collapseGenericOpIterationDimsEx(
 
   // Create the generic op.
   linalg::GenericOp collapsedGenericOp;
-  if (genericOp.hasBufferSemantics()) {
+  if (genericOp.hasPureBufferSemantics()) {
     collapsedGenericOp = rewriter.create<linalg::GenericOp>(
         loc, inputOperands, outputOperands, indexingMaps, iteratorTypes,
         [](OpBuilder &builder, Location loc, ValueRange args) {});
@@ -533,7 +533,7 @@ FailureOr<SmallVector<Value>> collapseGenericOpIterationDimsEx(
           genericOp.getIndexingMapMatchingResult(originalResult.value());
       SmallVector<ReassociationIndices> reassociation =
           getOperandReassociation(indexingMap, collapsingInfo);
-      if (genericOp.hasBufferSemantics()) {
+      if (genericOp.hasPureBufferSemantics()) {
         Value result = rewriter.create<memref::ExpandShapeOp>(
             loc, originalResultType, collapsedOpResult, reassociation);
         results.push_back(result);

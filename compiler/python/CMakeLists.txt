@@ -78,6 +78,8 @@ add_mlir_python_common_capi_library(ByteIRCAPIAggregation
     ByteIRPythonExtensions
 )
 
+target_link_libraries(ByteIRCAPIAggregation PUBLIC MhloQuantToIntConversion)
+
 target_link_options(ByteIRCAPIAggregation
   PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--exclude-libs,ALL>
 )

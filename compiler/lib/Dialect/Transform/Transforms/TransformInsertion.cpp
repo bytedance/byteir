@@ -108,7 +108,7 @@ struct DetensorizeTransformInsertionPass
   }
 
   static bool isScalarTensorOp(linalg::LinalgOp linalgOp) {
-    if (!linalgOp.hasTensorSemantics())
+    if (!linalgOp.hasPureTensorSemantics())
       return false;
 
     if (linalgOp.getNumLoops() != 0)
@@ -143,9 +143,9 @@ struct DetensorizeTransformInsertionPass
         b.create<transform::VectorizeOp>(
             /* target */ pdlValue,
             /* vector_sizes */ ValueRange{},
+            /* static_vector_sizes */ SmallVector<int64_t>{},
             /* vectorize_nd_extract */ b.getUnitAttr(),
-            /* scalable_sizes */ SmallVector<bool>{},
-            /* static_vector_sizes */ SmallVector<int64_t>{});
+            /* scalable_sizes */ SmallVector<bool>{});
       } else {
         b.create<transform::DetensorizeOp>(pdlValue);
       }

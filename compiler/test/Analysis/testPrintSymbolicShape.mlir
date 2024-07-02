@@ -26,7 +26,7 @@ func.func @several_ops(%arg0: tensor<?x4xf32>, %arg1: tensor<4x4xf32>, %arg2: te
 // CHECK:      original value: %1 = shape.shape_of %0 : tensor<?x4xf32> -> tensor<2xindex>
 // CHECK-NEXT: symbolic shape: %0 = shape.const_shape [2] : tensor<1xindex>
 
-// CHECK:      original value: %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
+// CHECK:      original value: %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
 // CHECK-NEXT: symbolic shape: %from_elements = tensor.from_elements %dim, %c4 : tensor<2xindex>
 
 // CHECK:      original value: %3 = mhlo.add %0, %2 : tensor<?x4xf32>
@@ -38,7 +38,7 @@ func.func @several_ops(%arg0: tensor<?x4xf32>, %arg1: tensor<4x4xf32>, %arg2: te
 // CHECK-NEXT: <block argument> of type 'tensor<?x4xf32>' at index: 0
 // CHECK:      original value: %1 = shape.shape_of %0 : tensor<?x4xf32> -> tensor<2xindex>
 // CHECK-NEXT: symbolic shape sources: 
-// CHECK:      original value: %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) {broadcast_dimensions = dense<1> : tensor<1xi64>} : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
+// CHECK:      original value: %2 = "mhlo.dynamic_broadcast_in_dim"(%arg2, %1) <{broadcast_dimensions = dense<1> : tensor<1xi64>}> : (tensor<4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
 // CHECK-NEXT: symbolic shape sources: 
 // CHECK-NEXT: <block argument> of type 'tensor<?x4xf32>' at index: 0
 // CHECK:      original value: %3 = mhlo.add %0, %2 : tensor<?x4xf32>

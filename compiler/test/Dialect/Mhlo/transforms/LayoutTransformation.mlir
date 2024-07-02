@@ -48,7 +48,7 @@ func.func @conv_NHWC(%125: tensor<1x56x56x64xf32>, %54: tensor<1x1x64x256xf32>) 
   return %126 : tensor<1x56x56x256xf32>
 }
 // CHECK-LABEL: func.func @conv_NHWC
-// CHECK-NEXT:  %0 = "mhlo.transpose"(%arg1) {permutation = dense<[3, 0, 1, 2]> : tensor<4xi64>} : (tensor<1x1x64x256xf32>) -> tensor<256x1x1x64xf32>
+// CHECK-NEXT:  %0 = "mhlo.transpose"(%arg1) <{permutation = dense<[3, 0, 1, 2]> : tensor<4xi64>}> : (tensor<1x1x64x256xf32>) -> tensor<256x1x1x64xf32>
 // CHECK-NEXT:  %1 = mhlo.convolution(%arg0, %0) dim_numbers = [b, 0, 1, f]x[o, 0, 1, i]->[b, 0, 1, f], window = {stride = [1, 1], pad = {{\[}}[0, 0], [0, 0]{{\]}}, lhs_dilate = [1, 1], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<1x56x56x64xf32>, tensor<256x1x1x64xf32>) -> tensor<1x56x56x256xf32>
 
 func.func @conv_backward_data(%arg0: tensor<32x64x56x56xf16>, %arg1: tensor<64x64x3x3xf16>) -> tensor<32x64x56x56xf16> attributes {byteir.layout = "NCHW"}{
@@ -63,18 +63,18 @@ func.func @conv_backward_data(%arg0: tensor<32x64x56x56xf16>, %arg1: tensor<64x6
 // CHECK-LABEL: func.func @conv_backward_data
 // CHECK-SAME: %[[ARG0:[^:[:space:]]+]]
 // CHECK-SAME: %[[ARG1:[^:[:space:]]+]]
-// CHECK:  %[[V0:.*]] = "mhlo.transpose"(%[[ARG0]]) {permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>} : (tensor<32x64x56x56xf16>) -> tensor<32x56x56x64xf16>
-// CHECK:  %[[V1:.*]] = "mhlo.transpose"(%[[ARG1]]) {permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>} : (tensor<64x64x3x3xf16>) -> tensor<64x3x3x64xf16>
+// CHECK:  %[[V0:.*]] = "mhlo.transpose"(%[[ARG0]]) <{permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>}> : (tensor<32x64x56x56xf16>) -> tensor<32x56x56x64xf16>
+// CHECK:  %[[V1:.*]] = "mhlo.transpose"(%[[ARG1]]) <{permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>}> : (tensor<64x64x3x3xf16>) -> tensor<64x3x3x64xf16>
 // CHECK:  %[[V2:.*]] = "mhlo.fusion"(%[[V0]], %[[V1]])
-// CHECK:    %[[V4:.*]] = "mhlo.transpose"(%[[V0]]) {permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (tensor<32x56x56x64xf16>) -> tensor<32x64x56x56xf16>
-// CHECK:    %[[V5:.*]] = "mhlo.transpose"(%[[V1]]) {permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (tensor<64x3x3x64xf16>) -> tensor<64x64x3x3xf16>
-// CHECK:    %[[V6:.*]] = "mhlo.transpose"(%[[V5:.*]]) {permutation = dense<[2, 3, 1, 0]> : tensor<4xi64>} : (tensor<64x64x3x3xf16>) -> tensor<3x3x64x64xf16>
+// CHECK:    %[[V4:.*]] = "mhlo.transpose"(%[[V0]]) <{permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>}> : (tensor<32x56x56x64xf16>) -> tensor<32x64x56x56xf16>
+// CHECK:    %[[V5:.*]] = "mhlo.transpose"(%[[V1]]) <{permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>}> : (tensor<64x3x3x64xf16>) -> tensor<64x64x3x3xf16>
+// CHECK:    %[[V6:.*]] = "mhlo.transpose"(%[[V5:.*]]) <{permutation = dense<[2, 3, 1, 0]> : tensor<4xi64>}> : (tensor<64x64x3x3xf16>) -> tensor<3x3x64x64xf16>
 // CHECK:    %[[V7:.*]] = "mhlo.reverse"(%[[V6]])
 // CHECK:    %[[V8:.*]] = mhlo.convolution(%[[V4]], %[[V7]])
-// CHECK:    %[[V9:.*]] = "mhlo.transpose"(%[[V8]]) {permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>} : (tensor<32x64x56x56xf16>) -> tensor<32x56x56x64xf16>
+// CHECK:    %[[V9:.*]] = "mhlo.transpose"(%[[V8]]) <{permutation = dense<[0, 2, 3, 1]> : tensor<4xi64>}> : (tensor<32x64x56x56xf16>) -> tensor<32x56x56x64xf16>
 // CHECK:    mhlo.return %[[V9]] : tensor<32x56x56x64xf16>
 // CHECK:  __byre__input_layout = "NHWC", __byre__kernel_layout = "NHWC", __byre__output_layout = "NHWC"
-// CHECK-NEXT:  %[[V3:.*]] = "mhlo.transpose"(%[[V2]]) {permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (tensor<32x56x56x64xf16>) -> tensor<32x64x56x56xf16>
+// CHECK-NEXT:  %[[V3:.*]] = "mhlo.transpose"(%[[V2]]) <{permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>}> : (tensor<32x56x56x64xf16>) -> tensor<32x64x56x56xf16>
 // CHECK-NEXT:  return %[[V3]]
 
 func.func @max_pool_NCHW(%181: tensor<1x32x128x128xf32>) -> tensor<1x32x64x64xf32> attributes {byteir.layout = "NCHW"}{
@@ -91,7 +91,7 @@ func.func @max_pool_NCHW(%181: tensor<1x32x128x128xf32>) -> tensor<1x32x64x64xf3
 // CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 2, 3, 1]>
 // CHECK-NEXT:  mhlo.reduce_window
 // CHECK{LITERAL}:  padding = dense<[[0, 0], [0, 1], [0, 1], [0, 0]]> : tensor<4x2xi64>, window_dimensions = dense<[1, 3, 3, 1]> : tensor<4xi64>, window_strides = dense<[1, 2, 2, 1]> : tensor<4xi64>
-// CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
+// CHECK:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
 // CHECK-NEXT:  return
 
 func.func @avg_pool_NCHW(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x2x3xf32> attributes {byteir.layout = "NCHW"}{
@@ -111,7 +111,7 @@ func.func @avg_pool_NCHW(%arg0: tensor<1x1x3x4xf32>) -> tensor<1x1x2x3xf32> attr
 // CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 2, 3, 1]>
 // CHECK-NEXT:  mhlo.reduce_window
 // CHECK{LITERAL}:  window_dimensions = dense<[1, 2, 2, 1]> : tensor<4xi64>, window_strides = dense<1> : tensor<4xi64>
-// CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
+// CHECK:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
 // CHECK-NEXT:  mhlo.divide
 // CHECK-NEXT:  return
 
@@ -134,7 +134,7 @@ func.func @pool_grad_NCHW(%arg83: tensor<1x64x112x112xf16>, %76: tensor<1x64x56x
 // CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 2, 3, 1]>
 // CHECK-NEXT:  mhlo.select_and_scatter
 // CHECK{LITERAL}:  padding = dense<[[0, 0], [1, 1], [1, 1], [0, 0]]> : tensor<4x2xi64>, window_dimensions = dense<[1, 3, 3, 1]> : tensor<4xi64>, window_strides = dense<[1, 2, 2, 1]> : tensor<4xi64>
-// CHECK-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
+// CHECK:  mhlo.transpose{{.*}}permutation = dense<[0, 3, 1, 2]>
 // CHECK-NEXT:  return
 
 func.func @conv3d_NCDHW(%140: tensor<1x3x100x27x48xf32>, %16: tensor<32x3x1x3x3xf32>) -> tensor<1x32x100x27x48xf32>{
@@ -179,7 +179,7 @@ func.func @avg_pool3d_NCDHW(%187: tensor<1x64x100x27x48xf32>) -> tensor<1x64x100
 // NDHWC-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 2, 3, 4, 1]>
 // NDHWC-NEXT:  mhlo.reduce_window
 // NDHWC{LITERAL}:  window_dimensions = dense<[1, 1, 2, 2, 1]> : tensor<5xi64>, window_strides = dense<[1, 1, 2, 2, 1]> : tensor<5xi64>
-// NDHWC-NEXT:  mhlo.transpose{{.*}}permutation = dense<[0, 4, 1, 2, 3]>
+// NDHWC:  mhlo.transpose{{.*}}permutation = dense<[0, 4, 1, 2, 3]>
 // NDHWC-NEXT:  mhlo.divide
 // NDHWC-NEXT:  return
 
