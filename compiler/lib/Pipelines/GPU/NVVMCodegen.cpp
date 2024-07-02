@@ -53,7 +53,7 @@ void createNVVMCodegenPipelineImpl(OpPassManager &pm,
   pm.addPass(createSimplifyLinearizedIndexPass());
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createCSEPass());
-  pm.addNestedPass<gpu::GPUModuleOp>(createConvertVectorToLLVMPass());
+  // pm.addNestedPass<gpu::GPUModuleOp>(createConvertVectorToLLVMPass());
   pm.addNestedPass<gpu::GPUModuleOp>(createGPUToNVVMExtPass(
       useBarePtrCallConv, mlir::kDeriveIndexBitwidthFromDataLayout, gpuArch));
   pm.addPass(createCSEPass());
