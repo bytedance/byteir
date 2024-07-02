@@ -19,6 +19,7 @@
 #include "byteir/Dialect/GPU/Transforms/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -35,7 +36,7 @@ namespace {
 static int64_t getSharedMemorySizeInGPULaunch(gpu::LaunchOp op) {
   int64_t sharedMemSizeInBytes = 0;
   op->walk([&](memref::AllocaOp allocaOp) {
-    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(allocOp.getType())) {
+    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(allocaOp.getType())) {
 
       sharedMemSizeInBytes +=
           allocaOp.getType().getNumElements() *
