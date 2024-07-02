@@ -17,7 +17,6 @@ from brt.utils import brt_dtype_to_torch_dtype
 
 import torch
 import numpy as np
-import os
 import re
 
 from reporting import TestResult

@@ -45,7 +45,7 @@ namespace brt {
 
 namespace {
 
-// legacy register
+// legacy register for deprecated kernels
 // note: we do not guarantee the backward compatibility of these OpKernels,
 // we will remove them if brt upgrade to 2.0
 BRT_STATIC_KERNEL_REGISTRATION(
@@ -85,17 +85,13 @@ BRT_STATIC_KERNEL_REGISTRATION(
     });
 
 // statcially register all CPU OpKernels
+// register for stable kernels
 BRT_STATIC_KERNEL_REGISTRATION(
     DeviceKind::CPU, ProviderType::BRT, [](KernelRegistry *registry) {
       registry->Register(
           "LLVMJITOp",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::LLVMJITOpKernel>(info);
-          });
-      registry->Register(
-          "ComputeShapeOp",
-          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
-            return std::make_shared<cpu::ShapeCompute>(info);
           });
       registry->Register(
           "FillOp",
@@ -112,11 +108,6 @@ BRT_STATIC_KERNEL_REGISTRATION(
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::TopK>(info);
           });
-      // registry->Register(
-      //     "byteir.repeat",
-      //     [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
-      //       return std::make_shared<cpu::Repeat>(info);
-      //     });
       registry->Register(
           "tf.Select",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
@@ -138,6 +129,21 @@ BRT_STATIC_KERNEL_REGISTRATION(
             return std::make_shared<cpu::NextOffsetOpKernel>(info);
           });
       RegisterCommonBuiltinOps(registry);
+    });
+
+// register for experimental kernels
+BRT_STATIC_KERNEL_REGISTRATION(
+    DeviceKind::CPU, ProviderType::BRT, [](KernelRegistry *registry) {
+      registry->Register(
+          "ComputeShapeOp",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::ShapeCompute>(info);
+          });
+      // registry->Register(
+      //     "byteir.repeat",
+      //     [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+      //       return std::make_shared<cpu::Repeat>(info);
+      //     });
     });
 
 } // namespace
