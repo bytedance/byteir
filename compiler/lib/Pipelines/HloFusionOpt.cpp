@@ -31,7 +31,8 @@ using namespace mlir::mhlo;
 namespace {
 void addGenericHloFusionPatterns(OpPassManager &pm,
                                  bool outlineSingleElemwiseOp,
-                                 bool disableFusion, bool outlineCatOp) {
+                                 bool disableFusion, bool outlineCatOp,
+                                 bool outlineDotOp) {
   // Fusion passes
   if (outlineCatOp) {
     pm.addNestedPass<func::FuncOp>(createCatFusionPass());
@@ -42,7 +43,10 @@ void addGenericHloFusionPatterns(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(createIOConvertFusionPass());
 
   pm.addNestedPass<func::FuncOp>(createReductionFusionPass());
-  pm.addNestedPass<func::FuncOp>(createMatmulEpilogueFusionPass());
+  // outline dot ops and use gemm codegen
+  if (outlineDotOp) {
+    pm.addNestedPass<func::FuncOp>(createMatmulEpilogueFusionPass());
+  }
   pm.addNestedPass<func::FuncOp>(createConcatSliceFusionPass());
   // Element fusion (always last?)
   // Note: if outlineSingleElemwiseOp is set, element fusion must be the last
@@ -65,7 +69,8 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
                                     const std::string &entryFunc,
                                     const std::string &target,
                                     bool outlineSingleElemwiseOp,
-                                    bool disableFusion, bool outlineCatOp) {
+                                    bool disableFusion, bool outlineCatOp,
+                                    bool outlineDotOp) {
   addCleanUpExtPassPipeline(pm);
 
   // add fusion patterns
@@ -73,7 +78,7 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
     addCPUHloFusionPatterns(pm, disableFusion);
   } else {
     addGenericHloFusionPatterns(pm, outlineSingleElemwiseOp, disableFusion,
-                                outlineCatOp);
+                                outlineCatOp, outlineDotOp);
   }
 
   // note don't apply sccp
@@ -86,8 +91,8 @@ void createHloFusionOptPipelineImpl(OpPassManager &pm,
 
 void mlir::createHloFusionOptPipeline(
     OpPassManager &pm, const HloFusionOptPipelineOptions &options) {
-  invokeOpPassPipelineBuilder(createHloFusionOptPipelineImpl, pm,
-                              options.entryFunc, options.target,
-                              options.outlineSingleElemwiseOp,
-                              options.disableFusion, options.outlineCatOp);
+  invokeOpPassPipelineBuilder(
+      createHloFusionOptPipelineImpl, pm, options.entryFunc, options.target,
+      options.outlineSingleElemwiseOp, options.disableFusion,
+      options.outlineCatOp, options.outlineDotOp);
 }

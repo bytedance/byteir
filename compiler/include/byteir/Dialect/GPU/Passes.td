@@ -101,6 +101,9 @@ def GPUTensorCoreVectorization : Pass<"gpu-tensorcore-vectorization", "func::Fun
 def GPUPackSharedMemoryAlloc : Pass<"gpu-pack-shared-memory-alloc", "func::FuncOp"> {
   let summary = "Analysis shared memory reuse and pack it into i8 alloc.";
   let constructor = "mlir::createGPUPackSharedMemoryAllocPass()";
+  let dependentDialects = [
+    "nvgpu::NVGPUDialect",
+  ];
 }
 
 //===----------------------------------------------------------------------===//
