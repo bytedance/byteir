@@ -266,7 +266,7 @@ public:
     if (!hasGemmTileConfig(funcOp))
       return;
 
-    auto forallOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOptional)
       return;
 
@@ -316,6 +316,8 @@ public:
     // as we should do synchronization after linalg.copy and before
     // linalg.matmul
     builder.setInsertionPoint(linalgContractOp);
+    builder.create<gpu::BarrierOp>(linalgContractOp.getLoc());
+    builder.setInsertionPointAfter(linalgContractOp);
     builder.create<gpu::BarrierOp>(linalgContractOp.getLoc());
   }
 };

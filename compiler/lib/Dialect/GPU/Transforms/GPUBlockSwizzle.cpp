@@ -94,9 +94,9 @@ makeSwizzledIdsInTritonWay(Location loc, OpBuilder &b, Value x, Value y,
   return {pidN, pidM};
 }
 
-// Only support 2d grid.
-static LogicalResult reorderForallOpMappedTo2DBlock(scf::ForallOp forallOp,
-                                                    unsigned swizzleLogTile) {
+// Only support 2d or 3d grid.
+static LogicalResult reorderForallOpMappedToBlock(scf::ForallOp forallOp,
+                                                  unsigned swizzleLogTile) {
   unsigned swizzleTile = 1 << swizzleLogTile;
   OpBuilder b(forallOp);
 
@@ -110,30 +110,27 @@ static LogicalResult reorderForallOpMappedTo2DBlock(scf::ForallOp forallOp,
   auto loops = newforallOp.getInductionVars();
   auto mapping = newforallOp.getMappingAttr().getValue();
 
-  Value workgroupIdX, workgroupIdY, workgroupCountX, workgroupCountY;
-  // if mapping[0] == gpu::MappingId::DimX, workgroupIdx = loop[0], otherwise
-  // workgroupIdx = loop[1]
-  int64_t dimXMapping = static_cast<int64_t>(gpu::MappingId::DimX);
-  if (mapping[0].cast<gpu::GPUBlockMappingAttr>().getMappingId() ==
-      dimXMapping) {
-    workgroupIdX = loops[0];
-    workgroupIdY = loops[1];
-    workgroupCountX = gridSize[0];
-    workgroupCountY = gridSize[1];
-  } else {
-    workgroupIdX = loops[1];
-    workgroupIdY = loops[0];
-    workgroupCountX = gridSize[1];
-    workgroupCountY = gridSize[0];
+  SmallVector<Value> workgroupCounts(3);
+  SmallVector<Value> workgroupIds(3);
+
+  SmallVector<Value> originWorkgroupIds(3);
+
+  for (auto [mappingId, workgroupCount, workgroupId, originWorkgroupId] :
+       llvm::zip(mapping, gridSize, loops, originLoops)) {
+    auto mappingIdInt =
+        mappingId.cast<gpu::GPUBlockMappingAttr>().getMappingId();
+    workgroupCounts[mappingIdInt] = workgroupCount;
+    workgroupIds[mappingIdInt] = workgroupId;
+    originWorkgroupIds[mappingIdInt] = originWorkgroupId;
   }
 
   auto [swizzledIdX, swizzledIdY] = makeSwizzledIdsInTritonWay(
-      newforallOp.getLoc(), b, workgroupIdX, workgroupIdY, workgroupCountX,
-      workgroupCountY, swizzleTile);
+      newforallOp.getLoc(), b, workgroupIds[0], workgroupIds[1],
+      workgroupCounts[0], workgroupCounts[1], swizzleTile);
 
   IRMapping bvm;
-  bvm.map(originLoops[0], swizzledIdX);
-  bvm.map(originLoops[1], swizzledIdY);
+  bvm.map(originWorkgroupIds[0], swizzledIdX);
+  bvm.map(originWorkgroupIds[1], swizzledIdY);
   for (auto &op : forallOp.getBody()->getOperations()) {
     b.clone(op, bvm);
   }
@@ -154,13 +151,13 @@ public:
       return signalPassFailure();
     }
 
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }
     scf::ForallOp forallOp = *forallOpOptional;
 
-    if (failed(reorderForallOpMappedTo2DBlock(forallOp, swizzleLogTile))) {
+    if (failed(reorderForallOpMappedToBlock(forallOp, swizzleLogTile))) {
       return signalPassFailure();
     }
   }

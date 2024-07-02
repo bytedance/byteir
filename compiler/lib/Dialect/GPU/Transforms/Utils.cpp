@@ -161,7 +161,7 @@ bool isMappedToGPUThreads(Operation *op) {
 // Get the scf.forall op mapped to threadblock.
 // Just for gemm codegen for now.
 //===----------------------------------------------------------------------===//
-std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp) {
+std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp) {
   std::vector<scf::ForallOp> forallOps;
   funcOp.walk([&](scf::ForallOp forallOp) {
     if (isMappedToGPUBlocks(forallOp))

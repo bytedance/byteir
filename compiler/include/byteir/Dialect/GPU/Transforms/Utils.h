@@ -96,7 +96,7 @@ bool isMappedToGPUThreads(Operation *op);
 // Get the ForallOp which mapped to threadblock level in a function.
 // There should be only one valid ForallOp, otherwise the function will return
 // std::nullopt;
-std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp);
+std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp);
 
 // Set a marker attribute on the operation.
 // The marker is represented as a UnitAttr.

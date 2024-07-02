@@ -127,7 +127,7 @@ class RemoveTrivialLoopsPass final
     }
     SmallVector<int64_t, 3> workgroupSize = blockSizeOptional.value();
 
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional)
       return;
     auto forallOp = forallOpOptional.value();

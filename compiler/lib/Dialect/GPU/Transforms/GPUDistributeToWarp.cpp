@@ -202,7 +202,7 @@ public:
 
     SmallVector<int64_t, 3> workgroupSize = optionalWorkgroupSize.value();
 
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }

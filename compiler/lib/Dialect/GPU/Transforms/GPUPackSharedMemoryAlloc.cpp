@@ -272,7 +272,7 @@ public:
     if (!hasGemmTileConfig(funcOp)) {
       return;
     }
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }
