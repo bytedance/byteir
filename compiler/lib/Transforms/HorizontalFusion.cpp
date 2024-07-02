@@ -105,9 +105,9 @@ struct HorizontalFusionPass
   void makeHorizontalFusionPlan(SmallVector<Operation *> &, HFusionPlan &);
   void doHorizontalFusion(HFusionPlan &);
   bool isFusibleAndBenefit(scf::ForallOp pre, scf::ForallOp cur);
-  void collectWRMemref(scf::ForallOp forallOp, SmallVector<Value> &w,
-                       SmallVector<Value> &r);
-  void collectUsePointInBlock(Block *block, SmallVector<Value> &vals,
+  void collectWRMemref(scf::ForallOp forallOp, llvm::SetVector<Value> &w,
+                       llvm::SetVector<Value> &r);
+  void collectUsePointInBlock(Block *block, llvm::SetVector<Value> &vals,
                               llvm::SetVector<Operation *> &usePoints);
 }; // HorizontalFusionPass
 
@@ -164,7 +164,8 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
     }
     // TODO should we align blockNum to multiple 32 to reduce divergence
     int64_t allBlockNums = std::accumulate(blockNums.begin(), blockNums.end(),
-                                           1, std::plus<int64_t>());
+                                           0, std::plus<int64_t>());
+
     auto front = cast<scf::ForallOp>(pattern.front());
     auto loc = front.getLoc();
     builder.setInsertionPoint(front);
@@ -196,8 +197,8 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
     // create condition br one by one
     Value switchValue = builder.create<arith::ConstantIndexOp>(loc, 0);
     for (int64_t i = 0; i < blockNums.size(); ++i) {
-      auto cmp = builder.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
-                                               blockId, bounds[i]);
+      auto cmp = builder.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
+                                               blockId, bounds[i + 1]);
       auto selVal =
           builder.create<arith::SelectOp>(loc, cmp, cstIOne, cstIZero);
       switchValue = builder.create<arith::AddIOp>(loc, switchValue, selVal);
@@ -246,10 +247,10 @@ bool HorizontalFusionPass::isFusibleAndBenefit(scf::ForallOp pre,
   };
 
   // check fusiable
-  SmallVector<Value> preWriteVals;
-  SmallVector<Value> preReadVals;
-  SmallVector<Value> curWriteVals;
-  SmallVector<Value> curReadVals;
+  llvm::SetVector<Value> preWriteVals;
+  llvm::SetVector<Value> preReadVals;
+  llvm::SetVector<Value> curWriteVals;
+  llvm::SetVector<Value> curReadVals;
   // TODO include alias and collect all uses.
   collectWRMemref(pre, preWriteVals, preReadVals);
   collectWRMemref(cur, curWriteVals, curReadVals);
@@ -273,9 +274,10 @@ bool HorizontalFusionPass::isFusibleAndBenefit(scf::ForallOp pre,
 }
 
 void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
-                                           SmallVector<Value> &w,
-                                           SmallVector<Value> &r) {
-  auto collect = [](TypedValue<MemRefType> memref, SmallVector<Value> &chunk) {
+                                           llvm::SetVector<Value> &w,
+                                           llvm::SetVector<Value> &r) {
+  auto collect = [](TypedValue<MemRefType> memref,
+                    llvm::SetVector<Value> &chunk) {
     Value root = memref;
     while (true) {
       if (auto defOp =
@@ -285,9 +287,8 @@ void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
       }
       break;
     }
-    llvm::SetVector<Value> alias;
     SmallVector<Value> worklist;
-    alias.insert(root);
+    chunk.insert(root);
     worklist.push_back(root);
     while (!worklist.empty()) {
       auto val = worklist.pop_back_val();
@@ -295,7 +296,7 @@ void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
         if (auto viewlike = dyn_cast_if_present<ViewLikeOpInterface>(user)) {
           for (auto res : viewlike->getResults()) {
             worklist.push_back(res);
-            alias.insert(res);
+            chunk.insert(res);
           }
         }
       }
@@ -313,7 +314,7 @@ void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
 }
 
 void HorizontalFusionPass::collectUsePointInBlock(
-    Block *block, SmallVector<Value> &vals,
+    Block *block, llvm::SetVector<Value> &vals,
     llvm::SetVector<Operation *> &usePoints) {
   for (auto val : vals) {
     for (auto user : val.getUsers()) {

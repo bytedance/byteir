@@ -51,7 +51,7 @@ void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createGpuLauchSinkIndexComputationsPass());
-  pm.addPass(createPromoteBuffersToStackPass(
+  pm.addNestedPass<func::FuncOp>(createPromoteBuffersToStackPass(
       /*isSmallAlloc =*/[](Value value) {
         return value.getParentRegion()->getParentOfType<gpu::LaunchOp>();
       }));

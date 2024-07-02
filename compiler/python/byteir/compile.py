@@ -117,6 +117,9 @@ def _compile_cuda(
         PassManager.parse("builtin.module(linalg-memref-opt)").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Memref Opt:") if verbose else ...
     with context:
+        PassManager.parse("builtin.module(vector-opt{target=GPU})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Vec Opt:") if verbose else ...
+    with context:
         PassManager.parse("builtin.module(scf-opt)").run(module.operation)
         _print_verbose(module, "// IR Dump After SCF Opt:") if verbose else ...
     with context:
