@@ -1,6 +1,6 @@
-//===- LegalizeGPULaunch.cpp-*-===//
+//===- LegalizeGPULaunch.cpp --------------------------------------------*-===//
 //
-// Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
+// Copyright 2024 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,14 +35,19 @@ namespace {
 static int64_t getSharedMemorySizeInGPULaunch(gpu::LaunchOp op) {
   int64_t sharedMemSizeInBytes = 0;
   op->walk([&](memref::AllocaOp allocaOp) {
-    sharedMemSizeInBytes +=
-        allocaOp.getType().getNumElements() *
-        allocaOp.getType().getElementType().getIntOrFloatBitWidth() / 8;
+    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(allocOp.getType())) {
+
+      sharedMemSizeInBytes +=
+          allocaOp.getType().getNumElements() *
+          allocaOp.getType().getElementType().getIntOrFloatBitWidth() / 8;
+    }
   });
   op->walk([&](memref::AllocOp allocOp) {
-    sharedMemSizeInBytes +=
-        allocOp.getType().getNumElements() *
-        allocOp.getType().getElementType().getIntOrFloatBitWidth() / 8;
+    if (nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(allocOp.getType())) {
+      sharedMemSizeInBytes +=
+          allocOp.getType().getNumElements() *
+          allocOp.getType().getElementType().getIntOrFloatBitWidth() / 8;
+    }
   });
   return sharedMemSizeInBytes;
 }
