@@ -12,7 +12,6 @@
 # limitations under the License.
 # ==============================================================================
 
-from torch_e2e_testing.framework import generate_golden_trace
 from reporting import TestResult
 
 import brt
@@ -24,15 +23,17 @@ from byteir.utils import mlir_type_to_np_dtype, np_type_to_torch_type
 import torch
 import numpy as np
 import os
-import shutil
 import traceback
 import time
 from typing import List
 
 np.random.seed(0)
 MLIR_TEST_SPECIAL_INPUTS = {
-    "cpu@log_plus_one.mlir": [
-        np.random.uniform(low=0.5, high=1.0, size=(256, 64)).astype(np.float16)
+    "cpu@log_plus_one_f16.mlir": [
+        np.random.uniform(low=0.5, high=1.0, size=(256, 1)).astype(np.float16)
+    ],
+    "cpu@convert_f32_i32_special_val.mlir": [
+        np.array([[np.inf, -np.inf, np.nan], [1., 999.999, -np.inf]], dtype=np.float32),
     ]
 }
 
@@ -52,7 +53,11 @@ class MLIRDataGenerator:
 
     @property
     def entry_func_name(self) -> str:
-        return self.entry_func.name.value
+        return self.entry_func.name.value    
+
+    def need_special_inputs(self) -> bool:
+        key = self.target + "@" + self.file_base_name
+        return key in MLIR_TEST_SPECIAL_INPUTS
 
     def generate_np_inputs(self) -> List[np.ndarray]:
         key = self.target + "@" + self.file_base_name
@@ -93,78 +98,6 @@ class MLIRDataGenerator:
             )
             outputs.append(torch.empty(shape, dtype=dtype, device=device))
         return outputs
-
-
-def gen_golden_mlir(mhlo_file, target, **kwargs):
-    """
-    Arguements:
-        @param mhlo_file: Source stablehlo/mhlo file.
-        @param target: Target name like `cpu`,`cuda`
-        @param num: Numbers of generated golden in/output, default to 5.
-        @param mode:  The data distribution of inputs.
-        @param low/hing: The range of generated inputs data.
-    """
-
-    def save_np_data(fpath: str, data):
-        np.save(fpath, data)
-
-    try:
-        data_generator = MLIRDataGenerator(mhlo_file, target)
-        func_name = data_generator.entry_func_name
-        unique_name = os.path.basename(mhlo_file).split(".")[0]
-        unique_name = unique_name + "." + target
-        iter_number = kwargs["num"] if "num" in kwargs else 5
-
-        WORK_FOLDER = kwargs["golden_dir"] if "golden_dir" in kwargs else "./local_test"
-        WORK_FOLDER = WORK_FOLDER + f"/{unique_name}"
-        os.makedirs(WORK_FOLDER, exist_ok=True)
-
-        for idx in range(0, iter_number):
-            np_inputs = data_generator.generate_np_inputs()
-
-            # run golden
-            from mhlo_tools.ir_executor import Interpreter
-            interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
-            golden_outputs = interp.call_function(func_name, np_inputs)
-
-            # dump to local file
-            save_np_data(WORK_FOLDER + f"/input_{str(idx)}.npy", np_inputs)
-            save_np_data(WORK_FOLDER + f"/output_{str(idx)}.npy", golden_outputs)
-
-            del np_inputs, golden_outputs
-
-        # byteir compile
-        output_mlir_file_name = f"{WORK_FOLDER}/{unique_name}.rt.mlir"
-        byteir.compile(
-            mhlo_file, output_mlir_file_name, entry_func=func_name, target=target
-        )
-
-        # cp orininal mlir file
-        shutil.copy(
-            mhlo_file,
-            f"{WORK_FOLDER}/{os.path.basename(mhlo_file).split('.')[0]}.stablehlo.mlir",
-        )
-
-    except Exception as e:
-        return TestResult(
-            unique_name=mhlo_file,
-            compilation_error="".join(
-                traceback.format_exception(type(e), e, e.__traceback__)
-            ),
-            runtime_error=None,
-            numerical_error=None,
-            performance_result=None,
-        )
-
-    res = TestResult(
-        unique_name=mhlo_file,
-        compilation_error=None,
-        runtime_error=None,
-        numerical_error=None,
-        performance_result=None,
-    )
-
-    return res
 
 
 class BRTBackend:
@@ -223,7 +156,7 @@ class BRTBackend:
         return ((end - start) * 1000) / run_trials
 
 
-def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="./local_test", unique_name=None, **kwargs):
+def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", unique_name=None, **kwargs):
     try:
         data_generator = MLIRDataGenerator(mhlo_file, target)
         entry_func_name = data_generator.entry_func_name
@@ -251,7 +184,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
         )
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
             ),
@@ -275,7 +208,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
         else:
             avg_time = brt_backend.profile(torch_inputs, torch_outputs)
             return TestResult(
-                unique_name=mhlo_file,
+                unique_name=unique_name,
                 compilation_error=None,
                 runtime_error=None,
                 numerical_error=None,
@@ -283,7 +216,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             )
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
@@ -300,7 +233,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             torch.testing.assert_close(golden, output)
     except Exception as e:
         return TestResult(
-            unique_name=mhlo_file,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error=None,
             numerical_error="".join(
@@ -309,7 +242,7 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
             performance_result=None,
         )
     return TestResult(
-        unique_name=mhlo_file,
+        unique_name=unique_name,
         compilation_error=None,
         runtime_error=None,
         numerical_error=None,
@@ -317,7 +250,8 @@ def compile_and_run_mlir(mhlo_file, target, verbose, mode="numerical", workdir="
     )
 
 
-def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./local_test"):
+def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
+    from torch_e2e_testing.framework import generate_golden_trace
     import torch_frontend
 
     cur_device = get_target_device(target)
@@ -354,7 +288,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
         )
     except Exception as e:
         return TestResult(
-            unique_name=test.unique_name,
+            unique_name=unique_name,
             compilation_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
             ),
@@ -371,7 +305,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
         else:
             avg_time = brt_backend.profile(torch_inputs, torch_outputs)
             return TestResult(
-                unique_name=test.unique_name,
+                unique_name=unique_name,
                 compilation_error=None,
                 runtime_error=None,
                 numerical_error=None,
@@ -379,7 +313,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
             )
     except Exception as e:
         return TestResult(
-            unique_name=test.unique_name,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error="".join(
                 traceback.format_exception(type(e), e, e.__traceback__)
@@ -394,7 +328,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
         torch.testing.assert_close(golden_output, actual_output)
     except Exception as e:
         return TestResult(
-            unique_name=test.unique_name,
+            unique_name=unique_name,
             compilation_error=None,
             runtime_error=None,
             numerical_error="".join(
@@ -403,7 +337,7 @@ def compile_and_run_torch(test, target, verbose, mode="numerical", workdir="./lo
             performance_result=None,
         )
     return TestResult(
-        unique_name=test.unique_name,
+        unique_name=unique_name,
         compilation_error=None,
         runtime_error=None,
         numerical_error=None,

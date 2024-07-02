@@ -61,6 +61,8 @@ public:
 
   std::string GetAttrAsString(const std::string &name) const;
 
+  DTypeEnum GetAttrAsType(const std::string &name) const;
+
   std::vector<int64_t> GetAttrAsIntArray(const std::string &name) const;
 
   template <typename T> bool HasAttrOfSplatValue(const std::string &name) const;

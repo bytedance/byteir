@@ -1,4 +1,5 @@
 // RUN: byteir-opt -hlo-to-byre-tensor --canonicalize --split-input-file %s | FileCheck %s
+// RUN: byteir-opt -hlo-to-byre-tensor="enable-tf32" --canonicalize --split-input-file %s | FileCheck %s --check-prefix TF32
 
 func.func @test_transpose(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32> attributes {__placeholder__byre.entry_point} {
   %0 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<2x2xf32>) -> tensor<2x2xf32>
@@ -158,6 +159,12 @@ func.func @test_mhlo_dot_general_0(%arg0: tensor<128x64xf32>, %arg1: tensor<64x3
 //   CHECK-DAG: lhs_contracting_dimension = 1 : i64
 //   CHECK-DAG: rhs_contracting_dimension = 0 : i64
 
+// TF32-LABEL:   func.func @test_mhlo_dot_general_0
+// TF32:     byre.compute_on_tensor @MatmulOp
+//   TF32-DAG: lhs_contracting_dimension = 1 : i64
+//   TF32-DAG: rhs_contracting_dimension = 0 : i64
+//   TF32-DAG: compute_type = tf32
+
 // -----
 
 func.func @test_dynamic_mhlo_dot_general_0(%arg0: tensor<?x64xf32>, %arg1: tensor<64x32xf32>) -> tensor<?x32xf32> attributes {__placeholder__byre.entry_point} {
@@ -171,6 +178,13 @@ func.func @test_dynamic_mhlo_dot_general_0(%arg0: tensor<?x64xf32>, %arg1: tenso
 // CHECK-NEXT: %[[V1:.*]] = byre.compute_on_tensor @MatmulOp {lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64}
 // CHECK-SAME: ins(%arg0, %arg1 : tensor<?x64xf32>, tensor<64x32xf32>) outs(%[[V0]] : tensor<?x32xf32>) : tensor<?x32xf32>
 
+// TF32-LABEL: func.func @test_dynamic_mhlo_dot_general_0
+// TF32-NEXT: %[[C0:.*]] = arith.constant 0 : index
+// TF32-NEXT: %[[DIM:.*]] = tensor.dim %arg0, %[[C0]] : tensor<?x64xf32>
+// TF32-NEXT: %[[V0:.*]] = tensor.empty(%[[DIM]]) : tensor<?x32xf32>
+// TF32-NEXT: %[[V1:.*]] = byre.compute_on_tensor @MatmulOp {compute_type = tf32, lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64}
+// TF32-SAME: ins(%arg0, %arg1 : tensor<?x64xf32>, tensor<64x32xf32>) outs(%[[V0]] : tensor<?x32xf32>) : tensor<?x32xf32>
+
 // -----
 
 func.func @test_mhlo_dot_general_1(%arg0: tensor<128x64xf32>, %arg1: tensor<64x32xf32>) -> tensor<128x32xf32> attributes {__placeholder__byre.entry_point} {
@@ -181,6 +195,12 @@ func.func @test_mhlo_dot_general_1(%arg0: tensor<128x64xf32>, %arg1: tensor<64x3
 // CHECK:     byre.compute_on_tensor @MatmulOp
 //   CHECK-DAG: lhs_contracting_dimension = 1 : i64
 //   CHECK-DAG: rhs_contracting_dimension = 0 : i64
+
+// TF32-LABEL:   func.func @test_mhlo_dot_general_1
+// TF32:     byre.compute_on_tensor @MatmulOp
+//   TF32-DAG: lhs_contracting_dimension = 1 : i64
+//   TF32-DAG: rhs_contracting_dimension = 0 : i64
+//   TF32-DAG: compute_type = tf32
 
 // -----
 
@@ -196,6 +216,14 @@ func.func @test_dynamic_mhlo_dot_general_1(%arg0: tensor<?x64xf32>, %arg1: tenso
 // CHECK-SAME: {lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64}
 // CHECK-SAME: ins(%arg0, %arg1 : tensor<?x64xf32>, tensor<64x32xf32>) outs(%[[V0]] : tensor<?x32xf32>) : tensor<?x32xf32>
 
+// TF32-LABEL: func.func @test_dynamic_mhlo_dot_general_1
+// TF32-NEXT: %[[C0:.*]] = arith.constant 0 : index
+// TF32-NEXT: %[[DIM:.*]] = tensor.dim %arg0, %[[C0]] : tensor<?x64xf32>
+// TF32-NEXT: %[[V0:.*]] = tensor.empty(%[[DIM]]) : tensor<?x32xf32>
+// TF32-NEXT: %[[V1:.*]] = byre.compute_on_tensor @MatmulOp
+// TF32-SAME: {compute_type = tf32, lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64}
+// TF32-SAME: ins(%arg0, %arg1 : tensor<?x64xf32>, tensor<64x32xf32>) outs(%[[V0]] : tensor<?x32xf32>) : tensor<?x32xf32>
+
 // -----
 
 func.func @test_mhlo_dot_general_2(%arg0: tensor<3x128x64xf32>, %arg1: tensor<3x64x32xf32>) -> tensor<3x128x32xf32> attributes {__placeholder__byre.entry_point} {
@@ -208,6 +236,14 @@ func.func @test_mhlo_dot_general_2(%arg0: tensor<3x128x64xf32>, %arg1: tensor<3x
 //   CHECK-DAG: rhs_batching_dimensions = [0]
 //   CHECK-DAG: lhs_contracting_dimension = 2 : i64
 //   CHECK-DAG: rhs_contracting_dimension = 1 : i64
+
+// TF32-LABEL:   func.func @test_mhlo_dot_general_2
+// TF32:     byre.compute_on_tensor @BatchMatmulOp
+//   TF32-DAG: lhs_batching_dimensions = [0]
+//   TF32-DAG: rhs_batching_dimensions = [0]
+//   TF32-DAG: lhs_contracting_dimension = 2 : i64
+//   TF32-DAG: rhs_contracting_dimension = 1 : i64
+//   TF32-DAG: compute_type = tf32
 
 // -----
 
@@ -222,6 +258,14 @@ func.func @test_dynamic_mhlo_dot_general_2(%arg0: tensor<?x128x64xf32>, %arg1: t
 // CHECK-NEXT: %[[V1:.*]] = byre.compute_on_tensor @BatchMatmulOp
 // CHECK-SAME: {lhs_batching_dimensions = [0], lhs_contracting_dimension = 2 : i64, rhs_batching_dimensions = [0], rhs_contracting_dimension = 1 : i64}
 // CHECK-SAME: ins(%arg0, %arg1 : tensor<?x128x64xf32>, tensor<?x64x32xf32>) outs(%[[V0]] : tensor<?x128x32xf32>) : tensor<?x128x32xf32>
+
+// TF32-LABEL: func.func @test_dynamic_mhlo_dot_general_2
+// TF32-NEXT: %[[C0:.*]] = arith.constant 0 : index
+// TF32-NEXT: %[[DIM:.*]] = tensor.dim %arg0, %[[C0]] : tensor<?x128x64xf32>
+// TF32-NEXT: %[[V0:.*]] = tensor.empty(%[[DIM]]) : tensor<?x128x32xf32>
+// TF32-NEXT: %[[V1:.*]] = byre.compute_on_tensor @BatchMatmulOp
+// TF32-SAME: {compute_type = tf32, lhs_batching_dimensions = [0], lhs_contracting_dimension = 2 : i64, rhs_batching_dimensions = [0], rhs_contracting_dimension = 1 : i64}
+// TF32-SAME: ins(%arg0, %arg1 : tensor<?x128x64xf32>, tensor<?x64x32xf32>) outs(%[[V0]] : tensor<?x128x32xf32>) : tensor<?x128x32xf32>
 
 // -----
 

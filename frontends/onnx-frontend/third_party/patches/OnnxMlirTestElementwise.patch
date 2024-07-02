@@ -1,0 +1,24 @@
+diff --git a/test/mlir/conversion/onnx_to_stablehlo/Math/Elementwise.mlir b/test/mlir/conversion/onnx_to_stablehlo/Math/Elementwise.mlir
+index 733bd440..291987ef 100644
+--- a/test/mlir/conversion/onnx_to_stablehlo/Math/Elementwise.mlir
++++ b/test/mlir/conversion/onnx_to_stablehlo/Math/Elementwise.mlir
+@@ -490,6 +490,19 @@ func.func @test_neg(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+ 
+ // -----
+ 
++func.func @test_not(%arg0 : tensor<10x10xi1>) -> tensor<10x10xi1> {
++  %0 = "onnx.Not"(%arg0) : (tensor<10x10xi1>) -> tensor<10x10xi1>
++  "func.return"(%0) : (tensor<10x10xi1>) -> ()
++}
++
++// CHECK-LABEL:  func.func @test_not
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xi1>) -> tensor<10x10xi1> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.not [[PARAM_0_]] : tensor<10x10xi1>
++// CHECK:           return [[VAR_0_]] : tensor<10x10xi1>
++// CHECK:         }
++
++// -----
++
+ func.func @test_sin(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
+   %0 = "onnx.Sin"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
+   "func.return"(%0) : (tensor<10x10xf32>) -> ()

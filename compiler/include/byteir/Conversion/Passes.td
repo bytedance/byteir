@@ -63,7 +63,11 @@ def HloFusionToLinalg : Pass<"hlo-fusion-to-linalg", "func::FuncOp"> {
     Option<"enablePrimitiveOps", "enable-primitive-ops", "bool",
             /*default=*/"false",
             "Lower to primitive Linalg ops (map, reduce and "
-            "transpose) when possible, instead of linalg.generic">
+            "transpose) when possible, instead of linalg.generic">,
+    Option<"target", "target", "std::string", /*default*/ "",
+           "Specificy the target">,
+    Option<"arch", "arch", "std::string", /*default*/ "",
+           "Specificy the target arch">
   ];
 }
 
@@ -242,6 +246,22 @@ def CollectFuncToLLVM : Pass<"collect-func-to-llvm", "mlir::ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ConvertHloToCat
+//===----------------------------------------------------------------------===//
+
+def ConvertHloToCat : Pass<"convert-hlo-to-cat", "func::FuncOp"> {
+  let summary = "convert hlo ops to cat op.";
+  let constructor = "mlir::createConvertHloToCatPass(/*validCatOps=*/{})";
+  let options = [
+    ListOption<"validCatOps", "valid-cat-ops", "std::string",
+               "List of cat ops could be converted to">,
+  ];
+  let dependentDialects = [
+    "mlir::cat::CatDialect",
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // FuseMhloToCat
 //===----------------------------------------------------------------------===//
 
@@ -282,6 +302,8 @@ def ConvertHloToByreTensor : Pass<"hlo-to-byre-tensor", "func::FuncOp"> {
   let options = [
     Option<"appendArgTypes", "append-arg-types", "bool", /*default=*/"false",
            "append arg types to Byre">,
+    Option<"enableTF32", "enable-tf32", "bool", /*default=*/"false",
+           "enable 1xTF32 on fp32 gemm/bmm">,
   ];
 }
 

@@ -28,6 +28,7 @@ class CompileOptions:
                  byre_serial_version: str = "1.0.0",
                  verbose: bool = False,
                  name: str = "model",
+                 enable_tf32: bool = False,
                  parallelism: int = 1,
                  disable_byteir_ait_cache: bool = False,
                  **kwargs):
@@ -42,6 +43,7 @@ class CompileOptions:
         self.byre_serial_version = byre_serial_version
         self.verbose = verbose
         self.name = name
+        self.enable_tf32 = enable_tf32
         self.parallelism = parallelism
         self.disable_byteir_ait_cache = disable_byteir_ait_cache
         self.kwargs = kwargs
@@ -88,6 +90,7 @@ def _compile_cuda(
     entry_func = compile_options.entry_func
     gpu_arch = compile_options.gpu_arch
     verbose = compile_options.verbose
+    enable_tf32 = compile_options.enable_tf32
 
     output_file_dir = compile_options.output_dir
     output_file_prefix = compile_options.output_file_prefix
@@ -108,7 +111,10 @@ def _compile_cuda(
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
+        if enable_tf32:
+            PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types enable-tf32 {}}})".format(entry_func_str)).run(module.operation)
+        else:
+            PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Tensor Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(byteir-bufferize-opt)").run(module.operation)
@@ -174,6 +180,7 @@ def _compile_cuda_with_ait(
     gpu_arch = compile_options.gpu_arch
     verbose = compile_options.verbose
     name = compile_options.name
+    enable_tf32 = compile_options.enable_tf32
     parallelism = compile_options.parallelism
     disable_byteir_ait_cache = compile_options.disable_byteir_ait_cache
 
@@ -192,7 +199,8 @@ def _compile_cuda_with_ait(
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
 
     processor = IRProcessor(name, 
-                            "./workspace", 
+                            "./workspace",
+                            enable_tf32=enable_tf32,
                             compile_parallelism=parallelism,
                             disable_byteir_ait_cache=disable_byteir_ait_cache,
                             verbose=verbose)
@@ -206,18 +214,17 @@ def _compile_cuda_with_ait(
         pm.run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Hlo Fusion Opt (with Cat):") if verbose else ...
 
-    # generate ait lib .so for subgraphs
-    _, dll_paths = processor.ait_opt_pass(anchor_only=True)
-    # move .so to output dir
-    for dll_path in dll_paths:
-        print("cp -p {} {}".format(dll_path, output_file_dir))
-        os.system("cp -p {} {}".format(dll_path, output_file_dir))
+    # generate ait lib .so for cat functions
+    module = processor.ait_opt_pass(output_file_dir)
 
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(processor.module.operation)
+        if enable_tf32:
+            PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types enable-tf32 {}}})".format(entry_func_str)).run(processor.module.operation)
+        else:
+            PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Byre Tensor Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(byteir-bufferize-opt)").run(processor.module.operation)
@@ -290,14 +297,15 @@ def _compile_cpu(
 
     entry_func_str = "entry-func={}".format(entry_func)
     target_str = "target={}".format(target)
+    arch_str="arch={}".format(cpu_arch)
     with context:
         PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
     with context:
-        PassManager().parse("builtin.module(hlo-fusion-opt{" + entry_func_str + " target={} ".format(target.upper()) + " outline-single-elemwise-op})").run(module.operation)
+        PassManager().parse("builtin.module(hlo-fusion-opt{" + entry_func_str + " " + target_str + " outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Fusion Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(linalg-tensor-opt{" + "target={}".format(target.upper()) + "})").run(module.operation)
+        PassManager.parse("builtin.module(linalg-tensor-opt{" + target_str + " " + arch_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(module.operation)
@@ -362,8 +370,10 @@ def compile(
     entry_func: str = "main",
     target: str = "cuda",
     gpu_arch: str = "local",
+    cpu_arch: str = "x86_64",
     byre_serial_version: str = "1.0.0",
     verbose: bool = False,
+    enable_tf32: bool = False,
     parallelism: int = 1,
     disable_byteir_ait_cache: bool = False,
     **kwargs,
@@ -375,9 +385,12 @@ def compile(
         assert local_gpu_arch is not None, "seems it doesn't have gpu on local"
         gpu_arch = local_gpu_arch
     if _device == "cuda":
+        gpu_arch_num = int(gpu_arch[3:])
+        if enable_tf32:
+            assert gpu_arch_num >= 80, "1xtf32 only support on gpu >= sm_80"
         print(f"Compiling PTX to {gpu_arch}")
     elif _device  == "cpu":
-        print(f"Compiling to cpu backend")
+        print(f"Compiling to {cpu_arch} backend")
 
     ### load from .mlir or .mlirbc
     from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
@@ -414,9 +427,10 @@ def compile(
         output_type=output_type,
         entry_func=entry_func,
         gpu_arch=gpu_arch,
-        cpu_arch='',
+        cpu_arch=cpu_arch,
         byre_serial_version=byre_serial_version,
         verbose=verbose,
+        enable_tf32=enable_tf32,
         parallelism=parallelism,
         disable_byteir_ait_cache=disable_byteir_ait_cache,
         kwargs=kwargs)

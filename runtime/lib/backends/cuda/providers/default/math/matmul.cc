@@ -46,14 +46,14 @@ template <typename T> MatmulImpl<T>::MatmulImpl(const OpAccessor &accessor) {
       accessor.GetAttrAsInt("rhs_contracting_dimension");
   lhs_transpose = (lhs_contracting_dimension == 1 ? false : true);
   rhs_transpose = (rhs_contracting_dimension == 0 ? false : true);
-  output_transpose = accessor.HasAttr("output_transpose");
-  // note: this attribute should sync with byteir
-  compute_on_fp16 = accessor.HasAttr("compute_on_fp16");
   BRT_ENFORCE(accessor.GetArgShape(2) ==
-              brt::matmul::DeduceOutputShape(
-                  shape_a, shape_b, lhs_contracting_dimension,
-                  rhs_contracting_dimension, output_transpose));
+              brt::matmul::DeduceOutputShape(shape_a, shape_b,
+                                             lhs_contracting_dimension,
+                                             rhs_contracting_dimension));
 
+  if (accessor.HasAttr("compute_type")) {
+    compute_type = accessor.GetAttrAsType("compute_type");
+  }
   if (!lhs_transpose) {
     m = shape_a[0];
     k = shape_a[1];
@@ -72,132 +72,93 @@ template <>
 void MatmulImpl<float>::Execute(const float *a_val, const float *b_val,
                                 float *c_val, cublasHandle_t handle,
                                 cudaStream_t) {
-  if (!output_transpose) {
-    if (!lhs_transpose && !rhs_transpose) {
-      // CT = (AB)T = BT @ AT
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                                   &alpha, b_val, n, a_val, k, &beta, c_val,
-                                   n));
-    } else if (!lhs_transpose & rhs_transpose) {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
-                                   &alpha, b_val, k, a_val, k, &beta, c_val,
-                                   n));
-    } else if (lhs_transpose & !rhs_transpose) {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
-                                   &alpha, b_val, n, a_val, m, &beta, c_val,
-                                   n));
-    } else {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
-                                   &alpha, b_val, k, a_val, m, &beta, c_val,
-                                   n));
-    }
+  const float alpha = 1.0f, beta = 0.0f;
+  cublasComputeType_t computeType =
+      (this->compute_type == DTypeEnum::TF32 ? CUBLAS_COMPUTE_32F_FAST_TF32
+                                             : CUBLAS_COMPUTE_32F);
+  if (!lhs_transpose && !rhs_transpose) {
+    // CT = (AB)T = BT @ AT
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, n, a_val,
+                                  CUDA_R_32F, k, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
+  } else if (!lhs_transpose & rhs_transpose) {
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, k, a_val,
+                                  CUDA_R_32F, k, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
+  } else if (lhs_transpose & !rhs_transpose) {
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, n, a_val,
+                                  CUDA_R_32F, m, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
   } else {
-    if (!lhs_transpose && !rhs_transpose) {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, m, n, k,
-                                   &alpha, a_val, k, b_val, n, &beta, c_val,
-                                   m));
-    } else if (!lhs_transpose & rhs_transpose) {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, m, n, k,
-                                   &alpha, a_val, k, b_val, k, &beta, c_val,
-                                   m));
-    } else if (lhs_transpose & !rhs_transpose) {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, m, n, k,
-                                   &alpha, a_val, m, b_val, n, &beta, c_val,
-                                   m));
-    } else {
-      BRT_CUBLAS_CHECK(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
-                                   &alpha, a_val, m, b_val, k, &beta, c_val,
-                                   m));
-    }
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
+                                  &alpha, b_val, CUDA_R_32F, k, a_val,
+                                  CUDA_R_32F, m, &beta, c_val, CUDA_R_32F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
   }
+  return;
 }
 
 template <>
 void MatmulImpl<__half>::Execute(const __half *a_val, const __half *b_val,
                                  __half *c_val, cublasHandle_t handle,
                                  cudaStream_t) {
-  if (compute_on_fp16) {
-    __half _alpha = static_cast<__half>(alpha);
-    __half _beta = static_cast<__half>(beta);
-    if (!output_transpose) {
-      if (!lhs_transpose && !rhs_transpose) {
-        // CT = (AB)T = BT @ AT
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
-                                     &_alpha, b_val, n, a_val, k, &_beta, c_val,
-                                     n));
-      } else if (!lhs_transpose & rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
-                                     &_alpha, b_val, k, a_val, k, &_beta, c_val,
-                                     n));
-      } else if (lhs_transpose & !rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
-                                     &_alpha, b_val, n, a_val, m, &_beta, c_val,
-                                     n));
-      } else {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
-                                     &_alpha, b_val, k, a_val, m, &_beta, c_val,
-                                     n));
-      }
+  if (compute_type == DTypeEnum::Float16) {
+    const __half alpha = static_cast<__half>(1.0f);
+    const __half beta = static_cast<__half>(0.0f);
+    cublasComputeType_t computeType = CUBLAS_COMPUTE_16F;
+    if (!lhs_transpose && !rhs_transpose) {
+      // CT = (AB)T = BT @ AT
+      BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                                    &alpha, b_val, CUDA_R_16F, n, a_val,
+                                    CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, n,
+                                    computeType, CUBLAS_GEMM_DEFAULT));
+    } else if (!lhs_transpose & rhs_transpose) {
+      BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
+                                    &alpha, b_val, CUDA_R_16F, k, a_val,
+                                    CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, n,
+                                    computeType, CUBLAS_GEMM_DEFAULT));
+    } else if (lhs_transpose & !rhs_transpose) {
+      BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
+                                    &alpha, b_val, CUDA_R_16F, n, a_val,
+                                    CUDA_R_16F, m, &beta, c_val, CUDA_R_16F, n,
+                                    computeType, CUBLAS_GEMM_DEFAULT));
     } else {
-      if (!lhs_transpose && !rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, m, n, k,
-                                     &_alpha, a_val, k, b_val, n, &_beta, c_val,
-                                     m));
-      } else if (!lhs_transpose & rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, m, n, k,
-                                     &_alpha, a_val, k, b_val, k, &_beta, c_val,
-                                     m));
-      } else if (lhs_transpose & !rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, m, n, k,
-                                     &_alpha, a_val, m, b_val, n, &_beta, c_val,
-                                     m));
-      } else {
-        BRT_CUBLAS_CHECK(cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
-                                     &_alpha, a_val, m, b_val, k, &_beta, c_val,
-                                     m));
-      }
+      BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
+                                    &alpha, b_val, CUDA_R_16F, k, a_val,
+                                    CUDA_R_16F, m, &beta, c_val, CUDA_R_16F, n,
+                                    computeType, CUBLAS_GEMM_DEFAULT));
     }
-  } else {
-    // compute on fp32
-    if (!output_transpose) {
-      if (!lhs_transpose && !rhs_transpose) {
-        // CT = (AB)T = BT @ AT
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k, &alpha, b_val,
-            CUDA_R_16F, n, a_val, CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, n));
-      } else if (!lhs_transpose & rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k, &alpha, b_val,
-            CUDA_R_16F, k, a_val, CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, n));
-      } else if (lhs_transpose & !rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k, &alpha, b_val,
-            CUDA_R_16F, n, a_val, CUDA_R_16F, m, &beta, c_val, CUDA_R_16F, n));
-      } else {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k, &alpha, b_val,
-            CUDA_R_16F, k, a_val, CUDA_R_16F, m, &beta, c_val, CUDA_R_16F, n));
-      }
-    } else {
-      if (!lhs_transpose && !rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_T, CUBLAS_OP_T, m, n, k, &alpha, a_val,
-            CUDA_R_16F, k, b_val, CUDA_R_16F, n, &beta, c_val, CUDA_R_16F, m));
-      } else if (!lhs_transpose & rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_T, CUBLAS_OP_N, m, n, k, &alpha, a_val,
-            CUDA_R_16F, k, b_val, CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, m));
-      } else if (lhs_transpose & !rhs_transpose) {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, &alpha, a_val,
-            CUDA_R_16F, m, b_val, CUDA_R_16F, n, &beta, c_val, CUDA_R_16F, m));
-      } else {
-        BRT_CUBLAS_CHECK(cublasSgemmEx(
-            handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alpha, a_val,
-            CUDA_R_16F, m, b_val, CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, m));
-      }
-    }
+    return;
   }
+  // compute on fp32
+  const float alpha = 1.0f, beta = 0.0f;
+  cublasComputeType_t computeType = CUBLAS_COMPUTE_32F;
+  if (!lhs_transpose && !rhs_transpose) {
+    // CT = (AB)T = BT @ AT
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, n, m, k,
+                                  &alpha, b_val, CUDA_R_16F, n, a_val,
+                                  CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
+  } else if (!lhs_transpose & rhs_transpose) {
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_N, n, m, k,
+                                  &alpha, b_val, CUDA_R_16F, k, a_val,
+                                  CUDA_R_16F, k, &beta, c_val, CUDA_R_16F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
+  } else if (lhs_transpose & !rhs_transpose) {
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_T, n, m, k,
+                                  &alpha, b_val, CUDA_R_16F, n, a_val,
+                                  CUDA_R_16F, m, &beta, c_val, CUDA_R_16F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
+  } else {
+    BRT_CUBLAS_CHECK(cublasGemmEx(handle, CUBLAS_OP_T, CUBLAS_OP_T, n, m, k,
+                                  &alpha, b_val, CUDA_R_16F, k, a_val,
+                                  CUDA_R_16F, m, &beta, c_val, CUDA_R_16F, n,
+                                  computeType, CUBLAS_GEMM_DEFAULT));
+  }
+  return;
 }
 
 // instantiate

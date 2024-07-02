@@ -26,8 +26,8 @@ GENERIC_CUSTOM_OPS = [
     "aten.group_norm",
     "aten.native_group_norm",
     "aten.gelu",
-    "aten.argmax",
     "aten.max.dim",
+    "aten.min.dim",
     "aten.one_hot",
     "aten.topk",
 ]

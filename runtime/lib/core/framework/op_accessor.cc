@@ -88,6 +88,13 @@ std::string OpAccessor::GetAttrAsString(const std::string &name) const {
   BRT_THROW("Attribute " + name + " is not set");
 }
 
+DTypeEnum OpAccessor::GetAttrAsType(const std::string &name) const {
+  if (auto attr = info_.GetOperation()->getAttrOfType<TypeAttr>(name)) {
+    return ConvertMLIRTypeToDType(attr.getValue());
+  }
+  BRT_THROW("Attribute " + name + " is not set");
+}
+
 std::vector<int64_t>
 OpAccessor::GetAttrAsIntArray(const std::string &name) const {
   if (auto attrArray = info_.GetOperation()->getAttrOfType<ArrayAttr>(name)) {

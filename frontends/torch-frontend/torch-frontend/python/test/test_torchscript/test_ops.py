@@ -38,6 +38,23 @@ def test_aten_normal_functional():
     assert "NORMAL" in mlir_str
 
 # ==============================================================================
+# uint8
+
+class AtenBitwiseAndUint8Module(torch.nn.Module):
+    def forward(self, x, y):
+        return torch.bitwise_and(x, y)
+
+def test_uint8():
+    input_shape = [1024, 2048]
+    x = torch.randint(0, 256, input_shape, dtype=torch.uint8)
+    y = torch.randint(0, 256, input_shape, dtype=torch.uint8)
+    inputs = [x, y]
+    module = compile(AtenBitwiseAndUint8Module(), inputs, "stablehlo")
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.and" in mlir_str
+    assert "tensor<1024x2048xui8>" in mlir_str
+
+# ==============================================================================
 
 class AtenCudaModule(torch.nn.Module):
     def __init__(self):
@@ -116,6 +133,22 @@ def test_max_dim():
     mlir_str = module.operation.get_asm()
     assert "stablehlo.reduce" in mlir_str
     module_ = compile(MaxDimModule(), inputs, "stablehlo", backend_legal_ops=[])
+    mlir_str_ = module_.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str_
+
+class MinDimModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.min(x, dim=1)[0]
+
+def test_min_dim():
+    inputs = [tu.randn(3, 4)]
+    module = compile(MinDimModule(), inputs, "stablehlo")
+    mlir_str = module.operation.get_asm()
+    assert "stablehlo.reduce" in mlir_str
+    module_ = compile(MinDimModule(), inputs, "stablehlo", backend_legal_ops=[])
     mlir_str_ = module_.operation.get_asm()
     assert "stablehlo.reduce" in mlir_str_
 

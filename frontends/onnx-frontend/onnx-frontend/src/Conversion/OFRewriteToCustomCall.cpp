@@ -384,6 +384,9 @@ Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
     return input;
   Type elemType = inputType.getElementType();
   auto inputShape = inputType.getShape();
+  for (int64_t idx = 0; idx < inputRank; ++idx)
+    if (idx != axis && inputShape[idx] != 1)
+      return input;
   SmallVector<int64_t> outputShape{inputShape[axis]};
   RankedTensorType outputType = RankedTensorType::get(outputShape, elemType);
   Value output = rewriter.create<stablehlo::ReshapeOp>(loc, outputType, input);

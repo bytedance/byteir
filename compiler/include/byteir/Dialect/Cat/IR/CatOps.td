@@ -225,6 +225,18 @@ def Cat_GemmRCRBiasOp : Cat_Op<"gemm_rcr_bias", [Cat_CatOpInterface, Pure]> {
   let hasVerifier = 1;
 }
 
+def Cat_GemmRCRBiasReluOp : Cat_Op<"gemm_rcr_bias_relu", [Cat_CatOpInterface, Pure]> {
+  let summary = "gemm_rcr_bias_relu operator";
+  let description =
+      "bias must be a length (n) vector, given that lhsxrhs is (m, n)";
+  let arguments = (ins AnyTensor : $lhs,
+                       AnyTensor : $rhs,
+                       AnyTensor : $bias);
+  let results = (outs AnyTensor : $output);
+
+  // let hasVerifier = 1;
+}
+
 def Cat_GemmRRROp : Cat_Op<"gemm_rrr", [Cat_CatOpInterface, Pure]> {
   let summary = "gemm_rrr operator";
   let arguments = (ins AnyTensor : $lhs,

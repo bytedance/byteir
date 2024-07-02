@@ -60,7 +60,7 @@ void addCPUAffineOptPasses(OpPassManager &pm) {
 }
 
 void createAffineOptPipelineImpl(OpPassManager &pm, const std::string &target) {
-  if (target == "CPU") {
+  if (target == "cpu") {
     addCPUAffineOptPasses(pm);
   } else {
     addGenericAffineOptPasses(pm);

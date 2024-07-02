@@ -21,6 +21,7 @@
 #include "byteir/Conversion/FuncToByre/FuncToByre.h"
 #include "byteir/Conversion/GPUToNVVM/GPUToNVVM.h"
 #include "byteir/Conversion/HloToByreTensor/HloToByreTensor.h"
+#include "byteir/Conversion/HloToCat/ConvertHloToCat.h"
 #include "byteir/Conversion/HloToCat/FuseHloToCat.h"
 #include "byteir/Conversion/HloToCat/HloToCat.h"
 #include "byteir/Conversion/LcclToByre/LcclToByre.h"

@@ -21,6 +21,7 @@
 
 #include "onnx-frontend/src/Conversion/OFCanonicalizer.hpp"
 #include "onnx-frontend/src/Conversion/OFCheckNonLowered.hpp"
+#include "onnx-frontend/src/Conversion/OFInsertNecessaryCast.hpp"
 #include "onnx-frontend/src/Conversion/OFModifyEntryPoint.hpp"
 #include "onnx-frontend/src/Conversion/OFRewriteCustomOnnxOps.hpp"
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.hpp"

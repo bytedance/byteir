@@ -129,7 +129,7 @@ def get_local_gpu_arch():
     gpu_arch = int(gpu_arch[3:])
     return gpu_arch
 
-def run(target, filter, mode="numerical", verbose=False):
+def run(target, filter, workdir, mode="numerical", verbose=False):
     if target == "dynamo":
         from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
         gpu_arch = get_local_gpu_arch()
@@ -150,20 +150,20 @@ def run(target, filter, mode="numerical", verbose=False):
         if test in GLOBAL_TORCH_TEST_REGISTRY_NAMES:
             results.append(
                 compile_and_run_torch(
-                    GLOBAL_TORCH_TEST_REGISTRY[test], target, verbose, mode
+                    GLOBAL_TORCH_TEST_REGISTRY[test], target, workdir, verbose, mode
                 )
             )
         else:
             if target == "cpu":
                 results.append(
                     compile_and_run_mlir(
-                        os.path.join(CPU_MLIR_TEST_DIR, test), target, verbose, mode
+                        os.path.join(CPU_MLIR_TEST_DIR, test), target, workdir, verbose, mode
                     )
                 )
             else:
                 results.append(
                     compile_and_run_mlir(
-                        os.path.join(CUDA_MLIR_TEST_DIR, test), target, verbose, mode
+                        os.path.join(CUDA_MLIR_TEST_DIR, test), target, workdir, verbose, mode
                     )
                 )
     return results
@@ -211,7 +211,13 @@ def parse_args():
         "--verbose",
         default=False,
         action="store_true",
-        help="report test results with additional detail",
+        help="Report test results with additional detail",
+    )
+    parser.add_argument(
+        "--workdir",
+        type=str,
+        default="./local_test",
+        help="Work directory to save compiled outputs",
     )
     args = parser.parse_args()
     return args
@@ -223,9 +229,9 @@ def main():
     results = []
     if args.target == "all":
         for target in ["cpu", "cuda", "cuda_with_ait", "dynamo"]:
-            results += run(target, args.filter)
+            results += run(target, args.filter, args.workdir)
     else:
-        results += run(args.target, args.filter, mode=args.mode, verbose=args.verbose)
+        results += run(args.target, args.filter, args.workdir, mode=args.mode, verbose=args.verbose)
 
     failed = report_results(results)
     sys.exit(1 if failed else 0)

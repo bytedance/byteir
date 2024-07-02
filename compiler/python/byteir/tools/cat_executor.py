@@ -37,17 +37,9 @@ def generate_inputs(entry_func: FuncOp):
         # ret.append(np.ones(shape=shape, dtype=dtype))
     return ret
 
-
-if __name__ == "__main__":
-    processor = IRProcessor("model", args.workdir, verbose=args.verbose)
-    with ir.Context() as context:
-        processor.load_from_file(args.input_mlir_path)
-    func = processor.module.body.operations[0]
+def execute_single_func(func: FuncOp, args):
     func_name = func.name.value
     inputs = generate_inputs(func)
-
-    # fuse mhlo to cat
-    processor.cat_opt_pass(anchor_only=True)
 
     if args.mode == "numerical":
         # run cat on arg.backend
@@ -68,3 +60,13 @@ if __name__ == "__main__":
         print(f"cat {args.backend} profile finish")
     else:
         raise NotImplementedError(f"unimplemented mode {args.mode}")
+
+if __name__ == "__main__":
+    processor = IRProcessor("model", args.workdir, verbose=args.verbose)
+    with ir.Context() as context:
+        processor.load_from_file(args.input_mlir_path)
+    # fuse mhlo to cat
+    processor.cat_opt_pass(anchor_only=True)
+
+    func = processor.module.body.operations[0]
+    execute_single_func(func, args)

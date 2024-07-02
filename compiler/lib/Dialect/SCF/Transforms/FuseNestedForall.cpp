@@ -122,7 +122,16 @@ bool isPerfectNestedForall(scf::ForallOp parentForall,
     return false;
   }
 
-  SmallVector<Attribute> mapping;
+  bool parentHasMapping = parentForall.getMapping().has_value();
+  bool nestedHasMapping = nestedForall.getMapping().has_value();
+  if (nestedHasMapping != parentHasMapping) {
+    return false;
+  }
+
+  if (!parentHasMapping && !nestedHasMapping) {
+    return true;
+  }
+
   auto mappingAttrs = llvm::to_vector(parentForall.getMappingAttr());
   mappingAttrs.append(nestedForall.getMappingAttr().begin(),
                       nestedForall.getMappingAttr().end());
@@ -156,14 +165,26 @@ scf::ForallOp fuseNestedForallImpl(scf::ForallOp parentForall,
   mixedUb.append(nestedUb.begin(), nestedUb.end());
   mixedStep.append(nestedStep.begin(), nestedStep.end());
 
-  auto mappingAttrs = llvm::to_vector(parentForall.getMappingAttr());
-  auto nestMappingAttrs = llvm::to_vector(nestedForall.getMappingAttr());
-  mappingAttrs.append(nestMappingAttrs.begin(), nestMappingAttrs.end());
+  SmallVector<Attribute> mappingAttrs;
+  bool parentHasMapping = parentForall.getMapping().has_value();
+  bool nestedHasMapping = nestedForall.getMapping().has_value();
+
+  if (parentHasMapping) {
+    mappingAttrs.append(parentForall.getMappingAttr().begin(),
+                        parentForall.getMappingAttr().end());
+  }
+  if (nestedHasMapping) {
+    mappingAttrs.append(nestedForall.getMappingAttr().begin(),
+                        nestedForall.getMappingAttr().end());
+  }
 
   rewriter.setInsertionPoint(parentForall);
-  auto newForallOp =
-      rewriter.create<scf::ForallOp>(loc, mixedLb, mixedUb, mixedStep, outputs,
-                                     rewriter.getArrayAttr(mappingAttrs));
+  std::optional<ArrayAttr> optionalMapping = std::nullopt;
+  if (mappingAttrs.size() > 0) {
+    optionalMapping = rewriter.getArrayAttr(mappingAttrs);
+  }
+  auto newForallOp = rewriter.create<scf::ForallOp>(
+      loc, mixedLb, mixedUb, mixedStep, outputs, optionalMapping);
   newForallOp.getTerminator()->erase();
 
   Block *parentForallLoopBody = parentForall.getBody();

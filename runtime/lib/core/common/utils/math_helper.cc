@@ -23,8 +23,7 @@ namespace matmul {
 std::vector<int64_t> DeduceOutputShape(const std::vector<int64_t> &lhs_shape,
                                        const std::vector<int64_t> &rhs_shape,
                                        int64_t lhs_contracting_dimension,
-                                       int64_t rhs_contracting_dimension,
-                                       bool output_transpose) {
+                                       int64_t rhs_contracting_dimension) {
   BRT_ENFORCE(lhs_shape.size() == 2, "matmul lhs shape size should be 2");
   BRT_ENFORCE(rhs_shape.size() == 2, "matmul rhs shape size should be 2");
   std::vector<int64_t> dst_shape;
@@ -41,9 +40,6 @@ std::vector<int64_t> DeduceOutputShape(const std::vector<int64_t> &lhs_shape,
     dst_shape.push_back(rhs_shape[0]);
   } else {
     BRT_THROW("invalid rhs_contracting_dimension");
-  }
-  if (output_transpose) {
-    std::reverse(dst_shape.begin(), dst_shape.end());
   }
   return dst_shape;
 }
