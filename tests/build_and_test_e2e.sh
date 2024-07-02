@@ -21,6 +21,18 @@ pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl --force-reinstall
 pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl --force-reinstall
 pip3 install -r $ROOT_PROJ_DIR/frontends/torch-frontend/torch-requirements.txt
 pip3 install flash_attn==2.5.3
+
+# numerical test
 python3 tests/numerical_test/main.py --target all
 rm -rf ./local_test
+
+# profiler test
+python3 tests/numerical_test/profiler.py $ROOT_PROJ_DIR/tests/numerical_test/mlir_tests/cpu_ops/add.mlir --target cpu
+python3 tests/numerical_test/profiler.py $ROOT_PROJ_DIR/tests/numerical_test/mlir_tests/ops/add.mlir --target cuda
+rm -rf ./local_profiling
+
+# generate compitibility test
+python3 tests/numerical_test/gen_brt_tests.py
+rm -rf ./local_golden
+
 popd

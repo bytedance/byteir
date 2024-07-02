@@ -21,8 +21,8 @@ from reporting import report_results
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("input_mlir_path")
-    parser.add_argument("--workdir", type=str, default="./profiling", help="workspace directory")
-    parser.add_argument("--name", type=str, default="model")
+    parser.add_argument("--workdir", type=str, default="./local_profiling", help="workspace directory")
+    parser.add_argument("--name", type=str, default=None)
     parser.add_argument("--target", type=str, default="cuda", choices=["cpu", "cuda", "cuda_with_ait"])
     parser.add_argument("--mode", type=str, default="profile", choices=["numerical", "profile"])
     parser.add_argument("-v", "--verbose", default=False, action="store_true")

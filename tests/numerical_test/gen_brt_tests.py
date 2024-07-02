@@ -23,6 +23,7 @@ import traceback
 import numpy as np
 from execute import MLIRDataGenerator
 from reporting import TestResult, report_results
+from testset import CPU_MLIR_TEST_DIR, CPU_MLIR_TEST_SET, CPU_XFAIL_SET
 import byteir
 
 parser = argparse.ArgumentParser()
@@ -131,8 +132,7 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
 
 
 def gen_mlir_cpu_golden():
-    directory = os.path.dirname(os.path.realpath(__file__))
-    directory = directory + "/mlir_tests/cpu_ops"
+    directory = CPU_MLIR_TEST_DIR
     cpu_target = "cpu"
     os.makedirs(args.output_dir, exist_ok=True)
     golden_dir = f"{args.output_dir}/CPU_BYRE_{args.byre_serial_version.replace('.', '_')}"
@@ -146,7 +146,7 @@ def gen_mlir_cpu_golden():
             continue
         f = os.path.join(directory, filename)
         # checking if it is a file
-        if os.path.isfile(f) and filename not in EXCLUDE_MLIR_CPU_TESTS:
+        if os.path.isfile(f) and filename in (CPU_MLIR_TEST_SET - CPU_XFAIL_SET):
             mlir_tests.append(f)
 
     results = []
