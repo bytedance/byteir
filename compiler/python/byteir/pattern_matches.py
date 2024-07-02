@@ -43,7 +43,7 @@ class PDLPatternWrapper(PDLPatternBase):
 
         @functools.wraps(fn)
         def builder(*args):
-            return pdl.ApplyNativeConstraintOp(fn.__qualname__, args=args)
+            return pdl.ApplyNativeConstraintOp([], fn.__qualname__, args=args)
 
         return builder
 
