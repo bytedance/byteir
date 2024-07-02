@@ -79,7 +79,7 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
     bool isBMM = linalgOp.getNumParallelLoops() == 3;
 
     SmallVector<int64_t, 3> tileSizeConfig = getGemmTileSize(funcOp).value();
-    
+
     auto func = b.create<transform::GetParentOp>(
         pdlV.getType(), pdlV,
         /* isolated_from_above */ false,
