@@ -71,34 +71,26 @@ class BRTBackend:
         return all(self._check(o, g) for o, g in zip(outputs, goldens))
 
 
-def run_and_check_mlir(name, testdir, target):
-    inps_pattern = re.compile(r'inputs\.\d\.npz$')
-    outs_pattern = re.compile(r'outputs\.\d\.npz$')
-    inp_files = [
-        file for file in os.listdir(testdir) if inps_pattern.search(file)
-        and os.path.isfile(os.path.join(testdir, file))
-    ]
-    out_files = [
-        file for file in os.listdir(testdir) if outs_pattern.search(file)
-        and os.path.isfile(os.path.join(testdir, file))
-    ]
-    assert len(inp_files) == len(out_files)
-    brt_file_path = os.path.join(testdir, name + ".rt.mlir")
+def run_and_check_mlir(target, name, inp_files, out_files, byre_file):
 
     _device = None
     if target == "cpu":
         _device = "CPU"
 
-    brt_backend = BRTBackend(device=_device, brt_file_path=brt_file_path)
+    brt_backend = BRTBackend(device=_device, brt_file_path=byre_file)
 
     cmp_res = []
-    for idx in range(len(inp_files)):
-        input_file = os.path.join(testdir, f"inputs.{idx}.npz")
-        target_file = os.path.join(testdir, f"outputs.{idx}.npz")
+    for idx, (input_file, target_file) in enumerate(zip(inp_files, out_files)):
         inp = np.load(input_file, allow_pickle=True)
-        inp = [torch.from_numpy(inp[f]).contiguous().to(_device.lower()) for f in inp.files]
+        inp = [
+            torch.from_numpy(inp[f]).contiguous().to(_device.lower())
+            for f in inp.files
+        ]
         tgt = np.load(target_file, allow_pickle=True)
-        tgt = [torch.from_numpy(tgt[f]).contiguous().to(_device.lower()) for f in tgt.files]
+        tgt = [
+            torch.from_numpy(tgt[f]).contiguous().to(_device.lower())
+            for f in tgt.files
+        ]
         if brt_backend.compare(inp, tgt):
             cmp_res.append(TestResult(name + str(idx), numerical_error=None))
         else:
