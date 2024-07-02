@@ -16,7 +16,7 @@ function install_aitemplate() {
 }
 
 function load_llvm_prebuilt() {
-  LLVM_INSTALL_DIR="/data00/llvm_libraries/b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc/llvm_build"
+  LLVM_INSTALL_DIR="/data00/llvm_libraries/6127f15e5b4834411e8f2e700e25c40490deec35/llvm_build"
 }
 
 function install_mhlo_tools() {

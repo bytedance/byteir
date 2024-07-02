@@ -144,7 +144,7 @@ public:
                           wrapperShapeValueKnowledges);
 
     return inferFunc(op->getContext(), op->getLoc(), range,
-                     op->getAttrDictionary(), op->getRegions(), results);
+                     op->getAttrDictionary(), op->getPropertiesStorage(), op->getRegions(), results);
   }
 };
 
@@ -403,93 +403,6 @@ public:
           this->propagateIfChanged(lattice,
                                    lattice->join(mlir::dataflow::ConstantValue(
                                        outAttr, op->getDialect())));
-        })
-        .template Case<mhlo::ComputeReshapeShapeOp>([&](Operation *op) {
-          mhlo::ComputeReshapeShapeOp computeReshapeShapeOp =
-              dyn_cast<mhlo::ComputeReshapeShapeOp>(op);
-          Value dynamicShapeV = computeReshapeShapeOp.getDynamicShape();
-          auto *boundedShapeValue =
-              this->template getOrCreate<BoundedValueLattice>(dynamicShapeV);
-          boundedShapeValue->useDefSubscribe(this);
-
-          const ShapeValueLattice *product = operands[0];
-          const ShapeValueLattice *shapeValue = operands[1];
-          if (product->getValue().isUninitialized()) {
-            return;
-          }
-          if (shapeValue->getValue().isUninitialized()) {
-            return;
-          }
-          if (boundedShapeValue->getValue().isUninitialized()) {
-            return;
-          }
-
-          if (!product->getValue().getConstantValue()) {
-            return this->setAllToEntryStates(results);
-          }
-          if (!shapeValue->getValue().getConstantValue() &&
-              boundedShapeValue->getValue().isUnknown()) {
-            return this->setAllToEntryStates(results);
-          }
-          Attribute productAttr = product->getValue().getConstantValue();
-          Attribute constShapeAttr = shapeValue->getValue().getConstantValue();
-          Attribute upperShapeAttr = boundedShapeValue->getValue().upper();
-          if (constShapeAttr) {
-            assert(!upperShapeAttr);
-          } else {
-            assert(upperShapeAttr);
-            constShapeAttr = upperShapeAttr;
-          }
-
-          Attribute resAttr = constShapeAttr;
-          ShapeValueLattice *lattice = results[0];
-          // in some cases, the shape in computeReshapeShapeOp is dense<[-1, x,
-          // ....]>, we need calculate firstly
-          do {
-            auto denseInt =
-                dyn_cast_or_null<DenseIntElementsAttr>(constShapeAttr);
-            if (denseInt == nullptr) {
-              break;
-            }
-            auto dataType = dyn_cast<IntegerType>(denseInt.getElementType());
-            // is int32
-            if (dataType == nullptr || dataType.isUnsigned() ||
-                dataType.getWidth() != 32) {
-              break;
-            }
-            llvm::SmallVector<int32_t> shape =
-                llvm::to_vector(denseInt.getValues<int32_t>());
-
-            // check whether has dimSize < 0, aka dynamic in mhlo
-            int cntDynamic = llvm::count_if(
-                shape, [](int32_t dimSize) { return dimSize < 0; });
-
-            if (cntDynamic == 1) {
-              if (auto num = dyn_cast_or_null<IntegerAttr>(productAttr)) {
-                int64_t number = num.getInt();
-                if (number < 0) {
-                  break;
-                }
-
-                int32_t index = K_INITIAL;
-                for (auto elem : llvm::enumerate(shape)) {
-                  if (elem.value() < 0) {
-                    index = elem.index();
-                  } else {
-                    number /= elem.value();
-                  }
-                }
-                assert(index != K_INITIAL);
-                shape[index] = number;
-                resAttr = DenseIntElementsAttr::get(denseInt.getType(), shape);
-              }
-            }
-          } while (0);
-
-          LLVM_DEBUG(llvm::dbgs() << "Folded to constant: " << resAttr << "\n");
-          this->propagateIfChanged(lattice,
-                                   lattice->join(mlir::dataflow::ConstantValue(
-                                       resAttr, op->getDialect())));
         })
         .Default([&](Operation *op) {
           ShapeValueAnalysis<ShapeKnowledgeType>::visitOperation(op, operands,
