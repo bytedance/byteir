@@ -131,6 +131,8 @@ static LogicalResult reorderForallOpMappedToBlock(scf::ForallOp forallOp,
   IRMapping bvm;
   bvm.map(originWorkgroupIds[0], swizzledIdX);
   bvm.map(originWorkgroupIds[1], swizzledIdY);
+  if (mapping.size() == 3)
+    bvm.map(originWorkgroupIds[2], workgroupIds[2]);
   for (auto &op : forallOp.getBody()->getOperations()) {
     b.clone(op, bvm);
   }
