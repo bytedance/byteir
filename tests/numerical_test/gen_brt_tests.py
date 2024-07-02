@@ -19,10 +19,12 @@ import re
 import sys
 import shutil
 import traceback
+import json
 
 import numpy as np
 from execute import MLIRDataGenerator
 from reporting import TestResult, report_results
+from testset import CPU_MLIR_TEST_DIR, CPU_MLIR_TEST_SET, CPU_XFAIL_SET
 import byteir
 
 parser = argparse.ArgumentParser()
@@ -47,11 +49,6 @@ parser.add_argument("--byre_serial_version",
                     help="Byre serialization target version")
 args = parser.parse_args()
 
-# Unsupported ops
-EXCLUDE_MLIR_CPU_TESTS = [
-    "custom_call_tf_UpperBound.mlir",
-    "rng.mlir",
-]
 
 def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
     """
@@ -66,6 +63,8 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
 
     file_base_name = os.path.basename(mhlo_file).split(".")[0]
     unique_name = file_base_name + "." + target
+    json_relative_dir_path = "./" + os.path.basename(golden_dir) + "/" + unique_name
+    json_result = {unique_name : {}}
     try:
         data_generator = MLIRDataGenerator(mhlo_file, target)
         func_name = data_generator.entry_func_name
@@ -77,6 +76,8 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
         if data_generator.need_special_inputs():
             num = 1
 
+        input_file_path = []
+        output_file_path = []
         for idx in range(0, num):
             np_inputs = data_generator.generate_np_inputs()
 
@@ -88,11 +89,16 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
             # dump to local file
             save_np_data(WORK_FOLDER + f"/inputs.{str(idx)}.npz", np_inputs)
             save_np_data(WORK_FOLDER + f"/outputs.{str(idx)}.npz", golden_outputs)
+            input_file_path.append(json_relative_dir_path + f"/inputs.{str(idx)}.npz")
+            output_file_path.append(json_relative_dir_path + f"/outputs.{str(idx)}.npz")
 
             del np_inputs, golden_outputs
+        json_result[unique_name].update({"golden_inputs": input_file_path})
+        json_result[unique_name].update({"golden_outputs": output_file_path})
 
         # byteir compile
         output_mlir_file_name = f"{WORK_FOLDER}/{unique_name}.rt.mlirbc"
+        json_result[unique_name].update({"brt_entry_file" : json_relative_dir_path + f"/{unique_name}.rt.mlirbc"})
         byteir.compile(
             mhlo_file, output_mlir_file_name, entry_func=func_name, target=target
         )
@@ -116,7 +122,7 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
             runtime_error=None,
             numerical_error=None,
             performance_result=None,
-        )
+        ), None
 
     res = TestResult(
         unique_name=unique_name,
@@ -126,13 +132,11 @@ def gen_golden_mlir(mhlo_file, target, golden_dir, num=2):
         performance_result=None,
     )
 
-    return res
-
+    return res, json_result
 
 
 def gen_mlir_cpu_golden():
-    directory = os.path.dirname(os.path.realpath(__file__))
-    directory = directory + "/mlir_tests/cpu_ops"
+    directory = CPU_MLIR_TEST_DIR
     cpu_target = "cpu"
     os.makedirs(args.output_dir, exist_ok=True)
     golden_dir = f"{args.output_dir}/CPU_BYRE_{args.byre_serial_version.replace('.', '_')}"
@@ -146,16 +150,22 @@ def gen_mlir_cpu_golden():
             continue
         f = os.path.join(directory, filename)
         # checking if it is a file
-        if os.path.isfile(f) and filename not in EXCLUDE_MLIR_CPU_TESTS:
+        if os.path.isfile(f) and filename in (CPU_MLIR_TEST_SET - CPU_XFAIL_SET):
             mlir_tests.append(f)
 
     results = []
+    byre_version_str = f"byre{args.byre_serial_version}"
+    json_results = {"cpu" : {byre_version_str : {}}}
     for test in mlir_tests:
         fpath = test
-        res = gen_golden_mlir(fpath,
+        res, key_value = gen_golden_mlir(fpath,
                               cpu_target,
                               golden_dir)
         results.append(res)
+        if key_value is not None:
+            json_results["cpu"][byre_version_str].update(key_value)
+    with open(f"{args.output_dir}/testcase.json", 'w') as f:
+        json.dump(json_results, f, indent=4)
     return results
 
 
