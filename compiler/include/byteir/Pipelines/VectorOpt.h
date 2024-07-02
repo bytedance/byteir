@@ -1,4 +1,5 @@
-//===- VectorOpt.h --------------------------------------------------- C++ ---===//
+//===- VectorOpt.h --------------------------------------------------- C++
+//---===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,11 +35,11 @@ struct VectorOptPipelineOptions
 };
 
 void createVectorOptPipeline(OpPassManager &pm,
-                          const VectorOptPipelineOptions &options);
+                             const VectorOptPipelineOptions &options);
 
 inline void registerVectorOptPipeline() {
-  PassPipelineRegistration<VectorOptPipelineOptions>("vector-opt", "Vector Opt Pipeline",
-                                                  createVectorOptPipeline);
+  PassPipelineRegistration<VectorOptPipelineOptions>(
+      "vector-opt", "Vector Opt Pipeline", createVectorOptPipeline);
 }
 
 } // namespace mlir

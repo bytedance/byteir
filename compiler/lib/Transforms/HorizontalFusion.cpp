@@ -77,6 +77,16 @@ inline bool isByreEntry(func::FuncOp &funcOp) {
       byre::ByreDialect::getEntryPointFunctionAttrName()));
 }
 
+bool isDefInParent(Value val, Operation *parent) {
+  auto defOp = val.getDefiningOp();
+  while (defOp) {
+    if (defOp->getParentOp() == parent)
+      return true;
+    defOp = defOp->getParentOp();
+  }
+  return false;
+}
+
 void moveForwardAlloc(ModuleOp &m) {
   for (auto funcOp : m.getOps<func::FuncOp>()) {
     if (!isByreEntry(funcOp))
@@ -105,9 +115,11 @@ struct HorizontalFusionPass
   void makeHorizontalFusionPlan(SmallVector<Operation *> &, HFusionPlan &);
   void doHorizontalFusion(HFusionPlan &);
   bool isFusibleAndBenefit(scf::ForallOp pre, scf::ForallOp cur);
-  void collectWRMemref(scf::ForallOp forallOp, SmallVector<Value> &w,
-                       SmallVector<Value> &r);
-  void collectUsePointInBlock(Block *block, SmallVector<Value> &vals,
+  void collectWRMemref(scf::ForallOp forallOp, llvm::SetVector<Value> &w,
+                       llvm::SetVector<Value> &r);
+  void collectDirectOperands(scf::ForallOp forallOp,
+                             llvm::SetVector<Operation *> &vals);
+  void collectUsePointInBlock(Block *block, llvm::SetVector<Value> &vals,
                               llvm::SetVector<Operation *> &usePoints);
 }; // HorizontalFusionPass
 
@@ -153,7 +165,7 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
   for (auto pattern : plan) {
     if (pattern.size() < 2)
       continue;
-    // TODO sort forall with shape and instrs count
+    // TODO sort forall with shape and insts count
 
     // merge
     auto root = cast<scf::ForallOp>(pattern.front());
@@ -164,7 +176,8 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
     }
     // TODO should we align blockNum to multiple 32 to reduce divergence
     int64_t allBlockNums = std::accumulate(blockNums.begin(), blockNums.end(),
-                                           1, std::plus<int64_t>());
+                                           0, std::plus<int64_t>());
+
     auto front = cast<scf::ForallOp>(pattern.front());
     auto loc = front.getLoc();
     builder.setInsertionPoint(front);
@@ -192,12 +205,12 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
                                       ValueRange(), front.getMapping());
     builder.setInsertionPointToStart(hFuseForall.getBody());
     auto blockId = hFuseForall.getBody()->getArgument(0);
-    
+
     // create condition br one by one
     Value switchValue = builder.create<arith::ConstantIndexOp>(loc, 0);
     for (int64_t i = 0; i < blockNums.size(); ++i) {
-      auto cmp = builder.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
-                                               blockId, bounds[i]);
+      auto cmp = builder.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
+                                               blockId, bounds[i + 1]);
       auto selVal =
           builder.create<arith::SelectOp>(loc, cmp, cstIOne, cstIZero);
       switchValue = builder.create<arith::AddIOp>(loc, switchValue, selVal);
@@ -206,14 +219,14 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
         llvm::to_vector(llvm::seq<int64_t>(0, blockNums.size()));
     auto switchOp = builder.create<scf::IndexSwitchOp>(
         loc, /*resultTypes*/ TypeRange{}, switchValue, cases, cases.size());
-    
+
     // default region
     {
       Block &defaultBlock = switchOp.getDefaultRegion().emplaceBlock();
       builder.setInsertionPointToStart(&defaultBlock);
       builder.create<scf::YieldOp>(loc);
     }
-    
+
     // case region
     for (int64_t i = 0; i < blockNums.size(); ++i) {
       auto orgForall = cast<scf::ForallOp>(pattern[i]);
@@ -246,13 +259,16 @@ bool HorizontalFusionPass::isFusibleAndBenefit(scf::ForallOp pre,
   };
 
   // check fusiable
-  SmallVector<Value> preWriteVals;
-  SmallVector<Value> preReadVals;
-  SmallVector<Value> curWriteVals;
-  SmallVector<Value> curReadVals;
+  // llvm::SetVector<Value> preWriteVals;
+  // llvm::SetVector<Value> preReadVals;
+  llvm::SetVector<Value> curWriteVals;
+  llvm::SetVector<Value> curReadVals;
   // TODO include alias and collect all uses.
-  collectWRMemref(pre, preWriteVals, preReadVals);
+  // collectWRMemref(pre, preWriteVals, preReadVals);
   collectWRMemref(cur, curWriteVals, curReadVals);
+
+  llvm::SetVector<Operation *> directOperands;
+  // collectDirectOperands(cur, directOperands);
 
   llvm::SetVector<Operation *> usePoints;
   collectUsePointInBlock(cur->getParentOp()->getBlock(), curWriteVals,
@@ -261,21 +277,28 @@ bool HorizontalFusionPass::isFusibleAndBenefit(scf::ForallOp pre,
                          usePoints);
 
   auto &domInfo = getAnalysis<DominanceInfo>();
-  auto checkDominace = [&](Operation *op) {
+
+  auto checkUsePointDominace = [&](Operation *op) {
     // just skip checking viewlike ops
     if (isa_and_nonnull<ViewLikeOpInterface>(op))
       return true;
     return domInfo.properlyDominates(op, pre) || domInfo.dominates(cur, op);
   };
-  bool fusiable = llvm::all_of(usePoints, checkDominace);
+
+  auto checkDirectOpdDominace = [&](Operation *op) {
+    return domInfo.properlyDominates(op, pre);
+  };
+
+  bool fusiable = llvm::all_of(usePoints, checkUsePointDominace);
+  fusiable &= llvm::all_of(directOperands, checkDirectOpdDominace);
 
   return fusiable;
 }
 
 void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
-                                           SmallVector<Value> &w,
-                                           SmallVector<Value> &r) {
-  auto collect = [](TypedValue<MemRefType> memref, SmallVector<Value> &chunk) {
+                                           llvm::SetVector<Value> &w,
+                                           llvm::SetVector<Value> &r) {
+  auto collect = [](Value memref, llvm::SetVector<Value> &chunk) {
     Value root = memref;
     while (true) {
       if (auto defOp =
@@ -285,9 +308,8 @@ void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
       }
       break;
     }
-    llvm::SetVector<Value> alias;
     SmallVector<Value> worklist;
-    alias.insert(root);
+    chunk.insert(root);
     worklist.push_back(root);
     while (!worklist.empty()) {
       auto val = worklist.pop_back_val();
@@ -295,7 +317,7 @@ void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
         if (auto viewlike = dyn_cast_if_present<ViewLikeOpInterface>(user)) {
           for (auto res : viewlike->getResults()) {
             worklist.push_back(res);
-            alias.insert(res);
+            chunk.insert(res);
           }
         }
       }
@@ -310,10 +332,59 @@ void HorizontalFusionPass::collectWRMemref(scf::ForallOp forallOp,
     auto memref = store.getMemref();
     collect(memref, w);
   });
+
+  forallOp->walk([&](Operation *op) {
+    if (!isa<memref::MemRefDialect>(op->getDialect()))
+      return WalkResult::advance();
+    for (auto opd : op->getOperands()) {
+      if (isDefInParent(opd, forallOp.getOperation()))
+        continue;
+      bool readEffect = false;
+      if (auto opInter = dyn_cast<MemoryEffectOpInterface>(op)) {
+        if (opInter.getEffectOnValue<MemoryEffects::Read>(opd).has_value()) {
+          readEffect = true;
+        }
+      }
+      if (readEffect)
+        collect(opd, r);
+      else
+        collect(opd, w);
+    }
+    return WalkResult::advance();
+  });
+}
+
+void HorizontalFusionPass::collectDirectOperands(
+    scf::ForallOp forallOp, llvm::SetVector<Operation *> &vals) {
+  auto collect = [](Value memref, llvm::SetVector<Operation *> &opds) {
+    if (auto def = memref.getDefiningOp())
+      opds.insert(def);
+  };
+
+  forallOp->walk([&](Operation *op) {
+    if (!isa<memref::MemRefDialect>(op->getDialect()))
+      return WalkResult::advance();
+    for (auto opd : op->getOperands()) {
+      if (isDefInParent(opd, forallOp.getOperation()))
+        continue;
+      if (!isa<MemRefType>(opd.getType()))
+        continue;
+      collect(opd, vals);
+    }
+    return WalkResult::advance();
+  });
+  // forallOp->walk([&](memref::LoadOp load) {
+  //  auto memref = load.getMemref();
+  //  collect(memref, vals);
+  //});
+  // forallOp->walk([&](memref::StoreOp store) {
+  //  auto memref = store.getMemref();
+  //  collect(memref, vals);
+  //});
 }
 
 void HorizontalFusionPass::collectUsePointInBlock(
-    Block *block, SmallVector<Value> &vals,
+    Block *block, llvm::SetVector<Value> &vals,
     llvm::SetVector<Operation *> &usePoints) {
   for (auto val : vals) {
     for (auto user : val.getUsers()) {
@@ -350,6 +421,7 @@ void HorizontalFusionPass::runOnOperation() {
   //  move forward alloc.
   //  TODO Infact, one can move more ops.
   moveForwardAlloc(moduleOp);
+  // llvm::dbgs() << "chh dbg alllll:\n" << moduleOp << "\n";
 
   SmallVector<Operation *> candidateForallOps;
   getCandidates(moduleOp, candidateForallOps);

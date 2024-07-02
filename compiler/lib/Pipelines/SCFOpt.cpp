@@ -19,6 +19,7 @@
 
 #include "byteir/Dialect/Linalg/Passes.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgExtToLoops.h"
+#include "byteir/Dialect/SCF/Passes.h"
 #include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
@@ -38,12 +39,16 @@ using namespace mlir::affine;
 namespace {
 void addGenericSCFOptPasses(OpPassManager &pm) {
   // for elementwise op
+#if 0
   GPUTileElementwiseInSCFOptions tileOptions;
   tileOptions.maxBlockSize = 256;
   createGPUTileElementwiseInSCF(pm, tileOptions);
+#endif
 
   pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
   pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
+  // TODO fix scf.for in reduction kernel
+  // pm.addNestedPass<func::FuncOp>(createForToForallPass());
   // lower affine.apply in case there is some
   pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(createLowerAffinePass());
@@ -53,6 +58,14 @@ void addGenericSCFOptPasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       createFuseNestedForallPass(getByteIRReductionFusionAttrName()));
   addCleanUpExtPassPipeline(pm);
+  // for copy op
+#if 1
+  {
+    GPUTileElementwiseInSCFOptions tileOptions;
+    tileOptions.maxBlockSize = 256;
+    createGPUTileElementwiseInSCF(pm, tileOptions);
+  }
+#endif
 }
 
 void addCPUSCFOptPasses(OpPassManager &pm) {

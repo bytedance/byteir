@@ -444,7 +444,8 @@ std::optional<scf::ForOp>
 mlir::createTrivialSCFForIfHaveNone(func::FuncOp funcOp) {
 
   // if having scf::ForOp return nullopt
-  if (!funcOp.getOps<scf::ForOp>().empty() || !funcOp.getOps<scf::ForallOp>().empty()) {
+  if (!funcOp.getOps<scf::ForOp>().empty() ||
+      !funcOp.getOps<scf::ForallOp>().empty()) {
     return std::nullopt;
   }
 

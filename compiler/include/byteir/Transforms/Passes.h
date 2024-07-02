@@ -28,6 +28,7 @@
 #include "byteir/Transforms/FuncTag.h"
 #include "byteir/Transforms/GenericDeviceConfig.h"
 #include "byteir/Transforms/GraphClusteringByDevice.h"
+#include "byteir/Transforms/HorizontalFusion.h"
 #include "byteir/Transforms/InsertUniqueId.h"
 #include "byteir/Transforms/LoopTag.h"
 #include "byteir/Transforms/LoopUnroll.h"
@@ -38,7 +39,6 @@
 #include "byteir/Transforms/SetSpace.h"
 #include "byteir/Transforms/ShapeFuncOutlining.h"
 #include "byteir/Transforms/TryCatchModulePipeline.h"
-#include "byteir/Transforms/HorizontalFusion.h"
 
 namespace mlir {
 

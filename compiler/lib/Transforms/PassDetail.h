@@ -63,7 +63,6 @@ namespace tensor {
 class TensorDialect;
 } // namespace tensor
 
-
 #define GEN_PASS_CLASSES
 #include "byteir/Transforms/Passes.h.inc"
 
