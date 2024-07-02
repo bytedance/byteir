@@ -144,7 +144,8 @@ public:
                           wrapperShapeValueKnowledges);
 
     return inferFunc(op->getContext(), op->getLoc(), range,
-                     op->getAttrDictionary(), op->getPropertiesStorage(), op->getRegions(), results);
+                     op->getAttrDictionary(), op->getPropertiesStorage(),
+                     op->getRegions(), results);
   }
 };
 
