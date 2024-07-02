@@ -13,6 +13,7 @@
 # ==============================================================================
 
 import brt
+from brt.utils import brt_dtype_to_torch_dtype
 
 import torch
 import numpy as np
@@ -20,7 +21,6 @@ import os
 import re
 
 from reporting import TestResult
-from utils import (mlir_type_to_torch_dtype)
 
 
 class BRTBackend:
@@ -47,7 +47,7 @@ class BRTBackend:
         for offset in self.session.get_output_arg_offsets():
             outputs.append(
                 torch.empty(self.session.get_static_shape(offset),
-                            dtype=mlir_type_to_torch_dtype(
+                            dtype=brt_dtype_to_torch_dtype(
                                 self.session.get_data_type(offset)),
                             device=self.device))
         return outputs
