@@ -54,32 +54,38 @@ std::optional<TileConfig> getTileConfig(linalg::TransposeOp transposeOp) {
   if (!isa<IntegerType, FloatType>(elementType))
     return std::nullopt;
 
-  auto dim0 = numLoops - 1;
-  auto dim1 = permutation[numLoops - 1];
+  auto lhsAffineMap =
+      cast<AffineMapAttr>(transposeOp.getIndexingMaps().getValue()[0])
+          .getValue();
+  auto dim1 = numLoops - 1;
+  auto dim0 = lhsAffineMap.getDimPosition(dim1);
 
-  if (inputShape[dim1] < 8 && inputShape[dim0] < 8)
+  auto dim1_size = inputShape[permutation[dim1]];
+  auto dim0_size = inputShape[permutation[dim0]];
+
+  if (dim1_size < 8 && dim0_size < 8)
     return std::nullopt;
 
-  if (inputShape[dim1] % 8 == 0) {
+  if (dim1_size % 8 == 0) {
     tileSizes[dim1] = 8;
-  } else if (inputShape[dim1] % 4 == 0) {
+  } else if (dim1_size % 4 == 0) {
     tileSizes[dim1] = 4;
   } else {
     paddingDimensions.push_back(dim1);
-    int64_t tilSize = dim1 < 4 ? 4 : 8;
+    int64_t tilSize = dim1_size < 4 ? 4 : 8;
     tileSizes[dim1] = tilSize;
-    int64_t splitPoint = inputShape[dim1] - inputShape[dim1] % tilSize;
+    int64_t splitPoint = dim1_size - dim1_size % tilSize;
     if (splitPoint > 0) {
       splitPoints.push_back(std::make_pair(dim1, splitPoint));
     }
   }
 
-  if (inputShape[dim0] % 8 == 0) {
+  if (dim0_size % 8 == 0) {
     tileSizes[dim0] = 8;
   } else {
     paddingDimensions.push_back(dim0);
     tileSizes[dim0] = 8;
-    int64_t splitPoint = inputShape[dim0] - inputShape[dim0] % 8;
+    int64_t splitPoint = dim0_size - dim0_size % 8;
     if (splitPoint > 0) {
       splitPoints.push_back(std::make_pair(dim0, splitPoint));
     }

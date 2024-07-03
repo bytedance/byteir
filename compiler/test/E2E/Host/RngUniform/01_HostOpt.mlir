@@ -28,8 +28,8 @@ module {
     %c3528531795_i64 = arith.constant 3528531795 : i64
     %c12345_i32 = arith.constant 12345 : i32
     %c1103515245_i32 = arith.constant 1103515245 : i32
-    %c1 = arith.constant 1 : index
     %c0 = arith.constant 0 : index
+    %c1 = arith.constant 1 : index
     %c97 = arith.constant 97 : index
     %alloc = memref.alloc() : memref<1x97xf32>
     scf.for %arg2 = %c0 to %c97 step %c1 {
