@@ -14,8 +14,7 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "byteir/Dialect/GPU/Transforms/GPUVectorToGPU.h"
-#include "byteir/Dialect/GPU/Transforms/Utils.h"
+#include "byteir/Conversion/VectorToGPU/GPUVectorToGPU.h"
 #include "mlir/Pass/Pass.h"
 
 #include "mlir/Conversion/VectorToGPU/VectorToGPU.h"
@@ -23,6 +22,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/NVGPU/IR/NVGPUDialect.h"
 #include "mlir/Dialect/NVGPU/Transforms/Transforms.h"
@@ -32,7 +32,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 
-#include "PassDetail.h"
+#include "../PassDetail.h"
 
 using namespace mlir;
 
@@ -40,22 +40,6 @@ using namespace mlir;
 
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
 #define LDBG(X) LLVM_DEBUG(DBGS() << X << "\n")
-
-static void swizzleSharedMemory(func::FuncOp funcOp) {
-  SmallVector<memref::AllocOp> shmAllocOps;
-  funcOp->walk([&](memref::AllocOp allocOp) {
-    // Only apply it to shared memory of input operands.
-    if (!nvgpu::NVGPUDialect::hasSharedMemoryAddressSpace(allocOp.getType()) ||
-        allocOp.getType().getRank() < 2) {
-      return;
-    }
-    shmAllocOps.push_back(allocOp);
-  });
-  for (auto allocOp : shmAllocOps) {
-    (void)nvgpu::optimizeSharedMemoryReadsAndWrites(funcOp,
-                                                    allocOp.getMemref());
-  }
-}
 
 namespace {
 struct GPUVectorToGPUPass : public GPUVectorToGPUBase<GPUVectorToGPUPass> {
@@ -67,12 +51,7 @@ struct GPUVectorToGPUPass : public GPUVectorToGPUBase<GPUVectorToGPUPass> {
 
   void runOnOperation() override {
     auto funcOp = getOperation();
-    // RewritePatternSet flatternpatterns(funcOp.getContext());
-    // populateVectorTransferToGPUMMAPreparationPatterns(flatternpatterns);
-    // if (failed(applyPatternsAndFoldGreedily(funcOp,
-    //                                         std::move(flatternpatterns)))) {
-    //   return signalPassFailure();
-    // }
+
     RewritePatternSet patterns(funcOp.getContext());
     mlir::vector::populateCastAwayVectorLeadingOneDimPatterns(patterns);
     populatePrepareVectorToMMAPatterns(patterns, /*targetMmaSync*/ true);
@@ -121,7 +100,6 @@ struct GPUVectorToGPUPass : public GPUVectorToGPUBase<GPUVectorToGPUPass> {
     if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(pattern)))) {
       return signalPassFailure();
     }
-    // swizzleSharedMemory(funcOp);
   }
 };
 } // namespace

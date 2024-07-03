@@ -24,7 +24,6 @@
 #include "byteir/Dialect/GPU/Transforms/GPUInputSharedMemorySwizzle.h"
 #include "byteir/Dialect/GPU/Transforms/GPUPackSharedMemoryAlloc.h"
 #include "byteir/Dialect/GPU/Transforms/GPUTensorCoreVectorization.h"
-#include "byteir/Dialect/GPU/Transforms/GPUVectorToGPU.h"
 #include "byteir/Dialect/GPU/Transforms/LegalizeGPULaunch.h"
 #include "byteir/Dialect/GPU/Transforms/OptimizeVectorTransfer.h"
 #include "byteir/Dialect/GPU/Transforms/RemoveTrivialLoops.h"

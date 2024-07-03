@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_GPU_TRANSFORMS_GPUVECTORTOGPU_H
-#define BYTEIR_DIALECT_GPU_TRANSFORMS_GPUVECTORTOGPU_H
+#ifndef BYTEIR_CONVERSION_VECTORTOGPU_GPUVECTORTOGPU_H
+#define BYTEIR_CONVERSION_VECTORTOGPU_GPUVECTORTOGPU_H
 
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/StringRef.h"
@@ -31,4 +31,4 @@ std::unique_ptr<OperationPass<func::FuncOp>> createGPUVectorToGPUPass();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_GPU_TRANSFORMS_GPUVECTORTOGPU_H
+#endif // BYTEIR_CONVERSION_VECTORTOGPU_GPUVECTORTOGPU_H

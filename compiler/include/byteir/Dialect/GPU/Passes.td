@@ -107,17 +107,6 @@ def GPUPackSharedMemoryAlloc : Pass<"gpu-pack-shared-memory-alloc", "func::FuncO
 }
 
 //===----------------------------------------------------------------------===//
-// GPUVectorToGPU
-//===----------------------------------------------------------------------===//
-def GPUVectorToGPU : Pass<"gpu-vector-to-gpu", "func::FuncOp"> {
-  let summary = "Transform vector.contract to gpu.mma.sync.";
-  let constructor = "mlir::createGPUVectorToGPUPass()";
-  let dependentDialects = [
-    "nvgpu::NVGPUDialect",
-  ];
-}
-
-//===----------------------------------------------------------------------===//
 // LegalizeGPULaunch
 //===----------------------------------------------------------------------===//
 def LegalizeGPULaunch : Pass<"legalize-gpu-launch", "func::FuncOp"> {

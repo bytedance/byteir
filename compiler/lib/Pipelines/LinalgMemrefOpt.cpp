@@ -18,6 +18,7 @@
 #include "byteir/Pipelines/LinalgMemrefOpt.h"
 
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
+#include "byteir/Conversion/VectorToGPU/GPUVectorToGPU.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/GPU/Passes.h"
 #include "byteir/Dialect/Linalg/Passes.h"
