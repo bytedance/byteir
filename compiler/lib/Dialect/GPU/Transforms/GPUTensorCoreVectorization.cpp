@@ -54,16 +54,15 @@ using namespace mlir::linalg;
 
 namespace {
 
-// static void vectorizeLinalgOps(scf::ForallOp forallOp) {
-static void vectorizeLinalgOps(func::FuncOp forallOp) {
+static void vectorizeLinalgOps(scf::ForallOp forallOp) {
   MLIRContext *context = forallOp.getContext();
   IRRewriter rewriter(context);
   forallOp.walk([&](Operation *op) {
-    if (!isa<linalg::FillOp, linalg::GenericOp, linalg::ContractionOpInterface>(
+    if (hasAnyLinalgTransformationMarker(op, ArrayRef{getVectorizeMarker()}) &&
+        isa<linalg::FillOp, linalg::GenericOp, linalg::ContractionOpInterface>(
             op)) {
-      return WalkResult::advance();
+      (void)linalg::vectorize(rewriter, op);
     }
-    (void)linalg::vectorize(rewriter, op);
     return WalkResult::advance();
   });
 }
@@ -82,7 +81,7 @@ gpuMmaUnrollOrder(vector::ContractionOp contract) {
 
   llvm::SmallDenseSet<int64_t> dims;
   for (AffineExpr expr : contract.getIndexingMapsArray()[0].getResults()) {
-    dims.insert(expr.cast<AffineDimExpr>().getPosition());
+    dims.insert(cast<AffineDimExpr>(expr).getPosition());
   }
   // Then parallel dimensions that are part of Lhs as we want to re-use Lhs.
   for (auto [index, iter] : llvm::enumerate(contract.getIteratorTypes())) {
@@ -335,10 +334,10 @@ struct GPUTensorCoreVectorizationPass
 
     {
       // Step 1(a). Vectorize (linalg to vector).
-      vectorizeLinalgOps(funcOp);
+      vectorizeLinalgOps(forallOp);
       LLVM_DEBUG({
         llvm::dbgs() << "\nAfter vectorizeLinalgOps:\n";
-        funcOp->dump();
+        forallOp->dump();
       });
 
       RewritePatternSet contractionPatterns(context);

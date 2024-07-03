@@ -49,7 +49,7 @@ static constexpr StringRef getCopyRelatedToWorkgroupMemoryMarker() {
   return "__byteir_copy_related_to_workgroup_memory__";
 }
 
-static constexpr StringRef getVectorizeMarker() { return "vectorizeMarker"; }
+static constexpr StringRef getVectorizeMarker() { return "vectorize"; }
 
 static constexpr StringRef getAllocSharedMemoryAMarker() {
   return "__byteir_alloca_matrix_a__";
