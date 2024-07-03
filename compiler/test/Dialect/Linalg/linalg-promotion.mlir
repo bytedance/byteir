@@ -44,6 +44,7 @@ module {
 // CHECK-NEXT:         linalg.copy {__byteir_load_matrix_b__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[SUBVIEW_3]] : memref<32x128xf16, strided<[5376, 1], offset: ?>>) outs(%[[ALLOC_0]] : memref<32x128xf16, #gpu.address_space<workgroup>>)
 // CHECK-NEXT:         gpu.barrier
 // CHECK-NEXT:         linalg.matmul {__byteir_gpu_tile_gemm_0, __byteir_mma__, __byteir_mma_level__ = "Threadblock", __byteir_target__ = "nv_sm_80"} ins(%[[ALLOC_1]], %[[ALLOC_0]] : memref<128x32xf16, #gpu.address_space<workgroup>>, memref<32x128xf16, #gpu.address_space<workgroup>>) outs(%[[ALLOC_2]] : memref<128x128xf16, #gpu.address_space<workgroup>>)
+// CHECK-NEXT:         gpu.barrier
 // CHECK-NEXT:       }
 // CHECK-NEXT:       gpu.barrier
 // CHECK-NEXT:       linalg.copy {__byteir_store_matrix_c__, __internal_linalg_transform__ = "__byteir_copy_related_to_workgroup_memory__"} ins(%[[ALLOC_2]] : memref<128x128xf16, #gpu.address_space<workgroup>>) outs(%[[SUBVIEW]] : memref<128x128xf16, strided<[5376, 1], offset: ?>>)

@@ -61,5 +61,8 @@ func.func @dot_element_prolog(%arg0 : tensor<4x4xf32>, %arg1 : tensor<4x4xf32>, 
 }
 // CHECK-LABEL: func.func @dot_element_prolog
 // CHECK-NEXT:  mhlo.add
-// CHECK-NEXT:  mhlo.dot
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.dot
+// CHECK-NEXT:    mhlo.return
+// CHECK: {__byteir_matmul_epilogue_fusion__}
 // CHECK-NEXT:  return
