@@ -21,20 +21,26 @@ def get_version_file(version_txt_path):
         version = f.readline().strip()
     return version
 
-def get_version_and_generate_version_file(input_version_txt_path, output_version_file_path):
+def get_version_and_generate_version_file(input_version_txt_path, output_version_file_path, cuda_version=None):
     commit_id = get_git_commit(setup_path)
     version = get_version_file(input_version_txt_path)
+
+    if cuda_version is None:
+       version += "+cpu"
+    else:
+       version += "+cu" + cuda_version.replace('.', '')
 
     with open(output_version_file_path, 'w') as f:
         f.write("__version__ = '{}'\n".format(version))
         f.write("git_version = {}\n".format(repr(commit_id)))
     return version
 
+BRT_CUDA_VERSION = os.getenv("BRT_CUDA_VERSION", None)
 
 version_txt = os.path.join(setup_path, "../VERSION_NUMBER")
 version_file = os.path.join(setup_path, "brt", "version.py")
 
-version = get_version_and_generate_version_file(version_txt, version_file)
+version = get_version_and_generate_version_file(version_txt, version_file, BRT_CUDA_VERSION)
 
 maintainer = "ByteIR Team"
 maintainer_email = "byteir@bytedance.com"
