@@ -207,25 +207,84 @@ static GenericFuserConfig config_concat_slice_fuse{
 
 namespace matmul_epilogue {
 
-static bool isInputFP16(Operation *op) {
+// Only support m % 128 == 0 & n % 128 == 0 & k % 32 == 0 for now.
+static bool isValidShape(Operation *op) {
   if (auto dotOp = dyn_cast<mhlo::DotOp>(op)) {
-    for (auto operand : dotOp.getOperands()) {
-      auto tensorType = operand.getType().dyn_cast<RankedTensorType>();
-      if (!tensorType || !tensorType.getElementType().isa<FloatType>() ||
-          tensorType.getElementType().cast<FloatType>().getWidth() != 16) {
-        return false;
-      }
-    }
+    auto lhsType = dyn_cast<RankedTensorType>(dotOp.getLhs().getType());
+    auto rhsType = dyn_cast<RankedTensorType>(dotOp.getRhs().getType());
+    if (!lhsType || !rhsType)
+      return false;
+    auto lhsShape = lhsType.getShape();
+    auto rhsShape = rhsType.getShape();
+    if (lhsShape.size() != 2 || rhsShape.size() != 2)
+      return false;
+    if (lhsShape[1] != rhsShape[0])
+      return false;
+    if (lhsShape[0] % 128 != 0 || rhsShape[1] % 128 != 0 ||
+        lhsShape[1] % 32 != 0)
+      return false;
+    return true;
   } else if (auto dotGeneralOp = dyn_cast<mhlo::DotGeneralOp>(op)) {
-    for (auto operand : dotGeneralOp.getOperands()) {
-      auto tensorType = operand.getType().dyn_cast<RankedTensorType>();
-      if (!tensorType || !tensorType.getElementType().isa<FloatType>() ||
-          tensorType.getElementType().cast<FloatType>().getWidth() != 16) {
+    auto lhsType = dyn_cast<RankedTensorType>(dotGeneralOp.getLhs().getType());
+    auto rhsType = dyn_cast<RankedTensorType>(dotGeneralOp.getRhs().getType());
+    if (!lhsType || !rhsType)
+      return false;
+    auto lhsShape = lhsType.getShape();
+    auto rhsShape = rhsType.getShape();
+    int64_t lhsRank = lhsShape.size();
+    int64_t rhsRank = rhsShape.size();
+    // Only support matmul or batchmatmul for now.
+    if (lhsRank < 2 || lhsRank > 3 || rhsRank < 2 || rhsRank > 3)
+      return false;
+    if (lhsRank != rhsRank)
+      return false;
+    mhlo::DotDimensionNumbersAttr dimensionAttr =
+        dotGeneralOp.getDotDimensionNumbersAttr();
+    ArrayRef<int64_t> lhsBatchingDimensions =
+        dimensionAttr.getLhsBatchingDimensions();
+    ArrayRef<int64_t> rhsBatchingDimensions =
+        dimensionAttr.getRhsBatchingDimensions();
+    ArrayRef<int64_t> lhsContractingDimensions =
+        dimensionAttr.getLhsContractingDimensions();
+    ArrayRef<int64_t> rhsContractingDimensions =
+        dimensionAttr.getRhsContractingDimensions();
+    if (lhsContractingDimensions.size() != 1 ||
+        rhsContractingDimensions.size() != 1)
+      return false;
+    int64_t lhsContractingDim = lhsContractingDimensions[0];
+    int64_t rhsContractingDim = rhsContractingDimensions[0];
+    if (lhsShape[lhsContractingDim] % 32 != 0 ||
+        rhsShape[rhsContractingDim] % 32 != 0) {
+      return false;
+    }
+    // BatchMatmul
+    if (lhsBatchingDimensions.size() == 1 &&
+        rhsBatchingDimensions.size() == 1) {
+      int64_t lhsSpatialDim = 3;
+      int64_t rhsSpatialDim = 3;
+      int64_t lhsBatchingDim = lhsBatchingDimensions[0];
+      int64_t rhsBatchingDim = rhsBatchingDimensions[0];
+      lhsSpatialDim -= (lhsBatchingDim + lhsContractingDim);
+      rhsSpatialDim -= (rhsBatchingDim + rhsContractingDim);
+      if (lhsShape[lhsSpatialDim] % 128 != 0 ||
+          rhsShape[rhsSpatialDim] % 128 != 0) {
         return false;
       }
+      return true;
+    } else {
+      // Matmul
+      int64_t lhsSpatialDim = 1;
+      int64_t rhsSpatialDim = 1;
+      lhsSpatialDim -= lhsContractingDim;
+      rhsSpatialDim -= rhsContractingDim;
+      if (lhsShape[lhsSpatialDim] % 128 != 0 ||
+          rhsShape[rhsSpatialDim] % 128 != 0) {
+        return false;
+      }
+      return true;
     }
   }
-  return true;
+  return false;
 }
 
 bool isFusibleCandidate(Operation *op) {
@@ -238,8 +297,7 @@ bool isFusibleCandidate(Operation *op) {
 }
 
 bool isFusibleStart(Operation *op) {
-  // return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
-  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isValidShape(op);
 }
 
 bool isFusibleTrigger(Operation *op) {
@@ -252,8 +310,7 @@ bool isFusibleWith(Operation * /*target*/, Operation * /*start*/) {
 }
 
 bool isValidSingleOp(Operation *op) {
-  // return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isInputFP16(op);
-  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op);
+  return isa<mhlo::DotOp, mhlo::DotGeneralOp>(op) && isValidShape(op);
 }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
