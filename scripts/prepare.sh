@@ -41,5 +41,4 @@ function prepare_for_compiler() {
 function prepare_for_runtime() {
   git submodule update --init --recursive -f external/mlir-hlo external/cutlass external/date external/googletest external/pybind11
   load_llvm_prebuilt
-  copy_external_libs
 }
