@@ -136,7 +136,7 @@ const void *CreateRepeat(brt::ir::ByREBuilder &byre_builder, DTypeEnum dataType,
 // always cuda
 const void *CreatePTXAddOp(brt::ir::ByREBuilder &byre_builder);
 
-const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
+const void *CreateNonZeroOp(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum input_dtype,
                             const std::vector<int64_t> &shape);
 

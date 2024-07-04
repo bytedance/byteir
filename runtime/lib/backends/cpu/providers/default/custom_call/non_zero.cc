@@ -1,4 +1,4 @@
-//===- tf_where.cc ---------------------------------------*--- C++ -*-===//
+//===- non_zero.cc --------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "./tf_where.h"
+#include "./non_zero.h"
 #include "brt/backends/cpu/device/llvm/jit.h"
 #include "brt/core/framework/op_accessor.h"
 #include "brt/core/ir/engine_util.h"
@@ -27,7 +27,7 @@ namespace brt {
 namespace cpu {
 
 template <typename T>
-void TFWhereImpl(const OpAccessor &accessor, WorkQueue *work_queue, int op_id,
+void NonZeroImpl(const OpAccessor &accessor, WorkQueue *work_queue, int op_id,
                  const std::vector<int> &dependency) {
   const auto &shape = accessor.GetArgShape(0);
   const int64_t num_elements = accessor.GetNumElementsOfShape(shape);
@@ -48,7 +48,7 @@ void TFWhereImpl(const OpAccessor &accessor, WorkQueue *work_queue, int op_id,
   });
 }
 
-common::Status TFWhere::RunImpl(const ExecutionContext &ctx) {
+common::Status NonZero::RunImpl(const ExecutionContext &ctx) {
   OpAccessor accessor(info_, ctx.exec_frame);
   // output dtype is constraint to int64 in tf_generated_ops.td by
   //  let results = (outs
@@ -56,12 +56,12 @@ common::Status TFWhere::RunImpl(const ExecutionContext &ctx) {
   //  );
   if (accessor.GetArgDTypeEnum(1) != DTypeEnum::Int64)
     return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                          "tf.Where output tensor not int64 dtype");
+                          "byteir.non_zero output tensor not int64 dtype");
 
   auto data_dtype = accessor.GetArgDTypeEnum(0);
 #define HANDLE_DTYPE(DType)                                                    \
   if (data_dtype == DType) {                                                   \
-    TFWhereImpl<typename DTypeTraits<DType>::type_t>(                          \
+    NonZeroImpl<typename DTypeTraits<DType>::type_t>(                          \
         accessor, ctx.work_queue, info_.GetOpId(), info_.GetDependency());     \
     return common::Status::OK();                                               \
   }
@@ -77,7 +77,7 @@ common::Status TFWhere::RunImpl(const ExecutionContext &ctx) {
 
 #undef HANDLE_DTYPE
   return common::Status(common::StatusCategory::BRT, common::StatusCode::FAIL,
-                        "tf.Where unsupported data type");
+                        "byteir.non_zero unsupported data type");
 }
 
 // instantiate

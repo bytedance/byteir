@@ -1,4 +1,4 @@
-//===- tf_where.h ---------------------------------------------*--- C++ -*-===//
+//===- non_zero.h ---------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,9 +22,9 @@
 namespace brt {
 namespace cpu {
 
-class TFWhere final : public OpKernel {
+class NonZero final : public OpKernel {
 public:
-  explicit TFWhere(const OpKernelInfo &info) : OpKernel(info) {}
+  explicit NonZero(const OpKernelInfo &info) : OpKernel(info) {}
 
   common::Status RunImpl(const ExecutionContext &ctx) override;
 };

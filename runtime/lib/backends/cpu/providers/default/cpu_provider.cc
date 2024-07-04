@@ -17,11 +17,11 @@
 
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 
+#include "./custom_call/non_zero.h"
 #include "./custom_call/repeat.h"
 #include "./custom_call/tf_equal.h"
 #include "./custom_call/tf_select.h"
 #include "./custom_call/tf_string_to_number.h"
-#include "./custom_call/tf_where.h"
 #include "./custom_call/topk.h"
 #include "./llvm/jit.h"
 #include "./math/elementwise_ops.h"
@@ -77,11 +77,6 @@ BRT_STATIC_KERNEL_REGISTRATION(
                 new cpu::Typecvt<DTypeEnum::Float16, DTypeEnum::Float32>(info));
             return kernel;
           });
-      registry->Register(
-          "tf.Where",
-          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
-            return std::make_shared<cpu::TFWhere>(info);
-          });
     });
 
 // statcially register all CPU OpKernels
@@ -127,6 +122,11 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "NextOffset",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::NextOffsetOpKernel>(info);
+          });
+      registry->Register(
+          "byteir.non_zero",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::NonZero>(info);
           });
       RegisterCommonBuiltinOps(registry);
     });
