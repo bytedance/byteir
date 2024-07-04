@@ -37,8 +37,9 @@ void mlir::registerNonZeroInferBoundedReturnTypeComponents() {
         if (!inputShape || !inputShape.hasStaticShape())
           return failure();
 
-        Type type = RankedTensorType::get({inputShape.getNumElements()},
-                                          IntegerType::get(context, 64));
+        Type type = RankedTensorType::get(
+            {inputShape.getNumElements(), inputShape.getRank()},
+            IntegerType::get(context, 64));
         inferredReturnTypes.push_back(cast<ShapedType>(type));
         return success();
       });
