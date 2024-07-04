@@ -30,13 +30,13 @@ func.func @several_ops(%arg0: tensor<?x4xf32> {byteir.bounded_shape = [8, 4]}, %
 //CHECK-NEXT:  %3 = mhlo.add %0, %2 : tensor<?x4xf32, {byteir.bounded_shape = [8, 4]}>
 //CHECK-NEXT:  return %3 : tensor<?x4xf32, {byteir.bounded_shape = [8, 4]}>
 
-func.func @registered_shape_infer(%arg0 : tensor<?x4xf32> {byteir.bounded_shape = [8, 4]}) -> tensor<?xi64> {
-  %0 = "mhlo.custom_call"(%arg0) {call_target_name = "byteir.non_zero"} : (tensor<?x4xf32>) -> tensor<?xi64>
-  return %0 : tensor<?xi64>
+func.func @registered_shape_infer(%arg0 : tensor<?x4xf32> {byteir.bounded_shape = [8, 4]}) -> tensor<?x2xi64> {
+  %0 = "mhlo.custom_call"(%arg0) {call_target_name = "byteir.non_zero"} : (tensor<?x4xf32>) -> tensor<?x2xi64>
+  return %0 : tensor<?x2xi64>
 }
-//CHECK-LABEL: func.func @registered_shape_infer(%arg0: tensor<?x4xf32, {byteir.bounded_shape = [8, 4]}> {byteir.bounded_shape = [8, 4]}) -> tensor<?xi64, {byteir.bounded_shape = [32]}> {
-//CHECK-NEXT: %0 = mhlo.custom_call @byteir.non_zero(%arg0) : (tensor<?x4xf32, {byteir.bounded_shape = [8, 4]}>) -> tensor<?xi64, {byteir.bounded_shape = [32]}>
-//CHECK-NEXT: return %0 : tensor<?xi64, {byteir.bounded_shape = [32]}>
+//CHECK-LABEL: func.func @registered_shape_infer(%arg0: tensor<?x4xf32, {byteir.bounded_shape = [8, 4]}> {byteir.bounded_shape = [8, 4]}) -> tensor<?x2xi64, {byteir.bounded_shape = [32, 2]}> {
+//CHECK-NEXT: %0 = mhlo.custom_call @byteir.non_zero(%arg0) : (tensor<?x4xf32, {byteir.bounded_shape = [8, 4]}>) -> tensor<?x2xi64, {byteir.bounded_shape = [32, 2]}>
+//CHECK-NEXT: return %0 : tensor<?x2xi64, {byteir.bounded_shape = [32, 2]}>
 
 func.func @main_sub_0(%arg0: tensor<?x4xf32> {byteir.bounded_shape = [4, 4]}) -> tensor<?xf32> {
   %0 = mhlo.constant dense<-0.000000e+00> : tensor<f32>
