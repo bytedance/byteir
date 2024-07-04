@@ -62,6 +62,7 @@ namespace {
     cb(addn, AddN, CALL_TARGET_NAME_PREFIX)               \
     cb(one_hot, OneHot, CALL_TARGET_NAME_PREFIX)          \
     cb(repeat, Repeat, CALL_TARGET_NAME_PREFIX)           \
+    cb(non_zero, Where, CALL_TARGET_NAME_PREFIX)          \
     cb(DynamicMaskStitch, DynamicMaskStitch, CALL_TF_TARGET_NAME_PREFIX) \
     cb(DynamicPartition, DynamicPartition, CALL_TF_TARGET_NAME_PREFIX)   \
     cb(DynamicStitch, DynamicStitch, CALL_TF_TARGET_NAME_PREFIX)
@@ -622,6 +623,35 @@ struct RewriteRepeat : public RewritePattern {
 };
 
 //===----------------------------------------------------------------------===//
+// Where Pattern
+//===----------------------------------------------------------------------===//
+struct RewriteWhere : public RewritePattern {
+  RewriteWhere(MLIRContext *context, PatternBenefit benefits = 1)
+      : RewritePattern("tf.Where", benefits, context) {}
+  LogicalResult matchAndRewrite(Operation *op,
+                                PatternRewriter &rewriter) const override {
+    // llvm::outs() << op->getName().getStringRef();
+    assert(op->getName().getStringRef() == "tf.Where");
+    RankedTensorType outType =
+        dyn_cast<RankedTensorType>(op->getResult(0).getType());
+    if (!outType)
+      return failure();
+    llvm::SmallVector<mlir::Type> outTypes{outType};
+    mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
+        op->getLoc(), outTypes, op->getOperands(), getWhereNameWithPrefix(),
+        false, rewriter.getStringAttr(""),
+        mhlo::CustomCallApiVersion{
+            mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL},
+        rewriter.getArrayAttr(ArrayRef<Attribute>{}),
+        mhlo::CustomCallSchedule{mhlo::CustomCallSchedule::NONE}, nullptr,
+        nullptr, rewriter.getArrayAttr(ArrayRef<Attribute>{}));
+    customCallOp->setAttr(getByteIRAttrs(), getCleanAttr(op));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // SimpleReplace Pattern
 //===----------------------------------------------------------------------===//
 
@@ -877,6 +907,8 @@ struct RewriteToCustomCallOpsPass
           std::make_unique<SimpleReplaceDynamicStitch>(context, 1));
       validCustomCallOpSet[getRepeatName()].emplace_back(
           std::make_unique<RewriteRepeat>(context, 1));
+      validCustomCallOpSet[getWhereName()].emplace_back(
+          std::make_unique<RewriteWhere>(context, 1));
 
       RewritePatternSet patterns(context);
       for (auto op : opsSet) {
