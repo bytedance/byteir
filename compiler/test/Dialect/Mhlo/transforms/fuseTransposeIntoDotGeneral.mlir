@@ -7,7 +7,7 @@ func.func @dot_transpose(%arg0: tensor<128x128xf32>, %arg1: tensor<128x30522xf32
 }
 
 // CHECK-LABEL: func.func @dot_transpose
-// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]}
+// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]}>
 // CHECK-NEXT:  return %[[V0]]
 
 // -----
@@ -19,7 +19,7 @@ func.func @dot_general_transpose(%arg0: tensor<128x128xf32>, %arg1: tensor<128x3
 }
 
 // CHECK-LABEL: func.func @dot_general_transpose
-// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<128x30522xf32>, tensor<128x128xf32>) -> tensor<30522x128xf32>
+// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]}> : (tensor<128x30522xf32>, tensor<128x128xf32>) -> tensor<30522x128xf32>
 // CHECK-NEXT:  return %[[V0]]
 
 // -----
@@ -31,7 +31,7 @@ func.func @dot_general_transpose_1(%arg0: tensor<64x128xf32>, %arg1: tensor<128x
 }
 
 // CHECK-LABEL: func.func @dot_general_transpose_1
-// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]} : (tensor<128x30522xf32>, tensor<64x128xf32>) -> tensor<30522x64xf32>
+// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>, precision_config = [#mhlo<precision DEFAULT>, #mhlo<precision DEFAULT>]}> : (tensor<128x30522xf32>, tensor<64x128xf32>) -> tensor<30522x64xf32>
 // CHECK-NEXT:  return %[[V0]]
 
 // -----
@@ -45,7 +45,7 @@ func.func @transpose_transpose_dot_general(%arg0: tensor<2048x2xf32>, %arg1: ten
 }
 
 // CHECK-LABEL: func.func @transpose_transpose_dot_general
-// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<1001x2048xf32>, tensor<2048x2xf32>) -> tensor<1001x2xf32>
+// CHECK-NEXT: %[[V0:.*]] = "mhlo.dot_general"(%arg1, %arg0) <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>}> : (tensor<1001x2048xf32>, tensor<2048x2xf32>) -> tensor<1001x2xf32>
 // CHECK-NEXT:  return %[[V0]]
 
 
@@ -59,8 +59,8 @@ func.func @bmm_rrr(%arg0: tensor<384x256x128xf32>, %arg1: tensor<384x128x64xf32>
 }
 
 //CHECK-LABEL: func.func @bmm_rrr
-// CHECK-NEXT: %[[V0:.*]] = "mhlo.transpose"(%arg0) {permutation = dense<[0, 2, 1]> : tensor<3xi64>} : (tensor<384x256x128xf32>) -> tensor<384x128x256xf32>
-// CHECK-NEXT: %[[V1:.*]] = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<384x256x128xf32>, tensor<384x128x64xf32>) -> tensor<384x256x64xf32>
+// CHECK-NEXT: %[[V0:.*]] = "mhlo.transpose"(%arg0) <{permutation = dense<[0, 2, 1]> : tensor<3xi64>}> : (tensor<384x256x128xf32>) -> tensor<384x128x256xf32>
+// CHECK-NEXT: %[[V1:.*]] = "mhlo.dot_general"(%arg0, %arg1) <{dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>}> : (tensor<384x256x128xf32>, tensor<384x128x64xf32>) -> tensor<384x256x64xf32>
 // CHECK-NEXT: return %[[V0]], %[[V1]]
 
 // -----
@@ -71,7 +71,7 @@ func.func @lhs_transpose_dot(%arg0 : tensor<64x128xf32>, %arg1 : tensor<64x32xf3
     return %1 : tensor<128x32xf32>
 }
 // CHECK-LABEL: func.func @lhs_transpose_dot
-// CHECK-NEXT:  mhlo.dot_general{{.*}}{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>}
+// CHECK-NEXT:  mhlo.dot_general{{.*}} <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>}>
 // CHECK:  return
 
 // -----
@@ -82,7 +82,7 @@ func.func @rhs_transpose_dot(%arg0 : tensor<128x64xf32>, %arg1 : tensor<32x64xf3
     return %1 : tensor<128x32xf32>
 }
 // CHECK-LABEL: func.func @rhs_transpose_dot
-// CHECK-NEXT:  mhlo.dot_general{{.*}}{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [1]>}
+// CHECK-NEXT:  mhlo.dot_general{{.*}} <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [1]>}>
 // CHECK:  return
 
 // -----
@@ -94,5 +94,5 @@ func.func @lhs_rhs_transpose_dot(%arg0 : tensor<64x128xf32>, %arg1 : tensor<32x6
     return %2 : tensor<128x32xf32>
 }
 // CHECK-LABEL: func.func @lhs_rhs_transpose_dot
-// CHECK-NEXT:  mhlo.dot_general{{.*}}{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>}
+// CHECK-NEXT:  mhlo.dot_general{{.*}} <{dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>}>
 // CHECK:  return

@@ -8,7 +8,7 @@ module attributes {gpu.container_module}  {
     %0 = memref.collapse_shape %arg0 [[0, 1]] : memref<1x128xi64> into memref<128xi64>
     %1 = memref.alloc() : memref<128xui32>
     %2 = memref.alloc() : memref<128xi64>
-    %3 = memref.expand_shape %2 [[0, 1]] : memref<128xi64> into memref<128x1xi64>
+    %3 = memref.expand_shape %2 [[0, 1]] output_shape [128, 1] : memref<128xi64> into memref<128x1xi64>
     %4 = memref.alloc() : memref<128xi1>
     gpu.launch_func  @Unknown0_kernel::@Unknown0_kernel blocks in (%c4, %c1, %c1) threads in (%c32, %c1, %c1) args(%0 : memref<128xi64>, %1 : memref<128xui32>, %arg1 : memref<128xi64>, %arg2 : memref<128xi64>, %2 : memref<128xi64>, %arg3 : memref<128xf64>, %4 : memref<128xi1>)
     return %1, %3, %4 : memref<128xui32>, memref<128x1xi64>, memref<128xi1>

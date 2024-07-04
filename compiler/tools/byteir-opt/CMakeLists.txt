@@ -51,9 +51,6 @@ set(MHLO_LIBS
   DeallocationPasses
   MLIRBufferTransforms
   MLIRHLOGPUTransforms
-  MLIRHLOAnalysis
-  MLIRHLOTestAnalysis
-  MhloTestAnalysis
   StablehloRegister
   StablehloOps
   ChloOps

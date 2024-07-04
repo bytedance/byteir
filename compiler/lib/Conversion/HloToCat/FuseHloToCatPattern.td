@@ -26,10 +26,10 @@ def OneSize : Constraint<CPred<"$0.size() == 1">, "one size">;
 def TwoSize : Constraint<CPred<"$0.size() == 2">, "two size">;
 def ThreeSize : Constraint<CPred<"$0.size() == 3">, "three size">;
 def FourSize : Constraint<CPred<"$0.size() == 4">, "four size">;
-def OneRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 1">, "one rank">;
-def TwoRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 2">, "two rank">;
-def ThreeRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 3">, "three rank">;
-def FourRank : Constraint<CPred<"$0.getType().cast<ShapedType>().getRank() == 4">, "four rank">;
+def OneRank : Constraint<CPred<"cast<ShapedType>($0.getType()).getRank() == 1">, "one rank">;
+def TwoRank : Constraint<CPred<"cast<ShapedType>($0.getType()).getRank() == 2">, "two rank">;
+def ThreeRank : Constraint<CPred<"cast<ShapedType>($0.getType()).getRank() == 3">, "three rank">;
+def FourRank : Constraint<CPred<"cast<ShapedType>($0.getType()).getRank() == 4">, "four rank">;
 def Permute10Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 1 && $0.getValues<int64_t>()[1] == 0">, "transpose <[1, 0]>">;
 def Permute021Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1">, "bmm 3d permute check (for transpose before bmm)">;
 def Permute0213Check : Constraint<CPred<"$0.getValues<int64_t>()[0] == 0 && $0.getValues<int64_t>()[1] == 2 && $0.getValues<int64_t>()[2] == 1 && $0.getValues<int64_t>()[3] == 3">, "bmm 4d permute check (for transpose after bmm)">;
@@ -39,7 +39,7 @@ def LayoutRrrCheck : Constraint<CPred<"$0.getValue() == \"rrr\"">, "layout rrr c
 
 def GemmBiasAddConstraint
     : Constraint<
-          CPred<"$0.getType().cast<ShapedType>().getShape()[0] == $1.getType().cast<ShapedType>().getShape()[1]">,
+          CPred<"cast<ShapedType>($0.getType()).getShape()[0] == cast<ShapedType>($1.getType()).getShape()[1]">,
           "bias add constraint">;
 
 def IsGemmRCRDimNum
@@ -97,11 +97,11 @@ def MhloBiasCatGemmRCRAddToCatGemmRCRBiasPattern
 //           (Cat_GemmRRRBiasOp $lhs, $rhs, $bias),
 //           [(OneRank $bias), (GemmBiasAddConstraint $bias, $output)]>;
 
-def getDim1Attr : NativeCodeCall<"$_builder.getI64IntegerAttr($0.getType().cast<ShapedType>().getShape()[1])">;
-def getDim2Attr : NativeCodeCall<"$_builder.getI64IntegerAttr($0.getType().cast<ShapedType>().getShape()[2])">;
+def getDim1Attr : NativeCodeCall<"$_builder.getI64IntegerAttr(cast<ShapedType>($0.getType()).getShape()[1])">;
+def getDim2Attr : NativeCodeCall<"$_builder.getI64IntegerAttr(cast<ShapedType>($0.getType()).getShape()[2])">;
 def GemmPermuteShapeCheck
     : Constraint<
-        CPred<"$0.getType().cast<ShapedType>().getShape()[0] * $0.getType().cast<ShapedType>().getShape()[1] == $1.getType().cast<ShapedType>().getShape()[0] && $0.getType().cast<ShapedType>().getShape()[2] * $0.getType().cast<ShapedType>().getShape()[3] == $1.getType().cast<ShapedType>().getShape()[1]">, "gemm permute shape check">;
+        CPred<"cast<ShapedType>($0.getType()).getShape()[0] * cast<ShapedType>($0.getType()).getShape()[1] == cast<ShapedType>($1.getType()).getShape()[0] && cast<ShapedType>($0.getType()).getShape()[2] * cast<ShapedType>($0.getType()).getShape()[3] == cast<ShapedType>($1.getType()).getShape()[1]">, "gemm permute shape check">;
 
 //===----------------------------------------------------------------------===//
 // Mhlo Transpose Dot Transpose To Cat GemmRCRPermute Pattern
@@ -163,7 +163,7 @@ def CheckCCRLayoutFrom3DDotGeneralDimNums
 
 def CheckBMMPermuteShapeSplitOnBatch
     : Constraint<
-          CPred<"$0.getType().cast<ShapedType>().getShape()[0] * $0.getType().cast<ShapedType>().getShape()[1] == $1.getType().cast<ShapedType>().getShape()[0] && $0.getType().cast<ShapedType>().getShape()[2] == $1.getType().cast<ShapedType>().getShape()[1]">,
+          CPred<"cast<ShapedType>($0.getType()).getShape()[0] * cast<ShapedType>($0.getType()).getShape()[1] == cast<ShapedType>($1.getType()).getShape()[0] && cast<ShapedType>($0.getType()).getShape()[2] == cast<ShapedType>($1.getType()).getShape()[1]">,
           "bmm rrr Shape Split On Batch">;
 
 
@@ -407,7 +407,7 @@ def MhloTransposeGemmRRRBiasToGemmRCRBiasPattern
 // support only fuse nhwc layout
 def ConvBiasAddConstraint
     : Constraint<
-          CPred<"*$0.begin() == $1.getType().cast<ShapedType>().getRank() - 1">,
+          CPred<"*$0.begin() == cast<ShapedType>($1.getType()).getRank() - 1">,
           "bias add constraint">;
 
 def LayoutFromConvDimNums : NativeCodeCall<"GetLayoutFromConvDimNums($0, &$_builder)">;

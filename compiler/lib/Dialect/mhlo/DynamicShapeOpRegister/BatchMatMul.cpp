@@ -34,7 +34,8 @@ void mlir::registerBatchMatMulInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       getBatchMatMulName(),
       [](MLIRContext *context, std::optional<Location>,
-         ValueShapeRange operands, DictionaryAttr attr, RegionRange,
+         ValueShapeRange operands, DictionaryAttr attr,
+         OpaqueProperties properties, RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         Value lhs = operands[0];
         Value rhs = operands[1];

@@ -11,27 +11,27 @@ module attributes {byre.container_module} {
   llvm.func @Unknown0(%arg0: !llvm.ptr, %arg1: !llvm.ptr, %arg2: i64, %arg3: i64, %arg4: i64, %arg5: i64, %arg6: i64, %arg7: i64, %arg8: i64, %arg9: i64, %arg10: i64, %arg11: i64, %arg12: i64, %arg13: !llvm.ptr, %arg14: !llvm.ptr, %arg15: i64, %arg16: i64, %arg17: i64) attributes {__byre__kernel_name = "Unknown0", __byre__llvm_file_name = "host_kernels.ll", __byteir_hlo_aggressive_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "LLVMJITOp", byre_force_compute_name, llvm.emit_c_interface} {
     %0 = llvm.mlir.constant(3888 : index) : i64
     %1 = llvm.mlir.constant(3 : index) : i64
-    %2 = llvm.mlir.constant(129600 : index) : i64
-    %3 = llvm.mlir.constant(0 : index) : i64
-    %4 = llvm.mlir.constant(1 : index) : i64
-    %5 = llvm.mlir.constant(388800 : index) : i64
+    %2 = llvm.mlir.addressof @__constant_100x1296xi32 : !llvm.ptr
+    %3 = llvm.mlir.addressof @__constant_100xi32 : !llvm.ptr
+    %4 = llvm.mlir.constant(129600 : index) : i64
+    %5 = llvm.mlir.constant(51200 : index) : i64
     %6 = llvm.mlir.constant(1296 : index) : i64
-    %7 = llvm.mlir.constant(51200 : index) : i64
-    %8 = llvm.mlir.constant(6 : i32) : i32
-    %9 = llvm.mlir.constant(3 : i32) : i32
+    %7 = llvm.mlir.constant(1 : index) : i64
+    %8 = llvm.mlir.constant(388800 : index) : i64
+    %9 = llvm.mlir.constant(0 : index) : i64
     %10 = llvm.mlir.constant(5 : i32) : i32
-    %11 = llvm.mlir.constant(0 : i32) : i32
-    %12 = llvm.mlir.addressof @__constant_100xi32 : !llvm.ptr
-    %13 = llvm.getelementptr %12[0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<100 x i32>
-    %14 = llvm.mlir.addressof @__constant_100x1296xi32 : !llvm.ptr
-    %15 = llvm.getelementptr %14[0, 0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<100 x array<1296 x i32>>
+    %11 = llvm.mlir.constant(6 : i32) : i32
+    %12 = llvm.mlir.constant(3 : i32) : i32
+    %13 = llvm.mlir.constant(0 : i32) : i32
+    %14 = llvm.getelementptr %3[0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<100 x i32>
+    %15 = llvm.getelementptr %2[0, 0, 0] : (!llvm.ptr) -> !llvm.ptr, !llvm.array<100 x array<1296 x i32>>
     %16 = llvm.mlir.zero : !llvm.ptr
     %17 = llvm.getelementptr %16[388800] : (!llvm.ptr) -> !llvm.ptr, i32
     %18 = llvm.ptrtoint %17 : !llvm.ptr to i64
     %19 = llvm.call @malloc(%18) : (i64) -> !llvm.ptr
-    llvm.br ^bb1(%3 : i64)
+    llvm.br ^bb1(%9 : i64)
   ^bb1(%20: i64):  // 2 preds: ^bb0, ^bb2
-    %21 = llvm.icmp "slt" %20, %5 : i64
+    %21 = llvm.icmp "slt" %20, %8 : i64
     llvm.cond_br %21, ^bb2, ^bb3
   ^bb2:  // pred: ^bb1
     %22 = llvm.getelementptr %arg1[%20] : (!llvm.ptr, i64) -> !llvm.ptr, f32
@@ -39,90 +39,90 @@ module attributes {byre.container_module} {
     %24 = llvm.fptosi %23 : f32 to i32
     %25 = llvm.getelementptr %19[%20] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     llvm.store %24, %25 : i32, !llvm.ptr
-    %26 = llvm.add %20, %4  : i64
+    %26 = llvm.add %20, %7 : i64
     llvm.br ^bb1(%26 : i64)
   ^bb3:  // pred: ^bb1
     %27 = llvm.mlir.zero : !llvm.ptr
     %28 = llvm.getelementptr %27[129600] : (!llvm.ptr) -> !llvm.ptr, i32
     %29 = llvm.ptrtoint %28 : !llvm.ptr to i64
     %30 = llvm.call @malloc(%29) : (i64) -> !llvm.ptr
-    llvm.br ^bb4(%3 : i64)
+    llvm.br ^bb4(%9 : i64)
   ^bb4(%31: i64):  // 2 preds: ^bb3, ^bb5
-    %32 = llvm.icmp "slt" %31, %2 : i64
+    %32 = llvm.icmp "slt" %31, %4 : i64
     llvm.cond_br %32, ^bb5, ^bb6
   ^bb5:  // pred: ^bb4
     %33 = llvm.srem %31, %6  : i64
     %34 = llvm.sdiv %31, %6  : i64
     %35 = llvm.getelementptr %19[2] : (!llvm.ptr) -> !llvm.ptr, i32
-    %36 = llvm.mul %34, %0  : i64
-    %37 = llvm.mul %33, %1  : i64
-    %38 = llvm.add %36, %37  : i64
-    %39 = llvm.add %38, %3  : i64
+    %36 = llvm.mul %34, %0 : i64
+    %37 = llvm.mul %33, %1 : i64
+    %38 = llvm.add %36, %37 : i64
+    %39 = llvm.add %38, %9 : i64
     %40 = llvm.getelementptr %35[%39] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %41 = llvm.load %40 : !llvm.ptr -> i32
-    %42 = llvm.mul %34, %0  : i64
-    %43 = llvm.mul %33, %1  : i64
-    %44 = llvm.add %42, %43  : i64
-    %45 = llvm.add %44, %3  : i64
+    %42 = llvm.mul %34, %0 : i64
+    %43 = llvm.mul %33, %1 : i64
+    %44 = llvm.add %42, %43 : i64
+    %45 = llvm.add %44, %9 : i64
     %46 = llvm.getelementptr %19[%45] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %47 = llvm.load %46 : !llvm.ptr -> i32
     %48 = llvm.getelementptr %19[1] : (!llvm.ptr) -> !llvm.ptr, i32
-    %49 = llvm.mul %34, %0  : i64
-    %50 = llvm.mul %33, %1  : i64
-    %51 = llvm.add %49, %50  : i64
-    %52 = llvm.add %51, %3  : i64
+    %49 = llvm.mul %34, %0 : i64
+    %50 = llvm.mul %33, %1 : i64
+    %51 = llvm.add %49, %50 : i64
+    %52 = llvm.add %51, %9 : i64
     %53 = llvm.getelementptr %48[%52] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %54 = llvm.load %53 : !llvm.ptr -> i32
-    %55 = llvm.getelementptr %13[%34] : (!llvm.ptr, i64) -> !llvm.ptr, i32
+    %55 = llvm.getelementptr %14[%34] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %56 = llvm.load %55 : !llvm.ptr -> i32
     %57 = llvm.ashr %54, %10  : i32
-    %58 = llvm.shl %57, %9  : i32
+    %58 = llvm.shl %57, %12 : i32
     %59 = llvm.ashr %47, %10  : i32
-    %60 = llvm.shl %59, %8  : i32
-    %61 = llvm.add %60, %58  : i32
+    %60 = llvm.shl %59, %11 : i32
+    %61 = llvm.add %60, %58 : i32
     %62 = llvm.ashr %41, %10  : i32
-    %63 = llvm.add %62, %61  : i32
-    %64 = llvm.add %63, %56  : i32
-    %65 = llvm.mul %34, %6  : i64
-    %66 = llvm.add %65, %33  : i64
-    %67 = llvm.add %66, %3  : i64
+    %63 = llvm.add %62, %61 : i32
+    %64 = llvm.add %63, %56 : i32
+    %65 = llvm.mul %34, %6 : i64
+    %66 = llvm.add %65, %33 : i64
+    %67 = llvm.add %66, %9 : i64
     %68 = llvm.getelementptr %30[%67] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     llvm.store %64, %68 : i32, !llvm.ptr
-    %69 = llvm.add %31, %4  : i64
+    %69 = llvm.add %31, %7 : i64
     llvm.br ^bb4(%69 : i64)
   ^bb6:  // pred: ^bb4
     llvm.call @free(%19) : (!llvm.ptr) -> ()
-    llvm.br ^bb7(%3 : i64)
+    llvm.br ^bb7(%9 : i64)
   ^bb7(%70: i64):  // 2 preds: ^bb6, ^bb8
-    %71 = llvm.icmp "slt" %70, %7 : i64
-    llvm.cond_br %71, ^bb8, ^bb9(%3 : i64)
+    %71 = llvm.icmp "slt" %70, %5 : i64
+    llvm.cond_br %71, ^bb8, ^bb9(%9 : i64)
   ^bb8:  // pred: ^bb7
     %72 = llvm.getelementptr %arg14[%70] : (!llvm.ptr, i64) -> !llvm.ptr, i32
-    llvm.store %11, %72 : i32, !llvm.ptr
-    %73 = llvm.add %70, %4  : i64
+    llvm.store %13, %72 : i32, !llvm.ptr
+    %73 = llvm.add %70, %7 : i64
     llvm.br ^bb7(%73 : i64)
   ^bb9(%74: i64):  // 2 preds: ^bb7, ^bb10
-    %75 = llvm.icmp "slt" %74, %2 : i64
+    %75 = llvm.icmp "slt" %74, %4 : i64
     llvm.cond_br %75, ^bb10, ^bb11
   ^bb10:  // pred: ^bb9
     %76 = llvm.srem %74, %6  : i64
     %77 = llvm.sdiv %74, %6  : i64
-    %78 = llvm.mul %77, %6  : i64
-    %79 = llvm.add %78, %76  : i64
-    %80 = llvm.add %79, %3  : i64
+    %78 = llvm.mul %77, %6 : i64
+    %79 = llvm.add %78, %76 : i64
+    %80 = llvm.add %79, %9 : i64
     %81 = llvm.getelementptr %30[%80] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %82 = llvm.load %81 : !llvm.ptr -> i32
     %83 = llvm.sext %82 : i32 to i64
     %84 = llvm.getelementptr %arg14[%83] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %85 = llvm.load %84 : !llvm.ptr -> i32
-    %86 = llvm.mul %77, %6  : i64
-    %87 = llvm.add %86, %76  : i64
+    %86 = llvm.mul %77, %6 : i64
+    %87 = llvm.add %86, %76 : i64
     %88 = llvm.getelementptr %15[%87] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     %89 = llvm.load %88 : !llvm.ptr -> i32
-    %90 = llvm.add %85, %89  : i32
+    %90 = llvm.add %85, %89 : i32
     %91 = llvm.getelementptr %arg14[%83] : (!llvm.ptr, i64) -> !llvm.ptr, i32
     llvm.store %90, %91 : i32, !llvm.ptr
-    %92 = llvm.add %74, %4  : i64
+    %92 = llvm.add %74, %7 : i64
     llvm.br ^bb9(%92 : i64)
   ^bb11:  // pred: ^bb9
     llvm.call @free(%30) : (!llvm.ptr) -> ()

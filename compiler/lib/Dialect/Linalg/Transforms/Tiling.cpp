@@ -47,7 +47,7 @@ LogicalResult linalg_ext::TilingInterfaceBaseTilingPattern::matchAndRewriteBase(
   }
 
   FailureOr<scf::SCFTilingResult> res =
-      tileUsingSCFForOp(rewriter, tilableOp, options);
+      tileUsingSCF(rewriter, tilableOp, options);
 
   if (failed(res))
     return res;

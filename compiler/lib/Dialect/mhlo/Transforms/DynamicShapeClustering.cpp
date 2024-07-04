@@ -39,7 +39,7 @@ namespace {
 
 inline bool isShapeOp(Operation *op) {
   return isa<tensor::TensorDialect, shape::ShapeDialect>(op->getDialect()) ||
-         isa<arith::IndexCastOp, mhlo::ComputeReshapeShapeOp>(op);
+         isa<arith::IndexCastOp>(op);
 }
 struct DynamicSourceAnalysis {
   DynamicSourceAnalysis(Operation *op);

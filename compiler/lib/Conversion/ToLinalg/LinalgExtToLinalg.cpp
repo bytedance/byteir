@@ -129,7 +129,7 @@ struct LayerNormOpToLinalgReduceAndGeneric
                   linalg_ext::LayerNormOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     // check op has tensor semantics first
-    if (!op.hasTensorSemantics()) {
+    if (!op.hasPureTensorSemantics()) {
       return failure();
     }
 
@@ -293,7 +293,7 @@ public:
                   linalg_ext::SoftmaxOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     // Check op has tensor semantics here
-    if (!op.hasTensorSemantics()) {
+    if (!op.hasPureTensorSemantics()) {
       return failure();
     }
 

@@ -417,6 +417,7 @@ struct ReshapeGatherPattern : public OpRewritePattern<mhlo::GatherOp> {
         rewriter.getContext(),
         /*offsetDims=*/offsetDims,
         /*collapsedSliceDims=*/collapsedDims,
+        /*operandBatchingDims=*/{}, /*startIndicesBatchingDims=*/{},
         /*startIndexMap=*/startIndexMap,
         /*indexVecDim=*/indexVecDim);
     auto gatherOp = rewriter.create<mhlo::GatherOp>(
