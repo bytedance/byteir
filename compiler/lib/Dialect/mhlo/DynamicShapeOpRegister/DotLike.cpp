@@ -78,10 +78,12 @@ void mlir::registerDotInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::DotOp::getOperationName(),
       [](MLIRContext *context, std::optional<Location> loc,
-         ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
+         ValueShapeRange operands, DictionaryAttr attrs,
+         OpaqueProperties properties, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         return hlo::inferDotOp(
-            loc, operands[0], operands[1],
+            loc, cast<RankedTensorType>(operands[0].getType()),
+            cast<RankedTensorType>(operands[1].getType()),
             attrs.getAs<ArrayAttr>(mhlo::DotOp::getPrecisionConfigAttrName(
                 OperationName(mhlo::DotOp::getOperationName(), context))),
             inferredReturnTypes);
@@ -130,9 +132,11 @@ void mlir::registerDotGeneralInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::DotGeneralOp::getOperationName(),
       [](MLIRContext *context, std::optional<Location> loc,
-         ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
+         ValueShapeRange operands, DictionaryAttr attrs,
+         OpaqueProperties properties, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        mhlo::DotGeneralOp::Adaptor adaptor(operands, attrs, {}, regions);
+        mhlo::DotGeneralOp::Adaptor adaptor(operands, attrs, properties,
+                                            regions);
         auto lhsType = dyn_cast<ShapedType>(operands.getTypes()[0]);
         auto rhsType = dyn_cast<ShapedType>(operands.getTypes()[1]);
         if (!lhsType || !rhsType)

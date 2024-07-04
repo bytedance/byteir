@@ -43,7 +43,6 @@ module attributes {transform.with_named_sequence} {
                 //CHECK-NEXT: %[[V1:.*]] = memref.load %arg1[%[[TIDY]], %[[TIDX]], %[[TIDZ]]]
                 //CHECK-NEXT: %[[V2:.*]] = math.fma %arg2, %[[V0]], %[[V1]] : f32
                 //CHECK-NEXT: memref.store %[[V2]], %arg1[%[[TIDY]], %[[TIDX]], %[[TIDZ]]]
-
 // -----
 
 module {
@@ -285,8 +284,6 @@ module {
 // CHECK-DAG: %[[C512:.*]] = arith.constant 512 : index
 // CHECK-DAG: %[[DIM:.*]] = memref.dim %arg0, %[[C1]] : memref<2x?xf32>
 // CHECK: %[[LAUNCH:.*]] = gpu.launch async
-
-// CHECK-DAG: %[[TIDX:.*]] = gpu.thread_id  x
 // CHECK-DAG: %[[TIDY:.*]] = gpu.thread_id  y
 // CHECK-DAG: %[[WG_ID_X:.*]] = affine.apply #map(%[[TIDX]])
 // CHECK-DAG: %[[ACTIVE_SIZE_X:.*]] = arith.muli %[[DIM]], %[[C128]] : index

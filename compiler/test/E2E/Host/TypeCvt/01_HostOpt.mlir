@@ -11,9 +11,9 @@
 
 module {
   func.func private @Unknown0(%arg0: memref<1x224x224x3xf32>) -> memref<1x224x224x3xf16> attributes {__byteir_hlo_aggressive_fusion__} {
-    %c1 = arith.constant 1 : index
-    %c150528 = arith.constant 150528 : index
     %c0 = arith.constant 0 : index
+    %c150528 = arith.constant 150528 : index
+    %c1 = arith.constant 1 : index
     %alloc = memref.alloc() : memref<1x224x224x3xf16>
     %collapse_shape = memref.collapse_shape %arg0 [[0, 1, 2, 3]] : memref<1x224x224x3xf32> into memref<150528xf32>
     %collapse_shape_0 = memref.collapse_shape %alloc [[0, 1, 2, 3]] : memref<1x224x224x3xf16> into memref<150528xf16>

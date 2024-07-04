@@ -5,9 +5,9 @@
 module attributes {byre.container_module} {
   module attributes {byteir.llvm_module} {
     func.func @Unknown0(%arg0: memref<1x224x224x3xf32>, %arg1: memref<1x224x224x3xf16>) attributes {__byre__kernel_name = "Unknown0", __byre__llvm_file_name = "host_kernels.ll", __byteir_hlo_aggressive_fusion__, arg_offsets = [0 : i32, 1 : i32], byre_compute_name = "LLVMJITOp", byre_force_compute_name, llvm.emit_c_interface} {
-      %c1 = arith.constant 1 : index
-      %c150528 = arith.constant 150528 : index
       %c0 = arith.constant 0 : index
+      %c150528 = arith.constant 150528 : index
+      %c1 = arith.constant 1 : index
       %collapse_shape = memref.collapse_shape %arg0 [[0, 1, 2, 3]] : memref<1x224x224x3xf32> into memref<150528xf32>
       %collapse_shape_0 = memref.collapse_shape %arg1 [[0, 1, 2, 3]] : memref<1x224x224x3xf16> into memref<150528xf16>
       scf.for %arg2 = %c0 to %c150528 step %c1 {

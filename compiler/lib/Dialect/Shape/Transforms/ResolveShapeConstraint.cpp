@@ -60,39 +60,6 @@ struct ResolveShapeConstraintPass
     return ret;
   };
 
-  Knowledge deriveKnowledgeFromShapeValue(Value shapeVal, int index,
-                                          int64_t dimSize) {
-    Operation *op = shapeVal.getDefiningOp();
-    if (!op)
-      return getNullKnowledge();
-    if (auto mhloReshapeOp = llvm::dyn_cast<mhlo::ComputeReshapeShapeOp>(op)) {
-      DenseIntElementsAttr shapeAttr;
-      if (!matchPattern(mhloReshapeOp.getOperand(1), m_Constant(&shapeAttr)))
-        return getNullKnowledge();
-      SmallVector<int64_t> shape;
-      getValuesFromDenseIntElementsAttr(shapeAttr, shape);
-      if (static_cast<int>(shape.size()) <= index)
-        getNullKnowledge();
-      int dynamicDim = K_INITIAL;
-      int64_t prod = 1;
-      for (size_t i = 0, e = shape.size(); i < e; ++i) {
-        int64_t dim = shape[i];
-        // mhlo.compute_reshape_shape uses negative as the dim size to be
-        // derived
-        if (dim > 0) {
-          prod *= dim;
-          continue;
-        }
-        if (dynamicDim != K_INITIAL)
-          return getNullKnowledge();
-        dynamicDim = i;
-      }
-      if (index == dynamicDim)
-        return {mhloReshapeOp.getOperand(0), dimSize * prod};
-    }
-    return getNullKnowledge();
-  }
-
   // derive new Knowledge from current by backward analyzing expressions
   Knowledge deriveKnowledge(Knowledge knowledge) {
     Value dimVal = knowledge.first;
@@ -111,7 +78,7 @@ struct ResolveShapeConstraintPass
       if (index < 0)
         return getNullKnowledge();
       Value tensor = extractOp.getTensor();
-      return deriveKnowledgeFromShapeValue(tensor, index, dimSize);
+      return getNullKnowledge();
     }
 
     if (auto numElementsOp = llvm::dyn_cast<shape::NumElementsOp>(op)) {

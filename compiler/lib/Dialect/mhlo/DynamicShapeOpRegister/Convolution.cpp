@@ -259,9 +259,11 @@ void mlir::registerConvolutionInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::ConvolutionOp::getOperationName(),
       [](MLIRContext *context, std::optional<Location> location,
-         ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
+         ValueShapeRange operands, DictionaryAttr attrs,
+         OpaqueProperties properties, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        mhlo::ConvolutionOp::Adaptor adaptor(operands, attrs, {}, regions);
+        mhlo::ConvolutionOp::Adaptor adaptor(operands, attrs, properties,
+                                             regions);
         Location loc = location.value_or(UnknownLoc::get(context));
 
         if (failed(adaptor.verify(loc))) {

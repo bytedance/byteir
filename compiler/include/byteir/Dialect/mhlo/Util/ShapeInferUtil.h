@@ -81,7 +81,7 @@ inferBoundedReturnTypeComponents(llvm::StringRef name);
 
 using InferReturnTypeComponents = std::function<LogicalResult(
     MLIRContext *, std::optional<Location>, ValueShapeRange operands,
-    DictionaryAttr, RegionRange,
+    DictionaryAttr, OpaqueProperties, RegionRange,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes)>;
 
 struct InferReturnTypeComponentsRegistration {
