@@ -246,8 +246,10 @@ struct FuseTFOpsPass : public FuseTFOpsBase<FuseTFOpsPass> {
     patterns.add(std::make_unique<FuseSigmoid>(ctx));
     if (replaceWhereToStatic) {
       patterns.add(std::make_unique<ReplaceWhereStatic>(ctx));
+      patterns.add(std::make_unique<ReplaceWhereStaticV2>(ctx));
     } else {
       patterns.add(std::make_unique<ReplaceWhereDynamic>(ctx));
+      patterns.add(std::make_unique<ReplaceWhereDynamicV2>(ctx));
     }
 
     if (failed(applyPatternsAndFoldGreedily(funcOp, std::move(patterns)))) {

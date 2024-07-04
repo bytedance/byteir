@@ -147,3 +147,65 @@ func.func @replace_where_3D(%arg0: tensor<256x1xi64>, %arg1: tensor<256x24x8xf16
 // CHECK-NEXT:    %15 = "tf.Mul"(%13, %14) : (tensor<?x24x8xf16>, tensor<?x24x1xf16>) -> tensor<?x24x8xf16>
 // CHECK-NEXT:    %16 = "tf.Sum"(%15, %cst_1) <{keep_dims = false}> : (tensor<?x24x8xf16>, tensor<1xi64>) -> tensor<?x8xf16>
 // CHECK-NEXT:    return %16 : tensor<?x8xf16>
+
+func.func @replace_where_V2_2D(%arg0: tensor<256x1xi64>, %arg1: tensor<256x24xf16>) -> tensor<?xf16> {
+  %cst = "tf.Const"() <{value = dense<28800> : tensor<i64>}> : () -> tensor<i64>
+  %cst_1 = "tf.Const"() <{value = dense<86400> : tensor<i64>}> : () -> tensor<i64>
+  %cst_2 = "tf.Const"() <{value = dense<1.156330e-05> : tensor<f32>}> : () -> tensor<f32>
+  %cst_3 = "tf.Const"() <{value = dense<1.000000e+00> : tensor<f16>}> : () -> tensor<f16>
+  %cst_4 = "tf.Const"() <{value = dense<2.400000e+01> : tensor<f16>}> : () -> tensor<f16>
+  %cst_5 = "tf.Const"() <{value = dense<24> : tensor<i32>}> : () -> tensor<i32>
+  %cst_6 = "tf.Const"() <{value = dense<0.000000e+00> : tensor<f16>}> : () -> tensor<f16>
+  %cst_7 = "tf.Const"() <{value = dense<-1> : tensor<1xi32>}> : () -> tensor<1xi32>
+  %cst_8 = "tf.Const"() <{value = dense<6144> : tensor<1xi32>}> : () -> tensor<1xi32>
+  %cst_9 = "tf.Const"() <{value = dense<[6144, 8]> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %cst_10 = "tf.Const"() <{value = dense<0> : tensor<i32>}> : () -> tensor<i32>
+  %0 = "tf.AddV2"(%arg0, %cst) {device = ""} : (tensor<256x1xi64>, tensor<i64>) -> tensor<256x1xi64>
+  %1 = "tf.FloorMod"(%0, %cst_1) {device = ""} : (tensor<256x1xi64>, tensor<i64>) -> tensor<256x1xi64>
+  %2 = "tf.Cast"(%1) <{Truncate = false}> {device = ""} : (tensor<256x1xi64>) -> tensor<256x1xf16>
+  %3 = "tf.Cast"(%2) <{Truncate = false}> {device = ""} : (tensor<256x1xf16>) -> tensor<256x1xf32>
+  %4 = "tf.Mul"(%3, %cst_2) {device = ""} : (tensor<256x1xf32>, tensor<f32>) -> tensor<256x1xf32>
+  %5 = "tf.Cast"(%4) <{Truncate = false}> {device = ""} : (tensor<256x1xf32>) -> tensor<256x1xf16>
+  %6 = "tf.FloorMod"(%5, %cst_3) {device = ""} : (tensor<256x1xf16>, tensor<f16>) -> tensor<256x1xf16>
+  %7 = "tf.Mul"(%6, %cst_4) {device = ""} : (tensor<256x1xf16>, tensor<f16>) -> tensor<256x1xf16>
+  %8 = "tf.Cast"(%7) <{Truncate = false}> {device = ""} : (tensor<256x1xf16>) -> tensor<256x1xi64>
+  %9 = "tf.Squeeze"(%8) <{squeeze_dims = [1]}> {device = ""} : (tensor<256x1xi64>) -> tensor<256xi64>
+  %10 = "tf.OneHot"(%9, %cst_5, %cst_3, %cst_6) <{axis = -1 : i64}> {device = ""} : (tensor<256xi64>, tensor<i32>, tensor<f16>, tensor<f16>) -> tensor<256x24xf16>
+  %11 = "tf.Reshape"(%10, %cst_7) {device = ""} : (tensor<256x24xf16>, tensor<1xi32>) -> tensor<6144xf16>
+  %12 = "tf.Cast"(%11) <{Truncate = false}> {device = ""} : (tensor<6144xf16>) -> tensor<6144xf32>
+  %13 = "tf.Where"(%12) {device = ""} : (tensor<6144xf32>) -> tensor<?x1xi64>
+  %14 = "tf.Squeeze"(%13) <{squeeze_dims = [1]}> {device = ""} : (tensor<?x1xi64>) -> tensor<?xi64>
+  %15 = "tf.Reshape"(%arg1, %cst_8) {device = ""} : (tensor<256x24xf16>, tensor<1xi32>) -> tensor<6144xf16>
+  %16 = "tf.GatherV2"(%15, %14, %cst_10) <{batch_dims = 0 : i64}> {device = ""} : (tensor<6144xf16>, tensor<?xi64>, tensor<i32>) -> tensor<?xf16>
+  return %16 : tensor<?xf16>
+}
+// CHECK-LABEL: func.func @replace_where_V2_2D(%arg0: tensor<256x1xi64>, %arg1: tensor<256x24xf16>) -> tensor<?xf16> {
+// CHECK-NEXT:   %cst = "tf.Const"() <{value = dense<0> : tensor<1xi64>}> : () -> tensor<1xi64>
+// CHECK-NEXT:   %cst_0 = "tf.Const"() <{value = dense<1> : tensor<1xi64>}> : () -> tensor<1xi64>
+// CHECK-NEXT:   %cst_1 = "tf.Const"() <{value = dense<28800> : tensor<i64>}> : () -> tensor<i64>
+// CHECK-NEXT:   %cst_2 = "tf.Const"() <{value = dense<86400> : tensor<i64>}> : () -> tensor<i64>
+// CHECK-NEXT:   %cst_3 = "tf.Const"() <{value = dense<1.156330e-05> : tensor<f32>}> : () -> tensor<f32>
+// CHECK-NEXT:   %cst_4 = "tf.Const"() <{value = dense<1.000000e+00> : tensor<f16>}> : () -> tensor<f16>
+// CHECK-NEXT:   %cst_5 = "tf.Const"() <{value = dense<2.400000e+01> : tensor<f16>}> : () -> tensor<f16>
+// CHECK-NEXT:   %cst_6 = "tf.Const"() <{value = dense<24> : tensor<i32>}> : () -> tensor<i32>
+// CHECK-NEXT:   %cst_7 = "tf.Const"() <{value = dense<0.000000e+00> : tensor<f16>}> : () -> tensor<f16>
+// CHECK-NEXT:   %cst_8 = "tf.Const"() <{value = dense<0> : tensor<i32>}> : () -> tensor<i32>
+// CHECK-NEXT:   %0 = "tf.AddV2"(%arg0, %cst_1) {device = ""} : (tensor<256x1xi64>, tensor<i64>) -> tensor<256x1xi64>
+// CHECK-NEXT:   %1 = "tf.FloorMod"(%0, %cst_2) {device = ""} : (tensor<256x1xi64>, tensor<i64>) -> tensor<256x1xi64>
+// CHECK-NEXT:   %2 = "tf.Cast"(%1) <{Truncate = false}> {device = ""} : (tensor<256x1xi64>) -> tensor<256x1xf16>
+// CHECK-NEXT:   %3 = "tf.Cast"(%2) <{Truncate = false}> {device = ""} : (tensor<256x1xf16>) -> tensor<256x1xf32>
+// CHECK-NEXT:   %4 = "tf.Mul"(%3, %cst_3) {device = ""} : (tensor<256x1xf32>, tensor<f32>) -> tensor<256x1xf32>
+// CHECK-NEXT:   %5 = "tf.Cast"(%4) <{Truncate = false}> {device = ""} : (tensor<256x1xf32>) -> tensor<256x1xf16>
+// CHECK-NEXT:   %6 = "tf.FloorMod"(%5, %cst_4) {device = ""} : (tensor<256x1xf16>, tensor<f16>) -> tensor<256x1xf16>
+// CHECK-NEXT:   %7 = "tf.Mul"(%6, %cst_5) {device = ""} : (tensor<256x1xf16>, tensor<f16>) -> tensor<256x1xf16>
+// CHECK-NEXT:   %8 = "tf.Cast"(%7) <{Truncate = false}> {device = ""} : (tensor<256x1xf16>) -> tensor<256x1xi64>
+// CHECK-NEXT:   %9 = "tf.Squeeze"(%8) <{squeeze_dims = [1]}> {device = ""} : (tensor<256x1xi64>) -> tensor<256xi64>
+// CHECK-NEXT:   %10 = "tf.GreaterEqual"(%9, %cst) : (tensor<256xi64>, tensor<1xi64>) -> tensor<256xi1>
+// CHECK-NEXT:   %11 = "tf.Where"(%10) : (tensor<256xi1>) -> tensor<?x1xi64>
+// CHECK-NEXT:   %12 = "tf.Squeeze"(%11) <{squeeze_dims = [1]}> : (tensor<?x1xi64>) -> tensor<?xi64>
+// CHECK-NEXT:   %13 = "tf.GatherV2"(%9, %12, %cst_8) <{batch_dims = 0 : i64}> : (tensor<256xi64>, tensor<?xi64>, tensor<i32>) -> tensor<?xi64>
+// CHECK-NEXT:   %14 = "tf.OneHot"(%13, %cst_6, %cst_4, %cst_7) <{axis = -1 : i64}> : (tensor<?xi64>, tensor<i32>, tensor<f16>, tensor<f16>) -> tensor<?x24xf16>
+// CHECK-NEXT:   %15 = "tf.GatherV2"(%arg1, %12, %cst_8) <{batch_dims = 0 : i64}> : (tensor<256x24xf16>, tensor<?xi64>, tensor<i32>) -> tensor<?x24xf16>
+// CHECK-NEXT:   %16 = "tf.Mul"(%15, %14) : (tensor<?x24xf16>, tensor<?x24xf16>) -> tensor<?x24xf16>
+// CHECK-NEXT:   %17 = "tf.Sum"(%16, %cst_0) <{keep_dims = false}> : (tensor<?x24xf16>, tensor<1xi64>) -> tensor<?xf16>
+// CHECK-NEXT:   return %17 : tensor<?xf16>

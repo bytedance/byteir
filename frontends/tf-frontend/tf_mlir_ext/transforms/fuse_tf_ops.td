@@ -188,4 +188,148 @@ def ReplaceWhereStatic : Pat<
    (TwoRank $after_where), (OneRank $after_squeeze1),
    (SameEleType $input1, $after_onehot)]>;
 
+def ReplaceWhereDynamicV2 : Pat<
+  (TF_GatherV2Op
+    (TF_ReshapeOp:$after_reshape1
+      $input1,
+      $input_shape
+    ),
+    (TF_SqueezeOp:$after_squeeze1
+      (TF_WhereOp:$after_where
+        (TF_CastOp:$after_cast2
+          (TF_ReshapeOp:$before_cast2
+            (TF_OneHotOp:$after_onehot
+              (TF_SqueezeOp:$after_squeeze
+                (TF_CastOp:$after_cast1
+                  (TF_MulOp:$before_cast1
+                    (TF_FloorModOp
+                      (TF_CastOp
+                        (TF_MulOp
+                          (TF_CastOp
+                            (TF_CastOp:$after_cast
+                              (TF_FloorModOp:$before_cast
+                                (TF_AddV2Op
+                                  $input,
+                                  (TF_ConstOp:$addconst $addconst_attr)
+                                ),
+                                (TF_ConstOp:$floorconst $floorconst_attr)
+                              ),
+                              $truncate
+                            ),
+                            $truncate1
+                          ),
+                          (TF_ConstOp:$mulconst $mulconst_attr)
+                        ),
+                        $truncate2
+                      ),
+                      (TF_ConstOp:$floorconst1 $floorconst1_attr)
+                    ),
+                    (TF_ConstOp:$mulconst1 $mulconst1_attr)
+                  ),
+                  $truncate3
+                ),
+                $squeeze_dims
+              ),
+              (TF_ConstOp:$depth $depth_attr),
+              (TF_ConstOp:$onvalue $onvalue_attr),
+              (TF_ConstOp:$offvalue $offvalue_attr),
+              $onehot_axis
+            ),
+            (TF_ConstOp:$shape $shape_attr)
+          ),
+          $truncate4
+        )
+      ),
+      $squeeze_dims1
+    ),
+    (TF_ConstOp:$gatheraxis $gatheraxis_attr),
+    $gather_batch_dims
+  ),
+  (NativeCodeCall<"replaceWhereDynamic($_builder, $_loc, $0, $1, $2, $3, $4, $5, $6)"> $input1, $after_squeeze, $depth, $onvalue, $offvalue, $gatheraxis, $onehot_axis),
+  [(WhereValue2 $addconst_attr),  (WhereValue3 $floorconst_attr),
+   (WhereValue0 $mulconst_attr),  (FpSplatValueOne $floorconst1_attr),
+   (WhereValue4 $mulconst1_attr), (WhereValue1 $depth_attr),
+   (FpSplatValueOne $onvalue_attr), (FpSplatValueZero $offvalue_attr),
+   (IntSplatValueNegOne $shape_attr), (IntSplatValueZero $gatheraxis_attr),
+   (AxisAttrNegOne $onehot_axis), (AxisAttrZero $gather_batch_dims),
+   (IntegerEleType $before_cast), (FloatEleType $after_cast),
+   (FloatEleType $before_cast1), (IntegerEleType $after_cast1),
+   (FloatEleType $before_cast2), (FloatEleType $after_cast2),
+   (TwoRank $after_cast1), (OneRank $after_squeeze),
+   (TwoRank $after_onehot), (OneRank $before_cast2),
+   (TwoRank $after_where), (OneRank $after_squeeze1),
+   (SameEleType $input1, $after_onehot)]>;
+
+def ReplaceWhereStaticV2 : Pat<
+  (TF_GatherV2Op
+    (TF_ReshapeOp:$after_reshape1
+      $input1,
+      $input_shape
+    ),
+    (TF_SqueezeOp:$after_squeeze1
+      (TF_WhereOp:$after_where
+        (TF_CastOp:$after_cast2
+          (TF_ReshapeOp:$before_cast2
+            (TF_OneHotOp:$after_onehot
+              (TF_SqueezeOp:$after_squeeze
+                (TF_CastOp:$after_cast1
+                  (TF_MulOp:$before_cast1
+                    (TF_FloorModOp
+                      (TF_CastOp
+                        (TF_MulOp
+                          (TF_CastOp
+                            (TF_CastOp:$after_cast
+                              (TF_FloorModOp:$before_cast
+                                (TF_AddV2Op
+                                  $input,
+                                  (TF_ConstOp:$addconst $addconst_attr)
+                                ),
+                                (TF_ConstOp:$floorconst $floorconst_attr)
+                              ),
+                              $truncate
+                            ),
+                            $truncate1
+                          ),
+                          (TF_ConstOp:$mulconst $mulconst_attr)
+                        ),
+                        $truncate2
+                      ),
+                      (TF_ConstOp:$floorconst1 $floorconst1_attr)
+                    ),
+                    (TF_ConstOp:$mulconst1 $mulconst1_attr)
+                  ),
+                  $truncate3
+                ),
+                $squeeze_dims
+              ),
+              (TF_ConstOp:$depth $depth_attr),
+              (TF_ConstOp:$onvalue $onvalue_attr),
+              (TF_ConstOp:$offvalue $offvalue_attr),
+              $onehot_axis
+            ),
+            (TF_ConstOp:$shape $shape_attr)
+          ),
+          $truncate4
+        )
+      ),
+      $squeeze_dims1
+    ),
+    (TF_ConstOp:$gatheraxis $gatheraxis_attr),
+    $gather_batch_dims
+  ),
+  (NativeCodeCall<"replaceWhereStatic($_builder, $_loc, $0, $1)"> $input1, $after_onehot),
+  [(WhereValue2 $addconst_attr),  (WhereValue3 $floorconst_attr),
+   (WhereValue0 $mulconst_attr),  (FpSplatValueOne $floorconst1_attr),
+   (WhereValue4 $mulconst1_attr), (WhereValue1 $depth_attr),
+   (FpSplatValueOne $onvalue_attr), (FpSplatValueZero $offvalue_attr),
+   (IntSplatValueNegOne $shape_attr), (IntSplatValueZero $gatheraxis_attr),
+   (AxisAttrNegOne $onehot_axis), (AxisAttrZero $gather_batch_dims),
+   (IntegerEleType $before_cast), (FloatEleType $after_cast),
+   (FloatEleType $before_cast1), (IntegerEleType $after_cast1),
+   (FloatEleType $before_cast2), (FloatEleType $after_cast2),
+   (TwoRank $after_cast1), (OneRank $after_squeeze),
+   (TwoRank $after_onehot), (OneRank $before_cast2),
+   (TwoRank $after_where), (OneRank $after_squeeze1),
+   (SameEleType $input1, $after_onehot)]>;
+
 #endif // FUSE_TF_OPS_PATTERN
