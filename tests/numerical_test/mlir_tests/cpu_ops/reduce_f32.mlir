@@ -5,7 +5,7 @@ func.func @reduce_f32(%input : tensor<256x5xf32>) -> tensor<256xf32> {
       %2 = "stablehlo.add"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<f32>
       "stablehlo.return"(%2) : (tensor<f32>) -> ()
   }) {
-    dimensions = dense<1> : tensor<1xi64>
+    dimensions = array<i64: 1>
   } : (tensor<256x5xf32>, tensor<f32>) -> tensor<256xf32>
   func.return %1 : tensor<256xf32>
 }

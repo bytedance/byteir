@@ -157,6 +157,8 @@ class BRTBackend:
 
 
 def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", unique_name=None, **kwargs):
+    if unique_name is None:
+        unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
     try:
         data_generator = MLIRDataGenerator(mhlo_file, target)
         entry_func_name = data_generator.entry_func_name
@@ -169,8 +171,6 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
             interp = Interpreter.load_from_file(mhlo_file, is_stablehlo=True)
             golden_outputs = interp.call_function(entry_func_name, np_inputs)
 
-        if unique_name is None:
-            unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
         # byteir compile
         os.makedirs(workdir, exist_ok=True)
         os.makedirs(workdir + f"/{unique_name}", exist_ok=True)
@@ -254,6 +254,7 @@ def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
     from torch_e2e_testing.framework import generate_golden_trace
     import torch_frontend
 
+    unique_name = test.unique_name + "." + target
     cur_device = get_target_device(target)
     # compile
     try:
@@ -271,7 +272,6 @@ def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
             test.program_factory(), torch_inputs, "stablehlo"
         )
 
-        unique_name = test.unique_name + "." + target
         # byteir compile
         os.makedirs(workdir, exist_ok=True)
         os.makedirs(workdir + f"/{unique_name}", exist_ok=True)
