@@ -607,7 +607,7 @@ module {
     byre.compute @ReduceSumOp_f32_f32(%19, %alloc_100) {dimensions = dense<0> : tensor<1xi64>, memory_effects = [1 : i32, 2 : i32]} : memref<1x1000xf32>, memref<1000xf32>
     %20 = call @Unknown79(%alloc_100) : (memref<1000xf32>) -> memref<1000xf32>
     %collapse_shape = memref.collapse_shape %arg141 [[0, 1]] : memref<1x1000xf16> into memref<1000xf16>
-    %expand_shape = memref.expand_shape %collapse_shape [[0, 1]] : memref<1000xf16> into memref<1000x1xf16>
+    %expand_shape = memref.expand_shape %collapse_shape [[0, 1]] output_shape [1000, 1] : memref<1000xf16> into memref<1000x1xf16>
     %alloc_101 = memref.alloc() : memref<1000x512xf16>
     byre.compute @MatmulOp_f16f16_f16(%expand_shape, %arg139, %alloc_101) {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<1000x1xf16>, memref<1x512xf16>, memref<1000x512xf16>
     %21 = call @Unknown80(%alloc_101) : (memref<1000x512xf16>) -> memref<1000x512xf32>

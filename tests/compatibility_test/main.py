@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--testdir",
         type=str,
-        default=None,
+        required=True,
         help="Directory has test cases",
     )
     args = parser.parse_args()
@@ -43,10 +43,6 @@ def parse_args():
 
 
 def run(testdir):
-
-    def extract_name_from_tesrdir(testdir):
-        return os.path.basename(testdir)
-
     result = []
     conf_file = os.path.join(testdir, "testcase.json")
     if not os.path.exists(conf_file):

@@ -147,8 +147,8 @@ public:
   matchAndRewrite(OP op, typename OP::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const final {
     auto operand = adaptor.getOperand();
-    auto operandType = llvm::cast<ShapedType>(operand.getType());
-    auto resultType = llvm::cast<ShapedType>(op.getType());
+    auto operandType = mlir::cast<ShapedType>(operand.getType());
+    auto resultType = mlir::cast<ShapedType>(op.getType());
 
     if (!operandType.hasStaticShape() || !resultType.hasStaticShape())
       return failure();

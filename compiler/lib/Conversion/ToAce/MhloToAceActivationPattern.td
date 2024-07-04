@@ -24,8 +24,8 @@ include "mhlo/IR/hlo_ops.td"
 
 def CreateAceActivateOp : NativeCodeCall<"$_builder.create<mlir::ace::ActivateOp>($_loc, $0.getType(), $1, $2, $3)">;
 def AttrIsZero : Constraint<CPred<"mlir::isZeroAttribute($_self)">>;
-def FPDenseSixValue : Constraint<CPred<"mlir::isSplatCloseToValue($_self.dyn_cast<DenseFPElementsAttr>(), 6.0)">>;
-def FPDenseSplatValue : Constraint<CPred<"$_self.dyn_cast<DenseFPElementsAttr>() && $_self.dyn_cast<DenseFPElementsAttr>().isSplat()">>;
+def FPDenseSixValue : Constraint<CPred<"mlir::isSplatCloseToValue(dyn_cast<DenseFPElementsAttr>($_self), 6.0)">>;
+def FPDenseSplatValue : Constraint<CPred<"dyn_cast<DenseFPElementsAttr>($_self) && dyn_cast<DenseFPElementsAttr>($_self).isSplat()">>;
 
 
 def MhloToAceReluPattern : Pat<
@@ -67,7 +67,7 @@ def MhloToAceLeakyReluPattern : Pat<
     )
   ),
   (CreateAceActivateOp $output, $input, (NativeCodeCall<"$_builder.getStringAttr(\"leaky_relu\")">),
-    (NativeCodeCall<"{$_builder.getNamedAttr(\"alpha\", value2.cast<DenseFPElementsAttr>().getSplatValue<FloatAttr>())}">)),
+    (NativeCodeCall<"{$_builder.getNamedAttr(\"alpha\", cast<DenseFPElementsAttr>(value2).getSplatValue<FloatAttr>())}">)),
   [(AttrIsZero:$value1), (FPDenseSplatValue:$value2)]>;
 
 #endif // BYTEIR_CONVERSION_TOACE_MHLO_TO_ACE_ACTIVATION_PATTERN

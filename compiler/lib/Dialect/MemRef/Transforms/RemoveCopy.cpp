@@ -49,6 +49,59 @@ bool anyIncompatibleUse(Value oldValue, Value newValue) {
                       }) &&
          (oldValue.getType() != newValue.getType());
 }
+
+/// Replace the uses of `oldOp` with the given `val` and for subview uses
+/// propagate the type change. Changing the memref type may require propagating
+/// it through subview ops so we cannot just do a replaceAllUse but need to
+/// propagate the type change and erase old subview ops.
+void replaceUsesAndPropagateType(RewriterBase &rewriter, Operation *oldOp,
+                                 Value val) {
+  SmallVector<Operation *> opsToDelete;
+  SmallVector<OpOperand *> operandsToReplace;
+
+  // Save the operand to replace / delete later (avoid iterator invalidation).
+  // TODO: can we use an early_inc iterator?
+  for (OpOperand &use : oldOp->getUses()) {
+    // Non-subview ops will be replaced by `val`.
+    auto subviewUse = dyn_cast<memref::SubViewOp>(use.getOwner());
+    if (!subviewUse) {
+      operandsToReplace.push_back(&use);
+      continue;
+    }
+
+    // `subview(old_op)` is replaced by a new `subview(val)`.
+    OpBuilder::InsertionGuard g(rewriter);
+    rewriter.setInsertionPoint(subviewUse);
+    Type newType = memref::SubViewOp::inferRankReducedResultType(
+        subviewUse.getType().getShape(), cast<MemRefType>(val.getType()),
+        subviewUse.getStaticOffsets(), subviewUse.getStaticSizes(),
+        subviewUse.getStaticStrides());
+    Value newSubview = rewriter.create<memref::SubViewOp>(
+        subviewUse->getLoc(), cast<MemRefType>(newType), val,
+        subviewUse.getMixedOffsets(), subviewUse.getMixedSizes(),
+        subviewUse.getMixedStrides());
+
+    // Ouch recursion ... is this really necessary?
+    replaceUsesAndPropagateType(rewriter, subviewUse, newSubview);
+
+    opsToDelete.push_back(use.getOwner());
+  }
+
+  // Perform late replacement.
+  // TODO: can we use an early_inc iterator?
+  for (OpOperand *operand : operandsToReplace) {
+    Operation *op = operand->getOwner();
+    rewriter.startOpModification(op);
+    operand->set(val);
+    rewriter.finalizeOpModification(op);
+  }
+
+  // Perform late op erasure.
+  // TODO: can we use an early_inc iterator?
+  for (Operation *op : opsToDelete)
+    rewriter.eraseOp(op);
+}
+
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
 public:
   RemoveCopyPattern(MLIRContext *context, DominanceInfo &dom)
@@ -176,7 +229,7 @@ public:
       }
 
       if (!anyIncompatibleUse(target, src)) {
-        rewriter.replaceOp(targetAlloc, {src});
+        replaceUsesAndPropagateType(rewriter, targetAlloc, src);
         return success();
       }
     }
@@ -194,7 +247,7 @@ public:
       }
 
       if (!anyIncompatibleUse(src, target)) {
-        rewriter.replaceOp(srcAlloc, {target});
+        replaceUsesAndPropagateType(rewriter, srcAlloc, target);
         return success();
       }
     }
@@ -240,7 +293,7 @@ public:
           alias = expandShapeOp.getSrc();
         }
       }
-      rewriter.replaceOp(srcAllocOp, {reshapeTarget});
+      replaceUsesAndPropagateType(rewriter, srcAllocOp, reshapeTarget);
       rewriter.eraseOp(copyOp);
       return success();
     }

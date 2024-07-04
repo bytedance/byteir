@@ -31,8 +31,9 @@ python3 tests/numerical_test/profiler.py $ROOT_PROJ_DIR/tests/numerical_test/mli
 python3 tests/numerical_test/profiler.py $ROOT_PROJ_DIR/tests/numerical_test/mlir_tests/ops/add.mlir --target cuda
 rm -rf ./local_profiling
 
-# generate compitibility test
+# generate and run compitibility test
 python3 tests/numerical_test/gen_brt_tests.py
+python3 tests/compatibility_test/main.py --testdir=./local_golden
 rm -rf ./local_golden
 
 popd

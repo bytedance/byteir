@@ -16,7 +16,7 @@ func.func @meet_const(%arg0 : tensor<?x4xf32>, %arg1 : tensor<?x4xf32>) -> tenso
   return %result : tensor<?x4xf32>
 }
 // CHECK-LABEL: @meet_const(%arg0: tensor<?x4xf32>, %arg1: tensor<?x4xf32>) -> tensor<1024x4xf32>
-// CHECK-NEXT: %0 = "mhlo.concatenate"(%arg0, %arg1) {dimension = 0 : i64} : (tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<1024x4xf32>
+// CHECK-NEXT: %0 = "mhlo.concatenate"(%arg0, %arg1) <{dimension = 0 : i64}> : (tensor<?x4xf32>, tensor<?x4xf32>) -> tensor<1024x4xf32>
 // CHECK-NEXT: return %0 : tensor<1024x4xf32>
 
 func.func @einsum_shape_constraint(%arg0: tensor<?x2x2xf32>, %arg1: tensor<2x2x3xf32>, %arg2: tensor<2x2x2xf32>) -> tensor<2x2x2x3xf32> {
@@ -43,8 +43,8 @@ func.func @einsum_shape_constraint(%arg0: tensor<?x2x2xf32>, %arg1: tensor<2x2x3
     return %3 : tensor<2x2x2x3xf32>
 }
 // CHECK-LABEL: @einsum_shape_constraint(%arg0: tensor<2x2x2xf32>
-// CHECK-NEXT: %0 = "mhlo.einsum"(%arg1, %arg0) {einsum_config = "edc,bqe->dcbq"} : (tensor<2x2x3xf32>, tensor<2x2x2xf32>) -> tensor<2x3x2x2xf32>
-// CHECK-NEXT: %1 = "mhlo.einsum"(%0, %arg2) {einsum_config = "dcbq,btd->bqtc"} : (tensor<2x3x2x2xf32>, tensor<2x2x2xf32>) -> tensor<2x2x2x3xf32>
+// CHECK-NEXT: %0 = "mhlo.einsum"(%arg1, %arg0) <{einsum_config = "edc,bqe->dcbq"}> : (tensor<2x2x3xf32>, tensor<2x2x2xf32>) -> tensor<2x3x2x2xf32>
+// CHECK-NEXT: %1 = "mhlo.einsum"(%0, %arg2) <{einsum_config = "dcbq,btd->bqtc"}> : (tensor<2x3x2x2xf32>, tensor<2x2x2xf32>) -> tensor<2x2x2x3xf32>
 // CHECK-NEXT: return %1 : tensor<2x2x2x3xf32>
 
 func.func @concat(%arg0: tensor<?x4x?xf32>, %arg1: tensor<2x?x?xf32>) -> tensor<?x4x?xf32> {

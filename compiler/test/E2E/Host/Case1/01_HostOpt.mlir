@@ -14,14 +14,14 @@ module {
   memref.global "private" constant @__constant_100xi32 : memref<100xi32> = dense<[0, 512, 1024, 1536, 2048, 2560, 3072, 3584, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192, 8704, 9216, 9728, 10240, 10752, 11264, 11776, 12288, 12800, 13312, 13824, 14336, 14848, 15360, 15872, 16384, 16896, 17408, 17920, 18432, 18944, 19456, 19968, 20480, 20992, 21504, 22016, 22528, 23040, 23552, 24064, 24576, 25088, 25600, 26112, 26624, 27136, 27648, 28160, 28672, 29184, 29696, 30208, 30720, 31232, 31744, 32256, 32768, 33280, 33792, 34304, 34816, 35328, 35840, 36352, 36864, 37376, 37888, 38400, 38912, 39424, 39936, 40448, 40960, 41472, 41984, 42496, 43008, 43520, 44032, 44544, 45056, 45568, 46080, 46592, 47104, 47616, 48128, 48640, 49152, 49664, 50176, 50688]>
   func.func private @Unknown0(%arg0: memref<1x100x27x48x3xf32>) -> memref<51200xi32> attributes {__byteir_hlo_aggressive_fusion__} {
     %c0_i32 = arith.constant 0 : i32
-    %c5_i32 = arith.constant 5 : i32
     %c3_i32 = arith.constant 3 : i32
     %c6_i32 = arith.constant 6 : i32
-    %c51200 = arith.constant 51200 : index
-    %c1296 = arith.constant 1296 : index
+    %c5_i32 = arith.constant 5 : i32
+    %c0 = arith.constant 0 : index
     %c388800 = arith.constant 388800 : index
     %c1 = arith.constant 1 : index
-    %c0 = arith.constant 0 : index
+    %c1296 = arith.constant 1296 : index
+    %c51200 = arith.constant 51200 : index
     %c129600 = arith.constant 129600 : index
     %0 = memref.get_global @__constant_100xi32 : memref<100xi32>
     %1 = memref.get_global @__constant_100x1296xi32 : memref<100x1296xi32>

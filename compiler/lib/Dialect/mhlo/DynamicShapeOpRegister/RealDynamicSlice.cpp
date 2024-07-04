@@ -33,7 +33,8 @@ void mlir::registerRealDynamicSliceInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::RealDynamicSliceOp::getOperationName(),
       [](MLIRContext *context, std::optional<Location> loc,
-         ValueShapeRange operands, DictionaryAttr attrs, RegionRange regions,
+         ValueShapeRange operands, DictionaryAttr attrs,
+         OpaqueProperties properties, RegionRange regions,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
         mhlo::RealDynamicSliceOp::Adaptor adaptor(operands, attrs, {}, regions);
 

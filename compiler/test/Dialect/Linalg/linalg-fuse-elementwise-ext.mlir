@@ -386,7 +386,7 @@ func.func @broadcast_output(%arg0: tensor<96x1024x1024xf16>, %arg1: tensor<1x1x1
     %8 = arith.mulf %in, %in_2 : f16
     linalg.yield %8 : f16
   } -> tensor<96x1024x1024xf16>
-  %expanded = tensor.expand_shape %1 [[0, 1], [2], [3]] : tensor<96x1024x1024xf16> into tensor<8x12x1024x1024xf16>
+  %expanded = tensor.expand_shape %1 [[0, 1], [2], [3]] output_shape [8, 12, 1024, 1024] : tensor<96x1024x1024xf16> into tensor<8x12x1024x1024xf16>
   %2 = tensor.empty() : tensor<1x1x1024x1024xi1>
 // CHECK: linalg.generic {
 // CHECK: arith.cmpf
@@ -436,7 +436,7 @@ func.func @check_collapse_expand(%arg0: tensor<3x4xf32>, %arg1 : tensor<3x4xf32>
   %collapsed = tensor.collapse_shape %3#1 [[0, 1]] : tensor<3x4xf32> into tensor<12xf32>
   %11 = tensor.empty() : tensor<12xf32>
   %collapsed_1 = tensor.collapse_shape %3#1 [[0, 1]] : tensor<3x4xf32> into tensor<12xf32>
-  %expanded = tensor.expand_shape %collapsed_1 [[0, 1]] : tensor<12xf32> into tensor<4x3xf32>
+  %expanded = tensor.expand_shape %collapsed_1 [[0, 1]] output_shape [4, 3] : tensor<12xf32> into tensor<4x3xf32>
   %4 = linalg.generic {indexing_maps = [#map1, #map1], iterator_types = ["parallel"]}
 // CHECK: linalg.generic {
 // CHECK: arith.addf
@@ -520,7 +520,7 @@ func.func @consumer_multi_result_from_producer_with_different_indexing_map(%arg0
 #map2 = affine_map<(d0, d1) -> (d0, d1)>
 
 func.func @constant_in_affine_map_with_collapse_shape(%arg0: tensor<1x256x1024xf32>, %arg1: tensor<256x1024xf16>, %arg2: tensor<256x1xf32>, %arg3: tensor<256x1xf32>) -> tensor<256x1024xf32> {
-  %expanded = tensor.expand_shape %arg1 [[0, 1], [2]] : tensor<256x1024xf16> into tensor<1x256x1024xf16>
+  %expanded = tensor.expand_shape %arg1 [[0, 1], [2]] output_shape [1, 256, 1024] : tensor<256x1024xf16> into tensor<1x256x1024xf16>
   %0 = tensor.empty() : tensor<1x256x1024xf32>
   %1 = tensor.empty() : tensor<256x1024xf32>
   %2 = linalg.generic {indexing_maps = [#map, #map, #map], iterator_types = ["parallel", "parallel", "parallel"]} ins(%expanded, %arg0 : tensor<1x256x1024xf16>, tensor<1x256x1024xf32>) outs(%0 : tensor<1x256x1024xf32>) {

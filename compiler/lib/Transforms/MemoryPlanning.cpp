@@ -451,8 +451,8 @@ private:
     }
 
     // Find common dominators.
-    return findCommonDominator(packingInfos.begin()->source, allocValues,
-                               dominators);
+    return mlir::bufferization::findCommonDominator(
+        packingInfos.begin()->source, allocValues, dominators);
   }
 
   bufferization::BufferPlacementAllocs::AllocEntryList

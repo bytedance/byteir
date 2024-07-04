@@ -267,7 +267,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         llvm::transform(getOutputBufferOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperands) {
-            return opOperands->get().getType().cast<MemRefType>();
+            return cast<MemRefType>(opOperands->get().getType());
           });
         return result;
       }]
@@ -286,7 +286,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
         llvm::transform(getOutputTensorOperands(),
           std::back_inserter(result),
           [](OpOperand *opOperands) {
-            return opOperands->get().getType().cast<RankedTensorType>();
+            return cast<RankedTensorType>(opOperands->get().getType());
           });
         return result;
       }]
@@ -544,6 +544,8 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
     >
   ];
 
+  let cppNamespace = "::mlir::linalg_ext";
+
   let extraClassDeclaration = [{
     /// Returns the value that expresses the shape of the output in terms of
     /// shape of the input operands where possible.
@@ -559,8 +561,8 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
 
     private:
     void setOperandSegmentAt(unsigned idx, unsigned val) {
-      auto attr = (*this)->getAttr("operand_segment_sizes")
-        .cast<DenseIntElementsAttr>();
+      auto attr = cast<DenseIntElementsAttr>(
+          (*this)->getAttr("operand_segment_sizes"));
       unsigned i = 0;
       auto newAttr = attr.mapValues(IntegerType::get(getContext(), 32),
         [&](const APInt &v) { return (i++ == idx) ? APInt(32, val) : v; });

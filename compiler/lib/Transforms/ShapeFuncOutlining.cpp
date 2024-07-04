@@ -20,6 +20,7 @@
 #include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Analysis/SliceAnalysis.h"
+#include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -27,7 +28,6 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/IRMapping.h"
-#include "mlir/Transforms/TopologicalSortUtils.h"
 #include "llvm/Support/Debug.h"
 #include <queue>
 

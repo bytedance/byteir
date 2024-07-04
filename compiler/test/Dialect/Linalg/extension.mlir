@@ -1,17 +1,5 @@
 // RUN: byteir-opt %s --allow-unregistered-dialect| FileCheck %s
 
-func.func @custom_memref(%arg0: memref<1024x64xf32>, %arg1: memref<1024x64xf32>) {
-  linalg_ext.custom  {target_name = "foo"} ins(%arg0 : memref<1024x64xf32>) outs(%arg1 : memref<1024x64xf32>) {
-    ^bb0(%arg2 : memref<1024x64xf32>, %arg3 : memref<1024x64xf32>):  // no predecessors
-      "lmhlo.custom_call"(%arg2, %arg3) ({}) {call_target_name = "bar", has_side_effect = false, operand_segment_sizes = array<i32: 1, 1>} : (memref<1024x64xf32>, memref<1024x64xf32>) -> ()
-      linalg_ext.yield
-  }
-  return
-}
-//CHECK-LABEL: func.func @custom_memref
-//CHECK: linalg_ext.custom
-//CHECK: lmhlo.custom_call
-
 func.func @custom_tensor(%arg0: tensor<1024x64xf32>) -> (tensor<1024x64xf32>) {
   %0 = linalg_ext.custom {target_name = "foo"} outs(%arg0 : tensor<1024x64xf32>) {
     ^bb0(%arg1 : tensor<1024x64xf32>):  // no predecessors

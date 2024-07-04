@@ -148,7 +148,7 @@ transform.sequence failures(propagate) {
   %0 = transform.structured.match ops{["linalg.generic"]} in %arg1 : (!pdl.operation) -> !pdl.operation
   %1, %loops:2 = transform.structured.fuse %0 {tile_sizes = [5, 0, 7], tile_interchange = [0, 2, 1]} :
     (!pdl.operation) -> (!pdl.operation, !pdl.operation, !pdl.operation)
-  %2, %loops_2 = transform.structured.tile_using_for %1 [0, 4] : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
+  %2, %loops_2 = transform.structured.tile_using_for %1 tile_sizes [0, 4] : (!pdl.operation) -> (!pdl.operation, !pdl.operation)
 }
 
 // -----
@@ -981,7 +981,7 @@ func.func @fuse_expand_shape(%arg0: tensor<128x1024x256xf32>, %arg1: tensor<128x
   %0 = tensor.empty() : tensor<128x1024x4096xf32>
   %1 = linalg.fill ins(%cst : f32) outs(%0 : tensor<128x1024x4096xf32>) -> tensor<128x1024x4096xf32>
   %2 = linalg.batch_matmul ins(%arg0, %arg1 : tensor<128x1024x256xf32>, tensor<128x256x4096xf32>) outs(%1 : tensor<128x1024x4096xf32>) -> tensor<128x1024x4096xf32>
-  %expanded = tensor.expand_shape %2 [[0], [1], [2, 3]] : tensor<128x1024x4096xf32> into tensor<128x1024x16x256xf32>
+  %expanded = tensor.expand_shape %2 [[0], [1], [2, 3]] output_shape [128, 1024, 16, 256] : tensor<128x1024x4096xf32> into tensor<128x1024x16x256xf32>
   %3 = tensor.empty() : tensor<128x16x1024x256xf32>
   %transposed = linalg.transpose
     ins(%expanded : tensor<128x1024x16x256xf32>)
@@ -1008,7 +1008,7 @@ func.func @elementwise_expand_shape(%arg0: tensor<128x1024x4096xf32>) -> tensor<
   %empty= tensor.empty() : tensor<128x1024x4096xf32>
   %0 = linalg.elemwise_unary ins(%arg0 : tensor<128x1024x4096xf32>)
                              outs(%empty: tensor<128x1024x4096xf32>) -> tensor<128x1024x4096xf32>
-  %expanded = tensor.expand_shape %0 [[0], [1], [2, 3]] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
+  %expanded = tensor.expand_shape %0 [[0], [1], [2, 3]] output_shape [128, 1024, 512, 8] {__root__} : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
   return %expanded : tensor<128x1024x512x8xf32>
 }
 
@@ -1032,7 +1032,7 @@ transform.sequence failures(propagate) {
 
 func.func @expand_shape_elementwise(%arg0: tensor<128x1024x4096xf32>) -> tensor<128x1024x512x8xf32> {
   %empty= tensor.empty() : tensor<128x1024x512x8xf32>
-  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
+  %expanded = tensor.expand_shape %arg0 [[0], [1], [2, 3]] output_shape [128, 1024, 512, 8] : tensor<128x1024x4096xf32> into tensor<128x1024x512x8xf32>
   %0 = linalg.elemwise_unary ins(%expanded : tensor<128x1024x512x8xf32>)
                              outs(%empty: tensor<128x1024x512x8xf32>) -> tensor<128x1024x512x8xf32>
   return %0 : tensor<128x1024x512x8xf32>
@@ -1058,7 +1058,7 @@ transform.sequence failures(propagate) {
 
 func.func @expand_shape_elementwise_tile_1x1xN(%arg0: tensor<131072xf32>) -> tensor<8x16x1024xf32> {
   %empty= tensor.empty() : tensor<8x16x1024xf32>
-  %expanded = tensor.expand_shape %arg0 [[0, 1, 2]] : tensor<131072xf32> into tensor<8x16x1024xf32>
+  %expanded = tensor.expand_shape %arg0 [[0, 1, 2]] output_shape [8, 16, 1024] : tensor<131072xf32> into tensor<8x16x1024xf32>
   %0 = linalg.elemwise_unary ins(%expanded : tensor<8x16x1024xf32>)
                              outs(%empty: tensor<8x16x1024xf32>) -> tensor<8x16x1024xf32>
   return %0 : tensor<8x16x1024xf32>

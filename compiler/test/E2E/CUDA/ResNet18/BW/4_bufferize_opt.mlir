@@ -607,7 +607,7 @@ module {
     %183 = byre.compute_on_tensor @ReduceSumOp_f32_f32 {dimensions = dense<0> : tensor<1xi64>} ins(%181 : tensor<1x1000xf32>) outs(%182 : tensor<1000xf32>) : tensor<1000xf32>
     %184 = call @Unknown79(%183) : (tensor<1000xf32>) -> tensor<1000xf32>
     %collapsed = tensor.collapse_shape %arg141 [[0, 1]] : tensor<1x1000xf16> into tensor<1000xf16>
-    %expanded = tensor.expand_shape %collapsed [[0, 1]] : tensor<1000xf16> into tensor<1000x1xf16>
+    %expanded = tensor.expand_shape %collapsed [[0, 1]] output_shape [1000, 1] : tensor<1000xf16> into tensor<1000x1xf16>
     %185 = tensor.empty() : tensor<1000x512xf16>
     %186 = byre.compute_on_tensor @MatmulOp_f16f16_f16 {lhs_contracting_dimension = 1 : i64, rhs_contracting_dimension = 0 : i64} ins(%expanded, %arg139 : tensor<1000x1xf16>, tensor<1x512xf16>) outs(%185 : tensor<1000x512xf16>) : tensor<1000x512xf16>
     %187 = call @Unknown80(%186) : (tensor<1000x512xf16>) -> tensor<1000x512xf32>
