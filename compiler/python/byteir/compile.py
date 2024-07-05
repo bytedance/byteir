@@ -388,9 +388,9 @@ def compile(
         gpu_arch_num = int(gpu_arch[3:])
         if enable_tf32:
             assert gpu_arch_num >= 80, "1xtf32 only support on gpu >= sm_80"
-        print(f"Compiling PTX to {gpu_arch}")
+        print(f"Compiling {os.path.basename(input_file_path)} to {gpu_arch}")
     elif _device  == "cpu":
-        print(f"Compiling to {cpu_arch} backend")
+        print(f"Compiling {os.path.basename(input_file_path)} to {cpu_arch}")
 
     ### load from .mlir or .mlirbc
     from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
