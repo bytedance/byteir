@@ -19,13 +19,22 @@
 #define TORCH_FRONTEND_CONVERSION_CONVERTTORCHTOCUSTOMCALL_H
 
 #include "mlir/Pass/Pass.h"
+#include "llvm/ADT/StringSet.h"
 #include <memory>
 #include <string>
 
 namespace mlir {
+class ConversionTarget;
+class RewritePatternSet;
+class TypeConverter;
 namespace func {
 class FuncOp;
 } // namespace func
+
+void populateMathToCustomCallPattern(
+    ConversionTarget &target, TypeConverter &typeConverter,
+    RewritePatternSet &patterns,
+    const llvm::StringSet<> &validCustomCallOpsSet);
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createConvertTorchToCustomCall(ArrayRef<std::string> validCustomCallOps);
