@@ -95,7 +95,6 @@ def run(target, filter, workdir, mode="numerical", verbose=False):
                 )
             )
         else:
-            print(test)
             if target == "cpu":
                 results.append(
                     compile_and_run_mlir(
