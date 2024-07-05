@@ -297,6 +297,7 @@ def _compile_cpu(
     output_file_prefix = compile_options.output_file_prefix
     output_type = compile_options.output_type
     bc_file_name = output_file_prefix + ".kernel.ll.bc"
+    ir_file_name = output_file_prefix + ".kernel.ll"
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -348,6 +349,8 @@ def _compile_cpu(
     # write to output llvmbc file
     output_bc_file_name = output_file_dir + "/" + bc_file_name
     byteir.translate_to_llvmbc(llvm_module, output_bc_file_name)
+    # write to llvm ir file for debug
+    byteir.translate_to_llvmir(llvm_module, output_file_dir + "/" + ir_file_name)
 
     # create host module
     with context:
