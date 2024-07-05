@@ -1185,7 +1185,7 @@ const void *CreatePTXAddOp(brt::ir::ByREBuilder &byre_builder) {
   return m.getAsOpaquePointer();
 }
 
-const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
+const void *CreateNonZeroOp(brt::ir::ByREBuilder &byre_builder,
                             DTypeEnum input_dtype,
                             const std::vector<int64_t> &shape) {
 
@@ -1208,7 +1208,7 @@ const void *CreateTFWhereOp(brt::ir::ByREBuilder &byre_builder,
   // add entry function body
   mlir::Block *entry_block = func_op.addEntryBlock();
   op_builder.setInsertionPointToStart(entry_block);
-  op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "tf.Where",
+  op_builder.create<byre::ComputeOp>(UnknownLoc::get(ctx), "byteir.non_zero",
                                      ValueRange{entry_block->getArgument(0)},
                                      ValueRange{entry_block->getArgument(1)});
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));

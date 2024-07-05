@@ -35,7 +35,6 @@ add_mlir_dialect_library(ByteIRMhloDynamicShapeOpRegister
   DynamicShapeOpRegister/Softmax.cpp
   DynamicShapeOpRegister/AddN.cpp
   DynamicShapeOpRegister/TorchIndexSelect.cpp
-  DynamicShapeOpRegister/Where.cpp
   DynamicShapeOpRegister/ScatterNd.cpp
   DynamicShapeOpRegister/StridedSlice.cpp
   DynamicShapeOpRegister/BatchMatMul.cpp

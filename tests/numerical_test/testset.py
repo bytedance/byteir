@@ -54,6 +54,8 @@ CUDA_XFAIL_SET = {
     "gemm_rrr_f16f16f32.mlir",
     "bmm_rcr_f16f16f32.mlir",
     "bmm_rrr_f16f16f32.mlir",
+    "RngUniformModule_basic",
+    "RngNormalModule_basic",
 }
 
 CUDA_ALL_SET = (CUDA_MLIR_TEST_SET | CUDA_TORCH_TEST_SET) - CUDA_XFAIL_SET

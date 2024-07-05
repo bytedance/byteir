@@ -183,6 +183,14 @@ func.func @addn_case0(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xf32>, %arg2:
 // CHECK: mhlo.custom_call
 // CHECK-SAME: @byteir.addn
 
+func.func @where_case0(%arg0: tensor<6144xf32>) -> tensor<?x1xi64> {
+  %0 = "tf.Where"(%arg0) : (tensor<6144xf32>) -> tensor<?x1xi64>
+  return %0 : tensor<?x1xi64>
+}
+// CHECK-LABEL: func.func @where_case0
+// CHECK: mhlo.custom_call
+// CHECK-SAME: @byteir.non_zero
+
 func.func @layer_norm(%arg0: tensor<1x32x3xf32>) -> tensor<1x32x3xf32> {
   %cst = "tf.Const"() {value = dense<9.99999997E-7> : tensor<f32>} : () -> tensor<f32>
   %cst_0 = "tf.Const"() {value = dense<[0.0401659757, -0.11370486, 0.432680517]> : tensor<3xf32>} : () -> tensor<3xf32>

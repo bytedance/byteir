@@ -1,4 +1,4 @@
-//===- tf_where_test.cc ---------------------------------------*--- C++ -*-===//
+//===- non_zero_test.cc ---------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +40,7 @@ using namespace std;
 
 namespace {
 template <typename T, typename ContainerT = std::vector<T>>
-void CheckTFWhereSingle(const std::vector<int64_t> &shape,
+void CheckNonZeroSingle(const std::vector<int64_t> &shape,
                         const ContainerT &data,
                         const std::vector<int64_t> &expect_result) {
   ByREBuilder byre_builder;
@@ -51,7 +51,7 @@ void CheckTFWhereSingle(const std::vector<int64_t> &shape,
   BRT_TEST_CHECK_STATUS(status_cpu);
 
   auto status_load = session.LoadFromMemory(
-      CreateTFWhereOp(byre_builder, dtype_enum_v<T>, shape), "byre");
+      CreateNonZeroOp(byre_builder, dtype_enum_v<T>, shape), "byre");
   BRT_TEST_CHECK_STATUS(status_load);
 
   std::unique_ptr<RequestContext> request;
@@ -90,14 +90,14 @@ void CheckTFWhereSingle(const std::vector<int64_t> &shape,
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, TFWhereBasic) {
+TEST(CPUOpKerenlTest, NonZeroBasic) {
   using half_float::half;
-  CheckTFWhereSingle<float>({3}, {1.1f, 0.0f, 0.1f}, {0, 2});
-  CheckTFWhereSingle<half>({2, 2},
+  CheckNonZeroSingle<float>({3}, {1.1f, 0.0f, 0.1f}, {0, 2});
+  CheckNonZeroSingle<half>({2, 2},
                            {half(5.5f), half(0.1f), half(0.0f), half(2.4f)},
                            {0, 0, 0, 1, 1, 1});
-  CheckTFWhereSingle<int64_t>({2, 1, 3}, {5ll, 0ll, 9ll, 0ll, 0ll, 2ll},
+  CheckNonZeroSingle<int64_t>({2, 1, 3}, {5ll, 0ll, 9ll, 0ll, 0ll, 2ll},
                               {0, 0, 0, 0, 0, 2, 1, 0, 2});
-  CheckTFWhereSingle<bool, std::vector<int8_t>>({4}, {true, false, false, true},
+  CheckNonZeroSingle<bool, std::vector<int8_t>>({4}, {true, false, false, true},
                                                 {0, 3});
 }

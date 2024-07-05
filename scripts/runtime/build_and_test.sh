@@ -74,7 +74,18 @@ cmake --build "$BUILD_DIR" --target all --target install
 if [[ $BRT_ENABLE_PYTHON_BINDINGS == "ON" ]]; then
   pushd $PROJ_DIR/python
   # note: python packing depend on `--target install`
-  python3 setup.py bdist_wheel
+  if [[ $BRT_USE_CUDA == "ON" ]]; then
+    if command -v nvcc &> /dev/null; then
+      cuda_version=$(nvcc --version | grep -oP 'release \K[0-9]+\.[0-9]+')
+      echo "CUDA Version: $cuda_version"
+      BRT_CUDA_VERSION=$cuda_version python3 setup.py bdist_wheel
+    else
+      echo "CUDA is not installed or nvcc is not in the PATH."
+      exit 1
+    fi
+  else
+    python3 setup.py bdist_wheel
+  fi
   popd
 fi
 

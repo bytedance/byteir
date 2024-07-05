@@ -29,7 +29,6 @@ function prepare_for_build_with_prebuilt() {
   pushd ${PROJ_DIR}
   # install requirements
   python3 -m pip install -r requirements.txt -r torch-requirements.txt
-  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl
   python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
 
   # initialize submodule
@@ -46,7 +45,6 @@ function prepare_for_build() {
   pushd ${PROJ_DIR}
   # install requirements
   python3 -m pip install -r requirements.txt -r torch-requirements.txt
-  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.3.0-cp39-cp39-linux_x86_64.whl
   python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
 
   # initialize submodule

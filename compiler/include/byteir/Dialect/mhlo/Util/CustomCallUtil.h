@@ -121,7 +121,6 @@ constexpr llvm::StringRef getDynamicMaskStitchName() {
   return TF_NAME_PREFIX "DynamicMaskStitch";
 }
 
-constexpr llvm::StringRef getWhereName() { return TF_NAME_PREFIX "Where"; }
 constexpr llvm::StringRef getScatterNdName() {
   return TF_NAME_PREFIX "ScatterNd";
 }

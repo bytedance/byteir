@@ -31,7 +31,6 @@ INSTALL_DIR="$BUILD_DIR/byre_install"
 
 source $CUR_DIR/../prepare.sh
 prepare_for_compiler
-install_mhlo_tools
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
@@ -49,6 +48,7 @@ cmake --build "$BUILD_DIR" --target all check-byteir install
 cmake --build "$BUILD_DIR" --target byteir-python-pack
 
 if [[ $BYTEIR_TEST == "ON" ]]; then
+  install_mhlo_tools
   # test numerical
   cmake --build "$BUILD_DIR" --target check-byteir-numerical
   # test cat
