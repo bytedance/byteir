@@ -51,8 +51,6 @@ constexpr StringRef getMMAPatternAttrName() { return "__byteir_mma__"; }
 
 constexpr StringRef getLinalgTargetAttrName() { return "__byteir_target__"; }
 
-constexpr StringRef getEpilogueMarker() { return "__byteir_epilogue__"; }
-
 void createGPUTileGemmTransformImpl(OpPassManager &pm,
                                     const std::string &anchor,
                                     const std::string &prefix) {

@@ -113,7 +113,6 @@ CUDA_GEMMCODEGEN_TESTS = {
 CUDA_WITH_GEMM_CODEGEN_XFAIL_SET = {
     "MatmulTransposeAF16Module_basic",
     "MatmulTransposeBF16Module_basic",
-    "BatchMatmulAddF32Module_basic",
     "MatmulTransposeModule_basic",
     # TODO: fix bug
     "gemm_crr_f16f16f32.mlir",

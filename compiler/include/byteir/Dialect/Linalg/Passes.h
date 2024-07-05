@@ -19,6 +19,7 @@
 #define BYTEIR_DIALECT_LINALG_PASSES_H
 
 #include "byteir/Dialect/Linalg/Transforms/Bufferize.h"
+#include "byteir/Dialect/Linalg/Transforms/CanonicalizeMatmulEpilogue.h"
 #include "byteir/Dialect/Linalg/Transforms/FuseElementwise.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgCollapseLoops.h"
 #include "byteir/Dialect/Linalg/Transforms/LinalgDataPlace.h"

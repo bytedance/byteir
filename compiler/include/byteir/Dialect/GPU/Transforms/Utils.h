@@ -75,6 +75,8 @@ static constexpr StringRef getCopyFromSharedMemoryAccMarker() {
   return "__byteir_store_matrix_c__";
 };
 
+static constexpr StringRef getEpilogueMarker() { return "__byteir_epilogue__"; }
+
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
 std::optional<int64_t> getGemmPipelineDepth(func::FuncOp funcOp);

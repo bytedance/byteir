@@ -2,6 +2,7 @@ add_mlir_dialect_library(ByteIRLinalgPasses
   BufferizableOpInterfaceImpl.cpp
   Bufferize.cpp
   CanonicalizeExt.cpp
+  CanonicalizeMatmulEpilogue.cpp
   FuseElementwise.cpp
   HoistingExt.cpp
   LinalgCollapseLoops.cpp
