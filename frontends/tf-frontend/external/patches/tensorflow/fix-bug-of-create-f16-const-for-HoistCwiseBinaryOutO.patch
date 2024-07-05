@@ -1,5 +1,5 @@
 diff --git a/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc b/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc
-index 36fb36a3d45..9417d8c2f5a 100644
+index 36fb36a3d45..86241e3b80f 100644
 --- a/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc
 +++ b/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc
 @@ -1339,12 +1339,12 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
@@ -18,7 +18,7 @@ index 36fb36a3d45..9417d8c2f5a 100644
      else
        return failure();
      DenseElementsAttr const_attr;
-@@ -1354,7 +1354,17 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
+@@ -1354,8 +1354,19 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
      if (mlir::isa<FloatType>(scalar_dtype))
        const_attr = DenseElementsAttr::get(scalar_tensor_type,
                                            static_cast<float>(identity_val));
@@ -35,5 +35,7 @@ index 36fb36a3d45..9417d8c2f5a 100644
 +      const_attr = DenseElementsAttr::get(scalar_tensor_type, epsilonFloat);
 +    } else {
        return failure();
++    }
  
      // All checks are passes, and we now prepare for rewrite.
+     auto identity_const = rewriter.create<TF::ConstOp>(loc, const_attr);
