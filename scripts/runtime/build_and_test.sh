@@ -94,7 +94,6 @@ if [[ $BRT_USE_CUDA == "ON" ]] && [[ $BRT_ENABLE_ASAN == "ON" ]]; then
 fi
 
 if [[ $BRT_TEST == "ON" ]]; then
-  copy_external_libs
   pushd $BUILD_DIR
   ./bin/brt_test_all
   popd
