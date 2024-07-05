@@ -30,6 +30,20 @@ GENERIC_CUSTOM_OPS = [
     "aten.min.dim",
     "aten.one_hot",
     "aten.topk",
+    "aten.nonzero",
+]
+
+MATH_CUSTOM_OPS = [
+    "aten.asin",
+    "aten.asinh",
+    "aten.sinh",
+    "aten.atan",
+    "aten.tan",
+    "aten.acos",
+    "aten.acosh",
+    "aten.cosh",
+    "aten.erf",
+    "aten.trunc",
 ]
 
 BYTEIR_CUSTOM_OPS = [

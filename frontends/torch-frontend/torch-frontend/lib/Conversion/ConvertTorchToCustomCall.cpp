@@ -56,91 +56,6 @@ llvm::SmallVector<NamedAttribute> getDefaultAttrs(PatternRewriter &rewriter) {
   return attrs;
 }
 
-template <typename OP>
-stablehlo::ConstantOp createInitialValueForReduceOp(PatternRewriter &rewriter,
-                                                    Location loc,
-                                                    Type elementTy);
-
-template <>
-stablehlo::ConstantOp
-createInitialValueForReduceOp<stablehlo::MaxOp>(PatternRewriter &rewriter,
-                                                Location loc, Type elementTy) {
-  auto constType = RankedTensorType::get({}, elementTy);
-  if (isa<mlir::FloatType>(elementTy)) {
-    auto constAttr = DenseElementsAttr::get(
-        constType,
-        {APFloat::getInf(cast<mlir::FloatType>(elementTy).getFloatSemantics(),
-                         /*negative=*/true)});
-    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
-  } else if (isa<mlir::IntegerType>(elementTy) &&
-             elementTy.getIntOrFloatBitWidth() != 8) {
-    auto constAttr = DenseElementsAttr::get(
-        constType,
-        {APInt::getSignedMinValue(elementTy.getIntOrFloatBitWidth())});
-    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
-  }
-  assert(false && "unimplemented lowering in createInitialValueForReduceOp");
-  return nullptr;
-}
-
-template <>
-stablehlo::ConstantOp
-createInitialValueForReduceOp<stablehlo::AddOp>(PatternRewriter &rewriter,
-                                                Location loc, Type elementTy) {
-  auto constType = RankedTensorType::get({}, elementTy);
-  if (isa<mlir::FloatType>(elementTy)) {
-    auto constAttr = DenseElementsAttr::get(
-        constType,
-        {APFloat::getZero(cast<mlir::FloatType>(elementTy).getFloatSemantics(),
-                          /*negative=*/false)});
-    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
-  } else if (isa<mlir::IntegerType>(elementTy) &&
-             elementTy.getIntOrFloatBitWidth() != 8) {
-    auto constAttr = DenseElementsAttr::get(
-        constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
-    return rewriter.create<stablehlo::ConstantOp>(loc, constType, constAttr);
-  }
-  assert(false && "unimplemented lowering in createInitialValueForReduceOp");
-  return nullptr;
-}
-
-template <typename OP>
-stablehlo::ReduceOp createSingleOpReduce(PatternRewriter &rewriter,
-                                         Location loc, Value input,
-                                         llvm::SmallVector<int64_t> dims) {
-  llvm::sort(dims.begin(), dims.end());
-  auto inputType = cast<RankedTensorType>(input.getType());
-  stablehlo::ConstantOp initValue = createInitialValueForReduceOp<OP>(
-      rewriter, loc, inputType.getElementType());
-
-  std::unordered_set<int64_t> dimsSet(dims.begin(), dims.end());
-  SmallVector<int64_t> outputShape;
-  for (int64_t i = 0; i < inputType.getRank(); i++) {
-    if (dimsSet.find(i) == dimsSet.end()) {
-      outputShape.push_back(inputType.getDimSize(i));
-    }
-  }
-  stablehlo::ReduceOp reduceOp = rewriter.create<stablehlo::ReduceOp>(
-      loc, RankedTensorType::get(outputShape, inputType.getElementType()),
-      input, initValue.getOutput(), rewriter.getDenseI64ArrayAttr(dims));
-
-  Block &block = reduceOp.getBody().emplaceBlock();
-  auto blockArgumentTy = RankedTensorType::get({}, inputType.getElementType());
-  block.addArgument(blockArgumentTy, loc);
-  block.addArgument(blockArgumentTy, loc);
-  auto firstArgument = *block.args_begin();
-  auto secondArgument = *block.args_rbegin();
-  {
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointToStart(&block);
-    Value result = rewriter.create<OP>(loc, blockArgumentTy, firstArgument,
-                                       secondArgument);
-    rewriter.create<stablehlo::ReturnOp>(loc, result);
-  }
-
-  return reduceOp;
-}
-
 Value promoteType(Location loc, Value input, TensorType desiredType,
                   PatternRewriter &rewriter) {
   TensorType inType = dyn_cast<TensorType>(input.getType());
@@ -1137,7 +1052,6 @@ public:
   matchAndRewrite(AtenNonzeroOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
-    auto inputType = cast<RankedTensorType>(input.getType());
     SmallVector<Value> bufferArgs({input});
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     if (!resultType) {
@@ -1145,7 +1059,6 @@ public:
     }
 
     std::vector<NamedAttribute> byteir_attrs;
-
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
                        rewriter.getStringAttr(getNonZeroName()));
@@ -1158,6 +1071,46 @@ public:
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
   }
+};
+} // namespace
+
+// math ops
+namespace {
+template <typename AtenOpT>
+class ConvertMathOp : public OpConversionPattern<AtenOpT> {
+public:
+  ConvertMathOp(const TypeConverter &typeConverter, MLIRContext *context,
+                llvm::StringRef targetName)
+      : OpConversionPattern<AtenOpT>(typeConverter, context),
+        callTargetName(targetName) {}
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult
+  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getSelf();
+    Type resultType =
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getResult().getType());
+    if (!resultType) {
+      return op.emitError("could not convert output types");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(this->callTargetName));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), TypeRange{resultType}, ValueRange{input},
+        ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+
+private:
+  std::string callTargetName;
 };
 } // namespace
 
@@ -1268,9 +1221,13 @@ public:
       target.addIllegalOp<AtenTopkOp>();
       patterns.add<ConvertAtenTopkOp>(typeConverter, context);
     }
+    if (validCustomCallOpsSet.contains("aten.nonzero")) {
+      target.addIllegalOp<AtenNonzeroOp>();
+      patterns.add<ConvertAtenNonzeroOp>(typeConverter, context);
+    }
 
-    target.addIllegalOp<AtenNonzeroOp>();
-    patterns.add<ConvertAtenNonzeroOp>(typeConverter, context);
+    populateMathToCustomCallPattern(target, typeConverter, patterns,
+                                    validCustomCallOpsSet);
 
     target.addIllegalOp<CustomOp>();
     patterns.add<ConvertDynamicPartitionCustomOp>(typeConverter, context);
@@ -1292,6 +1249,30 @@ private:
   llvm::StringSet<> validCustomCallOpsSet;
 };
 } // namespace
+
+void mlir::populateMathToCustomCallPattern(
+    ConversionTarget &target, TypeConverter &typeConverter,
+    RewritePatternSet &patterns,
+    const llvm::StringSet<> &validCustomCallOpsSet) {
+#define CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenOp, MathOpName)                \
+  if (validCustomCallOpsSet.contains(AtenOp::getOperationName())) {            \
+    target.addIllegalOp<AtenOp>();                                             \
+    patterns.add<ConvertMathOp<AtenOp>>(typeConverter, patterns.getContext(),  \
+                                        MathOpName);                           \
+  }
+
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAsinOp, "math.asin");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAsinhOp, "math.asinh");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenSinhOp, "math.sinh");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAtanOp, "math.atan");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenTanOp, "math.tan");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAcosOp, "math.acos");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAcoshOp, "math.acosh");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenCoshOp, "math.cosh");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenErfOp, "math.erf");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenTruncOp, "math.trunc");
+#undef CONVERT_MATH_TO_CUSTOM_CALL_PATTERN
+}
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createConvertTorchToCustomCall(ArrayRef<std::string> validCustomCallOps) {
