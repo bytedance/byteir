@@ -1,17 +1,8 @@
-From 3a14562a78e712a1ea495ab0a6ba55b3afbc6ef0 Mon Sep 17 00:00:00 2001
-From: "quanbo.liu" <liuquanbo@bytedance.com>
-Date: Mon, 22 Jan 2024 10:04:42 +0800
-Subject: [PATCH] fix bug of create f16 const for HoistCwiseBinaryOutOfConcat
-
----
- .../compiler/mlir/tensorflow/ir/tf_ops_a_m.cc | 22 +++++++++++++------
- 1 file changed, 15 insertions(+), 7 deletions(-)
-
 diff --git a/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc b/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc
-index f66c996f32a..2b61a57f488 100644
+index 36fb36a3d45..86241e3b80f 100644
 --- a/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc
 +++ b/tensorflow/compiler/mlir/tensorflow/ir/tf_ops_a_m.cc
-@@ -1317,12 +1317,12 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
+@@ -1339,12 +1339,12 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
    // Process `exceptions`: For each value there, synthesize a binary op of the
    // above kind, so that the concat hoisting optimization can still apply.
    if (!exceptions.empty()) {
@@ -27,20 +18,17 @@ index f66c996f32a..2b61a57f488 100644
      else
        return failure();
      DenseElementsAttr const_attr;
-@@ -1331,11 +1331,19 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
-             .getType()
-             .dyn_cast<ShapedType>();
-     Type scalar_dtype = scalar_tensor_type.getElementType();
--    if (scalar_dtype.isa<FloatType>())
--      const_attr = DenseElementsAttr::get(scalar_tensor_type,
--                                          static_cast<float>(identity_val));
+@@ -1354,8 +1354,19 @@ LogicalResult HoistCwiseBinaryOutOfConcat::matchAndRewrite(
+     if (mlir::isa<FloatType>(scalar_dtype))
+       const_attr = DenseElementsAttr::get(scalar_tensor_type,
+                                           static_cast<float>(identity_val));
 -    else
-+    if (scalar_dtype.isa<FloatType>()) {
-+      //const_attr = DenseFPElementsAttr::get(scalar_tensor_type, APFloat(identity_val));
++    if (mlir::isa<FloatType>(scalar_dtype)) {
++      // const_attr = DenseFPElementsAttr::get(scalar_tensor_type, APFloat(identity_val));
 +      APFloat epsilonFloat = APFloat(identity_val);
 +      bool losesInfo = false;
 +      auto status = epsilonFloat.convert(
-+          scalar_dtype.cast<FloatType>().getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
++          mlir::cast<FloatType>(scalar_dtype).getFloatSemantics(), APFloat::rmNearestTiesToEven, &losesInfo);
 +      if(losesInfo || status != llvm::APFloatBase::opStatus::opOK) {
 +        return op.emitError("float type conversion failed");
 +      }
@@ -51,6 +39,3 @@ index f66c996f32a..2b61a57f488 100644
  
      // All checks are passes, and we now prepare for rewrite.
      auto identity_const = rewriter.create<TF::ConstOp>(loc, const_attr);
--- 
-2.30.2
-

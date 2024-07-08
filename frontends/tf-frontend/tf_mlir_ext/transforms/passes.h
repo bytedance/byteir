@@ -33,7 +33,6 @@
 #include "tf_mlir_ext/transforms/mhlo_legalize_tf_ext.h"
 #include "tf_mlir_ext/transforms/process_dynamic_stitch_as_static.h"
 #include "tf_mlir_ext/transforms/remove_control_flow.h"
-#include "tf_mlir_ext/transforms/remove_cstr_reshapable.h"
 #include "tf_mlir_ext/transforms/reshape_movedown_string.h"
 #include "tf_mlir_ext/transforms/rewrite_func_attr_to_byteir.h"
 #include "tf_mlir_ext/transforms/rewrite_to_custom_call.h"

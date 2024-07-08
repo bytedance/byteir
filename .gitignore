@@ -37,12 +37,11 @@ llvm_build_rtti/
 # byteir artifact in CI
 byre_install*
 byre_install/
-onnx_frontend_download/
 
 # Local Test
-local_test*
-*local_test*
-*Local_test*
+local_test/
+local_golden/
+local_profiling/
 
 # VS and VSCode config files.
 .vscode/
