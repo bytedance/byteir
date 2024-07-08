@@ -8,7 +8,8 @@ CUR_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 pushd $CUR_DIR
 
 # CUDA
-# TODO: add CUDA E2E checker when pipeline fixed
+python3 gen_testcases.py --top-dir ./compiler/test/E2E/CUDA/MLPInference --category=E2E
+# TODO: add more CUDA E2E checker
 
 # Host
 python3 gen_testcases.py --top-dir ../test/E2E/Host/Case0 --category HostPipeline
