@@ -1,8 +1,8 @@
 diff --git a/tensorflow/compiler/mlir/lite/transforms/optimize.cc b/tensorflow/compiler/mlir/lite/transforms/optimize.cc
-index 2ed3c0519d8..885e64dea93 100644
+index 606be04a0f7..a3936717de4 100644
 --- a/tensorflow/compiler/mlir/lite/transforms/optimize.cc
 +++ b/tensorflow/compiler/mlir/lite/transforms/optimize.cc
-@@ -2073,9 +2073,10 @@ struct FuseReshapeAndTransposeAroundBatchMatmul
+@@ -2236,9 +2236,10 @@ struct FuseReshapeAndTransposeAroundBatchMatmul
      SmallVector<int, 3> new_shape = {
          static_cast<int>(transpose_input.getType().getDimSize(0)),
          static_cast<int>(transpose_input.getType().getDimSize(1)),
@@ -14,5 +14,5 @@ index 2ed3c0519d8..885e64dea93 100644
 +                            transpose_input.getType().getShape().end(), 1,
 +                            std::multiplies<int64_t>()))};
      auto shape_constant = rewriter.create<ConstOp>(
-         batch_matmul.getLoc(),
-         DenseIntElementsAttr::get(
+         batch_matmul.getLoc(), GetI32ElementsAttr(new_shape, &rewriter));
+     auto reshaped_input = rewriter.create<ReshapeOp>(

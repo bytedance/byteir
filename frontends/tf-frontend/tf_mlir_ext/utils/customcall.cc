@@ -26,7 +26,7 @@ DictionaryAttr getCleanAttr(Operation *op) {
   llvm::SmallVector<mlir::NamedAttribute> filtered_attrs;
   for (auto &kv : llvm::make_early_inc_range(dict)) {
     llvm::StringRef name = kv.getName();
-    if (name == "T" || name == "device" || name.startswith("_Xla")) {
+    if (name == "T" || name == "device" || name.starts_with("_Xla")) {
       continue;
     } else {
       filtered_attrs.emplace_back(kv);

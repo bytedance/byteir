@@ -68,23 +68,6 @@ index 02c9f486e8e..ff76e59f788 100644
      deps = [
          "@llvm-project//mlir:AffineDialect",
          "@llvm-project//mlir:QuantOps",
-diff --git a/tensorflow/compiler/mlir/lite/BUILD b/tensorflow/compiler/mlir/lite/BUILD
-index b6d406f040a..e657dcdabaf 100644
---- a/tensorflow/compiler/mlir/lite/BUILD
-+++ b/tensorflow/compiler/mlir/lite/BUILD
-@@ -8,11 +8,7 @@ package(
-     # copybara:uncomment default_applicable_licenses = ["//tensorflow:license"],
-     default_visibility = [
-         # TODO(jpienaar): Make the visibility more restrictive.
--        ":friends",
--        "//learning/brain/mobile/programmability:__subpackages__",
--        "//tensorflow/lite/experimental/tf_runtime:__subpackages__",
--        "//tensorflow/lite/testing:__subpackages__",
--        "//third_party/odml/infra/genai/conversion/per_layer:__subpackages__",
-+        "//visibility:public",
-     ],
-     licenses = ["notice"],
- )
 diff --git a/tensorflow/compiler/mlir/tensorflow/BUILD b/tensorflow/compiler/mlir/tensorflow/BUILD
 index cb24a361353..b2771263628 100644
 --- a/tensorflow/compiler/mlir/tensorflow/BUILD
