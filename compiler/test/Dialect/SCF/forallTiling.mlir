@@ -37,9 +37,9 @@ func.func @Elementwise(%arg0: memref<32x1024x?x30xf32>) -> memref<32768x?x30xf32
 		%2 = arith.divsi %arg1, %c30 : index
 		%3 = arith.remsi %2, %dim : index
 		%4 = arith.divsi %2, %dim : index
-		%subview = memref.subview %collapse_shape[%4, %3, %1] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[300, 30, 1], offset: ?>>
-		%subview_0 = memref.subview %alloc[%4, %3, %1] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[300, 30, 1], offset: ?>>
-		linalg.generic {indexing_maps = [#map, #map], iterator_types = ["parallel", "parallel", "parallel"]} ins(%subview : memref<1x1x1xf32, strided<[300, 30, 1], offset: ?>>) outs(%subview_0 : memref<1x1x1xf32, strided<[300, 30, 1], offset: ?>>) attrs =  {__byteir_gpu_tile_elementwise_0} {
+		%subview = memref.subview %collapse_shape[%4, %3, %1] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[?, 30, 1], offset: ?>>
+		%subview_0 = memref.subview %alloc[%4, %3, %1] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[?, 30, 1], offset: ?>>
+		linalg.generic {indexing_maps = [#map, #map], iterator_types = ["parallel", "parallel", "parallel"]} ins(%subview : memref<1x1x1xf32, strided<[?, 30, 1], offset: ?>>) outs(%subview_0 : memref<1x1x1xf32, strided<[?, 30, 1], offset: ?>>) attrs =  {__byteir_gpu_tile_elementwise_0} {
 		^bb0(%in: f32, %out: f32):
 			%5 = arith.mulf %in, %in : f32
 			linalg.yield %5 : f32
@@ -65,5 +65,5 @@ func.func @Elementwise(%arg0: memref<32x1024x?x30xf32>) -> memref<32768x?x30xf32
   // CHECK-NEXT: %[[V4:.*]] = arith.divsi %[[V2]], %[[C30]] : index
   // CHECK-NEXT: %[[V5:.*]] = arith.remsi %[[V4]], %[[DIM]] : index
   // CHECK-NEXT: %[[V6:.*]] = arith.divsi %[[V4]], %[[DIM]] : index
-	// CHECK-NEXT: %[[SUBVIEW:.*]] = memref.subview %[[COLLAPSE]][%[[V6]], %[[V5]], %[[V3]]] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[300, 30, 1], offset: ?>>
-  // CHECK-NEXT: %[[SUBVIEW_0:.*]] = memref.subview %[[ALLOC]][%[[V6]], %[[V5]], %[[V3]]] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[300, 30, 1], offset: ?>>
+	// CHECK-NEXT: %[[SUBVIEW:.*]] = memref.subview %[[COLLAPSE]][%[[V6]], %[[V5]], %[[V3]]] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[?, 30, 1], offset: ?>>
+  // CHECK-NEXT: %[[SUBVIEW_0:.*]] = memref.subview %[[ALLOC]][%[[V6]], %[[V5]], %[[V3]]] [1, 1, 1] [1, 1, 1] : memref<32768x?x30xf32> to memref<1x1x1xf32, strided<[?, 30, 1], offset: ?>>
