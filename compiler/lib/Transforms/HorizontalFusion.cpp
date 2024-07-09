@@ -23,6 +23,7 @@
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -101,9 +102,75 @@ void moveForwardAlloc(ModuleOp &m) {
   }
 }
 
+template <typename attrTy> inline bool hasMappingAttr(scf::ForallOp forall) {
+  auto mapping = forall.getMapping();
+  bool hasAttr =
+      mapping.has_value() && llvm::any_of(mapping.value(), [&](Attribute attr) {
+        return isa<attrTy>(attr);
+      });
+  return hasAttr;
+};
+
+int64_t getForallLoopSize(scf::ForallOp &forall) {
+  auto ubs = forall.getStaticUpperBound();
+  auto lbs = forall.getStaticLowerBound();
+  auto steps = forall.getStaticStep();
+  int64_t loopSize = 1;
+  for (auto &&[ub, lb, s] : llvm::zip(ubs, lbs, steps)) {
+    loopSize *= (ub - lb) / s;
+  }
+  return loopSize;
+}
+
+int64_t extractForallBlockSize(Operation *op) {
+  int64_t blockSize = 0;
+  if (auto forall = dyn_cast_if_present<scf::ForallOp>(op)) {
+    // FIXME. assume only one forall in outter forall body.
+    forall->walk([&](scf::ForallOp innerForall) {
+      auto mapping = innerForall.getMapping();
+      if (!mapping.has_value())
+        return WalkResult::advance();
+      bool hasThreadMapping = hasMappingAttr<gpu::GPUThreadMappingAttr>(forall);
+      if (hasThreadMapping) {
+        blockSize = getForallLoopSize(innerForall);
+        return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+    });
+  }
+  return blockSize;
+}
+
+int64_t extractForallGridSize(Operation *op) {
+  int64_t gridSize = 0;
+  if (auto forall = dyn_cast_if_present<scf::ForallOp>(op)) {
+    if (hasMappingAttr<gpu::GPUBlockMappingAttr>(forall)) {
+      gridSize = getForallLoopSize(forall);
+    }
+  }
+  return gridSize;
+}
+
+int64_t extractForallInstrCount(Operation *op) {
+  int instrCount = 0;
+  if (auto forall = dyn_cast_if_present<scf::ForallOp>(op)) {
+    // TODO skip viewlike ops.
+    instrCount = std::distance(forall.getOps().begin(), forall.getOps().end());
+    for (auto innerForall : forall.getOps<scf::ForallOp>()) {
+      innerForall->walk([&](Operation *instr) { instrCount++; });
+    }
+  }
+  return instrCount;
+}
+
 // HorizontalFusionPass
 using HFusionPattern = llvm::SmallVector<Operation *, 8>;
 using HFusionPlan = llvm::SmallVector<HFusionPattern, 8>;
+
+// TODO(chhuang)
+constexpr int64_t kMAX_INSTR_COUNT = 1024;
+constexpr int64_t kMAX_BLOCK_SIZE = 8192 * 8192;
+constexpr int64_t kMAX_GRID_SIZE = 1024;
 
 struct HorizontalFusionPass
     : public HorizontalFusionBase<HorizontalFusionPass> {
@@ -125,16 +192,53 @@ struct HorizontalFusionPass
 
 void HorizontalFusionPass::getCandidates(ModuleOp &m,
                                          SmallVector<Operation *> &candidates) {
+  auto hasGPUMapping = [](scf::ForallOp forall) {
+    bool hasBlockMapping = hasMappingAttr<gpu::GPUBlockMappingAttr>(forall);
+    if (!hasBlockMapping)
+      return false;
+    bool hasThreadMapping = !forall.getOps<scf::ForallOp>().empty();
+    for (auto innerForall : forall.getOps<scf::ForallOp>()) {
+      hasThreadMapping &=
+          hasMappingAttr<gpu::GPUThreadMappingAttr>(innerForall);
+    }
+    return hasThreadMapping;
+  };
+
+  // Fuse too much instrs may lead to register spill and use too much resource.
+  auto checkInstrCount = [](scf::ForallOp forall, const int64_t max_instr) {
+    return extractForallInstrCount(forall.getOperation()) < max_instr;
+  };
+
+  // It's not benefit to fuse kernel with large grid size, which already has
+  // enough blocks to occupy GPU SMs.
+  auto checkGridSize = [](scf::ForallOp forall, const int64_t max_grid) {
+    return extractForallGridSize(forall) < max_grid;
+  };
+
+  auto checkBlockSize = [](scf::ForallOp forall, const int64_t max_block) {
+    return extractForallBlockSize(forall) < max_block;
+  };
+
+  auto checkAll = [&](scf::ForallOp forall) {
+    bool check = true;
+    check &= hasGPUMapping(forall);
+    check &= checkInstrCount(forall, kMAX_INSTR_COUNT);
+    check &= checkGridSize(forall, kMAX_GRID_SIZE);
+    check &= checkBlockSize(forall, kMAX_BLOCK_SIZE);
+
+    return check;
+  };
+
   for (auto funcOp : m.getOps<func::FuncOp>()) {
     if (!isByreEntry(funcOp))
       continue;
 
     for (auto forallOp : funcOp.getOps<scf::ForallOp>()) {
       // TODO(chhuang) (1) check instrs nums; (2) skip large shape;
-      // just pass all elementwise kernel as candidates.
       if (forallOp->hasAttr(kernelTypeNameAttr) &&
           forallOp->getAttr(kernelTypeNameAttr).cast<StringAttr>().getValue() ==
-              getByteIRElementwiseFusionAttrName()) {
+              getByteIRElementwiseFusionAttrName() &&
+          checkAll(forallOp)) {
         candidates.push_back(forallOp);
       }
     }
@@ -162,10 +266,19 @@ void HorizontalFusionPass::makeHorizontalFusionPlan(
 
 void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
   OpBuilder builder(getOperation());
-  for (auto pattern : plan) {
+  for (auto &&pattern : plan) {
     if (pattern.size() < 2)
       continue;
-    // TODO sort forall with shape and insts count
+    // Sort forall with shape and insts count. So the same blocksize will be
+    // placed adjacent each other and fuse together computations of similar
+    // sizes.
+    std::sort(pattern.begin(), pattern.end(), [&](Operation *a, Operation *b) {
+      auto aBlockSize = extractForallBlockSize(a);
+      auto bBlockSize = extractForallBlockSize(b);
+      if (aBlockSize != bBlockSize)
+        return aBlockSize < bBlockSize;
+      return extractForallInstrCount(a) < extractForallInstrCount(b);
+    });
 
     // merge
     auto root = cast<scf::ForallOp>(pattern.front());
@@ -248,7 +361,6 @@ void HorizontalFusionPass::doHorizontalFusion(HFusionPlan &plan) {
 bool HorizontalFusionPass::isFusibleAndBenefit(scf::ForallOp pre,
                                                scf::ForallOp cur) {
   // TODO check whether benefit
-  // TODO check all has same mapping
 
   auto same_shape = [](ArrayRef<int64_t> a, ArrayRef<int64_t> b) {
     if (a.size() != b.size())
@@ -259,12 +371,9 @@ bool HorizontalFusionPass::isFusibleAndBenefit(scf::ForallOp pre,
   };
 
   // check fusiable
-  // llvm::SetVector<Value> preWriteVals;
-  // llvm::SetVector<Value> preReadVals;
   llvm::SetVector<Value> curWriteVals;
   llvm::SetVector<Value> curReadVals;
-  // TODO include alias and collect all uses.
-  // collectWRMemref(pre, preWriteVals, preReadVals);
+  // include alias and collect all uses.
   collectWRMemref(cur, curWriteVals, curReadVals);
 
   llvm::SetVector<Operation *> directOperands;
@@ -419,9 +528,8 @@ void HorizontalFusionPass::runOnOperation() {
   }
   /// stage 2. make fusion planing
   //  move forward alloc.
-  //  TODO Infact, one can move more ops.
   moveForwardAlloc(moduleOp);
-  // llvm::dbgs() << "chh dbg alllll:\n" << moduleOp << "\n";
+  // TODO move forward viewlike ops.
 
   SmallVector<Operation *> candidateForallOps;
   getCandidates(moduleOp, candidateForallOps);
@@ -433,9 +541,6 @@ void HorizontalFusionPass::runOnOperation() {
 
   /// postprocess
   // TODO lazy alloc
-
-  /// [deprecated] stage 4. outline scf.forall back to func call
-  /// or, outline after gpu codegen.
 }
 
 } // namespace

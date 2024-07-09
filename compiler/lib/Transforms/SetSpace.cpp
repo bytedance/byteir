@@ -407,102 +407,113 @@ void updateFuncReturnTypes(
 void updateOpTypes(FuncOp func, ModuleOp m,
                    DenseMap<CopyType_t, Value> &copyPairToCopyTargets,
                    ArgSideEffectAnalysis *analysis) {
-  // rewrite all types
-  for (auto &block : func.getBlocks()) {
-    for (auto &op : block.without_terminator()) {
-      if (auto viewLikeOp = llvm::dyn_cast<ViewLikeOpInterface>(op)) {
-        auto src = viewLikeOp.getViewSource();
-        auto srcType = dyn_cast<MemRefType>(src.getType());
-        if (!srcType)
-          continue;
-        auto srcSpace = srcType.getMemorySpace();
-        if (!srcSpace)
-          continue;
-
-        auto currSpace = srcSpace;
-        // if op has space attribute, use it as memory space
-        if (auto opSpaceAttr = op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
-          if (srcSpace != opSpaceAttr) {
-            // insert copy if src space is different with spaceAttr
-            auto newSrcType = cloneMemRefTypeWithMemSpace(srcType, opSpaceAttr);
-            auto newArg = createCopyInputArg(&op, src, newSrcType, opSpaceAttr,
-                                             copyPairToCopyTargets);
-            op.setOperand(0, newArg);
-            currSpace = opSpaceAttr;
-          }
-        }
-        // propagate memory space from currSpace to dest
-        for (auto result : op.getResults()) {
-          auto dstType = dyn_cast<MemRefType>(result.getType());
-          if (!dstType)
+  auto update_op_types = [&]() {
+    // rewrite all types
+    for (auto &block : func.getBlocks()) {
+      for (auto &op : block.without_terminator()) {
+        if (auto viewLikeOp = llvm::dyn_cast<ViewLikeOpInterface>(op)) {
+          auto src = viewLikeOp.getViewSource();
+          auto srcType = dyn_cast<MemRefType>(src.getType());
+          if (!srcType)
             continue;
-          auto dstSpace = dstType.getMemorySpace();
+          auto srcSpace = srcType.getMemorySpace();
+          if (!srcSpace)
+            continue;
 
-          if (dstSpace) {
-            if (dstSpace != currSpace) {
-              // insert copy if dst space was already set to different space
+          auto currSpace = srcSpace;
+          // if op has space attribute, use it as memory space
+          if (auto opSpaceAttr =
+                  op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+            if (srcSpace != opSpaceAttr) {
+              // insert copy if src space is different with spaceAttr
+              auto newSrcType =
+                  cloneMemRefTypeWithMemSpace(srcType, opSpaceAttr);
+              auto newArg = createCopyInputArg(
+                  &op, src, newSrcType, opSpaceAttr, copyPairToCopyTargets);
+              op.setOperand(0, newArg);
+              currSpace = opSpaceAttr;
+            }
+          }
+          // propagate memory space from currSpace to dest
+          for (auto result : op.getResults()) {
+            auto dstType = dyn_cast<MemRefType>(result.getType());
+            if (!dstType)
+              continue;
+            auto dstSpace = dstType.getMemorySpace();
+
+            if (dstSpace) {
+              if (dstSpace != currSpace) {
+                // insert copy if dst space was already set to different space
+                auto newDstType =
+                    cloneMemRefTypeWithMemSpace(dstType, currSpace);
+                result.setType(newDstType);
+                createCopyReturn(viewLikeOp, result, dstType,
+                                 copyPairToCopyTargets);
+              }
+            } else {
+              // set to spaceAttr if no space
               auto newDstType = cloneMemRefTypeWithMemSpace(dstType, currSpace);
               result.setType(newDstType);
-              createCopyReturn(viewLikeOp, result, dstType,
-                               copyPairToCopyTargets);
             }
-          } else {
-            // set to spaceAttr if no space
-            auto newDstType = cloneMemRefTypeWithMemSpace(dstType, currSpace);
-            result.setType(newDstType);
           }
-        }
-      } else if (auto opSpaceAttr =
-                     op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
-        for (unsigned i = 0; i < op.getNumOperands(); ++i) {
-          auto operand = op.getOperand(i);
-          if (auto MemrefTy = dyn_cast<MemRefType>(operand.getType())) {
-            auto curSpace = MemrefTy.getMemorySpace();
+        } else if (auto opSpaceAttr =
+                       op.getAttrOfType<StringAttr>(SPACE_ATTR_NAME)) {
+          for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+            auto operand = op.getOperand(i);
+            if (auto MemrefTy = dyn_cast<MemRefType>(operand.getType())) {
+              auto curSpace = MemrefTy.getMemorySpace();
 
-            if (curSpace == nullptr) {
-              // if no space, use opSpaceAttr
+              if (curSpace == nullptr) {
+                // if no space, use opSpaceAttr
+                auto newOperandType =
+                    cloneMemRefTypeWithMemSpace(MemrefTy, opSpaceAttr);
+                operand.setType(newOperandType);
+              } else if (opSpaceAttr != curSpace) {
+                // insert copy when curSpace is not desired opSpaceAttr
+                CopyType_t copyKey = {operand, opSpaceAttr};
+
+                if (copyPairToCopyTargets.count(copyKey) == 0) {
+                  // if copy not exist, insert copy
+                  auto argSEType = analysis->getType(&op, i);
+                  auto newArg =
+                      createCopyArg(&op, operand, MemrefTy, opSpaceAttr,
+                                    copyPairToCopyTargets, argSEType);
+                  op.setOperand(i, newArg);
+                } else {
+                  // if copy already exist, directly refer it
+                  auto taget = copyPairToCopyTargets[copyKey];
+                  op.setOperand(i, taget);
+                }
+              } // if else
+            }   // if MemrefTy
+          }     // for i < op.getNumOperands()
+
+          // set operand type
+          for (auto operand : op.getOperands()) {
+            if (auto MemrefTy = dyn_cast<MemRefType>(operand.getType())) {
               auto newOperandType =
                   cloneMemRefTypeWithMemSpace(MemrefTy, opSpaceAttr);
               operand.setType(newOperandType);
-            } else if (opSpaceAttr != curSpace) {
-              // insert copy when curSpace is not desired opSpaceAttr
-              CopyType_t copyKey = {operand, opSpaceAttr};
+            }
+          }
 
-              if (copyPairToCopyTargets.count(copyKey) == 0) {
-                // if copy not exist, insert copy
-                auto argSEType = analysis->getType(&op, i);
-                auto newArg = createCopyArg(&op, operand, MemrefTy, opSpaceAttr,
-                                            copyPairToCopyTargets, argSEType);
-                op.setOperand(i, newArg);
-              } else {
-                // if copy already exist, directly refer it
-                auto taget = copyPairToCopyTargets[copyKey];
-                op.setOperand(i, taget);
-              }
-            } // if else
-          }   // if MemrefTy
-        }     // for i < op.getNumOperands()
-
-        // set operand type
-        for (auto operand : op.getOperands()) {
-          if (auto MemrefTy = dyn_cast<MemRefType>(operand.getType())) {
-            auto newOperandType =
-                cloneMemRefTypeWithMemSpace(MemrefTy, opSpaceAttr);
-            operand.setType(newOperandType);
+          // set result type in case it has
+          for (auto result : op.getResults()) {
+            if (auto MemrefTy = dyn_cast<MemRefType>(result.getType())) {
+              auto newOperandType =
+                  cloneMemRefTypeWithMemSpace(MemrefTy, opSpaceAttr);
+              result.setType(newOperandType);
+            }
           }
         }
+      } // for op in block.without_terminator()
+    }
+  };
 
-        // set result type in case it has
-        for (auto result : op.getResults()) {
-          if (auto MemrefTy = dyn_cast<MemRefType>(result.getType())) {
-            auto newOperandType =
-                cloneMemRefTypeWithMemSpace(MemrefTy, opSpaceAttr);
-            result.setType(newOperandType);
-          }
-        }
-      }
-    } // for op in block.without_terminator()
-  }
+  // Do twice as the viewlike op's operand may not be updated before updating
+  // current op.
+  update_op_types();
+  update_op_types();
 
   // respect to function return type
   for (auto &&retOp : func.getOps<ReturnOp>()) {
