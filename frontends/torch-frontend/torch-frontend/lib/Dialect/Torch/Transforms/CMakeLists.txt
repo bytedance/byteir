@@ -15,6 +15,7 @@ add_mlir_library(TorchFrontendTorchTransforms
   MLIRPass
   MLIRDialect
   TorchMLIRTorchDialect
+  TorchMLIRTorchUtils
   TorchFrontendUtils
 )
 target_include_directories(TorchFrontendTorchTransforms PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
