@@ -1255,10 +1255,16 @@ void mlir::populateMathToCustomCallPattern(
     RewritePatternSet &patterns,
     const llvm::StringSet<> &validCustomCallOpsSet) {
 #define CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenOp, MathOpName)                \
-  if (validCustomCallOpsSet.contains(AtenOp::getOperationName())) {            \
-    target.addIllegalOp<AtenOp>();                                             \
-    patterns.add<ConvertMathOp<AtenOp>>(typeConverter, patterns.getContext(),  \
-                                        MathOpName);                           \
+  {                                                                            \
+    std::string opName = AtenOp::getOperationName().str();                     \
+    if (AtenOp::getOperationName().starts_with("torch.")) {                    \
+      opName = opName.substr(6);                                               \
+    }                                                                          \
+    if (validCustomCallOpsSet.contains(opName)) {                              \
+      target.addIllegalOp<AtenOp>();                                           \
+      patterns.add<ConvertMathOp<AtenOp>>(typeConverter,                       \
+                                          patterns.getContext(), MathOpName);  \
+    }                                                                          \
   }
 
   CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAsinOp, "math.asin");

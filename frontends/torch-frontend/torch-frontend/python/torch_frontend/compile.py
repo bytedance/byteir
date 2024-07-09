@@ -92,6 +92,11 @@ def _get_debug_parameters(debug: DebugType):
         }
     return debug_parameters
 
+def _print_verbose(module: ModuleOp, pipeline_msg: str):
+    print(pipeline_msg)
+    print(module.operation.get_asm(large_elements_limit=10))
+    print()
+
 def _get_extra_library_file(backend_legal_ops):
     CUR_DIR = os.path.abspath(os.path.dirname(__file__))
     for extra_op in byteir_extra_library:
@@ -105,6 +110,7 @@ def compile(
     output_type: str,
     entry_func_name: str = "forward",
     backend_legal_ops: Optional[Sequence[str]] = None,
+    verbose: bool = False,
     debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
     """
@@ -142,6 +148,7 @@ def compile(
 
     context = ir.Context()
     module = ir.Module.parse(module_str, context)
+    _print_verbose(module, "// IR Dump After JIT IR Importer") if verbose else ...
     if output_type == "raw":
         return module
 
@@ -149,7 +156,7 @@ def compile(
     # compile raw to torch
     ############################################
     if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-        print("// IR Dump After RAW")
+        print("// IR Dump After JIT IR Importer")
         print(
             module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
         )
@@ -171,6 +178,7 @@ def compile(
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
+    _print_verbose(module, "// IR Dump After Torch Backend Pipeline") if verbose else ...
     if output_type == "torch":
         return module
 
@@ -192,6 +200,7 @@ def compile(
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
+    _print_verbose(module, "// IR Dump After Torch to Stablehlo Pipeline") if verbose else ...
     if output_type == "stablehlo":
         return module
 
@@ -208,6 +217,7 @@ def compile_dynamo_model(
     output_type: str,
     entry_func_name: str = "main",
     backend_legal_ops: Optional[Sequence[str]] = None,
+    verbose: bool = False,
     debug: DebugType = DebugType.NO_DEBUG,
 ) -> ModuleOp:
     """
@@ -249,6 +259,7 @@ def compile_dynamo_model(
 
     context = ir.Context()
     module = ir.Module.parse(module_str, context)
+    _print_verbose(module, "// IR Dump After FX Importer") if verbose else ...
     if output_type == "raw":
         return module
 
@@ -256,7 +267,7 @@ def compile_dynamo_model(
     # compile raw to torch
     ############################################
     if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-        print("// IR Dump After RAW")
+        print("// IR Dump After FX Importer")
         print(
             module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
         )
@@ -281,6 +292,7 @@ def compile_dynamo_model(
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
+    _print_verbose(module, "// IR Dump After Torch Backend Pipeline") if verbose else ...
     if output_type == "torch":
         return module
 
@@ -293,6 +305,7 @@ def compile_dynamo_model(
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
+    _print_verbose(module, "// IR Dump After Torch to Stablehlo Pipeline") if verbose else ...
     if output_type == "stablehlo":
         return module
 
