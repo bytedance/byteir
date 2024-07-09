@@ -38,17 +38,9 @@ using namespace mlir::affine;
 
 namespace {
 void addGenericSCFOptPasses(OpPassManager &pm) {
-  // for elementwise op
-#if 0
-  GPUTileElementwiseInSCFOptions tileOptions;
-  tileOptions.maxBlockSize = 256;
-  createGPUTileElementwiseInSCF(pm, tileOptions);
-#endif
 
   pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
   pm.addNestedPass<func::FuncOp>(createConvertLinalgExtToLoopsPass());
-  // TODO fix scf.for in reduction kernel
-  // pm.addNestedPass<func::FuncOp>(createForToForallPass());
   // lower affine.apply in case there is some
   pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(createLowerAffinePass());
@@ -59,13 +51,12 @@ void addGenericSCFOptPasses(OpPassManager &pm) {
       createFuseNestedForallPass(getByteIRReductionFusionAttrName()));
   addCleanUpExtPassPipeline(pm);
   // for copy op
-#if 1
+  // for elementwise op
   {
     GPUTileElementwiseInSCFOptions tileOptions;
     tileOptions.maxBlockSize = 256;
     createGPUTileElementwiseInSCF(pm, tileOptions);
   }
-#endif
 }
 
 void addCPUSCFOptPasses(OpPassManager &pm) {
