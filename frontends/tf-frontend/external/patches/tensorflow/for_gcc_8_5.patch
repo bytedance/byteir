@@ -16,3 +16,33 @@ index 606be04a0f7..a3936717de4 100644
      auto shape_constant = rewriter.create<ConstOp>(
          batch_matmul.getLoc(), GetI32ElementsAttr(new_shape, &rewriter));
      auto reshaped_input = rewriter.create<ReshapeOp>(
+diff --git a/tensorflow/core/common_runtime/optimized_function_graph_info.h b/tensorflow/core/common_runtime/optimized_function_graph_info.h
+index dd05b026ebf..b2bd9af5bb1 100644
+--- a/tensorflow/core/common_runtime/optimized_function_graph_info.h
++++ b/tensorflow/core/common_runtime/optimized_function_graph_info.h
+@@ -71,10 +71,9 @@ struct OptimizedFunctionGraphInfo {
+   OptimizedFunctionGraphInfo(OptimizedFunctionGraphInfo& info) = delete;
+   OptimizedFunctionGraphInfo& operator=(OptimizedFunctionGraphInfo& info) =
+       delete;
+-  OptimizedFunctionGraphInfo(OptimizedFunctionGraphInfo&& info) noexcept =
++  OptimizedFunctionGraphInfo(OptimizedFunctionGraphInfo&& info) = default;
++  OptimizedFunctionGraphInfo& operator=(OptimizedFunctionGraphInfo&& info) =
+       default;
+-  OptimizedFunctionGraphInfo& operator=(
+-      OptimizedFunctionGraphInfo&& info) noexcept = default;
+ 
+   // Converts from the struct to OptimizedFunctionGraph proto.
+   static OptimizedFunctionGraph ToProto(const OptimizedFunctionGraphInfo& info);
+diff --git a/third_party/xla/xla/primitive_util.h b/third_party/xla/xla/primitive_util.h
+index 1f400fc7a89..0ecc9475165 100644
+--- a/third_party/xla/xla/primitive_util.h
++++ b/third_party/xla/xla/primitive_util.h
+@@ -559,7 +559,7 @@ inline constexpr int WidthForType(PrimitiveType type) {
+   if (ABSL_PREDICT_TRUE(IsArrayType(type))) {
+     return kWidths[type];
+   }
+-  LOG(FATAL) << "Unhandled primitive type " << type;
++  // LOG(FATAL) << "Unhandled primitive type " << type;
+ }
+ }  // namespace internal
+ 
