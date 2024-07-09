@@ -52,6 +52,15 @@ bool isCustomMhloByteirRepeatOp(Operation *op) {
   return false;
 }
 
+bool isAliasLikeOp(Operation *op) {
+  if (llvm::isa<mhlo::ReshapeOp>(op)) {
+    return true;
+  } else if (auto slice = llvm::dyn_cast_if_present<mhlo::SliceOp>(op)) {
+    return isSliceContinuousSubview(slice);
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // ElementwiseFusion
 //===----------------------------------------------------------------------===//
@@ -59,11 +68,11 @@ namespace elementwise {
 
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) &&
+  return isMhlo(op) && !isAliasLikeOp(op) &&
          (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
           op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
           isSplatMhloConstantLike(op) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op) ||
           isCustomMhloRngOp(op));
 }
 
@@ -332,7 +341,11 @@ namespace aggressive_fusion {
 bool isFusibleCandidate(Operation *op) {
   if (isCustomMhloRngOp(op) || isCustomMhloByteirRepeatOp(op))
     return true;
-  return isMhlo(op) && !llvm::isa<mhlo::CustomCallOp>(op);
+  if (isAliasLikeOp(op))
+    return false;
+  if (llvm::isa<mhlo::CustomCallOp>(op))
+    return false;
+  return isMhlo(op);
 }
 
 bool isFusibleStart(Operation *) { return true; }
@@ -347,12 +360,7 @@ bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
              target);
 }
 
-bool isValidSingleOp(Operation *op) {
-  if (llvm::isa<mhlo::ReshapeOp>(op))
-    return false;
-  else
-    return true;
-}
+bool isValidSingleOp(Operation *op) { return true; }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
 
