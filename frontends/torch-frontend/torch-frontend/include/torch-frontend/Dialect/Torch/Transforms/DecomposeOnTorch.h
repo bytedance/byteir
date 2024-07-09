@@ -1,4 +1,4 @@
-//===- FuseOpOnTorch.h ----------------------------------------*--- C++ -*-===//
+//===- DecomposeOnTorch.h -------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_FUSEOPONTORCH_H
-#define TORCH_FRONTEND_CONVERSION_FUSEOPONTORCH_H
+#ifndef TORCH_FRONTEND_TORCH_TRANSFORMS_DECOMPOSEONTORCH_H
+#define TORCH_FRONTEND_TORCH_TRANSFORMS_DECOMPOSEONTORCH_H
 
 #include "mlir/Pass/Pass.h"
 #include <memory>
@@ -26,8 +26,8 @@ namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createFuseOpOnTorch();
+std::unique_ptr<OperationPass<func::FuncOp>> createDecomposeOnTorch();
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_CONVERSION_FUSEOPONTORCH_H
+#endif // TORCH_FRONTEND_TORCH_TRANSFORMS_DECOMPOSEONTORCH_H

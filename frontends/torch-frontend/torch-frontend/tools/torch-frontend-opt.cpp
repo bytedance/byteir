@@ -25,6 +25,7 @@
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "stablehlo/dialect/Register.h"
 #include "torch-frontend/Conversion/Passes.h"
+#include "torch-frontend/Dialect/Torch/Transforms/Passes.h"
 #include "torch-frontend/Pipelines/Pipelines.h"
 #include "torch-frontend/Transforms/Passes.h"
 #include "torch-mlir-dialects/Dialect/TMTensor/IR/TMTensorDialect.h"
@@ -36,6 +37,7 @@ using namespace mlir;
 int main(int argc, char **argv) {
   registerAllPasses();
   mlir::registerTorchFrontendConversionPasses();
+  mlir::registerTorchFrontendTorchTransformsPasses();
   mlir::registerTorchFrontendTransformsPasses();
   mlir::torch_frontend::registerTorchToStablehloPipeline();
   mlir::torch_frontend::registerTorchscriptToTorchPipeline();
