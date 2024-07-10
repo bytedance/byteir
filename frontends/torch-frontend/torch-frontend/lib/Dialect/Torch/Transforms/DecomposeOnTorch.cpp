@@ -76,7 +76,8 @@ static Type computeReductionType(PatternRewriter &rewriter, Operation *op,
 }
 
 template <typename OpTy>
-static LogicalResult calculateVariance(OpTy op, PatternRewriter &rewriter) {
+static LogicalResult calculateVariance(OpTy op, PatternRewriter &rewriter,
+                                       bool unbiased, double correction) {
   Location loc = op.getLoc();
   Value self = op.getSelf();
   Value dimList = op.getDim();
@@ -125,17 +126,53 @@ static LogicalResult calculateVariance(OpTy op, PatternRewriter &rewriter) {
 
   Value constantNone = rewriter.create<ConstantNoneOp>(loc);
   Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
-  Value constantOne =
+  Value constantFloatOne =
       rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(1));
   Value meanAlongDims = rewriter.create<AtenMeanDimOp>(
       loc, meanDimResultType, self, dimList, /*keepDim=*/constantTrue,
       /*dtype=*/constantNone);
-  Value subMean = rewriter.create<AtenSubTensorOp>(loc, inputTensorTy, self,
-                                                   meanAlongDims, constantOne);
+  Value subMean = rewriter.create<AtenSubTensorOp>(
+      loc, inputTensorTy, self, meanAlongDims, constantFloatOne);
   Value square = rewriter.create<AtenSquareOp>(loc, inputTensorTy, subMean);
 
-  Value result = rewriter.create<AtenMeanDimOp>(
+  if (!unbiased) {
+    Value result =
+        rewriter.create<AtenMeanDimOp>(loc, outputTensorType, square, dimList,
+                                       keepDim, /*dtype=*/constantNone);
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+
+  // Divide the square sum by productDimSize - correction.
+  Value squareSum = rewriter.create<AtenSumDimIntListOp>(
       loc, outputTensorType, square, dimList, keepDim, /*dtype=*/constantNone);
+
+  // `productDimSize` is product of sizes of dimensions to be reduced.
+  Value productDimSize =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  for (Value dim : dimListElements) {
+    Value dimSize = rewriter.create<AtenSizeIntOp>(loc, self, dim);
+    productDimSize =
+        rewriter.create<AtenMulIntOp>(loc, productDimSize, dimSize);
+  }
+  productDimSize = rewriter.create<AtenFloatScalarOp>(loc, productDimSize);
+  Value cstCorrection = rewriter.create<Torch::ConstantFloatOp>(
+      loc, rewriter.getF64FloatAttr(correction));
+  // The `correction` value should be less than or equal to `productDimSize +
+  // 1`.
+  if (!isAssumingStrictSymbolicShapes(rewriter)) {
+    Value productDimSizePlusOne = rewriter.create<AtenAddOp>(
+        loc, productDimSize.getType(), productDimSize, constantFloatOne);
+    Value cond = rewriter.create<AtenGeFloatOp>(loc, productDimSizePlusOne,
+                                                cstCorrection);
+    rewriter.create<RuntimeAssertOp>(
+        loc, cond,
+        "correction value should be less than or equal to productDimSize + 1");
+  }
+  Value productDimSizeSubCorrection =
+      rewriter.create<AtenSubFloatOp>(loc, productDimSize, cstCorrection);
+  Value result = rewriter.create<AtenDivScalarOp>(
+      loc, outputTensorType, squareSum, productDimSizeSubCorrection);
   rewriter.replaceOp(op, result);
   return success();
 }
@@ -156,12 +193,52 @@ struct DecomposeAtenVarDimOp : public OpRewritePattern<AtenVarDimOp> {
       return rewriter.notifyMatchFailure(
           op, "Only support constant unbiased for aten.var");
     }
-    if (unbiased) {
-      return rewriter.notifyMatchFailure(op, "Only support biased variance");
-    }
-    if (failed(calculateVariance<AtenVarDimOp>(op, rewriter))) {
+    double correction = unbiased ? 1.0 : 0.0;
+    if (failed(calculateVariance<AtenVarDimOp>(op, rewriter, unbiased,
+                                               correction))) {
       return rewriter.notifyMatchFailure(op, "invalid variance parameters");
     }
+    return success();
+  }
+};
+
+// Decompose aten.var(x, dims) into:
+// sub = aten.sub(x, aten.mean(x, dims))
+// square = aten.square(sub)
+// out = aten.sum(square, dims) / (productDimSize - correction)
+class DecomposeAtenVarCorrectionOp
+    : public OpRewritePattern<AtenVarCorrectionOp> {
+public:
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(AtenVarCorrectionOp op,
+                                PatternRewriter &rewriter) const override {
+    int64_t correctionValInt;
+    double correctionValFloat = 1.0;
+    if (!isa<Torch::NoneType>(op.getCorrection().getType())) {
+      if (isa<Torch::FloatType>(op.getCorrection().getType())) {
+        if (!matchPattern(op.getCorrection(),
+                          m_TorchConstantFloat(&correctionValFloat)))
+          return rewriter.notifyMatchFailure(
+              op, "Only support constant int or float correction value for "
+                  "aten.var");
+      } else if (isa<Torch::IntType>(op.getCorrection().getType())) {
+        if (!matchPattern(op.getCorrection(),
+                          m_TorchConstantInt(&correctionValInt)))
+          return rewriter.notifyMatchFailure(
+              op, "Only support constant int or float correction value for "
+                  "aten.var");
+        correctionValFloat = (double)correctionValInt;
+      } else {
+        return rewriter.notifyMatchFailure(
+            op, "unimplemented: correction value should be only constant int "
+                "or float for aten.var");
+      }
+    }
+
+    bool unbiased = correctionValFloat == 0.0 ? false : true;
+    if (failed(calculateVariance<AtenVarCorrectionOp>(op, rewriter, unbiased,
+                                                      correctionValFloat)))
+      return rewriter.notifyMatchFailure(op, "invalid variance parameters");
     return success();
   }
 };
@@ -178,6 +255,7 @@ struct DecomposeOnTorchPass
 
     RewritePatternSet patterns(context);
     patterns.add<DecomposeAtenVarDimOp>(context);
+    patterns.add<DecomposeAtenVarCorrectionOp>(context);
 
     LogicalResult result =
         applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
