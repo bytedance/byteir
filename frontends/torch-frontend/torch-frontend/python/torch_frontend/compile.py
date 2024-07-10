@@ -58,6 +58,9 @@ NOT_DECOMPOSE_OPS = [
     "aten.normal_functional",
     "aten.amax",
     "aten.amin",
+] + [
+    "aten.var.dim",
+    "aten.var.correction",
 ]
 
 

@@ -20,6 +20,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "stablehlo/transforms/Passes.h"
 #include "torch-frontend/Conversion/Passes.h"
+#include "torch-frontend/Dialect/Torch/Transforms/Passes.h"
 #include "torch-frontend/Transforms/Passes.h"
 #include "torch-mlir/Conversion/TorchToArith/TorchToArith.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
@@ -118,4 +119,12 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
   pm.addPass(Torch::createLowerToBackendContractPass(
       options.maxIterations, options.decompose, options.shapeDtypeRefine,
       options.backendLegalOps, options.extraLibrary));
+
+  // Customize Decompsition
+  pm.addNestedPass<func::FuncOp>(createDecomposeOnTorch());
+  pm.addPass(createCanonicalizerPass());
+
+  pm.addNestedPass<func::FuncOp>(
+      Torch::createDecomposeComplexOpsPass(options.backendLegalOps));
+  pm.addPass(createCanonicalizerPass());
 }
