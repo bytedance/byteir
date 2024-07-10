@@ -15,22 +15,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_TRANSFORMS_PASSES
-#define TORCH_FRONTEND_TRANSFORMS_PASSES
+#ifndef TORCH_FRONTEND_TORCH_TRANSFORMS_PASSES
+#define TORCH_FRONTEND_TORCH_TRANSFORMS_PASSES
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "torch-frontend/Transforms/CanonicalizeExt.h"
-#include "torch-frontend/Transforms/EliminateUselessOp.h"
-#include "torch-frontend/Transforms/RewriteCustomOp.h"
-#include "torch-frontend/Transforms/RewriteEntryFuncName.h"
-#include "torch-frontend/Transforms/UnpackPublicFunctionReturn.h"
+#include "torch-frontend/Dialect/Torch/Transforms/DecomposeOnTorch.h"
+#include "torch-frontend/Dialect/Torch/Transforms/FuseOpOnTorch.h"
 
 namespace mlir {
 
 // Generate the code for registering transforms passes.
 #define GEN_PASS_REGISTRATION
-#include "torch-frontend/Transforms/Passes.h.inc"
+#include "torch-frontend/Dialect/Torch/Transforms/Passes.h.inc"
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_TRANSFORMS_PASSES
+#endif // TORCH_FRONTEND_TORCH_TRANSFORMS_PASSES

@@ -1,5 +1,6 @@
 set(TORCH_FORNTEND_LIBS
   TorchFrontendConversion
+  TorchFrontendTorchTransforms
   TorchFrontendTransforms
   TorchFrontendPipelines
 )

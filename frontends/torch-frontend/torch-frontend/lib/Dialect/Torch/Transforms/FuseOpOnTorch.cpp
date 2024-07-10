@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "torch-frontend/Transforms/FuseOpOnTorch.h"
+#include "torch-frontend/Dialect/Torch/Transforms/FuseOpOnTorch.h"
 #include "./PassDetail.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/PatternMatch.h"

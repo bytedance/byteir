@@ -120,6 +120,18 @@ def test_linalg_vector_norm():
 
 # ==============================================================================
 
+class VarDimModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.var(x, dim=1)
+
+def test_var_dim_f32():
+    inputs = [tu.randn(4, 4)]
+    module = compile(VarDimModule(), inputs, "stablehlo", verbose=True)
+    module_str = module.operation.get_asm()
+    assert "f64" not in module_str
+
+# ==============================================================================
+
 class MaxDimModule(torch.nn.Module):
     def __init__(self):
         super().__init__()

@@ -50,15 +50,6 @@ def EliminateUselessOp : Pass<"eliminate-useless-op", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// FuseOpOnTorch
-//===----------------------------------------------------------------------===//
-
-def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
-  let summary = "fuse op on torch dialect";
-  let constructor = "mlir::createFuseOpOnTorch()";
-}
-
-//===----------------------------------------------------------------------===//
 // RewriteEntryFuncName
 //===----------------------------------------------------------------------===//
 

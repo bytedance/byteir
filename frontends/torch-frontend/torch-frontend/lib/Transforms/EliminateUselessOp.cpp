@@ -16,7 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "torch-frontend/Transforms/EliminateUselessOp.h"
-#include "PassDetail.h"
+#include "./PassDetail.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
