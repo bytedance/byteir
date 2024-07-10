@@ -18,6 +18,7 @@
 #include "byteir/Conversion/MemrefToByre/MemrefToByre.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Common.h"
+#include "byteir/Utils/MemUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -41,7 +42,7 @@ public:
   LogicalResult
   matchAndRewrite(OpTy op, typename OpTy::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    if (!op.getType().getLayout().isIdentity())
+    if (!isStaticShapeAndContiguousRowMajorEx(op.getType()))
       return failure();
 
     rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getResult().getType(),
@@ -78,7 +79,7 @@ public:
   LogicalResult
   matchAndRewrite(memref::SubViewOp op, memref::SubViewOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    if (!op.getType().getLayout().isIdentity())
+    if (!isStaticShapeAndContiguousRowMajorEx(op.getType()))
       return failure();
 
     if (!op.getSource().getType().getLayout().isIdentity())
@@ -89,6 +90,32 @@ public:
     return success();
   }
 };
+
+template <typename OpTy>
+class ConvertMemrefCastOpToBtrePattern : public OpConversionPattern<OpTy> {
+public:
+  ConvertMemrefCastOpToBtrePattern(MLIRContext *ctx)
+      : OpConversionPattern<OpTy>(ctx) {}
+
+  LogicalResult
+  matchAndRewrite(OpTy op, typename OpTy::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (!isStaticShapeAndContiguousRowMajorEx(
+            op->getOperand(0).getType().template cast<MemRefType>()))
+      return failure();
+
+    int64_t offset = 0;
+    if constexpr (std::is_same_v<OpTy, memref::ReinterpretCastOp>) {
+      auto srcMemref = op.getSource().getType().template cast<MemRefType>();
+      SmallVector<int64_t> strides;
+      if (failed(getStridesAndOffset(srcMemref, strides, offset)))
+        return failure();
+    }
+    rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getType(),
+                                               adaptor.getSource(), offset);
+    return success();
+  }
+}; // ConvertMemrefCastOpToBtrePattern
 
 class ConvertMemrefCopyOpToByrePattern
     : public OpConversionPattern<memref::CopyOp> {
@@ -194,7 +221,10 @@ void mlir::populateMemrefToByrePattern(RewritePatternSet &patterns) {
                ConvertGetGlobalOpToByrePattern,
                ConvertReshapeLikeOpToByrePattern<memref::CollapseShapeOp>,
                ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>,
-               ConvertSubViewOpToByrePattern>(patterns.getContext());
+               ConvertSubViewOpToByrePattern,
+               ConvertMemrefCastOpToBtrePattern<memref::CastOp>,
+               ConvertMemrefCastOpToBtrePattern<memref::ReinterpretCastOp>>(
+      patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

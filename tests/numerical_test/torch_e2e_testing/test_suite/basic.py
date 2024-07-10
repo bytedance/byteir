@@ -198,3 +198,21 @@ class RngNormalModule(torch.nn.Module):
 @register_test_case(module_factory=lambda: RngNormalModule())
 def RngNormalModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(32,10240000))
+
+# ==============================================================================
+
+class ContiguousSliceModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x0):
+        r0 = torch.ops.aten.mul(x0, x0)
+        r1 = torch.ops.aten.slice(r0, 0, 0, 1, 1)
+        r2 = torch.ops.aten.slice(r0, 0, 1, 2, 1)
+        r3 = torch.ops.aten.slice(r0, 0, 2, 3, 1)
+        r4 = torch.ops.aten.add(r1, r2)
+        r5 = torch.ops.aten.div(r4, r3)
+        return r5
+
+@register_test_case(module_factory=lambda: ContiguousSliceModule())
+def ContiguousSliceModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(3, 64))
