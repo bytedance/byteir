@@ -254,6 +254,18 @@ def GraphClusteringByDevice : Pass<"graph-clustering-by-device", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// HorizontalFusion
+//===----------------------------------------------------------------------===//
+def HorizontalFusion : Pass<"horizontal-fusion-on-scf", "ModuleOp"> {
+  let summary = "Horizontal fusion based on scf.forall and memref.";
+  let constructor = "mlir::createHorizontalFusionPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "memref::MemRefDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // LoopTag
 //===----------------------------------------------------------------------===//
 

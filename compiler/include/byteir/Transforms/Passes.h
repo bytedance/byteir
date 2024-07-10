@@ -28,6 +28,7 @@
 #include "byteir/Transforms/FuncTag.h"
 #include "byteir/Transforms/GenericDeviceConfig.h"
 #include "byteir/Transforms/GraphClusteringByDevice.h"
+#include "byteir/Transforms/HorizontalFusion.h"
 #include "byteir/Transforms/InsertUniqueId.h"
 #include "byteir/Transforms/LoopTag.h"
 #include "byteir/Transforms/LoopUnroll.h"

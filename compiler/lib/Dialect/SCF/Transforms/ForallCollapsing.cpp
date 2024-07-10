@@ -14,16 +14,9 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// Some code comes from mlir/lib/Dialect/SCF/Utils/Utils.cpp in LLVM project
-// Orignal license:
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
 
 #include "byteir/Dialect/SCF/Transforms/ForallCollapsing.h"
+#include "byteir/Dialect/SCF/Util/Util.h"
 #include "byteir/Utils/LoopUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -43,69 +36,6 @@ using namespace mlir;
 using namespace mlir::scf;
 
 namespace {
-// This structure is to pass and return sets of loop parameters without
-// confusing the order.
-struct LoopParams {
-  Value lowerBound;
-  Value upperBound;
-  Value step;
-};
-
-/// Return the new lower bound, upper bound, and step in that order. Insert any
-/// additional bounds calculations before the given builder and any additional
-/// conversion back to the original loop induction value inside the given Block.
-static LoopParams normalizeLoop(OpBuilder &boundsBuilder,
-                                OpBuilder &insideLoopBuilder, Location loc,
-                                Value lowerBound, Value upperBound, Value step,
-                                Value inductionVar) {
-  // Check if the loop is already known to have a constant zero lower bound or
-  // a constant one step.
-  bool isZeroBased = false;
-  if (auto ubCst = getConstantIntValue(lowerBound))
-    isZeroBased = ubCst.value() == 0;
-
-  bool isStepOne = false;
-  if (auto stepCst = getConstantIntValue(step))
-    isStepOne = stepCst.value() == 1;
-
-  // Compute the number of iterations the loop executes: ceildiv(ub - lb, step)
-  // assuming the step is strictly positive.  Update the bounds and the step
-  // of the loop to go from 0 to the number of iterations, if necessary.
-  if (isZeroBased && isStepOne)
-    return {/*lowerBound=*/lowerBound, /*upperBound=*/upperBound,
-            /*step=*/step};
-
-  Value diff = boundsBuilder.create<arith::SubIOp>(loc, upperBound, lowerBound);
-  Value newUpperBound =
-      boundsBuilder.create<arith::CeilDivSIOp>(loc, diff, step);
-
-  Value newLowerBound =
-      isZeroBased ? lowerBound
-                  : boundsBuilder.create<arith::ConstantOp>(
-                        loc, boundsBuilder.getZeroAttr(lowerBound.getType()));
-  Value newStep =
-      isStepOne ? step
-                : boundsBuilder.create<arith::ConstantOp>(
-                      loc, boundsBuilder.getIntegerAttr(step.getType(), 1));
-
-  // Insert code computing the value of the original loop induction variable
-  // from the "normalized" one.
-  Value scaled =
-      isStepOne
-          ? inductionVar
-          : insideLoopBuilder.create<arith::MulIOp>(loc, inductionVar, step);
-  Value shifted =
-      isZeroBased
-          ? scaled
-          : insideLoopBuilder.create<arith::AddIOp>(loc, scaled, lowerBound);
-
-  SmallPtrSet<Operation *, 2> preserve{scaled.getDefiningOp(),
-                                       shifted.getDefiningOp()};
-  inductionVar.replaceAllUsesExcept(shifted, preserve);
-  return {/*lowerBound=*/newLowerBound, /*upperBound=*/newUpperBound,
-          /*step=*/newStep};
-}
-
 void collapseForallImpl(scf::ForallOp forallOp) {
   OpBuilder outsideBuilder(forallOp);
   Location loc = forallOp.getLoc();
@@ -120,7 +50,7 @@ void collapseForallImpl(scf::ForallOp forallOp) {
 
   for (size_t i = 0, e = forallOp.getRank(); i < e; ++i) {
     OpBuilder insideLoopBuilder = OpBuilder::atBlockBegin(forallOp.getBody());
-    auto resultBounds = normalizeLoop(
+    auto resultBounds = mlir::scf::normalizeLoop(
         outsideBuilder, insideLoopBuilder, loc, oriLowerBounds[i],
         oriUpperBounds[i], oriSteps[i], forallOp.getBody()->getArgument(i));
 

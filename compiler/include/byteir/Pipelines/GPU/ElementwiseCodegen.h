@@ -40,14 +40,28 @@ struct GPUTileElementwiseOptions
                             llvm::cl::init(256)};
 };
 
+struct GPUTileElementwiseInSCFOptions
+    : public PassPipelineOptions<GPUTileElementwiseInSCFOptions> {
+  Option<int64_t> maxBlockSize{*this, "max-block-size",
+                               llvm::cl::desc("max block size"),
+                               llvm::cl::init(256)};
+};
+
 void createGPUTileElementwiseTransform(
     OpPassManager &pm, const GPUTileElementwiseOptions &options);
+
+void createGPUTileElementwiseInSCF(
+    OpPassManager &pm, const GPUTileElementwiseInSCFOptions &options);
 
 inline void registerGPUElementwiseCodegenPipelines() {
   PassPipelineRegistration<GPUTileElementwiseOptions>(
       "insert-gpu-tile-elementwise-transform",
       "Insert transformation IR to tile linalg elementwise op",
       createGPUTileElementwiseTransform);
+
+  PassPipelineRegistration<GPUTileElementwiseInSCFOptions>(
+      "tile-elementwise-in-scf", "tile elementwise op with nested forallOp",
+      createGPUTileElementwiseInSCF);
 }
 
 } // namespace mlir

@@ -72,4 +72,63 @@ def ForallCollapsing : Pass<"forall-collapsing", "mlir::func::FuncOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ForallTiling
+//===----------------------------------------------------------------------===//
+
+def ForallTiling : Pass<"forall-tiling"> {
+  let summary = "tile forall Op with given tileSize";
+  let constructor = "mlir::createForallTilingPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "affine::AffineDialect"
+  ];
+  let options = [
+    ListOption<"tileSizes", "tile-sizes", "int64_t",
+               "Factors to tile forall">,
+    Option<"noMinMaxBounds", "no-min-max-bounds", "bool",
+           /*default=*/"false",
+           "Perform tiling with fixed upper bound with inbound check "
+           "inside the internal loops">,
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ForallNormalize
+//===----------------------------------------------------------------------===//
+
+def ForallNormalize : Pass<"forall-normalize"> {
+  let summary = "normalize forall";
+  let constructor = "mlir::createForallNormalizePass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "affine::AffineDialect"
+  ];
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ForallNormalize
+//===----------------------------------------------------------------------===//
+
+def ForToForall : Pass<"for-to-forall"> {
+  let summary = "convert for to forall";
+  let constructor = "mlir::createForToForallPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+  ];
+  let options = [
+    Option<"anchorTag", "anchor-tag", "std::string",
+            /*default=*/"",
+            "Optional unitAttr anchored tag to apply this pass">
+  ];
+}
+
 #endif // BYTEIR_DIALECT_SCF_PASSES

@@ -1,4 +1,4 @@
-//===- Passes.h --------------------------------------------------- C++ --===//
+//===- GraphClusteringByDevice.h ------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +15,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_SCF_PASSES_H
-#define BYTEIR_DIALECT_SCF_PASSES_H
+#ifndef BYTEIR_TRANSFORMS_HORIZONTALFUSION_H
+#define BYTEIR_TRANSFORMS_HORIZONTALFUSION_H
 
-#include "byteir/Dialect/SCF/Transforms/ForToForall.h"
-#include "byteir/Dialect/SCF/Transforms/ForallCollapsing.h"
-#include "byteir/Dialect/SCF/Transforms/ForallNormalize.h"
-#include "byteir/Dialect/SCF/Transforms/ForallTiling.h"
-#include "byteir/Dialect/SCF/Transforms/FuseNestedForall.h"
-#include "byteir/Dialect/SCF/Transforms/InsertTrivialSCFLoop.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
+class ModuleOp;
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/SCF/Passes.h.inc"
+std::unique_ptr<OperationPass<ModuleOp>> createHorizontalFusionPass();
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_SCF_PASSES_H
+#endif // BYTEIR_TRANSFORMS_HORIZONTALFUSION_H
