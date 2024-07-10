@@ -29,6 +29,7 @@
 #include "llvm/ADT/SetVector.h"
 
 #include <list>
+#include <numeric>
 
 #include "PassDetail.h"
 
@@ -92,7 +93,8 @@ bool isHostOp(Operation &op, StringRef attrName) {
 std::optional<SmallVector<FunctionMetadata, 4>>
 getFunctionMetadatasFallback(func::FuncOp funcOp, StringRef attrName,
                              StringRef deviceAttr, StringRef deviceAnchorName,
-                             bool dupOutputs) {
+                             bool dupOutputs,
+                             ValidateSubGraphFn validateSubGraphFn) {
   SmallVector<FunctionMetadata, 4> metadatas;
   SmallDenseSet<Operation *> hostOps;
   for (Operation &op : funcOp.front().without_terminator()) {
@@ -139,6 +141,10 @@ getFunctionMetadatasFallback(func::FuncOp funcOp, StringRef attrName,
     }
   }
   if (deviceFuncMetadata.ops.size() > 0) {
+    if (validateSubGraphFn != nullptr &&
+        !validateSubGraphFn(deviceFuncMetadata.ops)) {
+      return std::nullopt;
+    }
     deviceFuncMetadata.inputs = getInputsOfCluster(deviceFuncMetadata.ops);
     deviceFuncMetadata.results = getOutputsOfCluster(
         deviceFuncMetadata.ops, dupOutputs ? &retStats : nullptr);
@@ -369,7 +375,8 @@ public:
   std::optional<SmallVector<FunctionMetadata, 4>>
   getFunctionMetadatas(StringRef attrName, StringRef deviceAttr,
                        StringRef deviceAnchorName, bool dupOutputs,
-                       bool singleCluster);
+                       bool enableMultiGraph,
+                       ValidateSubGraphFn validateSubGraphFn);
 
 protected:
   DeviceClusteringAlgoBaseHelper(func::FuncOp funcOp, StringRef attrName);
@@ -413,11 +420,10 @@ DeviceClusteringAlgoBaseHelper::DeviceClusteringAlgoBaseHelper(
 }
 
 std::optional<SmallVector<FunctionMetadata, 4>>
-DeviceClusteringAlgoBaseHelper::getFunctionMetadatas(StringRef attrName,
-                                                     StringRef deviceAttr,
-                                                     StringRef deviceAnchorName,
-                                                     bool dupOutputs,
-                                                     bool singleCluster) {
+DeviceClusteringAlgoBaseHelper::getFunctionMetadatas(
+    StringRef attrName, StringRef deviceAttr, StringRef deviceAnchorName,
+    bool dupOutputs, bool enableMultiGraph,
+    ValidateSubGraphFn validateSubGraphFn) {
   if (candidates.empty())
     return std::nullopt;
 
@@ -439,6 +445,9 @@ DeviceClusteringAlgoBaseHelper::getFunctionMetadatas(StringRef attrName,
   for (auto cluster : candidates) {
     if (cluster->operations.empty())
       continue;
+    if (validateSubGraphFn != nullptr &&
+        !validateSubGraphFn(cluster->operations.getArrayRef()))
+      continue;
     FunctionMetadata deviceFuncMetadata;
     deviceFuncMetadata.anchorName = deviceAnchorName;
     deviceFuncMetadata.deviceAttr = deviceAttr;
@@ -449,7 +458,7 @@ DeviceClusteringAlgoBaseHelper::getFunctionMetadatas(StringRef attrName,
     deviceFuncMetadata.results = getOutputsOfCluster(
         deviceFuncMetadata.ops, dupOutputs ? &retStats : nullptr);
     metadatas.push_back(deviceFuncMetadata);
-    if (singleCluster)
+    if (!enableMultiGraph)
       break;
   }
 
@@ -657,7 +666,7 @@ struct GraphClusteringByDevicePass
                                        std::string deviceAnchorName,
                                        bool dupNonSplat, bool dupOutputs,
                                        GraphClusteringAlgo clusterAlgo,
-                                       bool singleCluster)
+                                       bool enableMultiGraph)
       : GraphClusteringByDeviceBase<
             GraphClusteringByDevicePass>::GraphClusteringByDeviceBase() {
     this->attrName = attrName;
@@ -666,7 +675,7 @@ struct GraphClusteringByDevicePass
     this->dupNonSplat = dupNonSplat;
     this->dupOutputs = dupOutputs;
     this->clusterAlgo = clusterAlgo;
-    this->singleCluster = singleCluster;
+    this->enableMultiGraph = enableMultiGraph;
   }
 
   void runOnOperation() override;
@@ -675,6 +684,21 @@ struct GraphClusteringByDevicePass
 void GraphClusteringByDevicePass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
   MLIRContext *context = &getContext();
+  if (failed(GraphClustingByDevice(moduleOp, attrName, device, deviceAnchorName,
+                                   dupNonSplat, dupOutputs, clusterAlgo,
+                                   enableMultiGraph))) {
+    signalPassFailure();
+  }
+}
+
+} // namespace
+
+mlir::LogicalResult mlir::GraphClustingByDevice(
+    ModuleOp moduleOp, std::string attrName, std::string device,
+    std::string deviceAnchorName, bool dupNonSplat, bool dupOutputs,
+    GraphClusteringAlgo clusterAlgo, bool enableMultiGraph,
+    ValidateSubGraphFn validateSubGraphFn) {
+  MLIRContext *context = moduleOp.getContext();
   SmallVector<func::FuncOp, 4> originalFuncs;
   const auto isResultUsedByReturnOp =
       [](Operation *op, llvm::SmallDenseSet<Value> &retValues) {
@@ -705,17 +729,19 @@ void GraphClusteringByDevicePass::runOnOperation() {
   }
   for (auto funcOp : originalFuncs) {
     std::optional<SmallVector<FunctionMetadata, 4>> metadatas;
-    switch (this->clusterAlgo) {
+    switch (clusterAlgo) {
     case GraphClusteringAlgo::kTopDown: {
       metadatas = TopDownDeviceClustering(funcOp, attrName)
                       .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                            dupOutputs, singleCluster);
+                                            dupOutputs, enableMultiGraph,
+                                            validateSubGraphFn);
       break;
     }
     case GraphClusteringAlgo::kBottomUp: {
       metadatas = BottomUpDeviceClustering(funcOp, attrName)
                       .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                            dupOutputs, singleCluster);
+                                            dupOutputs, enableMultiGraph,
+                                            validateSubGraphFn);
       break;
     }
     case GraphClusteringAlgo::kGreedy: {
@@ -724,38 +750,48 @@ void GraphClusteringByDevicePass::runOnOperation() {
       auto topDownFunc = funcOp.clone();
       auto bottomUpFunc = funcOp.clone();
 
-      topDownMetadatas =
-          TopDownDeviceClustering(topDownFunc, attrName)
-              .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                    dupOutputs, singleCluster);
+      topDownMetadatas = TopDownDeviceClustering(topDownFunc, attrName)
+                             .getFunctionMetadatas(
+                                 attrName, device, deviceAnchorName, dupOutputs,
+                                 enableMultiGraph, validateSubGraphFn);
       bottomUpMetadatas =
           BottomUpDeviceClustering(bottomUpFunc, attrName)
               .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                    dupOutputs, singleCluster);
+                                    dupOutputs, enableMultiGraph,
+                                    validateSubGraphFn);
       if (topDownMetadatas && bottomUpMetadatas) {
-        auto topDownSize = (*topDownMetadatas)[0].ops.size();
-        auto bottomUpSize = (*bottomUpMetadatas)[0].ops.size();
+        size_t topDownSize = std::accumulate(
+            (*topDownMetadatas).begin(), (*topDownMetadatas).end(), 0,
+            [](size_t val, const FunctionMetadata &metadata) {
+              return val + metadata.ops.size();
+            });
+        size_t bottomUpSize = std::accumulate(
+            (*bottomUpMetadatas).begin(), (*bottomUpMetadatas).end(), 0,
+            [](size_t val, const FunctionMetadata &metadata) {
+              return val + metadata.ops.size();
+            });
+
         if (topDownSize > bottomUpSize) {
-          metadatas =
-              TopDownDeviceClustering(funcOp, attrName)
-                  .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                        dupOutputs, singleCluster);
+          metadatas = TopDownDeviceClustering(funcOp, attrName)
+                          .getFunctionMetadatas(
+                              attrName, device, deviceAnchorName, dupOutputs,
+                              enableMultiGraph, validateSubGraphFn);
         } else {
-          metadatas =
-              BottomUpDeviceClustering(funcOp, attrName)
-                  .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                        dupOutputs, singleCluster);
+          metadatas = BottomUpDeviceClustering(funcOp, attrName)
+                          .getFunctionMetadatas(
+                              attrName, device, deviceAnchorName, dupOutputs,
+                              enableMultiGraph, validateSubGraphFn);
         }
       } else if (topDownMetadatas) {
-        metadatas =
-            TopDownDeviceClustering(funcOp, attrName)
-                .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                      dupOutputs, singleCluster);
+        metadatas = TopDownDeviceClustering(funcOp, attrName)
+                        .getFunctionMetadatas(
+                            attrName, device, deviceAnchorName, dupOutputs,
+                            enableMultiGraph, validateSubGraphFn);
       } else if (bottomUpMetadatas) {
-        metadatas =
-            BottomUpDeviceClustering(funcOp, attrName)
-                .getFunctionMetadatas(attrName, device, deviceAnchorName,
-                                      dupOutputs, singleCluster);
+        metadatas = BottomUpDeviceClustering(funcOp, attrName)
+                        .getFunctionMetadatas(
+                            attrName, device, deviceAnchorName, dupOutputs,
+                            enableMultiGraph, validateSubGraphFn);
       }
       topDownFunc.erase();
       bottomUpFunc.erase();
@@ -764,15 +800,15 @@ void GraphClusteringByDevicePass::runOnOperation() {
     case GraphClusteringAlgo::kFallback:
     default: {
       metadatas = getFunctionMetadatasFallback(funcOp, attrName, device,
-                                               deviceAnchorName, dupOutputs);
+                                               deviceAnchorName, dupOutputs,
+                                               validateSubGraphFn);
     }
     }
 
     if (!metadatas) {
       funcOp->emitError()
           << "[ByteIR Transform]: GraphClusteringByDevice error.";
-      signalPassFailure();
-      return;
+      return failure();
     }
 
     Operation &retOp = funcOp.front().back();
@@ -787,9 +823,8 @@ void GraphClusteringByDevicePass::runOnOperation() {
       }
     }
   }
+  return success();
 }
-
-} // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createGraphClusteringByDevicePass(std::string attrName,
@@ -797,8 +832,8 @@ mlir::createGraphClusteringByDevicePass(std::string attrName,
                                         std::string deviceAnchorName,
                                         bool dupNonSplat, bool dupOutputs,
                                         GraphClusteringAlgo clusterAlgo,
-                                        bool singleCluster) {
+                                        bool enableMultiGraph) {
   return std::make_unique<GraphClusteringByDevicePass>(
       attrName, device, deviceAnchorName, dupNonSplat, dupOutputs, clusterAlgo,
-      singleCluster);
+      enableMultiGraph);
 }
