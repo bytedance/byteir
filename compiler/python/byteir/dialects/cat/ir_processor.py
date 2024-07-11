@@ -1,5 +1,4 @@
 from byteir import ir
-from byteir.dialects.builtin import ModuleOp
 from byteir.dialects.func import FuncOp
 from byteir.passmanager import PassManager
 from byteir.utils import get_gpu_type
@@ -37,7 +36,7 @@ SUPPORTED_CAT_OPS = [
 
 MAX_COMPILATION_PARALLELISM = torch.cuda.device_count()
 
-def _print_verbose(module: ModuleOp, pipeline_msg: str):
+def _print_verbose(module: ir.Module, pipeline_msg: str):
     print(pipeline_msg)
     print(module.operation.get_asm(large_elements_limit=10))
     print()

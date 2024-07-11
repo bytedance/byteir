@@ -11,7 +11,6 @@ from torch_mlir.extras.fx_importer import FxImporter
 
 from . import ir
 from .passmanager import PassManager
-from .dialects.builtin import ModuleOp
 from ._mlir_libs._stablehlo import serialize_portable_artifact
 
 from .extra_shape_fn import byteir_extra_library
@@ -95,7 +94,7 @@ def _get_debug_parameters(debug: DebugType):
         }
     return debug_parameters
 
-def _print_verbose(module: ModuleOp, pipeline_msg: str):
+def _print_verbose(module: ir.Module, pipeline_msg: str):
     print(pipeline_msg)
     print(module.operation.get_asm(large_elements_limit=10))
     print()
@@ -115,7 +114,7 @@ def compile(
     backend_legal_ops: Optional[Sequence[str]] = None,
     verbose: bool = False,
     debug: DebugType = DebugType.NO_DEBUG,
-) -> ModuleOp:
+) -> ir.Module:
     """
     Args:
         output_type: str type
@@ -222,7 +221,7 @@ def compile_dynamo_model(
     backend_legal_ops: Optional[Sequence[str]] = None,
     verbose: bool = False,
     debug: DebugType = DebugType.NO_DEBUG,
-) -> ModuleOp:
+) -> ir.Module:
     """
     Args:
         output_type: str type
