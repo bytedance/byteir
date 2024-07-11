@@ -71,10 +71,10 @@ func.func @mhlo_element_reshape(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %a
   return %3 : tensor<4xf32>
 }
 // CHECK-LABEL: func.func @mhlo_element_reshape
-// CHECK:       mhlo.fusion
+// CHECK: mhlo.reshape
+// CHECK-NEXT:  mhlo.fusion
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.abs
-// CHECK-NEXT:    mhlo.reshape
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.return
 // CHECK: {__byteir_elementwise_fusion__}

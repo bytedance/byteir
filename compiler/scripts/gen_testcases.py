@@ -136,7 +136,7 @@ class E2ECollections:
     ])
     def ByreTensorOptPipeline(filecheck, *, entryFunc="main"):
         return OptPipeline(E2ECollections.ByreTensorOpt, [E2ECollections.BufferizeOpt], ["-byre-tensor-opt=\"append-arg-types entry-func={}\"".format(entryFunc)], filecheck)
-    BufferizeOptPipeline = functools.partial(OptPipeline, BufferizeOpt, [AffineOpt, SCFOpt], [
+    BufferizeOptPipeline = functools.partial(OptPipeline, BufferizeOpt, [SCFOpt], [
         "-byteir-bufferize-opt",
     ])
     AffineOptPipeline = functools.partial(OptPipeline, AffineOpt, [GPUOpt], [
@@ -187,7 +187,10 @@ def emitSingleTestcase(workdir, testcase):
     print("===- start processing {} -===".format(workdir))
     for i in testcase.contents:
         assert isinstance(i, Content), "item in testcase.contents must be a Content"
-        for s in i.stages:
+        _stages = i.stages
+        if isinstance(_stages, Stage):
+            _stages = [_stages]
+        for s in _stages:
             with workdir.joinpath(s.filename).open("w") as f:
                 f.write(i.content)
 
