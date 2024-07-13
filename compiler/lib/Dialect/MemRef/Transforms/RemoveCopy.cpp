@@ -286,18 +286,29 @@ public:
 
         auto sourceMemref = src.getType().cast<MemRefType>();
         auto targetMemref = target.getType().cast<MemRefType>();
-        int64_t srcMemrefOffset = extractOffset(sourceMemref);
+        int64_t srcMemrefOffset = 0;
+        int64_t tgtMemrefOffset = 0;
+        SmallVector<int64_t> srcStrides;
+        SmallVector<int64_t> tgtStrides;
+        if (failed(
+                getStridesAndOffset(sourceMemref, srcStrides, srcMemrefOffset)))
+          return failure();
+        if (failed(
+                getStridesAndOffset(targetMemref, tgtStrides, tgtMemrefOffset)))
+          return failure();
+
+        bool needCast = srcMemrefOffset ||
+                        llvm::any_of(llvm::zip(srcStrides, tgtStrides),
+                                     [](std::tuple<int64_t, int64_t> s) {
+                                       return std::get<0>(s) != std::get<1>(s);
+                                     });
 
         Value srcCast;
 
-        if (srcMemrefOffset) {
-          SmallVector<int64_t> strides;
-          int64_t memrefOffset;
-          if (failed(getStridesAndOffset(targetMemref, strides, memrefOffset)))
-            return failure();
+        if (needCast) {
           srcCast = rewriter.create<memref::ReinterpretCastOp>(
-              copyOp.getLoc(), targetMemref, src, memrefOffset,
-              targetMemref.getShape(), strides);
+              copyOp.getLoc(), targetMemref, src, tgtMemrefOffset,
+              targetMemref.getShape(), tgtStrides);
         } else
           srcCast = rewriter.create<memref::CastOp>(copyOp.getLoc(),
                                                     targetMemref, src);
