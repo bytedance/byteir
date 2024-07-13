@@ -131,7 +131,6 @@ def compile(
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
         backend_legal_ops = GENERIC_CUSTOM_OPS
-    backend_legal_ops += NOT_DECOMPOSE_OPS
     debug_parameters = _get_debug_parameters(debug)
 
     ############################################
@@ -157,19 +156,11 @@ def compile(
     ############################################
     # compile raw to torch
     ############################################
-    if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-        print("// IR Dump After JIT IR Importer")
-        print(
-            module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
-        )
-        print()
-        sys.stdout.flush()
-
     extra_library_file_name = _get_extra_library_file(backend_legal_ops)
     with module.context:
         option_string = (
             "{backend-legal-ops="
-            + ",".join(backend_legal_ops)
+            + ",".join(backend_legal_ops + NOT_DECOMPOSE_OPS)
             + " extra-library="
             + extra_library_file_name
             + "}"
@@ -238,7 +229,6 @@ def compile_dynamo_model(
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
         backend_legal_ops = GENERIC_CUSTOM_OPS
-    backend_legal_ops += NOT_DECOMPOSE_OPS
     debug_parameters = _get_debug_parameters(debug)
 
     ##################################################
@@ -268,14 +258,6 @@ def compile_dynamo_model(
     ############################################
     # compile raw to torch
     ############################################
-    if debug == DebugType.PRINT_AFTER_ONLY_CHANGE:
-        print("// IR Dump After FX Importer")
-        print(
-            module.operation.get_asm(large_elements_limit=10, enable_debug_info=False)
-        )
-        print()
-        sys.stdout.flush()
-
     extra_library_file_name = _get_extra_library_file(backend_legal_ops)
     with module.context:
         # We still need torch-function-to-torch-pipeline help us do something, e.g.,
@@ -283,7 +265,7 @@ def compile_dynamo_model(
         option_string = (
             "{shape-dtype-refine=false"
             + " backend-legal-ops="
-            + ",".join(backend_legal_ops)
+            + ",".join(backend_legal_ops + NOT_DECOMPOSE_OPS)
             + " extra-library="
             + extra_library_file_name
             + "}"
