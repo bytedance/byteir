@@ -4,6 +4,8 @@ import torch as tu
 import torch_frontend
 from torch_frontend import compile
 
+from utils import numerical_test_helper
+
 # ==============================================================================
 # rng testcases
 
@@ -129,6 +131,7 @@ def test_var_dim_f32():
     module = compile(VarDimModule(), inputs, "stablehlo", verbose=True)
     module_str = module.operation.get_asm()
     assert "f64" not in module_str
+    numerical_test_helper(module, inputs, VarDimModule()(*inputs))
 
 # ==============================================================================
 
