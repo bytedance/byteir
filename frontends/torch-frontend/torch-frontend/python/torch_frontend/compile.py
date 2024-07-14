@@ -66,9 +66,10 @@ CUSTOM_OP_MAP = {
     "math.cosh": ["aten.cosh"],
     "math.erf": ["aten.erf"],
     "math.trunc": ["aten.trunc"],
-    "byteir.flash_attn_fwd": [],
-    "byteir.flash_attn_kvcache": [],
-    "byteir.flash_attn_bwd": [],
+    # torch.operator
+    "byteir.flash_attn_fwd": ["byteir.flash_attn_fwd"],
+    "byteir.flash_attn_kvcache": ["byteir.flash_attn_kvcache"],
+    "byteir.flash_attn_bwd": ["byteir.flash_attn_bwd"],
 }
 
 # ops which should not be decomposed by torch-mlir 
@@ -283,6 +284,7 @@ def compile_dynamo_model(
         raise NotImplementedError(f"unsupported output type {output_type}")
     if backend_legal_ops is None:
         backend_legal_ops = GENERIC_CUSTOM_OPS
+    backend_legal_aten_ops = _get_aten_ops_by_map(backend_legal_ops)
     debug_parameters = _get_debug_parameters(debug)
 
     ##################################################
@@ -319,7 +321,7 @@ def compile_dynamo_model(
         option_string = (
             "{shape-dtype-refine=false"
             + " backend-legal-ops="
-            + ",".join(backend_legal_ops + OPS_NOT_DECOMPOSE_BY_TORCH_MLIR)
+            + ",".join(backend_legal_aten_ops + OPS_NOT_DECOMPOSE_BY_TORCH_MLIR)
             + " extra-library="
             + extra_library_file_name
             + "}"
@@ -331,6 +333,30 @@ def compile_dynamo_model(
             pm.enable_ir_printing(**debug_parameters)
         pm.run(module.operation)
     _print_verbose(module, "// IR Dump After Torch Backend Pipeline") if verbose else ...
+
+    # customize decompose on torch dialect
+    with module.context:
+        option_string = (
+            "{legal-ops="
+            + ",".join(backend_legal_aten_ops)
+            + "}"
+        )
+        option_string_1 = (
+            "{legal-ops="
+            + ",".join(backend_legal_aten_ops + OPS_NOT_DECOMPOSE_BY_TORCH_MLIR)
+            + "}"
+        )
+        pm = PassManager.parse(
+            f"builtin.module(func.func(decompose-on-torch{option_string}),"
+            + "canonicalize,"
+            + f"func.func(torch-decompose-complex-ops{option_string_1}),"
+            + "canonicalize)"
+        )
+        if debug != DebugType.NO_DEBUG:
+            pm.enable_ir_printing(**debug_parameters)
+        pm.run(module.operation)
+    _print_verbose(module, "// IR Dump After Customize Decomposition on Torch Dialect") if verbose else ...
+
     if output_type == "torch":
         return module
 

@@ -34,5 +34,4 @@ void torchFrontendRegisterConversionPasses() {
 void torchFrontendRegisterTransformsPasses() {
   mlir::registerTorchFrontendTorchTransformsPasses();
   mlir::registerTorchFrontendTransformsPasses();
-  mlir::torch::registerTorchPasses();
 }
