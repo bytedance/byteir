@@ -138,6 +138,24 @@ def test_linalg_vector_norm():
 
 # ==============================================================================
 
+class ScaledDotProductAttentionDifferentModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, query, key, value):
+        return torch.ops.aten.scaled_dot_product_attention(query, key, value)
+
+def test_attention():
+    model = ScaledDotProductAttentionDifferentModule()
+    query = torch.randn(2, 3, 8, 4, dtype=torch.float32)
+    key = torch.randn(2, 3, 16, 4, dtype=torch.float32)
+    value = torch.randn(2, 3, 16, 4, dtype=torch.float32)
+    inputs = [query, key, value]
+    module = compile(model, inputs, "stablehlo")
+    numerical_test_helper(module, inputs, model(*inputs))
+
+# ==============================================================================
+
 class VarDimModule(torch.nn.Module):
     def forward(self, x):
         return torch.var(x, dim=1)
