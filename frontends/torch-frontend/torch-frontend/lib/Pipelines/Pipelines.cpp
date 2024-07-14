@@ -121,10 +121,10 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
       options.backendLegalOps, options.extraLibrary));
 
   // Customize Decompsition
-  pm.addNestedPass<func::FuncOp>(createDecomposeOnTorch());
-  pm.addPass(createCanonicalizerPass());
+  //   pm.addNestedPass<func::FuncOp>(createDecomposeOnTorch({}));
+  //   pm.addPass(createCanonicalizerPass());
 
-  pm.addNestedPass<func::FuncOp>(
-      Torch::createDecomposeComplexOpsPass(options.backendLegalOps));
-  pm.addPass(createCanonicalizerPass());
+  //   pm.addNestedPass<func::FuncOp>(
+  //       Torch::createDecomposeComplexOpsPass(options.backendLegalOps));
+  //   pm.addPass(createCanonicalizerPass());
 }

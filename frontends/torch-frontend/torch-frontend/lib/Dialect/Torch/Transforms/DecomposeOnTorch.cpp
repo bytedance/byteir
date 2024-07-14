@@ -31,6 +31,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
+#include "llvm/ADT/StringSet.h"
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -245,6 +246,9 @@ public:
 
 struct DecomposeOnTorchPass
     : public DecomposeOnTorchBase<DecomposeOnTorchPass> {
+  DecomposeOnTorchPass(ArrayRef<std::string> legalOps) {
+    this->legalOps = legalOps;
+  }
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
   }
@@ -253,9 +257,16 @@ struct DecomposeOnTorchPass
     func::FuncOp funcOp = getOperation();
     MLIRContext *context = &getContext();
 
+    legalOpsSet.clear();
+    legalOpsSet.insert(legalOps.begin(), legalOps.end());
+
     RewritePatternSet patterns(context);
-    patterns.add<DecomposeAtenVarDimOp>(context);
-    patterns.add<DecomposeAtenVarCorrectionOp>(context);
+    if (!legalOpsSet.contains("aten.var.dim")) {
+      patterns.add<DecomposeAtenVarDimOp>(context);
+    }
+    if (!legalOpsSet.contains("aten.var.correction")) {
+      patterns.add<DecomposeAtenVarCorrectionOp>(context);
+    }
 
     LogicalResult result =
         applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
@@ -263,10 +274,13 @@ struct DecomposeOnTorchPass
       signalPassFailure();
     }
   }
+
+  llvm::StringSet<> legalOpsSet;
 };
 
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createDecomposeOnTorch() {
-  return std::make_unique<DecomposeOnTorchPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createDecomposeOnTorch(ArrayRef<std::string> legalOps) {
+  return std::make_unique<DecomposeOnTorchPass>(legalOps);
 }
