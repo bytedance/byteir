@@ -16,6 +16,10 @@ function load_pytorch_llvm_prebuilt() {
   TORCH_FRONTEND_LLVM_INSTALL_DIR="/data00/llvm_libraries/d16b21b17d13ecd88a068bb803df43e53d3b04ba/llvm_build"
 }
 
+function install_mhlo_tools() {
+  python3 -m pip install /data00/mhlo_libraries/mhlo_tools-1.4.0-cp39-cp39-linux_x86_64.whl
+}
+
 function apply_patches() {
   pushd $TORCH_MLIR_ROOT
   git clean -fd .
@@ -30,6 +34,7 @@ function prepare_for_build_with_prebuilt() {
   # install requirements
   python3 -m pip install -r requirements.txt -r torch-requirements.txt
   python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
+  install_mhlo_tools
 
   # initialize submodule
   git submodule update --init -f $TORCH_MLIR_ROOT
@@ -46,6 +51,7 @@ function prepare_for_build() {
   # install requirements
   python3 -m pip install -r requirements.txt -r torch-requirements.txt
   python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
+  install_mhlo_tools
 
   # initialize submodule
   git submodule update --init --recursive -f $TORCH_MLIR_ROOT

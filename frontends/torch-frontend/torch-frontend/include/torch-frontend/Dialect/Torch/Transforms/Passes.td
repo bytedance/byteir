@@ -18,7 +18,12 @@ def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
 
 def DecomposeOnTorch : Pass<"decompose-on-torch", "func::FuncOp"> {
     let summary = "decompose op on torch dialect";
-    let constructor = "mlir::createDecomposeOnTorch()";
+    let constructor = "mlir::createDecomposeOnTorch(/*legalOps=*/{})";
+    let options = [
+      ListOption<"legalOps", "legal-ops", "std::string",
+               "List of operation names that should be considered legal",
+               "llvm::cl::ZeroOrMore">
+    ];
 }
 
 #endif // TORCH_FRONTEND_TORCH_TRANSFORMS_PASSES_TD

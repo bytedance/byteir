@@ -20,13 +20,15 @@
 
 #include "mlir/Pass/Pass.h"
 #include <memory>
+#include <string>
 
 namespace mlir {
 namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDecomposeOnTorch();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDecomposeOnTorch(ArrayRef<std::string> legalOps);
 
 } // namespace mlir
 
