@@ -85,6 +85,11 @@ modifyUseToGetValueIntoStoreSet(RewriterBase &rewriter,
   return success();
 }
 
+// This pass modify IR on linalg tensor level.
+// 1. Modify epilogue linalg.generic to avoid write result to a new buffer.
+// Actually we can reuse input buffer.
+// 2. Use shared_outs argument to replace tensor.empty buffer in scf.forall. As
+// the thread block will not modify different slice of tensor.
 class CanonicalizeMatmulEpiloguePass
     : public CanonicalizeMatmulEpilogueBase<CanonicalizeMatmulEpiloguePass> {
 public:
@@ -114,6 +119,7 @@ public:
     assert(epilogueOps.size() == 1);
     linalg::GenericOp epilogueOp = epilogueOps[0];
     IRRewriter rewriter(epilogueOp);
+
 
     // modify the epilogue to get the value into the store set
     if (failed(modifyUseToGetValueIntoStoreSet(rewriter, epilogueOp))) {
