@@ -448,9 +448,17 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
   LogicalResult matchAndRewrite(AliasOp aliasOp,
                                 PatternRewriter &rewriter) const override {
     if (auto sourceOp = aliasOp.getSource().getDefiningOp<AliasOp>()) {
-      rewriter.replaceOpWithNewOp<AliasOp>(
-          aliasOp, aliasOp.getTarget().getType(), sourceOp.getSource(),
-          aliasOp.getOffset() + sourceOp.getOffset());
+      auto srcElemBitwidth = cast<MemRefType>(sourceOp.getSource().getType())
+                                 .getElementType()
+                                 .getIntOrFloatBitWidth();
+      auto curElemBitwidth = cast<MemRefType>(aliasOp.getTarget().getType())
+                                 .getElementType()
+                                 .getIntOrFloatBitWidth();
+      auto newOffset = aliasOp.getOffset() * curElemBitwidth / srcElemBitwidth +
+                       sourceOp.getOffset();
+      rewriter.replaceOpWithNewOp<AliasOp>(aliasOp,
+                                           aliasOp.getTarget().getType(),
+                                           sourceOp.getSource(), newOffset);
       return success();
     }
     return failure();

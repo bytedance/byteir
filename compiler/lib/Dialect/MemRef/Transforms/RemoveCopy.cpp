@@ -18,6 +18,7 @@
 #include "byteir/Dialect/MemRef/Transforms/RemoveCopy.h"
 #include "byteir/Dialect/MemRef/Utils/MemEffect.h"
 #include "byteir/Utils/Hoist.h"
+#include "byteir/Utils/MemUtils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -100,6 +101,45 @@ void replaceUsesAndPropagateType(RewriterBase &rewriter, Operation *oldOp,
   // TODO: can we use an early_inc iterator?
   for (Operation *op : opsToDelete)
     rewriter.eraseOp(op);
+}
+
+// Check whether all uses of oldValue can be safely replaced with newValue after
+// casting.
+bool anyIncompatibleUseWithCast(Value oldValue, Value newValue) {
+  bool incompatible = llvm::any_of(oldValue.getUses(), [](OpOperand &operand) {
+    Operation *op = operand.getOwner();
+    Dialect *dialect = op->getDialect();
+    return llvm::isa<memref::CollapseShapeOp, memref::ExpandShapeOp,
+                     func::CallOp>(op) ||
+           (dialect && dialect->getNamespace() == "byre");
+  });
+  incompatible &= (!isStaticShapeAndContiguousRowMajorEx(
+                       oldValue.getType().cast<MemRefType>()) ||
+                   !isStaticShapeAndContiguousRowMajorEx(
+                       newValue.getType().cast<MemRefType>()));
+  return incompatible;
+}
+
+SmallVector<Operation *> getReshapeOp(Value value) {
+  SmallVector<Operation *> reshapeOps;
+  auto operation = value.getDefiningOp();
+  while (operation &&
+         isa<memref::CollapseShapeOp, memref::ExpandShapeOp>(operation)) {
+    reshapeOps.push_back(operation);
+    value = operation->getOperand(0);
+    operation = value.getDefiningOp();
+  }
+  if (operation && isa<memref::AllocOp>(operation))
+    return reshapeOps;
+  return {};
+}
+
+int64_t extractOffset(MemRefType memref) {
+  int64_t offset{0};
+  SmallVector<int64_t> strides;
+  if (failed(getStridesAndOffset(memref, strides, offset)))
+    return 0;
+  return offset;
 }
 
 class RemoveCopyPattern : public OpRewritePattern<memref::CopyOp> {
@@ -217,7 +257,8 @@ public:
     // we prefer target alloc over src alloc in this implementation
     if (auto targetAlloc = target.getDefiningOp<memref::AllocOp>()) {
       if (auto srcDef = src.getDefiningOp()) {
-        if (isa<memref::AllocOp, memref::SubViewOp>(srcDef))
+        if (isa<memref::AllocOp, memref::SubViewOp, memref::ExpandShapeOp,
+                memref::ExpandShapeOp>(srcDef))
           hoistUpOpInBlock(srcDef, domInfo);
       }
 
@@ -230,6 +271,38 @@ public:
 
       if (!anyIncompatibleUse(target, src)) {
         replaceUsesAndPropagateType(rewriter, targetAlloc, src);
+        return success();
+      }
+
+      if (!anyIncompatibleUseWithCast(target, src)) {
+        // The memref of source and target are contiguous, cast source value to
+        // the same type with target. As `byre.alias` could handle source with
+        // offset, `memref.(reinterpret)cast` would be converted to `byre.alias`
+        // in pass `memref-to-byre`.
+        LLVM_DEBUG(llvm::dbgs()
+                   << "contiguous src type: " << src.getType() << "\n");
+        LLVM_DEBUG(llvm::dbgs()
+                   << "contiguous dst type: " << target.getType() << "\n");
+
+        auto sourceMemref = src.getType().cast<MemRefType>();
+        auto targetMemref = target.getType().cast<MemRefType>();
+        int64_t srcMemrefOffset = extractOffset(sourceMemref);
+
+        Value srcCast;
+
+        if (srcMemrefOffset) {
+          SmallVector<int64_t> strides;
+          int64_t memrefOffset;
+          if (failed(getStridesAndOffset(targetMemref, strides, memrefOffset)))
+            return failure();
+          srcCast = rewriter.create<memref::ReinterpretCastOp>(
+              copyOp.getLoc(), targetMemref, src, memrefOffset,
+              targetMemref.getShape(), strides);
+        } else
+          srcCast = rewriter.create<memref::CastOp>(copyOp.getLoc(),
+                                                    targetMemref, src);
+        rewriter.replaceAllUsesWith(targetAlloc, {srcCast});
+        rewriter.eraseOp(copyOp);
         return success();
       }
     }

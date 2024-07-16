@@ -1,4 +1,4 @@
-//===- FuseOpOnTorch.h ----------------------------------------*--- C++ -*-===//
+//===- PassDetail.h -------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCH_FRONTEND_CONVERSION_FUSEOPONTORCH_H
-#define TORCH_FRONTEND_CONVERSION_FUSEOPONTORCH_H
+#ifndef TORCH_FRONTEND_TORCH_TRANSFORMS_PASSDETAIL_H
+#define TORCH_FRONTEND_TORCH_TRANSFORMS_PASSDETAIL_H
 
+#include "mlir/IR/DialectRegistry.h"
 #include "mlir/Pass/Pass.h"
-#include <memory>
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+// forward dialects for conversions
 namespace mlir {
+class ModuleOp;
+
 namespace func {
 class FuncOp;
 } // namespace func
 
-std::unique_ptr<OperationPass<func::FuncOp>> createFuseOpOnTorch();
+#define GEN_PASS_CLASSES
+#include "torch-frontend/Dialect/Torch/Transforms/Passes.h.inc"
 
 } // namespace mlir
 
-#endif // TORCH_FRONTEND_CONVERSION_FUSEOPONTORCH_H
+#endif // TORCH_FRONTEND_TORCH_TRANSFORMS_PASSDETAIL_H

@@ -21,7 +21,6 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "torch-frontend/Transforms/CanonicalizeExt.h"
 #include "torch-frontend/Transforms/EliminateUselessOp.h"
-#include "torch-frontend/Transforms/FuseOpOnTorch.h"
 #include "torch-frontend/Transforms/RewriteCustomOp.h"
 #include "torch-frontend/Transforms/RewriteEntryFuncName.h"
 #include "torch-frontend/Transforms/UnpackPublicFunctionReturn.h"

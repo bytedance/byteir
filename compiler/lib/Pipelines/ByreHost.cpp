@@ -39,7 +39,9 @@ void createByreHostPipelineImpl(OpPassManager &pm, const std::string &entryFunc,
   // currently use SetOpSpace + SetArgSpace to specify space here
   // TODO: later move to GPUOpt after general copy finish
   if (!target.empty()) {
-    pm.addNestedPass<func::FuncOp>(createSetOpSpacePass(entryFunc, target));
+    // FIXME(chhuang) disable set-op-space here to avoid set discardable attr to
+    // host side ops, which leads to serialize fail.
+    // pm.addNestedPass<func::FuncOp>(createSetOpSpacePass(entryFunc, target));
     pm.addPass(createSetArgSpacePass(entryFunc, target, true));
   }
 }

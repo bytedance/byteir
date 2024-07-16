@@ -252,8 +252,6 @@ struct CustomizedTfToMhloPipelinePass
     if (setAssumingToBeTrue) {
       pm.addNestedPass<mlir::func::FuncOp>(
           mlir::createRemoveShapeConstraintsPass());
-      pm.addNestedPass<mlir::func::FuncOp>(
-          mlir::tfext::createRemoveCstrReshapablePass());
     }
     pm.addPass(mlir::createCanonicalizerPass());
 

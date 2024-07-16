@@ -75,7 +75,7 @@ struct ConvertRepeatToTilePattern : public RewritePattern {
     auto tileConstType =
         mlir::RankedTensorType::get({2}, constAttr.getElementType());
     auto tileConstAttr = mlir::DenseElementsAttr::get(
-        tileConstType, llvm::makeArrayRef(tileConstArray));
+        tileConstType, llvm::ArrayRef(tileConstArray));
     auto tileConstOp =
         rewriter.create<TF::ConstOp>(op->getLoc(), tileConstAttr);
     llvm::SmallVector<int64_t> tileShape = {
@@ -92,7 +92,7 @@ struct ConvertRepeatToTilePattern : public RewritePattern {
     auto reshapeConstType =
         mlir::RankedTensorType::get({2}, constAttr.getElementType());
     auto reshapeConstAttr = mlir::DenseElementsAttr::get(
-        reshapeConstType, llvm::makeArrayRef(reshapeShape));
+        reshapeConstType, llvm::ArrayRef(reshapeShape));
     auto reshapeConstOp =
         rewriter.create<TF::ConstOp>(op->getLoc(), reshapeConstAttr);
 

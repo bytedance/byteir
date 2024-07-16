@@ -20,6 +20,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "stablehlo/transforms/Passes.h"
 #include "torch-frontend/Conversion/Passes.h"
+#include "torch-frontend/Dialect/Torch/Transforms/Passes.h"
 #include "torch-frontend/Transforms/Passes.h"
 #include "torch-mlir/Conversion/TorchToArith/TorchToArith.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"

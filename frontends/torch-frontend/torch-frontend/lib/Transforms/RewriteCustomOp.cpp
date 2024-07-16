@@ -16,7 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "torch-frontend/Transforms/RewriteCustomOp.h"
-#include "PassDetail.h"
+#include "./PassDetail.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"

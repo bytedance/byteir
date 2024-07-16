@@ -43,11 +43,9 @@ module {
 // CHECK-LABEL: memref.global "private"
 // CHECK-LABEL: memref.global "private"
 // CHECK-LABEL: func.func @Unknown0(
-//   CHECK-SAME: %[[ARG0:.*]]: memref<1x100x27x48x3xf32>, %[[ARG1:.*]]: memref<51200xi32>)
-// CHECK: %[[ALLOC:.*]] = memref.alloc() :  memref<1x100x27x48x3xi32>
+//   CHECK-SAME: %[[ARG0:.*]]: memref<1x100x27x48x3xf32>, %[[ARG1:.*]]: memref<1x100x27x48x3xi32>)
 // CHECK: %[[ALLOC0:.*]] = memref.alloc() :  memref<100x1296x1xi32>
-// CHECK memref.dealloc %[[ALLOC]] : memref<1x100x27x48x3xi32>
-// CHECK memref.dealloc %[[ALLOC0]] : memref<100x1296x1xi32>
+// CHECK: memref.dealloc %[[ALLOC0]] : memref<100x1296x1xi32>
         """),
         ToLLVMPipeline(r"""
 // CHECK-LABEL: llvm.mlir.global

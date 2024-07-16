@@ -1147,83 +1147,74 @@ public:
                                                             typeConverter);
 
     RewritePatternSet patterns(context);
-    if (validCustomCallOpsSet.contains("aten.native_layer_norm")) {
+    if (validCustomCallOpsSet.contains("byteir.layer_norm")) {
       target.addIllegalOp<AtenNativeLayerNormOp>();
       patterns.add<ConvertAtenLayerNormOp<AtenNativeLayerNormOp>>(typeConverter,
                                                                   context);
-    }
-    if (validCustomCallOpsSet.contains("aten.layer_norm")) {
       target.addIllegalOp<AtenLayerNormOp>();
       patterns.add<ConvertAtenLayerNormOp<AtenLayerNormOp>>(typeConverter,
                                                             context);
-    }
-    if (validCustomCallOpsSet.contains("aten.native_group_norm")) {
       target.addIllegalOp<AtenNativeGroupNormOp>();
       patterns.add<ConvertAtenGroupNormOp<AtenNativeGroupNormOp>>(typeConverter,
                                                                   context);
-    }
-    if (validCustomCallOpsSet.contains("aten.group_norm")) {
       target.addIllegalOp<AtenGroupNormOp>();
       patterns.add<ConvertAtenGroupNormOp<AtenGroupNormOp>>(typeConverter,
                                                             context);
     }
-    if (validCustomCallOpsSet.contains("aten._softmax")) {
+    if (validCustomCallOpsSet.contains("byteir.softmax")) {
       target.addIllegalOp<Aten_SoftmaxOp>();
       patterns.add<ConvertAtenSoftmaxOp<Aten_SoftmaxOp>>(typeConverter,
                                                          context);
-    }
-    if (validCustomCallOpsSet.contains("aten.softmax.int")) {
       target.addIllegalOp<AtenSoftmaxIntOp>();
       patterns.add<ConvertAtenSoftmaxOp<AtenSoftmaxIntOp>>(typeConverter,
                                                            context);
     }
-    if (validCustomCallOpsSet.contains("aten._log_softmax")) {
+    if (validCustomCallOpsSet.contains("byteir.log_softmax")) {
       target.addIllegalOp<Aten_LogSoftmaxOp>();
       patterns.add<ConvertAtenLogSoftmaxOp<Aten_LogSoftmaxOp>>(typeConverter,
                                                                context);
-    }
-    if (validCustomCallOpsSet.contains("aten.log_softmax.int")) {
       target.addIllegalOp<AtenLogSoftmaxIntOp>();
       patterns.add<ConvertAtenLogSoftmaxOp<AtenLogSoftmaxIntOp>>(typeConverter,
                                                                  context);
     }
-    if (validCustomCallOpsSet.contains("aten.nll_loss_forward")) {
-      target.addIllegalOp<AtenNllLossForwardOp>();
-      patterns.add<ConvertAtenNllLossForwardOp>(typeConverter, context);
-    }
-    if (validCustomCallOpsSet.contains("aten.nll_loss_backward")) {
-      target.addIllegalOp<AtenNllLossBackwardOp>();
-      patterns.add<ConvertAtenNllLossBackwardOp>(typeConverter, context);
-    }
-    if (validCustomCallOpsSet.contains("aten.gelu")) {
+    if (validCustomCallOpsSet.contains("byteir.gelu")) {
       target.addIllegalOp<AtenGeluOp>();
       patterns.add<ConvertAtenGeluOp>(typeConverter, context);
     }
-    if (validCustomCallOpsSet.contains("aten.max.dim")) {
+    if (validCustomCallOpsSet.contains("byteir.arg_max")) {
       target.addIllegalOp<AtenMaxDimOp>();
       target.addDynamicallyLegalOp<AtenMaxDimOp>(
           [](AtenMaxDimOp op) { return op.getIndices().use_empty(); });
       patterns.add<ConvertAtenMinMaxDimOp<AtenMaxDimOp>>(typeConverter,
                                                          context);
     }
-    if (validCustomCallOpsSet.contains("aten.min.dim")) {
+    if (validCustomCallOpsSet.contains("byteir.arg_min")) {
       target.addIllegalOp<AtenMinDimOp>();
       target.addDynamicallyLegalOp<AtenMinDimOp>(
           [](AtenMinDimOp op) { return op.getIndices().use_empty(); });
       patterns.add<ConvertAtenMinMaxDimOp<AtenMinDimOp>>(typeConverter,
                                                          context);
     }
-    if (validCustomCallOpsSet.contains("aten.one_hot")) {
+    if (validCustomCallOpsSet.contains("byteir.one_hot")) {
       target.addIllegalOp<AtenOneHotOp>();
       patterns.add<ConvertAtenOneHotOp>(typeConverter, context);
     }
-    if (validCustomCallOpsSet.contains("aten.topk")) {
+    if (validCustomCallOpsSet.contains("byteir.topk")) {
       target.addIllegalOp<AtenTopkOp>();
       patterns.add<ConvertAtenTopkOp>(typeConverter, context);
     }
-    if (validCustomCallOpsSet.contains("aten.nonzero")) {
+    if (validCustomCallOpsSet.contains("byteir.non_zero")) {
       target.addIllegalOp<AtenNonzeroOp>();
       patterns.add<ConvertAtenNonzeroOp>(typeConverter, context);
+    }
+
+    if (validCustomCallOpsSet.contains("byteir.nll_loss_forward")) {
+      target.addIllegalOp<AtenNllLossForwardOp>();
+      patterns.add<ConvertAtenNllLossForwardOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("byteir.nll_loss_backward")) {
+      target.addIllegalOp<AtenNllLossBackwardOp>();
+      patterns.add<ConvertAtenNllLossBackwardOp>(typeConverter, context);
     }
 
     populateMathToCustomCallPattern(target, typeConverter, patterns,
@@ -1255,10 +1246,12 @@ void mlir::populateMathToCustomCallPattern(
     RewritePatternSet &patterns,
     const llvm::StringSet<> &validCustomCallOpsSet) {
 #define CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenOp, MathOpName)                \
-  if (validCustomCallOpsSet.contains(AtenOp::getOperationName())) {            \
-    target.addIllegalOp<AtenOp>();                                             \
-    patterns.add<ConvertMathOp<AtenOp>>(typeConverter, patterns.getContext(),  \
-                                        MathOpName);                           \
+  {                                                                            \
+    if (validCustomCallOpsSet.contains(MathOpName)) {                          \
+      target.addIllegalOp<AtenOp>();                                           \
+      patterns.add<ConvertMathOp<AtenOp>>(typeConverter,                       \
+                                          patterns.getContext(), MathOpName);  \
+    }                                                                          \
   }
 
   CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenAsinOp, "math.asin");

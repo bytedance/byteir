@@ -1,6 +1,6 @@
-// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=aten.native_layer_norm,aten.layer_norm,aten.native_group_norm,aten.group_norm,aten._softmax,aten.softmax.int,aten._log_softmax,aten.log_softmax.int,aten.nll_loss_forward,aten.nll_loss_backward,aten.gelu,aten.max.dim,aten.min.dim,aten.one_hot,aten.topk,aten.nonzero" --canonicalize-ext | FileCheck %s
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=byteir.layer_norm,byteir.softmax,byteir.log_softmax,byteir.nll_loss_forward,byteir.nll_loss_backward,byteir.gelu,byteir.arg_max,byteir.arg_min,byteir.one_hot,byteir.topk,byteir.non_zero" --canonicalize-ext | FileCheck %s
 // RUN: torch-frontend-opt %s -convert-torch-to-custom-call --canonicalize-ext | FileCheck %s --check-prefix NONE
-// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=aten.asin" --canonicalize-ext | FileCheck %s --check-prefix NONE
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=math.asin" --canonicalize-ext | FileCheck %s --check-prefix MATH
 
 func.func @torch.aten.asin(%arg0: !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],f32> {
   %0 = torch.aten.asin %arg0 : !torch.vtensor<[?,?],f32> -> !torch.vtensor<[?,?],f32>

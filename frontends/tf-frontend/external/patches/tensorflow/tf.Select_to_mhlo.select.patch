@@ -1,18 +1,8 @@
-From 3f9ae8f63872a748974652833ae8dc6c47f18267 Mon Sep 17 00:00:00 2001
-From: "quanbo.liu" <liuquanbo@bytedance.com>
-Date: Thu, 7 Sep 2023 19:02:24 +0800
-Subject: [PATCH] Do not convert tf.Select to mhlo.select when type of input is
- tf_type.string
-
----
- tensorflow/compiler/mlir/tf2xla/transforms/legalize_tf.cc | 3 +++
- 1 file changed, 3 insertions(+)
-
 diff --git a/tensorflow/compiler/mlir/tf2xla/transforms/legalize_tf.cc b/tensorflow/compiler/mlir/tf2xla/transforms/legalize_tf.cc
-index 5853c59664c..98d725215ab 100644
+index 13c9c3f9306..fc78a4420a5 100644
 --- a/tensorflow/compiler/mlir/tf2xla/transforms/legalize_tf.cc
 +++ b/tensorflow/compiler/mlir/tf2xla/transforms/legalize_tf.cc
-@@ -2838,6 +2838,9 @@ class ConvertSelectOp : public OpRewritePattern<TF::SelectOp> {
+@@ -2868,6 +2868,9 @@ class ConvertSelectOp : public OpRewritePattern<TF::SelectOp> {
  
    LogicalResult matchAndRewrite(TF::SelectOp op,
                                  PatternRewriter &rewriter) const override {
@@ -20,8 +10,5 @@ index 5853c59664c..98d725215ab 100644
 +      return failure();
 +    }
      // This lowering only works on ranked types.
-     auto cond_type = op.getCondition().getType().dyn_cast<RankedTensorType>();
-     auto then_type = op.getThenValue().getType().dyn_cast<RankedTensorType>();
--- 
-2.20.1
-
+     auto cond_type =
+         mlir::dyn_cast<RankedTensorType>(op.getCondition().getType());

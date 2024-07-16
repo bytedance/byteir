@@ -1,0 +1,25 @@
+From ffac7c50e93177f8c0ab46e19d4de902f8098917 Mon Sep 17 00:00:00 2001
+From: "quanbo.liu" <liuquanbo@bytedance.com>
+Date: Tue, 9 Jul 2024 14:41:02 +0800
+Subject: [PATCH] tf_mkl
+
+---
+ tensorflow/core/BUILD | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tensorflow/core/BUILD b/tensorflow/core/BUILD
+index e2adb15245c..7962fc9e574 100644
+--- a/tensorflow/core/BUILD
++++ b/tensorflow/core/BUILD
+@@ -644,7 +644,7 @@ cc_library(
+         "//tensorflow/core/kernels/mkl:mkl_batch_matmul_op",
+         "//tensorflow/core/kernels/mkl:mkl_einsum_op",
+         "//tensorflow/core/kernels/mkl:mkl_matmul_op",
+-        "//tensorflow/core/kernels/mkl:mkl_sparse_matrix_matmul_op",
++        #"//tensorflow/core/kernels/mkl:mkl_sparse_matrix_matmul_op",
+         "//tensorflow/core/kernels/mkl:mkl_tmp_ops",
+     ]) + if_cuda_or_rocm([
+         "//tensorflow/core/kernels:cudnn_rnn_kernels",
+-- 
+2.30.2
+

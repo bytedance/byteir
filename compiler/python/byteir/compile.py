@@ -5,7 +5,6 @@ from shutil import copymode
 
 from . import ir
 from .passmanager import PassManager
-from .dialects.builtin import ModuleOp
 from ._backend_registry import register_byteir_compiler_backend, get_target_device, look_up_backend
 from .utils import detect_gpu_arch_with_nvidia_smi
 
@@ -18,7 +17,7 @@ class OutputType(Enum):
 class CompileOptions:
     def __init__(self,
                  target: str,
-                 module: ModuleOp,
+                 module: ir.Module,
                  output_dir: str,
                  output_file_prefix: str,
                  output_type: OutputType = OutputType.MLIR,
@@ -77,7 +76,7 @@ def _get_debug_parameters(debug: DebugType):
                             "large_elements_limit":10}
     return debug_parameters
 
-def _print_verbose(module: ModuleOp, pipeline_msg: str):
+def _print_verbose(module: ir.Module, pipeline_msg: str):
     print(pipeline_msg)
     print(module.operation.get_asm(large_elements_limit=10))
     print()

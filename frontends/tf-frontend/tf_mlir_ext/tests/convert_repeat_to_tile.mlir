@@ -34,10 +34,10 @@ func.func @convert_repeat_constant_sparse(%arg0: tensor<4x6xf32>) -> tensor<1x6x
   return %1 : tensor<1x6xf32> 
 }
 // CHECK-LABEL: @convert_repeat_constant_sparse
-// CHECK-NEXT: %cst = "tf.Const"() <{value = dense<[1, 4]> : tensor<2xi64>}> : () -> tensor<2xi64>
-// CHECK-NEXT: %cst_0 = "tf.Const"() <{value = dense<[16, 6]> : tensor<2xi64>}> : () -> tensor<2xi64>
-// CHECK-NEXT: %cst_1 = "tf.Const"() <{value = dense<0> : tensor<i32>}> : () -> tensor<i32>
-// CHECK-NEXT: %0 = "tf.Tile"(%arg0, %cst) : (tensor<4x6xf32>, tensor<2xi64>) -> tensor<4x24xf32>
-// CHECK-NEXT: %1 = "tf.Reshape"(%0, %cst_0) : (tensor<4x24xf32>, tensor<2xi64>) -> tensor<16x6xf32>
-// CHECK-NEXT: %2 = "tf.Sum"(%1, %cst_1) <{keep_dims = true}> {device = ""} : (tensor<16x6xf32>, tensor<i32>) -> tensor<1x6xf32>
+// CHECK-DAG: %[[CST_0:.*]] = "tf.Const"() <{value = dense<[1, 4]> : tensor<2xi64>}> : () -> tensor<2xi64>
+// CHECK-DAG: %[[CST_1:.*]] = "tf.Const"() <{value = dense<[16, 6]> : tensor<2xi64>}> : () -> tensor<2xi64>
+// CHECK-DAG: %[[CST_2:.*]] = "tf.Const"() <{value = dense<0> : tensor<i32>}> : () -> tensor<i32>
+// CHECK-NEXT: %0 = "tf.Tile"(%arg0, %[[CST_0]]) : (tensor<4x6xf32>, tensor<2xi64>) -> tensor<4x24xf32>
+// CHECK-NEXT: %1 = "tf.Reshape"(%0, %[[CST_1]]) : (tensor<4x24xf32>, tensor<2xi64>) -> tensor<16x6xf32>
+// CHECK-NEXT: %2 = "tf.Sum"(%1, %[[CST_2]]) <{keep_dims = true}> {device = ""} : (tensor<16x6xf32>, tensor<i32>) -> tensor<1x6xf32>
 // CHECK-NEXT: return %2 : tensor<1x6xf32>

@@ -74,6 +74,7 @@ void registerTestConvertInsertionPass();
 void registerTestCustomConvertPass();
 void registerTestDTypeConversionPass();
 void registerTestFuncArgRearrangementPass();
+void registerTestGraphClusteringByDeviceOpNumPass();
 void registerTestPrintArgSideEffectPass();
 void registerTestPrintLivenessPass();
 void registerTestPrintUseRangePass();
@@ -93,6 +94,7 @@ void registerTestPasses() {
   byteir::test::registerTestCustomConvertPass();
   byteir::test::registerTestDTypeConversionPass();
   byteir::test::registerTestFuncArgRearrangementPass();
+  byteir::test::registerTestGraphClusteringByDeviceOpNumPass();
   byteir::test::registerTestPrintArgSideEffectPass();
   byteir::test::registerTestPrintLivenessPass();
   byteir::test::registerTestPrintUseRangePass();

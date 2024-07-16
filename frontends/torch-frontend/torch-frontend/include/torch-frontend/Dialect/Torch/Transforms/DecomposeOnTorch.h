@@ -1,4 +1,4 @@
-//===- remove_cstr_reshapable.h -------------------------------*--- C++ -*-===//
+//===- DecomposeOnTorch.h -------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,23 +15,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TFEXT_TRANSFORMS_REMOVE_CSTR_RESHAPABLE
-#define TFEXT_TRANSFORMS_REMOVE_CSTR_RESHAPABLE
+#ifndef TORCH_FRONTEND_TORCH_TRANSFORMS_DECOMPOSEONTORCH_H
+#define TORCH_FRONTEND_TORCH_TRANSFORMS_DECOMPOSEONTORCH_H
 
+#include "mlir/Pass/Pass.h"
 #include <memory>
-
-#include "mlir/IR/MLIRContext.h"  // from @llvm-project
-#include "mlir/IR/PatternMatch.h" // from @llvm-project
-#include "mlir/Pass/Pass.h"       // from @llvm-project
-#include "tensorflow/compiler/mlir/tensorflow/ir/tf_executor.h"
+#include <string>
 
 namespace mlir {
-namespace tfext {
+namespace func {
+class FuncOp;
+} // namespace func
 
-// -------------------------------------------
-std::unique_ptr<OperationPass<func::FuncOp>> createRemoveCstrReshapablePass();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDecomposeOnTorch(ArrayRef<std::string> legalOps);
 
-} // namespace tfext
 } // namespace mlir
 
-#endif // TFEXT_TRANSFORMS_REMOVE_CSTR_RESHAPABLE
+#endif // TORCH_FRONTEND_TORCH_TRANSFORMS_DECOMPOSEONTORCH_H

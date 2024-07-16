@@ -4,6 +4,24 @@ import torch as tu
 import torch_frontend
 from torch_frontend import compile
 
+import pytest
+
+def numerical_test_helper(module, inputs, torch_output, atol=1e-5, rtol=1e-5):
+    if isinstance(torch_output, torch.Tensor):
+        torch_output = [torch_output]
+    np_inputs = [t.numpy() for t in inputs]
+
+    from mhlo_tools.ir_executor import Interpreter
+    func_name = module.body.operations[0].name.value
+    interp = Interpreter.load_from_string(module.operation.get_asm(), is_stablehlo=True)
+    mhlo_outputs = interp.call_function(func_name, np_inputs)
+    mhlo_outputs = [torch.tensor(t) for t in mhlo_outputs]
+
+    assert len(torch_output) == len(mhlo_outputs)
+    for t, m in zip(torch_output, mhlo_outputs):
+        torch.testing.assert_close(m, t, rtol=rtol, atol=atol, equal_nan=True)
+
+
 # ==============================================================================
 # rng testcases
 
@@ -117,6 +135,38 @@ def test_linalg_vector_norm():
     inputs = [tu.randn(3, 4, 5).to(torch.float16)]
     module = compile(module, inputs, "stablehlo")
     print(module.operation.get_asm(large_elements_limit=10, enable_debug_info=False))
+
+# ==============================================================================
+
+class ScaledDotProductAttentionDifferentModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, query, key, value):
+        return torch.ops.aten.scaled_dot_product_attention(query, key, value)
+
+def test_attention():
+    model = ScaledDotProductAttentionDifferentModule()
+    query = torch.randn(2, 3, 8, 4, dtype=torch.float32)
+    key = torch.randn(2, 3, 16, 4, dtype=torch.float32)
+    value = torch.randn(2, 3, 16, 4, dtype=torch.float32)
+    inputs = [query, key, value]
+    module = compile(model, inputs, "stablehlo")
+    numerical_test_helper(module, inputs, model(*inputs))
+
+# ==============================================================================
+
+class VarDimModule(torch.nn.Module):
+    def forward(self, x):
+        return torch.var(x, dim=1)
+
+@pytest.mark.mhlo_tools
+def test_var_dim_f32():
+    inputs = [tu.randn(4, 4)]
+    module = compile(VarDimModule(), inputs, "stablehlo", verbose=True)
+    module_str = module.operation.get_asm()
+    assert "f64" not in module_str
+    numerical_test_helper(module, inputs, VarDimModule()(*inputs))
 
 # ==============================================================================
 

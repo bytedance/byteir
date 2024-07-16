@@ -39,8 +39,8 @@ void addGenericAffineOptPasses(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(createLoopCoalescingPass());
   pm.addNestedPass<func::FuncOp>(createLoopFusionPass());
   pm.addNestedPass<func::FuncOp>(createSimplifyAffineStructuresPass());
-  pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(createLowerAffinePass());
+  pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(arith::createIntRangeOptimizationsPass());
   addCleanUpExtPassPipeline(pm);
 }

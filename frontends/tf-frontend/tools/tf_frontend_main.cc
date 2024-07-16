@@ -180,6 +180,9 @@ int main(int argc, char **argv) {
     TF_Status *status_load = TF_NewStatus();
     TF_Library *lib_handle = TF_LoadLibrary(path.c_str(), status_load);
     if (!lib_handle) {
+      const char *msg = TF_Message(status_load);
+      if (nullptr != msg)
+        llvm::errs() << msg << "\n";
       llvm::errs() << "Load external library failed, path is: " << path << "\n";
       return 1;
     }

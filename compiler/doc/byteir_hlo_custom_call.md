@@ -2,7 +2,7 @@
 
 ByteIR compiler introduces several coarse-grained ops to improve pattern-matching rewriting during compilation.
 
-ByteIR implements in the way of re-using mhlo custom call op definition with a ByteIR prefix in `call_target_name`,
+ByteIR implements in the way of re-using Stablehlo custom call op definition with a ByteIR prefix in `call_target_name`,
 instead of defining another new dialect.
 
 ByteIR implements this conversion in frontends, instead of puting it to ByteIR compiler.
@@ -16,9 +16,9 @@ Introduction of coarse-grained ops can provide several benefits as follows,
 * it provides intuitive mapping from frontends to IR, helping debuggability;
 * it provides flexible control, since coarse-grained ops can be easily decomposed to fine-grained ops, the other way around is much harder.
 
-### Implementation of reusing mhlo custom call
+### Implementation of reusing Stablehlo custom call
 
-Reusing mhlo custom call with a ByteIR prefix in `call_target_name` can provide several benefits as follows,
+Reusing Stablehlo custom call with a ByteIR prefix in `call_target_name` can provide several benefits as follows,
 * the original IR is still legal and well-defined without introducing additional new dialect or defining new ops in tablegen;
 * it provides backward support for all existing passes or pattern-matching, not breaking anything;
 * with a proper definition, an unrecognized coarse-grained op can be eaisly mapping to a custom library or be decomposed into fine-grained ops.
@@ -38,7 +38,7 @@ A coarse-grained op kind is defined through with a prefix.
 ```call_target_name = "byteir.softmax" or "tf.DynamicPartition"```
 
 If an op is generic across frontends, which happen mostly, it uses a `byteir` prefix.
-If an op is frontend-specific, it uses a frontend-specific prefix, such as `tf` or `pytorch`.
+If an op is frontend-specific, it uses a frontend-specific prefix, such as `tf` or `torch`.
 
 Further needed infomation for a given coarse-grained op are encoded in a dictionary attribute, called `byteir_attrs`, which includes all named attributes.
 
@@ -52,23 +52,34 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - weight: Tensor (shape should be same as axis of input tensor)
   - bias: Tensor (shape should be same as axis of input tensor)
 - Attrs
-  - epsilon: F64Attr
   - axis: I64ArrayAttr
+  - epsilon: F64Attr
   - eps_outside_sqrt: Optional\<BoolAttr>
 - Results(1 or 3):
   - output: Tensor
   - mean: Optional\<Tensor>
   - inv_std_dev: Optional\<Tensor>
+- Example:
+```
+%0 = stablehlo.custom_call @byteir.layer_norm(%arg0, %arg1, %arg2) {byteir_attrs = {axis = [2, 3, 4], epsilon = 5.000000e-01 : f64}} : (tensor<2x5x2x2x3xf16>, tensor<2x2x3xf16>, tensor<2x2x3xf16>) -> tensor<2x5x2x2x3xf16>
+```
+```
+%0:3 = stablehlo.custom_call @byteir.layer_norm(%arg0, %arg1, %arg2) {byteir_attrs = {axis = [2, 3, 4], epsilon = 5.000000e-01 : f64, eps_outside_sqrt = true}} : (tensor<2x5x2x2x3xf16>, tensor<2x2x3xf16>, tensor<2x2x3xf16>) -> (tensor<2x5x2x2x3xf16>, tensor<2x5x1x1x1xf16>, tensor<2x5x1x1x1xf16>)
+```
 
 ### byteir.l2_norm
 - Operands:
   - input: Tensor
 - Attrs
+  - axis: I64ArrayAttr
   - epsilon: F64Attr
   - eps_outside_sqrt: Optional\<BoolAttr>
-  - axis: I64ArrayAttr
 - Results:
   - output: Tensor
+- Example:
+```
+%0 = stablehlo.custom_call @byteir.l2_norm(%arg0) {byteir_attrs = {axis = [2, 3, 4], epsilon = 5.000000e-01 : f64}} : (tensor<2x5x2x2x3xf16>) -> tensor<2x5x2x2x3xf16>
+```
 
 ### byteir.softmax
 - Operands:
@@ -79,7 +90,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - output: Tensor
 - Example:
 ```
-%0 = "mhlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {axis = 1 : i64}, call_target_name = "byteir.softmax", called_computations = [], has_side_effect = false} : (tensor<4x64xf32>) -> tensor<4x64xf32>
+%0 = "stablehlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {axis = 1 : i64}, call_target_name = "byteir.softmax", called_computations = [], has_side_effect = false} : (tensor<4x64xf32>) -> tensor<4x64xf32>
 ```
 
 ### byteir.log_softmax
@@ -91,7 +102,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - output: Tensor
 - Example:
 ```
-%0 = "mhlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {axis = 1 : i64}, call_target_name = "byteir.log_softmax", called_computations = [], has_side_effect = false} : (tensor<4x64xf32>) -> tensor<4x64xf32>
+%0 = "stablehlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {axis = 1 : i64}, call_target_name = "byteir.log_softmax", called_computations = [], has_side_effect = false} : (tensor<4x64xf32>) -> tensor<4x64xf32>
 ```
 
 ### byteir.gelu
@@ -105,7 +116,7 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - output: Tensor
 - Example:
 ```
-%0 = "mhlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {approximate = "none"}, call_target_name = "byteir.gelu", called_computations = [], has_side_effect = false} : (tensor<4x64xf32>) -> tensor<4x64xf32>
+%0 = "stablehlo.custom_call"(%arg0) {api_version = 1 : i32, backend_config = "", byteir_attrs = {approximate = "none"}, call_target_name = "byteir.gelu", called_computations = [], has_side_effect = false} : (tensor<4x64xf32>) -> tensor<4x64xf32>
 ```
 
 ### byteir.arg_max/byteir.arg_min
@@ -118,27 +129,24 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 - Results:
   - output: Optional\<Tensor>
   - indices: IntTensor
-
+- Example:
+```
+%0:2 = stablehlo.custom_call @byteir.arg_max(%arg0) {byteir_attrs = {axis = 1 : i64, keep_dims = false, select_last_index = false}} : (tensor<3x4xf32>) -> (tensor<3xf32>, tensor<3xi64>)
+```
 
 ### byteir.top_k
 - Operands:
   - input: Tensor
 - Attrs
-  - k: I64Attr
   - axis: I64ArrayAttr
+  - k: I64Attr
   - sorted: BoolAttr
 - Results:
   - output: Tensor
   - indices: IntTensor
-
-### byteir.erf
-- Operands:
-  - input: Tensor
-- Results:
-  - output: Tensor
 - Example:
 ```
-%0 = "mhlo.custom_call"(%arg0) {call_target_name = "byteir.erf", has_side_effect = false} : (tensor<?x64xf32>) -> tensor<?x64xf32>
+%0:2 = stablehlo.custom_call @byteir.top_k(%arg0) {byteir_attrs = {axis = [1], k = 3 : i64, sorted = true}} : (tensor<3x10xf32>) -> (tensor<3x3xf32>, tensor<3x3xi64>)
 ```
 
 ### byteir.addn
@@ -146,17 +154,24 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - inputs: Variadic\<Tensor>
 - Results:
   - outputs: Tensor
+- Examples:
+```
+%0 = stablehlo.custom_call @byteir.addn(%arg0, %arg1, %arg2) {byteir_attrs = {}} : (tensor<3x10xf32>, tensor<3x10xf32>, tensor<3x10xf32>) -> tensor<3x10xf32>
+```
 
 ### byteir.one_hot
 - Operands:
   - indices: IntTensor
 - Attrs:
-  - depth: I64Attr
   - axis: I64Attr
+  - depth: I64Attr
   - on_value: AnyAttr
   - off_value: AnyAttr
 - Results:
   - output: Tensor (ElementType same as on_value and off_value)
+```
+%0 = stablehlo.custom_call @byteir.one_hot(%arg0) {byteir_attrs = {axis = 1 : i64, depth = 5 : i64, off_value = 0 : i64, on_value = 1 : i64}} : (tensor<5xi64>) -> tensor<5x5xi64>
+```
 
 ### byteir.repeat
 - Operands:
@@ -170,8 +185,14 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
   - input: Tensor
 - Reults:
   - output: Int32/Int64/Index Tensor
-
-Semantics: see https://pytorch.org/docs/stable/generated/torch.nonzero.html
+- Semantics: see https://pytorch.org/docs/stable/generated/torch.nonzero.html
+- Example:
+```
+%0 = stablehlo.custom_call @byteir.non_zero(%arg0) {byteir_attrs = {}} : (tensor<10xf32>) -> tensor<?x1xi64>
+```
+```
+%0 = stablehlo.custom_call @byteir.non_zero(%arg0) {byteir_attrs = {}} : (tensor<10x10xf32>) -> tensor<?x2xi32>
+```
 
 ### byteir.quantize
 - Operands:
@@ -217,7 +238,7 @@ Semantics: see https://pytorch.org/docs/stable/generated/torch.nonzero.html
 - Results:
   - output: Tensor
 
-### byteir.rng_uniform
+### byteir.rng_uniform/byteir.rng_normal
 - Operands:
   - low: 0dTensor
   - high: 0dTensor
