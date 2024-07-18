@@ -218,14 +218,14 @@ def Ccl_ScatterOp : Ccl_Op<"scatter",
     [CclSynchronousOpInterface, AttrSizedOperandSegments]> {
   let summary = "Scatter operator";
   let description = [{
-    Scatter the `self` tensor of the `src` rank to the other ranks within
+    Scatter the `self` tensor of the `root` rank to the other ranks within
     the same process group.
     
     The operand `group` and attribute `group` are both used to indicate which group
     this op belongs to. They can't exist simultaneously. But they can be absent
     at the same time. If that happens, all the ops belong to the same group.
-    Note `dynamic_root` and `dynamic_group` must exist at the same time or not at the same time,
-    so as to `group` and `src`.
+    Note `dynamic_root` and `dynamic_group` must exist or not at the same time,
+    so as to `group` and `root`.
   }];
 
   let arguments = (ins
@@ -253,7 +253,7 @@ def Ccl_GatherOp : Ccl_Op<"gather",
   let description = [{
     Gather the `self` tensor of all ranks in the same process group to the `dst` rank.
     
-    The usage of `dynamic_group`, `replica_group`, `dst` and `dynamic_root` is
+    The usage of `dynamic_group`, `group`, `root` and `dynamic_root` is
     the same as that in `ccl.scatter`.
   }];
 
@@ -283,7 +283,7 @@ def Ccl_ReduceOp : Ccl_Op<"reduce",
     Reduces the `self` tensor data across all ranks in the same process group.
     Only the `dst` rank is going to receive the final result.
 
-    The usage of `dynamic_group`, `replica_group`, `dst` and `dynamic_root` is
+    The usage of `dynamic_group`, `group`, `root` and `dynamic_root` is
     the same as that in `ccl.scatter`.
   }];
 
