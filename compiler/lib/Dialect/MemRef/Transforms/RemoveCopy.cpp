@@ -414,6 +414,7 @@ public:
     // Use TopDownTraversal for compile time reasons
     GreedyRewriteConfig grc;
     grc.useTopDownTraversal = true;
+    grc.maxIterations = 20;
     if (failed(applyPatternsAndFoldGreedily(funcOp, frozenPatterns, grc))) {
       signalPassFailure();
     }
