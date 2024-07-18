@@ -232,7 +232,7 @@ def Ccl_ScatterOp : Ccl_Op<"scatter",
     Optional<I64>:$dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
-    Optional<I64Attr>:$root,
+    OptionalAttr<I64Attr>:$root,
     OptionalAttr<I64ArrayAttr>:$group,
     OptionalAttr<I64Attr>:$unique_id
   );
@@ -260,7 +260,7 @@ def Ccl_GatherOp : Ccl_Op<"gather",
     Optional<I64>:$dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
-    Optional<I64Attr>:$root,
+    OptionalAttr<I64Attr>:$root,
     OptionalAttr<I64ArrayAttr>:$group,
     OptionalAttr<I64Attr>:$unique_id
   );
@@ -289,7 +289,7 @@ def Ccl_ReduceOp : Ccl_Op<"reduce",
     Optional<I64>:dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
-    Optional<I64Attr>:$root,
+    OptionalAttr<I64Attr>:$root,
     OptionalAttr<I64ArrayAttr>:$group,
     OptionalAttr<I64Attr>:$unique_id
   );
