@@ -189,7 +189,7 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all",
 
 def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", 
     [DeclareOpInterfaceMethods<InferTypeOpInterface>,
-    CclSynchronousOpInterface, AttrSizedOperandSegments]> {
+    CclSynchronousOpInterface]> {
   let summary = "Broadcast operator";
   let description = [{
     Broadcast `src` tensor of the first rank to the other ranks within 
@@ -241,7 +241,7 @@ def Ccl_ScatterOp : Ccl_Op<"scatter",
   let results = (outs AnyTensor:$result);
 
   let assemblyFormat = [{
-    $self (`,` $dynamic_root^)? attr-dict `:` functional-type(operands, results)
+    $self (`dynamic_root` $dynamic_root^)? (`dynamic_group` $dynamic_group^)? attr-dict `:` functional-type(operands, results)
   }];
 
   let hasVerifier = 1;
@@ -270,7 +270,7 @@ def Ccl_GatherOp : Ccl_Op<"gather",
   let results = (outs AnyTensor:$result);
 
   let assemblyFormat = [{
-    $self (`,` $dynamic_root^)? attr-dict `:` functional-type(operands, results)
+    $self (`dynamic_root` $dynamic_root^)? (`dynamic_group` $dynamic_group^)? attr-dict `:` functional-type(operands, results)
   }];
   let hasVerifier = 1;
 }
@@ -300,7 +300,7 @@ def Ccl_ReduceOp : Ccl_Op<"reduce",
   let results = (outs AnyTensor:$result);
 
   let assemblyFormat = [{
-    $self (`,` $dynamic_root^)? attr-dict `:` functional-type(operands, results)
+    $self (`dynamic_root` $dynamic_root^)? (`dynamic_group` $dynamic_group^)? attr-dict `:` functional-type(operands, results)
   }];
   let hasVerifier = 1;
 }

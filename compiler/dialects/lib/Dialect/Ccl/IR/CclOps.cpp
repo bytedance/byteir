@@ -88,9 +88,8 @@ LogicalResult verifyRootToAll(std::optional<Location> location,
         location, "`dynamic_group` and `group` can't exist simultaneously");
   }
   if ((dynamicGroup == nullptr) ^ (dynamicRoot == nullptr)) {
-    return emitOptionalError(
-        location,
-        "`dynamic_group` and `dynamic_root` shoule exist or not simultaneously");
+    return emitOptionalError(location, "`dynamic_group` and `dynamic_root` "
+                                       "shoule exist or not simultaneously");
   }
   if ((group.has_value()) ^ (root.has_value())) {
     return emitOptionalError(
@@ -104,8 +103,7 @@ LogicalResult verifyRootToAll(std::optional<Location> location,
         return cast<IntegerAttr>(indexAttr).getInt();
       }));
 
-  if (llvm::find(intGroups.begin(), intGroups.end(), *root) ==
-      intGroups.end()) {
+  if (llvm::find(intGroups, *root) == intGroups.end()) {
     return emitOptionalError(location, "`root` must be in the `group`");
   }
   return success();
