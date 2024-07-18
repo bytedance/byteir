@@ -193,7 +193,8 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
   let summary = "Broadcast operator";
   let description = [{
     Broadcast `src` tensor of the first rank to the other ranks within 
-    the same process group.
+    the same process group. For example, given a replica group of ranks [2, 0, 1, 3],
+    it means we will broadcast `src` tensor of rank 2 to all other ranks.
     
     The usage of `dynamic_replica_groups`, `replica_groups` and `unique_id` is
     the same as that in `ccl.all_reduce`.
@@ -209,6 +210,94 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
   let results = (outs AnyTensor:$result);
 
   let extraClassDeclaration = commonExtraClassDeclaration;
+  let hasVerifier = 1;
+}
+
+def Ccl_ScatterOp : Ccl_Op<"scatter",
+    [CclSynchronousOpInterface]> {
+  let summary = "Scatter operator";
+  let description = [{
+    Scatter the `self` tensor of the `src` rank to the other ranks within
+    the same process group.
+    
+    The operand `group` and attribute `group` are both used to indicate which group
+    this op belongs to. They can't exist simultaneously. But they can be absent
+    at the same time. If that happens, all the ops belong to the same group.
+    Note `dynamic_root` and `dynamic_group` must exist at the same time or not at the same time,
+    so as to `group` and `src`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$self,
+    Optional<I64>:$dynamic_root,
+    Optional<AnyTensor>:$dynamic_group,
+    BoolAttr:$synchronous,
+    Optional<I64Attr>:$root,
+    OptionalAttr<I64ArrayAttr>:$group,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
+
+  let assemblyFormat = [{
+    $self (`,` $dynamic_root^)? attr-dict `:` functional-type(operands, results)
+  }];
+
+  let hasVerifier = 1;
+}
+
+def Ccl_GatherOp : Ccl_Op<"gather",
+    [CclSynchronousOpInterface]> {
+  let summary = "Gather operator";
+  let description = [{
+    Gather the `self` tensor of all ranks in the same process group to the `dst` rank.
+    
+    The usage of `dynamic_group`, `replica_group`, `dst` and `dynamic_root` is
+    the same as that in `ccl.scatter`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$self,
+    Optional<I64>:$dynamic_root,
+    Optional<AnyTensor>:$dynamic_group,
+    BoolAttr:$synchronous,
+    Optional<I64Attr>:$root,
+    OptionalAttr<I64ArrayAttr>:$group,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
+
+  let assemblyFormat = [{
+    $self (`,` $dynamic_root^)? attr-dict `:` functional-type(operands, results)
+  }];
+  let hasVerifier = 1;
+}
+
+def Ccl_ReduceOp : Ccl_Op<"reduce",
+    [DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    CclSynchronousOpInterface]> {
+  let summary = "Reduce operator";
+  let description = [{
+    Reduces the `self` tensor data across all ranks in the same process group.
+    Only the `dst` rank is going to receive the final result.
+
+    The usage of `dynamic_group`, `replica_group`, `dst` and `dynamic_root` is
+    the same as that in `ccl.scatter`.
+  }];
+
+  let arguments = (ins
+    AnyTensor:$self,
+    Optional<I64>:dynamic_root,
+    Optional<AnyTensor>:$dynamic_group,
+    BoolAttr:$synchronous,
+    Optional<I64Attr>:$root,
+    OptionalAttr<I64ArrayAttr>:$group,
+    OptionalAttr<I64Attr>:$unique_id
+  );
+  let results = (outs AnyTensor:$result);
+
+  let assemblyFormat = [{
+    $self (`,` $dynamic_root^)? attr-dict `:` functional-type(operands, results)
+  }];
   let hasVerifier = 1;
 }
 

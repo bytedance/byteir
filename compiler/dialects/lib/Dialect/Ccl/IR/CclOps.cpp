@@ -77,6 +77,39 @@ LogicalResult verifyP2PIndex(std::optional<Location> location,
   }
   return success();
 }
+
+// verify `root` index in asymmetric comm ops, like scatter/gather.
+LogicalResult verifyRootToAll(std::optional<Location> location,
+                              std::optional<int64_t> root, Value dynamicRoot,
+                              std::optional<ArrayAttr> group,
+                              Value dynamicGroup) {
+  if (dynamicGroup != nullptr && group.has_value()) {
+    return emitOptionalError(
+        location, "dynamic_group and group can't exist simultaneously");
+  }
+  if ((dynamicGroup == nullptr) ^ (dynamicRoot == nullptr)) {
+    return emitOptionalError(
+        location,
+        "dynamic_group and dynamic_root shoule exist or not simultaneously");
+  }
+  if ((group.has_value()) ^ (root.has_value())) {
+    return emitOptionalError(
+        location, "group and root shoule exist or not simultaneously");
+  }
+  if (!group.has_value()) {
+    return success();
+  }
+  SmallVector<int64_t, 4> intGroups =
+      llvm::to_vector(llvm::map_range(*group, [&](Attribute indexAttr) {
+        return cast<IntegerAttr>(indexAttr).getInt();
+      }));
+
+  if (llvm::find(intGroups.begin(), intGroups.end(), *root) ==
+      intGroups.end()) {
+    return emitOptionalError(location, "`root` must be in the `group`");
+  }
+  return success();
+}
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -269,6 +302,42 @@ BroadcastOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
                               ValueRange operands, DictionaryAttr,
                               OpaqueProperties, RegionRange,
                               SmallVectorImpl<Type> &inferredReturnTypes) {
+  inferredReturnTypes.push_back(operands[0].getType());
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.scatter
+//===----------------------------------------------------------------------===//
+
+LogicalResult ScatterOp::verify() {
+  return verifyRootToAll(getLoc(), getRoot(), getDynamicRoot(), getGroup(),
+                         getDynamicGroup());
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.gather
+//===----------------------------------------------------------------------===//
+
+LogicalResult GatherOp::verify() {
+  return verifyRootToAll(getLoc(), getRoot(), getDynamicRoot(), getGroup(),
+                         getDynamicGroup());
+}
+
+//===----------------------------------------------------------------------===//
+// ccl.reduce
+//===----------------------------------------------------------------------===//
+
+LogicalResult ReduceOp::verify() {
+  return verifyRootToAll(getLoc(), getRoot(), getDynamicRoot(), getGroup(),
+                         getDynamicGroup());
+}
+
+LogicalResult
+ReduceOp::inferReturnTypes(MLIRContext *, std::optional<Location> location,
+                           ValueRange operands, DictionaryAttr,
+                           OpaqueProperties, RegionRange,
+                           SmallVectorImpl<Type> &inferredReturnTypes) {
   inferredReturnTypes.push_back(operands[0].getType());
   return success();
 }
