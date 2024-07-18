@@ -85,16 +85,16 @@ LogicalResult verifyRootToAll(std::optional<Location> location,
                               Value dynamicGroup) {
   if (dynamicGroup != nullptr && group.has_value()) {
     return emitOptionalError(
-        location, "dynamic_group and group can't exist simultaneously");
+        location, "`dynamic_group` and `group` can't exist simultaneously");
   }
   if ((dynamicGroup == nullptr) ^ (dynamicRoot == nullptr)) {
     return emitOptionalError(
         location,
-        "dynamic_group and dynamic_root shoule exist or not simultaneously");
+        "`dynamic_group` and `dynamic_root` shoule exist or not simultaneously");
   }
   if ((group.has_value()) ^ (root.has_value())) {
     return emitOptionalError(
-        location, "group and root shoule exist or not simultaneously");
+        location, "`group` and `root` shoule exist or not simultaneously");
   }
   if (!group.has_value()) {
     return success();

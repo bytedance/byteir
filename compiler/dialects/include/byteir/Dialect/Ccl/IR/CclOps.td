@@ -286,7 +286,7 @@ def Ccl_ReduceOp : Ccl_Op<"reduce",
 
   let arguments = (ins
     AnyTensor:$self,
-    Optional<I64>:dynamic_root,
+    Optional<I64>:$dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
     OptionalAttr<I64Attr>:$root,
