@@ -189,7 +189,7 @@ def Ccl_AllToAllOp : Ccl_ReplicaGroupsOp<"all_to_all",
 
 def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast", 
     [DeclareOpInterfaceMethods<InferTypeOpInterface>,
-    CclSynchronousOpInterface]> {
+    CclSynchronousOpInterface, AttrSizedOperandSegments]> {
   let summary = "Broadcast operator";
   let description = [{
     Broadcast `src` tensor of the first rank to the other ranks within 
@@ -202,6 +202,7 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
 
   let arguments = (ins
     AnyTensor:$src,
+
     Optional<AnyTensor>:$dynamic_replica_groups,
     BoolAttr:$synchronous,
     OptionalAttr<IndexListArrayAttr>:$replica_groups,
@@ -214,7 +215,7 @@ def Ccl_BroadcastOp : Ccl_ReplicaGroupsOp<"broadcast",
 }
 
 def Ccl_ScatterOp : Ccl_Op<"scatter",
-    [CclSynchronousOpInterface]> {
+    [CclSynchronousOpInterface, AttrSizedOperandSegments]> {
   let summary = "Scatter operator";
   let description = [{
     Scatter the `self` tensor of the `src` rank to the other ranks within
@@ -232,6 +233,7 @@ def Ccl_ScatterOp : Ccl_Op<"scatter",
     Optional<I64>:$dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
+    I64Attr:$axis,
     OptionalAttr<I64Attr>:$root,
     OptionalAttr<I64ArrayAttr>:$group,
     OptionalAttr<I64Attr>:$unique_id
@@ -246,7 +248,7 @@ def Ccl_ScatterOp : Ccl_Op<"scatter",
 }
 
 def Ccl_GatherOp : Ccl_Op<"gather",
-    [CclSynchronousOpInterface]> {
+    [CclSynchronousOpInterface, AttrSizedOperandSegments]> {
   let summary = "Gather operator";
   let description = [{
     Gather the `self` tensor of all ranks in the same process group to the `dst` rank.
@@ -260,6 +262,7 @@ def Ccl_GatherOp : Ccl_Op<"gather",
     Optional<I64>:$dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
+    I64Attr:$axis,
     OptionalAttr<I64Attr>:$root,
     OptionalAttr<I64ArrayAttr>:$group,
     OptionalAttr<I64Attr>:$unique_id
@@ -274,7 +277,7 @@ def Ccl_GatherOp : Ccl_Op<"gather",
 
 def Ccl_ReduceOp : Ccl_Op<"reduce",
     [DeclareOpInterfaceMethods<InferTypeOpInterface>,
-    CclSynchronousOpInterface]> {
+    CclSynchronousOpInterface, AttrSizedOperandSegments]> {
   let summary = "Reduce operator";
   let description = [{
     Reduces the `self` tensor data across all ranks in the same process group.
@@ -289,6 +292,7 @@ def Ccl_ReduceOp : Ccl_Op<"reduce",
     Optional<I64>:$dynamic_root,
     Optional<AnyTensor>:$dynamic_group,
     BoolAttr:$synchronous,
+    StrAttr:$reduction,
     OptionalAttr<I64Attr>:$root,
     OptionalAttr<I64ArrayAttr>:$group,
     OptionalAttr<I64Attr>:$unique_id
