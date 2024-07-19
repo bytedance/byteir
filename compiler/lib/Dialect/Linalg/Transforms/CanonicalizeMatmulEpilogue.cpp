@@ -120,7 +120,6 @@ public:
     linalg::GenericOp epilogueOp = epilogueOps[0];
     IRRewriter rewriter(epilogueOp);
 
-
     // modify the epilogue to get the value into the store set
     if (failed(modifyUseToGetValueIntoStoreSet(rewriter, epilogueOp))) {
       return signalPassFailure();
