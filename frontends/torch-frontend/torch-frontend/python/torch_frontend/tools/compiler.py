@@ -1,4 +1,5 @@
 import argparse
+import sys
 import torch_frontend
 import torch
 from typing import List
@@ -79,21 +80,28 @@ def compile_torchscript(args):
         sample_inputs_placeholder.append(TensorPlaceholder(shape, dtype_str_to_torch_dtype(dtype)))
 
     ts_model = torch.jit.load(args.model_path, map_location="cpu")
-    module = torch_frontend.compile(ts_model, sample_inputs_placeholder, args.output_type)
-    with open(args.output_file_path, "w") as f:
-        if args.elide:
-            print(module.operation.get_asm(large_elements_limit=10), file=f)
-        else:
-            print(module.operation.get_asm(), file=f)
+    module = torch_frontend.compile(ts_model, sample_inputs_placeholder, args.output_type, verbose=args.verbose, debug=torch_frontend.DebugType(1))
+    if len(args.output_file_path) != 0:
+      with open(args.output_file_path, "w") as f:
+          if args.elide:
+              print(module.operation.get_asm(large_elements_limit=10), file=f)
+          else:
+              print(module.operation.get_asm(), file=f)
+    else:
+      if args.elide:
+        print(module.operation.get_asm(large_elements_limit=10), file=sys.stdout)
+      else:
+        print(module.operation.get_asm(), file=f)
 
 
 def main():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("model_path")
-    parser.add_argument("-o", "--output_file_path", type=str, help="output file path")
+    parser.add_argument("-o", "--output_file_path", type=str, default="", help="output file path")
     parser.add_argument("--model_type", type=str, default="torchscript", choices=["torchscript"])
     parser.add_argument("--output_type", type=str, default="stablehlo", choices=["raw", "torch", "stablehlo"])
-    parser.add_argument("--elide", action="store_true")
+    parser.add_argument("--elide", default=False, action="store_true")
+    parser.add_argument("--verbose", default=False, action="store_true")
     parser.add_argument(
         "--input_name_and_shapes",
         nargs="+",
