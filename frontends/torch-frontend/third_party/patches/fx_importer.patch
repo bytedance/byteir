@@ -1,5 +1,5 @@
 diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
-index 2a73325c..2f91c7ac 100644
+index c95df250..125c37ef 100644
 --- a/python/torch_mlir/extras/fx_importer.py
 +++ b/python/torch_mlir/extras/fx_importer.py
 @@ -54,6 +54,10 @@ from torch._subclasses import (
@@ -13,80 +13,7 @@ index 2a73325c..2f91c7ac 100644
  from torch.fx import (
      Graph,
      GraphModule,
-@@ -1046,6 +1050,19 @@ class ContextCache:
-             tensor_meta = node.meta.get("tensor_meta")
-             val = node.meta.get("val")
-             sparsity = node.meta.get("sparsity", None)
-+            # Some nodes returns a list, like torch.ops.aten.unbind.int
-+            if isinstance(tensor_meta, List) or isinstance(val, List):
-+                if tensor_meta is not None and all(x is not None for x in tensor_meta):
-+                    # Assume that all results in the list are tensors.
-+                    # TODO: Solve this assumption
-+                    return IrType.parse("!torch.list<vtensor>", context=self._c)
-+                elif val is not None and all(x is not None for x in val):
-+                    return IrType.parse("!torch.list<vtensor>", context=self._c)
-+                else:
-+                    raise NotImplementedError(
-+                        f"FIXME: Unsupported placeholder node (this often indicates that a necessary) "
-+                        f"fx preprocessing pass was not run): {node.meta}"
-+                    )
-         except KeyError as e:
-             raise RuntimeError(
-                 f"FIXME: Illegal access to torch.fx.Node.meta: {e} ({node.meta.keys()} : {node.meta})"
-@@ -1209,6 +1226,7 @@ class GraphNodeImporter:
-         "_v",
-         "_symbol_to_value",
-         "_multi_result_nodes",
-+        "_list_return_nodes",
-         "fx_importer",
-     ]
- 
-@@ -1234,6 +1252,9 @@ class GraphNodeImporter:
-         # They will have their getitem calls short-circuited.
-         self._multi_result_nodes: Set[torch_fx.Node] = set()
- 
-+        # Stores the node that returns a list, like aten.unbind.int
-+        self._list_return_nodes: Set[torch_fx.Node] = set()
-+
-     def bind_node_value(
-         self,
-         node: Node,
-@@ -1421,6 +1442,23 @@ class GraphNodeImporter:
-                                     f"notify developers if this case happens "
-                                     f"(at {loc})."
-                                 )
-+                        elif getitem_ref in self._list_return_nodes:
-+                            fx_list_return_value = self._v[(getitem_ref, 0)]
-+                            operands = [
-+                                fx_list_return_value,
-+                                self._import_default_value(loc, getitem_index, torch.IntType)
-+                            ]
-+
-+                            # We trust the tensor type in FX graph, even if it's a getitem
-+                            # from a value of MLIR ListType.
-+                            operation = Operation.create(
-+                                "torch.aten.__getitem__.t",
-+                                results=(self._cc.node_val_to_type(node),),
-+                                operands = operands,
-+                                loc=loc
-+                            )
-+                            for i, value in enumerate(operation.results):
-+                                self._v[(node, i)] = value
-                         else:
-                             raise NotImplementedError(
-                                 f"General getitem access to non-multi-result ops"
-@@ -1997,6 +2035,10 @@ class GraphNodeImporter:
-             # Unary return directly maps a single meta["val"] and cannot be subscripted.
-             # if "tensor_meta" is None, this will throw unsupported placeholder node error
-             result_types = [self._cc.node_val_to_type(node)]
-+
-+            # separately handle ops returning list.
-+            if str(result_types[0]).startswith("!torch.list"):
-+                self._list_return_nodes.add(node)
-         elif return_count == 0:
-             # Some torch ops do have 0 returns, and these are supported with ZeroResults
-             # op trait. Python bindings for IR creation allow us to pass empty result_types
-@@ -2041,6 +2083,8 @@ def _make_vtensor_literal_op(
+@@ -2091,6 +2095,8 @@ def _make_vtensor_literal_op(
  ) -> Operation:
      mapping = py_attr_tracker.track(tensor)
      if mapping.is_empty:
@@ -95,7 +22,7 @@ index 2a73325c..2f91c7ac 100644
          # check support for bfloat16
          assert not (
              tensor.dtype == torch.bfloat16 and ml_dtypes is None
-@@ -2056,11 +2100,17 @@ def _make_vtensor_literal_op(
+@@ -2106,11 +2112,17 @@ def _make_vtensor_literal_op(
          # detach() which throws an error as we are operating in a FakeTensorMode, hence the simplest way to get this raw
          # buffer is via the indirection: Tensor -> list -> numpy array. This allows us to create a vtensor literal as
          # desired, but also limits which data types we can support in this function (see TORCH_DTYPE_TO_NPY_TYPE above)
