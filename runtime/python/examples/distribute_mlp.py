@@ -115,7 +115,7 @@ def main():
 
     module = MLP(hidden_dim, world_size)
     x = torch.rand(10, hidden_dim)
-    prog = torch.export.export(module, (x,), constraints=None)
+    prog = torch.export.export(module, (x,))
 
     module = compile_dynamo_model(prog, "stablehlo")
 
