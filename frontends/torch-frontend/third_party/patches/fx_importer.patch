@@ -1,5 +1,5 @@
 diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
-index c95df250..125c37ef 100644
+index c95df250..b3d9f7cf 100644
 --- a/python/torch_mlir/extras/fx_importer.py
 +++ b/python/torch_mlir/extras/fx_importer.py
 @@ -54,6 +54,10 @@ from torch._subclasses import (
@@ -13,7 +13,20 @@ index c95df250..125c37ef 100644
  from torch.fx import (
      Graph,
      GraphModule,
-@@ -2091,6 +2095,8 @@ def _make_vtensor_literal_op(
+@@ -1081,6 +1085,12 @@ class ContextCache:
+         mutable: bool = False,
+     ):
+         if tensor_meta is not None:
++            # TODO(wujiawei): upstream this patch
++            if isinstance(val, list) and all(
++                isinstance(x, TorchFakeTensor) for x in val
++            ):
++                return IrType.parse("!torch.list<vtensor>", context=self._c)
++
+             assert isinstance(tensor_meta, TensorMetadata)
+             # Quantized tensor meta data is not preserved in our lowering,
+             # so throw error instead of silently doing wrong thing.
+@@ -2091,6 +2101,8 @@ def _make_vtensor_literal_op(
  ) -> Operation:
      mapping = py_attr_tracker.track(tensor)
      if mapping.is_empty:
@@ -22,7 +35,7 @@ index c95df250..125c37ef 100644
          # check support for bfloat16
          assert not (
              tensor.dtype == torch.bfloat16 and ml_dtypes is None
-@@ -2106,11 +2112,17 @@ def _make_vtensor_literal_op(
+@@ -2106,11 +2118,17 @@ def _make_vtensor_literal_op(
          # detach() which throws an error as we are operating in a FakeTensorMode, hence the simplest way to get this raw
          # buffer is via the indirection: Tensor -> list -> numpy array. This allows us to create a vtensor literal as
          # desired, but also limits which data types we can support in this function (see TORCH_DTYPE_TO_NPY_TYPE above)

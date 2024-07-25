@@ -19,4 +19,4 @@ def test_unbind_int_op():
     )
     mlir_str = m.operation.get_asm()
     assert "aten.unbind.int" in mlir_str
-    assert "aten.__getitem__.t" in mlir_str
+    assert "prim.ListUnpack" in mlir_str
