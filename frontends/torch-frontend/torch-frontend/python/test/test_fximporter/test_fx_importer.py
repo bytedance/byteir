@@ -18,4 +18,5 @@ def test_unbind_int_op():
         decomposition_table=False,
     )
     mlir_str = m.operation.get_asm()
-    assert "torch.aten.unbind.int" in mlir_str
+    assert "aten.unbind.int" in mlir_str
+    assert "aten.__getitem__.t" in mlir_str
