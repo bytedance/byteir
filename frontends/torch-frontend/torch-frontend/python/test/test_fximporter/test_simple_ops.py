@@ -14,7 +14,7 @@ class AtenSliceModule(torch.nn.Module):
 def test_slice():
     inputs = (torch.randn(4),)
     module = AtenSliceModule()
-    prog = torch.export.export(module, inputs, constraints=None)
+    prog = torch.export.export(module, inputs)
     module = compile_dynamo_model(prog, "raw")
     print(module.operation.get_asm())
 
@@ -26,7 +26,7 @@ class AtenNonZeroModule(torch.nn.Module):
 
 def test_nonzero():
     inputs = (torch.tensor([1, 0, 0, 1, 1]),)
-    prog = torch.export.export(AtenNonZeroModule(), inputs, constraints=None)
+    prog = torch.export.export(AtenNonZeroModule(), inputs)
     module = compile_dynamo_model(prog, "raw")
     print(module.operation.get_asm())
 
@@ -41,11 +41,11 @@ class MLPModule(torch.nn.Module):
 
 def test_mlp():
     inputs = (torch.randn(10, 10),)
-    prog = torch.export.export(MLPModule(), inputs, constraints=None)
+    prog = torch.export.export(MLPModule(), inputs)
     module = compile_dynamo_model(prog, "stablehlo")
     mlir_str = module.operation.get_asm()
     print(mlir_str)
-    assert not "dense_resource" in mlir_str
+    assert "dense_resource" not in mlir_str
 
 if __name__ == "__main__":
     test_slice()

@@ -450,6 +450,8 @@ public:
     } else if (isa<AtenMinDimOp>(op)) {
       attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
                          rewriter.getStringAttr(getArgMinName()));
+    } else {
+      assert(false && "unknown op in ConvertAtenMinMaxDimOp");
     }
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
