@@ -56,6 +56,7 @@ void createHloGraphOptPipelineImpl(OpPassManager &pm,
   if (target == "cpu") {
     pm.addNestedPass<func::FuncOp>(
         createDecomposeMhloCustomCallOpsPass(/*legalOps=*/{}));
+    pm.addPass(createCanonicalizerPass());
   }
 
   // convert mhlo.rng to mhlo.custom_call

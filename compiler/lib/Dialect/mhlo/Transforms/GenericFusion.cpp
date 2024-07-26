@@ -66,6 +66,14 @@ bool isAliasLikeOp(Operation *op) {
   return false;
 }
 
+bool isScalarElementwiseMhloOp(Operation *op) {
+  if (isMhloElementwiseOp(op) || isa_and_nonnull<mhlo::ReshapeOp>(op)) {
+    auto type = cast<ShapedType>(op->getResult(0).getType());
+    return type.hasStaticShape() && type.getNumElements() == 1;
+  }
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // ElementwiseFusion
 //===----------------------------------------------------------------------===//
@@ -95,8 +103,10 @@ bool isFusibleTrigger(Operation *op) {
     if (isDeepMhloFoldable(src.getDefiningOp())) {
       return true;
     }
-    // otherwise, check it is only used in broadcast
-    // return useCount(src) == 1;
+    // otherwise, check it is 0d elementwise op and only used in broadcast
+    if (isScalarElementwiseMhloOp(src.getDefiningOp())) {
+      return useCount(src) == 1;
+    }
     // LWC FIXME: change back to above after broadcast fusion resolve.
     return false;
   }
@@ -214,11 +224,11 @@ static GenericFuserConfig config_concat_slice_fuse{
 namespace matmul_epilogue {
 
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) && (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-                        op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-                        isMhloConstantLike(op) ||
-                        isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp,
-                            mhlo::ReshapeOp, mhlo::DotOp>(op));
+  return isMhlo(op) &&
+         (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
+          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
+          isMhloConstantLike(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp, mhlo::DotOp>(op));
 }
 
 bool isFusibleStart(Operation *op) { return isa<mhlo::DotOp>(op); }
@@ -273,8 +283,10 @@ bool isFusibleTrigger(Operation *op) {
     if (isDeepMhloFoldable(src.getDefiningOp())) {
       return true;
     }
-    // otherwise, check it is only used in broadcast
-    // return useCount(src) == 1;
+    // otherwise, check it is 0d elementwise op and only used in broadcast
+    if (isScalarElementwiseMhloOp(src.getDefiningOp())) {
+      return useCount(src) == 1;
+    }
     // LWC FIXME: change back to above after broadcast fusion resolve.
     return false;
   }
@@ -346,8 +358,7 @@ bool isFusibleWith(Operation *, Operation *) { return true; }
 
 bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
   return isSplatMhloConstantLike(target) ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target);
+         isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp>(target);
 }
 
 bool isValidSingleOp(Operation *op) { return true; }
