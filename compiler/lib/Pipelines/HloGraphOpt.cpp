@@ -53,6 +53,11 @@ void createHloGraphOptPipelineImpl(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(mhlo::createLegalizeDotToDotGeneralPass());
   pm.addNestedPass<func::FuncOp>(createFuseTransposeIntoDotGeneralPass());
 
+  if (target == "cpu") {
+    pm.addNestedPass<func::FuncOp>(
+        createDecomposeMhloCustomCallOpsPass(/*legalOps=*/{}));
+  }
+
   // convert mhlo.rng to mhlo.custom_call
   pm.addPass(createConvertOpToCustomCallPass());
 
