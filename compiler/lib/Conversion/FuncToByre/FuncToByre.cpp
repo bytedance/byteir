@@ -129,6 +129,14 @@ public:
     computeOp->setAttr("BlockSize.y", rewriter.getI32IntegerAttr(by));
     computeOp->setAttr("BlockSize.z", rewriter.getI32IntegerAttr(bz));
 
+    auto sharedMemorySize = launchOp.getDynamicSharedMemorySize();
+    if (sharedMemorySize) {
+      auto sharedMemorySizeValue =
+          cast<arith::ConstantOp>(sharedMemorySize.getDefiningOp());
+      IntegerAttr smem = cast<IntegerAttr>(sharedMemorySizeValue.getValue());
+      computeOp->setAttr("DynamicSharedMemorySize", smem);
+    }
+
     if (useBarePtrCallConv) {
       computeOp->setAttr(byre::getKernelCallConventionAttrName(),
                          rewriter.getStringAttr("bare_ptr"));

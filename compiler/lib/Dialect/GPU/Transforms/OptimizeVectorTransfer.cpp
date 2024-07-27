@@ -63,7 +63,7 @@ struct OptimizeVectorTransferPass
       return;
     }
 
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional)
       return;
     auto forallOp = forallOpOptional.value();

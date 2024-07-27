@@ -36,6 +36,7 @@ add_mlir_library(ByteIRPipelines
   LINK_LIBS PUBLIC
   ByteIRGPUPipelines
   ByteIRHloToCat
+  ByteIRVectorToGPU
   ByteIRHostPipelines
   ByteIRPipelineCommon
   ByteIRUtils

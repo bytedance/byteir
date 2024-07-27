@@ -33,8 +33,10 @@ MLIR_TEST_SPECIAL_INPUTS = {
         np.random.uniform(low=0.5, high=1.0, size=(256, 1)).astype(np.float16)
     ],
     "cpu@convert_f32_i32_special_val.mlir": [
-        np.array([[np.inf, -np.inf, np.nan], [1., 999.999, -np.inf]], dtype=np.float32),
-    ]
+        np.array(
+            [[np.inf, -np.inf, np.nan], [1.0, 999.999, -np.inf]], dtype=np.float32
+        ),
+    ],
 }
 
 
@@ -53,7 +55,7 @@ class MLIRDataGenerator:
 
     @property
     def entry_func_name(self) -> str:
-        return self.entry_func.name.value    
+        return self.entry_func.name.value
 
     def need_special_inputs(self) -> bool:
         key = self.target + "@" + self.file_base_name
@@ -156,7 +158,16 @@ class BRTBackend:
         return ((end - start) * 1000) / run_trials
 
 
-def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", unique_name=None, **kwargs):
+def compile_and_run_mlir(
+    mhlo_file,
+    target,
+    workdir,
+    verbose,
+    mode="numerical",
+    enable_gemm_codegen=False,
+    unique_name=None,
+    **kwargs,
+):
     if unique_name is None:
         unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
     try:
@@ -175,13 +186,23 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
         os.makedirs(workdir, exist_ok=True)
         os.makedirs(workdir + f"/{unique_name}", exist_ok=True)
         output_mlir_file_name = f"{workdir}/{unique_name}/{unique_name}.rt.mlir"
-        byteir.compile(
-            mhlo_file,
-            output_mlir_file_name,
-            entry_func=entry_func_name,
-            target=target,
-            verbose=verbose,
-        )
+        if enable_gemm_codegen:
+            byteir.compile(
+                mhlo_file,
+                output_mlir_file_name,
+                entry_func=entry_func_name,
+                target=target,
+                enable_gemm_codegen=True,
+                verbose=verbose,
+            )
+        else:
+            byteir.compile(
+                mhlo_file,
+                output_mlir_file_name,
+                entry_func=entry_func_name,
+                target=target,
+                verbose=verbose,
+            )
     except Exception as e:
         return TestResult(
             unique_name=unique_name,
@@ -230,7 +251,10 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
             # print("golden output: ", golden_output)
             # print("actual output: ", output.detach().cpu().numpy())
             golden = torch.from_numpy(golden_output).contiguous().to(cur_device)
-            torch.testing.assert_close(golden, output)
+            if enable_gemm_codegen:
+                torch.testing.assert_close(golden, output, atol=1e-2, rtol=1e-2)
+            else:
+                torch.testing.assert_close(golden, output)
     except Exception as e:
         return TestResult(
             unique_name=unique_name,
@@ -250,7 +274,9 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
     )
 
 
-def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
+def compile_and_run_torch(
+    test, target, workdir, verbose, mode="numerical", enable_gemm_codegen=False
+):
     from torch_e2e_testing.framework import generate_golden_trace
     import torch_frontend
 
@@ -279,13 +305,23 @@ def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
         output_mlir_file_name = f"{workdir}/{unique_name}/{unique_name}.rt.mlir"
         with open(mlir_file_name, "w+") as fout:
             compiled_graph.operation.print(file=fout, large_elements_limit=None)
-        byteir.compile(
-            mlir_file_name,
-            output_mlir_file_name,
-            entry_func="forward",
-            target=target,
-            verbose=verbose,
-        )
+        if enable_gemm_codegen:
+            byteir.compile(
+                mlir_file_name,
+                output_mlir_file_name,
+                entry_func="forward",
+                target=target,
+                enable_gemm_codegen=True,
+                verbose=verbose,
+            )
+        else:
+            byteir.compile(
+                mlir_file_name,
+                output_mlir_file_name,
+                entry_func="forward",
+                target=target,
+                verbose=verbose,
+            )
     except Exception as e:
         return TestResult(
             unique_name=unique_name,
@@ -325,7 +361,12 @@ def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
     try:
         golden_output = trace_item.output.detach().cpu()
         actual_output = torch_outputs[0].detach().cpu()
-        torch.testing.assert_close(golden_output, actual_output)
+        if enable_gemm_codegen:
+            torch.testing.assert_close(
+                golden_output, actual_output, atol=1e-1, rtol=1e-2
+            )
+        else:
+            torch.testing.assert_close(golden_output, actual_output)
     except Exception as e:
         return TestResult(
             unique_name=unique_name,

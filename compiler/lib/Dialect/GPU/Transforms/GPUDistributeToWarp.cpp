@@ -54,7 +54,6 @@ namespace {
 
 static constexpr int32_t kWarpSize = 32;
 static constexpr int32_t kNumGPUDims = 3;
-static constexpr StringRef getVectorizeMarker() { return "vectorize"; }
 
 /// Filters out dimensions in `parallelLoops` that have unit range in
 /// `loopRanges`.
@@ -93,13 +92,20 @@ static SmallVector<Value>
 calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
                              Operation *operation) {
   func::FuncOp funcOp = operation->getParentOfType<func::FuncOp>();
-  auto blockTileSizeOptional = getGemmTileSize(funcOp);
-  if (!blockTileSizeOptional.has_value())
+  auto gemmTileSizeOptional = getGemmTileSize(funcOp);
+  if (!gemmTileSizeOptional.has_value())
     return {};
-  SmallVector<int64_t, 3> blockTileSize = getGemmTileSize(funcOp).value();
+
+  SmallVector<int64_t, 3> gemmTileSize = gemmTileSizeOptional.value();
+  SmallVector<int64_t> blockTileSize;
   SmallVector<Value> tileSizesVal;
 
   auto linalgOp = cast<linalg::LinalgOp>(operation);
+  if (linalgOp.getNumParallelLoops() == 3) { // bmm
+    blockTileSize = {0, gemmTileSize[0], gemmTileSize[1]};
+  } else { // matmul
+    blockTileSize = {gemmTileSize[0], gemmTileSize[1]};
+  }
 
   // Use partitionedLoop to know what loop needs to be distributed.
   auto partitionedLoops = getPartitionableLoops(linalgOp, std::nullopt);
@@ -118,6 +124,7 @@ calculateDistributedTileSize(ArrayRef<int64_t> numElements, OpBuilder &builder,
   for (unsigned depth : partitionedLoops) {
     if (depth >= blockTileSize.size())
       continue;
+    // tileSize means a warp should handle.
     tileSizesVal[depth] = builder.create<arith::ConstantIndexOp>(
         operation->getLoc(),
         llvm::divideCeil(blockTileSize[depth], distributedDim[idIdx++]));
@@ -164,8 +171,7 @@ static LogicalResult tileToWarp(scf::ForallOp forallOp,
       .addFilter([](Operation *op) {
         // linalg.copy will be handled by GPUDistributeSharedMemoryCopy pass.
         // So we should not tile it here.
-        return success(
-            isa<linalg::FillOp, linalg::MatmulOp, linalg::BatchMatmulOp>(op));
+        return success(isa<linalg::FillOp>(op) || isLinalgOpMatmul(op));
       })
       .setMatchByDefault();
   return distributeLinalgOpsWithFilter(forallOp, tilingOptions, filter);
@@ -195,7 +201,7 @@ public:
 
     SmallVector<int64_t, 3> workgroupSize = optionalWorkgroupSize.value();
 
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }

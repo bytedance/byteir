@@ -45,6 +45,16 @@ def GPUToNVVMExt : Pass<"gpu-to-nvvm-ext", "gpu::GPUModuleOp"> {
   ];
 }
 
+
+//===----------------------------------------------------------------------===//
+// GPUVectorToGPU
+//===----------------------------------------------------------------------===//
+def GPUVectorToGPU : Pass<"gpu-vector-to-gpu", "func::FuncOp"> {
+  let summary = "Transform vector.contract to gpu.mma.sync.";
+  let constructor = "mlir::createGPUVectorToGPUPass()";
+}
+
+
 //===----------------------------------------------------------------------===//
 // ToLinalg
 //===----------------------------------------------------------------------===//

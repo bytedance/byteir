@@ -44,7 +44,7 @@
 #define LDBG(X) LLVM_DEBUG(DBGS() << X << "\n")
 
 using namespace mlir;
-
+using namespace llvm;
 namespace mlir {
 
 //===----------------------------------------------------------------------===//
@@ -161,11 +161,10 @@ bool isMappedToGPUThreads(Operation *op) {
 // Get the scf.forall op mapped to threadblock.
 // Just for gemm codegen for now.
 //===----------------------------------------------------------------------===//
-std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp) {
+std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp) {
   std::vector<scf::ForallOp> forallOps;
   funcOp.walk([&](scf::ForallOp forallOp) {
-    if (isMappedToGPUBlocks(forallOp) &&
-        forallOp.getMappingAttr().getValue().size() == 2)
+    if (isMappedToGPUBlocks(forallOp))
       forallOps.push_back(forallOp);
   });
   if (forallOps.size() != 1) {
@@ -293,5 +292,47 @@ bool hasAnyLinalgTransformationMarker(Operation *op,
                   llvm::any_of(marker, [&attr](StringRef markerValue) {
                     return attr.getValue() == markerValue;
                   }));
+}
+
+// a helper function to judge if a linalg generic op do matmul
+// Result should not be transposed
+bool isLinalgOpMatmul(Operation *op) {
+  if (!llvm::isa<linalg::LinalgOp>(op))
+    return false;
+
+  linalg::LinalgOp linalgOp = cast<linalg::LinalgOp>(op);
+  if (!(isa<linalg::MatmulOp>(linalgOp) ||
+        isa<linalg::BatchMatmulOp>(linalgOp))) {
+    if (!(linalg::isaContractionOpInterface(linalgOp) &&
+          linalgOp.getNumParallelLoops() >= 2 &&
+          linalgOp.getNumParallelLoops() <= 3)) {
+      return false;
+    }
+    // If this is not a named op matmul check some properties to make sure that
+    // we can map it to tensorcore ops. We should have only mulAdd in the region
+    // and the output map should have no permutation and the last dimension
+    // should be a reduce.
+    Region &body = linalgOp->getRegion(0);
+    Region::OpIterator it = body.op_begin();
+    // jump two arith ext ops(optional)
+    while (it != body.op_end() && isa<arith::ExtFOp>(*it))
+      it++;
+    if (it == body.op_end() || !isa<arith::MulFOp>(*(it++)))
+      return false;
+    if (it == body.op_end() || !isa<arith::AddFOp>(*(it++)))
+      return false;
+    if (it == body.op_end() || !isa<linalg::YieldOp>(*(it++)))
+      return false;
+    AffineMap outputMap =
+        linalgOp.getMatchingIndexingMap(linalgOp.getDpsInitOperand(0));
+    if (outputMap.getNumResults() != outputMap.getNumDims() - 1)
+      return false;
+    OpBuilder b(linalgOp);
+    for (unsigned i = 0, e = outputMap.getNumResults(); i < e - 1; i++) {
+      if (outputMap.getResult(i) != b.getAffineDimExpr(i))
+        return false;
+    }
+  }
+  return true;
 }
 } // namespace mlir

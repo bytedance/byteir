@@ -198,4 +198,13 @@ def LinalgGeneralizationExt : Pass<"linalg-generalization-ext", "func::FuncOp"> 
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// CanonicalizeMatmulEpilogue
+//===----------------------------------------------------------------------===//
+
+def CanonicalizeMatmulEpilogue : Pass<"canonicalize-matmul-epilogue", "func::FuncOp"> {
+  let summary = "Canonicalize matmul epilogue";
+  let constructor = "mlir::createCanonicalizeMatmulEpiloguePass()";
+}
+
 #endif // BYTEIR_DIALECT_LINALG_PASSES

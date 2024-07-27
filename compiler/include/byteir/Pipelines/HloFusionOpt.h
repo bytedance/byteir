@@ -47,6 +47,10 @@ struct HloFusionOptPipelineOptions
       *this, "outline-cat-op",
       llvm::cl::desc("whether to outline cat ops and AIT as an backend"),
       llvm::cl::init(false)};
+  Option<bool> outlineDotOp{
+      *this, "outline-dot-op",
+      llvm::cl::desc("whether to outline dot ops and use gemm codegen"),
+      llvm::cl::init(false)};
 };
 
 void createHloFusionOptPipeline(OpPassManager &pm,

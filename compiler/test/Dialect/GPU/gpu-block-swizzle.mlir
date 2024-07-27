@@ -43,6 +43,6 @@ module {
 // CHECK-NEXT:       %[[ADDI1:.*]] = arith.addi %[[MULI1]], %[[REMUI0]] : index
 // CHECK-NEXT:       %[[REMUI1:.*]] = arith.remui %[[ADDI0]], %[[C168]] : index
 // CHECK-NEXT:       %[[DIVUI1:.*]] = arith.divui %[[REMUI1]], %[[MINSI0]] : index
-// CHECK-NEXT:       %[[APPLY_MAP0:.*]] = affine.apply #[[MAP]](%[[DIVUI1]])
-// CHECK-NEXT:       %[[APPLY_MAP1:.*]] = affine.apply #[[MAP]](%[[ADDI1]])
+// CHECK-NEXT:       %[[APPLY_MAP0:.*]] = affine.apply #[[MAP]](%[[ADDI1]])
+// CHECK-NEXT:       %[[APPLY_MAP1:.*]] = affine.apply #[[MAP]](%[[DIVUI1]])
 // CHECK-NEXT:       %[[SUBVIEW:.*]] = memref.subview %[[ALLOC]][%[[APPLY_MAP0]], %[[APPLY_MAP1]]] [128, 128] [1, 1] : memref<5376x5376xf16> to memref<128x128xf16, strided<[5376, 1], offset: ?>>
