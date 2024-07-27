@@ -31,11 +31,7 @@
 	.param .u64 Unknown0_param_19,
 	.param .u64 Unknown0_param_20,
 	.param .u64 Unknown0_param_21,
-	.param .u64 Unknown0_param_22,
-	.param .u64 Unknown0_param_23,
-	.param .u64 Unknown0_param_24,
-	.param .u64 Unknown0_param_25,
-	.param .u64 Unknown0_param_26
+	.param .u64 Unknown0_param_22
 )
 {
 	.reg .pred 	%p<3>;
@@ -51,10 +47,10 @@
 	add.s64 	%rd21, %rd16, %rd15;
 	setp.gt.s64 	%p1, %rd21, 25599;
 	@%p1 bra 	$L__BB0_3;
-	ld.param.u64 	%rd12, [Unknown0_param_19];
+	ld.param.u64 	%rd12, [Unknown0_param_15];
 	cvta.to.global.u64 	%rd1, %rd12;
 	ld.param.u64 	%rd13, [Unknown0_param_1];
-	ld.param.u64 	%rd14, [Unknown0_param_10];
+	ld.param.u64 	%rd14, [Unknown0_param_8];
 	cvta.to.global.u64 	%rd2, %rd14;
 	cvta.to.global.u64 	%rd3, %rd13;
 	mov.u32 	%r4, %nctaid.x;

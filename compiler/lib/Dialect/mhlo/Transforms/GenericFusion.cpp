@@ -52,8 +52,13 @@ bool isCustomMhloByteirRepeatOp(Operation *op) {
   return false;
 }
 
+bool isMhloElementwiseOp(Operation *op) {
+  return isMhlo(op) && (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
+                        op->hasTrait<hlo::OpTrait::BroadcastingElementwise>());
+}
+
 bool isAliasLikeOp(Operation *op) {
-  if (llvm::isa<mhlo::ReshapeOp>(op)) {
+  if (llvm::isa_and_nonnull<mhlo::ReshapeOp>(op)) {
     return true;
   } else if (auto slice = llvm::dyn_cast_if_present<mhlo::SliceOp>(op)) {
     return isSliceContinuousSubview(slice);
@@ -68,11 +73,9 @@ namespace elementwise {
 
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) && !isAliasLikeOp(op) &&
-         (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-          op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-          isSplatMhloConstantLike(op) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op) ||
+  return isMhlo(op) &&
+         (isMhloElementwiseOp(op) || isSplatMhloConstantLike(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp>(op) ||
           isCustomMhloRngOp(op));
 }
 
@@ -80,14 +83,13 @@ bool isFusibleCandidate(Operation *op) {
 bool isFusibleStart(Operation *op) { return true; }
 
 bool isFusibleTrigger(Operation *op) {
-  if (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-      op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-      isa<mhlo::ReshapeOp>(op) || isCustomMhloRngOp(op)) {
+  if (isMhloElementwiseOp(op) || isa<mhlo::ReshapeOp>(op) ||
+      isCustomMhloRngOp(op)) {
     return true;
   }
 
   // if broadcast, check whether its operand is only used in broadcast
-  if (isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op)) {
+  if (isa<mhlo::BroadcastInDimOp>(op)) {
     auto src = op->getOperand(0);
     // is foldable we just allow
     if (isDeepMhloFoldable(src.getDefiningOp())) {
@@ -103,25 +105,19 @@ bool isFusibleTrigger(Operation *op) {
 }
 
 bool isFusibleWith(Operation *target, Operation * /*start*/) {
-  return target->hasTrait<::mlir::OpTrait::Elementwise>() ||
-         target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isSplatMhloConstantLike(target) ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target) ||
+  return isMhloElementwiseOp(target) || isSplatMhloConstantLike(target) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp>(target) ||
          isCustomMhloRngOp(target);
 }
 
 bool isFusibleWithNoElementwiseFuse(Operation *target, Operation * /*start*/) {
   return isSplatMhloConstantLike(target) ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-             target);
+         isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp>(target);
 }
 
 bool isValidSingleOp(Operation *op) {
-  return op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-         op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-         isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::IotaOp>(op) ||
-         isCustomMhloRngOp(op);
+  return isMhloElementwiseOp(op) ||
+         isa<mhlo::BroadcastInDimOp, mhlo::IotaOp>(op) || isCustomMhloRngOp(op);
 }
 
 bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
@@ -198,7 +194,8 @@ bool isValidFusionPattern(const MhloFusionPattern &pattern) {
     }
   }
   return true;
-};
+}
+
 static GenericFuserConfig config_concat_slice_fuse{
     getByteIRElementwiseFusionAttrName(),
     elementwise::concat_slice::isFusibleCandidate,
@@ -256,25 +253,21 @@ static GenericFuserConfig config{getByteIRMatmulEpilogueFusionAttrName(),
 namespace reduction {
 // TODO: maybe we should support non-splat constant on device in future
 bool isFusibleCandidate(Operation *op) {
-  return isMhlo(op) && (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-                        op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-                        isSplatMhloConstantLike(op) ||
-                        isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp,
-                            mhlo::ReshapeOp, mhlo::ReduceOp>(op));
+  return isMhlo(op) &&
+         (isMhloElementwiseOp(op) || isSplatMhloConstantLike(op) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp, mhlo::ReduceOp>(op));
 }
 
 // every candidate can start
 bool isFusibleStart(Operation *op) { return true; }
 
 bool isFusibleTrigger(Operation *op) {
-  if (op->hasTrait<::mlir::OpTrait::Elementwise>() ||
-      op->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-      isa<mhlo::ReshapeOp>(op)) {
+  if (isMhloElementwiseOp(op) || isa<mhlo::ReshapeOp>(op)) {
     return true;
   }
 
   // if broadcast, check whether its operand is only used in broadcast
-  if (isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp>(op)) {
+  if (isa<mhlo::BroadcastInDimOp>(op)) {
     auto src = op->getOperand(0);
     // is foldable we just allow
     if (isDeepMhloFoldable(src.getDefiningOp())) {
@@ -293,11 +286,8 @@ bool isFusibleTrigger(Operation *op) {
 }
 
 bool isFusibleWith(Operation *target, Operation * /*start*/) {
-  return (target->hasTrait<::mlir::OpTrait::Elementwise>() ||
-          target->hasTrait<hlo::OpTrait::BroadcastingElementwise>() ||
-          isSplatMhloConstantLike(target) ||
-          isa<mhlo::BroadcastInDimOp, mhlo::BroadcastOp, mhlo::ReshapeOp>(
-              target)) &&
+  return (isMhloElementwiseOp(target) || isSplatMhloConstantLike(target) ||
+          isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp>(target)) &&
          target->hasOneUse();
 }
 
