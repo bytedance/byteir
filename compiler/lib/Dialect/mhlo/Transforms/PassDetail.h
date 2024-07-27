@@ -34,6 +34,10 @@ namespace mhlo {
 class MhloDialect;
 } // namespace mhlo
 
+namespace arith {
+class ArithDialect;
+} // namespace arith
+
 namespace shape {
 class ShapeDialect;
 } // namespace shape

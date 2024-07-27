@@ -116,6 +116,11 @@ def DecomposeMhloCustomCallOps : Pass<"decompose-mhlo-custom-call-ops", "mlir::f
     ListOption<"legalOps", "legal-ops", "std::string",
                "List of custom call ops not to be decomposed">,
   ];
+  let dependentDialects = [
+    "mlir::arith::ArithDialect",
+    "mlir::shape::ShapeDialect",
+    "mlir::tensor::TensorDialect",
+  ];
 }
 
 //===----------------------------------------------------------------------===//
