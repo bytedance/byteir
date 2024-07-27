@@ -23,6 +23,7 @@ setuptools
 cmake
 ninja
 pyyaml
+packaging
 
 # Test Requirements
 pillow

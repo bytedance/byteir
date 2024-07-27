@@ -106,12 +106,16 @@ def ConvertOpToCustomCall : Pass<"convert-op-to-customcall", "ModuleOp"> {
 //}
 
 //===----------------------------------------------------------------------===//
-// FuseTransposeIntoDotGeneral
+// DecomposeMhloCustomCallOps
 //===----------------------------------------------------------------------===//
 
-def FuseTransposeIntoDotGeneral : Pass<"fuse-transpose-into-dot-general", "mlir::func::FuncOp"> {
-  let summary = "Fuse transposeOp into dotGeneralOp";
-  let constructor = "mlir::createFuseTransposeIntoDotGeneralPass()";
+def DecomposeMhloCustomCallOps : Pass<"decompose-mhlo-custom-call-ops", "mlir::func::FuncOp"> {
+  let summary = "Decompose mhlo.custom_call ops to mhlo standard ops";
+  let constructor = "mlir::createDecomposeMhloCustomCallOpsPass(/*legalOps=*/{})";
+  let options = [
+    ListOption<"legalOps", "legal-ops", "std::string",
+               "List of custom call ops not to be decomposed">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//
@@ -154,6 +158,16 @@ def FuseBMMDimension : Pass<"fuse-bmm-dimension", "func::FuncOp"> {
   let summary = "rewrite bmm operators as 3d bmm, may add reshapeOp";
   let constructor = "mlir::createFuseBMMDimensionPass()";
 }
+
+//===----------------------------------------------------------------------===//
+// FuseTransposeIntoDotGeneral
+//===----------------------------------------------------------------------===//
+
+def FuseTransposeIntoDotGeneral : Pass<"fuse-transpose-into-dot-general", "mlir::func::FuncOp"> {
+  let summary = "Fuse transposeOp into dotGeneralOp";
+  let constructor = "mlir::createFuseTransposeIntoDotGeneralPass()";
+}
+
 
 //===----------------------------------------------------------------------===//
 // FusionOutlining

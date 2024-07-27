@@ -67,14 +67,14 @@ func.func @mhlo_element_reshape(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %a
   %0 = "mhlo.add"(%arg0, %arg1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
   %1 = "mhlo.abs"(%0) : (tensor<4xf32>) -> tensor<4xf32>
   %2 = "mhlo.reshape"(%arg2) : (tensor<2x2xf32>) -> tensor<4xf32>
-  %3 = "mhlo.add"(%0, %2) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %3 = "mhlo.add"(%1, %2) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
   return %3 : tensor<4xf32>
 }
 // CHECK-LABEL: func.func @mhlo_element_reshape
-// CHECK: mhlo.reshape
 // CHECK-NEXT:  mhlo.fusion
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.abs
+// CHECK-NEXT:    mhlo.reshape
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.return
 // CHECK: {__byteir_elementwise_fusion__}

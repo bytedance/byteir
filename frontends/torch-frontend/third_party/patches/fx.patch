@@ -1,0 +1,36 @@
+diff --git a/python/torch_mlir/fx.py b/python/torch_mlir/fx.py
+index 5cd7d2d6..bae64d5a 100644
+--- a/python/torch_mlir/fx.py
++++ b/python/torch_mlir/fx.py
+@@ -4,7 +4,7 @@
+ # Also available under a BSD-style license. See LICENSE.
+ 
+ from typing import Optional, Union, Dict, Tuple, Any, Callable
+-
++from packaging import version
+ import warnings
+ 
+ import torch
+@@ -23,6 +23,10 @@ from torch_mlir.compiler_utils import (
+ )
+ 
+ 
++torch_version = version.Version(torch.__version__)
++TORCH_VERSION_BIGGER_THAN_2_3_0 = torch_version >= version.Version("2.3.0")
++
++
+ def _module_lowering(
+     verbose,
+     output_type,
+@@ -70,7 +74,10 @@ def export_and_import(
+     if isinstance(f, ExportedProgram):
+         prog = f
+     else:
+-        prog = torch.export.export(f, args, kwargs, dynamic_shapes=dynamic_shapes)
++        if TORCH_VERSION_BIGGER_THAN_2_3_0:
++            prog = torch.export.export(f, args, kwargs, dynamic_shapes=dynamic_shapes)
++        else:
++            prog = torch.export.export(f, args, kwargs)
+     if decomposition_table is None:
+         decomposition_table = get_decomposition_table()
+     if decomposition_table:
