@@ -32,6 +32,8 @@ using namespace mlir::mhlo;
 #define K_INITIAL -999
 
 bool mlir::isMhlo(Operation *op) {
+  if (!op)
+    return false;
   Dialect *dialect = op->getDialect();
   return dialect && isa<MhloDialect>(dialect);
 }
@@ -54,11 +56,7 @@ bool mlir::isMhloConstantLike(Operation *op) {
 }
 
 bool mlir::isDeepMhloFoldable(Operation *op) {
-  auto check = [](Operation *op) {
-    if (!op)
-      return false;
-    return isMhlo(op);
-  };
+  auto check = [](Operation *op) { return isMhlo(op); };
   return deepCheck(op, check);
 }
 
