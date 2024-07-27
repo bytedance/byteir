@@ -24,6 +24,7 @@
 #include "byteir/Dialect/mhlo/Transforms/ConvertInsertion.h"
 #include "byteir/Dialect/mhlo/Transforms/ConvertOpToCustomCall.h"
 #include "byteir/Dialect/mhlo/Transforms/DTypeConversion.h"
+#include "byteir/Dialect/mhlo/Transforms/DecomposeMhloCustomCallOps.h"
 #include "byteir/Dialect/mhlo/Transforms/DynamicShapeClustering.h"
 #include "byteir/Dialect/mhlo/Transforms/FuncArgRearrangement.h"
 #include "byteir/Dialect/mhlo/Transforms/FuseBMMDimension.h"

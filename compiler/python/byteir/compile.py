@@ -290,7 +290,7 @@ def _compile_cpu(
     output_file_prefix = compile_options.output_file_prefix
     output_type = compile_options.output_type
     bc_file_name = output_file_prefix + ".kernel.ll.bc"
-    ir_file_name = output_file_prefix + ".kernel.ll"
+    llir_file_name = output_file_prefix + ".kernel.ll"
     useBarePtrCallConv = True # all tensor must have static shapes if True
 
     context = module.context
@@ -339,11 +339,12 @@ def _compile_cpu(
         PassManager.parse("builtin.module(to-llvm)").run(llvm_module.operation)
         _print_verbose(llvm_module, "// IR Dump After To LLVM:") if verbose else ...
 
+    output_bc_path = output_file_dir + "/" + bc_file_name
+    output_llir_path = output_file_dir + "/" + llir_file_name
     # write to output llvmbc file
-    output_bc_file_name = output_file_dir + "/" + bc_file_name
-    byteir.translate_to_llvmbc(llvm_module, output_bc_file_name)
+    byteir.translate_to_llvmbc(llvm_module, output_bc_path)
     # write to llvm ir file for debug
-    byteir.translate_to_llvmir(llvm_module, output_file_dir + "/" + ir_file_name)
+    byteir.translate_to_llvmir(llvm_module, output_llir_path)
 
     # create host module
     with context:
@@ -354,16 +355,13 @@ def _compile_cpu(
         PassManager.parse("builtin.module(remove-func-tag{" + f"attr-name={target_attr_name} " + f" func-name={entry_func} " + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Remove func tag:") if verbose else ...
 
-    # write to output host file
-    output_file_path = os.path.join(output_file_dir, output_file_prefix + "." + output_type.value)
-    if output_type is OutputType.MLIR:
-        with open(output_file_path, "w") as f:
-            f.write(module.operation.get_asm())
-    elif output_type is OutputType.MLIRBC:
-        # note: save byre texture mlir for human reading
-        with open(os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value), "w") as f:
-            f.write(module.operation.get_asm())
-        byteir.serialize_byre(module, compile_options.byre_serial_version, output_file_path)
+    output_host_mlir_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value)
+    output_host_mlirbc_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIRBC.value)
+    # write to output host mlir file
+    with open(output_host_mlir_path, "w") as f:
+        f.write(module.operation.get_asm())
+    if output_type is OutputType.MLIRBC:
+        byteir.serialize_byre(module, compile_options.byre_serial_version, output_host_mlirbc_path)
     
 
 def compile(
