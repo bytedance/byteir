@@ -131,7 +131,8 @@ public:
       if (type.getLayout().isIdentity())
         return value;
       if (!isStaticShapeAndContiguousRowMajorEx(type))
-        return nullptr auto pair = getStridesAndOffset(type);
+        return nullptr;
+      auto pair = getStridesAndOffset(type);
       return rewriter.create<byre::AliasOp>(
           op.getLoc(),
           MemRefType::get(type.getShape(), type.getElementType(),
