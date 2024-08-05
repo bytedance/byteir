@@ -892,6 +892,31 @@ static llvm::SmallVector<Value> Philox4x32_10(OpBuilder &b, Location loc,
   }
   return counters;
 }
+
+// value `v` is unsigned integer between 0 and UINT_MAX
+// returns value between 0.0 and 1.0, including 0.0f and excluding 1.0f.
+static Value uniformDistribution(OpBuilder &b, Location loc, Value v,
+                                 Type elemType) {
+  if (v.getType() != b.getI32Type()) {
+    assert("the type of value should be i32.");
+  }
+
+  if (!llvm::isa<FloatType>(elemType)) {
+    assert("elemType should be float type.");
+  }
+
+  auto u64Counter = b.create<arith::ExtUIOp>(loc, b.getI64Type(), v);
+  auto fp64Counter = b.create<arith::UIToFPOp>(loc, b.getF64Type(), u64Counter);
+  auto fp64factor =
+      b.create<arith::ConstantOp>(loc, b.getF64FloatAttr(pow(2, -32)));
+  auto fp64u01 = b.create<arith::MulFOp>(loc, fp64factor, fp64Counter);
+  Value u01 = fp64u01;
+  if (elemType != b.getF64Type()) {
+    u01 = b.create<arith::TruncFOp>(loc, elemType, fp64u01);
+  }
+  return u01;
+}
+
 class RngUniformCustomCallConverter
     : public OpConversionPattern<mhlo::CustomCallOp> {
 public:
@@ -947,6 +972,7 @@ public:
     indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx)); // offset
     indexingMaps.push_back(AffineMap::getMultiDimIdentityMap(targetRank, ctx));
 
+    auto elemType = targetTy.getElementType();
     auto linalgOp = rewriter.create<linalg::GenericOp>(
         loc, /*resultTensors=*/targetTy,
         /*inputs=*/
@@ -957,14 +983,7 @@ public:
                                          /*nReduction=*/0),
         [&](OpBuilder &b, Location loc, ValueRange args) {
           auto counters = Philox4x32_10(b, loc, args[2], args[3], targetRank);
-          auto factor =
-              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -32)));
-          auto halfFactor =
-              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -33)));
-          auto f32Counter =
-              b.create<arith::UIToFPOp>(loc, b.getF32Type(), counters[0]);
-          auto t5 = b.create<arith::MulFOp>(loc, factor, f32Counter);
-          auto u01 = b.create<arith::AddFOp>(loc, t5, halfFactor);
+          auto u01 = uniformDistribution(b, loc, counters[0], elemType);
           auto range = b.create<arith::SubFOp>(loc, args[1], args[0]);
           auto scale = b.create<arith::MulFOp>(loc, u01, range);
           Value res = b.create<arith::AddFOp>(loc, scale, args[0]);
@@ -1030,7 +1049,7 @@ public:
     indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx));
     indexingMaps.push_back(AffineMap::get(targetRank, 0, ctx));
     indexingMaps.push_back(AffineMap::getMultiDimIdentityMap(targetRank, ctx));
-
+    auto elemType = targetTy.getElementType();
     auto linalgOp = rewriter.create<linalg::GenericOp>(
         loc, /*resultTensors=*/targetTy,
         /*inputs=*/
@@ -1045,30 +1064,22 @@ public:
                                          /*nReduction=*/0),
         [&](OpBuilder &b, Location loc, ValueRange args) {
           auto counters = Philox4x32_10(b, loc, args[2], args[3], targetRank);
-          auto factor =
-              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -32)));
-          auto halfFactor =
-              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(pow(2, -33)));
-
-          auto counter0 =
-              b.create<arith::UIToFPOp>(loc, b.getF32Type(), counters[0]);
-          auto t5 = b.create<arith::MulFOp>(loc, factor, counter0);
-          auto firstUniformRand = b.create<arith::AddFOp>(loc, t5, halfFactor);
-
-          auto counter1 =
-              b.create<arith::UIToFPOp>(loc, b.getF32Type(), counters[1]);
-          auto t6 = b.create<arith::MulFOp>(loc, factor, counter1);
-          auto secondUniformRand = b.create<arith::AddFOp>(loc, t6, halfFactor);
+          auto firstUniformRand =
+              uniformDistribution(b, loc, counters[0], elemType);
+          auto secondUniformRand =
+              uniformDistribution(b, loc, counters[1], elemType);
 
           // std::sqrt(-2 * std::log(u1)) * std::cos(2 * pi * u2);
-          auto negTwo = b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(-2));
+          auto negTwo =
+              b.create<arith::ConstantOp>(loc, b.getFloatAttr(elemType, -2.0));
           auto logRes = b.create<math::LogOp>(loc, firstUniformRand);
           auto sqrtOpn = b.create<arith::MulFOp>(loc, negTwo, logRes);
           auto sqrtRes = b.create<math::SqrtOp>(loc, sqrtOpn);
 
-          auto twoFP = b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(2));
-          auto pi =
-              b.create<arith::ConstantOp>(loc, b.getF32FloatAttr(3.1415926));
+          auto twoFP =
+              b.create<arith::ConstantOp>(loc, b.getFloatAttr(elemType, 2.0));
+          auto pi = b.create<arith::ConstantOp>(
+              loc, b.getFloatAttr(elemType, 3.1415926535897932));
           auto doublePi = b.create<arith::MulFOp>(loc, pi, twoFP);
           auto cosOpn =
               b.create<arith::MulFOp>(loc, doublePi, secondUniformRand);
