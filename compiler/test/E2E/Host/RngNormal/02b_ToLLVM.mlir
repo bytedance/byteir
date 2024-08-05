@@ -6,7 +6,7 @@ module attributes {byre.container_module} {
   module attributes {byteir.llvm_module} {
     func.func @Unknown0(%arg0: memref<i64>, %arg1: memref<i64>, %arg2: memref<1x97xf32>) attributes {__byre__kernel_name = "Unknown0", __byre__llvm_file_name = "host_kernels.ll", __byteir_hlo_aggressive_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "LLVMJITOp", byre_force_compute_name, llvm.emit_c_interface} {
       %cst = arith.constant 0.000000e+00 : f32
-      %cst_0 = arith.constant 6.283185 : f32
+      %cst_0 = arith.constant 6.28318548 : f32
       %c-1879881855_i32 = arith.constant -1879881855 : i32
       %c-616729560_i32 = arith.constant -616729560 : i32
       %c534103459_i32 = arith.constant 534103459 : i32
@@ -22,8 +22,7 @@ module attributes {byre.container_module} {
       %c1993301258_i32 = arith.constant 1993301258 : i32
       %c1013904242_i32 = arith.constant 1013904242 : i32
       %cst_1 = arith.constant -2.000000e+00 : f32
-      %cst_2 = arith.constant 1.16415322E-10 : f32
-      %cst_3 = arith.constant 2.32830644E-10 : f32
+      %cst_2 = arith.constant 2.3283064365386963E-10 : f64
       %c-1150833019_i32 = arith.constant -1150833019 : i32
       %c-1640531527_i32 = arith.constant -1640531527 : i32
       %c32_i64 = arith.constant 32 : i64
@@ -180,20 +179,22 @@ module attributes {byre.container_module} {
         %142 = arith.trunci %141 : i64 to i32
         %143 = arith.xori %142, %134 : i32
         %144 = arith.xori %143, %137 : i32
-        %145 = arith.uitofp %144 : i32 to f32
-        %146 = arith.mulf %145, %cst_3 : f32
-        %147 = arith.addf %146, %cst_2 : f32
-        %148 = arith.uitofp %140 : i32 to f32
-        %149 = arith.mulf %148, %cst_3 : f32
-        %150 = arith.addf %149, %cst_2 : f32
-        %151 = math.log %147 : f32
-        %152 = arith.mulf %151, %cst_1 : f32
-        %153 = math.sqrt %152 : f32
-        %154 = arith.mulf %150, %cst_0 : f32
-        %155 = math.cos %154 : f32
-        %156 = arith.mulf %153, %155 : f32
-        %157 = arith.addf %156, %cst : f32
-        memref.store %157, %arg2[%c0, %arg3] : memref<1x97xf32>
+        %145 = arith.extui %144 : i32 to i64
+        %146 = arith.uitofp %145 : i64 to f64
+        %147 = arith.mulf %146, %cst_2 : f64
+        %148 = arith.truncf %147 : f64 to f32
+        %149 = arith.extui %140 : i32 to i64
+        %150 = arith.uitofp %149 : i64 to f64
+        %151 = arith.mulf %150, %cst_2 : f64
+        %152 = arith.truncf %151 : f64 to f32
+        %153 = math.log %148 : f32
+        %154 = arith.mulf %153, %cst_1 : f32
+        %155 = math.sqrt %154 : f32
+        %156 = arith.mulf %152, %cst_0 : f32
+        %157 = math.cos %156 : f32
+        %158 = arith.mulf %155, %157 : f32
+        %159 = arith.addf %158, %cst : f32
+        memref.store %159, %arg2[%c0, %arg3] : memref<1x97xf32>
       }
       return
     }
