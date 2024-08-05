@@ -239,8 +239,8 @@ void mlir::populateMemrefToByrePattern(RewritePatternSet &patterns) {
                ConvertReshapeLikeOpToByrePattern<memref::CollapseShapeOp>,
                ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>,
                ConvertSubViewOpToByrePattern,
-               ConvertMemrefCastOpToBtrePattern<memref::CastOp>,
-               ConvertMemrefCastOpToBtrePattern<memref::ReinterpretCastOp>>(
+               ConvertMemrefCastOpToByrePattern<memref::CastOp>,
+               ConvertMemrefCastOpToByrePattern<memref::ReinterpretCastOp>>(
       patterns.getContext());
 }
 

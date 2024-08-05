@@ -19,7 +19,6 @@
 #include "byteir/Dialect/Ace/AceDialect.h"
 #include "byteir/Dialect/Byre/ByreDialect.h"
 #include "byteir/Dialect/Byre/Serialization/ByreSerialOps.h"
-#include "byteir/Utils/MemUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/AttrTypeSubElements.h"
@@ -767,6 +766,7 @@ Type mlir::byre::mappingTypeFrom(Type type) {
     return ace::StringType::get(ctx);
 
   if (auto concreteType = dyn_cast<MemrefV1Type>(type)) {
+    // memref_v1 doesn't have layout
     return MemRefType::get(concreteType.getShape(),
                            mappingTypeFrom(concreteType.getElementType()),
                            MemRefLayoutAttrInterface{},
