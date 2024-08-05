@@ -92,9 +92,9 @@ public:
 };
 
 template <typename OpTy>
-class ConvertMemrefCastOpToBtrePattern : public OpConversionPattern<OpTy> {
+class ConvertMemrefCastOpToByrePattern : public OpConversionPattern<OpTy> {
 public:
-  ConvertMemrefCastOpToBtrePattern(MLIRContext *ctx)
+  ConvertMemrefCastOpToByrePattern(MLIRContext *ctx)
       : OpConversionPattern<OpTy>(ctx) {}
 
   LogicalResult
@@ -115,7 +115,7 @@ public:
                                                adaptor.getSource(), offset);
     return success();
   }
-}; // ConvertMemrefCastOpToBtrePattern
+}; // ConvertMemrefCastOpToByrePattern
 
 class ConvertMemrefCopyOpToByrePattern
     : public OpConversionPattern<memref::CopyOp> {
@@ -126,8 +126,26 @@ public:
   matchAndRewrite(memref::CopyOp op, memref::CopyOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
 
-    auto newOp = rewriter.replaceOpWithNewOp<byre::CopyOp>(
-        op, adaptor.getOperands()[0], adaptor.getOperands()[1]);
+    auto insertAliasOrNot = [&](Value value) -> Value {
+      auto type = cast<MemRefType>(value.getType());
+      if (type.getLayout().isIdentity())
+        return value;
+      if (!isStaticShapeAndContiguousRowMajorEx(type))
+        return nullptr;
+      auto pair = getStridesAndOffset(type);
+      return rewriter.create<byre::AliasOp>(
+          op.getLoc(),
+          MemRefType::get(type.getShape(), type.getElementType(),
+                          MemRefLayoutAttrInterface{}, type.getMemorySpace()),
+          value, pair.second);
+    };
+
+    Value src = insertAliasOrNot(op.getSource());
+    Value target = insertAliasOrNot(op.getTarget());
+    if (!src || !target)
+      return failure();
+
+    auto newOp = rewriter.replaceOpWithNewOp<byre::CopyOp>(op, src, target);
 
     auto maybeCallee = getCalleeAttr(op);
 
@@ -222,8 +240,8 @@ void mlir::populateMemrefToByrePattern(RewritePatternSet &patterns) {
                ConvertReshapeLikeOpToByrePattern<memref::CollapseShapeOp>,
                ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>,
                ConvertSubViewOpToByrePattern,
-               ConvertMemrefCastOpToBtrePattern<memref::CastOp>,
-               ConvertMemrefCastOpToBtrePattern<memref::ReinterpretCastOp>>(
+               ConvertMemrefCastOpToByrePattern<memref::CastOp>,
+               ConvertMemrefCastOpToByrePattern<memref::ReinterpretCastOp>>(
       patterns.getContext());
 }
 

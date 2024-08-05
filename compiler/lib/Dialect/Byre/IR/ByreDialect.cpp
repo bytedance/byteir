@@ -370,6 +370,12 @@ LogicalResult CopyOp::fold(FoldAdaptor, SmallVectorImpl<OpFoldResult> &) {
 }
 
 LogicalResult CopyOp::verify() {
+  auto srcType = cast<MemRefType>(getSource().getType());
+  auto dstType = cast<MemRefType>(getTarget().getType());
+  if (!srcType.getLayout().isIdentity() || !dstType.getLayout().isIdentity()) {
+    return this->emitError(
+        "expected src and dst must be identity layout memref");
+  }
   return verifyOpInEntryPointFunc(this->getOperation());
 }
 

@@ -9,6 +9,18 @@ func.func @test_copy(%arg0: memref<4xf32, "cpu">, %arg1: memref<4xf32, "gpu">) a
 
 // -----
 
+func.func @test_copy_stride$0(%arg0: memref<100x2xf32, strided<[2, 1], offset: 10>, "cpu">, %arg1: memref<100x2xf32, strided<[2, 1], offset: 20>, "gpu">) attributes {__placeholder__byre.entry_point} {
+  memref.copy %arg0, %arg1 : memref<100x2xf32, strided<[2, 1], offset: 10>, "cpu"> to memref<100x2xf32, strided<[2, 1], offset: 20>, "gpu">
+  return
+}
+// CHECK-LABEL: func.func @test_copy_stride$0
+// CHECK-NEXT:  %0 = "byre.alias"(%arg0) <{offset = 10 : i64}> : (memref<100x2xf32, strided<[2, 1], offset: 10>, "cpu">) -> memref<100x2xf32, "cpu">
+// CHECK-NEXT:  %1 = "byre.alias"(%arg1) <{offset = 20 : i64}> : (memref<100x2xf32, strided<[2, 1], offset: 20>, "gpu">) -> memref<100x2xf32, "gpu">
+// CHECK-NEXT:  byre.copy(%0, %1) {callee = "cpu2gpu"} : memref<100x2xf32, "cpu">, memref<100x2xf32, "gpu">
+// CHECK-NEXT:  return
+
+// -----
+
 func.func @test_view(%arg0 : memref<32xi8>) -> memref<4xf32> attributes {__placeholder__byre.entry_point} {
   %c16 = arith.constant 16 : index
   %1 = memref.view %arg0[%c16][] : memref<32xi8> to memref<4xf32>

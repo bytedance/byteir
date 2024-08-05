@@ -685,7 +685,9 @@ Type mlir::byre::mappingTypeTo(Type type) {
   }
 
   if (auto concreteType = dyn_cast<MemRefType>(type)) {
-    // TODO: support layout
+    if (!concreteType.getLayout().isIdentity())
+      return {};
+    // memref_v1 doesn't support layout
     return MemrefV1Type::get(ctx, concreteType.getShape(),
                              mappingTypeTo(concreteType.getElementType()),
                              mappingAttrTo(concreteType.getMemorySpace()));
@@ -764,7 +766,7 @@ Type mlir::byre::mappingTypeFrom(Type type) {
     return ace::StringType::get(ctx);
 
   if (auto concreteType = dyn_cast<MemrefV1Type>(type)) {
-    // TODO: support layout
+    // memref_v1 doesn't have layout
     return MemRefType::get(concreteType.getShape(),
                            mappingTypeFrom(concreteType.getElementType()),
                            MemRefLayoutAttrInterface{},
