@@ -19,8 +19,7 @@ module {
     %c-626627285_i32 = arith.constant -626627285 : i32
     %c1993301258_i32 = arith.constant 1993301258 : i32
     %c1013904242_i32 = arith.constant 1013904242 : i32
-    %cst_0 = arith.constant 1.16415322E-10 : f32
-    %cst_1 = arith.constant 2.32830644E-10 : f32
+    %cst_0 = arith.constant 2.3283064365386963E-10 : f64
     %c-1150833019_i32 = arith.constant -1150833019 : i32
     %c-1640531527_i32 = arith.constant -1640531527 : i32
     %c32_i64 = arith.constant 32 : i64
@@ -177,11 +176,12 @@ module {
       %141 = arith.trunci %140 : i64 to i32
       %142 = arith.xori %141, %134 : i32
       %143 = arith.xori %142, %137 : i32
-      %144 = arith.uitofp %143 : i32 to f32
-      %145 = arith.mulf %144, %cst_1 : f32
-      %146 = arith.addf %145, %cst_0 : f32
-      %147 = arith.addf %146, %cst : f32
-      memref.store %147, %alloc[%c0, %arg2] : memref<1x97xf32>
+      %144 = arith.extui %143 : i32 to i64
+      %145 = arith.uitofp %144 : i64 to f64
+      %146 = arith.mulf %145, %cst_0 : f64
+      %147 = arith.truncf %146 : f64 to f32
+      %148 = arith.addf %147, %cst : f32
+      memref.store %148, %alloc[%c0, %arg2] : memref<1x97xf32>
     }
     return %alloc : memref<1x97xf32>
   }
