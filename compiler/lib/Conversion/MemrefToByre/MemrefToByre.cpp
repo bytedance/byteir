@@ -104,15 +104,8 @@ public:
             op->getOperand(0).getType().template cast<MemRefType>()))
       return failure();
 
-    int64_t offset = 0;
-    if constexpr (std::is_same_v<OpTy, memref::ReinterpretCastOp>) {
-      auto srcMemref = op.getSource().getType().template cast<MemRefType>();
-      SmallVector<int64_t> strides;
-      if (failed(getStridesAndOffset(srcMemref, strides, offset)))
-        return failure();
-    }
     rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getType(),
-                                               adaptor.getSource(), offset);
+                                               adaptor.getSource(), 0);
     return success();
   }
 }; // ConvertMemrefCastOpToByrePattern

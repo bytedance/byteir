@@ -156,8 +156,9 @@ template bool mlir::isRegularReduceOp<mhlo::MaxOp, mhlo::ReduceWindowOp>(
 
 // Return true if slice region is continuous
 bool mlir::isSliceContinuousSubview(mhlo::SliceOp op) {
-  auto type = cast<RankedTensorType>(op.getOperand().getType());
-  if (!type.hasStaticShape()) {
+  auto operandType = cast<RankedTensorType>(op.getOperand().getType());
+  auto resultType = cast<RankedTensorType>(op.getType());
+  if (!operandType.hasStaticShape() || !resultType.hasStaticShape()) {
     return false;
   }
   if (!isSplatValue(op.getStrides(), 1)) {
@@ -166,23 +167,20 @@ bool mlir::isSliceContinuousSubview(mhlo::SliceOp op) {
 
   // find highest non one dimension
   std::optional<int64_t> leadingNonOneDimensionIndex;
-  for (int64_t i = 0; i < type.getRank(); i++) {
-    if (type.getDimSize(i) != 1) {
+  for (int64_t i = 0; i < resultType.getRank(); i++) {
+    if (resultType.getDimSize(i) != 1) {
       leadingNonOneDimensionIndex = i;
       break;
     }
   }
   if (!leadingNonOneDimensionIndex.has_value()) {
-    return false;
+    return true;
   }
 
-  for (int64_t i = 0; i < type.getRank(); i++) {
-    if (i != leadingNonOneDimensionIndex.value()) {
-      if (op.getStartIndices().getValues<int64_t>()[i] != 0 ||
-          op.getLimitIndices().getValues<int64_t>()[i] != type.getDimSize(i)) {
-        return false;
-      }
-    }
+  for (int64_t i = leadingNonOneDimensionIndex.value() + 1;
+       i < resultType.getRank(); i++) {
+    if (operandType.getDimSize(i) != resultType.getDimSize(i))
+      return false;
   }
   return true;
 }

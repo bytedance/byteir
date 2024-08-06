@@ -8,26 +8,117 @@ declare void @free(ptr)
 
 declare ptr @malloc(i64)
 
-declare void @memrefCopy(i64, ptr, ptr)
+define void @Unknown0(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %13, ptr %14, i64 %15, i64 %16, i64 %17) {
+  %19 = call ptr @malloc(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 388800) to i64))
+  br label %20
 
-define void @Unknown0(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %13, ptr %14, i64 %15, i64 %16, i64 %17, i64 %18, i64 %19, i64 %20, i64 %21, i64 %22, i64 %23, i64 %24, i64 %25) {
-  br label %27
+20:                                               ; preds = %23, %18
+  %21 = phi i64 [ %28, %23 ], [ 0, %18 ]
+  %22 = icmp slt i64 %21, 388800
+  br i1 %22, label %23, label %29
 
-27:                                               ; preds = %30, %26
-  %28 = phi i64 [ %35, %30 ], [ 0, %26 ]
-  %29 = icmp slt i64 %28, 388800
-  br i1 %29, label %30, label %36
+23:                                               ; preds = %20
+  %24 = getelementptr float, ptr %1, i64 %21
+  %25 = load float, ptr %24, align 4
+  %26 = fptosi float %25 to i32
+  %27 = getelementptr i32, ptr %19, i64 %21
+  store i32 %26, ptr %27, align 4
+  %28 = add i64 %21, 1
+  br label %20
 
-30:                                               ; preds = %27
-  %31 = getelementptr float, ptr %1, i64 %28
-  %32 = load float, ptr %31, align 4
-  %33 = fptosi float %32 to i32
-  %34 = getelementptr i32, ptr %14, i64 %28
-  store i32 %33, ptr %34, align 4
-  %35 = add i64 %28, 1
-  br label %27
+29:                                               ; preds = %20
+  %30 = call ptr @malloc(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 129600) to i64))
+  br label %31
 
-36:                                               ; preds = %27
+31:                                               ; preds = %34, %29
+  %32 = phi i64 [ %71, %34 ], [ 0, %29 ]
+  %33 = icmp slt i64 %32, 129600
+  br i1 %33, label %34, label %72
+
+34:                                               ; preds = %31
+  %35 = srem i64 %32, 1296
+  %36 = sdiv i64 %32, 1296
+  %37 = getelementptr i32, ptr %19, i32 2
+  %38 = mul i64 %36, 3888
+  %39 = mul i64 %35, 3
+  %40 = add i64 %38, %39
+  %41 = add i64 %40, 0
+  %42 = getelementptr i32, ptr %37, i64 %41
+  %43 = load i32, ptr %42, align 4
+  %44 = mul i64 %36, 3888
+  %45 = mul i64 %35, 3
+  %46 = add i64 %44, %45
+  %47 = add i64 %46, 0
+  %48 = getelementptr i32, ptr %19, i64 %47
+  %49 = load i32, ptr %48, align 4
+  %50 = getelementptr i32, ptr %19, i32 1
+  %51 = mul i64 %36, 3888
+  %52 = mul i64 %35, 3
+  %53 = add i64 %51, %52
+  %54 = add i64 %53, 0
+  %55 = getelementptr i32, ptr %50, i64 %54
+  %56 = load i32, ptr %55, align 4
+  %57 = getelementptr i32, ptr @__constant_100xi32, i64 %36
+  %58 = load i32, ptr %57, align 4
+  %59 = ashr i32 %56, 5
+  %60 = shl i32 %59, 3
+  %61 = ashr i32 %49, 5
+  %62 = shl i32 %61, 6
+  %63 = add i32 %62, %60
+  %64 = ashr i32 %43, 5
+  %65 = add i32 %64, %63
+  %66 = add i32 %65, %58
+  %67 = mul i64 %36, 1296
+  %68 = add i64 %67, %35
+  %69 = add i64 %68, 0
+  %70 = getelementptr i32, ptr %30, i64 %69
+  store i32 %66, ptr %70, align 4
+  %71 = add i64 %32, 1
+  br label %31
+
+72:                                               ; preds = %31
+  call void @free(ptr %19)
+  br label %73
+
+73:                                               ; preds = %76, %72
+  %74 = phi i64 [ %78, %76 ], [ 0, %72 ]
+  %75 = icmp slt i64 %74, 51200
+  br i1 %75, label %76, label %79
+
+76:                                               ; preds = %73
+  %77 = getelementptr i32, ptr %14, i64 %74
+  store i32 0, ptr %77, align 4
+  %78 = add i64 %74, 1
+  br label %73
+
+79:                                               ; preds = %82, %73
+  %80 = phi i64 [ %99, %82 ], [ 0, %73 ]
+  %81 = icmp slt i64 %80, 129600
+  br i1 %81, label %82, label %100
+
+82:                                               ; preds = %79
+  %83 = srem i64 %80, 1296
+  %84 = sdiv i64 %80, 1296
+  %85 = mul i64 %84, 1296
+  %86 = add i64 %85, %83
+  %87 = add i64 %86, 0
+  %88 = getelementptr i32, ptr %30, i64 %87
+  %89 = load i32, ptr %88, align 4
+  %90 = sext i32 %89 to i64
+  %91 = getelementptr i32, ptr %14, i64 %90
+  %92 = load i32, ptr %91, align 4
+  %93 = mul i64 %84, 1296
+  %94 = add i64 %93, %83
+  %95 = getelementptr i32, ptr @__constant_100x1296xi32, i64 %94
+  %96 = load i32, ptr %95, align 4
+  %97 = add i32 %92, %96
+  %98 = getelementptr i32, ptr %14, i64 %90
+  store i32 %97, ptr %98, align 4
+  %99 = add i64 %80, 1
+  br label %79
+
+100:                                              ; preds = %79
+  call void @free(ptr %30)
   ret void
 }
 
@@ -46,329 +137,15 @@ define void @_mlir_ciface_Unknown0(ptr %0, ptr %1) {
   %14 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %3, 4, 2
   %15 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %3, 4, 3
   %16 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %3, 4, 4
-  %17 = load { ptr, ptr, i64, [5 x i64], [5 x i64] }, ptr %1, align 8
-  %18 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 0
-  %19 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 1
-  %20 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 2
-  %21 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 3, 0
-  %22 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 3, 1
-  %23 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 3, 2
-  %24 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 3, 3
-  %25 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 3, 4
-  %26 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 4, 0
-  %27 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 4, 1
-  %28 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 4, 2
-  %29 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 4, 3
-  %30 = extractvalue { ptr, ptr, i64, [5 x i64], [5 x i64] } %17, 4, 4
-  call void @Unknown0(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, ptr %18, ptr %19, i64 %20, i64 %21, i64 %22, i64 %23, i64 %24, i64 %25, i64 %26, i64 %27, i64 %28, i64 %29, i64 %30)
+  %17 = load { ptr, ptr, i64, [1 x i64], [1 x i64] }, ptr %1, align 8
+  %18 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 0
+  %19 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 1
+  %20 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 2
+  %21 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 3, 0
+  %22 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %17, 4, 0
+  call void @Unknown0(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, ptr %18, ptr %19, i64 %20, i64 %21, i64 %22)
   ret void
 }
-
-define void @Unknown1(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, ptr %9, ptr %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, i64 %17) {
-  %19 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } undef, ptr %9, 0
-  %20 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %19, ptr %10, 1
-  %21 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %20, i64 %11, 2
-  %22 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %21, i64 %12, 3, 0
-  %23 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %22, i64 %15, 4, 0
-  %24 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %23, i64 %13, 3, 1
-  %25 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %24, i64 %16, 4, 1
-  %26 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %25, i64 %14, 3, 2
-  %27 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %26, i64 %17, 4, 2
-  %28 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } undef, ptr %0, 0
-  %29 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %28, ptr %1, 1
-  %30 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %29, i64 0, 2
-  %31 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %30, i64 100, 3, 0
-  %32 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %31, i64 3888, 4, 0
-  %33 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %32, i64 1296, 3, 1
-  %34 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %33, i64 3, 4, 1
-  %35 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %34, i64 1, 3, 2
-  %36 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %35, i64 1, 4, 2
-  %37 = call ptr @llvm.stacksave.p0()
-  %38 = alloca { ptr, ptr, i64, [3 x i64], [3 x i64] }, i64 1, align 8
-  store { ptr, ptr, i64, [3 x i64], [3 x i64] } %36, ptr %38, align 8
-  %39 = insertvalue { i64, ptr } { i64 3, ptr undef }, ptr %38, 1
-  %40 = alloca { ptr, ptr, i64, [3 x i64], [3 x i64] }, i64 1, align 8
-  store { ptr, ptr, i64, [3 x i64], [3 x i64] } %27, ptr %40, align 8
-  %41 = insertvalue { i64, ptr } { i64 3, ptr undef }, ptr %40, 1
-  %42 = alloca { i64, ptr }, i64 1, align 8
-  store { i64, ptr } %39, ptr %42, align 8
-  %43 = alloca { i64, ptr }, i64 1, align 8
-  store { i64, ptr } %41, ptr %43, align 8
-  call void @memrefCopy(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 1) to i64), ptr %42, ptr %43)
-  call void @llvm.stackrestore.p0(ptr %37)
-  ret void
-}
-
-define void @_mlir_ciface_Unknown1(ptr %0, ptr %1) {
-  %3 = load { ptr, ptr, i64, [3 x i64], [3 x i64] }, ptr %0, align 8
-  %4 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 0
-  %5 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 1
-  %6 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 2
-  %7 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 0
-  %8 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 1
-  %9 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 2
-  %10 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 0
-  %11 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 1
-  %12 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 2
-  %13 = load { ptr, ptr, i64, [3 x i64], [3 x i64] }, ptr %1, align 8
-  %14 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 0
-  %15 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 1
-  %16 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 2
-  %17 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 0
-  %18 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 1
-  %19 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 2
-  %20 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 0
-  %21 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 1
-  %22 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 2
-  call void @Unknown1(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, i64 %19, i64 %20, i64 %21, i64 %22)
-  ret void
-}
-
-define void @Unknown2(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, ptr %9, ptr %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, i64 %17) {
-  %19 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } undef, ptr %9, 0
-  %20 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %19, ptr %10, 1
-  %21 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %20, i64 %11, 2
-  %22 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %21, i64 %12, 3, 0
-  %23 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %22, i64 %15, 4, 0
-  %24 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %23, i64 %13, 3, 1
-  %25 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %24, i64 %16, 4, 1
-  %26 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %25, i64 %14, 3, 2
-  %27 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %26, i64 %17, 4, 2
-  %28 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } undef, ptr %0, 0
-  %29 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %28, ptr %1, 1
-  %30 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %29, i64 1, 2
-  %31 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %30, i64 100, 3, 0
-  %32 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %31, i64 3888, 4, 0
-  %33 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %32, i64 1296, 3, 1
-  %34 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %33, i64 3, 4, 1
-  %35 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %34, i64 1, 3, 2
-  %36 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %35, i64 1, 4, 2
-  %37 = call ptr @llvm.stacksave.p0()
-  %38 = alloca { ptr, ptr, i64, [3 x i64], [3 x i64] }, i64 1, align 8
-  store { ptr, ptr, i64, [3 x i64], [3 x i64] } %36, ptr %38, align 8
-  %39 = insertvalue { i64, ptr } { i64 3, ptr undef }, ptr %38, 1
-  %40 = alloca { ptr, ptr, i64, [3 x i64], [3 x i64] }, i64 1, align 8
-  store { ptr, ptr, i64, [3 x i64], [3 x i64] } %27, ptr %40, align 8
-  %41 = insertvalue { i64, ptr } { i64 3, ptr undef }, ptr %40, 1
-  %42 = alloca { i64, ptr }, i64 1, align 8
-  store { i64, ptr } %39, ptr %42, align 8
-  %43 = alloca { i64, ptr }, i64 1, align 8
-  store { i64, ptr } %41, ptr %43, align 8
-  call void @memrefCopy(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 1) to i64), ptr %42, ptr %43)
-  call void @llvm.stackrestore.p0(ptr %37)
-  ret void
-}
-
-define void @_mlir_ciface_Unknown2(ptr %0, ptr %1) {
-  %3 = load { ptr, ptr, i64, [3 x i64], [3 x i64] }, ptr %0, align 8
-  %4 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 0
-  %5 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 1
-  %6 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 2
-  %7 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 0
-  %8 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 1
-  %9 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 2
-  %10 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 0
-  %11 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 1
-  %12 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 2
-  %13 = load { ptr, ptr, i64, [3 x i64], [3 x i64] }, ptr %1, align 8
-  %14 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 0
-  %15 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 1
-  %16 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 2
-  %17 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 0
-  %18 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 1
-  %19 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 2
-  %20 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 0
-  %21 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 1
-  %22 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 2
-  call void @Unknown2(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, i64 %19, i64 %20, i64 %21, i64 %22)
-  ret void
-}
-
-define void @Unknown3(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, i64 %7, i64 %8, ptr %9, ptr %10, i64 %11, i64 %12, i64 %13, i64 %14, i64 %15, i64 %16, i64 %17) {
-  %19 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } undef, ptr %9, 0
-  %20 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %19, ptr %10, 1
-  %21 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %20, i64 %11, 2
-  %22 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %21, i64 %12, 3, 0
-  %23 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %22, i64 %15, 4, 0
-  %24 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %23, i64 %13, 3, 1
-  %25 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %24, i64 %16, 4, 1
-  %26 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %25, i64 %14, 3, 2
-  %27 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %26, i64 %17, 4, 2
-  %28 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } undef, ptr %0, 0
-  %29 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %28, ptr %1, 1
-  %30 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %29, i64 2, 2
-  %31 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %30, i64 100, 3, 0
-  %32 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %31, i64 3888, 4, 0
-  %33 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %32, i64 1296, 3, 1
-  %34 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %33, i64 3, 4, 1
-  %35 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %34, i64 1, 3, 2
-  %36 = insertvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %35, i64 1, 4, 2
-  %37 = call ptr @llvm.stacksave.p0()
-  %38 = alloca { ptr, ptr, i64, [3 x i64], [3 x i64] }, i64 1, align 8
-  store { ptr, ptr, i64, [3 x i64], [3 x i64] } %36, ptr %38, align 8
-  %39 = insertvalue { i64, ptr } { i64 3, ptr undef }, ptr %38, 1
-  %40 = alloca { ptr, ptr, i64, [3 x i64], [3 x i64] }, i64 1, align 8
-  store { ptr, ptr, i64, [3 x i64], [3 x i64] } %27, ptr %40, align 8
-  %41 = insertvalue { i64, ptr } { i64 3, ptr undef }, ptr %40, 1
-  %42 = alloca { i64, ptr }, i64 1, align 8
-  store { i64, ptr } %39, ptr %42, align 8
-  %43 = alloca { i64, ptr }, i64 1, align 8
-  store { i64, ptr } %41, ptr %43, align 8
-  call void @memrefCopy(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 1) to i64), ptr %42, ptr %43)
-  call void @llvm.stackrestore.p0(ptr %37)
-  ret void
-}
-
-define void @_mlir_ciface_Unknown3(ptr %0, ptr %1) {
-  %3 = load { ptr, ptr, i64, [3 x i64], [3 x i64] }, ptr %0, align 8
-  %4 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 0
-  %5 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 1
-  %6 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 2
-  %7 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 0
-  %8 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 1
-  %9 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 3, 2
-  %10 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 0
-  %11 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 1
-  %12 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %3, 4, 2
-  %13 = load { ptr, ptr, i64, [3 x i64], [3 x i64] }, ptr %1, align 8
-  %14 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 0
-  %15 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 1
-  %16 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 2
-  %17 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 0
-  %18 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 1
-  %19 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 3, 2
-  %20 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 0
-  %21 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 1
-  %22 = extractvalue { ptr, ptr, i64, [3 x i64], [3 x i64] } %13, 4, 2
-  call void @Unknown3(ptr %4, ptr %5, i64 %6, i64 %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, i64 %19, i64 %20, i64 %21, i64 %22)
-  ret void
-}
-
-define void @Unknown4(ptr %0, ptr %1, i64 %2, i64 %3, i64 %4, i64 %5, i64 %6, ptr %7, ptr %8, i64 %9, i64 %10, i64 %11, i64 %12, i64 %13, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, i64 %19, i64 %20, ptr %21, ptr %22, i64 %23, i64 %24, i64 %25) {
-  %27 = call ptr @malloc(i64 ptrtoint (ptr getelementptr (i32, ptr null, i32 129600) to i64))
-  br label %28
-
-28:                                               ; preds = %31, %26
-  %29 = phi i64 [ %59, %31 ], [ 0, %26 ]
-  %30 = icmp slt i64 %29, 129600
-  br i1 %30, label %31, label %60
-
-31:                                               ; preds = %28
-  %32 = srem i64 %29, 1296
-  %33 = sdiv i64 %29, 1296
-  %34 = mul i64 %33, 1296
-  %35 = add i64 %34, %32
-  %36 = getelementptr i32, ptr %15, i64 %35
-  %37 = load i32, ptr %36, align 4
-  %38 = mul i64 %33, 1296
-  %39 = add i64 %38, %32
-  %40 = getelementptr i32, ptr %1, i64 %39
-  %41 = load i32, ptr %40, align 4
-  %42 = mul i64 %33, 1296
-  %43 = add i64 %42, %32
-  %44 = getelementptr i32, ptr %8, i64 %43
-  %45 = load i32, ptr %44, align 4
-  %46 = getelementptr i32, ptr @__constant_100xi32, i64 %33
-  %47 = load i32, ptr %46, align 4
-  %48 = ashr i32 %45, 5
-  %49 = shl i32 %48, 3
-  %50 = ashr i32 %41, 5
-  %51 = shl i32 %50, 6
-  %52 = add i32 %51, %49
-  %53 = ashr i32 %37, 5
-  %54 = add i32 %53, %52
-  %55 = add i32 %54, %47
-  %56 = mul i64 %33, 1296
-  %57 = add i64 %56, %32
-  %58 = getelementptr i32, ptr %27, i64 %57
-  store i32 %55, ptr %58, align 4
-  %59 = add i64 %29, 1
-  br label %28
-
-60:                                               ; preds = %63, %28
-  %61 = phi i64 [ %65, %63 ], [ 0, %28 ]
-  %62 = icmp slt i64 %61, 51200
-  br i1 %62, label %63, label %66
-
-63:                                               ; preds = %60
-  %64 = getelementptr i32, ptr %22, i64 %61
-  store i32 0, ptr %64, align 4
-  %65 = add i64 %61, 1
-  br label %60
-
-66:                                               ; preds = %69, %60
-  %67 = phi i64 [ %86, %69 ], [ 0, %60 ]
-  %68 = icmp slt i64 %67, 129600
-  br i1 %68, label %69, label %87
-
-69:                                               ; preds = %66
-  %70 = srem i64 %67, 1296
-  %71 = sdiv i64 %67, 1296
-  %72 = mul i64 %71, 1296
-  %73 = add i64 %72, %70
-  %74 = add i64 %73, 0
-  %75 = getelementptr i32, ptr %27, i64 %74
-  %76 = load i32, ptr %75, align 4
-  %77 = sext i32 %76 to i64
-  %78 = getelementptr i32, ptr %22, i64 %77
-  %79 = load i32, ptr %78, align 4
-  %80 = mul i64 %71, 1296
-  %81 = add i64 %80, %70
-  %82 = getelementptr i32, ptr @__constant_100x1296xi32, i64 %81
-  %83 = load i32, ptr %82, align 4
-  %84 = add i32 %79, %83
-  %85 = getelementptr i32, ptr %22, i64 %77
-  store i32 %84, ptr %85, align 4
-  %86 = add i64 %67, 1
-  br label %66
-
-87:                                               ; preds = %66
-  call void @free(ptr %27)
-  ret void
-}
-
-define void @_mlir_ciface_Unknown4(ptr %0, ptr %1, ptr %2, ptr %3) {
-  %5 = load { ptr, ptr, i64, [2 x i64], [2 x i64] }, ptr %0, align 8
-  %6 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 0
-  %7 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 1
-  %8 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 2
-  %9 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 3, 0
-  %10 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 3, 1
-  %11 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 4, 0
-  %12 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %5, 4, 1
-  %13 = load { ptr, ptr, i64, [2 x i64], [2 x i64] }, ptr %1, align 8
-  %14 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 0
-  %15 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 1
-  %16 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 2
-  %17 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 3, 0
-  %18 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 3, 1
-  %19 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 4, 0
-  %20 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %13, 4, 1
-  %21 = load { ptr, ptr, i64, [2 x i64], [2 x i64] }, ptr %2, align 8
-  %22 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 0
-  %23 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 1
-  %24 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 2
-  %25 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 3, 0
-  %26 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 3, 1
-  %27 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 4, 0
-  %28 = extractvalue { ptr, ptr, i64, [2 x i64], [2 x i64] } %21, 4, 1
-  %29 = load { ptr, ptr, i64, [1 x i64], [1 x i64] }, ptr %3, align 8
-  %30 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %29, 0
-  %31 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %29, 1
-  %32 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %29, 2
-  %33 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %29, 3, 0
-  %34 = extractvalue { ptr, ptr, i64, [1 x i64], [1 x i64] } %29, 4, 0
-  call void @Unknown4(ptr %6, ptr %7, i64 %8, i64 %9, i64 %10, i64 %11, i64 %12, ptr %14, ptr %15, i64 %16, i64 %17, i64 %18, i64 %19, i64 %20, ptr %22, ptr %23, i64 %24, i64 %25, i64 %26, i64 %27, i64 %28, ptr %30, ptr %31, i64 %32, i64 %33, i64 %34)
-  ret void
-}
-
-; Function Attrs: nocallback nofree nosync nounwind willreturn
-declare ptr @llvm.stacksave.p0() #0
-
-; Function Attrs: nocallback nofree nosync nounwind willreturn
-declare void @llvm.stackrestore.p0(ptr) #0
-
-attributes #0 = { nocallback nofree nosync nounwind willreturn }
 
 !llvm.module.flags = !{!0}
 
