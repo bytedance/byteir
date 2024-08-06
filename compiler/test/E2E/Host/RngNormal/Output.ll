@@ -5,9 +5,9 @@ define void @Unknown0(ptr %0, ptr %1, i64 %2, ptr %3, ptr %4, i64 %5, ptr %6, pt
   br label %14
 
 14:                                               ; preds = %17, %13
-  %15 = phi i64 [ %178, %17 ], [ 0, %13 ]
+  %15 = phi i64 [ %180, %17 ], [ 0, %13 ]
   %16 = icmp slt i64 %15, 97
-  br i1 %16, label %17, label %179
+  br i1 %16, label %17, label %181
 
 17:                                               ; preds = %14
   %18 = load i64, ptr %1, align 4
@@ -155,26 +155,28 @@ define void @Unknown0(ptr %0, ptr %1, i64 %2, ptr %3, ptr %4, i64 %5, ptr %6, pt
   %160 = trunc i64 %159 to i32
   %161 = xor i32 %160, %152
   %162 = xor i32 %161, %155
-  %163 = uitofp i32 %162 to float
-  %164 = fmul float %163, 0x3DF0000000000000
-  %165 = fadd float %164, 0x3DE0000000000000
-  %166 = uitofp i32 %158 to float
-  %167 = fmul float %166, 0x3DF0000000000000
-  %168 = fadd float %167, 0x3DE0000000000000
-  %169 = call float @llvm.log.f32(float %165)
-  %170 = fmul float %169, -2.000000e+00
-  %171 = call float @llvm.sqrt.f32(float %170)
-  %172 = fmul float %168, 0x401921FB40000000
-  %173 = call float @llvm.cos.f32(float %172)
-  %174 = fmul float %171, %173
-  %175 = fadd float %174, 0.000000e+00
-  %176 = add i64 0, %15
-  %177 = getelementptr float, ptr %7, i64 %176
-  store float %175, ptr %177, align 4
-  %178 = add i64 %15, 1
+  %163 = zext i32 %162 to i64
+  %164 = uitofp i64 %163 to double
+  %165 = fmul double %164, 0x3DF0000000000000
+  %166 = fptrunc double %165 to float
+  %167 = zext i32 %158 to i64
+  %168 = uitofp i64 %167 to double
+  %169 = fmul double %168, 0x3DF0000000000000
+  %170 = fptrunc double %169 to float
+  %171 = call float @llvm.log.f32(float %166)
+  %172 = fmul float %171, -2.000000e+00
+  %173 = call float @llvm.sqrt.f32(float %172)
+  %174 = fmul float %170, 0x401921FB60000000
+  %175 = call float @llvm.cos.f32(float %174)
+  %176 = fmul float %173, %175
+  %177 = fadd float %176, 0.000000e+00
+  %178 = add i64 0, %15
+  %179 = getelementptr float, ptr %7, i64 %178
+  store float %177, ptr %179, align 4
+  %180 = add i64 %15, 1
   br label %14
 
-179:                                              ; preds = %14
+181:                                              ; preds = %14
   ret void
 }
 
