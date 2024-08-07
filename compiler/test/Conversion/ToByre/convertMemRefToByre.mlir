@@ -1,4 +1,4 @@
-// RUN: byteir-opt -memref-to-byre --split-input-file %s | FileCheck %s
+// RUN: byteir-opt -memref-to-byre --canonicalize --split-input-file %s | FileCheck %s
 
 module attributes {byre.container_module} {
 // CHECK: module attributes {byre.container_module}  {
