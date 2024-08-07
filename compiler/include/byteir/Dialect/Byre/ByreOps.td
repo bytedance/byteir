@@ -214,7 +214,7 @@ def Byre_AliasOp
   let description = [{
     Example:
     ```mlir
-    %0 = "byre.alias"(%alloc) { offset = 100 : i64 } : (tensor<1024xi8>) -> tensor<64xf32>
+    %0 = "byre.alias"(%alloc) {offset = 100 : i64} : (tensor<1024xi8>) -> tensor<64xf32>
     ```
     Attribute offset means input element type's offset.
   }];
@@ -228,6 +228,7 @@ def Byre_AliasOp
     AnyStridedMemRef:$target
   );
 
+  let hasFolder = 1;
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
 }
