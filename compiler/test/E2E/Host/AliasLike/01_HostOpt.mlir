@@ -21,19 +21,17 @@ module {
   }
   func.func @main(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> (memref<128x2x100xf32>, memref<128x2x100xf32>, memref<1x100xf32>, memref<1x100xf32>, memref<512x200xf32>) attributes {__placeholder__byre.entry_point} {
     %subview = memref.subview %arg0[0, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1]>>
-    %subview_0 = memref.subview %arg1[10, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1], offset: 2000>>
-    %expand_shape = memref.expand_shape %subview [[0], [1, 2]] output_shape [128, 2, 100] : memref<128x200xf32, strided<[200, 1]>> into memref<128x2x100xf32, strided<[200, 100, 1]>>
-    %expand_shape_1 = memref.expand_shape %subview_0 [[0], [1, 2]] output_shape [128, 2, 100] : memref<128x200xf32, strided<[200, 1], offset: 2000>> into memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>>
-    %subview_2 = memref.subview %arg0[0, 0] [1, 100] [1, 1] : memref<512x200xf32> to memref<1x100xf32, strided<[200, 1]>>
-    %subview_3 = memref.subview %arg1[10, 100] [1, 100] [1, 1] : memref<512x200xf32> to memref<1x100xf32, strided<[200, 1], offset: 2100>>
+    %subview_0 = memref.subview %arg1[10, 100] [1, 100] [1, 1] : memref<512x200xf32> to memref<1x100xf32, strided<[200, 1], offset: 2100>>
+    %subview_1 = memref.subview %arg1[10, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1], offset: 2000>>
+    %expand_shape = memref.expand_shape %subview_1 [[0], [1, 2]] output_shape [128, 2, 100] : memref<128x200xf32, strided<[200, 1], offset: 2000>> into memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>>
+    %expand_shape_2 = memref.expand_shape %subview [[0], [1, 2]] output_shape [128, 2, 100] : memref<128x200xf32, strided<[200, 1]>> into memref<128x2x100xf32, strided<[200, 100, 1]>>
     %0 = call @Unknown0(%arg0, %arg1) : (memref<512x200xf32>, memref<512x200xf32>) -> memref<512x200xf32>
-    %cast = memref.cast %expand_shape : memref<128x2x100xf32, strided<[200, 100, 1]>> to memref<128x2x100xf32>
+    %cast = memref.cast %expand_shape_2 : memref<128x2x100xf32, strided<[200, 100, 1]>> to memref<128x2x100xf32>
     %alloc = memref.alloc() : memref<128x2x100xf32>
-    memref.copy %expand_shape_1, %alloc : memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>> to memref<128x2x100xf32>
-    %alloc_4 = memref.alloc() : memref<1x100xf32>
-    memref.copy %subview_2, %alloc_4 : memref<1x100xf32, strided<[200, 1]>> to memref<1x100xf32>
-    %alloc_5 = memref.alloc() : memref<1x100xf32>
-    memref.copy %subview_3, %alloc_5 : memref<1x100xf32, strided<[200, 1], offset: 2100>> to memref<1x100xf32>
-    return %cast, %alloc, %alloc_4, %alloc_5, %0 : memref<128x2x100xf32>, memref<128x2x100xf32>, memref<1x100xf32>, memref<1x100xf32>, memref<512x200xf32>
+    memref.copy %expand_shape, %alloc : memref<128x2x100xf32, strided<[200, 100, 1], offset: 2000>> to memref<128x2x100xf32>
+    %reinterpret_cast = memref.reinterpret_cast %arg0 to offset: [0], sizes: [1, 100], strides: [100, 1] : memref<512x200xf32> to memref<1x100xf32>
+    %alloc_3 = memref.alloc() : memref<1x100xf32>
+    memref.copy %subview_0, %alloc_3 : memref<1x100xf32, strided<[200, 1], offset: 2100>> to memref<1x100xf32>
+    return %cast, %alloc, %reinterpret_cast, %alloc_3, %0 : memref<128x2x100xf32>, memref<128x2x100xf32>, memref<1x100xf32>, memref<1x100xf32>, memref<512x200xf32>
   }
 }

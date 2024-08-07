@@ -165,16 +165,19 @@ public:
       return false;
     };
 
+    bool targetUsedInTerm = false;
     if (target.getType() != src.getType()) {
       // skip copy when it is used in a terminator
       if (auto srcAlloc = src.getDefiningOp<memref::AllocOp>()) {
         if (allocUseInTerminator(srcAlloc)) {
+          LLVM_DEBUG(llvm::dbgs() << "src is used in a terminator");
           return failure();
         }
       }
       if (auto targetAlloc = target.getDefiningOp<memref::AllocOp>()) {
         if (allocUseInTerminator(targetAlloc)) {
-          return failure();
+          LLVM_DEBUG(llvm::dbgs() << "target is used in a terminator");
+          targetUsedInTerm = true;
         }
       }
     }
@@ -254,8 +257,10 @@ public:
     }
 
     // now it is legal to rewrite.
+    LLVM_DEBUG(llvm::dbgs() << "it is legal to rewrite " << copyOp << "\n");
     // we prefer target alloc over src alloc in this implementation
     if (auto targetAlloc = target.getDefiningOp<memref::AllocOp>()) {
+      LLVM_DEBUG(llvm::dbgs() << "match target alloc: " << targetAlloc << "\n");
       if (auto srcDef = src.getDefiningOp()) {
         if (isa<memref::AllocOp, memref::SubViewOp, memref::ExpandShapeOp,
                 memref::ExpandShapeOp>(srcDef))
@@ -269,11 +274,13 @@ public:
         return failure();
       }
 
-      if (!anyIncompatibleUse(target, src)) {
+      LLVM_DEBUG(llvm::dbgs() << "check anyIncompatibleUse\n");
+      if (!anyIncompatibleUse(target, src) && !targetUsedInTerm) {
         replaceUsesAndPropagateType(rewriter, targetAlloc, src);
         return success();
       }
 
+      LLVM_DEBUG(llvm::dbgs() << "check anyIncompatibleUseWithCast\n");
       if (!anyIncompatibleUseWithCast(target, src)) {
         // The memref of source and target are contiguous, cast source value to
         // the same type with target. As `byre.alias` could handle source with
@@ -324,6 +331,7 @@ public:
     }
 
     if (auto srcAlloc = src.getDefiningOp<memref::AllocOp>()) {
+      LLVM_DEBUG(llvm::dbgs() << "match src alloc: " << srcAlloc << "\n");
       if (auto targetDef = target.getDefiningOp()) {
         if (isa<memref::AllocOp, memref::SubViewOp>(targetDef))
           hoistUpOpInBlock(targetDef, domInfo);
