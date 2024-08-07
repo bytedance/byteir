@@ -25,6 +25,7 @@
 
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Dialect/Byre/Common.h"
+#include "byteir/Utils/MemUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Analysis/TopologicalSortUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -90,7 +91,15 @@ struct MemrefCopyOpToLinalg : public OpRewritePattern<memref::CopyOp> {
       return failure();
 
     if (outlining) {
-      if (srcType.getLayout().isIdentity() && dstType.getLayout().isIdentity())
+      auto isContiguous = [](MemRefType ty) -> bool {
+        if (ty.getLayout().isIdentity())
+          return true;
+        if (isStaticShapeAndContiguousRowMajorEx(ty))
+          return true;
+        return false;
+      };
+      // note: if src and dst type are contiguous, just keep copy
+      if (isContiguous(srcType) && isContiguous(dstType))
         return failure();
 
       SmallVector<Operation *> ops;

@@ -23,6 +23,13 @@
 
 namespace mlir {
 
+// FIXME(lyq): how to support i4/ui4 ???
+inline size_t canonicalizeTypeBitWidth(Type type) {
+  assert(type.isIntOrFloat());
+  // note: treat i1 as i8
+  return ((type.getIntOrFloatBitWidth() + 7) >> 3) << 3;
+}
+
 // append attribute to origin type's encoding
 // note: if origin has non-DictionaryAttr, will replace it.
 RankedTensorType appendTensorEncodingAttr(RankedTensorType origin,

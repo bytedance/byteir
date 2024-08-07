@@ -29,9 +29,7 @@
 	.param .u64 Unknown0_param_17,
 	.param .u64 Unknown0_param_18,
 	.param .u64 Unknown0_param_19,
-	.param .u64 Unknown0_param_20,
-	.param .u64 Unknown0_param_21,
-	.param .u64 Unknown0_param_22
+	.param .u64 Unknown0_param_20
 )
 {
 	.reg .pred 	%p<3>;
@@ -45,7 +43,7 @@
 	cvt.s64.s32 	%rd15, %r3;
 	mul.wide.s32 	%rd16, %r2, %r1;
 	add.s64 	%rd21, %rd16, %rd15;
-	setp.gt.s64 	%p1, %rd21, 25599;
+	setp.gt.s64 	%p1, %rd21, 102399;
 	@%p1 bra 	$L__BB0_3;
 	ld.param.u64 	%rd12, [Unknown0_param_15];
 	cvta.to.global.u64 	%rd1, %rd12;
@@ -67,7 +65,7 @@ $L__BB0_2:
 	st.global.f32 	[%rd19], %f3;
 	add.s64 	%rd21, %rd21, %rd5;
 	add.s64 	%rd20, %rd20, %rd7;
-	setp.lt.s64 	%p2, %rd21, 25600;
+	setp.lt.s64 	%p2, %rd21, 102400;
 	@%p2 bra 	$L__BB0_2;
 $L__BB0_3:
 	ret;

@@ -343,8 +343,6 @@ namespace aggressive_fusion {
 bool isFusibleCandidate(Operation *op) {
   if (isCustomMhloRngOp(op) || isCustomMhloByteirRepeatOp(op))
     return true;
-  if (isAliasLikeOp(op))
-    return false;
   if (llvm::isa<mhlo::CustomCallOp>(op))
     return false;
   return isMhlo(op);
@@ -354,16 +352,24 @@ bool isFusibleStart(Operation *) { return true; }
 
 bool isFusibleTrigger(Operation *) { return true; }
 
-bool isFusibleWith(Operation *, Operation *) { return true; }
+bool isFusibleWith(Operation * /*target*/, Operation * /*start*/) {
+  return true;
+}
 
 bool isFusibleWithNoDenseFuse(Operation *target, Operation * /*start*/) {
   return isSplatMhloConstantLike(target) ||
          isa<mhlo::BroadcastInDimOp, mhlo::ReshapeOp>(target);
 }
 
-bool isValidSingleOp(Operation *op) { return true; }
+bool isValidSingleOp(Operation *) { return true; }
 
-bool isValidFusionPattern(const MhloFusionPattern &) { return true; }
+bool isValidFusionPattern(const MhloFusionPattern &fusionPattern) {
+  if (llvm::all_of(fusionPattern,
+                   [](Operation *op) { return isAliasLikeOp(op); })) {
+    return false;
+  }
+  return true;
+}
 
 static GenericFuserConfig config{getByteIRHloAggressiveFusionAttrName(),
                                  aggressive_fusion::isFusibleCandidate,

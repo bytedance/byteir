@@ -4,10 +4,9 @@
 
 module attributes {byre.container_module, gpu.container_module} {
   gpu.module @unified {
-    gpu.func @Unknown0(%arg0: memref<128x200xf32>, %arg1: memref<128x200xf32>, %arg2: memref<128x2x100xf32>) kernel {
-      %c25600 = arith.constant 25600 : index
-      %c2 = arith.constant 2 : index
-      %c100 = arith.constant 100 : index
+    gpu.func @Unknown0(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>, %arg2: memref<512x200xf32>) kernel {
+      %c102400 = arith.constant 102400 : index
+      %c200 = arith.constant 200 : index
       %block_id_x = gpu.block_id  x
       %block_dim_x = gpu.block_dim  x
       %thread_id_x = gpu.thread_id  x
@@ -15,25 +14,25 @@ module attributes {byre.container_module, gpu.container_module} {
       %1 = arith.addi %thread_id_x, %0 : index
       %grid_dim_x = gpu.grid_dim  x
       %2 = arith.muli %block_dim_x, %grid_dim_x : index
-      scf.for %arg3 = %1 to %c25600 step %2 {
-        %3 = arith.remsi %arg3, %c100 : index
-        %4 = arith.divsi %arg3, %c100 : index
-        %5 = arith.remsi %4, %c2 : index
-        %6 = arith.divsi %4, %c2 : index
-        %7 = arith.muli %5, %c100 : index
-        %8 = arith.addi %7, %3 : index
-        %9 = memref.load %arg0[%6, %8] : memref<128x200xf32>
-        %10 = memref.load %arg1[%6, %8] : memref<128x200xf32>
-        %11 = arith.addf %9, %10 : f32
-        memref.store %11, %arg2[%6, %5, %3] : memref<128x2x100xf32>
+      scf.for %arg3 = %1 to %c102400 step %2 {
+        %3 = arith.remsi %arg3, %c200 : index
+        %4 = arith.divsi %arg3, %c200 : index
+        %5 = memref.load %arg0[%4, %3] : memref<512x200xf32>
+        %6 = memref.load %arg1[%4, %3] : memref<512x200xf32>
+        %7 = arith.addf %5, %6 : f32
+        memref.store %7, %arg2[%4, %3] : memref<512x200xf32>
       }
       gpu.return
     }
   }
-  func.func @main(%arg0: memref<512x200xf32, "cuda"> {byre.argname = "Input0", byre.argtype = 1 : i32}, %arg1: memref<512x2x100xf32, "cuda"> {byre.argname = "Input1", byre.argtype = 1 : i32}, %arg2: memref<128x2x100xf32, "cuda"> {byre.argname = "Output0", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
-    %0 = "byre.alias"(%arg0) <{offset = 0 : i64}> : (memref<512x200xf32, "cuda">) -> memref<128x200xf32, "cuda">
-    %1 = "byre.alias"(%arg0) <{offset = 2000 : i64}> : (memref<512x200xf32, "cuda">) -> memref<128x200xf32, "cuda">
-    byre.compute @PTXOp(%0, %1, %arg2) {BlockSize.x = 256 : i32, GridSize.x = 25 : i32, arg_ranks = [2 : i32, 2 : i32, 3 : i32], kernel_name = "Unknown0", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<128x200xf32, "cuda">, memref<128x200xf32, "cuda">, memref<128x2x100xf32, "cuda">
+  func.func @main(%arg0: memref<512x200xf32, "cuda"> {byre.argname = "Input0", byre.argtype = 1 : i32}, %arg1: memref<512x200xf32, "cuda"> {byre.argname = "Input1", byre.argtype = 1 : i32}, %arg2: memref<256x256xf32, "cuda"> {byre.argname = "Output0", byre.argtype = 2 : i32}, %arg3: memref<512x200xf32, "cuda"> {byre.argname = "Output1", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
+    %alloc = memref.alloc() : memref<102400xi8, "cuda">
+    %0 = "byre.alias"(%arg0) <{offset = 0 : i64}> : (memref<512x200xf32, "cuda">) -> memref<256x100xf32, "cuda">
+    %1 = "byre.alias"(%alloc) <{offset = 0 : i64}> : (memref<102400xi8, "cuda">) -> memref<100x256xf32, "cuda">
+    %2 = "byre.alias"(%arg1) <{offset = 2000 : i64}> : (memref<512x200xf32, "cuda">) -> memref<100x256xf32, "cuda">
+    byre.copy(%2, %1) {callee = "cuda2cuda"} : memref<100x256xf32, "cuda">, memref<100x256xf32, "cuda">
+    byre.compute @MatmulOp_f32f32_f32(%0, %1, %arg2) {device = "cuda", lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<256x100xf32, "cuda">, memref<100x256xf32, "cuda">, memref<256x256xf32, "cuda">
+    byre.compute @PTXOp(%arg0, %arg1, %arg3) {BlockSize.x = 256 : i32, GridSize.x = 100 : i32, arg_ranks = [2 : i32, 2 : i32, 2 : i32], kernel_name = "Unknown0", memory_effects = [1 : i32, 1 : i32, 2 : i32]} : memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">
     return
   }
 }

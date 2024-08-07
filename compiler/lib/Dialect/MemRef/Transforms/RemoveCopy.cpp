@@ -304,14 +304,19 @@ public:
                                      });
 
         Value srcCast;
-
         if (needCast) {
-          srcCast = rewriter.create<memref::ReinterpretCastOp>(
-              copyOp.getLoc(), targetMemref, src, tgtMemrefOffset,
-              targetMemref.getShape(), tgtStrides);
-        } else
+          if (srcMemrefOffset == 0) {
+            srcCast = rewriter.create<memref::ReinterpretCastOp>(
+                copyOp.getLoc(), targetMemref, src, tgtMemrefOffset,
+                targetMemref.getShape(), tgtStrides);
+          } else {
+            // TODO: use some op like memref.reinterpret_cast to handle offset
+            return failure();
+          }
+        } else {
           srcCast = rewriter.create<memref::CastOp>(copyOp.getLoc(),
                                                     targetMemref, src);
+        }
         rewriter.replaceAllUsesWith(targetAlloc, {srcCast});
         rewriter.eraseOp(copyOp);
         return success();

@@ -21,6 +21,7 @@
 
 #include "byteir/Dialect/Byre/ByreDialect.h"
 
+#include "byteir/Utils/TypeUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -454,12 +455,10 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
   LogicalResult matchAndRewrite(AliasOp aliasOp,
                                 PatternRewriter &rewriter) const override {
     if (auto sourceOp = aliasOp.getSource().getDefiningOp<AliasOp>()) {
-      auto srcElemBitwidth = cast<MemRefType>(sourceOp.getSource().getType())
-                                 .getElementType()
-                                 .getIntOrFloatBitWidth();
-      auto curElemBitwidth = cast<MemRefType>(aliasOp.getTarget().getType())
-                                 .getElementType()
-                                 .getIntOrFloatBitWidth();
+      auto srcElemBitwidth = canonicalizeTypeBitWidth(
+          cast<MemRefType>(sourceOp.getSource().getType()).getElementType());
+      auto curElemBitwidth = canonicalizeTypeBitWidth(
+          cast<MemRefType>(aliasOp.getSource().getType()).getElementType());
       auto newOffset = aliasOp.getOffset() * curElemBitwidth / srcElemBitwidth +
                        sourceOp.getOffset();
       rewriter.replaceOpWithNewOp<AliasOp>(aliasOp,
@@ -470,6 +469,7 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
     return failure();
   }
 };
+
 struct RemoveIdentityAliasOp : public OpRewritePattern<AliasOp> {
   using OpRewritePattern<AliasOp>::OpRewritePattern;
 
