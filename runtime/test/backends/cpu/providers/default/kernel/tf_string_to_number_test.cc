@@ -94,7 +94,7 @@ void CheckTFStringToNumberSingle(const std::vector<int64_t> src_shape,
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, TFStringToNumberBasic) {
+TEST(CPUOpKernelTest, TFStringToNumberBasic) {
   using half_float::half;
 
   CheckTFStringToNumberSingle<int32_t, string_view>(

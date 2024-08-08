@@ -120,7 +120,7 @@ void CheckTopKSingle(const std::vector<int64_t> &shape, const ContainerT &data,
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, TopKBasic) {
+TEST(CPUOpKernelTest, TopKBasic) {
   // k, axis, sorted
   std::vector<half_float::half> data_float16 = {
       static_cast<half_float::half>(3.f), static_cast<half_float::half>(2.f),

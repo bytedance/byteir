@@ -17,6 +17,7 @@
 
 #include "brt/backends/cpu/providers/default/cpu_provider.h"
 
+#include "./copy/copy.h"
 #include "./custom_call/non_zero.h"
 #include "./custom_call/repeat.h"
 #include "./custom_call/tf_equal.h"
@@ -127,6 +128,12 @@ BRT_STATIC_KERNEL_REGISTRATION(
           "byteir.non_zero",
           [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
             return std::make_shared<cpu::NonZero>(info);
+          });
+
+      registry->Register(
+          "cpu2cpu",
+          [](const brt::OpKernelInfo &info) -> std::shared_ptr<OpKernel> {
+            return std::make_shared<cpu::CopyOpKernel>(info);
           });
       RegisterCommonBuiltinOps(registry);
     });

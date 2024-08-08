@@ -128,7 +128,7 @@ void CheckTypecvtSingle(const std::vector<int64_t> &shape) {
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, TypecvtBasic) {
+TEST(CPUOpKernelTest, TypecvtBasic) {
   for (auto &&shape : {
            std::vector<int64_t>{2000},
            {100, 32},

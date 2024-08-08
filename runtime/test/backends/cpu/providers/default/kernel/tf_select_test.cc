@@ -101,7 +101,7 @@ void CheckTFSelectSingle(const std::vector<int64_t> &cond_shape,
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, TFSelectBasic) {
+TEST(CPUOpKernelTest, TFSelectBasic) {
   using half_float::half;
 
   CheckTFSelectSingle<string_view>(
