@@ -44,7 +44,20 @@ module attributes {byre.container_module} {
 // CHECK-LABEL: func.func @remove_identity_alias
     %0 = "byre.alias"(%arg0) {offset = 0 : i64} : (memref<256xf32>) -> memref<256xf32>
     byre.compute @SomeOp(%0, %arg1) : memref<256xf32>, memref<256xf32>
+// CHECK-NOT:  byre.alias
 // CHECK-NEXT: byre.compute @SomeOp(%arg0, %arg1)
+    return
+  }
+
+  func.func @not_fold_alias(%arg0: memref<256xf32> {byre.argtype = 1: i32, byre.argname = "A"}) attributes {byre.entry_point} {
+// CHECK-LABEL: func.func @not_fold_alias
+    %0 = "byre.alias"(%arg0) {offset = 0 : i64} : (memref<256xf32>) -> memref<256xi8>
+    %1 = "byre.alias"(%0) {offset = 3 : i64} : (memref<256xi8>) -> memref<253xi8>
+    byre.compute @SomeOp(%1) : memref<253xi8>
+// CHECK-NEXT: byre.alias
+// CHECK-NEXT: byre.alias
+// CHECK-NEXT: byre.compute @SomeOp
+// CHECK-NEXT: return
     return
   }
 
