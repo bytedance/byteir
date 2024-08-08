@@ -39,7 +39,6 @@ add_mlir_dialect_library(MLIRByreSerialization
 
 add_mlir_dialect_library(ByteIRByrePasses
   Transforms/BufferizableOpInterfaceImpl.cpp
-  Transforms/Fold.cpp
   Transforms/Serial.cpp
 
   ADDITIONAL_HEADER_DIRS

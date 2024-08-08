@@ -459,6 +459,10 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
           cast<MemRefType>(sourceOp.getSource().getType()).getElementType());
       auto curElemBitwidth = canonicalizeTypeBitWidth(
           cast<MemRefType>(aliasOp.getSource().getType()).getElementType());
+
+      if (aliasOp.getOffset() * curElemBitwidth % srcElemBitwidth != 0) {
+        return failure();
+      }
       auto newOffset = aliasOp.getOffset() * curElemBitwidth / srcElemBitwidth +
                        sourceOp.getOffset();
       rewriter.replaceOpWithNewOp<AliasOp>(aliasOp,
