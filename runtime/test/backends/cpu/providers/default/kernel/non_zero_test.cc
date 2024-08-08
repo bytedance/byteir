@@ -24,7 +24,6 @@
 #include "brt/test/common/models.h"
 #include "brt/test/common/util.h"
 #include "half/half.hpp"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "gtest/gtest.h"
 #include <cstdlib>
 #include <memory>
@@ -90,7 +89,7 @@ void CheckNonZeroSingle(const std::vector<int64_t> &shape,
 }
 } // namespace
 
-TEST(CPUOpKerenlTest, NonZeroBasic) {
+TEST(CPUOpKernelTest, NonZeroBasic) {
   using half_float::half;
   CheckNonZeroSingle<float>({3}, {1.1f, 0.0f, 0.1f}, {0, 2});
   CheckNonZeroSingle<half>({2, 2},

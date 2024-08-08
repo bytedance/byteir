@@ -149,7 +149,7 @@ static void TestTranspose(std::vector<int64_t> shape_input,
   }
 }
 
-TEST(CUDAOpKerenlTest, TransposeOp) {
+TEST(CUDAOpKernelTest, TransposeOp) {
   TestTranspose<float>({32, 64}, {64, 32}, {1, 0});
   TestTranspose<float>({1000, 512}, {512, 1000}, {1, 0});
   // NCHW 2 NHWC
@@ -158,7 +158,7 @@ TEST(CUDAOpKerenlTest, TransposeOp) {
   TestTranspose<float>({10, 20, 30, 40}, {10, 40, 20, 30}, {0, 3, 1, 2});
 }
 
-TEST(CUDAOpKerenlTest, TransposeOpFp16) {
+TEST(CUDAOpKernelTest, TransposeOpFp16) {
   TestTranspose<__half>({32, 64}, {64, 32}, {1, 0});
   TestTranspose<__half>({1000, 512}, {512, 1000}, {1, 0});
   // NCHW 2 NHWC

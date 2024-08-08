@@ -98,7 +98,7 @@ void CheckByteirRepeatSingle(const std::vector<int64_t> &data_shape,
 }
 } // namespace
 
-// TEST(CPUOpKerenlTest, ByteirRepeatBasic) {
+// TEST(CPUOpKernelTest, ByteirRepeatBasic) {
 //   using half_float::half;
 //
 //   std::vector<float> f32_data = {

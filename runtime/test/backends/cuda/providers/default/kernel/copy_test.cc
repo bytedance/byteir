@@ -23,7 +23,6 @@
 #include "brt/core/session/session.h"
 #include "brt/test/common/cuda/util.h"
 #include "brt/test/common/models.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "gtest/gtest.h"
 #include <cstdlib>
 #include <cuda_runtime.h>
@@ -50,7 +49,7 @@ static void CheckResult(float *d_ptr, float *h_ptr, size_t size) {
 
 } // namespace
 
-TEST(CUDAOpKerenlTest, CopyH2DOp) {
+TEST(CUDAOpKernelTest, CopyH2DOp) {
   ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -98,7 +97,7 @@ TEST(CUDAOpKerenlTest, CopyH2DOp) {
   cudaFree(d_arg_1);
 }
 
-TEST(CUDAOpKerenlTest, CopyD2HOp) {
+TEST(CUDAOpKernelTest, CopyD2HOp) {
   ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -146,7 +145,7 @@ TEST(CUDAOpKerenlTest, CopyD2HOp) {
   free(h_arg_1);
 }
 
-TEST(CUDAOpKerenlTest, CopyD2DOp) {
+TEST(CUDAOpKernelTest, CopyD2DOp) {
   ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
