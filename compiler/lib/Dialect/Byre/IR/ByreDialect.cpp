@@ -469,20 +469,6 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
     return failure();
   }
 };
-
-struct RemoveIdentityAliasOp : public OpRewritePattern<AliasOp> {
-  using OpRewritePattern<AliasOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(AliasOp aliasOp,
-                                PatternRewriter &rewriter) const override {
-    if (aliasOp.getSource().getType() == aliasOp.getTarget().getType() &&
-        aliasOp.getOffset() == 0) {
-      rewriter.replaceOp(aliasOp, aliasOp.getSource());
-      return success();
-    }
-    return failure();
-  }
-};
 } // namespace
 
 // verify AliasOp
@@ -501,9 +487,17 @@ LogicalResult AliasOp::verify() {
   return verifyOpInEntryPointFunc(op);
 }
 
+OpFoldResult AliasOp::fold(FoldAdaptor adaptor) {
+  if (this->getSource().getType() == this->getTarget().getType() &&
+      this->getOffset() == 0) {
+    return this->getSource();
+  }
+  return nullptr;
+}
+
 void AliasOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                           MLIRContext *context) {
-  results.add<CollapseAliasChain, RemoveIdentityAliasOp>(context);
+  results.add<CollapseAliasChain>(context);
 }
 
 std::string AliasOp::getCalleeName() { return "AliasOp"; }

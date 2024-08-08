@@ -121,16 +121,22 @@ public:
 
     auto insertAliasOrNot = [&](Value value) -> Value {
       auto type = cast<MemRefType>(value.getType());
-      if (type.getLayout().isIdentity())
-        return value;
-      if (!isStaticShapeAndContiguousRowMajorEx(type))
-        return nullptr;
-      auto pair = getStridesAndOffset(type);
-      return rewriter.create<byre::AliasOp>(
-          op.getLoc(),
-          MemRefType::get(type.getShape(), type.getElementType(),
-                          MemRefLayoutAttrInterface{}, type.getMemorySpace()),
-          value, pair.second);
+      if (type.getLayout().isIdentity()) {
+        return rewriter.create<byre::AliasOp>(
+            op.getLoc(),
+            MemRefType::get(type.getShape(), type.getElementType(),
+                            MemRefLayoutAttrInterface{}, type.getMemorySpace()),
+            value, /*offset=*/0);
+      }
+      if (isStaticShapeAndContiguousRowMajorEx(type)) {
+        auto pair = getStridesAndOffset(type);
+        return rewriter.create<byre::AliasOp>(
+            op.getLoc(),
+            MemRefType::get(type.getShape(), type.getElementType(),
+                            MemRefLayoutAttrInterface{}, type.getMemorySpace()),
+            value, pair.second);
+      }
+      return nullptr;
     };
 
     Value src = insertAliasOrNot(op.getSource());
