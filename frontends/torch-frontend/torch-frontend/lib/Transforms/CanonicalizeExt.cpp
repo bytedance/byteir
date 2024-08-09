@@ -67,7 +67,7 @@ LogicalResult replaceArithConstantOpWithStablehlo(arith::ConstantOp op,
       // stablehlo constant doesn't support index type
       return failure();
     }
-    rewriter.replaceWithNewOp<stablehlo::ConstantOp>(op, attr);
+    rewriter.replaceOpWithNewOp<stablehlo::ConstantOp>(op, attr);
     return success();
   }
   return failure();
