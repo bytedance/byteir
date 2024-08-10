@@ -362,7 +362,10 @@ def _compile_cpu(
         f.write(module.operation.get_asm())
     if output_type is OutputType.MLIRBC:
         byteir.serialize_byre(module, compile_options.byre_serial_version, output_host_mlirbc_path)
-    
+        deserialized_module = byteir.deserialize_byre(open(output_host_mlirbc_path, "rb").read(), context)
+        if (module.operation.get_asm() != deserialized_module.operation.get_asm()):
+            raise ValueError("module asm has be changed after byre serialization")
+
 
 def compile(
     input_file_path: str,

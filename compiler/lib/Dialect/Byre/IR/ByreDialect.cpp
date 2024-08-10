@@ -479,9 +479,17 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
 LogicalResult AliasOp::verify() {
   auto *op = this->getOperation();
 
+  auto srcType = cast<MemRefType>(getSource().getType());
+  auto dstType = cast<MemRefType>(getTarget().getType());
+
+  // check static shape
+  if (!srcType.hasStaticShape() || !dstType.hasStaticShape()) {
+    return op->emitError("expected srouce and target both have static shape");
+  }
+
   // check if src and dst has memory space.
-  auto srcMemSpace = cast<MemRefType>(getSource().getType()).getMemorySpace();
-  auto dstMemSpace = cast<MemRefType>(getTarget().getType()).getMemorySpace();
+  auto srcMemSpace = srcType.getMemorySpace();
+  auto dstMemSpace = dstType.getMemorySpace();
   // TODO. W'd better set memory space explicitly but not use default mem space.
   if ((srcMemSpace || dstMemSpace) &&
       (!srcMemSpace || !dstMemSpace || srcMemSpace != dstMemSpace)) {
