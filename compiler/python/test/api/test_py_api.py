@@ -5,27 +5,26 @@ from byteir import ir
 
 CUR_DIR = os.path.realpath(os.path.dirname(__file__))
 TEST_ROOT_DIR = CUR_DIR + "/../../../test/"
-
-temp_dir = tempfile.TemporaryDirectory()
+temp_dir = tempfile.gettempdir()
 
 # ==============================================================================
 # test byteir.compile
 
 def test_compile_mlp_inference():
     path = TEST_ROOT_DIR + "E2E/CUDA/MLPInference/input.mlir"
-    byteir.compile(path, temp_dir.name + "/test.mlir", entry_func="forward")
+    byteir.compile(path, temp_dir + "/test.mlir", entry_func="forward")
 
 def test_compile_ccl_inference():
     path = TEST_ROOT_DIR + "E2E/CUDA/CclInference/input.mlir"
-    byteir.compile(path, temp_dir.name + "./test_ccl.mlir", entry_func="forward")
+    byteir.compile(path, temp_dir + "/test_ccl.mlir", entry_func="forward")
 
 def test_compile_mlp_inference_cpu():
     path = TEST_ROOT_DIR + "E2E/Host/Case0/00_Input.mlir"
-    byteir.compile(path, temp_dir.name + "/test_cpu.mlir", entry_func="main", target="cpu")
+    byteir.compile(path, temp_dir + "/test_cpu.mlir", entry_func="main", target="cpu")
 
 def test_compile_mlp_inference_cpu_mlirbc():
     path = TEST_ROOT_DIR + "E2E/Host/Case0/00_Input.mlir"
-    byteir.compile(path, temp_dir.name + "/test_cpu.mlirbc", entry_func="main", target="cpu")
+    byteir.compile(path, temp_dir + "/test_cpu.mlirbc", entry_func="main", target="cpu")
 
 # ==============================================================================
 # test translate to llvm
@@ -35,14 +34,14 @@ def test_translate_to_llvmbc():
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
-        byteir.translate_to_llvmbc(module, temp_dir.name + "/test.ll.bc")
+        byteir.translate_to_llvmbc(module, temp_dir + "/test.ll.bc")
 
 def test_translate_to_llvmir():
     path = TEST_ROOT_DIR + "E2E/Host/Case0/03b_ToLLVMIR.mlir"
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
-        byteir.translate_to_llvmir(module, temp_dir.name + "/test.ll")
+        byteir.translate_to_llvmir(module, temp_dir + "/test.ll")
 
 # ==============================================================================
 # test byre serialization
@@ -52,7 +51,7 @@ def test_serialize_byre():
     context = ir.Context()
     with open(path, "r") as f:
         module = ir.Module.parse(f.read(), context)
-        byteir.serialize_byre(module, "1.0.0", temp_dir.name + "/test.mlirbc")
+        byteir.serialize_byre(module, "1.0.0", temp_dir + "/test.mlirbc")
 
 def test_deserialize_byre():
     paths = [TEST_ROOT_DIR + "Dialect/Byre/Serialization/Compatibility/version_1_0_0.mlir.bc",
