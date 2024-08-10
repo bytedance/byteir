@@ -258,7 +258,7 @@ class ByteIRFxGraphCache:
         if ByteIRFxGraphCache.base_cache_dir is None:
             HOME_DIR = os.getenv("HOME")
             if HOME_DIR is None:
-                HOME_DIR = "/tmp"
+                HOME_DIR = tempfile.gettempdir()
             ByteIRFxGraphCache.base_cache_dir = os.path.join(HOME_DIR, ".byteir",  "fx_cache")
             os.makedirs(ByteIRFxGraphCache.base_cache_dir, exist_ok=True)
         return ByteIRFxGraphCache.base_cache_dir
