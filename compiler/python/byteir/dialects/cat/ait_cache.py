@@ -6,8 +6,8 @@ from shutil import copyfile, copymode
 
 HOME_DIR = os.getenv("HOME")
 if HOME_DIR == None:
-    HOME_DIR = "/tmp/"
-DEFAULT_CACHE_DIR = os.path.join(HOME_DIR, ".byteir_cache/ait_cache/")
+    HOME_DIR = "/tmp"
+DEFAULT_CACHE_DIR = os.path.join(HOME_DIR, ".byteir", "ait_cache")
 CACHE_FILE_NAME = "ait_global_cache.json"
 IDX_KEY = "byteir_ait_cache_auto_increment_idx"
 
