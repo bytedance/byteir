@@ -256,14 +256,11 @@ class ByteIRFxGraphCache:
         Get the toplevel temporary directory for storing compiled graphs.
         """
         if ByteIRFxGraphCache.base_cache_dir is None:
-            sanitized_username = re.sub(r'[\\/:*?"<>|]', "_",
-                                        getpass.getuser())
-            ByteIRFxGraphCache.base_cache_dir = os.path.join(
-                tempfile.gettempdir(),
-                "byteir_" + sanitized_username,
-            )
+            HOME_DIR = os.getenv("HOME")
+            if HOME_DIR is None:
+                HOME_DIR = tempfile.gettempdir()
+            ByteIRFxGraphCache.base_cache_dir = os.path.join(HOME_DIR, ".byteir",  "fx_cache")
             os.makedirs(ByteIRFxGraphCache.base_cache_dir, exist_ok=True)
-        #return os.path.join(ByteIRFxGraphCache.base_cache_dir, "byre")
         return ByteIRFxGraphCache.base_cache_dir
 
     @staticmethod
