@@ -211,6 +211,13 @@ def Byre_AliasOp
                DeclareOpInterfaceMethods<ViewLikeOpInterface>,
                Pure]> {
   let summary = "alias operation";
+  let description = [{
+    Example:
+    ```mlir
+    %0 = "byre.alias"(%alloc) {offset = 100 : i64} : (tensor<1024xi8>) -> tensor<64xf32>
+    ```
+    Attribute offset means input element type's offset.
+  }];
 
   let arguments = (ins
     AnyStridedMemRef:$source,
@@ -221,6 +228,7 @@ def Byre_AliasOp
     AnyStridedMemRef:$target
   );
 
+  let hasFolder = 1;
   let hasCanonicalizer = 1;
   let hasVerifier = 1;
 }

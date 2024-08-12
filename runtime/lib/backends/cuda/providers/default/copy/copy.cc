@@ -43,7 +43,7 @@ CopyOpKernel::CopyOpKernel(const OpKernelInfo &info, int task_type)
   dst_id = GetTensorIndexFromOpArgIndex(info_, 1);
 
   // get static bytes
-  // TODO change to dynamic later
+  // TODO: change to dynamic later
   auto src_val = GetMLIRValueFromOpArgIndex(info_, 0);
   auto maybe_bytes = GetStaticBytes(src_val);
   if (maybe_bytes.has_value()) {

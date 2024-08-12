@@ -92,9 +92,9 @@ public:
 };
 
 template <typename OpTy>
-class ConvertMemrefCastOpToBtrePattern : public OpConversionPattern<OpTy> {
+class ConvertMemrefCastOpToByrePattern : public OpConversionPattern<OpTy> {
 public:
-  ConvertMemrefCastOpToBtrePattern(MLIRContext *ctx)
+  ConvertMemrefCastOpToByrePattern(MLIRContext *ctx)
       : OpConversionPattern<OpTy>(ctx) {}
 
   LogicalResult
@@ -104,18 +104,11 @@ public:
             op->getOperand(0).getType().template cast<MemRefType>()))
       return failure();
 
-    int64_t offset = 0;
-    if constexpr (std::is_same_v<OpTy, memref::ReinterpretCastOp>) {
-      auto srcMemref = op.getSource().getType().template cast<MemRefType>();
-      SmallVector<int64_t> strides;
-      if (failed(getStridesAndOffset(srcMemref, strides, offset)))
-        return failure();
-    }
     rewriter.replaceOpWithNewOp<byre::AliasOp>(op, op.getType(),
-                                               adaptor.getSource(), offset);
+                                               adaptor.getSource(), 0);
     return success();
   }
-}; // ConvertMemrefCastOpToBtrePattern
+}; // ConvertMemrefCastOpToByrePattern
 
 class ConvertMemrefCopyOpToByrePattern
     : public OpConversionPattern<memref::CopyOp> {
@@ -126,8 +119,32 @@ public:
   matchAndRewrite(memref::CopyOp op, memref::CopyOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
 
-    auto newOp = rewriter.replaceOpWithNewOp<byre::CopyOp>(
-        op, adaptor.getOperands()[0], adaptor.getOperands()[1]);
+    auto insertAliasOrNot = [&](Value value) -> Value {
+      auto type = cast<MemRefType>(value.getType());
+      if (type.getLayout().isIdentity()) {
+        return rewriter.create<byre::AliasOp>(
+            op.getLoc(),
+            MemRefType::get(type.getShape(), type.getElementType(),
+                            MemRefLayoutAttrInterface{}, type.getMemorySpace()),
+            value, /*offset=*/0);
+      }
+      if (isStaticShapeAndContiguousRowMajorEx(type)) {
+        auto pair = getStridesAndOffset(type);
+        return rewriter.create<byre::AliasOp>(
+            op.getLoc(),
+            MemRefType::get(type.getShape(), type.getElementType(),
+                            MemRefLayoutAttrInterface{}, type.getMemorySpace()),
+            value, pair.second);
+      }
+      return nullptr;
+    };
+
+    Value src = insertAliasOrNot(op.getSource());
+    Value target = insertAliasOrNot(op.getTarget());
+    if (!src || !target)
+      return failure();
+
+    auto newOp = rewriter.replaceOpWithNewOp<byre::CopyOp>(op, src, target);
 
     auto maybeCallee = getCalleeAttr(op);
 
@@ -222,8 +239,8 @@ void mlir::populateMemrefToByrePattern(RewritePatternSet &patterns) {
                ConvertReshapeLikeOpToByrePattern<memref::CollapseShapeOp>,
                ConvertReshapeLikeOpToByrePattern<memref::ExpandShapeOp>,
                ConvertSubViewOpToByrePattern,
-               ConvertMemrefCastOpToBtrePattern<memref::CastOp>,
-               ConvertMemrefCastOpToBtrePattern<memref::ReinterpretCastOp>>(
+               ConvertMemrefCastOpToByrePattern<memref::CastOp>,
+               ConvertMemrefCastOpToByrePattern<memref::ReinterpretCastOp>>(
       patterns.getContext());
 }
 

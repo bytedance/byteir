@@ -1,4 +1,4 @@
-//===- Fold.h -------------------------------------------------*--- C++ -*-===//
+//===- copy.h -------------------------------------------------*--- C++ -*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_BYRE_TRANSFORMS_FOLD_H
-#define BYTEIR_DIALECT_BYRE_TRANSFORMS_FOLD_H
+#pragma once
 
-#include "mlir/Pass/Pass.h"
-#include <memory>
+#include "brt/core/framework/op_kernel.h"
 
-namespace mlir {
-namespace func {
-class FuncOp;
-} // namespace func
+namespace brt {
+namespace cpu {
 
-std::unique_ptr<OperationPass<func::FuncOp>> createByreFoldPass();
+class CopyOpKernel final : public OpKernel {
+public:
+  CopyOpKernel(const OpKernelInfo &);
+  ~CopyOpKernel() = default;
+  common::Status RunImpl(const ExecutionContext &) override;
 
-} // namespace mlir
+private:
+  size_t dst_id = 0;
+  size_t src_id = 0;
+  size_t byte_size = 0;
+};
 
-#endif // BYTEIR_DIALECT_BYRE_TRANSFORMS_FOLD_H
+} // namespace cpu
+} // namespace brt

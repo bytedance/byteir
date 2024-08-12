@@ -209,3 +209,10 @@ func.func @replace_where_V2_2D(%arg0: tensor<256x1xi64>, %arg1: tensor<256x24xf1
 // CHECK-NEXT:       %16 = "tf.Mul"(%15, %14) : (tensor<?x24xf16>, tensor<?x24xf16>) -> tensor<?x24xf16>
 // CHECK-NEXT:       %17 = "tf.Sum"(%16, %[[CST]]) <{keep_dims = false}> : (tensor<?x24xf16>, tensor<1xi64>) -> tensor<?xf16>
 // CHECK-NEXT:       return %17 : tensor<?xf16>
+
+func.func @replace_tf_reshape(%arg0: tensor<?x96xf16>, %arg1: tensor<2xi32>) -> tensor<?x96xf16> {
+  %0 = "tf.Reshape"(%arg0, %arg1) {device = ""} : (tensor<?x96xf16>, tensor<2xi32>) -> tensor<?x96xf16>
+  return %0 : tensor<?x96xf16>
+}
+// CHECK-LABEL:    func.func @replace_tf_reshape(%arg0: tensor<?x96xf16>, %arg1: tensor<2xi32>) -> tensor<?x96xf16> {
+// CHECK-NEXT:       return %arg0 : tensor<?x96xf16>

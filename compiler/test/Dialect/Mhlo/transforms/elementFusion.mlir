@@ -54,7 +54,6 @@ func.func @mhlo_element_broadcast(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, 
 // CHECK-NEXT:    mhlo.return
 // CHECK:  mhlo.fusion
 // CHECK-NEXT:    mhlo.broadcast_in_dim
-
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.broadcast_in_dim
 // CHECK-NEXT:    mhlo.add
@@ -62,19 +61,37 @@ func.func @mhlo_element_broadcast(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, 
 // CHECK: {__byteir_elementwise_fusion__}
 // CHECK:  return
 
+func.func @mhlo_element_broadcast_scalar(%arg0: tensor<1xf32>, %arg1: tensor<f32>, %arg2: tensor<1024xf32>) -> tensor<1024xf32> {
+  %0 = mhlo.add %arg0, %arg0 : tensor<1xf32>
+  %1 = mhlo.reshape %0 : (tensor<1xf32>) -> tensor<f32>
+  %2 = mhlo.add %1, %arg1 : tensor<f32>
+  %3 = "mhlo.broadcast_in_dim"(%2) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>) -> tensor<1024xf32>
+  %4 = mhlo.add %3, %arg2 : tensor<1024xf32>
+  return %4 : tensor<1024xf32>
+}
+// CHECK-LABEL: func.func @mhlo_element_broadcast_scalar
+// CHECK-NEXT:  mhlo.fusion
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.reshape
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.broadcast_in_dim
+// CHECK-NEXT:    mhlo.add
+// CHECK-NEXT:    mhlo.return
+// CHECK:  {__byteir_elementwise_fusion__}
+// CHECK:  return
 
 func.func @mhlo_element_reshape(%arg0 : tensor<4xf32>, %arg1 : tensor<4xf32>, %arg2 : tensor<2x2xf32>) -> tensor<4xf32> {
   %0 = "mhlo.add"(%arg0, %arg1) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
   %1 = "mhlo.abs"(%0) : (tensor<4xf32>) -> tensor<4xf32>
   %2 = "mhlo.reshape"(%arg2) : (tensor<2x2xf32>) -> tensor<4xf32>
-  %3 = "mhlo.add"(%0, %2) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
+  %3 = "mhlo.add"(%1, %2) : (tensor<4xf32>, tensor<4xf32>) -> tensor<4xf32>
   return %3 : tensor<4xf32>
 }
 // CHECK-LABEL: func.func @mhlo_element_reshape
-// CHECK: mhlo.reshape
 // CHECK-NEXT:  mhlo.fusion
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.abs
+// CHECK-NEXT:    mhlo.reshape
 // CHECK-NEXT:    mhlo.add
 // CHECK-NEXT:    mhlo.return
 // CHECK: {__byteir_elementwise_fusion__}
@@ -165,26 +182,23 @@ func.func @mhlo_cluster_depend(%arg0: tensor<16x128xf32>, %arg1: tensor<16x128xf
 //   CHECK-NEXT: {__byteir_elementwise_fusion__}
 //   CHECK: mhlo.fusion
 //     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
+//     CHECK-NEXT: mhlo.constant
 //     CHECK-NEXT: mhlo.divide
-//     CHECK-NEXT: mhlo.return
-//   CHECK-NEXT: {__byteir_elementwise_fusion__}
-//   CHECK: mhlo.fusion
-//     CHECK-NEXT: mhlo.constant
-//     CHECK-NEXT: mhlo.constant
-//     CHECK-NEXT: mhlo.constant
-//     CHECK-NEXT: mhlo.constant
 //     CHECK-NEXT: mhlo.compare
 //     CHECK-NEXT: mhlo.broadcast_in_dim
 //     CHECK-NEXT: mhlo.select
 //     CHECK-NEXT: mhlo.select
 //     CHECK-NEXT: mhlo.return
 //   CHECK-NEXT: {__byteir_elementwise_fusion__}
-//   CHECK-NEXT:mhlo.reduce
-//   CHECK-NEXT:mhlo.reduce
+//   CHECK-NEXT: mhlo.reduce
+//   CHECK-NEXT: mhlo.reduce
 //   CHECK: mhlo.fusion
 //     CHECK-NEXT: mhlo.constant
 //     CHECK-NEXT: mhlo.broadcast_in_dim
-//     CHECK-NEXT:mhlo.multiply
-//     CHECK-NEXT:mhlo.divide
+//     CHECK-NEXT: mhlo.multiply
+//     CHECK-NEXT: mhlo.divide
 //     CHECK-NEXT: mhlo.return
 //   CHECK-NEXT: {__byteir_elementwise_fusion__}

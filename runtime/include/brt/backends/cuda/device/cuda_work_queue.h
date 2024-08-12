@@ -64,6 +64,7 @@ public:
 
   virtual CUstream_st *GetComputeStream() { return nullptr; }
 
+  // FIXME: reimplement this as async op, because d2h is async
   common::Status AddHostTask(const void *task, void **args, int op_id,
                              const std::vector<int> &dependency) override {
     auto func = reinterpret_cast<const std::function<void(void)> *>(task);

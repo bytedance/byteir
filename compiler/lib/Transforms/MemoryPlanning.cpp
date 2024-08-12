@@ -35,6 +35,7 @@
 
 #include "byteir/Analysis/Liveness.h"
 #include "byteir/Analysis/UseRange.h"
+#include "byteir/Utils/TypeUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/Transforms/BufferUtils.h"
 #include "mlir/Dialect/Bufferization/Transforms/BufferViewFlowAnalysis.h"
@@ -61,11 +62,11 @@ size_t computeUserangeSize(const UseInterval &interval) {
 /// Compute the byte size of a given Value.
 size_t computeByteSize(const Value &v) {
   auto type = cast<ShapedType>(v.getType());
-  auto dtypeSize = (type.getElementTypeBitWidth() + 7) >> 3;
-  return dtypeSize * type.getNumElements();
+  auto dtypeByteWidth = canonicalizeTypeBitWidth(type.getElementType()) >> 3;
+  return dtypeByteWidth * type.getNumElements();
 }
 
-/// Compute the \p alignment byte alinged segments of a given Value.
+/// Compute the \p alignment byte aligned segments of a given Value.
 size_t computeAlignedSegments(const Value &v, size_t alignment) {
   size_t bytes = computeByteSize(v);
   return std::ceil(bytes / (double)alignment);

@@ -5,9 +5,9 @@ define void @Unknown0(ptr %0, ptr %1, i64 %2, ptr %3, ptr %4, i64 %5, ptr %6, pt
   br label %14
 
 14:                                               ; preds = %17, %13
-  %15 = phi i64 [ %168, %17 ], [ 0, %13 ]
+  %15 = phi i64 [ %169, %17 ], [ 0, %13 ]
   %16 = icmp slt i64 %15, 97
-  br i1 %16, label %17, label %169
+  br i1 %16, label %17, label %170
 
 17:                                               ; preds = %14
   %18 = load i64, ptr %1, align 4
@@ -154,17 +154,18 @@ define void @Unknown0(ptr %0, ptr %1, i64 %2, ptr %3, ptr %4, i64 %5, ptr %6, pt
   %159 = trunc i64 %158 to i32
   %160 = xor i32 %159, %152
   %161 = xor i32 %160, %155
-  %162 = uitofp i32 %161 to float
-  %163 = fmul float %162, 0x3DF0000000000000
-  %164 = fadd float %163, 0x3DE0000000000000
-  %165 = fadd float %164, 0.000000e+00
-  %166 = add i64 0, %15
-  %167 = getelementptr float, ptr %7, i64 %166
-  store float %165, ptr %167, align 4
-  %168 = add i64 %15, 1
+  %162 = zext i32 %161 to i64
+  %163 = uitofp i64 %162 to double
+  %164 = fmul double %163, 0x3DF0000000000000
+  %165 = fptrunc double %164 to float
+  %166 = fadd float %165, 0.000000e+00
+  %167 = add i64 0, %15
+  %168 = getelementptr float, ptr %7, i64 %167
+  store float %166, ptr %168, align 4
+  %169 = add i64 %15, 1
   br label %14
 
-169:                                              ; preds = %14
+170:                                              ; preds = %14
   ret void
 }
 

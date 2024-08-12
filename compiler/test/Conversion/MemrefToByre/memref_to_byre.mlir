@@ -1,4 +1,4 @@
-// RUN: byteir-opt -memref-to-byre --split-input-file %s | FileCheck %s
+// RUN: byteir-opt -memref-to-byre --canonicalize --split-input-file %s | FileCheck %s
 
 func.func @test_copy(%arg0: memref<4xf32, "cpu">, %arg1: memref<4xf32, "gpu">) attributes {__placeholder__byre.entry_point} {
   memref.copy %arg0, %arg1 : memref<4xf32, "cpu"> to memref<4xf32, "gpu">
@@ -6,6 +6,29 @@ func.func @test_copy(%arg0: memref<4xf32, "cpu">, %arg1: memref<4xf32, "gpu">) a
 }
 // CHECK: byre.copy
 //   CHECK-SAME {callee = "cpu2gpu"} : memref<4xf32, "cpu">, memref<4xf32, "gpu">
+
+// -----
+
+func.func @test_copy_stride$0(%arg0: memref<100x2xf32, strided<[2, 1], offset: 10>, "cpu">, %arg1: memref<100x2xf32, strided<[2, 1], offset: 20>, "gpu">) attributes {__placeholder__byre.entry_point} {
+  memref.copy %arg0, %arg1 : memref<100x2xf32, strided<[2, 1], offset: 10>, "cpu"> to memref<100x2xf32, strided<[2, 1], offset: 20>, "gpu">
+  return
+}
+// CHECK-LABEL: func.func @test_copy_stride$0
+// CHECK-NEXT:  %0 = "byre.alias"(%arg0) <{offset = 10 : i64}> : (memref<100x2xf32, strided<[2, 1], offset: 10>, "cpu">) -> memref<100x2xf32, "cpu">
+// CHECK-NEXT:  %1 = "byre.alias"(%arg1) <{offset = 20 : i64}> : (memref<100x2xf32, strided<[2, 1], offset: 20>, "gpu">) -> memref<100x2xf32, "gpu">
+// CHECK-NEXT:  byre.copy(%0, %1) {callee = "cpu2gpu"} : memref<100x2xf32, "cpu">, memref<100x2xf32, "gpu">
+// CHECK-NEXT:  return
+
+// -----
+
+func.func @test_copy_stride$1(%arg0: memref<1xf16, strided<[1]>, "cpu">, %arg1: memref<1xf16, "cpu">) attributes {__placeholder__byre.entry_point} {
+  memref.copy %arg0, %arg1 : memref<1xf16, strided<[1]>, "cpu"> to memref<1xf16, "cpu">
+  return
+}
+// CHECK-LABEL: func.func @test_copy_stride$1
+// CHECK-NEXT:  %0 = "byre.alias"(%arg0) <{offset = 0 : i64}> : (memref<1xf16, strided<[1]>, "cpu">) -> memref<1xf16, "cpu">
+// CHECK-NEXT:  byre.copy(%0, %arg1) {callee = "cpu2cpu"} : memref<1xf16, "cpu">, memref<1xf16, "cpu">
+// CHECK-NEXT:  return
 
 // -----
 

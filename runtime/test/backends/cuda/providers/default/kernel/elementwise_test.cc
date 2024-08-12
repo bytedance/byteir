@@ -46,7 +46,7 @@ static void CheckResult(float *d_ptr, size_t size, float val) {
   });
 }
 
-TEST(CUDAOpKerenlTest, AddOp2) {
+TEST(CUDAOpKernelTest, AddOp2) {
   ByREBuilder byre_builder;
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
@@ -98,7 +98,7 @@ TEST(CUDAOpKerenlTest, AddOp2) {
   CheckResult(d_arg_3, len, 5.0f);
 }
 
-TEST(CUDAOpKerenlTest, AddSplatConstOne) {
+TEST(CUDAOpKernelTest, AddSplatConstOne) {
   Session session;
   auto status_allocator = CUDAAllocatorFactory(&session);
   BRT_TEST_CHECK_STATUS(status_allocator);

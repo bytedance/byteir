@@ -85,6 +85,7 @@ add_mlir_dialect_library(ByteIRMhloPasses
   Transforms/ConvertOpToCustomCall.cpp
   Transforms/ConvertInsertion.cpp
   Transforms/FuseTransposeIntoDotGeneral.cpp
+  Transforms/DecomposeMhloCustomCallOps.cpp
   Transforms/DTypeConversion.cpp
   Transforms/DynamicShapeClustering.cpp
   Transforms/FuncArgRearrangement.cpp

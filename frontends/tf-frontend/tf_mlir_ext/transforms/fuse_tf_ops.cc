@@ -230,6 +230,44 @@ Value replaceWhereDynamic(PatternRewriter &rewriter, Location loc, Value input,
   return replaceWhereStatic(rewriter, loc, inputGather, oneHotOutput);
 }
 
+struct RemoveTFReshapeOp : public OpRewritePattern<TF::ReshapeOp> {
+  using OpRewritePattern<TF::ReshapeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::ReshapeOp reshapeOp,
+                                PatternRewriter &rewriter) const override {
+    auto input = reshapeOp.getTensor();
+    auto shape = reshapeOp.getShape();
+    auto output = reshapeOp.getOutput();
+    auto inputType = input.getType().dyn_cast<RankedTensorType>();
+    auto outputType = output.getType().dyn_cast<RankedTensorType>();
+    if (!inputType || !outputType) {
+      return failure();
+    }
+    if (inputType.hasStaticShape() || outputType.hasStaticShape()) {
+      return failure();
+    }
+    if (inputType.getRank() != outputType.getRank()) {
+      return failure();
+    }
+    if (!llvm::all_of(
+            llvm::zip(inputType.getShape(), outputType.getShape()),
+            [](auto it) { return std::get<0>(it) == std::get<1>(it); })) {
+      return failure();
+    }
+    int64_t dynamicDimNumber = 0;
+    for (auto dim : inputType.getShape()) {
+      if (dim == ShapedType::kDynamic) {
+        dynamicDimNumber++;
+      }
+    }
+    if (dynamicDimNumber > 1) {
+      return failure();
+    }
+    rewriter.replaceAllUsesWith(output, input);
+    return success();
+  }
+};
+
 #include "tf_mlir_ext/transforms/fuse_tf_ops.inc"
 
 struct FuseTFOpsPass : public FuseTFOpsBase<FuseTFOpsPass> {
@@ -244,6 +282,7 @@ struct FuseTFOpsPass : public FuseTFOpsBase<FuseTFOpsPass> {
 
     patterns.add(std::make_unique<FuseDilatedConv3DPattern>(ctx));
     patterns.add(std::make_unique<FuseSigmoid>(ctx));
+    patterns.add(std::make_unique<RemoveTFReshapeOp>(ctx));
     if (replaceWhereToStatic) {
       patterns.add(std::make_unique<ReplaceWhereStatic>(ctx));
       patterns.add(std::make_unique<ReplaceWhereStaticV2>(ctx));

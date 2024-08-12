@@ -652,3 +652,18 @@ module attributes {byre.container_module} {
 // CHECK-LABEL: func.func @reduce_sum
 // CHECK: %[[COLLAPSE:.*]] = memref.collapse_shape %arg1 {{\[\[}}0, 1, 2]] : memref<1x32x256xf32, "cuda"> into memref<8192xf32, "cuda">
 // CHECK: byre.compute @PTXOp(%arg0, %[[COLLAPSE]]) {BlockSize.x = 256 : i32, BlockSize.y = 1 : i32, BlockSize.z = 1 : i32, GridSize.x = 8192 : i32, GridSize.y = 1 : i32, GridSize.z = 1 : i32, call_convention = "bare_ptr", device = "cuda", kernel_name = "Unknown0_kernel"} : memref<1x32x256x256xf32, "cuda">, memref<8192xf32, "cuda">
+
+// -----
+
+func.func @stride_copy(%arg0: memref<32x64xf32>)  -> (memref<1x16x1xf32>) attributes {__placeholder__byre.entry_point} {
+  %subview = memref.subview %arg0[0, 0] [1, 16] [1, 1] : memref<32x64xf32> to memref<1x16xf32, strided<[64, 1]>>
+  %expand_shape = memref.expand_shape %subview [[0], [1, 2]] output_shape [1, 16, 1] : memref<1x16xf32, strided<[64, 1]>> into memref<1x16x1xf32, strided<[64, 1, 1]>>
+  %alloc = memref.alloc() : memref<1x16x1xf32>
+  %alloc_0 = memref.alloc() : memref<1x16x1xf32>
+  memref.copy %expand_shape, %alloc : memref<1x16x1xf32, strided<[64, 1, 1]>> to memref<1x16x1xf32>
+  byre.compute @cudaComputeOp(%alloc, %alloc_0) {device = "cuda",  kernel_name = "main_cuda", memory_effects = [1 : i32, 2 : i32]} : memref<1x16x1xf32>, memref<1x16x1xf32>
+  return %alloc_0 : memref<1x16x1xf32>
+}
+
+// CHECK-LABEL: func.func @stride_copy
+// CHECK-NOT: memref.copy

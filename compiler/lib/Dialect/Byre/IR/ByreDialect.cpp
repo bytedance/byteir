@@ -21,6 +21,7 @@
 
 #include "byteir/Dialect/Byre/ByreDialect.h"
 
+#include "byteir/Utils/TypeUtils.h"
 #include "byteir/Utils/Utils.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -370,6 +371,12 @@ LogicalResult CopyOp::fold(FoldAdaptor, SmallVectorImpl<OpFoldResult> &) {
 }
 
 LogicalResult CopyOp::verify() {
+  auto srcType = cast<MemRefType>(getSource().getType());
+  auto dstType = cast<MemRefType>(getTarget().getType());
+  if (!srcType.getLayout().isIdentity() || !dstType.getLayout().isIdentity()) {
+    return this->emitError(
+        "expected src and dst must be identity layout memref");
+  }
   return verifyOpInEntryPointFunc(this->getOperation());
 }
 
@@ -448,30 +455,19 @@ struct CollapseAliasChain : public OpRewritePattern<AliasOp> {
   LogicalResult matchAndRewrite(AliasOp aliasOp,
                                 PatternRewriter &rewriter) const override {
     if (auto sourceOp = aliasOp.getSource().getDefiningOp<AliasOp>()) {
-      auto srcElemBitwidth = cast<MemRefType>(sourceOp.getSource().getType())
-                                 .getElementType()
-                                 .getIntOrFloatBitWidth();
-      auto curElemBitwidth = cast<MemRefType>(aliasOp.getTarget().getType())
-                                 .getElementType()
-                                 .getIntOrFloatBitWidth();
+      auto srcElemBitwidth = canonicalizeTypeBitWidth(
+          cast<MemRefType>(sourceOp.getSource().getType()).getElementType());
+      auto curElemBitwidth = canonicalizeTypeBitWidth(
+          cast<MemRefType>(aliasOp.getSource().getType()).getElementType());
+
+      if (aliasOp.getOffset() * curElemBitwidth % srcElemBitwidth != 0) {
+        return failure();
+      }
       auto newOffset = aliasOp.getOffset() * curElemBitwidth / srcElemBitwidth +
                        sourceOp.getOffset();
       rewriter.replaceOpWithNewOp<AliasOp>(aliasOp,
                                            aliasOp.getTarget().getType(),
                                            sourceOp.getSource(), newOffset);
-      return success();
-    }
-    return failure();
-  }
-};
-struct RemoveIdentityAliasOp : public OpRewritePattern<AliasOp> {
-  using OpRewritePattern<AliasOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(AliasOp aliasOp,
-                                PatternRewriter &rewriter) const override {
-    if (aliasOp.getSource().getType() == aliasOp.getTarget().getType() &&
-        aliasOp.getOffset() == 0) {
-      rewriter.replaceOp(aliasOp, aliasOp.getSource());
       return success();
     }
     return failure();
@@ -483,9 +479,17 @@ struct RemoveIdentityAliasOp : public OpRewritePattern<AliasOp> {
 LogicalResult AliasOp::verify() {
   auto *op = this->getOperation();
 
+  auto srcType = cast<MemRefType>(getSource().getType());
+  auto dstType = cast<MemRefType>(getTarget().getType());
+
+  // check static shape
+  if (!srcType.hasStaticShape() || !dstType.hasStaticShape()) {
+    return op->emitError("expected srouce and target both have static shape");
+  }
+
   // check if src and dst has memory space.
-  auto srcMemSpace = cast<MemRefType>(getSource().getType()).getMemorySpace();
-  auto dstMemSpace = cast<MemRefType>(getTarget().getType()).getMemorySpace();
+  auto srcMemSpace = srcType.getMemorySpace();
+  auto dstMemSpace = dstType.getMemorySpace();
   // TODO. W'd better set memory space explicitly but not use default mem space.
   if ((srcMemSpace || dstMemSpace) &&
       (!srcMemSpace || !dstMemSpace || srcMemSpace != dstMemSpace)) {
@@ -495,9 +499,17 @@ LogicalResult AliasOp::verify() {
   return verifyOpInEntryPointFunc(op);
 }
 
+OpFoldResult AliasOp::fold(FoldAdaptor adaptor) {
+  if (this->getSource().getType() == this->getTarget().getType() &&
+      this->getOffset() == 0) {
+    return this->getSource();
+  }
+  return nullptr;
+}
+
 void AliasOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                           MLIRContext *context) {
-  results.add<CollapseAliasChain, RemoveIdentityAliasOp>(context);
+  results.add<CollapseAliasChain>(context);
 }
 
 std::string AliasOp::getCalleeName() { return "AliasOp"; }
