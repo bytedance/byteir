@@ -25,6 +25,7 @@ GENERIC_CUSTOM_OPS = [
     "byteir.one_hot",
     "byteir.topk",
     "byteir.non_zero",
+    "byteir.resize",
 ]
 
 MATH_CUSTOM_OPS = [
@@ -56,6 +57,7 @@ CUSTOM_OP_MAP = {
     "byteir.one_hot": ["aten.one_hot"],
     "byteir.topk": ["aten.topk"],
     "byteir.non_zero": ["aten.nonzero"],
+    "byteir.resize": ["aten.upsample_nearest2d.vec"],
     "math.asin": ["aten.asin"],
     "math.asinh": ["aten.asinh"],
     "math.sinh": ["aten.sinh"],

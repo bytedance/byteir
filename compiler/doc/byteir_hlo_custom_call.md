@@ -237,6 +237,15 @@ Further needed infomation for a given coarse-grained op are encoded in a diction
 
 - Results:
   - output: Tensor
+- Example:
+```
+%0 = stablehlo.constant dense<[1, 1, 30, 40]> : tensor<4xi64>
+%1 = stablehlo.custom_call @byteir.resize(%arg0, %0) {byteir_attrs = {coordinate_transformation_mode = "pytorch_half_pixel", mode = "linear", target_mode = "size"}} : (tensor<1x1x15x20xf32>, tensor<4xi64>) -> tensor<1x1x30x40xf32>
+```
+```
+%0 = stablehlo.constant dense<[1.000000e+00, 1.000000e+00, 2.000000e+00, 2.000000e+00]> : tensor<4xf32>
+%1 = stablehlo.custom_call @byteir.resize(%arg0, %0) {byteir_attrs = {coordinate_transformation_mode = "asymmetric", mode = "nearest", target_mode = "scale"}} : (tensor<1x3x4x4xf32>, tensor<4xf32>) -> tensor<1x3x8x8xf32>
+```
 
 ### byteir.rng_uniform/byteir.rng_normal
 - Operands:

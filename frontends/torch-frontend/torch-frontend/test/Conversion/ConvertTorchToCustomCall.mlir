@@ -1,4 +1,4 @@
-// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=byteir.layer_norm,byteir.softmax,byteir.log_softmax,byteir.nll_loss_forward,byteir.nll_loss_backward,byteir.gelu,byteir.arg_max,byteir.arg_min,byteir.one_hot,byteir.topk,byteir.non_zero" --canonicalize-ext | FileCheck %s
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=byteir.layer_norm,byteir.softmax,byteir.log_softmax,byteir.nll_loss_forward,byteir.nll_loss_backward,byteir.gelu,byteir.arg_max,byteir.arg_min,byteir.one_hot,byteir.topk,byteir.non_zero,byteir.resize" --canonicalize-ext | FileCheck %s
 // RUN: torch-frontend-opt %s -convert-torch-to-custom-call --canonicalize-ext | FileCheck %s --check-prefix NONE
 // RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=math.asin" --canonicalize-ext | FileCheck %s --check-prefix MATH
 
@@ -249,3 +249,16 @@ func.func @torch.aten.nonzero(%arg0: !torch.vtensor<[5],si64>) -> !torch.vtensor
 // CHECK-SAME: @byteir.non_zero
 // CHECK: byteir_attrs = {}
 // CHECH-NOT: torch.aten.nonzero
+
+func.func @torch.aten.upsample_nearest2d.vec(%arg0: !torch.vtensor<[1,3,10,20],f32>) -> !torch.vtensor<[1,3,15,40],f32> {
+  %none = torch.constant.none
+  %int15 = torch.constant.int 15
+  %int40 = torch.constant.int 40
+  %output_size = torch.prim.ListConstruct %int15, %int40 : (!torch.int, !torch.int) -> !torch.list<int>
+  %0 = torch.aten.upsample_nearest2d.vec %arg0, %output_size, %none : !torch.vtensor<[1,3,10,20],f32>, !torch.list<int>, !torch.none -> !torch.vtensor<[1,3,15,40],f32>
+  return %0 : !torch.vtensor<[1,3,15,40],f32>
+}
+// CHECK-LABEL: func.func @torch.aten.upsample_nearest2d.vec
+// CHECK: stablehlo.custom_call
+// CHECK-SAME: @byteir.resize
+// CHECK-NOT: torch.aten.upsample_nearest2d.vec

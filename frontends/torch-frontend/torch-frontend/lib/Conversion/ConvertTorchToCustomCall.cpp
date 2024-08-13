@@ -1076,6 +1076,47 @@ public:
 };
 } // namespace
 
+// aten.upsample_nearest2d.vec
+namespace {
+class ConvertAtenUpsampleNearest2dVecOp
+    : public OpConversionPattern<AtenUpsampleNearest2dVecOp> {
+public:
+  using OpConversionPattern<AtenUpsampleNearest2dVecOp>::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenUpsampleNearest2dVecOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getInput();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op.getResult().getType()));
+    if (!resultType.hasStaticShape())
+      return failure();
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("target_mode"),
+                              rewriter.getStringAttr("size"));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("mode"),
+                              rewriter.getStringAttr("nearest"));
+    byteir_attrs.emplace_back(
+        rewriter.getStringAttr("coordinate_transformation_mode"),
+        rewriter.getStringAttr("asymmetric"));
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getResizeName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    Value size = rewriter.create<stablehlo::ConstantOp>(
+        op->getLoc(), rewriter.getI64TensorAttr(resultType.getShape()));
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), TypeRange{resultType}, ValueRange{input, size},
+        ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+} // namespace
+
 // math ops
 namespace {
 template <typename AtenOpT>
@@ -1208,6 +1249,10 @@ public:
     if (validCustomCallOpsSet.contains("byteir.non_zero")) {
       target.addIllegalOp<AtenNonzeroOp>();
       patterns.add<ConvertAtenNonzeroOp>(typeConverter, context);
+    }
+    if (validCustomCallOpsSet.contains("byteir.resize")) {
+      target.addIllegalOp<AtenUpsampleNearest2dVecOp>();
+      patterns.add<ConvertAtenUpsampleNearest2dVecOp>(typeConverter, context);
     }
 
     if (validCustomCallOpsSet.contains("byteir.nll_loss_forward")) {
