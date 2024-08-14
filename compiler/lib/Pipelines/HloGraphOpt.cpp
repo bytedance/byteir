@@ -24,6 +24,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/Passes.h"
+#include "byteir/Conversion/HloToTensor/ConvertHloToTensor.h"
 
 #include <string>
 
@@ -66,6 +67,8 @@ void createHloGraphOptPipelineImpl(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());
 
   addCleanUpExtPassPipeline(pm);
+  
+  pm.addNestedPass<func::FuncOp>(createConvertHloToTensorPass());
 }
 } // namespace
 

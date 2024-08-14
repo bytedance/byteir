@@ -1,0 +1,170 @@
+#include "byteir/Conversion/HloToTensor/ConvertHloToTensor.h"
+#include "byteir/Dialect/mhlo/Util/Util.h"
+#include "byteir/Utils/Utils.h"
+#include "mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "llvm/ADT/StringSet.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+
+#include "../PassDetail.h"
+
+using namespace mlir;
+using namespace mlir::mhlo;
+using namespace mlir::arith;
+using namespace llvm;
+
+namespace {
+struct ConvertScatterToInsertSlice : public OpConversionPattern<mhlo::ScatterOp> {
+  using OpConversionPattern<mhlo::ScatterOp>::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(mhlo::ScatterOp op, OpAdaptor adaptor, 
+                  ConversionPatternRewriter &rewriter) const override {
+    printf("pos1");
+    auto loc = op.getLoc();
+    auto scatterIndices = op.getScatterIndices();
+    RankedTensorType scatterIndicesType = scatterIndices.getType().cast<RankedTensorType>();
+    auto siShape = scatterIndicesType.getShape();
+    auto siRank = siShape.size();
+
+    if (siRank != 2) {
+      return failure();
+    } else if (siShape[1] != 1) {
+      return failure();
+    }
+
+    auto dimNumAttr = op.getScatterDimensionNumbersAttr();
+    auto insertedWindowDims = dimNumAttr.getInsertedWindowDims();
+    if (insertedWindowDims.size() != 1) {
+      return failure();
+    }
+    int64_t dim = insertedWindowDims[0];
+    auto updatedWindowDims = dimNumAttr.getUpdateWindowDims();
+    for (int64_t i = 0; i < updatedWindowDims.size(); ++i) {
+      if (updatedWindowDims[i] == dim) {
+        return failure();
+      }
+    }
+    auto scatterDimsToOperands = dimNumAttr.getScatterDimsToOperandDims();
+    if (scatterDimsToOperands.size() != 1) {
+      return failure();
+    }
+
+    auto scatterIndicesBatchingDims = dimNumAttr.getScatterIndicesBatchingDims();
+    auto inputBatchingDims = dimNumAttr.getInputBatchingDims();
+    if (scatterIndicesBatchingDims.size() != 0 || inputBatchingDims.size() != 0) {
+      return failure();
+    }
+    
+    auto indexVectorDim = dimNumAttr.getIndexVectorDim();
+    if (indexVectorDim != 1) {
+      return failure();
+    }
+
+    // Prepare arguments for InsertSlice.
+    auto inputs = op.getInputs();
+    Value input = llvm::cast<mlir::TypedValue<mlir::RankedTensorType>>(*inputs.begin()); 
+    RankedTensorType inputType = cast<RankedTensorType>(input.getType());
+    auto inputShape = inputType.getShape();
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    SmallVector<Value> indices0 = {zero, zero};
+    SmallVector<Value> indices1 = {one, zero};
+
+    printf("pos2");
+
+    // Get dim info.
+    // auto dimNumAttr = op.getScatterDimensionNumbersAttr();
+    // int64_t dim = dimNumAttr.getUpdateWindowDims()[0];
+    // int64_t dim = dimNumAttr.getInsertedWindowDims()[0];
+    printf("Dim here is: %d", dim);
+    // Prepare offsets arg.
+    SmallVector<Value> offsets(inputType.getRank(), zero);
+    // SmallVector<Value> offsets;
+    Value pos0 = rewriter.create<tensor::ExtractOp>(loc, scatterIndices, indices0);
+    auto startIndex = rewriter.create<arith::IndexCastOp>(loc, rewriter.getIndexType(), pos0);
+    offsets[dim] = startIndex;
+    // offsets.resize(inputType.getRank(), zero);
+
+
+    // Prepare strides arg.
+    SmallVector<Value> strides(inputType.getRank(), one);
+    Value stepIndex;
+    if (siShape[0] > 1) {
+      Value pos1 = rewriter.create<tensor::ExtractOp>(loc, scatterIndices, indices1);
+      auto secondIndex = rewriter.create<arith::IndexCastOp>(loc, rewriter.getIndexType(), pos1);
+      stepIndex = rewriter.create<arith::SubIOp>(loc, secondIndex, startIndex);
+    } else {
+      stepIndex = rewriter.create<tensor::DimOp>(loc, input, dim);
+    }
+    strides[dim] = rewriter.create<arith::MulIOp>(loc, strides[dim], stepIndex);
+
+    // Prepare resultShape arg.
+    SmallVector<Value> resultShape;
+    for (int64_t i = 0; i < inputType.getRank(); ++i) {
+      resultShape.push_back(rewriter.create<tensor::DimOp>(loc, input, i));
+    }
+    resultShape[dim] = rewriter.create<arith::ConstantIndexOp>(loc, siShape[0]);
+
+    // Build tensor::InsertSliceOp.
+    Value src = *(adaptor.getUpdates()).begin();
+    auto srcType = cast<RankedTensorType>(src.getType());
+    int64_t srcRank = srcType.getRank();
+    SmallVector<int64_t> srcAbstractSizes(srcRank, ShapedType::kDynamic);
+    auto abstractSrcType = RankedTensorType::get(
+        srcAbstractSizes, srcType.getElementType());
+    Value abstractSrc =
+        rewriter.create<tensor::CastOp>(loc, abstractSrcType, src);
+
+    // auto updates = op.getUpdates();
+    // Value update = llvm::cast<mlir::TypedValue<mlir::RankedTensorType>>(*updates.begin()); 
+    auto newOp = rewriter.create<tensor::InsertSliceOp>(
+      loc, /*update*/abstractSrc, input, offsets, resultShape, strides
+    );
+
+    // rewriter.replaceOp(op, newOp.getResult());
+    rewriter.replaceOp(op, newOp);
+    return success();
+  }
+};
+
+struct ConvertHloToTensorPass : public ConvertHloToTensorBase<ConvertHloToTensorPass> {
+public:
+    ConvertHloToTensorPass() = default;
+
+    void runOnOperation() override {
+        MLIRContext &context = getContext();
+        RewritePatternSet patterns(&context);
+        ConversionTarget target(context);
+        auto funcOp = getOperation();
+
+        populateHloToTensorPattern(patterns);
+        // target.addIllegalDialect<mhlo::MhloDialect>();
+        target.addLegalDialect<tensor::TensorDialect>();
+        target.addLegalDialect<arith::ArithDialect>();
+        
+        FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+        if (failed(applyPartialConversion(funcOp, target, frozenPatterns))) {
+          signalPassFailure();
+        }
+    }
+};
+};
+
+void mlir::populateHloToTensorPattern(
+    RewritePatternSet &patterns
+) {
+    patterns.add<ConvertScatterToInsertSlice>(
+      patterns.getContext()
+    );
+}
+
+// namespace mlir {
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createConvertHloToTensorPass() {
+  return std::make_unique<ConvertHloToTensorPass>();
+}
+// };
