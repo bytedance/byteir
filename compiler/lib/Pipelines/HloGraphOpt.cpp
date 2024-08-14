@@ -17,6 +17,7 @@
 
 #include "byteir/Pipelines/HloGraphOpt.h"
 
+#include "byteir/Conversion/Passes.h"
 #include "byteir/Dialect/mhlo/Passes.h"
 #include "byteir/Pipelines/Common/Utils.h"
 #include "byteir/Transforms/Passes.h"
@@ -24,7 +25,6 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/Passes.h"
-#include "byteir/Conversion/HloToTensor/ConvertHloToTensor.h"
 
 #include <string>
 
@@ -66,9 +66,10 @@ void createHloGraphOptPipelineImpl(OpPassManager &pm,
   // rewrite mhlo.batch_norm_grad
   pm.addNestedPass<func::FuncOp>(createRewriteWithConstraintPass());
 
-  addCleanUpExtPassPipeline(pm);
-  
+  // transform mhlo.scatter to tensor.insert_slice.
   pm.addNestedPass<func::FuncOp>(createConvertHloToTensorPass());
+
+  addCleanUpExtPassPipeline(pm);
 }
 } // namespace
 

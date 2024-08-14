@@ -6,17 +6,15 @@ add_byteir_conversion_library(ByteIRHloToTensor
     
     DEPENDS
     MLIRTensorDialect
+    MLIRArithDialect
     ByteIRConversionPassIncGen
     ByteIRConversionCommon
     ByteIRMhloUtils
 
     LINK_LIBS PUBLIC
     MhloDialect
-    MLIRAceDialect
+    MLIRTensorDialect
     MLIRArithDialect
     MLIRIR
-    MLIRTensorDialect
-    MLIRTransforms
     ByteIRConversionCommon
-    ByteIRMhloUtils
 )

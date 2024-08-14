@@ -293,6 +293,7 @@ def ConvertHloToTensor : Pass<"hlo-to-tensor", "func::FuncOp"> {
   let summary = "Convert hlo op to Tensor op.";
   let constructor = "mlir::createConvertHloToTensorPass()";
   let dependentDialects = [
+    "mlir::arith::ArithDialect",
     "mlir::tensor::TensorDialect",
   ];  
 }
