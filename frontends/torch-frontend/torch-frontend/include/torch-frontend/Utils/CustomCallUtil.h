@@ -81,6 +81,10 @@ constexpr llvm::StringRef getAddNName() {
   return CUSTOM_CALL_NAME_PREFIX "addn";
 }
 
+constexpr llvm::StringRef getResizeName() {
+  return CUSTOM_CALL_NAME_PREFIX "resize";
+}
+
 constexpr llvm::StringRef getDynamicPartitionName() {
   return TF_NAME_PREFIX "DynamicPartition";
 }
