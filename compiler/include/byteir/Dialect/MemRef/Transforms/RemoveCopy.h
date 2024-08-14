@@ -30,7 +30,8 @@ class FuncOp;
 } // namespace func
 
 void populateRemoveCopyAfterBufferizationPattern(RewritePatternSet &patterns,
-                                                 DominanceInfo &domInfo);
+                                                 DominanceInfo &domInfo,
+                                                 bool enableByreAlias);
 
 std::unique_ptr<OperationPass<func::FuncOp>> createRemoveCopyPass();
 

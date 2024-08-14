@@ -667,3 +667,23 @@ func.func @stride_copy(%arg0: memref<32x64xf32>)  -> (memref<1x16x1xf32>) attrib
 
 // CHECK-LABEL: func.func @stride_copy
 // CHECK-NOT: memref.copy
+
+// -----
+
+func.func @byre_alias(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> (memref<256x256xf32>) attributes {__placeholder__byre.entry_point} {
+  %subview = memref.subview %arg0[0, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1]>>
+  %subview_0 = memref.subview %arg1[10, 0] [128, 200] [1, 1] : memref<512x200xf32> to memref<128x200xf32, strided<[200, 1], offset: 2000>>
+  %collapse_shape = memref.collapse_shape %subview [[0, 1]] : memref<128x200xf32, strided<[200, 1]>> into memref<25600xf32, strided<[1]>>
+  %expand_shape = memref.expand_shape %collapse_shape [[0, 1]] output_shape [256, 100] : memref<25600xf32, strided<[1]>> into memref<256x100xf32>
+  %collapse_shape_1 = memref.collapse_shape %subview_0 [[0, 1]] : memref<128x200xf32, strided<[200, 1], offset: 2000>> into memref<25600xf32, strided<[1], offset: 2000>>
+  %expand_shape_2 = memref.expand_shape %collapse_shape_1 [[0, 1]] output_shape [100, 256] : memref<25600xf32, strided<[1], offset: 2000>> into memref<100x256xf32, strided<[256, 1], offset: 2000>>
+  %alloc = memref.alloc() : memref<256x256xf32>
+  %alloc_3 = memref.alloc() : memref<100x256xf32>
+  memref.copy %expand_shape_2, %alloc_3 : memref<100x256xf32, strided<[256, 1], offset: 2000>> to memref<100x256xf32>
+  byre.compute @MatmulOp_f32f32_f32(%expand_shape, %alloc_3, %alloc) {lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<256x100xf32>, memref<100x256xf32>, memref<256x256xf32>
+  return %alloc : memref<256x256xf32>
+}
+
+// CHECK-LABEL: func.func @byre_alias
+// CHECK-NOT:  memref.copy
+// CHECK:      byre.alias

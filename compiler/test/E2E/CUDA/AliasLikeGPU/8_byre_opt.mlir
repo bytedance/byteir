@@ -34,10 +34,9 @@ module attributes {gpu.container_module} {
     %collapse_shape_1 = memref.collapse_shape %subview_0 [[0, 1]] : memref<128x200xf32, strided<[200, 1], offset: 2000>, "cuda"> into memref<25600xf32, strided<[1], offset: 2000>, "cuda">
     %expand_shape_2 = memref.expand_shape %collapse_shape_1 [[0, 1]] output_shape [100, 256] : memref<25600xf32, strided<[1], offset: 2000>, "cuda"> into memref<100x256xf32, strided<[256, 1], offset: 2000>, "cuda">
     %alloc = memref.alloc() : memref<256x256xf32, "cuda">
-    %alloc_3 = memref.alloc() : memref<100x256xf32, "cuda">
-    memref.copy %expand_shape_2, %alloc_3 : memref<100x256xf32, strided<[256, 1], offset: 2000>, "cuda"> to memref<100x256xf32, "cuda">
-    byre.compute @MatmulOp_f32f32_f32(%expand_shape, %alloc_3, %alloc) {device = "cuda", lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<256x100xf32, "cuda">, memref<100x256xf32, "cuda">, memref<256x256xf32, "cuda">
-    %0 = call @Unknown0(%arg0, %arg1) : (memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">) -> memref<512x200xf32, "cuda">
-    return %alloc, %0 : memref<256x256xf32, "cuda">, memref<512x200xf32, "cuda">
+    %0 = "byre.alias"(%expand_shape_2) <{offset = 2000 : i64}> {device = "cuda"} : (memref<100x256xf32, strided<[256, 1], offset: 2000>, "cuda">) -> memref<100x256xf32, "cuda">
+    byre.compute @MatmulOp_f32f32_f32(%expand_shape, %0, %alloc) {device = "cuda", lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<256x100xf32, "cuda">, memref<100x256xf32, "cuda">, memref<256x256xf32, "cuda">
+    %1 = call @Unknown0(%arg0, %arg1) : (memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">) -> memref<512x200xf32, "cuda">
+    return %alloc, %1 : memref<256x256xf32, "cuda">, memref<512x200xf32, "cuda">
   }
 }
