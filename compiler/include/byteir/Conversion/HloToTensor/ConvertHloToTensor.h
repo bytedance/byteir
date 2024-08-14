@@ -1,4 +1,4 @@
-//===- HloToByreTensor.h ---------------------------------------*--- C++-*-===//
+//===- ConvertHloToTensor.h ---------------------------------------*--- C++-*-===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,12 +19,8 @@
 #define BYTEIR_CONVERSION_HLOTOTENSOR_HLOTOTENSOR_H
 
 #include "mlir/Pass/Pass.h"
-// #include "llvm/ADT/StringMap.h"
-// #include "llvm/ADT/StringRef.h"
-// #include <memory>
 
 namespace mlir {
-// forward decl
 namespace func {
 class FuncOp;
 } // namespace func
