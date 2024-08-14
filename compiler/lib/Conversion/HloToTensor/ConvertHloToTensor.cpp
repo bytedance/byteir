@@ -24,7 +24,6 @@ struct ConvertScatterToInsertSlice : public OpConversionPattern<mhlo::ScatterOp>
   LogicalResult
   matchAndRewrite(mhlo::ScatterOp op, OpAdaptor adaptor, 
                   ConversionPatternRewriter &rewriter) const override {
-    printf("pos1");
     auto loc = op.getLoc();
     auto scatterIndices = op.getScatterIndices();
     RankedTensorType scatterIndicesType = scatterIndices.getType().cast<RankedTensorType>();
@@ -75,13 +74,11 @@ struct ConvertScatterToInsertSlice : public OpConversionPattern<mhlo::ScatterOp>
     SmallVector<Value> indices0 = {zero, zero};
     SmallVector<Value> indices1 = {one, zero};
 
-    printf("pos2");
-
     // Get dim info.
     // auto dimNumAttr = op.getScatterDimensionNumbersAttr();
     // int64_t dim = dimNumAttr.getUpdateWindowDims()[0];
     // int64_t dim = dimNumAttr.getInsertedWindowDims()[0];
-    printf("Dim here is: %d", dim);
+    // printf("Dim here is: %d", dim);
     // Prepare offsets arg.
     SmallVector<Value> offsets(inputType.getRank(), zero);
     // SmallVector<Value> offsets;
