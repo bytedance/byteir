@@ -226,6 +226,6 @@ class InsertSliceScatterModule(torch.nn.Module):
     def forward(self, x, src):
         return torch.ops.aten.slice_scatter(x, src, dim=1, start=0, end=1, step=1)
 
-@register_test_case(module_factory=lambda: InsertSliceScatterModule)
+@register_test_case(module_factory=lambda: InsertSliceScatterModule())
 def InsertSliceScatterModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(6, 8, 5), tu.rand(6, 1, 5))
