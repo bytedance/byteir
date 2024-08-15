@@ -144,6 +144,19 @@ def MatmulAddF16Module_basic(module, tu: TestUtils):
                    tu.rand(32, 128).to(torch.float16),
                    tu.rand(128, 128).to(torch.float16))
 
+class MatmulF16ReluModule(torch.nn.Module):
+    
+        def __init__(self):
+            super().__init__()
+    
+        def forward(self, a, b):
+            return torch.relu(torch.matmul(a, b))
+
+@register_test_case(module_factory=lambda: MatmulF16ReluModule())
+def MatmulF16ReluModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(128, 256).to(torch.float16),
+                   tu.rand(256, 128).to(torch.float16))
+
 class BatchMatmulAddF32Module(torch.nn.Module):
 
     def __init__(self):
