@@ -37,6 +37,12 @@ struct ConvertScatterToInsertSlice
       return failure();
     }
 
+    auto inputs = op.getInputs();
+    Value input =
+        llvm::cast<mlir::TypedValue<mlir::RankedTensorType>>(*inputs.begin());
+    RankedTensorType inputType = cast<RankedTensorType>(input.getType());
+    auto inputShape = inputType.getShape();
+
     auto dimNumAttr = op.getScatterDimensionNumbersAttr();
     auto insertedWindowDims = dimNumAttr.getInsertedWindowDims();
     if (insertedWindowDims.size() != 1) {
@@ -49,6 +55,10 @@ struct ConvertScatterToInsertSlice
         return failure();
       }
     }
+    if (updatedWindowDims.size() + 1 != inputShape.size()) {
+      return failure();
+    }
+
     auto scatterDimsToOperands = dimNumAttr.getScatterDimsToOperandDims();
     if (scatterDimsToOperands.size() != 1) {
       return failure();
@@ -67,12 +77,19 @@ struct ConvertScatterToInsertSlice
       return failure();
     }
 
+    Region &region = op.getUpdateComputation();
+    if (region.getBlocks().size() != 1) {
+      return failure();
+    }
+
+    auto &block = region.front();
+    Operation *retOp = block.getTerminator();
+    auto computeOp = retOp->getOperand(0).getDefiningOp();
+    if (computeOp) {
+      return failure();
+    }
+
     // Prepare arguments for InsertSlice.
-    auto inputs = op.getInputs();
-    Value input =
-        llvm::cast<mlir::TypedValue<mlir::RankedTensorType>>(*inputs.begin());
-    RankedTensorType inputType = cast<RankedTensorType>(input.getType());
-    auto inputShape = inputType.getShape();
     Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     SmallVector<Value> indices0 = {zero, zero};

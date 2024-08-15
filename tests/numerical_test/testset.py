@@ -49,7 +49,6 @@ CUDA_XFAIL_SET = {
     "transpose1203.mlir",
     "transpose2013.mlir",
     "transpose120.mlir",
-    "scatter.mlir",
 }
 
 CUDA_ALL_SET = (CUDA_MLIR_TEST_SET | CUDA_TORCH_TEST_SET) - CUDA_XFAIL_SET
