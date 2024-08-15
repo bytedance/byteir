@@ -223,7 +223,7 @@ class InsertSliceScatterModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, x):
+    def forward(self, x, src):
         return torch.ops.aten.slice_scatter(x, src, dim=1, start=0, end=1, step=1)
 
 @register_test_case(module_factory=lambda: InsertSliceScatterModule)
