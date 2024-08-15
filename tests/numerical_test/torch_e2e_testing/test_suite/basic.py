@@ -73,7 +73,7 @@ class MatmulTransposeAF16Module(torch.nn.Module):
 @register_test_case(module_factory=lambda: MatmulTransposeAF16Module())
 def MatmulTransposeAF16Module_basic(module, tu: TestUtils):
     module.forward(tu.rand(64, 128).to(torch.float16),
-                   tu.rand(64, 1024).to(torch.float16))
+                   tu.rand(64, 128).to(torch.float16))
 
 
 class MatmulTransposeBF16Module(torch.nn.Module):
@@ -86,8 +86,8 @@ class MatmulTransposeBF16Module(torch.nn.Module):
     
 @register_test_case(module_factory=lambda: MatmulTransposeBF16Module())
 def MatmulTransposeBF16Module_basic(module, tu: TestUtils):
-    module.forward(tu.rand(128, 32).to(torch.float32),
-                   tu.rand(128, 32).to(torch.float32))
+    module.forward(tu.rand(128, 64).to(torch.float32),
+                   tu.rand(128, 64).to(torch.float32))
     
 class MatmulTransposeModule(torch.nn.Module):
 
