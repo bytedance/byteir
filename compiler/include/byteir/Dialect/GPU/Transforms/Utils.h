@@ -75,6 +75,16 @@ static constexpr StringRef getCopyFromSharedMemoryAccMarker() {
   return "__byteir_store_matrix_c__";
 };
 
+static constexpr StringRef getMatmulMainLoopMarker() {
+  return "__byteir_main_loop__";
+}
+
+constexpr StringRef getLinalgMMALevelAttrName() {
+  return "__byteir_mma_level__";
+}
+
+constexpr StringRef getMMAPatternAttrName() { return "__byteir_mma__"; }
+
 static constexpr StringRef getEpilogueMarker() { return "__byteir_epilogue__"; }
 
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);

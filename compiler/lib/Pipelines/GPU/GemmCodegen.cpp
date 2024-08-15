@@ -43,12 +43,6 @@ namespace {
 
 constexpr StringRef getLinalgToGPUAttrName() { return "__byteir_to_gpu__"; }
 
-constexpr StringRef getLinalgMMALevelAttrName() {
-  return "__byteir_mma_level__";
-}
-
-constexpr StringRef getMMAPatternAttrName() { return "__byteir_mma__"; }
-
 constexpr StringRef getLinalgTargetAttrName() { return "__byteir_target__"; }
 
 void createGPUTileGemmTransformImpl(OpPassManager &pm,
@@ -168,6 +162,14 @@ void createGPUTileGemmTransformImpl(OpPassManager &pm,
     auto tileKMatmulOp =
         b.create<transform::TileUsingForOp>(tiledMatmulOp, reductionTileSizes);
     auto matmulKOp = tileKMatmulOp.getTiledLinalgOp();
+    auto forLoops = tileKMatmulOp.getLoops();
+    if (!forLoops.empty()) {
+      b.create<transform::AnnotateOp>(forLoops[0], getMatmulMainLoopMarker(),
+                                      Value());
+    } else {
+      b.create<transform::AnnotateOp>(matmulKOp, getMatmulMainLoopMarker(),
+                                      Value());
+    }
 
     b.create<transform::AnnotateOp>(matmulKOp, getLinalgMMALevelAttrName(),
                                     mmaLevel);
