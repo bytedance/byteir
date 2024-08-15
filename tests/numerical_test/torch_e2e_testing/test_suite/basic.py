@@ -216,3 +216,16 @@ class ContiguousSliceModule(torch.nn.Module):
 @register_test_case(module_factory=lambda: ContiguousSliceModule())
 def ContiguousSliceModule_basic(module, tu: TestUtils):
     module.forward(tu.rand(3, 64))
+
+# ==============================================================================
+
+class InsertSliceScatterModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return torch.ops.aten.slice_scatter(x, src, dim=1, start=0, end=1, step=1)
+
+@register_test_case(module_factory=lambda: InsertSliceScatterModule)
+def InsertSliceScatterModule_basic(module, tu: TestUtils):
+    module.forward(tu.rand(6, 8, 5), tu.rand(6, 1, 5))
