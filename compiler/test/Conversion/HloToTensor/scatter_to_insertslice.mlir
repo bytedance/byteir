@@ -10,5 +10,5 @@ func.func @forward(%arg0: tensor<6x8x5xf32>, %arg1: tensor<6x1x5xf32>) -> tensor
 }
 
 // CHECK: func.func
-// CHECK-NEXT: %inserted_slice = tensor.insert_slice %arg1 into %arg0[0, 0, 0] [6, 1, 5] [1, 8, 1] : tensor<6x1x5xf32> into tensor<6x8x5xf32>
+// CHECK-NEXT: %inserted_slice = tensor.insert_slice %arg1 into %arg0[0, 0, 0] [6, 1, 5] [1, 1, 1] : tensor<6x1x5xf32> into tensor<6x8x5xf32>
 // CHECK-NEXT: return %inserted_slice : tensor<6x8x5xf32>
