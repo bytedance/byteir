@@ -17,6 +17,7 @@ from typing import NamedTuple, Optional, List
 
 class TestResult(NamedTuple):
     unique_name: str
+    execution_error: Optional[str]
     numerical_error: Optional[str]
 
 
@@ -24,7 +25,12 @@ def report_results(results: List[TestResult]):
     fail_case = []
     pass_case = []
     for result in results:
-        if result.numerical_error is not None:
+        if result.execution_error is not None:
+            fail_case.append([
+                result.unique_name, "execution failed: " + result.unique_name +
+                "\n" + result.execution_error
+            ])
+        elif result.numerical_error is not None:
             fail_case.append([
                 result.unique_name, "numerical failed: " + result.unique_name +
                 "\n" + result.numerical_error

@@ -38,11 +38,17 @@ def parse_args():
         required=True,
         help="Directory has test cases",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        default=False,
+        action="store_true",
+    )
     args = parser.parse_args()
     return args
 
 
-def run(testdir):
+def run(testdir, verbose=False):
     result = []
     conf_file = os.path.join(testdir, "testcase.json")
     if not os.path.exists(conf_file):
@@ -64,6 +70,8 @@ def run(testdir):
                     )
                 if not os.path.exists(byre_file):
                     raise RuntimeError(f"byre file{byre_file} not found")
+                if verbose:
+                    print(f"Running {name}")
                 result += run_and_check_mlir(target, name, input_files,
                                              golden_files, byre_file)
     return result
@@ -72,7 +80,7 @@ def run(testdir):
 def main():
     args = parse_args()
 
-    results = run(args.testdir)
+    results = run(args.testdir, verbose=args.verbose)
 
     failed = report_results(results)
     sys.exit(1 if failed else 0)
