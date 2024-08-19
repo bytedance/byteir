@@ -1,4 +1,4 @@
-add_mlir_library(ByteIRHostPipelines
+add_byteir_pipeline_library(ByteIRHostPipelines
   Codegen.cpp
   HostOpt.cpp
   ToLLVM.cpp

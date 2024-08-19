@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRMhloUtils
+add_byteir_dialect_library(ByteIRMhloUtils
   Util/FusionUtil.cpp
   Util/ShapeInferUtil.cpp
   Util/Util.cpp
@@ -17,10 +17,10 @@ add_mlir_dialect_library(ByteIRMhloUtils
   MLIRSupport
   ByteIRAnalysis
   ByteIRUtils
-  )
+)
 
 
-add_mlir_dialect_library(ByteIRMhloDynamicShapeOpRegister
+add_byteir_dialect_library(ByteIRMhloDynamicShapeOpRegister
   DynamicShapeOpRegister/Concatenate.cpp
   DynamicShapeOpRegister/Convolution.cpp
   DynamicShapeOpRegister/DotLike.cpp 
@@ -57,7 +57,7 @@ add_mlir_dialect_library(ByteIRMhloDynamicShapeOpRegister
   ByteIRUtils
 )
 
-add_mlir_dialect_library(ByteIRMhloAnalysis
+add_byteir_dialect_library(ByteIRMhloAnalysis
   Analysis/DimFromBroadcast.cpp
   Analysis/ShapeAnalysis.cpp
 
@@ -75,7 +75,7 @@ add_mlir_dialect_library(ByteIRMhloAnalysis
   MhloDialect
 )
 
-add_mlir_dialect_library(ByteIRMhloPasses
+add_byteir_dialect_library(ByteIRMhloPasses
   Transforms/BoundedShapeInference.cpp
   Transforms/CanonicalizeExt.cpp
   Transforms/ClusterConstraint.cpp
@@ -138,4 +138,4 @@ add_mlir_dialect_library(ByteIRMhloPasses
   ByteIRMhloDynamicShapeOpRegister
   MLIRAceDialect
   MLIRQuantDialect # FIXME: this should link at MhloDialect
-  )
+)

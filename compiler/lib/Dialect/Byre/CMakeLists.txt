@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRByreDialect
+add_byteir_dialect_library(MLIRByreDialect
   IR/ByreDialect.cpp
   IR/Common.cpp
 
@@ -16,9 +16,9 @@ add_mlir_dialect_library(MLIRByreDialect
   MLIRSideEffectInterfaces
   MLIRSupport
   MLIRLLVMDialect
-  )
+)
 
-add_mlir_dialect_library(MLIRByreSerialization
+add_byteir_dialect_library(MLIRByreSerialization
   IR/Serialization/ByreSerialOps.cpp
   IR/Serialization/Bytecode.cpp
   IR/Serialization/Versioning.cpp
@@ -35,9 +35,9 @@ add_mlir_dialect_library(MLIRByreSerialization
   MLIRIR
   MLIRSupport
   MLIRByreDialect
-  )
+)
 
-add_mlir_dialect_library(ByteIRByrePasses
+add_byteir_dialect_library(ByteIRByrePasses
   Transforms/BufferizableOpInterfaceImpl.cpp
   Transforms/Serial.cpp
 
@@ -57,4 +57,4 @@ add_mlir_dialect_library(ByteIRByrePasses
   MLIRByreSerialization
   MLIRMemRefDialect
   MLIRTensorDialect
-  )
+)

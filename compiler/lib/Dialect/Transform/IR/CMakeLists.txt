@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRTransformExtDialect
+add_byteir_dialect_library(MLIRTransformExtDialect
   TransformExtOps.cpp
 
   ADDITIONAL_HEADER_DIRS

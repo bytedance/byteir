@@ -1,4 +1,5 @@
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 add_byteir_translation_library(ByteIRTargetPTX
@@ -14,6 +15,7 @@ add_byteir_translation_library(ByteIRTargetPTX
 
   LINK_LIBS PUBLIC
   ${dialect_libs}
+  ${conversion_libs}
   ${extension_libs}
   MLIRIR
   MLIRLLVMDialect
@@ -37,4 +39,4 @@ add_byteir_translation_library(ByteIRTargetPTX
   MLIRShapeOpsTransforms
   MLIRIRDL
   MLIRArithValueBoundsOpInterfaceImpl
-  )
+)

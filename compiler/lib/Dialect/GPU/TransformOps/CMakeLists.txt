@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRGPUExtTransformOps
+add_byteir_dialect_library(MLIRGPUExtTransformOps
   GPUExtTransformOps.cpp
   Utils.cpp
 

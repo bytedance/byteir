@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRLinalgExtUtils
+add_byteir_dialect_library(MLIRLinalgExtUtils
   Util.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -7,4 +7,4 @@ add_mlir_dialect_library(MLIRLinalgExtUtils
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRLinalgDialect
-  )
+)

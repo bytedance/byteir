@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRLinalgPasses
+add_byteir_dialect_library(ByteIRLinalgPasses
   BufferizableOpInterfaceImpl.cpp
   Bufferize.cpp
   CanonicalizeExt.cpp
@@ -39,4 +39,4 @@ add_mlir_dialect_library(ByteIRLinalgPasses
   MLIRLinalgTransforms
   MLIRMemRefDialect
   MLIRSupport
-  )
+)

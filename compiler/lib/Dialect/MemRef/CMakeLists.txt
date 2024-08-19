@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRMemRefPasses
+add_byteir_dialect_library(ByteIRMemRefPasses
   Transforms/ApplyMemRefAffineLayout.cpp
   Transforms/ExtractAddressComputation.cpp
   Transforms/RemoveCopy.cpp
@@ -25,4 +25,4 @@ add_mlir_dialect_library(ByteIRMemRefPasses
   MLIRMemRefDialect
   MLIRMemRefTransforms
   MLIRSupport
-  )
+)

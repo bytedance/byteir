@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRAceDialect
+add_byteir_dialect_library(MLIRAceDialect
   IR/AceDialect.cpp
 
   ADDITIONAL_HEADER_DIRS

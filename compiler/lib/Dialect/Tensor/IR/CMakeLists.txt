@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRTensorTilingInterfaceImplExt
+add_byteir_dialect_library(MLIRTensorTilingInterfaceImplExt
   TilingInterfaceImpl.cpp
 
   ADDITIONAL_HEADER_DIRS

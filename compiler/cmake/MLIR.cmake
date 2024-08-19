@@ -45,6 +45,18 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT AND NOT LLVM_INSTALL_PREFIX)
 endif()
 message(STATUS "CMAKE_INSTALL_PREFIX    : " ${CMAKE_INSTALL_PREFIX})
 
+# Declare the library associated with a dialect.
+function(add_byteir_dialect_library name)
+  set_property(GLOBAL APPEND PROPERTY BYTEIR_DIALECT_LIBS ${name})
+  add_mlir_library(${ARGV} DEPENDS mlir-headers)
+endfunction(add_byteir_dialect_library)
+
+# Declare the library associated with a pipeline.
+function(add_byteir_pipeline_library name)
+  set_property(GLOBAL APPEND PROPERTY BYTEIR_PIPELINE_LIBS ${name})
+  add_mlir_library(${ARGV} DEPENDS mlir-headers)
+endfunction(add_byteir_pipeline_library)
+
 # Declare the library associated with a conversion.
 function(add_byteir_conversion_library name)
   set_property(GLOBAL APPEND PROPERTY BYTEIR_CONVERSION_LIBS ${name})

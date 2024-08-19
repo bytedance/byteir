@@ -1,18 +1,20 @@
-get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
+get_property(byteir_dialect_libs GLOBAL PROPERTY BYTEIR_DIALECT_LIBS)
 get_property(byteir_stat_libs GLOBAL PROPERTY BYTEIR_STAT_LIBS)
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 
 set(LIBS
   ${byteir_stat_libs}
+  ${byteir_dialect_libs}
   ${dialect_libs}
-  ${extension_libs}
   ${conversion_libs}
+  ${extension_libs}
   MLIRDialect
   MLIRParser
   MLIRSupport
   MLIRIR
-  )
+)
 
 link_directories(${BYTEIR_BIN_LIB_DIR})
 add_executable(byteir-stat byteir-stat.cpp)

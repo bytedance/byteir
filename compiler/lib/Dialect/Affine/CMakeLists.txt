@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRAffinePasses
+add_byteir_dialect_library(ByteIRAffinePasses
   Transforms/AffineLoopFusionEx.cpp
   Transforms/InsertTrivialAffineLoop.cpp
   Transforms/RewriteAffineToMemref.cpp
@@ -20,4 +20,4 @@ add_mlir_dialect_library(ByteIRAffinePasses
   MLIRMemRefDialect
   MLIRSideEffectInterfaces
   MLIRSupport
-  )
+)

@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRCatDialect
+add_byteir_dialect_library(MLIRCatDialect
   CatDialect.cpp
 
   DEPENDS

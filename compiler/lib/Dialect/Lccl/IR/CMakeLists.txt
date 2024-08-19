@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRLcclDialect
+add_byteir_dialect_library(MLIRLcclDialect
   LcclOps.cpp
 
   ADDITIONAL_HEADER_DIRS

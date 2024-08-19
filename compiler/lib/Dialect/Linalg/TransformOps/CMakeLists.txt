@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRLinalgExtTransformOps
+add_byteir_dialect_library(MLIRLinalgExtTransformOps
   LinalgExtTransformOps.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -24,4 +24,4 @@ add_mlir_dialect_library(MLIRLinalgExtTransformOps
   MLIRTensorTilingInterfaceImplExt
   MLIRTransformDialect
   MLIRVectorDialect
-  )
+)

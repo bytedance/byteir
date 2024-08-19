@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRTransformPasses
+add_byteir_dialect_library(ByteIRTransformPasses
   TransformDialectInterpreter.cpp
   TransformInsertion.cpp
 
