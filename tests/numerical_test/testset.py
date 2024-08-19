@@ -9,6 +9,7 @@ register_all_torch_tests()
 
 CUR_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
 def _get_test_files_from_dir(directory):
     test_files = []
     for filename in os.listdir(directory):
@@ -49,6 +50,10 @@ CUDA_XFAIL_SET = {
     "transpose1203.mlir",
     "transpose2013.mlir",
     "transpose120.mlir",
+    "gemm_crr_f16f16f32.mlir",
+    "gemm_rrr_f16f16f32.mlir",
+    "bmm_rcr_f16f16f32.mlir",
+    "bmm_rrr_f16f16f32.mlir",
 }
 
 CUDA_ALL_SET = (CUDA_MLIR_TEST_SET | CUDA_TORCH_TEST_SET) - CUDA_XFAIL_SET
@@ -91,3 +96,29 @@ CUDA_AIT_SM80PLUS_SET = {
 }
 
 CUDA_AIT_ALL_SET = CUDA_AIT_MLIR_TEST_SET | CUDA_AIT_TORCH_TEST_SET
+
+##### CUDA WITH GEMMCODEGEN TEST SET #######
+CUDA_TORCH_MATMUL_TESTS = {test for test in CUDA_TORCH_TEST_SET if "Matmul" in test}
+
+CUDA_GEMMCODEGEN_TESTS = {
+    "gemm_crr_f16f16f32.mlir",
+    "gemm_crr_f32.mlir",
+    "gemm_rrr_f16f16f32.mlir",
+    "bmm_rcr_f16f16f32.mlir",
+    "bmm_rrr_f16f16f32.mlir",
+}
+
+CUDA_WITH_GEMM_CODEGEN_XFAIL_SET = {
+    "MatmulTransposeAF16Module_basic",
+    # "MatmulTransposeBF16Module_basic",
+    # "MatmulTransposeModule_basic",
+    # TODO: Test passed on A10. But failed on CI machine.
+    # "BatchMatmulAddF32Module_basic",
+    # TODO: fix bug
+    "gemm_crr_f16f16f32.mlir",
+    "bmm_rcr_f16f16f32.mlir",
+}
+
+CUDA_WITH_GEMM_CODEGEN_SET = (
+    CUDA_TORCH_MATMUL_TESTS | CUDA_GEMMCODEGEN_TESTS
+) - CUDA_WITH_GEMM_CODEGEN_XFAIL_SET

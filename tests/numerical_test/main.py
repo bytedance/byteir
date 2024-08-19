@@ -25,58 +25,95 @@ from torch_e2e_testing.registry import (
     GLOBAL_TORCH_TEST_REGISTRY_NAMES,
 )
 from testset import CPU_MLIR_TEST_DIR, CUDA_MLIR_TEST_DIR
-from testset import CPU_ALL_SET, CUDA_ALL_SET, CUDA_AIT_ALL_SET, CUDA_AIT_SM80PLUS_SET
+from testset import (
+    CPU_ALL_SET,
+    CUDA_ALL_SET,
+    CUDA_AIT_ALL_SET,
+    CUDA_AIT_SM80PLUS_SET,
+    CUDA_WITH_GEMM_CODEGEN_SET,
+)
 
 ##### TEST SET CONFIG #######
 TEST_SET = {
     "cpu": CPU_ALL_SET,
     "cuda": CUDA_ALL_SET,
     "cuda_with_ait": CUDA_AIT_ALL_SET,
+    # as the some features are still under development
+    # we will merge it into cuda test later
+    "cuda_with_gemm_codegen": CUDA_WITH_GEMM_CODEGEN_SET,
 }
+
 
 def get_local_gpu_arch():
     from byteir.utils import detect_gpu_arch_with_nvidia_smi
+
     gpu_arch = detect_gpu_arch_with_nvidia_smi()
     assert gpu_arch != None
     assert gpu_arch.startswith("sm_")
     gpu_arch = int(gpu_arch[3:])
     return gpu_arch
 
+
 def run(target, filter, workdir, mode="numerical", verbose=False):
     if target == "dynamo":
         from torch_dynamo_e2e_testing.execute import run_torch_dynamo_tests
+
         gpu_arch = get_local_gpu_arch()
         # TODO(zzk): use test infra for dynamo tests
         run_torch_dynamo_tests(gpu_arch)
         return []
 
+    enable_gemm_codegen = target == "cuda_with_gemm_codegen"
     test_set = TEST_SET[target]
+
     if target != "cpu":
         gpu_arch = get_local_gpu_arch()
         if target == "cuda_with_ait" and gpu_arch < 80:
             test_set -= CUDA_AIT_SM80PLUS_SET
+        # As we only support gemm codegen on sm80+
+        if target == "cuda_with_gemm_codegen" and gpu_arch < 80:
+            enable_gemm_codegen = False
+
+    # As cuda_with_gemm_codegen is a special case of cuda.
+    if target == "cuda_with_gemm_codegen":
+        target = "cuda"
 
     results = []
     for test in test_set:
         if not re.match(filter, test):
             continue
         if test in GLOBAL_TORCH_TEST_REGISTRY_NAMES:
+            print(test)
             results.append(
                 compile_and_run_torch(
-                    GLOBAL_TORCH_TEST_REGISTRY[test], target, workdir, verbose, mode
+                    GLOBAL_TORCH_TEST_REGISTRY[test],
+                    target,
+                    workdir,
+                    verbose,
+                    mode,
+                    enable_gemm_codegen,
                 )
             )
         else:
             if target == "cpu":
                 results.append(
                     compile_and_run_mlir(
-                        os.path.join(CPU_MLIR_TEST_DIR, test), target, workdir, verbose, mode
+                        os.path.join(CPU_MLIR_TEST_DIR, test),
+                        target,
+                        workdir,
+                        verbose,
+                        mode,
                     )
                 )
             else:
                 results.append(
                     compile_and_run_mlir(
-                        os.path.join(CUDA_MLIR_TEST_DIR, test), target, workdir, verbose, mode
+                        os.path.join(CUDA_MLIR_TEST_DIR, test),
+                        target,
+                        workdir,
+                        verbose,
+                        mode,
+                        enable_gemm_codegen,
                     )
                 )
     return results
@@ -93,6 +130,7 @@ def parse_args():
             "cpu",
             "cuda",
             "cuda_with_ait",
+            "cuda_with_gemm_codegen",
             "dynamo",
             "native_torch",
         ],
@@ -141,10 +179,18 @@ def main():
 
     results = []
     if args.target == "all":
-        for target in ["cpu", "cuda", "cuda_with_ait", "dynamo"]:
+        for target in [
+            "cpu",
+            "cuda",
+            "cuda_with_ait",
+            "dynamo",
+            "cuda_with_gemm_codegen",
+        ]:
             results += run(target, args.filter, args.workdir)
     else:
-        results += run(args.target, args.filter, args.workdir, mode=args.mode, verbose=args.verbose)
+        results += run(
+            args.target, args.filter, args.workdir, mode=args.mode, verbose=args.verbose
+        )
 
     failed = report_results(results)
     sys.exit(1 if failed else 0)

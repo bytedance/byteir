@@ -54,16 +54,15 @@ using namespace mlir::linalg;
 
 namespace {
 
-// static void vectorizeLinalgOps(scf::ForallOp forallOp) {
-static void vectorizeLinalgOps(func::FuncOp forallOp) {
+static void vectorizeLinalgOps(scf::ForallOp forallOp) {
   MLIRContext *context = forallOp.getContext();
   IRRewriter rewriter(context);
   forallOp.walk([&](Operation *op) {
-    if (!isa<linalg::FillOp, linalg::GenericOp, linalg::ContractionOpInterface>(
+    if (hasAnyLinalgTransformationMarker(op, ArrayRef{getVectorizeMarker()}) &&
+        isa<linalg::FillOp, linalg::GenericOp, linalg::ContractionOpInterface>(
             op)) {
-      return WalkResult::advance();
+      (void)linalg::vectorize(rewriter, op);
     }
-    (void)linalg::vectorize(rewriter, op);
     return WalkResult::advance();
   });
 }
@@ -82,7 +81,7 @@ gpuMmaUnrollOrder(vector::ContractionOp contract) {
 
   llvm::SmallDenseSet<int64_t> dims;
   for (AffineExpr expr : contract.getIndexingMapsArray()[0].getResults()) {
-    dims.insert(expr.cast<AffineDimExpr>().getPosition());
+    dims.insert(cast<AffineDimExpr>(expr).getPosition());
   }
   // Then parallel dimensions that are part of Lhs as we want to re-use Lhs.
   for (auto [index, iter] : llvm::enumerate(contract.getIteratorTypes())) {
@@ -327,7 +326,7 @@ struct GPUTensorCoreVectorizationPass
     if (!hasGemmTileConfig(funcOp)) {
       return signalPassFailure();
     }
-    auto forallOpOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOpOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOpOptional.has_value()) {
       return signalPassFailure();
     }
@@ -335,10 +334,10 @@ struct GPUTensorCoreVectorizationPass
 
     {
       // Step 1(a). Vectorize (linalg to vector).
-      vectorizeLinalgOps(funcOp);
+      vectorizeLinalgOps(forallOp);
       LLVM_DEBUG({
         llvm::dbgs() << "\nAfter vectorizeLinalgOps:\n";
-        funcOp->dump();
+        forallOp->dump();
       });
 
       RewritePatternSet contractionPatterns(context);
@@ -353,6 +352,17 @@ struct GPUTensorCoreVectorizationPass
         llvm::dbgs() << "\nAfter populateVectorizationPatterns:\n";
         funcOp->dump();
       });
+
+      // Step 1(b). Fold arithmetic extensions into vector contraction ops.
+      // Linalg to vector conversion introduces arithmetic extensions on the
+      // operands of vector contraction ops for mixed precision computation.
+      // This pattern folds the arithmetic extensions into the vector.contract.
+      RewritePatternSet foldArithExtPatterns(context);
+      vector::populateFoldArithExtensionPatterns(foldArithExtPatterns);
+      if (failed(applyPatternsAndFoldGreedily(
+              funcOp, std::move(foldArithExtPatterns)))) {
+        return signalPassFailure();
+      }
 
       // Step 3. Prepare vector operations to be lowered to native tensor core
       // operations (nvgpu.mmasync, nvgpu.ldmatrix).

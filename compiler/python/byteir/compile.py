@@ -28,6 +28,7 @@ class CompileOptions:
                  verbose: bool = False,
                  name: str = "model",
                  enable_tf32: bool = False,
+                 enable_gemm_codegen: bool = False,
                  parallelism: int = 1,
                  disable_byteir_ait_cache: bool = False,
                  **kwargs):
@@ -43,6 +44,7 @@ class CompileOptions:
         self.verbose = verbose
         self.name = name
         self.enable_tf32 = enable_tf32
+        self.enable_gemm_codegen = enable_gemm_codegen
         self.parallelism = parallelism
         self.disable_byteir_ait_cache = disable_byteir_ait_cache
         self.kwargs = kwargs
@@ -89,6 +91,7 @@ def _compile_cuda(
     entry_func = compile_options.entry_func
     gpu_arch = compile_options.gpu_arch
     verbose = compile_options.verbose
+    enable_gemm_codegen = compile_options.enable_gemm_codegen
     enable_tf32 = compile_options.enable_tf32
 
     output_file_dir = compile_options.output_dir
@@ -104,7 +107,10 @@ def _compile_cuda(
         PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
     with context:
-        PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op})").run(module.operation)
+        if enable_gemm_codegen:
+            PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-dot-op})").run(module.operation)
+        else:
+            PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op})").run(module.operation)
         _print_verbose(module, "// IR Dump After Hlo Fusion Opt:") if verbose else ...
     with context:
         PassManager.parse("builtin.module(linalg-tensor-opt)").run(module.operation)
@@ -377,6 +383,7 @@ def compile(
     byre_serial_version: str = "1.0.0",
     verbose: bool = False,
     enable_tf32: bool = False,
+    enable_gemm_codegen: bool = False,
     parallelism: int = 1,
     disable_byteir_ait_cache: bool = False,
     **kwargs,
@@ -434,6 +441,7 @@ def compile(
         byre_serial_version=byre_serial_version,
         verbose=verbose,
         enable_tf32=enable_tf32,
+        enable_gemm_codegen=enable_gemm_codegen,
         parallelism=parallelism,
         disable_byteir_ait_cache=disable_byteir_ait_cache,
         kwargs=kwargs)

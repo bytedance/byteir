@@ -49,7 +49,43 @@ static constexpr StringRef getCopyRelatedToWorkgroupMemoryMarker() {
   return "__byteir_copy_related_to_workgroup_memory__";
 }
 
-static constexpr StringRef getVectorizeMarker() { return "vectorizeMarker"; }
+static constexpr StringRef getVectorizeMarker() { return "vectorize"; }
+
+static constexpr StringRef getAllocSharedMemoryAMarker() {
+  return "__byteir_alloca_matrix_a__";
+};
+
+static constexpr StringRef getAllocSharedMemoryBMarker() {
+  return "__byteir_alloca_matrix_b__";
+};
+
+static constexpr StringRef getAllocSharedMemoryAccMarker() {
+  return "__byteir_alloca_accumulator__";
+};
+
+static constexpr StringRef getCopyToSharedMemoryAMarker() {
+  return "__byteir_load_matrix_a__";
+};
+
+static constexpr StringRef getCopyToSharedMemoryBMarker() {
+  return "__byteir_load_matrix_b__";
+};
+
+static constexpr StringRef getCopyFromSharedMemoryAccMarker() {
+  return "__byteir_store_matrix_c__";
+};
+
+static constexpr StringRef getMatmulMainLoopMarker() {
+  return "__byteir_main_loop__";
+}
+
+constexpr StringRef getLinalgMMALevelAttrName() {
+  return "__byteir_mma_level__";
+}
+
+constexpr StringRef getMMAPatternAttrName() { return "__byteir_mma__"; }
+
+static constexpr StringRef getEpilogueMarker() { return "__byteir_epilogue__"; }
 
 std::optional<SmallVector<int64_t, 3>> getGemmTileSize(func::FuncOp funcOp);
 std::optional<SmallVector<int64_t, 3>> getGemmBlockSize(func::FuncOp funcOp);
@@ -72,7 +108,7 @@ bool isMappedToGPUThreads(Operation *op);
 // Get the ForallOp which mapped to threadblock level in a function.
 // There should be only one valid ForallOp, otherwise the function will return
 // std::nullopt;
-std::optional<scf::ForallOp> getForallOpMappedTo2DBlock(func::FuncOp funcOp);
+std::optional<scf::ForallOp> getForallOpMappedToBlock(func::FuncOp funcOp);
 
 // Set a marker attribute on the operation.
 // The marker is represented as a UnitAttr.
@@ -104,6 +140,8 @@ LogicalResult
 distributeLinalgOpsWithFilter(IRRewriter &rewriter, Operation *root,
                               linalg::LinalgTilingOptions tilingOptions,
                               linalg_ext::LinalgTransformationFilter filter);
+
+bool isLinalgOpMatmul(Operation *op);
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_GPU_CODEGEN_UTILS_H

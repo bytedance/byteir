@@ -81,6 +81,10 @@ namespace mhlo {
 class MhloDialect;
 } // namespace mhlo
 
+namespace nvgpu {
+class NVGPUDialect;
+} // namespace nvgpu
+
 namespace NVVM {
 class NVVMDialect;
 } // namespace NVVM

@@ -58,14 +58,12 @@ using namespace mlir;
 
 namespace {
 
-constexpr StringRef allocMarker[3] = {"__byteir_alloca_matrix_a__",
-                                      "__byteir_alloca_matrix_b__",
-                                      "__byteir_alloca_accumulator__"};
-constexpr StringRef copyMarker[3] = {
-    "__byteir_load_matrix_a__",
-    "__byteir_load_matrix_b__",
-    "__byteir_store_matrix_c__",
-};
+constexpr StringRef allocMarker[3] = {getAllocSharedMemoryAMarker(),
+                                      getAllocSharedMemoryBMarker(),
+                                      getAllocSharedMemoryAccMarker()};
+constexpr StringRef copyMarker[3] = {getCopyToSharedMemoryAMarker(),
+                                     getCopyToSharedMemoryBMarker(),
+                                     getCopyFromSharedMemoryAccMarker()};
 
 namespace MatmulOperands {
 constexpr static int64_t A = 0;
@@ -99,8 +97,8 @@ allocateWorkgroupMemory(OpBuilder &builder, memref::SubViewOp subview,
       shape, subview.getType().getElementType(), MemRefLayoutAttrInterface{},
       gpu::AddressSpaceAttr::get(builder.getContext(),
                                  gpu::GPUDialect::getWorkgroupAddressSpace()));
-  memref::AllocaOp buffer =
-      builder.create<memref::AllocaOp>(forallOp.getLoc(), type);
+  memref::AllocOp buffer =
+      builder.create<memref::AllocOp>(forallOp.getLoc(), type);
   setMarker(buffer, allocMarker[OPERAND]);
   // To fix fill op. The FillOp operand `subview` should be rewrited to
   // `alloca`
@@ -138,11 +136,13 @@ LogicalResult copyWorkgroupMemoryToGlobalMemory(OpBuilder &b, Value src,
   // get the only scf.for op inside the scf.forall op.
   scf::ForallOp forallOp = op->getParentOfType<scf::ForallOp>();
   auto forOps = llvm::to_vector(forallOp.getOps<scf::ForOp>());
-  if (forOps.size() != 1)
-    return forallOp.emitError("expected a single scf.for op");
 
   // copyWorkgroupMemoryToGlobalMemory after gemm compute ends.
-  b.setInsertionPointAfter(forOps[0]);
+  if (forOps.size() == 1)
+    b.setInsertionPointAfter(forOps[0]);
+  if (forOps.size() > 1)
+    return failure();
+  b.create<gpu::BarrierOp>(src.getLoc());
   Operation *copyOp = b.create<linalg::CopyOp>(src.getLoc(), src, dst);
   setLinalgTransformationMarker(copyOp,
                                 getCopyRelatedToWorkgroupMemoryMarker());
@@ -266,13 +266,13 @@ public:
     if (!hasGemmTileConfig(funcOp))
       return;
 
-    auto forallOptional = getForallOpMappedTo2DBlock(funcOp);
+    auto forallOptional = getForallOpMappedToBlock(funcOp);
     if (!forallOptional)
       return;
 
     scf::ForallOp forallOp = *forallOptional;
     forallOp.walk([&](linalg::LinalgOp linalgOp) {
-      if (isa<linalg::MatmulOp, linalg::BatchMatmulOp>(linalgOp))
+      if (isLinalgOpMatmul(linalgOp))
         toPromote.push_back(linalgOp);
     });
     if (toPromote.empty())
@@ -292,7 +292,10 @@ public:
     // As we know linalg.matmul is in a scf.for, and the subview promotionImpl
     // inserts should be in the scf.forall op.
     auto forOp = linalgContractOp->getParentOfType<scf::ForOp>();
-    builder.setInsertionPoint(forOp); // before forOp
+    if (forOp)
+      builder.setInsertionPoint(forOp); // before forOp
+    else
+      builder.setInsertionPoint(linalgContractOp); // before linalgContractOp
     (void)promotionImpl<MatmulOperands::C>(builder, linalgContractOp);
 
     // The linalg.copy should be fused with its consumer linalg.generic.
@@ -310,6 +313,12 @@ public:
       for (Operation *op : toDelete)
         op->erase();
     }
+    // as we should do synchronization after linalg.copy and before
+    // linalg.matmul
+    builder.setInsertionPoint(linalgContractOp);
+    builder.create<gpu::BarrierOp>(linalgContractOp.getLoc());
+    builder.setInsertionPointAfter(linalgContractOp);
+    builder.create<gpu::BarrierOp>(linalgContractOp.getLoc());
   }
 };
 
