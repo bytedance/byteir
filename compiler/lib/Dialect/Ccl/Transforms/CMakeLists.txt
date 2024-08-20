@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRCclPasses
+add_byteir_dialect_library(ByteIRCclPasses
   CclMoveDown.cpp
   CclBufferizeOpInterfaceImpl.cpp
 
@@ -14,4 +14,4 @@ add_mlir_dialect_library(ByteIRCclPasses
   MLIRIR
   MhloDialect
   MLIRSupport
-  )
+)

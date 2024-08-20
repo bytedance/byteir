@@ -3,11 +3,12 @@ set(LLVM_LINK_COMPONENTS
   Support
   nativecodegen
   native
-  )
+)
 
 add_mlir_tool(byteir-cpu-runner
-byteir-cpu-runner.cpp
-  )
+  byteir-cpu-runner.cpp
+)
+
 llvm_update_compile_flags(byteir-cpu-runner)
 target_link_libraries(byteir-cpu-runner PRIVATE
   MLIRAnalysis
@@ -20,4 +21,4 @@ target_link_libraries(byteir-cpu-runner PRIVATE
   MLIRParser
   MLIRTargetLLVMIRExport
   MLIRSupport
-  )
+)

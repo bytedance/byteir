@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRVectorPasses
+add_byteir_dialect_library(ByteIRVectorPasses
   CanonicalizeExt.cpp
   VectorLowerings.cpp
   VectorWarpDistribute.cpp

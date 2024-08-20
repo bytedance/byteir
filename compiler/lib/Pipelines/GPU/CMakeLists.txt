@@ -1,4 +1,4 @@
-add_mlir_library(ByteIRGPUPipelines
+add_byteir_pipeline_library(ByteIRGPUPipelines
   ElementwiseCodegen.cpp
   GPUOpt.cpp
   LinalgMemrefGPU.cpp

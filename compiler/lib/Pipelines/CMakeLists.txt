@@ -2,7 +2,7 @@ add_subdirectory(Common)
 add_subdirectory(GPU)
 add_subdirectory(Host)
 
-add_mlir_library(ByteIRPipelines
+add_byteir_pipeline_library(ByteIRPipelines
   AffineOpt.cpp
   AllOpt.cpp
   BufferizeOpt.cpp

@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRCclTransformOps
+add_byteir_dialect_library(MLIRCclTransformOps
   CclTransformOps.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -16,4 +16,4 @@ add_mlir_dialect_library(MLIRCclTransformOps
   MLIRPDLDialect
   MLIRSideEffectInterfaces
   MLIRTransformDialect
-  )
+)

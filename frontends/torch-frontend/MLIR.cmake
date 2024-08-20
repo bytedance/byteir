@@ -98,3 +98,7 @@ function(add_torch_frontend_executable name)
     )
 endfunction(add_torch_frontend_executable)
 
+function(add_byteir_dialect_library name)
+  set_property(GLOBAL APPEND PROPERTY BYTEIR_DIALECT_LIBS ${name})
+  add_mlir_library(${ARGV} DEPENDS mlir-headers)
+endfunction(add_byteir_dialect_library)

@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRShapeExt
+add_byteir_dialect_library(MLIRShapeExt
   IR/ShapeExtOps.cpp
 
   ADDITIONAL_HEADER_DIRS
@@ -12,7 +12,7 @@ add_mlir_dialect_library(MLIRShapeExt
   MLIRSupport
 )
 
-add_mlir_dialect_library(ByteIRShapePasses
+add_byteir_dialect_library(ByteIRShapePasses
   Transforms/InsertTieShape.cpp
   Transforms/ResolveShapeConstraint.cpp
   Transforms/SetAssumingAlwaysTrue.cpp
@@ -33,4 +33,4 @@ add_mlir_dialect_library(ByteIRShapePasses
   MLIRShapeDialect
   MLIRShapeExt
   MLIRSupport
-  )
+)

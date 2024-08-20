@@ -1,4 +1,4 @@
-add_mlir_dialect_library(MLIRLinalgExt
+add_byteir_dialect_library(MLIRLinalgExt
   LinalgExtInterfaces.cpp
   LinalgExtOps.cpp
 

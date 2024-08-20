@@ -1,4 +1,4 @@
-add_mlir_dialect_library(ByteIRGPUPasses
+add_byteir_dialect_library(ByteIRGPUPasses
   GPUBlockSwizzle.cpp
   GPUDistributeSharedMemoryCopy.cpp
   GPUDistributeToWarp.cpp

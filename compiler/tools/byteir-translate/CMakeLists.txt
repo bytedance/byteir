@@ -1,27 +1,26 @@
 set(LLVM_LINK_COMPONENTS
   Support
-  )
+)
 
+get_property(byteir_dialect_libs GLOBAL PROPERTY BYTEIR_DIALECT_LIBS)
 get_property(byteir_translation_libs GLOBAL PROPERTY BYTEIR_TRANSLATION_LIBS)
-get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(extension_libs GLOBAL PROPERTY MLIR_EXTENSION_LIBS)
 get_property(translation_libs GLOBAL PROPERTY MLIR_TRANSLATION_LIBS)
 
 set(LIBS
+  ${byteir_dialect_libs}
+  ${byteir_translation_libs}
   ${dialect_libs}
   ${extension_libs}
-  ${byteir_translation_libs}
   ${translation_libs}
-  ${conversion_libs}
   MLIRIR
   MLIRParser
   MLIRPass
   MLIRSPIRVDialect
-  # MLIRTranslation
   MLIRSupport
   MLIRExecutionEngine
-  )
+)
 
 link_directories(${BYTEIR_BIN_LIB_DIR})
 add_executable(byteir-translate byteir-translate.cpp)
