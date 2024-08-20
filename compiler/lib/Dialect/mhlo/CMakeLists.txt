@@ -34,6 +34,7 @@ add_byteir_dialect_library(ByteIRMhloDynamicShapeOpRegister
   DynamicShapeOpRegister/ReshapeLike.cpp
   DynamicShapeOpRegister/Softmax.cpp
   DynamicShapeOpRegister/AddN.cpp
+  DynamicShapeOpRegister/OneHot.cpp
   DynamicShapeOpRegister/TorchIndexSelect.cpp
   DynamicShapeOpRegister/ScatterNd.cpp
   DynamicShapeOpRegister/StridedSlice.cpp
