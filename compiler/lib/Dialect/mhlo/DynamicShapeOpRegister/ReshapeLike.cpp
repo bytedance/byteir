@@ -17,6 +17,7 @@
 
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -126,6 +127,55 @@ void mlir::registerDynamicReshapeInferReturnTypeComponents() {
         shapeAdaptor.getDims(resShape);
         resShape = correctNegativeShape(resShape);
         inferredReturnTypes.push_back(resShape);
+        return success();
+      });
+}
+
+void mlir::registerReshapeInferReturnTypeComponents() {
+  static InferReturnTypeComponentsRegistration shapeRegister(
+      getReshapeName(),
+      [](MLIRContext *context, std::optional<Location> loc,
+         ValueShapeRange operands, DictionaryAttr, OpaqueProperties properties,
+         RegionRange,
+         SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
+        auto input = operands[0];
+        ShapedType inputType = dyn_cast<ShapedType>(input.getType());
+        if (!inputType) {
+          LLVM_DEBUG(llvm::dbgs() << loc << ": get inputType failed\n");
+          return failure();
+        }
+        mlir::ShapeAdaptor shapeAdaptor = operands.getValueAsShape(1);
+        if (!shapeAdaptor) {
+          return failure();
+        }
+        if (!inputType.hasStaticShape() && !shapeAdaptor.hasStaticShape()) {
+          LLVM_DEBUG(llvm::dbgs() << loc << ": shape is dynamic\n");
+          return failure();
+        }
+        llvm::SmallVector<int64_t> shape;
+        shapeAdaptor.getDims(shape);
+        int negativeNum = std::count_if(shape.begin(), shape.end(),
+                                        [](int64_t i) { return i < 0; });
+        if (negativeNum > 1) {
+          LLVM_DEBUG(llvm::dbgs() << loc << ": shape is dynamic\n");
+          return failure();
+        }
+        if (negativeNum == 1) {
+          int64_t product = inputType.getNumElements();
+          int64_t dynamicDim = product;
+          for (auto dim : shape) {
+            if (dim > 0) {
+              dynamicDim /= dim;
+            }
+          }
+          for (int64_t i = 0; i < shape.size(); ++i) {
+            if (shape[i] < 0) {
+              shape[i] = dynamicDim;
+            }
+          }
+        }
+        inferredReturnTypes.emplace_back(shape, inputType.getElementType());
+
         return success();
       });
 }
