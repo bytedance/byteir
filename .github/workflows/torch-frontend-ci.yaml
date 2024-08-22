@@ -41,6 +41,5 @@ jobs:
       - name: Checkout byteir repo
         uses: actions/checkout@v3
       - name: Build and test TorchFrontend
-        run: python3 -m pip install -r ./frontends/torch-frontend/torch-cuda-requirements.txt
-        run: ./frontends/torch-frontend/scripts/build_and_test.sh
+        run: python3 -m pip install -r ./frontends/torch-frontend/torch-cuda-requirements.txt && ./frontends/torch-frontend/scripts/build_and_test.sh
         shell: bash
