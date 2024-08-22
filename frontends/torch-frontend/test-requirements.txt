@@ -1,0 +1,9 @@
+numpy
+transformers==4.29.2
+
+# Test Requirements
+pillow
+pytest==8.1.0
+dill
+multiprocess
+expecttest
