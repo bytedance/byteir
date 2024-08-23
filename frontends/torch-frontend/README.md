@@ -1,5 +1,5 @@
 # Torch Frontend
-torch-frontend is a project to build customized torch model --> torch dialect --> mhlo dialect pipeline, where we could add extended dialect and passes.
+torch-frontend is a project to build customized torch model --> torch dialect --> stablehlo dialect pipeline, where we could add extended dialect and passes.
 
 
 ## Quick Start
