@@ -13,4 +13,4 @@
 # ==============================================================================
 
 from ._mlir_libs._byteir import *
-from .compile import compile, DebugType
+from .compile import compile, compile_from_string, DebugType

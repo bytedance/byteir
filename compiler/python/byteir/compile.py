@@ -366,9 +366,8 @@ def _compile_cpu(
         if (module.operation.get_asm() != deserialized_module.operation.get_asm()):
             raise ValueError("module asm has be changed after byre serialization")
 
-
-def compile(
-    input_file_path: str,
+def compile_from_string(
+    input_string_or_bytes: Union[str, bytes],
     output_file_path: str,
     entry_func: str = "main",
     target: str = "cuda",
@@ -391,18 +390,12 @@ def compile(
         gpu_arch_num = int(gpu_arch[3:])
         if enable_tf32:
             assert gpu_arch_num >= 80, "1xtf32 only support on gpu >= sm_80"
-        print(f"Compiling {os.path.basename(input_file_path)} to {gpu_arch}")
+        print(f"[ByteIR] Compiling to {gpu_arch}")
     elif _device  == "cpu":
-        print(f"Compiling {os.path.basename(input_file_path)} to {cpu_arch}")
+        print(f"[ByteIR] Compiling to {cpu_arch}")
 
-    ### load from .mlir or .mlirbc
-    from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
     context = ir.Context()
-    if input_file_path.endswith(".mlirbc"):
-        module_bytes = deserialize_portable_artifact(open(input_file_path, "rb").read())
-        module = ir.Module.parse(module_bytes, context)
-    else:
-        module = ir.Module.parse(open(input_file_path, "r").read(), context)
+    module = ir.Module.parse(input_string_or_bytes, context)
     _print_verbose(module, "// IR Dump Input MLIR:") if verbose else ...
 
     ### legalize stablehlo to mhlo
@@ -444,3 +437,37 @@ def compile(
         _compile_fn(compile_options)
     else:
         raise NotImplementedError("not implemented target: {}".format(target))
+
+def compile(
+    input_file_path: str,
+    output_file_path: str,
+    entry_func: str = "main",
+    target: str = "cuda",
+    gpu_arch: str = "local",
+    cpu_arch: str = "x86_64",
+    byre_serial_version: str = "1.0.0",
+    verbose: bool = False,
+    enable_tf32: bool = False,
+    parallelism: int = 1,
+    disable_byteir_ait_cache: bool = False,
+    **kwargs,
+) -> None:
+    ### load from .mlir or .mlirbc
+    from byteir._mlir_libs._stablehlo import deserialize_portable_artifact
+    if input_file_path.endswith(".mlirbc"):
+        module_bytes = deserialize_portable_artifact(open(input_file_path, "rb").read())
+    else:
+        module_bytes = open(input_file_path, "r").read()
+    
+    compile_from_string(module_bytes,
+                        output_file_path=output_file_path,
+                        entry_func=entry_func,
+                        target=target,
+                        gpu_arch=gpu_arch,
+                        cpu_arch=cpu_arch,
+                        byre_serial_version=byre_serial_version,
+                        verbose=verbose,
+                        enable_tf32=enable_tf32,
+                        parallelism=parallelism,
+                        disable_byteir_ait_cache=disable_byteir_ait_cache,
+                        kwargs=kwargs)    
