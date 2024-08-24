@@ -65,7 +65,7 @@ class BRTBackend:
 
         # alloc outputs
         outputs = []
-        for shape, dtype in zip(self.output_shapes, self.output_dtypes)
+        for shape, dtype in zip(self.output_shapes, self.output_dtypes):
             outputs.append(torch.empty(shape, dtype=dtype, device=self.device))
 
         self._bind_inputs(inputs)
