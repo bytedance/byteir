@@ -149,9 +149,9 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
         torch_outputs = data_generator.generate_torch_outputs(cur_device)
 
         if mode == "numerical":
-            brt_backend.run(torch_inputs, torch_outputs)
+            brt_backend.run_with_outputs(torch_inputs, torch_outputs)
         else:
-            avg_time = brt_backend.profile(torch_inputs, torch_outputs)
+            avg_time = brt_backend.profile_with_outputs(torch_inputs, torch_outputs)
             return TestResult(
                 unique_name=unique_name,
                 compilation_error=None,
@@ -246,9 +246,9 @@ def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
     try:
         brt_backend = BRTBackend(output_mlir_file_name, cur_device)
         if mode == "numerical":
-            brt_backend.run(torch_inputs, torch_outputs)
+            brt_backend.run_with_outputs(torch_inputs, torch_outputs)
         else:
-            avg_time = brt_backend.profile(torch_inputs, torch_outputs)
+            avg_time = brt_backend.profile_with_outputs(torch_inputs, torch_outputs)
             return TestResult(
                 unique_name=unique_name,
                 compilation_error=None,

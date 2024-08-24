@@ -1,7 +1,7 @@
 from enum import Enum
 from pathlib import Path
 import os
-from shutil import copymode
+from typing import Union
 
 from . import ir
 from .passmanager import PassManager
