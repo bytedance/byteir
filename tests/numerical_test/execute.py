@@ -15,6 +15,7 @@
 from reporting import TestResult
 
 import brt
+from brt.backend import BRTBackend
 import byteir
 from byteir import ir
 from byteir._backend_registry import get_target_device
@@ -100,62 +101,6 @@ class MLIRDataGenerator:
         return outputs
 
 
-class BRTBackend:
-    def __init__(self, device, brt_file_path):
-        from torch.cuda.memory import caching_allocator_alloc, caching_allocator_delete
-
-        _allocator_alloc = caching_allocator_alloc if device == "cuda" else None
-        _allocator_delete = caching_allocator_delete if device == "cuda" else None
-        _stream = (
-            torch.cuda.current_stream()._as_parameter_.value
-            if device == "cuda"
-            else None
-        )
-        self.session = brt.Session(
-            device=device.upper(),
-            alloc_func=_allocator_alloc,
-            free_func=_allocator_delete,
-        )
-        self.session.load(brt_file_path)
-        self.req = self.session.new_request_context(_stream)
-
-    def execute(self, inputs, outputs):
-        # TODO(lyq): how to support dynamic shape?
-        assert len(self.session.get_input_arg_offsets()) == len(inputs)
-        assert len(self.session.get_output_arg_offsets()) == len(outputs)
-        for offset, arg in zip(self.session.get_input_arg_offsets(), inputs):
-            assert list(self.session.get_static_shape(offset)) == list(arg.shape)
-            self.req.bind_arg(offset, arg.data_ptr())
-        for offset, ret in zip(self.session.get_output_arg_offsets(), outputs):
-            assert list(self.session.get_static_shape(offset)) == list(ret.shape)
-            self.req.bind_arg(offset, ret.data_ptr())
-        self.req.finish_io_binding()
-        self.req.run()
-        self.req.sync()
-
-    def profile(self, inputs, outputs, warmup_trials=10, run_trials=50):
-        assert len(self.session.get_input_arg_offsets()) == len(inputs)
-        assert len(self.session.get_output_arg_offsets()) == len(outputs)
-        for offset, arg in zip(self.session.get_input_arg_offsets(), inputs):
-            assert list(self.session.get_static_shape(offset)) == list(arg.shape)
-            self.req.bind_arg(offset, arg.data_ptr())
-        for offset, ret in zip(self.session.get_output_arg_offsets(), outputs):
-            assert list(self.session.get_static_shape(offset)) == list(ret.shape)
-            self.req.bind_arg(offset, ret.data_ptr())
-        self.req.finish_io_binding()
-
-        for _ in range(warmup_trials):
-            self.req.run()
-        self.req.sync()
-
-        start = time.time()
-        for _ in range(run_trials):
-            self.req.run()
-            self.req.sync()
-        end = time.time()
-        return ((end - start) * 1000) / run_trials
-
-
 def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", unique_name=None, **kwargs):
     if unique_name is None:
         unique_name = os.path.basename(mhlo_file).split(".")[0] + "." + target
@@ -195,7 +140,7 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
     # brt runtime
     try:
         cur_device = get_target_device(target)
-        brt_backend = BRTBackend(cur_device, output_mlir_file_name)
+        brt_backend = BRTBackend(output_mlir_file_name, cur_device)
 
         torch_inputs = []
         for np_input in np_inputs:
@@ -204,9 +149,9 @@ def compile_and_run_mlir(mhlo_file, target, workdir, verbose, mode="numerical", 
         torch_outputs = data_generator.generate_torch_outputs(cur_device)
 
         if mode == "numerical":
-            brt_backend.execute(torch_inputs, torch_outputs)
+            brt_backend.run_with_outputs(torch_inputs, torch_outputs)
         else:
-            avg_time = brt_backend.profile(torch_inputs, torch_outputs)
+            avg_time = brt_backend.profile_with_outputs(torch_inputs, torch_outputs)
             return TestResult(
                 unique_name=unique_name,
                 compilation_error=None,
@@ -299,11 +244,11 @@ def compile_and_run_torch(test, target, workdir, verbose, mode="numerical"):
 
     # runtime
     try:
-        brt_backend = BRTBackend(cur_device, output_mlir_file_name)
+        brt_backend = BRTBackend(output_mlir_file_name, cur_device)
         if mode == "numerical":
-            brt_backend.execute(torch_inputs, torch_outputs)
+            brt_backend.run_with_outputs(torch_inputs, torch_outputs)
         else:
-            avg_time = brt_backend.profile(torch_inputs, torch_outputs)
+            avg_time = brt_backend.profile_with_outputs(torch_inputs, torch_outputs)
             return TestResult(
                 unique_name=unique_name,
                 compilation_error=None,
