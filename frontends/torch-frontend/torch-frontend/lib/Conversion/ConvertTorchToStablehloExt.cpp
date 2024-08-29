@@ -312,8 +312,8 @@ struct ConvertAtenPowScalarOp : public OpConversionPattern<AtenPowScalarOp> {
       lhs = hlo::scalarToStablehloTensor(rewriter, op, lhs, outElemTy);
     }
     DenseI64ArrayAttr bcastDimensions;
-    lhs = hlo::promoteType(rewriter, op.getLoc(), lhs, outType);
-    rhs = hlo::promoteType(rewriter, op.getLoc(), rhs, outType);
+    lhs = hlo::promoteType(rewriter, op.getLoc(), lhs, outElemTy);
+    rhs = hlo::promoteType(rewriter, op.getLoc(), rhs, outElemTy);
     auto loc = op.getLoc();
     Value result = rewriter.create<chlo::BroadcastPowOp>(loc, outType, lhs, rhs,
                                                          bcastDimensions);
