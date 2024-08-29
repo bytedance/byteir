@@ -21,3 +21,12 @@ func.func @torch.aten._index_put_impl(%arg0: !torch.vtensor<[10,8],f32>, %arg1: 
   %1 = torch.aten._index_put_impl %arg0, %0, %arg2, %true, %false : !torch.vtensor<[10,8],f32>, !torch.list<vtensor>, !torch.vtensor<[2,5,8],f32>, !torch.bool, !torch.bool -> !torch.vtensor<[10,8],f32>
   return %1 : !torch.vtensor<[10,8],f32>
 }
+
+// CHECK-LABEL:   func.func @torch.aten.pow.Scalar
+// CHECK:  chlo.broadcast_power
+// CHECK-SAME:  (tensor<f32>, tensor<3x4xf32>) -> tensor<3x4xf32>
+func.func @torch.aten.pow.Scalar(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vtensor<[3,4],f32> {
+  %float2.000000e00 = torch.constant.float 2.000000e+00
+  %0 = torch.aten.pow.Scalar %float2.000000e00, %arg0 : !torch.float, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
+  return %0 : !torch.vtensor<[3,4],f32>
+}
