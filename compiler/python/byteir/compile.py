@@ -126,7 +126,7 @@ def _compile_cuda(
         _print_verbose(module, "// IR Dump After SCF Opt:") if verbose else ...
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(module.operation)
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true  device-file-name="+ output_file_prefix + ".ptx" + "})").run(module.operation)
         else:
             PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
         _print_verbose(module, "// IR Dump After GPU Opt:") if verbose else ...
@@ -159,7 +159,7 @@ def _compile_cuda(
 
     # create host mlir
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(byre-host)").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
     # write to output host mlir file
     assert output_type is OutputType.MLIR, "TBD: emit mlirbc"

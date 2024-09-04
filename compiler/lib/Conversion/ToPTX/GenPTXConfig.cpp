@@ -55,7 +55,8 @@ static bool isAliasOp(Operation &op) {
 // support static for now
 // TODO extend it to support dynamic block/grid sizes
 // TODO unify CUDA/PTX into the same pass with compilation option
-static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
+static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv,
+                         std::string &fileName) {
   // handle elementwise fusion
   if (func->hasAttr(getByteIRElementwiseFusionAttrName())) {
     mlir::OpBuilder opBuilder(func);
@@ -64,6 +65,9 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
       return;
 
     gpu::LaunchFuncOp launchOp = *func.getOps<gpu::LaunchFuncOp>().begin();
+
+    func->setAttr(getByrePrefix() + "device_file_name",
+                  opBuilder.getStringAttr(fileName));
 
     func->setAttr(getByrePrefix() + "kernel_name",
                   opBuilder.getStringAttr(launchOp.getKernelName().getValue()));
@@ -146,19 +150,22 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
 
 // Main Pass
 struct GenPTXConfigPass : public GenPTXConfigBase<GenPTXConfigPass> {
-  GenPTXConfigPass(bool useBarePtrCallConv) : GenPTXConfigBase() {
+  GenPTXConfigPass(bool useBarePtrCallConvm, const std::string &fileName)
+      : GenPTXConfigBase() {
     this->useBarePtrCallConv = useBarePtrCallConv;
+    this->fileName = fileName;
   }
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    addFuncAttrs(func, this->useBarePtrCallConv);
+    addFuncAttrs(func, this->useBarePtrCallConv, this->fileName);
   }
 };
 
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createGenPTXConfigPass(bool useBarePtrCallConv) {
-  return std::make_unique<GenPTXConfigPass>(useBarePtrCallConv);
+mlir::createGenPTXConfigPass(bool useBarePtrCallConv,
+                             const std::string &fileName) {
+  return std::make_unique<GenPTXConfigPass>(useBarePtrCallConv, fileName);
 }

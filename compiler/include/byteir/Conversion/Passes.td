@@ -198,7 +198,10 @@ def GenPTXConfig : Pass<"gen-ptx-config", "func::FuncOp"> {
     Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
            /*default=*/"false",
            "Replace memref arguments in GPU functions with bare pointers."
-           "All memrefs must have static shape">
+           "All memrefs must have static shape">,
+    Option<"fileName", "file-name", "std::string",
+           /*default*/"\"unified\"",
+           "The target ptx file for current PTXOp.">
   ];
 }
 

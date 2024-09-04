@@ -45,7 +45,8 @@ using namespace mlir::bufferization;
 namespace {
 void createElementwiseGPUOptPipelineImpl(OpPassManager &pm,
                                          const bool &useBarePtrCallConv,
-                                         const std::string &target) {
+                                         const std::string &target,
+                                         const std::string &fileName) {
   // apply PromotoBufferStack to func's with
   // getByteIRElementwiseFusionAttrName
   {
@@ -79,7 +80,8 @@ void createElementwiseGPUOptPipelineImpl(OpPassManager &pm,
   pm.addPass(createConvertFuncToGPUPass(/*bs=*/{256, 1, 1}));
 
   addCleanUpExtPassPipeline(pm);
-  pm.addNestedPass<func::FuncOp>(createGenPTXConfigPass(useBarePtrCallConv));
+  pm.addNestedPass<func::FuncOp>(
+      createGenPTXConfigPass(useBarePtrCallConv, fileName));
 }
 
 void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
@@ -127,8 +129,9 @@ void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
 }
 
 void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
-                              const std::string &target) {
-  createElementwiseGPUOptPipelineImpl(pm, useBarePtrCallConv, target);
+                              const std::string &target,
+                              const std::string &fileName) {
+  createElementwiseGPUOptPipelineImpl(pm, useBarePtrCallConv, target, fileName);
   createReductionGPUOptPipelineImpl(pm);
   pm.addPass(createCollectGPUKernelPass("unified", false));
 }
@@ -138,5 +141,6 @@ void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
 void mlir::createGPUOptPipeline(OpPassManager &pm,
                                 const GPUOptPipelineOptions &options) {
   invokeOpPassPipelineBuilder(createGPUOptPipelineImpl, pm,
-                              options.useBarePtrCallConv, options.target);
+                              options.useBarePtrCallConv, options.target,
+                              options.fileName);
 }

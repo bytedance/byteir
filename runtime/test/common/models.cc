@@ -1172,6 +1172,8 @@ const void *CreatePTXAddOp(brt::ir::ByREBuilder &byre_builder) {
       UnknownLoc::get(ctx), "PTXOp",
       ValueRange{entry_block->getArgument(0), entry_block->getArgument(1)},
       ValueRange{entry_block->getArgument(2)});
+  ptx_op->setAttr("device_file_name",
+                    op_builder.getStringAttr("test/test_files/llvm_ptx_add.ptx"));
   ptx_op->setAttr("kernel_name", op_builder.getStringAttr("add_kernel"));
   ptx_op->setAttr("GridSize.x", op_builder.getI32IntegerAttr(4));
   ptx_op->setAttr("BlockSize.x", op_builder.getI32IntegerAttr(256));
@@ -1179,8 +1181,6 @@ const void *CreatePTXAddOp(brt::ir::ByREBuilder &byre_builder) {
 
   //  insert ReturnOp
   op_builder.create<mlir::func::ReturnOp>(UnknownLoc::get(ctx));
-  func_op->setAttr("device_file_name", op_builder.getStringAttr(
-                                           "test/test_files/llvm_ptx_add.ptx"));
 
   return m.getAsOpaquePointer();
 }
