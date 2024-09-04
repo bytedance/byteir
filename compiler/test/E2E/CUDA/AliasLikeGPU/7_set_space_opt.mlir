@@ -25,7 +25,7 @@ module attributes {gpu.container_module} {
       gpu.return
     }
   }
-  func.func private @Unknown0(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> memref<512x200xf32> attributes {__byre__BlockSize.x = 256 : i32, __byre__GridSize.x = 100 : i32, __byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byre__kernel_name = "Unknown0", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown0(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> memref<512x200xf32> attributes {__byre__BlockSize.x = 256 : i32, __byre__GridSize.x = 100 : i32, __byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byre__device_file_name = "device_kernel.ptx", __byre__kernel_name = "Unknown0", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
     %c100 = arith.constant 100 : index
     %c1 = arith.constant 1 : index
     %c256 = arith.constant 256 : index

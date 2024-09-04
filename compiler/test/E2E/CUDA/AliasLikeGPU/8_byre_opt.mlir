@@ -25,7 +25,7 @@ module attributes {gpu.container_module} {
       gpu.return
     }
   }
-  func.func private @Unknown0(memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">) -> memref<512x200xf32, "cuda"> attributes {__byre__BlockSize.x = 256 : i32, __byre__GridSize.x = 100 : i32, __byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byre__kernel_name = "Unknown0", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "PTXOp", byre_force_compute_name, device = "cuda"}
+  func.func private @Unknown0(memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">) -> memref<512x200xf32, "cuda"> attributes {__byre__BlockSize.x = 256 : i32, __byre__GridSize.x = 100 : i32, __byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byre__device_file_name = "device_kernel.ptx", __byre__kernel_name = "Unknown0", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "PTXOp", byre_force_compute_name, device = "cuda"}
   func.func @main(%arg0: memref<512x200xf32, "cuda">, %arg1: memref<512x200xf32, "cuda">) -> (memref<256x256xf32, "cuda">, memref<512x200xf32, "cuda">) attributes {__placeholder__byre.entry_point} {
     %subview = memref.subview %arg0[0, 0] [128, 200] [1, 1] : memref<512x200xf32, "cuda"> to memref<128x200xf32, strided<[200, 1]>, "cuda">
     %subview_0 = memref.subview %arg1[10, 0] [128, 200] [1, 1] : memref<512x200xf32, "cuda"> to memref<128x200xf32, strided<[200, 1], offset: 2000>, "cuda">
