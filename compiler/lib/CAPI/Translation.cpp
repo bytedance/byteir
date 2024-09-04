@@ -109,19 +109,16 @@ bool byteirSerializeByre(MlirModule module, MlirStringRef targetVersion,
   }
 
   // parse version and convert to target version
-  llvm::StringRef version(unwrap(targetVersion));
-  SmallVector<llvm::StringRef> versions;
-  version.split(versions, ".");
-  if (versions.size() != 3) {
-    llvm::errs() << "unknown version: " << version << "\n";
+  auto serialVersion =
+      byre::serialization::Version::parse(unwrap(targetVersion));
+  if (!serialVersion.has_value()) {
+    llvm::errs() << "failed to parse version: " << unwrap(targetVersion)
+                 << "\n";
     return false;
   }
-  byre::serialization::Version serialVersion(std::atoi(versions[0].data()),
-                                             std::atoi(versions[1].data()),
-                                             std::atoi(versions[2].data()));
-  if (failed(convertToVersion(*newModule, serialVersion))) {
-    newModule->emitOpError()
-        << "failed to convert to version " << serialVersion.toString() << "\n";
+  if (failed(convertToVersion(*newModule, serialVersion.value()))) {
+    newModule->emitOpError() << "failed to convert to version "
+                             << serialVersion.value().toString() << "\n";
     return false;
   }
 
@@ -139,9 +136,10 @@ bool byteirSerializeByre(MlirModule module, MlirStringRef targetVersion,
     llvm::errs() << errorMessage << "\n";
     return false;
   }
-  std::string producerString = serialVersion.getBytecodeProducerString();
+  std::string producerString =
+      serialVersion.value().getBytecodeProducerString();
   BytecodeWriterConfig config(producerString);
-  config.setDesiredBytecodeVersion(serialVersion.getBytecodeVersion());
+  config.setDesiredBytecodeVersion(serialVersion.value().getBytecodeVersion());
   if (failed(writeBytecodeToFile(*newModule, resultMLIRBCFile->os(), config))) {
     newModule->emitOpError() << "failed to write bytecode\n";
     return false;
