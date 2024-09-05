@@ -78,7 +78,7 @@ std::optional<Version> Version::parse(llvm::StringRef versionStr) {
 }
 
 LogicalResult
-mlir::byre::serialization::verifySerializableIRVersion(Operation *topLvelOp,
+mlir::byre::serialization::verifySerializableIRVersion(Operation *topLevelOp,
                                                        const Version &version) {
   AttrTypeWalker typeAttrChecker;
   typeAttrChecker.addWalk([&](SerializableTypeInterface type) {
@@ -92,7 +92,7 @@ mlir::byre::serialization::verifySerializableIRVersion(Operation *topLvelOp,
     return WalkResult::advance();
   });
 
-  WalkResult result = topLvelOp->walk([&](Operation *op) {
+  WalkResult result = topLevelOp->walk([&](Operation *op) {
     if (auto iface = llvm::dyn_cast<SerializableOpInterface>(op)) {
       if (version < iface.getMinVersion() || iface.getMaxVersion() < version) {
         op->emitError() << " was not compatible with version "
