@@ -143,5 +143,7 @@ mlir::byre::serialization::convertToVersion(Operation *topLevelOp,
     return topLevelOp->emitError()
            << "Version " << version.toString() << " was not supported";
 
+  // TODO: do upgrade or downgrade here
+
   return verifySerializableIRVersion(topLevelOp, version);
 }
