@@ -85,6 +85,6 @@ void mlir::detail::addOpInterfaceExtension(
   ExtensionRegistry::inst().insert(std::move(extensionFn), dialectName);
 }
 
-void mlir::registeOpInterfaceExtensions(DialectRegistry &registry) {
+void mlir::registerOpInterfaceExtensions(DialectRegistry &registry) {
   ExtensionRegistry::inst().apply(registry);
 }

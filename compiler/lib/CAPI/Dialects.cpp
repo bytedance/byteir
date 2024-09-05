@@ -42,7 +42,7 @@ MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(
 
 void byteirRegisterDialectExtensions(MlirContext context) {
   DialectRegistry registry;
-  registeOpInterfaceExtensions(registry);
+  registerOpInterfaceExtensions(registry);
   registerPDLPatternHooksInterface(registry);
   ccl::registerTransformDialectExtension(registry);
   linalg_ext::registerTransformDialectExtension(registry);

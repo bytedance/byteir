@@ -89,7 +89,7 @@ void OpInterfaceOverrider<Op, Interface, method>::apply(const Impl &impl) {
 }
 } // namespace detail
 
-void registeOpInterfaceExtensions(DialectRegistry &registry);
+void registerOpInterfaceExtensions(DialectRegistry &registry);
 } // namespace mlir
 #define RegisterOpInterfaceOverride2(op, interface, method, impl, N)           \
   template struct ::mlir::detail::OpInterfaceOverrider<                        \

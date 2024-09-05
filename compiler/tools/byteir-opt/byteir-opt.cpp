@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
   DialectRegistry registry;
   registerAllDialects(registry);
   registerAllExtensions(registry);
-  registeOpInterfaceExtensions(registry);
+  registerOpInterfaceExtensions(registry);
 
   // register ByteIR's dialects here
   mlir::stablehlo::registerAllDialects(registry);
