@@ -25,7 +25,6 @@ module attributes {gpu.container_module} {
       gpu.return
     }
   }
-  func.func private @Unknown0(memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">) -> memref<512x200xf32, "cuda"> attributes {__byre__BlockSize.x = 256 : i32, __byre__GridSize.x = 100 : i32, __byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byre__device_file_name = "device_kernel.ptx", __byre__kernel_name = "Unknown0", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "PTXOp", byre_force_compute_name, device = "cuda"}
   func.func @main(%arg0: memref<512x200xf32, "cuda">, %arg1: memref<512x200xf32, "cuda">) -> (memref<256x256xf32, "cuda">, memref<512x200xf32, "cuda">) attributes {__placeholder__byre.entry_point} {
     %subview = memref.subview %arg0[0, 0] [128, 200] [1, 1] : memref<512x200xf32, "cuda"> to memref<128x200xf32, strided<[200, 1]>, "cuda">
     %subview_0 = memref.subview %arg1[10, 0] [128, 200] [1, 1] : memref<512x200xf32, "cuda"> to memref<128x200xf32, strided<[200, 1], offset: 2000>, "cuda">
@@ -36,7 +35,8 @@ module attributes {gpu.container_module} {
     %alloc = memref.alloc() : memref<256x256xf32, "cuda">
     %0 = "byre.alias"(%expand_shape_2) <{offset = 2000 : i64}> {device = "cuda"} : (memref<100x256xf32, strided<[256, 1], offset: 2000>, "cuda">) -> memref<100x256xf32, "cuda">
     byre.compute @MatmulOp_f32f32_f32(%expand_shape, %0, %alloc) {device = "cuda", lhs_contracting_dimension = 1 : i64, memory_effects = [1 : i32, 1 : i32, 2 : i32], rhs_contracting_dimension = 0 : i64} : memref<256x100xf32, "cuda">, memref<100x256xf32, "cuda">, memref<256x256xf32, "cuda">
-    %1 = call @Unknown0(%arg0, %arg1) : (memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">) -> memref<512x200xf32, "cuda">
-    return %alloc, %1 : memref<256x256xf32, "cuda">, memref<512x200xf32, "cuda">
+    %alloc_3 = memref.alloc() : memref<512x200xf32, "cuda">
+    byre.compute @PTXOp(%arg0, %arg1, %alloc_3) {BlockSize.x = 256 : i32, BlockSize.y = 1 : i32, BlockSize.z = 1 : i32, GridSize.x = 100 : i32, GridSize.y = 1 : i32, GridSize.z = 1 : i32, device = "cuda", device_file_name = "device_kernel.ptx", kernel_name = "Unknown0"} : memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">, memref<512x200xf32, "cuda">
+    return %alloc, %alloc_3 : memref<256x256xf32, "cuda">, memref<512x200xf32, "cuda">
   }
 }

@@ -150,7 +150,6 @@ class E2ECollections:
     ])
     def SetSpaceOptPipeline(filecheck, *, entryFunc="main"):
         return OptPipeline(E2ECollections.SetSpaceOpt, [E2ECollections.ByreOpt], [
-            "-remove-func-body=\"anchor-attr=__byteir_elementwise_fusion__\"",
             "--inline",
             "--gpu-launch-func-to-byre",
             "-set-op-space=\"entry-func={} space=cuda\"".format(entryFunc),

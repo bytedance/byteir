@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -remove-func-body="anchor-attr=__byteir_elementwise_fusion__" --inline --gpu-launch-func-to-byre -set-op-space="entry-func=main space=cuda" -set-arg-space="entry-func=main all-space=cuda" | FileCheck %s
+// RUN: byteir-opt %s --inline --gpu-launch-func-to-byre -set-op-space="entry-func=main space=cuda" -set-arg-space="entry-func=main all-space=cuda" | FileCheck %s
 
 // CHECK-LABEL: func.func @main
 
@@ -25,12 +25,12 @@ module attributes {gpu.container_module} {
       gpu.return
     }
   }
-  func.func private @Unknown0(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> memref<512x200xf32> attributes {__byre__BlockSize.x = 256 : i32, __byre__GridSize.x = 100 : i32, __byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byre__device_file_name = "device_kernel.ptx", __byre__kernel_name = "Unknown0", __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32], byre_compute_name = "PTXOp", byre_force_compute_name} {
+  func.func private @Unknown0(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> memref<512x200xf32> attributes {__byre__arg_ranks = [2 : i32, 2 : i32, 2 : i32], __byteir_elementwise_fusion__, arg_offsets = [0 : i32, 1 : i32, 2 : i32]} {
     %c100 = arith.constant 100 : index
     %c1 = arith.constant 1 : index
     %c256 = arith.constant 256 : index
     %alloc = memref.alloc() : memref<512x200xf32>
-    gpu.launch_func  @unified::@Unknown0 blocks in (%c100, %c1, %c1) threads in (%c256, %c1, %c1)  args(%arg0 : memref<512x200xf32>, %arg1 : memref<512x200xf32>, %alloc : memref<512x200xf32>)
+    gpu.launch_func  @unified::@Unknown0 blocks in (%c100, %c1, %c1) threads in (%c256, %c1, %c1)  args(%arg0 : memref<512x200xf32>, %arg1 : memref<512x200xf32>, %alloc : memref<512x200xf32>) {device_file_name = "device_kernel.ptx"}
     return %alloc : memref<512x200xf32>
   }
   func.func @main(%arg0: memref<512x200xf32>, %arg1: memref<512x200xf32>) -> (memref<256x256xf32>, memref<512x200xf32>) attributes {__placeholder__byre.entry_point} {
