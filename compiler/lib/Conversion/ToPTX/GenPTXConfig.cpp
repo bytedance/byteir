@@ -135,7 +135,7 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv,
 
 // Main Pass
 struct GenPTXConfigPass : public GenPTXConfigBase<GenPTXConfigPass> {
-  GenPTXConfigPass(bool useBarePtrCallConvm, const std::string &fileName)
+  GenPTXConfigPass(bool useBarePtrCallConv, const std::string &fileName)
       : GenPTXConfigBase() {
     this->useBarePtrCallConv = useBarePtrCallConv;
     this->fileName = fileName;
