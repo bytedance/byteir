@@ -80,8 +80,6 @@ void createElementwiseGPUOptPipelineImpl(OpPassManager &pm,
   pm.addPass(createConvertFuncToGPUPass(/*bs=*/{256, 1, 1}));
 
   addCleanUpExtPassPipeline(pm);
-  pm.addNestedPass<func::FuncOp>(
-      createGenPTXConfigPass(useBarePtrCallConv, fileName));
 }
 
 void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
@@ -133,6 +131,8 @@ void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
                               const std::string &fileName) {
   createElementwiseGPUOptPipelineImpl(pm, useBarePtrCallConv, target, fileName);
   createReductionGPUOptPipelineImpl(pm);
+  pm.addNestedPass<func::FuncOp>(
+      createGenPTXConfigPass(useBarePtrCallConv, fileName));
   pm.addPass(createCollectGPUKernelPass("unified", false));
 }
 

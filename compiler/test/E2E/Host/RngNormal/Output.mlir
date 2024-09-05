@@ -3,7 +3,7 @@
 // CHECK-LABEL: func.func @main
 
 module attributes {byre.container_module} {
-  func.func @main(%arg0: memref<1x97xf32, "cpu"> {byre.argname = "Output0", byre.argtype = 2 : i32}) attributes {byre.entry_point, device_file_name = "your_file"} {
+  func.func @main(%arg0: memref<1x97xf32, "cpu"> {byre.argname = "Output0", byre.argtype = 2 : i32}) attributes {byre.entry_point} {
     %alloc = memref.alloc() : memref<256xi8, "cpu">
     %0 = "byre.alias"(%alloc) <{offset = 0 : i64}> : (memref<256xi8, "cpu">) -> memref<i64, "cpu">
     byre.compute @GetSeed(%0) {device = "cpu", memory_effects = [2 : i32]} : memref<i64, "cpu">

@@ -268,7 +268,7 @@ def _compile_cuda_with_ait(
     byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
 
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
+        PassManager.parse("builtin.module(byre-host)").run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Byre Host:") if verbose else ...
     # write to output host mlir
     assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
@@ -348,12 +348,8 @@ def _compile_cpu(
 
     # create host module
     with context:
-        PassManager.parse("builtin.module(byre-host{" + target_str + " " + entry_func_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(byre-host)").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
-        # FIXME: remove `device_file_name` attr as byre v1.0.0 not support this attr.
-        target_attr_name = "device_file_name"
-        PassManager.parse("builtin.module(remove-func-tag{" + f"attr-name={target_attr_name} " + f" func-name={entry_func} " + "})").run(module.operation)
-        _print_verbose(module, "// IR Dump After Remove func tag:") if verbose else ...
 
     output_host_mlir_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value)
     output_host_mlirbc_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIRBC.value)

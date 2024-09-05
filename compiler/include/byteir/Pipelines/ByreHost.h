@@ -30,14 +30,6 @@ struct ByreHostPipelineOptions
       *this, "entry-func",
       llvm::cl::desc("An optional string to speicify entry function."),
       llvm::cl::init("main")};
-  Option<std::string> deviceFile{
-      *this, "device-file-name",
-      llvm::cl::desc("An optional string to speicify device file name."),
-      llvm::cl::init("kernel")};
-  Option<std::string> target{
-      *this, "target",
-      llvm::cl::desc("An optional attribute to target device."),
-      llvm::cl::init("")};
 };
 
 void createByreHostPipeline(OpPassManager &pm,

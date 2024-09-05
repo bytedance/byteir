@@ -65,7 +65,7 @@ class HostPipelineCollections:
         "--mlir-to-llvmir",
     ])
     ByreHostPipeline = functools.partial(OptPipeline, ByreHost, [ByreOut], [
-        "-byre-host=\"device-file-name=your_file target=cpu\"",
+        "-byre-host",
     ])
     ByreOutPipeline = functools.partial(OptPipeline, ByreOut, [], [])
     TotalPipeline = composePipelines([InputPipeline, HostOptPipeline, ToLLVMPipeline, ToLLVMIRPipeline], E2E, [])
@@ -159,7 +159,7 @@ class E2ECollections:
     def ByreOptPipeline(filecheck, *, entryFunc="main"):
         return OptPipeline(E2ECollections.ByreOpt, [E2ECollections.ByreHost, E2ECollections.NVVMCodegen], ["-byre-opt=\"append-arg-types entry-func={}\"".format(entryFunc)], filecheck)
     def ByreHostPipeline(filecheck, *, entryFunc="main"):
-        return OptPipeline(E2ECollections.ByreHost, [E2ECollections.HostOutput], ["-byre-host=\"device-file-name=your_file target=cuda entry-func={}\"".format(entryFunc)], filecheck)
+        return OptPipeline(E2ECollections.ByreHost, [E2ECollections.HostOutput], ["-byre-host"], filecheck)
     HostOutputPipeline = functools.partial(OptPipeline, HostOutput, [], [])
     NVVMCodegenPipeline = functools.partial(OptPipeline, NVVMCodegen, [PTXCodegen], [
         "-nvvm-codegen"
