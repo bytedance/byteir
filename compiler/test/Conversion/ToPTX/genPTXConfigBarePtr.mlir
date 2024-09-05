@@ -1,4 +1,4 @@
-// RUN: byteir-opt -gen-ptx-config='use-bare-ptr-memref-call-conv=1' --inline --gpu-launch-func-to-byre='use-bare-ptr-memref-call-conv=1' --allow-unregistered-dialect %s | FileCheck %s
+// RUN: byteir-opt -gen-ptx-config='use-bare-ptr-memref-call-conv=1' --inline --gpu-launch-func-to-byre --allow-unregistered-dialect %s | FileCheck %s
 
 module attributes {gpu.container_module}  {
   func.func private @Unknown0(%arg0: memref<1x128xi64>, %arg1: memref<128xi64>, %arg2: memref<128xi64>, %arg3: memref<128xf64>) -> (memref<128xui32>, memref<128x1xi64>, memref<128xi1>) attributes {byre_compute_name = "Unknown0", __byteir_elementwise_fusion__} {

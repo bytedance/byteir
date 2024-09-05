@@ -99,9 +99,8 @@ class ConvertGPULaunchFuncToByrePattern
     : public OpRewritePattern<gpu::LaunchFuncOp> {
 
 public:
-  ConvertGPULaunchFuncToByrePattern(MLIRContext *ctx, bool useBarePtrCallConv)
-      : OpRewritePattern<gpu::LaunchFuncOp>(ctx),
-        useBarePtrCallConv(useBarePtrCallConv) {}
+  ConvertGPULaunchFuncToByrePattern(MLIRContext *ctx)
+      : OpRewritePattern<gpu::LaunchFuncOp>(ctx) {}
 
   LogicalResult matchAndRewrite(gpu::LaunchFuncOp launchOp,
                                 PatternRewriter &rewriter) const override {
@@ -111,6 +110,11 @@ public:
 
     computeOp->setAttr(rewriter.getStringAttr("device_file_name"),
                        launchOp->getAttr("device_file_name"));
+    if (launchOp->hasAttr(byre::getKernelCallConventionAttrName())) {
+      computeOp->setAttr(
+          byre::getKernelCallConventionAttrName(),
+          launchOp->getAttr(byre::getKernelCallConventionAttrName()));
+    }
     computeOp->setAttr(
         rewriter.getStringAttr("kernel_name"),
         rewriter.getStringAttr(launchOp.getKernelName().getValue()));
@@ -131,10 +135,6 @@ public:
     computeOp->setAttr("BlockSize.y", rewriter.getI32IntegerAttr(by));
     computeOp->setAttr("BlockSize.z", rewriter.getI32IntegerAttr(bz));
 
-    if (useBarePtrCallConv) {
-      computeOp->setAttr(byre::getKernelCallConventionAttrName(),
-                         rewriter.getStringAttr("bare_ptr"));
-    }
     rewriter.eraseOp(launchOp);
 
     return success();
@@ -166,14 +166,11 @@ public:
 struct ConvertGPULaunchFuncToByrePass
     : public ConvertGPULaunchFuncToByreBase<ConvertGPULaunchFuncToByrePass> {
 public:
-  ConvertGPULaunchFuncToByrePass(bool useBarePtrCallConv)
-      : ConvertGPULaunchFuncToByreBase() {
-    this->useBarePtrCallConv = useBarePtrCallConv;
-  }
+  ConvertGPULaunchFuncToByrePass() : ConvertGPULaunchFuncToByreBase() {}
   void runOnOperation() override {
     MLIRContext &ctx = getContext();
     RewritePatternSet patterns(&ctx);
-    populateGPULaunchFuncToByrePattern(patterns, useBarePtrCallConv);
+    populateGPULaunchFuncToByrePattern(patterns);
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
       signalPassFailure();
@@ -188,10 +185,8 @@ void mlir::populateFuncToByreTensorPattern(RewritePatternSet &patterns,
                                                  appendArgTypes);
 }
 
-void mlir::populateGPULaunchFuncToByrePattern(RewritePatternSet &patterns,
-                                              bool useBarePtrCallConv) {
-  patterns.add<ConvertGPULaunchFuncToByrePattern>(patterns.getContext(),
-                                                  useBarePtrCallConv);
+void mlir::populateGPULaunchFuncToByrePattern(RewritePatternSet &patterns) {
+  patterns.add<ConvertGPULaunchFuncToByrePattern>(patterns.getContext());
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
@@ -199,7 +194,6 @@ mlir::createConvertFuncToByreTensorPass(bool appendArgTypes) {
   return std::make_unique<ConvertFuncToByreTensorPass>(appendArgTypes);
 }
 
-std::unique_ptr<Pass>
-mlir::createConvertGPULaunchFuncToByrePass(bool useBarePtrCallConv) {
-  return std::make_unique<ConvertGPULaunchFuncToByrePass>(useBarePtrCallConv);
+std::unique_ptr<Pass> mlir::createConvertGPULaunchFuncToByrePass() {
+  return std::make_unique<ConvertGPULaunchFuncToByrePass>();
 }

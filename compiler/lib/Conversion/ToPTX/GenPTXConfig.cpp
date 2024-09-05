@@ -59,13 +59,11 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv,
                          std::string &fileName) {
   mlir::OpBuilder opBuilder(func);
 
-  if (func->hasAttr(getByteIRElementwiseFusionAttrName()) ||
-      func->hasAttr(getByteIRReductionFusionAttrName())) {
-    if (func.getOps<gpu::LaunchFuncOp>().empty())
-      return;
-
-    for (auto launchOp : func.getOps<gpu::LaunchFuncOp>()) {
-      launchOp->setAttr("device_file_name", opBuilder.getStringAttr(fileName));
+  for (auto launchOp : func.getOps<gpu::LaunchFuncOp>()) {
+    launchOp->setAttr("device_file_name", opBuilder.getStringAttr(fileName));
+    if (useBarePtrCallConv) {
+      launchOp->setAttr(byre::getKernelCallConventionAttrName(),
+                        opBuilder.getStringAttr("bare_ptr"));
     }
   }
 

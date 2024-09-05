@@ -44,9 +44,7 @@ using namespace mlir::bufferization;
 
 namespace {
 void createElementwiseGPUOptPipelineImpl(OpPassManager &pm,
-                                         const bool &useBarePtrCallConv,
-                                         const std::string &target,
-                                         const std::string &fileName) {
+                                         const std::string &target) {
   // apply PromotoBufferStack to func's with
   // getByteIRElementwiseFusionAttrName
   {
@@ -129,7 +127,7 @@ void createReductionGPUOptPipelineImpl(OpPassManager &pm) {
 void createGPUOptPipelineImpl(OpPassManager &pm, const bool &useBarePtrCallConv,
                               const std::string &target,
                               const std::string &fileName) {
-  createElementwiseGPUOptPipelineImpl(pm, useBarePtrCallConv, target, fileName);
+  createElementwiseGPUOptPipelineImpl(pm, target);
   createReductionGPUOptPipelineImpl(pm);
   pm.addNestedPass<func::FuncOp>(
       createGenPTXConfigPass(useBarePtrCallConv, fileName));

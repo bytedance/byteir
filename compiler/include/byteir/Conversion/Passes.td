@@ -356,13 +356,6 @@ def ConvertGPULaunchFuncToByre : Pass<"gpu-launch-func-to-byre"> {
     "mlir::byre::ByreDialect",
     "mlir::gpu::GPUDialect"
   ];
-
-  let options = [
-    Option<"useBarePtrCallConv", "use-bare-ptr-memref-call-conv", "bool",
-          /*default=*/"false",
-          "Replace memref arguments in GPU functions with bare pointers."
-          "All memrefs must have static shape">,
-  ];
 }
 
 //===----------------------------------------------------------------------===//
