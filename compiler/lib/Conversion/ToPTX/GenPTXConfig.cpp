@@ -64,8 +64,9 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv,
     if (func.getOps<gpu::LaunchFuncOp>().empty())
       return;
 
-    gpu::LaunchFuncOp launchOp = *func.getOps<gpu::LaunchFuncOp>().begin();
-    launchOp->setAttr("device_file_name", opBuilder.getStringAttr(fileName));
+    for (auto launchOp : func.getOps<gpu::LaunchFuncOp>()) {
+      launchOp->setAttr("device_file_name", opBuilder.getStringAttr(fileName));
+    }
   }
 
   // handle elementwise fusion
