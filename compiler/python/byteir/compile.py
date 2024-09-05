@@ -128,10 +128,10 @@ def _compile_cuda(
         if useBarePtrCallConv:
             PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true  device-file-name="+ output_file_prefix + ".ptx" + "})").run(module.operation)
         else:
-            PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
+            PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After GPU Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
+        # PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
         PassManager.parse("builtin.module(inline)").run(module.operation)
         PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
         if useBarePtrCallConv:
@@ -236,12 +236,12 @@ def _compile_cuda_with_ait(
         _print_verbose(processor.module, "// IR Dump After SCF Opt:") if verbose else ...
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(processor.module.operation)
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true  device-file-name="+ output_file_prefix + ".ptx" + "})").run(module.operation)
         else:
-            PassManager.parse("builtin.module(gpu-opt)").run(processor.module.operation)
+            PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
         _print_verbose(processor.module, "// IR Dump After GPU Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(processor.module.operation)
+        # PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(processor.module.operation)
         PassManager.parse("builtin.module(inline)").run(processor.module.operation)
         PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
         if useBarePtrCallConv:

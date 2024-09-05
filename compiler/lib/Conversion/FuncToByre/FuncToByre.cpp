@@ -109,6 +109,8 @@ public:
         launchOp->getLoc(), TypeRange(), "PTXOp", launchOp.getKernelOperands(),
         /*memEffects*/ ArrayAttr());
 
+    computeOp->setAttr(rewriter.getStringAttr("device_file_name"),
+                       launchOp->getAttr("device_file_name"));
     computeOp->setAttr(
         rewriter.getStringAttr("kernel_name"),
         rewriter.getStringAttr(launchOp.getKernelName().getValue()));

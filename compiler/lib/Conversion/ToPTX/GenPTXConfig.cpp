@@ -57,37 +57,23 @@ static bool isAliasOp(Operation &op) {
 // TODO unify CUDA/PTX into the same pass with compilation option
 static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv,
                          std::string &fileName) {
-  // handle elementwise fusion
-  if (func->hasAttr(getByteIRElementwiseFusionAttrName())) {
-    mlir::OpBuilder opBuilder(func);
+  mlir::OpBuilder opBuilder(func);
 
+  if (func->hasAttr(getByteIRElementwiseFusionAttrName()) ||
+      func->hasAttr(getByteIRReductionFusionAttrName())) {
     if (func.getOps<gpu::LaunchFuncOp>().empty())
       return;
 
     gpu::LaunchFuncOp launchOp = *func.getOps<gpu::LaunchFuncOp>().begin();
+    launchOp->setAttr("device_file_name", opBuilder.getStringAttr(fileName));
+  }
 
-    func->setAttr(getByrePrefix() + "device_file_name",
-                  opBuilder.getStringAttr(fileName));
+  // handle elementwise fusion
+  if (func->hasAttr(getByteIRElementwiseFusionAttrName())) {
+    if (func.getOps<gpu::LaunchFuncOp>().empty())
+      return;
 
-    func->setAttr(getByrePrefix() + "kernel_name",
-                  opBuilder.getStringAttr(launchOp.getKernelName().getValue()));
-
-    // Handle 1D only, since element-wise is only using 1D (linearized)
-    auto grid = launchOp.getGridSizeOperandValues();
-    int64_t gx = cast<ConstantIndexOp>(grid.x.getDefiningOp()).value();
-    func->setAttr(getByrePrefix() + "GridSize.x",
-                  opBuilder.getIntegerAttr(opBuilder.getIntegerType(32), gx));
-
-    auto block = launchOp.getBlockSizeOperandValues();
-    int64_t bx = cast<ConstantIndexOp>(block.x.getDefiningOp()).value();
-    func->setAttr(getByrePrefix() + "BlockSize.x",
-                  opBuilder.getIntegerAttr(opBuilder.getIntegerType(32), bx));
-
-    func->setAttr(getByreComputeName(), opBuilder.getStringAttr("PTXOp"));
-    func->setAttr(getByreForceComputeNameAttrName(), opBuilder.getUnitAttr());
-    if (useBarePtrCallConv)
-      func->setAttr(getByrePrefix() + getKernelCallConventionAttrName(),
-                    opBuilder.getStringAttr("bare_ptr"));
+    gpu::LaunchFuncOp launchOp = *func.getOps<gpu::LaunchFuncOp>().begin();
 
     // Handle arg mapping here
     // LWC: this is tentative when we are using GPU Kernel Outlining.
