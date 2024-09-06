@@ -73,6 +73,7 @@ void populateTorchMLIRToStablehloPipeline(OpPassManager &pm) {
 
 void mlir::torch_frontend::createTorchToStablehloPipeline(
     OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  pm.addNestedPass<func::FuncOp>(createFuseOpOnTorch(options.backendLegalOps));
   pm.addNestedPass<func::FuncOp>(createConvertTorchToCcl());
   pm.addNestedPass<func::FuncOp>(
       createConvertTorchToCustomCall(options.backendLegalOps));
@@ -114,7 +115,7 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
 
   // Fuse Torch Ops
   pm.addPass(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(createFuseOpOnTorch());
+  pm.addNestedPass<func::FuncOp>(createFuseOpOnTorch({}));
 
   pm.addPass(Torch::createLowerToBackendContractPass(
       options.maxIterations, options.decompose, options.shapeDtypeRefine,

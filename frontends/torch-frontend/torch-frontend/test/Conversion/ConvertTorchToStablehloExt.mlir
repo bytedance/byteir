@@ -30,3 +30,10 @@ func.func @torch.aten.pow.Scalar(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vte
   %0 = torch.aten.pow.Scalar %float2.000000e00, %arg0 : !torch.float, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
   return %0 : !torch.vtensor<[3,4],f32>
 }
+
+func.func @torch.aten.expand_as(%arg0: !torch.vtensor<[3,4],f32>, %arg1: !torch.vtensor<[3,1],f32>) -> !torch.vtensor<[3,4],f32> {
+  %0 = torch.aten.expand_as %arg1, %arg0 : !torch.vtensor<[3,1],f32>, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
+  return %0 : !torch.vtensor<[3,4],f32>
+}
+// CHECK-LABEL:  func.func @torch.aten.expand_as
+// CHECK: stablehlo.dynamic_broadcast_in_dim

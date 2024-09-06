@@ -1,4 +1,4 @@
-// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=byteir.layer_norm,byteir.softmax,byteir.log_softmax,byteir.nll_loss_forward,byteir.nll_loss_backward,byteir.gelu,byteir.arg_max,byteir.arg_min,byteir.one_hot,byteir.topk,byteir.non_zero,byteir.resize" --canonicalize-ext | FileCheck %s
+// RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=byteir.layer_norm,byteir.l2_norm,byteir.softmax,byteir.log_softmax,byteir.nll_loss_forward,byteir.nll_loss_backward,byteir.gelu,byteir.arg_max,byteir.arg_min,byteir.one_hot,byteir.topk,byteir.non_zero,byteir.resize" --canonicalize-ext | FileCheck %s
 // RUN: torch-frontend-opt %s -convert-torch-to-custom-call --canonicalize-ext | FileCheck %s --check-prefix NONE
 // RUN: torch-frontend-opt %s -convert-torch-to-custom-call="valid-custom-call-ops=math.asin" --canonicalize-ext | FileCheck %s --check-prefix MATH
 
@@ -213,6 +213,18 @@ func.func @torch.aten.nll_loss_backward(%arg0: !torch.vtensor<[],f32>, %arg1: !t
 // CHECK-SAME: @byteir.nll_loss_backward
 // CHECK: byteir_attrs = {ignore_index = -1 : i64, reduction = 1 : i64}
 // CHECH-NOT: torch.aten.nll_loss_backward
+
+func.func @torch.byteir.l2_norm(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vtensor<[3,4],f32> {
+  %float9.999990e-13 = torch.constant.float 9.9999999999999998E-13
+  %int1 = torch.constant.int 1
+  %0 = torch.prim.ListConstruct %int1 : (!torch.int) -> !torch.list<int>
+  %4 = torch.operator "byteir.l2_norm"(%arg0, %0, %float9.999990e-13) {eps_outside_sqrt = true} : (!torch.vtensor<[3,4],f32>, !torch.list<int>, !torch.float) -> !torch.vtensor<[3,4],f32>
+  return %4 : !torch.vtensor<[3,4],f32>
+}
+// CHECK-LABEL: func.func @torch.byteir.l2_norm
+// CHECK:  stablehlo.custom_call
+// CHECK-SAME: @byteir.l2_norm
+// CHECK: byteir_attrs = {axis = [1], eps_outside_sqrt = true, epsilon = 9.9999999999999998E-13 : f64}
 
 func.func @torch.byteir.flash_attn_fwd(%arg0: !torch.vtensor<[2,12,256,128],f32>, %arg1: !torch.vtensor<[2,12,256,128],f32>, %arg2: !torch.vtensor<[2,12,256,128],f32>) -> (!torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,12,256,128],f32>, !torch.vtensor<[2,256,12],f32>, !torch.vtensor<[2],si64>) {
   %float1.000000e00 = torch.constant.float 1.000000e+00

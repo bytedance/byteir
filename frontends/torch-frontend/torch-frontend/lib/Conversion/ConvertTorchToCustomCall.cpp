@@ -813,6 +813,58 @@ public:
   }
 };
 
+// torch.operator "byteir.l2_norm"
+// operands: input, dims, eps
+class ConvertByteIRL2NormOp : public OpConversionPattern<OperatorOp> {
+public:
+  using OpConversionPattern<OperatorOp>::OpConversionPattern;
+  using OpAdaptor = OperatorOp::Adaptor;
+  LogicalResult
+  matchAndRewrite(OperatorOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    if (adaptor.getName() != "byteir.l2_norm")
+      return rewriter.notifyMatchFailure(op, "op name not match");
+
+    // collect inputs/outputs
+    SmallVector<Value> bufferArgs({adaptor.getOperands()[0]});
+    SmallVector<Type> resultTypes;
+    if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
+                                                resultTypes))) {
+      return op.emitError("could not convert output types");
+    }
+
+    llvm::SmallVector<int64_t> dims;
+    if (!matchPattern(op.getOperand(1), m_TorchListOfConstantInts(dims))) {
+      return op.emitError("dims must be a list of int");
+    }
+    double eps;
+    if (!matchPattern(op.getOperand(2), m_TorchConstantFloat(&eps))) {
+      return op.emitError("eps must be a constant float");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("epsilon"),
+                              rewriter.getF64FloatAttr(eps));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
+                              rewriter.getI64ArrayAttr(dims));
+    if (op->hasAttr("eps_outside_sqrt")) {
+      byteir_attrs.emplace_back(rewriter.getStringAttr("eps_outside_sqrt"),
+                                op->getAttr("eps_outside_sqrt"));
+    }
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getL2NormName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+
 // torch.operator "byteir.flash_attn_fwd"
 // operands: q, k, v, dropout_p, softmax_scale, causal, return_softmax
 // results: out, q_padded, k_padded, v_padded, out_padded, softmax_lse,
@@ -1273,6 +1325,7 @@ public:
     patterns.add<ConvertDynamicMaskStitchCustomOp>(typeConverter, context);
 
     target.addIllegalOp<OperatorOp>();
+    patterns.add<ConvertByteIRL2NormOp>(typeConverter, context);
     patterns.add<ConvertFlashAttnFwdOp>(typeConverter, context);
     patterns.add<ConvertFlashAttnBwdOp>(typeConverter, context);
     patterns.add<ConvertFlashAttnKVCacheOp>(typeConverter, context);

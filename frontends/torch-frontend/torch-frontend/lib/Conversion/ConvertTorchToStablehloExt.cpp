@@ -27,6 +27,7 @@
 #include "./PassDetail.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
@@ -322,6 +323,27 @@ struct ConvertAtenPowScalarOp : public OpConversionPattern<AtenPowScalarOp> {
     return success();
   }
 };
+
+// AtenExpandAsOp
+struct ConvertAtenExpandAsOp : public OpConversionPattern<AtenExpandAsOp> {
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(AtenExpandAsOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value lhs = adaptor.getSelf();
+    Value rhs = adaptor.getOther();
+    int64_t rank = cast<RankedTensorType>(rhs.getType()).getRank();
+
+    Value shape = rewriter.create<shape::ShapeOfOp>(op->getLoc(), rhs);
+    Value result = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
+        op->getLoc(), rhs.getType(), lhs, shape,
+        rewriter.getDenseI64ArrayAttr(
+            llvm::to_vector(llvm::seq<int64_t>(0, rank))));
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
 } // namespace
 
 namespace {
@@ -334,6 +356,7 @@ struct ConvertTorchToStablehloExtPass
     registry.insert<stablehlo::StablehloDialect>();
     registry.insert<tensor::TensorDialect>();
     registry.insert<arith::ArithDialect>();
+    registry.insert<shape::ShapeDialect>();
     TorchConversion::getBackendTypeConversionDependentDialects(registry);
   }
 
@@ -342,7 +365,7 @@ struct ConvertTorchToStablehloExtPass
     ConversionTarget target(*context);
     target.addLegalDialect<Torch::TorchDialect, chlo::ChloDialect,
                            stablehlo::StablehloDialect, tensor::TensorDialect,
-                           arith::ArithDialect>();
+                           arith::ArithDialect, shape::ShapeDialect>();
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
     TorchConversion::setupBackendTypeConversionForStablehlo(target,
@@ -356,6 +379,8 @@ struct ConvertTorchToStablehloExtPass
                                                             context);
     target.addIllegalOp<AtenPowScalarOp>();
     patterns.add<ConvertAtenPowScalarOp>(typeConverter, context);
+    target.addIllegalOp<AtenExpandAsOp>();
+    patterns.add<ConvertAtenExpandAsOp>(typeConverter, context);
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
       return signalPassFailure();

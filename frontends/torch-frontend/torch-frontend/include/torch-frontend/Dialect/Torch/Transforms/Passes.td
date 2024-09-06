@@ -9,7 +9,11 @@ include "mlir/Pass/PassBase.td"
 
 def FuseOpOnTorch : Pass<"fuse-op-on-torch", "func::FuncOp"> {
   let summary = "fuse op on torch dialect";
-  let constructor = "mlir::createFuseOpOnTorch()";
+  let constructor = "mlir::createFuseOpOnTorch(/*validCustomCallOps=*/{})";
+  let options = [
+    ListOption<"validCustomCallOps", "valid-custom-call-ops", "std::string",
+               "List of ops to be lowered to byteir custom call">,
+  ];
 }
 
 //===----------------------------------------------------------------------===//

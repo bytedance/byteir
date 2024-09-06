@@ -24,6 +24,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
+#include "llvm/ADT/StringSet.h"
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -59,6 +60,32 @@ Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value output,
   return layerNormOp.getResult();
 }
 
+Value createL2Norm(PatternRewriter &rewriter, Location loc, Value output,
+                   Value input, Value dims, Value eps) {
+  auto op = rewriter.create<Torch::OperatorOp>(loc, TypeRange{output.getType()},
+                                               "byteir.l2_norm",
+                                               ValueRange{input, dims, eps},
+                                               /*regionsCount=*/0);
+  op->setAttr("eps_outside_sqrt", rewriter.getBoolAttr(true));
+  return op->getResults()[0];
+}
+
+bool isValueLeastInfoTorchTensor(Value value) {
+  if (auto ty = dyn_cast<Torch::NonValueTensorType>(value.getType())) {
+    if (!ty.hasSizes() && !ty.hasDtype())
+      return true;
+  }
+  return false;
+}
+
+bool isValueFullInfoTorchValueTensor(Value value) {
+  if (auto ty = dyn_cast<Torch::ValueTensorType>(value.getType())) {
+    if (ty.hasSizes() && ty.hasDtype())
+      return true;
+  }
+  return false;
+}
+
 // copied from compiler/lib/Utils/Utils.cpp
 bool isSplatValue(DenseIntElementsAttr attr, int64_t value) {
   if (!attr) {
@@ -92,16 +119,29 @@ bool isSplatCloseToValue(DenseFPElementsAttr attr, double value,
 #include "FuseOpOnTorchPattern.inc"
 
 struct FuseOpOnTorchPass : public FuseOpOnTorchBase<FuseOpOnTorchPass> {
+  FuseOpOnTorchPass(ArrayRef<std::string> validCustomCallOps) {
+    this->validCustomCallOps = validCustomCallOps;
+  }
+
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<Torch::TorchDialect>();
   }
 
   void runOnOperation() override {
+    validCustomCallOpsSet.clear();
+    validCustomCallOpsSet.insert(validCustomCallOps.begin(),
+                                 validCustomCallOps.end());
+
     func::FuncOp funcOp = getOperation();
     MLIRContext *context = &getContext();
 
     RewritePatternSet patterns(context);
-    populateWithGenerated(patterns);
+    patterns.add<TorchGeluErfPattern>(context);
+    patterns.add<TorchGeluTanhPattern>(context);
+    patterns.add<TorchLayerNormPattern>(context);
+    if (validCustomCallOpsSet.contains("byteir.l2_norm")) {
+      patterns.add<TorchL2NormPattern>(context);
+    }
 
     LogicalResult result =
         applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
@@ -109,10 +149,13 @@ struct FuseOpOnTorchPass : public FuseOpOnTorchBase<FuseOpOnTorchPass> {
       signalPassFailure();
     }
   }
+
+  llvm::StringSet<> validCustomCallOpsSet;
 };
 
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::createFuseOpOnTorch() {
-  return std::make_unique<FuseOpOnTorchPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createFuseOpOnTorch(ArrayRef<std::string> validCustomCallOps) {
+  return std::make_unique<FuseOpOnTorchPass>(validCustomCallOps);
 }

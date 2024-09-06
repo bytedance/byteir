@@ -1,4 +1,4 @@
-// RUN: torch-frontend-opt %s --cse --fuse-op-on-torch | FileCheck %s
+// RUN: torch-frontend-opt %s --cse --fuse-op-on-torch="valid-custom-call-ops=byteir.l2_norm" | FileCheck %s
 
 func.func @torch.gelu.tanh(%785: !torch.tensor) -> (!torch.tensor) {
     %int1 = torch.constant.int 1
@@ -60,3 +60,19 @@ func.func @torch.layer_norm(%861: !torch.tensor) -> (!torch.tensor) {
 // CHECK-LABEL: @torch.layer_norm
 // CHECK:  torch.aten.layer_norm
 // CHECK-SAME: eps_outside_sqrt = true
+
+func.func @byteir.l2_norm(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vtensor<[3,4],f32> {
+    %none = torch.constant.none
+    %float2.000000e00 = torch.constant.float 2.000000e+00
+    %int1 = torch.constant.int 1
+    %float9.999990e-13 = torch.constant.float 9.9999999999999998E-13
+    %true = torch.constant.bool true
+    %0 = torch.prim.ListConstruct %int1 : (!torch.int) -> !torch.list<int>
+    %1 = torch.aten.linalg_vector_norm %arg0, %float2.000000e00, %0, %true, %none : !torch.vtensor<[3,4],f32>, !torch.float, !torch.list<int>, !torch.bool, !torch.none -> !torch.vtensor<[3,1],f32>
+    %2 = torch.aten.clamp %1, %float9.999990e-13, %none : !torch.vtensor<[3,1],f32>, !torch.float, !torch.none -> !torch.vtensor<[3,1],f32>
+    %3 = torch.aten.expand_as %2, %arg0 : !torch.vtensor<[3,1],f32>, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
+    %4 = torch.aten.div.Tensor %arg0, %3 : !torch.vtensor<[3,4],f32>, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
+    return %4 : !torch.vtensor<[3,4],f32>
+}
+// CHECK-LBAEL: @byteir.l2_norm
+// CHECK:  torch.operator "byteir.l2_norm"
