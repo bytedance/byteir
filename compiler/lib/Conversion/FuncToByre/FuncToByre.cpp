@@ -108,13 +108,6 @@ public:
         launchOp->getLoc(), TypeRange(), "PTXOp", launchOp.getKernelOperands(),
         /*memEffects*/ ArrayAttr());
 
-    computeOp->setAttr(rewriter.getStringAttr("device_file_name"),
-                       launchOp->getAttr("device_file_name"));
-    if (launchOp->hasAttr(byre::getKernelCallConventionAttrName())) {
-      computeOp->setAttr(
-          byre::getKernelCallConventionAttrName(),
-          launchOp->getAttr(byre::getKernelCallConventionAttrName()));
-    }
     computeOp->setAttr(
         rewriter.getStringAttr("kernel_name"),
         rewriter.getStringAttr(launchOp.getKernelName().getValue()));
@@ -134,6 +127,11 @@ public:
     computeOp->setAttr("BlockSize.x", rewriter.getI32IntegerAttr(bx));
     computeOp->setAttr("BlockSize.y", rewriter.getI32IntegerAttr(by));
     computeOp->setAttr("BlockSize.z", rewriter.getI32IntegerAttr(bz));
+
+    // get discardable attributes from gpu.launch
+    for (auto attr : launchOp->getDiscardableAttrDictionary().getValue()) {
+      computeOp->setAttr(attr.getName(), attr.getValue());
+    }
 
     rewriter.eraseOp(launchOp);
 

@@ -131,7 +131,6 @@ def _compile_cuda(
             PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After GPU Opt:") if verbose else ...
     with context:
-        # PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
         PassManager.parse("builtin.module(inline)").run(module.operation)
         PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
         PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(module.operation)
@@ -238,7 +237,6 @@ def _compile_cuda_with_ait(
             PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
         _print_verbose(processor.module, "// IR Dump After GPU Opt:") if verbose else ...
     with context:
-        # PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(processor.module.operation)
         PassManager.parse("builtin.module(inline)").run(processor.module.operation)
         PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
         PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(processor.module.operation)
