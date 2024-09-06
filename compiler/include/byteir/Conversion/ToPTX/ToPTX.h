@@ -29,7 +29,8 @@ class FuncOp;
 } // namespace func
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createGenPTXConfigPass(bool useBarePtrCallConv = false);
+createGenPTXConfigPass(bool useBarePtrCallConv = false,
+                       const std::string &fileName = "unified");
 
 // TODO move to general GPU
 std::unique_ptr<OperationPass<ModuleOp>>

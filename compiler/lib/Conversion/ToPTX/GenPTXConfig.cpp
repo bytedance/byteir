@@ -55,35 +55,24 @@ static bool isAliasOp(Operation &op) {
 // support static for now
 // TODO extend it to support dynamic block/grid sizes
 // TODO unify CUDA/PTX into the same pass with compilation option
-static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
+static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv,
+                         std::string &fileName) {
+  mlir::OpBuilder opBuilder(func);
+
+  for (auto launchOp : func.getOps<gpu::LaunchFuncOp>()) {
+    launchOp->setAttr("device_file_name", opBuilder.getStringAttr(fileName));
+    if (useBarePtrCallConv) {
+      launchOp->setAttr(byre::getKernelCallConventionAttrName(),
+                        opBuilder.getStringAttr("bare_ptr"));
+    }
+  }
+
   // handle elementwise fusion
   if (func->hasAttr(getByteIRElementwiseFusionAttrName())) {
-    mlir::OpBuilder opBuilder(func);
-
     if (func.getOps<gpu::LaunchFuncOp>().empty())
       return;
 
     gpu::LaunchFuncOp launchOp = *func.getOps<gpu::LaunchFuncOp>().begin();
-
-    func->setAttr(getByrePrefix() + "kernel_name",
-                  opBuilder.getStringAttr(launchOp.getKernelName().getValue()));
-
-    // Handle 1D only, since element-wise is only using 1D (linearized)
-    auto grid = launchOp.getGridSizeOperandValues();
-    int64_t gx = cast<ConstantIndexOp>(grid.x.getDefiningOp()).value();
-    func->setAttr(getByrePrefix() + "GridSize.x",
-                  opBuilder.getIntegerAttr(opBuilder.getIntegerType(32), gx));
-
-    auto block = launchOp.getBlockSizeOperandValues();
-    int64_t bx = cast<ConstantIndexOp>(block.x.getDefiningOp()).value();
-    func->setAttr(getByrePrefix() + "BlockSize.x",
-                  opBuilder.getIntegerAttr(opBuilder.getIntegerType(32), bx));
-
-    func->setAttr(getByreComputeName(), opBuilder.getStringAttr("PTXOp"));
-    func->setAttr(getByreForceComputeNameAttrName(), opBuilder.getUnitAttr());
-    if (useBarePtrCallConv)
-      func->setAttr(getByrePrefix() + getKernelCallConventionAttrName(),
-                    opBuilder.getStringAttr("bare_ptr"));
 
     // Handle arg mapping here
     // LWC: this is tentative when we are using GPU Kernel Outlining.
@@ -146,19 +135,22 @@ static void addFuncAttrs(func::FuncOp func, bool useBarePtrCallConv) {
 
 // Main Pass
 struct GenPTXConfigPass : public GenPTXConfigBase<GenPTXConfigPass> {
-  GenPTXConfigPass(bool useBarePtrCallConv) : GenPTXConfigBase() {
+  GenPTXConfigPass(bool useBarePtrCallConv, const std::string &fileName)
+      : GenPTXConfigBase() {
     this->useBarePtrCallConv = useBarePtrCallConv;
+    this->fileName = fileName;
   }
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    addFuncAttrs(func, this->useBarePtrCallConv);
+    addFuncAttrs(func, this->useBarePtrCallConv, this->fileName);
   }
 };
 
 } // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createGenPTXConfigPass(bool useBarePtrCallConv) {
-  return std::make_unique<GenPTXConfigPass>(useBarePtrCallConv);
+mlir::createGenPTXConfigPass(bool useBarePtrCallConv,
+                             const std::string &fileName) {
+  return std::make_unique<GenPTXConfigPass>(useBarePtrCallConv, fileName);
 }

@@ -111,8 +111,15 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
           ->getAttrOfType<StringAttr>(KERNEL_NAME_ATTR)
           .getValue()
           .str();
-  impl_->kernel_info.file_name = brt::ir::GetParentPath(info.GetIRPath()) +
-                                 "/" + GetFileName(info.GetOperation());
+
+  auto fileName = info.GetOperation()
+                      ->getAttrOfType<StringAttr>(FILE_NAME_ATTR)
+                      .getValue()
+                      .str();
+
+  impl_->kernel_info.file_name =
+      brt::ir::GetParentPath(info.GetIRPath()) + "/" + fileName;
+
   if (info.GetOperation()->hasAttrOfType<StringAttr>(CALL_CONVENTION_ATTR))
     impl_->call_convention =
         info.GetOperation()

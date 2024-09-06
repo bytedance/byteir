@@ -1,4 +1,4 @@
-// RUN: byteir-opt -gen-ptx-config='use-bare-ptr-memref-call-conv=1' -convert-to-byre --allow-unregistered-dialect %s | FileCheck %s
+// RUN: byteir-opt -gen-ptx-config='use-bare-ptr-memref-call-conv=1' --inline --gpu-launch-func-to-byre --allow-unregistered-dialect %s | FileCheck %s
 
 module attributes {gpu.container_module}  {
   func.func private @Unknown0(%arg0: memref<1x128xi64>, %arg1: memref<128xi64>, %arg2: memref<128xi64>, %arg3: memref<128xf64>) -> (memref<128xui32>, memref<128x1xi64>, memref<128xi1>) attributes {byre_compute_name = "Unknown0", __byteir_elementwise_fusion__} {
@@ -58,6 +58,6 @@ module attributes {gpu.container_module}  {
 
   // CHECK-NOT: func.func private @Unknown0
   // CHECK: byre.compute @PTXOp
-  // CHEKC-SAME: {BlockSize.x = 32 : i32, GridSize.x = 4 : i32, call_convention = "bare_ptr", kernel_name = "Unknown0_kernel"}
+  // CHECK-SAME: {BlockSize.x = 32 : i32, BlockSize.y = 1 : i32, BlockSize.z = 1 : i32, GridSize.x = 4 : i32, GridSize.y = 1 : i32, GridSize.z = 1 : i32, call_convention = "bare_ptr", device_file_name = "unified", kernel_name = "Unknown0_kernel"}
 }
 

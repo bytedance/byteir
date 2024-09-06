@@ -1,4 +1,4 @@
-// RUN: byteir-opt %s -byre-host="device-file-name=your_file target=cuda entry-func=main" | FileCheck %s
+// RUN: byteir-opt %s -byre-host | FileCheck %s
 
 // CHECK-LABEL: func.func @main
 

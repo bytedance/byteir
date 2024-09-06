@@ -34,6 +34,10 @@ struct GPUOptPipelineOptions
       llvm::cl::desc("An optional attribute to speicify whether using bare ptr "
                      "call convention."),
       llvm::cl::init(false)};
+  Option<std::string> fileName{
+      *this, "device-file-name",
+      llvm::cl::desc("To specify the generated kernel will be written to."),
+      llvm::cl::init("device_kernel.ptx")};
 };
 
 void createGPUOptPipeline(OpPassManager &pm,
