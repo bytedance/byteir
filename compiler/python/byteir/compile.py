@@ -126,18 +126,14 @@ def _compile_cuda(
         _print_verbose(module, "// IR Dump After SCF Opt:") if verbose else ...
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(module.operation)
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true  device-file-name="+ output_file_prefix + ".ptx" + "})").run(module.operation)
         else:
-            PassManager.parse("builtin.module(gpu-opt)").run(module.operation)
+            PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After GPU Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(module.operation)
         PassManager.parse("builtin.module(inline)").run(module.operation)
         PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
-        if useBarePtrCallConv:
-            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(module.operation)
-        else:
-            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(module.operation)
+        PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(module.operation)
         PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(module.operation)
         PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(module.operation)
         _print_verbose(module, "// IR Dump After Set Space Opt:") if verbose else ...
@@ -159,7 +155,7 @@ def _compile_cuda(
 
     # create host mlir
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(byre-host)").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
     # write to output host mlir file
     assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
@@ -236,18 +232,14 @@ def _compile_cuda_with_ait(
         _print_verbose(processor.module, "// IR Dump After SCF Opt:") if verbose else ...
     with context:
         if useBarePtrCallConv:
-            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true})").run(processor.module.operation)
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true  device-file-name="+ output_file_prefix + ".ptx" + "})").run(module.operation)
         else:
-            PassManager.parse("builtin.module(gpu-opt)").run(processor.module.operation)
+            PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
         _print_verbose(processor.module, "// IR Dump After GPU Opt:") if verbose else ...
     with context:
-        PassManager.parse("builtin.module(func.func(remove-func-body{anchor-attr=__byteir_elementwise_fusion__}))").run(processor.module.operation)
         PassManager.parse("builtin.module(inline)").run(processor.module.operation)
         PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
-        if useBarePtrCallConv:
-            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre{use-bare-ptr-memref-call-conv=true}))").run(processor.module.operation)
-        else:
-            PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(processor.module.operation)
+        PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(processor.module.operation)
         PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(processor.module.operation)
         PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Set Space Opt:") if verbose else ...
@@ -268,7 +260,7 @@ def _compile_cuda_with_ait(
     byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
 
     with context:
-        PassManager.parse("builtin.module(byre-host{device-file-name=" + output_file_prefix + ".ptx" + " " + target_str + " " + entry_func_str + "})").run(processor.module.operation)
+        PassManager.parse("builtin.module(byre-host)").run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Byre Host:") if verbose else ...
     # write to output host mlir
     assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
@@ -348,12 +340,8 @@ def _compile_cpu(
 
     # create host module
     with context:
-        PassManager.parse("builtin.module(byre-host{" + target_str + " " + entry_func_str + "})").run(module.operation)
+        PassManager.parse("builtin.module(byre-host)").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
-        # FIXME: remove `device_file_name` attr as byre v1.0.0 not support this attr.
-        target_attr_name = "device_file_name"
-        PassManager.parse("builtin.module(remove-func-tag{" + f"attr-name={target_attr_name} " + f" func-name={entry_func} " + "})").run(module.operation)
-        _print_verbose(module, "// IR Dump After Remove func tag:") if verbose else ...
 
     output_host_mlir_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value)
     output_host_mlirbc_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIRBC.value)
