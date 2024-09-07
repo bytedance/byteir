@@ -153,14 +153,23 @@ def _compile_cuda(
     # write to output device ptx file
     byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
 
-    # create host mlir
+    # create host module
     with context:
         PassManager.parse("builtin.module(byre-host)").run(module.operation)
+        PassManager.parse("builtin.module(remove-module-tag{attr-name=gpu.container_module})").run(module.operation)
+        PassManager.parse("builtin.module(remove-module-tag{attr-name=torch.debug_module_name})").run(module.operation)
         _print_verbose(module, "// IR Dump After Byre Host:") if verbose else ...
+    
+    output_host_mlir_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value)
+    output_host_mlirbc_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIRBC.value)
     # write to output host mlir file
-    assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
-    with open(os.path.join(output_file_dir, output_file_prefix + "." + output_type.value), "w") as f:
+    with open(output_host_mlir_path, "w") as f:
         f.write(module.operation.get_asm())
+    if output_type is OutputType.MLIRBC:
+        byteir.serialize_byre(module, compile_options.byre_serial_version, output_host_mlirbc_path)
+        deserialized_module = byteir.deserialize_byre(open(output_host_mlirbc_path, "rb").read(), context)
+        if (module.operation.get_asm() != deserialized_module.operation.get_asm()):
+            raise ValueError("module asm has be changed after byre serialization")
 
 
 @register_byteir_compiler_backend(target="cuda_with_ait", device="cuda")
@@ -259,13 +268,23 @@ def _compile_cuda_with_ait(
     # write to output device ptx
     byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
 
+    # create host module
     with context:
         PassManager.parse("builtin.module(byre-host)").run(processor.module.operation)
+        PassManager.parse("builtin.module(remove-module-tag{attr-name=gpu.container_module})").run(module.operation)
+        PassManager.parse("builtin.module(remove-module-tag{attr-name=torch.debug_module_name})").run(module.operation)
         _print_verbose(processor.module, "// IR Dump After Byre Host:") if verbose else ...
-    # write to output host mlir
-    assert output_type is OutputType.MLIR, "TBD: emit mlirbc"
-    with open(os.path.join(output_file_dir, output_file_prefix + "." + output_type.value), "w") as f:
-        f.write(processor.module.operation.get_asm())
+    
+    output_host_mlir_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value)
+    output_host_mlirbc_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIRBC.value)
+    # write to output host mlir file
+    with open(output_host_mlir_path, "w") as f:
+        f.write(module.operation.get_asm())
+    if output_type is OutputType.MLIRBC:
+        byteir.serialize_byre(module, compile_options.byre_serial_version, output_host_mlirbc_path)
+        deserialized_module = byteir.deserialize_byre(open(output_host_mlirbc_path, "rb").read(), context)
+        if (module.operation.get_asm() != deserialized_module.operation.get_asm()):
+            raise ValueError("module asm has be changed after byre serialization")
 
 
 @register_byteir_compiler_backend(target="cpu", device="cpu")

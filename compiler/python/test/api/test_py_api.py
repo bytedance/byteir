@@ -18,6 +18,10 @@ def test_compile_ccl_inference():
     path = TEST_ROOT_DIR + "E2E/CUDA/CclInference/input.mlir"
     byteir.compile(path, temp_dir + "/test_ccl.mlir", entry_func="forward")
 
+def test_compile_ccl_inference_mlirbc():
+    path = TEST_ROOT_DIR + "E2E/CUDA/CclInference/input.mlir"
+    byteir.compile(path, temp_dir + "/test_ccl.mlirbc", entry_func="forward")
+
 def test_compile_mlp_inference_cpu():
     path = TEST_ROOT_DIR + "E2E/Host/Case0/00_Input.mlir"
     byteir.compile(path, temp_dir + "/test_cpu.mlir", entry_func="main", target="cpu")
