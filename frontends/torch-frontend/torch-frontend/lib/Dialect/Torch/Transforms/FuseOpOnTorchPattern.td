@@ -41,7 +41,9 @@ def TorchGeluTanhPattern : Pat<
         )
     ),
     (createGeluTanh $output, $input),
-    [(OneIntegerAttr $int1), (OneIntegerAttr $int1_1), (ThreeIntegerAttr $int3),
+    [(Constraint<CPred<"isValueLeastInfoTorchTensor($0)">, ""> $input),
+     (Constraint<CPred<"isValueLeastInfoTorchTensor($0)">, ""> $output),
+     (OneIntegerAttr $int1), (OneIntegerAttr $int1_1), (ThreeIntegerAttr $int3),
      (Constraint<CPred<"isSplatValue(dyn_cast<DenseIntElementsAttr>($0), 1)">, ""> $const_1),
      (Constraint<CPred<"isSplatValue(dyn_cast<DenseFPElementsAttr>($0), 0.5)">, ""> $const_5),
      (Constraint<CPred<"isSplatCloseToValue(dyn_cast<DenseFPElementsAttr>($0), 4.471500e-02, 0.0001)">, ""> $const_4),
@@ -70,7 +72,9 @@ def TorchGeluErfPattern : Pat<
         )
     ),
     (createGeluErf $output, $input),
-    [(OneIntegerAttr $int1),
+    [(Constraint<CPred<"isValueLeastInfoTorchTensor($0)">, ""> $input),
+     (Constraint<CPred<"isValueLeastInfoTorchTensor($0)">, ""> $output),
+     (OneIntegerAttr $int1),
      (Constraint<CPred<"isSplatValue(dyn_cast<DenseFPElementsAttr>($0), 0.5)">, ""> $const_5),
      (Constraint<CPred<"isSplatValue(dyn_cast<DenseFPElementsAttr>($0), 1.0)">, ""> $const_1),
      (Constraint<CPred<"isSplatCloseToValue(dyn_cast<DenseFPElementsAttr>($0), 1.4142135623730951, 0.0001)">, ""> $const_2)]
@@ -111,8 +115,40 @@ def TorchLayerNormPattern : Pat<
         (Torch_ConstantIntOp $int1)
     ),
     (createLayerNorm $output, $input, $list, $weight, $bias, (NativeCodeCall<"createLayerNormEpsilon($_builder, $_loc, $0)"> $epsilon), $false_op),
-    [(TrueAttr $true_value), (TrueAttr $true_value_1), (FalseAttr $false_value),
+    [(Constraint<CPred<"isValueLeastInfoTorchTensor($0)">, ""> $input),
+     (Constraint<CPred<"isValueLeastInfoTorchTensor($0)">, ""> $output),
+     (TrueAttr $true_value), (TrueAttr $true_value_1), (FalseAttr $false_value),
      (OneIntegerAttr $int1), (OneIntegerAttr $int1_1), (OneIntegerAttr $int1_2)]
 >;
+
+// ==============================================================================
+
+def createL2Norm : NativeCodeCall<"createL2Norm($_builder, $_loc, $0, $1, $2, $3)">;
+
+def TorchL2NormPattern : Pat<
+    (Torch_AtenDivTensorOp:$output
+        $input,
+        (Torch_AtenExpandAsOp
+            (Torch_AtenClampOp
+                (Torch_AtenLinalgVectorNormOp
+                    $input,
+                    (Torch_ConstantFloatOp $p_value),
+                    $dims,
+                    (Torch_ConstantBoolOp $true_value),
+                    (Torch_ConstantNoneOp)
+                ),
+                (Torch_ConstantFloatOp:$eps_op $eps_value),
+                (Torch_ConstantNoneOp)
+            ),
+            $input
+        )
+    ),
+    (createL2Norm $output, $input, $dims, $eps_op),
+    [(Constraint<CPred<"isValueFullInfoTorchValueTensor($0)">, ""> $input),
+     (Constraint<CPred<"isValueFullInfoTorchValueTensor($0)">, ""> $output),
+     (TrueAttr $true_value),
+     (Constraint<CPred<"cast<FloatAttr>($0).getValueAsDouble() == 2.0">, ""> $p_value)]
+>;
+
 
 #endif // FUSE_ON_TORCH_PATTERN

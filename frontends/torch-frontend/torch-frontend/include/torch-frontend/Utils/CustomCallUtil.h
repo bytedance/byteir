@@ -51,8 +51,6 @@ constexpr llvm::StringRef getGeLUName() {
   return CUSTOM_CALL_NAME_PREFIX "gelu";
 }
 
-constexpr llvm::StringRef getErfName() { return CUSTOM_CALL_NAME_PREFIX "erf"; }
-
 constexpr llvm::StringRef getTopKName() {
   return CUSTOM_CALL_NAME_PREFIX "top_k";
 }
