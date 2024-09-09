@@ -313,13 +313,13 @@ def test_tuple_one_tensor():
 # ==============================================================================
 # expand_as
 
-def ExpandAsModule(torch.nn.Module):
+class ExpandAsModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
     def forward(self, x, y, z):
         return x.expand_as(y), x.expand_as(z)
 
-def ExpandAsModule1(torch.nn.Module):
+class ExpandAsModule1(torch.nn.Module):
     def __init__(self):
         super().__init__()
     def forward(self, x, y):
