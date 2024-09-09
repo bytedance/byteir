@@ -217,10 +217,24 @@ def RemoveFuncTag : Pass<"remove-func-tag", "ModuleOp"> {
   let options = [
     Option<"attrName", "attr-name", "std::string",
             /*default=*/"",
-            "An optional attribute removing from target functions:">,
+            "An optional attribute removing from target functions.">,
     Option<"funcName", "func-name", "std::string",
             /*default=*/"",
             "An optional name to specify target functions.">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// RemoveModuleTag
+//===----------------------------------------------------------------------===//
+
+def RemoveModuleTag : Pass<"remove-module-tag", "ModuleOp"> {
+  let summary = "Remove Tag on ModuleOp";
+  let constructor = "mlir::createRemoveModuleTagPass()";
+  let options = [
+    Option<"attrName", "attr-name", "std::string",
+           /*default=*/"",
+           "An optional attribute removing from module.">
   ];
 }
 
