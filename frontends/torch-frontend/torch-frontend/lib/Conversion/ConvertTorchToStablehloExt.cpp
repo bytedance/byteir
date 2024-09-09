@@ -333,13 +333,14 @@ struct ConvertAtenExpandAsOp : public OpConversionPattern<AtenExpandAsOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Value lhs = adaptor.getSelf();
     Value rhs = adaptor.getOther();
-    int64_t rank = cast<RankedTensorType>(rhs.getType()).getRank();
+    int64_t lhs_rank = cast<RankedTensorType>(lhs.getType()).getRank();
+    int64_t rhs_rank = cast<RankedTensorType>(rhs.getType()).getRank();
 
     Value shape = rewriter.create<shape::ShapeOfOp>(op->getLoc(), rhs);
     Value result = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
         op->getLoc(), rhs.getType(), lhs, shape,
-        rewriter.getDenseI64ArrayAttr(
-            llvm::to_vector(llvm::seq<int64_t>(0, rank))));
+        rewriter.getDenseI64ArrayAttr(llvm::to_vector(
+            llvm::seq<int64_t>(rhs_rank - lhs_rank, rhs_rank))));
     rewriter.replaceOp(op, result);
     return success();
   }

@@ -309,3 +309,27 @@ def test_tuple_one_tensor():
     inputs = [tu.randn(3, 4)]
     module = compile(Tuple2Module(), inputs, "stablehlo")
     print(module.operation.get_asm())
+
+# ==============================================================================
+# expand_as
+
+def ExpandAsModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x, y, z):
+        return x.expand_as(y), x.expand_as(z)
+
+def ExpandAsModule1(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forward(self, x, y):
+        return x.expand_as(y)
+
+def test_expand_as():
+    inputs = [tu.randn(3, 1), tu.randn(3, 4), tu.randn(2, 2, 3, 4)]
+    module = compile(ExpandAsModule(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, ExpandAsModule()(*inputs))
+
+    inputs = [tu.tensor(1.0), tu.randn(3, 4)]
+    module = compile(ExpandAsModule1(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, ExpandAsModule1()(*inputs))
