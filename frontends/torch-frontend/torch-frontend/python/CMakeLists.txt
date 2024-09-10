@@ -82,6 +82,11 @@ add_mlir_python_common_capi_library(TorchFrontendMLIRAggregateCAPI
 
 target_link_options(TorchFrontendMLIRAggregateCAPI PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--exclude-libs,ALL>)
 
+# only link soversion TorchFrontendMLIRAggregateCAPI
+get_target_property(LLVM_VERSION TorchFrontendMLIRAggregateCAPI VERSION)
+set_target_properties(TorchFrontendMLIRAggregateCAPI PROPERTIES SOVERSION
+                                                           ${LLVM_VERSION})
+
 add_mlir_python_modules(TorchFrontendPythonModules
   ROOT_PREFIX "${TORCH_FRONTEND_BINARY_DIR}/python_packages/torch_frontend"
   INSTALL_PREFIX "python_packages/torch_frontend"

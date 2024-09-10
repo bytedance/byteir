@@ -84,10 +84,11 @@ class CustomBuild(build_ext):
       "python_packages",
       "torch_frontend",
     )
+    ignore_pattern = shutil.ignore_patterns("*TorchFrontendMLIRAggregateCAPI.so")
     target_dir = os.path.join(self.build_lib, "torch_frontend")
     if os.path.exists(target_dir):
       shutil.rmtree(target_dir, ignore_errors=False, onerror=None)
-    shutil.copytree(python_package_dir, target_dir, symlinks=False)
+    shutil.copytree(python_package_dir, target_dir, symlinks=False, ignore=ignore_pattern)
     shutil.copyfile(version_file, os.path.join(target_dir, "version.py"))
 
   def build_torch_mlir(self):
