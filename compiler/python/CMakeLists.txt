@@ -84,6 +84,10 @@ target_link_options(ByteIRCAPIAggregation
   PRIVATE $<$<PLATFORM_ID:Linux>:LINKER:--exclude-libs,ALL>
 )
 
+# only link soversion ByteIRCAPIAggregation
+get_target_property(LLVM_VERSION ByteIRCAPIAggregation VERSION)
+set_target_properties(ByteIRCAPIAggregation PROPERTIES SOVERSION ${LLVM_VERSION})
+
 ################################################################################
 # Python module
 ################################################################################
