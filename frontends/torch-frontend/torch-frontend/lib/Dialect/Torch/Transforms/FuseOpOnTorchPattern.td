@@ -150,5 +150,29 @@ def TorchL2NormPattern : Pat<
      (Constraint<CPred<"cast<FloatAttr>($0).getValueAsDouble() == 2.0">, ""> $p_value)]
 >;
 
+def TorchL2NormPattern1 : Pat<
+    (Torch_AtenDivTensorOp:$output
+        $input,
+        (Torch_AtenExpandAsOp
+            (Torch_AtenClampOp
+                (Torch_AtenLinalgVectorNormOp
+                    $input,
+                    (Torch_ConstantIntOp $p_value),
+                    $dims,
+                    (Torch_ConstantBoolOp $true_value),
+                    (Torch_ConstantNoneOp)
+                ),
+                (Torch_ConstantFloatOp:$eps_op $eps_value),
+                (Torch_ConstantNoneOp)
+            ),
+            $input
+        )
+    ),
+    (createL2Norm $output, $input, $dims, $eps_op),
+    [(Constraint<CPred<"isValueFullInfoTorchValueTensor($0)">, ""> $input),
+     (Constraint<CPred<"isValueFullInfoTorchValueTensor($0)">, ""> $output),
+     (TrueAttr $true_value),
+     (Constraint<CPred<"cast<IntegerAttr>($0).getInt() == 2">, ""> $p_value)]
+>;
 
 #endif // FUSE_ON_TORCH_PATTERN
