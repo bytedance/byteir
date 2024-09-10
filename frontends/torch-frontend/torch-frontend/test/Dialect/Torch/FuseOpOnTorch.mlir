@@ -76,3 +76,19 @@ func.func @byteir.l2_norm(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vtensor<[3
 }
 // CHECK-LBAEL: @byteir.l2_norm
 // CHECK:  torch.operator "byteir.l2_norm"
+
+func.func @byteir.l2_norm.p_int(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vtensor<[3,4],f32> {
+    %none = torch.constant.none
+    %int2 = torch.constant.int 2
+    %int1 = torch.constant.int 1
+    %float9.999990e-13 = torch.constant.float 9.9999999999999998E-13
+    %true = torch.constant.bool true
+    %0 = torch.prim.ListConstruct %int1 : (!torch.int) -> !torch.list<int>
+    %1 = torch.aten.linalg_vector_norm %arg0, %int2, %0, %true, %none : !torch.vtensor<[3,4],f32>, !torch.int, !torch.list<int>, !torch.bool, !torch.none -> !torch.vtensor<[3,1],f32>
+    %2 = torch.aten.clamp %1, %float9.999990e-13, %none : !torch.vtensor<[3,1],f32>, !torch.float, !torch.none -> !torch.vtensor<[3,1],f32>
+    %3 = torch.aten.expand_as %2, %arg0 : !torch.vtensor<[3,1],f32>, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
+    %4 = torch.aten.div.Tensor %arg0, %3 : !torch.vtensor<[3,4],f32>, !torch.vtensor<[3,4],f32> -> !torch.vtensor<[3,4],f32>
+    return %4 : !torch.vtensor<[3,4],f32>
+}
+// CHECK-LBAEL: @byteir.l2_norm.p_int
+// CHECK:  torch.operator "byteir.l2_norm"
