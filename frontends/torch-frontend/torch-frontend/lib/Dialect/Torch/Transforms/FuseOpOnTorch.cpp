@@ -141,6 +141,7 @@ struct FuseOpOnTorchPass : public FuseOpOnTorchBase<FuseOpOnTorchPass> {
     patterns.add<TorchLayerNormPattern>(context);
     if (validCustomCallOpsSet.contains("byteir.l2_norm")) {
       patterns.add<TorchL2NormPattern>(context);
+      patterns.add<TorchL2NormPattern1>(context);
     }
 
     LogicalResult result =
