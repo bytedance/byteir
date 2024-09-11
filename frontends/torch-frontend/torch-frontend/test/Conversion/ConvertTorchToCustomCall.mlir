@@ -216,7 +216,7 @@ func.func @torch.aten.nll_loss_backward(%arg0: !torch.vtensor<[],f32>, %arg1: !t
 
 func.func @torch.byteir.l2_norm(%arg0: !torch.vtensor<[3,4],f32>) -> !torch.vtensor<[3,4],f32> {
   %float9.999990e-13 = torch.constant.float 9.9999999999999998E-13
-  %int1 = torch.constant.int 1
+  %int1 = torch.constant.int -1
   %0 = torch.prim.ListConstruct %int1 : (!torch.int) -> !torch.list<int>
   %4 = torch.operator "byteir.l2_norm"(%arg0, %0, %float9.999990e-13) {eps_outside_sqrt = true} : (!torch.vtensor<[3,4],f32>, !torch.list<int>, !torch.float) -> !torch.vtensor<[3,4],f32>
   return %4 : !torch.vtensor<[3,4],f32>

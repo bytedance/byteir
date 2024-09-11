@@ -832,11 +832,17 @@ public:
                                                 resultTypes))) {
       return op.emitError("could not convert output types");
     }
+    int64_t rank = cast<RankedTensorType>(resultTypes[0]).getRank();
 
     llvm::SmallVector<int64_t> dims;
     if (!matchPattern(op.getOperand(1), m_TorchListOfConstantInts(dims))) {
       return op.emitError("dims must be a list of int");
     }
+    for (int64_t i = 0; i < dims.size(); i++) {
+      if (dims[i] < 0)
+        dims[i] += rank;
+    }
+
     double eps;
     if (!matchPattern(op.getOperand(2), m_TorchConstantFloat(&eps))) {
       return op.emitError("eps must be a constant float");
