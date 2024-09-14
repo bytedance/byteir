@@ -1146,6 +1146,8 @@ public:
     Value input = adaptor.getInput();
     RankedTensorType resultType = cast<RankedTensorType>(
         getTypeConverter()->convertType(op.getResult().getType()));
+
+    // TODO: if result have dynamic shape, should lowering to target_mode=scale
     if (!resultType.hasStaticShape())
       return failure();
 
@@ -1157,6 +1159,55 @@ public:
     byteir_attrs.emplace_back(
         rewriter.getStringAttr("coordinate_transformation_mode"),
         rewriter.getStringAttr("asymmetric"));
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getResizeName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    Value size = rewriter.create<stablehlo::ConstantOp>(
+        op->getLoc(), rewriter.getI64TensorAttr(resultType.getShape()));
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), TypeRange{resultType}, ValueRange{input, size},
+        ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+
+class ConvertAtenUpsampleBilinear2dVecOp
+    : public OpConversionPattern<AtenUpsampleBilinear2dVecOp> {
+public:
+  using OpConversionPattern<AtenUpsampleBilinear2dVecOp>::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenUpsampleBilinear2dVecOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getInput();
+    RankedTensorType resultType = cast<RankedTensorType>(
+        getTypeConverter()->convertType(op.getResult().getType()));
+
+    // TODO: if result have dynamic shape, should lowering to target_mode=scale
+    if (!resultType.hasStaticShape())
+      return failure();
+
+    bool align_corners = false;
+    if (!matchPattern(op.getAlignCorners(),
+                      m_TorchConstantBool(&align_corners))) {
+      return rewriter.notifyMatchFailure(
+          op, "unimplemented: align_corners must be a constant bool");
+    }
+    if (!align_corners)
+      return failure();
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("target_mode"),
+                              rewriter.getStringAttr("size"));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("mode"),
+                              rewriter.getStringAttr("linear"));
+    byteir_attrs.emplace_back(
+        rewriter.getStringAttr("coordinate_transformation_mode"),
+        rewriter.getStringAttr("align_corners"));
 
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
@@ -1311,6 +1362,8 @@ public:
     if (validCustomCallOpsSet.contains("byteir.resize")) {
       target.addIllegalOp<AtenUpsampleNearest2dVecOp>();
       patterns.add<ConvertAtenUpsampleNearest2dVecOp>(typeConverter, context);
+      target.addIllegalOp<AtenUpsampleBilinear2dVecOp>();
+      patterns.add<ConvertAtenUpsampleBilinear2dVecOp>(typeConverter, context);
     }
 
     if (validCustomCallOpsSet.contains("byteir.nll_loss_forward")) {
