@@ -330,6 +330,6 @@ def test_expand_as():
     module = compile(ExpandAsModule(), inputs, "stablehlo")
     numerical_test_helper(module, inputs, ExpandAsModule()(*inputs))
 
-    inputs = [tu.tensor(1.0), tu.randn(3, 4)]
+    inputs = [tu.tensor(1.0), tu.randn(3, 4).to(torch.int64)]
     module = compile(ExpandAsModule1(), inputs, "stablehlo")
     numerical_test_helper(module, inputs, ExpandAsModule1()(*inputs))
