@@ -70,7 +70,7 @@ struct ConvertAten_IndexPutImplOp
     bool accumulate;
     if (!matchPattern(op.getAccumulate(), m_TorchConstantBool(&accumulate))) {
       return rewriter.notifyMatchFailure(
-          op, "unimplemented: accumulate must be a constant beool");
+          op, "unimplemented: accumulate must be a constant bool");
     }
     if (!accumulate) {
       return op->emitError("accumulate must be true");
