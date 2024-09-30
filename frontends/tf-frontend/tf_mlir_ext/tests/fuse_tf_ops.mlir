@@ -119,7 +119,7 @@ func.func @replace_where_3D(%arg0: tensor<256x1xi64>, %arg1: tensor<256x24x8xf16
 }
 // CHECK-LABEL:    func.func @replace_where_3D(%arg0: tensor<256x1xi64>, %arg1: tensor<256x24x8xf16>) -> tensor<?x8xf16> {
 // CHECK-DAG:        %[[CST:.*]] = "tf.Const"() <{value = dense<1> : tensor<1xi64>}> : () -> tensor<1xi64>
-// CHECK-DAG:        %[[CST_0:.*]] = "tf.Const"() <{value = dense<[-9223372036854775808, 24, 1]> : tensor<3xi64>}> : () -> tensor<3xi64>
+// CHECK-DAG:        %[[CST_0:.*]] = "tf.Const"() <{value = dense<[-1, 24, 1]> : tensor<3xi64>}> : () -> tensor<3xi64>
 // CHECK-DAG:        %[[CST_1:.*]] = "tf.Const"() <{value = dense<0> : tensor<1xi64>}> : () -> tensor<1xi64>
 // CHECK-DAG:        %[[CST_2:.*]] = "tf.Const"() <{value = dense<28800> : tensor<i64>}> : () -> tensor<i64>
 // CHECK-DAG:        %[[CST_3:.*]] = "tf.Const"() <{value = dense<86400> : tensor<i64>}> : () -> tensor<i64>
