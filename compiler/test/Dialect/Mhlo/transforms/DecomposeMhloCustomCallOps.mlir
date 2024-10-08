@@ -10,6 +10,19 @@ func.func @byteir.addn(%arg0: tensor<4xf32>, %arg1: tensor<4xf32>, %arg2: tensor
 // CHECK:      mhlo.add
 // CHECK:      return
 
+func.func @byteir.softmax(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
+  %0 = mhlo.custom_call @byteir.softmax(%arg0) {byteir_attrs = {axis = 1 : i64}} : (tensor<4x4xf32>) -> tensor<4x4xf32>
+  return %0 : tensor<4x4xf32>
+}
+// CHECK-LABEL: func.func @byteir.softmax
+// CHECK-NOT:  byteir.softmax
+// CHECK:      mhlo.exp
+// CHECK:      mhlo.reduce
+// CHECK-SAME:      mhlo.add
+// CHECK:      mhlo.broadcast_in_dim
+// CHECK:      mhlo.div
+// CHECK:      return
+
 func.func @byteir.arg_max$return_1(%arg0: tensor<3x4xf32>) -> tensor<3xi64> {
   %0 = mhlo.custom_call @byteir.arg_max(%arg0) {byteir_attrs = {axis = 1 : i64, keep_dims = false, select_last_index = false}} : (tensor<3x4xf32>) -> tensor<3xi64>
   return %0 : tensor<3xi64>
