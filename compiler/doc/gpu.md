@@ -105,7 +105,7 @@ func.func private @matmul_tiled(%arg0: memref<128x64xf32>, %arg1: memref<64x64xf
 
 ByteIR Compiler supports NVIDIA GPU backends through either LLVM PTX codegen or a CUDA C source code emitter. 
 
-Other targets, such as cubin codegen, will be the future work. 
+Other targets, such as NVIDIA official [NVVM compiler](https://docs.nvidia.com/cuda/nvvm-ir-spec/) or LLVM cubin codegen, will be the future work. 
 
 ### LLVM PTX codegen
 
