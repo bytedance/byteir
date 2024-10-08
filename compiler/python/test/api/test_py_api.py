@@ -31,6 +31,19 @@ def test_compile_mlp_inference_cpu_mlirbc():
     byteir.compile(path, temp_dir + "/test_cpu.mlirbc", entry_func="main", target="cpu")
 
 # ==============================================================================
+# test merge two modules
+
+def test_merge_two_modules():
+    path0 = TEST_ROOT_DIR + "Utils/testMergeTwoModulesCase2.mlir"
+    path1 = TEST_ROOT_DIR + "Utils/testMergeTwoModulesCase2_1.mlir"
+    context = ir.Context()
+    context.allow_unregistered_dialects = True
+    module0 = ir.Module.parse(open(path0, 'r').read(), context)
+    module1 = ir.Module.parse(open(path1, 'r').read(), context)
+    module2 = byteir.merge_two_modules(module0, module1, skip_name_check=True)
+    print(module2.operation.get_asm())
+
+# ==============================================================================
 # test translate to llvm
 
 def test_translate_to_llvmbc():

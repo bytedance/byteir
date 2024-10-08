@@ -166,7 +166,9 @@ MlirModule byteirDeserializeByre(MlirStringRef artifactStr,
   return {m.release()};
 }
 
-MlirModule byteirMergeTwoModules(MlirModule module0, MlirModule module1) {
-  auto m = mergeTwoModulesByNameOrOrder(unwrap(module0), unwrap(module1));
+MlirModule byteirMergeTwoModules(MlirModule module0, MlirModule module1,
+                                 bool skipNameCheck) {
+  auto m = mergeTwoModulesByNameOrOrder(unwrap(module0), unwrap(module1),
+                                        skipNameCheck);
   return {m.release()};
 }
