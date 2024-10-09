@@ -167,8 +167,16 @@ MlirModule byteirDeserializeByre(MlirStringRef artifactStr,
 }
 
 MlirModule byteirMergeTwoModules(MlirModule module0, MlirModule module1,
-                                 bool skipNameCheck) {
-  auto m = mergeTwoModulesByNameOrOrder(unwrap(module0), unwrap(module1),
-                                        skipNameCheck);
-  return {m.release()};
+                                 const void *mappingData,
+                                 size_t mappingLength) {
+  if (mappingLength == 0) {
+    auto m = mergeTwoModulesByNameOrOrder(unwrap(module0), unwrap(module1));
+    return {m.release()};
+  } else {
+    llvm::ArrayRef<int64_t> mapping(static_cast<const int64_t *>(mappingData),
+                                    mappingLength);
+    auto m =
+        mergeTwoModulesByMapping(unwrap(module0), unwrap(module1), mapping);
+    return {m.release()};
+  }
 }
