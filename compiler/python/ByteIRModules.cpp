@@ -299,15 +299,17 @@ PYBIND11_MODULE(_byteir, m) {
   //============ Module Utils ==============
   m.def(
       "merge_two_modules",
-      [](MlirModule module0, MlirModule module1) -> MlirModule {
-        auto module = byteirMergeTwoModules(module0, module1);
+      [](MlirModule module0, MlirModule module1,
+         bool skipNameCheck) -> MlirModule {
+        auto module = byteirMergeTwoModules(module0, module1, skipNameCheck);
         if (mlirModuleIsNull(module)) {
           PyErr_SetString(PyExc_ValueError, "failed to merge two modules");
           return {};
         }
         return module;
       },
-      py::arg("module0"), py::arg("module1"));
+      py::arg("module0"), py::arg("module1"),
+      py::arg("skip_name_check") = false);
 
   m.def(
       "register_pdl_constraint_fn",

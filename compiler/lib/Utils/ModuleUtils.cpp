@@ -21,6 +21,7 @@
 #include "mlir/IR/Location.h"
 
 #include <string>
+#include <tuple>
 #include <unordered_map>
 
 using namespace mlir;
@@ -41,14 +42,53 @@ func::FuncOp renameAndCloneFuncToNewModule(ModuleOp m, func::FuncOp func,
   return newFunc;
 }
 
-ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
-                               MLIRContext *context) {
+std::tuple<ModuleOp, func::FuncOp>
+mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
+                       MLIRContext *context) {
   func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
   func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
   if (func0.getNumResults() != func1.getNumArguments()) {
-    return nullptr;
+    return {nullptr, nullptr};
   }
   if (func0.getNumResults() == 0) {
+    return {nullptr, nullptr};
+  }
+  // check types
+  for (size_t i = 0; i < func1.getNumArguments(); i++) {
+    // func0 and func1 should have the same context
+    if (func0.getResultTypes()[i] != func1.getArgumentTypes()[i]) {
+      return {nullptr, nullptr};
+    }
+  }
+
+  // create new module, clone func0 and func1 to new module
+  ModuleOp m = ModuleOp::create(UnknownLoc::get(context));
+  func::FuncOp newFunc0 = renameAndCloneFuncToNewModule(m, func0, module0Name);
+  func::FuncOp newFunc1 = renameAndCloneFuncToNewModule(m, func1, module1Name);
+
+  // create main function in new module
+  OpBuilder builder = OpBuilder::atBlockBegin(m.getBody());
+  auto mainFunc = builder.create<func::FuncOp>(
+      UnknownLoc::get(context), "main",
+      FunctionType::get(context, func0.getArgumentTypes(),
+                        func1.getResultTypes()));
+  Block *entryBlock = mainFunc.addEntryBlock();
+  builder.setInsertionPointToStart(entryBlock);
+  auto callOp0 = builder.create<func::CallOp>(
+      UnknownLoc::get(context), newFunc0, mainFunc.getArguments());
+  auto callOp1 = builder.create<func::CallOp>(UnknownLoc::get(context),
+                                              newFunc1, callOp0.getResults());
+  builder.create<func::ReturnOp>(UnknownLoc::get(context),
+                                 callOp1.getResults());
+  return {m, mainFunc};
+}
+
+ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
+                               MLIRContext *context, bool skipNameCheck) {
+  func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
+  func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
+  if (func0.getNumResults() == 0 ||
+      func0.getNumResults() != func1.getNumArguments()) {
     return nullptr;
   }
 
@@ -59,10 +99,14 @@ ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
       func1->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
   assert(func0EntryPointDict && func1EntryPointDict &&
          "byteir.entry_point should be dict attr.");
+  auto func0InputNamesAttr =
+      cast<mlir::ArrayAttr>(func0EntryPointDict.get("inputs"));
   auto func0OutputNamesAttr =
       cast<mlir::ArrayAttr>(func0EntryPointDict.get("outputs"));
   auto func1InputNamesAttr =
       cast<mlir::ArrayAttr>(func1EntryPointDict.get("inputs"));
+  auto func1OutputNamesAttr =
+      cast<mlir::ArrayAttr>(func1EntryPointDict.get("outputs"));
   SmallVector<std::string> func0OutputNames =
       llvm::to_vector(llvm::map_range(func0OutputNamesAttr, [&](Attribute i) {
         return cast<StringAttr>(i).getValue().str();
@@ -71,6 +115,21 @@ ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
       llvm::to_vector(llvm::map_range(func1InputNamesAttr, [&](Attribute i) {
         return cast<StringAttr>(i).getValue().str();
       }));
+
+  // skip name check, merge two func by order
+  if (skipNameCheck) {
+    auto t = mergeTwoModulesByOrder(module0, module1, context);
+    auto m = std::get<0>(t);
+    auto mainFunc = std::get<1>(t);
+    NamedAttribute newInputsAttr =
+        NamedAttribute(StringAttr::get(context, "inputs"), func0InputNamesAttr);
+    NamedAttribute newOutputsAttr = NamedAttribute(
+        StringAttr::get(context, "outputs"), func1OutputNamesAttr);
+    mainFunc->setAttr(
+        getByteIREntryPointName(),
+        DictionaryAttr::get(context, {newInputsAttr, newOutputsAttr}));
+    return m;
+  }
 
   // get map of func1's inputs name to func0's index
   std::unordered_map<std::string, size_t> func1NameToFunc0Index;
@@ -126,61 +185,20 @@ ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
   newFunc0->removeAttr(getByteIREntryPointName());
   newFunc1->removeAttr(getByteIREntryPointName());
   NamedAttribute newInputsAttr =
-      NamedAttribute(builder.getStringAttr("inputs"),
-                     cast<ArrayAttr>(func0EntryPointDict.get("inputs")));
+      NamedAttribute(builder.getStringAttr("inputs"), func0InputNamesAttr);
   NamedAttribute newOutputsAttr =
-      NamedAttribute(builder.getStringAttr("outputs"),
-                     cast<ArrayAttr>(func1EntryPointDict.get("outputs")));
+      NamedAttribute(builder.getStringAttr("outputs"), func1OutputNamesAttr);
   mainFunc->setAttr(
       getByteIREntryPointName(),
       DictionaryAttr::get(context, {newInputsAttr, newOutputsAttr}));
   return m;
 }
 
-ModuleOp mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
-                                MLIRContext *context) {
-  func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
-  func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
-  if (func0.getNumResults() != func1.getNumArguments()) {
-    return nullptr;
-  }
-  if (func0.getNumResults() == 0) {
-    return nullptr;
-  }
-  // check types
-  for (size_t i = 0; i < func1.getNumArguments(); i++) {
-    // func0 and func1 should have the same context
-    if (func0.getResultTypes()[i] != func1.getArgumentTypes()[i]) {
-      return nullptr;
-    }
-  }
-
-  // create new module, clone func0 and func1 to new module
-  ModuleOp m = ModuleOp::create(UnknownLoc::get(context));
-  func::FuncOp newFunc0 = renameAndCloneFuncToNewModule(m, func0, module0Name);
-  func::FuncOp newFunc1 = renameAndCloneFuncToNewModule(m, func1, module1Name);
-
-  // create main function in new module
-  OpBuilder builder = OpBuilder::atBlockBegin(m.getBody());
-  auto mainFunc = builder.create<func::FuncOp>(
-      UnknownLoc::get(context), "main",
-      FunctionType::get(context, func0.getArgumentTypes(),
-                        func1.getResultTypes()));
-  Block *entryBlock = mainFunc.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-  auto callOp0 = builder.create<func::CallOp>(
-      UnknownLoc::get(context), newFunc0, mainFunc.getArguments());
-  auto callOp1 = builder.create<func::CallOp>(UnknownLoc::get(context),
-                                              newFunc1, callOp0.getResults());
-  builder.create<func::ReturnOp>(UnknownLoc::get(context),
-                                 callOp1.getResults());
-  return m;
-}
-
 } // namespace
 
 OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
-                                                         ModuleOp module1) {
+                                                         ModuleOp module1,
+                                                         bool skipNameCheck) {
   assert(module0.getContext() == module1.getContext() &&
          "module0 and module1 should have same context");
   MLIRContext *context = module0.getContext();
@@ -205,10 +223,10 @@ OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
       });
   if (module0FuncCountWithEntryPoint == 1 &&
       module1FuncCountWithEntryPoint == 1) {
-    return mergeTwoModulesByName(module0, module1, context);
+    return mergeTwoModulesByName(module0, module1, context, skipNameCheck);
   } else if (module0FuncCountWithEntryPoint == 0 &&
              module1FuncCountWithEntryPoint == 0) {
-    return mergeTwoModulesByOrder(module0, module1, context);
+    return std::get<0>(mergeTwoModulesByOrder(module0, module1, context));
   }
   return nullptr;
 }
