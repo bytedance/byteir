@@ -26,6 +26,9 @@
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
 
+#include <cstdint>
+#include <vector>
+
 namespace py = pybind11;
 
 template <class Func, typename... Args>
@@ -300,8 +303,9 @@ PYBIND11_MODULE(_byteir, m) {
   m.def(
       "merge_two_modules",
       [](MlirModule module0, MlirModule module1,
-         bool skipNameCheck) -> MlirModule {
-        auto module = byteirMergeTwoModules(module0, module1, skipNameCheck);
+         std::vector<int64_t> mapping) -> MlirModule {
+        auto module = byteirMergeTwoModules(module0, module1, mapping.data(),
+                                            mapping.size());
         if (mlirModuleIsNull(module)) {
           PyErr_SetString(PyExc_ValueError, "failed to merge two modules");
           return {};
@@ -309,7 +313,7 @@ PYBIND11_MODULE(_byteir, m) {
         return module;
       },
       py::arg("module0"), py::arg("module1"),
-      py::arg("skip_name_check") = false);
+      py::arg("mapping") = std::vector<int64_t>{});
 
   m.def(
       "register_pdl_constraint_fn",

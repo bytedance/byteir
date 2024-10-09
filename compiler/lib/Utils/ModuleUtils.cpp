@@ -21,8 +21,8 @@
 #include "mlir/IR/Location.h"
 
 #include <string>
-#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace mlir;
 
@@ -42,116 +42,90 @@ func::FuncOp renameAndCloneFuncToNewModule(ModuleOp m, func::FuncOp func,
   return newFunc;
 }
 
-std::tuple<ModuleOp, func::FuncOp>
-mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
-                       MLIRContext *context) {
-  func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
-  func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
-  if (func0.getNumResults() != func1.getNumArguments()) {
-    return {nullptr, nullptr};
-  }
-  if (func0.getNumResults() == 0) {
-    return {nullptr, nullptr};
-  }
-  // check types
+llvm::SmallVector<Type>
+getMainFuncArgumentTypes(func::FuncOp func0, func::FuncOp func1,
+                         llvm::ArrayRef<int64_t> mapping) {
+  std::unordered_set<int64_t> mappingSet(mapping.begin(), mapping.end());
+  llvm::SmallVector<Type> mainArgumentTypes(func0.getArgumentTypes());
   for (size_t i = 0; i < func1.getNumArguments(); i++) {
-    // func0 and func1 should have the same context
-    if (func0.getResultTypes()[i] != func1.getArgumentTypes()[i]) {
-      return {nullptr, nullptr};
+    if (mappingSet.find(i) == mappingSet.end()) {
+      mainArgumentTypes.push_back(func1.getArgumentTypes()[i]);
     }
   }
-
-  // create new module, clone func0 and func1 to new module
-  ModuleOp m = ModuleOp::create(UnknownLoc::get(context));
-  func::FuncOp newFunc0 = renameAndCloneFuncToNewModule(m, func0, module0Name);
-  func::FuncOp newFunc1 = renameAndCloneFuncToNewModule(m, func1, module1Name);
-
-  // create main function in new module
-  OpBuilder builder = OpBuilder::atBlockBegin(m.getBody());
-  auto mainFunc = builder.create<func::FuncOp>(
-      UnknownLoc::get(context), "main",
-      FunctionType::get(context, func0.getArgumentTypes(),
-                        func1.getResultTypes()));
-  Block *entryBlock = mainFunc.addEntryBlock();
-  builder.setInsertionPointToStart(entryBlock);
-  auto callOp0 = builder.create<func::CallOp>(
-      UnknownLoc::get(context), newFunc0, mainFunc.getArguments());
-  auto callOp1 = builder.create<func::CallOp>(UnknownLoc::get(context),
-                                              newFunc1, callOp0.getResults());
-  builder.create<func::ReturnOp>(UnknownLoc::get(context),
-                                 callOp1.getResults());
-  return {m, mainFunc};
+  return mainArgumentTypes;
 }
 
-ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
-                               MLIRContext *context, bool skipNameCheck) {
-  func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
-  func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
-  if (func0.getNumResults() == 0 ||
-      func0.getNumResults() != func1.getNumArguments()) {
-    return nullptr;
-  }
-
-  // get inputs and outputs name from byteir.entry_point
+llvm::SmallVector<mlir::Attribute>
+getMainFuncInputNames(func::FuncOp func0, func::FuncOp func1,
+                      llvm::ArrayRef<int64_t> mapping) {
+  std::unordered_set<int64_t> mappingSet(mapping.begin(), mapping.end());
+  llvm::SmallVector<mlir::Attribute> inputNames;
   auto func0EntryPointDict =
       func0->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
   auto func1EntryPointDict =
       func1->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
-  assert(func0EntryPointDict && func1EntryPointDict &&
-         "byteir.entry_point should be dict attr.");
   auto func0InputNamesAttr =
       cast<mlir::ArrayAttr>(func0EntryPointDict.get("inputs"));
-  auto func0OutputNamesAttr =
-      cast<mlir::ArrayAttr>(func0EntryPointDict.get("outputs"));
   auto func1InputNamesAttr =
       cast<mlir::ArrayAttr>(func1EntryPointDict.get("inputs"));
-  auto func1OutputNamesAttr =
-      cast<mlir::ArrayAttr>(func1EntryPointDict.get("outputs"));
-  SmallVector<std::string> func0OutputNames =
-      llvm::to_vector(llvm::map_range(func0OutputNamesAttr, [&](Attribute i) {
-        return cast<StringAttr>(i).getValue().str();
-      }));
-  SmallVector<std::string> func1InputNames =
-      llvm::to_vector(llvm::map_range(func1InputNamesAttr, [&](Attribute i) {
-        return cast<StringAttr>(i).getValue().str();
-      }));
-
-  // skip name check, merge two func by order
-  if (skipNameCheck) {
-    auto t = mergeTwoModulesByOrder(module0, module1, context);
-    auto m = std::get<0>(t);
-    auto mainFunc = std::get<1>(t);
-    NamedAttribute newInputsAttr =
-        NamedAttribute(StringAttr::get(context, "inputs"), func0InputNamesAttr);
-    NamedAttribute newOutputsAttr = NamedAttribute(
-        StringAttr::get(context, "outputs"), func1OutputNamesAttr);
-    mainFunc->setAttr(
-        getByteIREntryPointName(),
-        DictionaryAttr::get(context, {newInputsAttr, newOutputsAttr}));
-    return m;
-  }
-
-  // get map of func1's inputs name to func0's index
-  std::unordered_map<std::string, size_t> func1NameToFunc0Index;
-  for (const auto &name : func1InputNames) {
-    auto findNames = [&](const std::string &name) -> bool {
-      for (auto it : llvm::enumerate(func0OutputNames)) {
-        if (name == it.value()) {
-          func1NameToFunc0Index[name] = it.index();
-          return true;
-        }
-      }
-      return false;
-    };
-    if (!findNames(name)) {
-      return nullptr;
+  inputNames.insert(inputNames.begin(), func0InputNamesAttr.begin(),
+                    func0InputNamesAttr.end());
+  for (size_t i = 0; i < func1.getNumArguments(); i++) {
+    if (mappingSet.find(i) == mappingSet.end()) {
+      inputNames.push_back(func1InputNamesAttr[i]);
     }
   }
+  return inputNames;
+}
 
+llvm::SmallVector<Type>
+getMainFuncResultTypes(func::FuncOp func0, func::FuncOp func1,
+                       llvm::ArrayRef<int64_t> mapping) {
+  llvm::SmallVector<Type> mainResultTypes;
+  for (size_t i = 0; i < mapping.size(); i++) {
+    if (mapping[i] < 0)
+      mainResultTypes.push_back(func0.getResultTypes()[i]);
+  }
+  mainResultTypes.insert(mainResultTypes.end(), func1.getResultTypes().begin(),
+                         func1.getResultTypes().end());
+  return mainResultTypes;
+}
+
+llvm::SmallVector<mlir::Attribute>
+getMainFuncOutputNames(func::FuncOp func0, func::FuncOp func1,
+                       llvm::ArrayRef<int64_t> mapping) {
+  llvm::SmallVector<mlir::Attribute> outputNames;
+  auto func0EntryPointDict =
+      func0->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
+  auto func1EntryPointDict =
+      func1->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
+  auto func0OutputNamesAttr =
+      cast<mlir::ArrayAttr>(func0EntryPointDict.get("outputs"));
+  auto func1OutputNamesAttr =
+      cast<mlir::ArrayAttr>(func1EntryPointDict.get("outputs"));
+  for (size_t i = 0; i < mapping.size(); i++) {
+    if (mapping[i] < 0)
+      outputNames.push_back(func0OutputNamesAttr[i]);
+  }
+  outputNames.insert(outputNames.end(), func1OutputNamesAttr.begin(),
+                     func1OutputNamesAttr.end());
+  return outputNames;
+}
+
+ModuleOp mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
+                                MLIRContext *context,
+                                llvm::ArrayRef<int64_t> mapping,
+                                bool hasEntryPoint) {
+  func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
+  func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
+  if (func0.getNumResults() == 0 || func0.getNumResults() != mapping.size()) {
+    return nullptr;
+  }
   // check types
-  for (size_t i = 0; i < func1.getNumArguments(); i++) {
-    if (func1.getArgumentTypes()[i] !=
-        func0.getResultTypes()[func1NameToFunc0Index[func1InputNames[i]]]) {
+  for (size_t i = 0; i < mapping.size(); i++) {
+    if (mapping[i] < 0)
+      continue;
+    if (func0.getResultTypes()[i] != func1.getArgumentTypes()[mapping[i]]) {
       return nullptr;
     }
   }
@@ -165,40 +139,62 @@ ModuleOp mergeTwoModulesByName(ModuleOp module0, ModuleOp module1,
   OpBuilder builder = OpBuilder::atBlockBegin(m.getBody());
   auto mainFunc = builder.create<func::FuncOp>(
       UnknownLoc::get(context), "main",
-      FunctionType::get(context, func0.getArgumentTypes(),
-                        func1.getResultTypes()));
+      FunctionType::get(context,
+                        getMainFuncArgumentTypes(func0, func1, mapping),
+                        getMainFuncResultTypes(func0, func1, mapping)));
   Block *entryBlock = mainFunc.addEntryBlock();
   builder.setInsertionPointToStart(entryBlock);
   auto callOp0 = builder.create<func::CallOp>(
-      UnknownLoc::get(context), newFunc0, mainFunc.getArguments());
-  SmallVector<Value> callOp1Operands;
-  for (const auto &name : func1InputNames) {
-    callOp1Operands.push_back(
-        callOp0.getResults()[func1NameToFunc0Index[name]]);
+      UnknownLoc::get(context), newFunc0,
+      llvm::SmallVector<Value>(mainFunc.getArguments().begin(),
+                               mainFunc.getArguments().begin() +
+                                   func0.getNumArguments()));
+  // collect call func1's operands
+  llvm::SmallVector<Value> callOp1Operands(func1.getNumArguments(), nullptr);
+  for (size_t i = 0; i < mapping.size(); i++) {
+    if (mapping[i] < 0)
+      continue;
+    callOp1Operands[mapping[i]] = callOp0.getResults()[i];
+  }
+  auto iter = mainFunc.getArguments().begin() + func0.getNumArguments();
+  for (size_t i = 0; i < callOp1Operands.size(); i++) {
+    if (callOp1Operands[i] == nullptr) {
+      callOp1Operands[i] = *iter;
+      iter++;
+    }
   }
   auto callOp1 = builder.create<func::CallOp>(UnknownLoc::get(context),
                                               newFunc1, callOp1Operands);
-  builder.create<func::ReturnOp>(UnknownLoc::get(context),
-                                 callOp1.getResults());
+  // collect return's operands
+  llvm::SmallVector<Value> returnOperands;
+  for (size_t i = 0; i < mapping.size(); i++) {
+    if (mapping[i] < 0)
+      returnOperands.push_back(callOp0.getResults()[i]);
+  }
+  returnOperands.insert(returnOperands.end(), callOp1.getResults().begin(),
+                        callOp1.getResults().end());
+  builder.create<func::ReturnOp>(UnknownLoc::get(context), returnOperands);
 
-  // set new "byteir.entry_point" attr on main function
-  newFunc0->removeAttr(getByteIREntryPointName());
-  newFunc1->removeAttr(getByteIREntryPointName());
-  NamedAttribute newInputsAttr =
-      NamedAttribute(builder.getStringAttr("inputs"), func0InputNamesAttr);
-  NamedAttribute newOutputsAttr =
-      NamedAttribute(builder.getStringAttr("outputs"), func1OutputNamesAttr);
-  mainFunc->setAttr(
-      getByteIREntryPointName(),
-      DictionaryAttr::get(context, {newInputsAttr, newOutputsAttr}));
+  if (hasEntryPoint) {
+    newFunc0->removeAttr(getByteIREntryPointName());
+    newFunc1->removeAttr(getByteIREntryPointName());
+    NamedAttribute newInputsAttr = NamedAttribute(
+        builder.getStringAttr("inputs"),
+        builder.getArrayAttr(getMainFuncInputNames(func0, func1, mapping)));
+    NamedAttribute newOutputsAttr = NamedAttribute(
+        builder.getStringAttr("outputs"),
+        builder.getArrayAttr(getMainFuncOutputNames(func0, func1, mapping)));
+    mainFunc->setAttr(
+        getByteIREntryPointName(),
+        DictionaryAttr::get(context, {newInputsAttr, newOutputsAttr}));
+  }
+
   return m;
 }
-
 } // namespace
 
 OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
-                                                         ModuleOp module1,
-                                                         bool skipNameCheck) {
+                                                         ModuleOp module1) {
   assert(module0.getContext() == module1.getContext() &&
          "module0 and module1 should have same context");
   MLIRContext *context = module0.getContext();
@@ -223,10 +219,83 @@ OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
       });
   if (module0FuncCountWithEntryPoint == 1 &&
       module1FuncCountWithEntryPoint == 1) {
-    return mergeTwoModulesByName(module0, module1, context, skipNameCheck);
+    func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
+    func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
+    // get inputs and outputs name from byteir.entry_point
+    auto func0EntryPointDict =
+        func0->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
+    auto func1EntryPointDict =
+        func1->getAttrOfType<DictionaryAttr>(getByteIREntryPointName());
+    assert(func0EntryPointDict && func1EntryPointDict &&
+           "byteir.entry_point should be dict attr.");
+    auto func0InputNamesAttr =
+        cast<mlir::ArrayAttr>(func0EntryPointDict.get("inputs"));
+    auto func0OutputNamesAttr =
+        cast<mlir::ArrayAttr>(func0EntryPointDict.get("outputs"));
+    auto func1InputNamesAttr =
+        cast<mlir::ArrayAttr>(func1EntryPointDict.get("inputs"));
+    auto func1OutputNamesAttr =
+        cast<mlir::ArrayAttr>(func1EntryPointDict.get("outputs"));
+    SmallVector<std::string> func0OutputNames =
+        llvm::to_vector(llvm::map_range(func0OutputNamesAttr, [&](Attribute i) {
+          return cast<StringAttr>(i).getValue().str();
+        }));
+    SmallVector<std::string> func1InputNames =
+        llvm::to_vector(llvm::map_range(func1InputNamesAttr, [&](Attribute i) {
+          return cast<StringAttr>(i).getValue().str();
+        }));
+    llvm::SmallVector<int64_t> mapping(func0OutputNames.size(), -1);
+    for (size_t i = 0; i < func0OutputNames.size(); i++) {
+      // TODO: use unorded_map to speed up
+      for (size_t j = 0; j < func1InputNames.size(); j++) {
+        if (func0OutputNames[i] == func1InputNames[j]) {
+          mapping[i] = j;
+        }
+      }
+    }
+    return mergeTwoModulesByOrder(module0, module1, context, mapping, true);
   } else if (module0FuncCountWithEntryPoint == 0 &&
              module1FuncCountWithEntryPoint == 0) {
-    return std::get<0>(mergeTwoModulesByOrder(module0, module1, context));
+    func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
+    llvm::SmallVector<int64_t> mapping =
+        llvm::to_vector(llvm::seq<int64_t>(0, func0.getNumResults()));
+    return mergeTwoModulesByOrder(module0, module1, context, mapping, false);
+  }
+  return nullptr;
+}
+
+OwningOpRef<ModuleOp>
+mlir::mergeTwoModulesByMapping(ModuleOp module0, ModuleOp module1,
+                               llvm::ArrayRef<int64_t> mapping) {
+  assert(mapping.size() != 0 && "mapping size must > 0");
+  assert(module0.getContext() == module1.getContext() &&
+         "module0 and module1 should have same context");
+  MLIRContext *context = module0.getContext();
+
+  // only support module with one function
+  if (llvm::count_if(module0.getOps<func::FuncOp>(),
+                     [](func::FuncOp func) { return true; }) != 1) {
+    return nullptr;
+  }
+  if (llvm::count_if(module1.getOps<func::FuncOp>(),
+                     [](func::FuncOp func) { return true; }) != 1) {
+    return nullptr;
+  }
+
+  unsigned module0FuncCountWithEntryPoint =
+      llvm::count_if(module0.getOps<func::FuncOp>(), [](func::FuncOp func) {
+        return func->hasAttr(getByteIREntryPointName());
+      });
+  unsigned module1FuncCountWithEntryPoint =
+      llvm::count_if(module1.getOps<func::FuncOp>(), [](func::FuncOp func) {
+        return func->hasAttr(getByteIREntryPointName());
+      });
+  if (module0FuncCountWithEntryPoint == 1 &&
+      module1FuncCountWithEntryPoint == 1) {
+    return mergeTwoModulesByOrder(module0, module1, context, mapping, true);
+  } else if (module0FuncCountWithEntryPoint == 0 &&
+             module1FuncCountWithEntryPoint == 0) {
+    return mergeTwoModulesByOrder(module0, module1, context, mapping, false);
   }
   return nullptr;
 }

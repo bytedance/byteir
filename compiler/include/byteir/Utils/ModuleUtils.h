@@ -39,9 +39,11 @@ constexpr llvm::StringRef getByteIREntryPointName() {
 // 3. if there are `byteir.entry_point` in only one module, return std::nullopt
 // 4. check arguments' shape and dtype on the border
 OwningOpRef<ModuleOp> mergeTwoModulesByNameOrOrder(ModuleOp module0,
-                                                   ModuleOp module1,
-                                                   bool skipNameCheck = false);
+                                                   ModuleOp module1);
 
+OwningOpRef<ModuleOp> mergeTwoModulesByMapping(ModuleOp module0,
+                                               ModuleOp module1,
+                                               llvm::ArrayRef<int64_t> mapping);
 } // namespace mlir
 
 #endif // BYTEIR_UTILS_MODULEUTILS_H

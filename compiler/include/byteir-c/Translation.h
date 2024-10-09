@@ -46,7 +46,8 @@ MLIR_CAPI_EXPORTED MlirModule byteirDeserializeByre(MlirStringRef artifactStr,
 
 MLIR_CAPI_EXPORTED MlirModule byteirMergeTwoModules(MlirModule module0,
                                                     MlirModule module1,
-                                                    bool skipNameCheck);
+                                                    const void *mappingData,
+                                                    size_t mappingLength);
 
 #ifdef __cplusplus
 }
