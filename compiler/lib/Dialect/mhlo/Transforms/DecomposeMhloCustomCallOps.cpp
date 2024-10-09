@@ -53,6 +53,69 @@ struct DecomposeByteIRAddN : public OpRewritePattern<mhlo::CustomCallOp> {
   }
 };
 
+struct DecomposeByteIRSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getSoftmaxName())
+      return failure();
+
+    DictionaryAttr byteirAttrs =
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
+    if (!byteirAttrs)
+      return failure();
+    auto axisAttr = cast<IntegerAttr>(byteirAttrs.get("axis"));
+
+    RankedTensorType inType =
+        cast<RankedTensorType>(op.getOperand(0).getType());
+    Value exp = rewriter.create<mhlo::ExpOp>(op.getLoc(), op.getOperand(0));
+    Value reduce;
+    {
+      SmallVector<int64_t> reduceResultShape(inType.getShape());
+      reduceResultShape.erase(reduceResultShape.begin() + axisAttr.getInt());
+      RankedTensorType reduceResultType =
+          RankedTensorType::get(reduceResultShape, inType.getElementType());
+
+      Value initValue = rewriter.create<mhlo::ConstantOp>(
+          op.getLoc(),
+          DenseElementsAttr::get(
+              RankedTensorType::get({}, inType.getElementType()),
+              {APFloat::getZero(cast<mlir::FloatType>(inType.getElementType())
+                                    .getFloatSemantics())}));
+      auto reduceOp = rewriter.create<mhlo::ReduceOp>(
+          op.getLoc(), reduceResultType, exp, initValue,
+          rewriter.getI64TensorAttr({axisAttr.getInt()}));
+
+      Block &block = reduceOp.getBody().emplaceBlock();
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+      auto blockValArgumentType =
+          RankedTensorType::get({}, inType.getElementType());
+      block.addArgument(blockValArgumentType, op->getLoc());
+      block.addArgument(blockValArgumentType, op->getLoc());
+      auto *firstValArg = block.args_begin();
+      auto *secondValArg = std::next(firstValArg);
+      Value result = rewriter.create<mhlo::AddOp>(op->getLoc(), *firstValArg,
+                                                  *secondValArg);
+      rewriter.create<mhlo::ReturnOp>(op->getLoc(), result);
+
+      reduce = reduceOp.getResults()[0];
+    }
+
+    SmallVector broadcastDim =
+        llvm::to_vector(llvm::seq<int64_t>(0, inType.getRank()));
+    broadcastDim.erase(broadcastDim.begin() + axisAttr.getInt());
+    Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        op->getLoc(), inType, reduce,
+        rewriter.create<shape::ShapeOfOp>(op.getLoc(), exp),
+        rewriter.getI64TensorAttr(broadcastDim));
+    Value result = rewriter.create<mhlo::DivOp>(op->getLoc(), exp, broadcast);
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
+
 struct DecomposeByteIRArgMaxMin : public OpRewritePattern<mhlo::CustomCallOp> {
   DecomposeByteIRArgMaxMin(MLIRContext *context, llvm::StringRef customCallName)
       : OpRewritePattern<mhlo::CustomCallOp>(context),
@@ -229,6 +292,9 @@ struct DecomposeMhloCustomCallOpsPass
     RewritePatternSet patterns(context);
     if (!legalOpsSet.contains(getAddNName())) {
       patterns.add<DecomposeByteIRAddN>(context);
+    }
+    if (!legalOpsSet.contains(getSoftmaxName())) {
+      patterns.add<DecomposeByteIRSoftmax>(context);
     }
     if (!legalOpsSet.contains(getArgMaxName())) {
       patterns.add<DecomposeByteIRArgMaxMin>(context, getArgMaxName());
