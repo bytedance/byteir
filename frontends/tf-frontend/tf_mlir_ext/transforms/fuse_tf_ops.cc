@@ -174,7 +174,11 @@ Value replaceWhereStatic(PatternRewriter &rewriter, Location loc, Value input,
     }
     auto shapeType =
         RankedTensorType::get({inputShape.size()}, rewriter.getIntegerType(64));
-    auto shapeAttr = DenseIntElementsAttr::get(shapeType, oneHotShape);
+    SmallVector<int64_t> shapeVec;
+    for (auto s : oneHotShape) {
+      shapeVec.push_back((s < 0) ? -1 : s);
+    }
+    auto shapeAttr = DenseIntElementsAttr::get(shapeType, shapeVec);
     Value shape = rewriter.create<TF::ConstOp>(loc, shapeAttr);
     oneHotOutputType = oneHotOutputType.clone(oneHotShape);
     oneHotOutput = rewriter.create<TF::ReshapeOp>(loc, oneHotOutputType,
