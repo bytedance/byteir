@@ -32,6 +32,19 @@ def test_nonzero():
 
 # ==============================================================================
 
+class ViewDtypeModule(torch.nn.Module):
+    def forward(self, x):
+        return x.view(torch.int8)
+
+def test_view_dtype():
+    inputs = (torch.rand(4, 5),)
+    prog = torch.export.export(ViewDtypeModule(), inputs)
+    print(prog)
+    module = compile_dynamo_model(prog, "raw") # note: torch2.1 export has bug on view.dtype 
+    print(module.operation.get_asm())
+
+# ==============================================================================
+
 class MLPModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -48,6 +61,4 @@ def test_mlp():
     assert "dense_resource" not in mlir_str
 
 if __name__ == "__main__":
-    test_slice()
-    test_nonzero()
-    test_mlp()
+    test_view_dtype()
