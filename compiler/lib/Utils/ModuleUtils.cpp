@@ -112,13 +112,13 @@ getMainFuncOutputNames(func::FuncOp func0, func::FuncOp func1,
   return outputNames;
 }
 
-ModuleOp mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
-                                MLIRContext *context,
-                                llvm::ArrayRef<int64_t> mapping,
-                                bool hasEntryPoint) {
+ModuleOp mergeTwoModules(ModuleOp module0, ModuleOp module1,
+                         MLIRContext *context, llvm::ArrayRef<int64_t> mapping,
+                         bool hasEntryPoint) {
   func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
   func::FuncOp func1 = *module1.getOps<func::FuncOp>().begin();
   if (func0.getNumResults() == 0 || func0.getNumResults() != mapping.size()) {
+    llvm::errs() << "mapping length must be same as func0's outputs length\n";
     return nullptr;
   }
   // check types
@@ -126,6 +126,7 @@ ModuleOp mergeTwoModulesByOrder(ModuleOp module0, ModuleOp module1,
     if (mapping[i] < 0)
       continue;
     if (func0.getResultTypes()[i] != func1.getArgumentTypes()[mapping[i]]) {
+      llvm::errs() << "src and dst tensor of mapping must be same type\n";
       return nullptr;
     }
   }
@@ -202,10 +203,12 @@ OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
   // only support module with one function
   if (llvm::count_if(module0.getOps<func::FuncOp>(),
                      [](func::FuncOp func) { return true; }) != 1) {
+    llvm::errs() << "module0 must only have one function\n";
     return nullptr;
   }
   if (llvm::count_if(module1.getOps<func::FuncOp>(),
                      [](func::FuncOp func) { return true; }) != 1) {
+    llvm::errs() << "module1 must only have one function\n";
     return nullptr;
   }
 
@@ -253,14 +256,20 @@ OwningOpRef<ModuleOp> mlir::mergeTwoModulesByNameOrOrder(ModuleOp module0,
         }
       }
     }
-    return mergeTwoModulesByOrder(module0, module1, context, mapping, true);
+    if (all_of(mapping, [](int64_t i) { return i == -1; })) {
+      llvm::errs() << "at least one name must be mapped\n";
+      return nullptr;
+    }
+    return mergeTwoModules(module0, module1, context, mapping, true);
   } else if (module0FuncCountWithEntryPoint == 0 &&
              module1FuncCountWithEntryPoint == 0) {
     func::FuncOp func0 = *module0.getOps<func::FuncOp>().begin();
     llvm::SmallVector<int64_t> mapping =
         llvm::to_vector(llvm::seq<int64_t>(0, func0.getNumResults()));
-    return mergeTwoModulesByOrder(module0, module1, context, mapping, false);
+    return mergeTwoModules(module0, module1, context, mapping, false);
   }
+  llvm::errs()
+      << "func0 and func1 must both have byteir.entry_point or both not have\n";
   return nullptr;
 }
 
@@ -275,10 +284,12 @@ mlir::mergeTwoModulesByMapping(ModuleOp module0, ModuleOp module1,
   // only support module with one function
   if (llvm::count_if(module0.getOps<func::FuncOp>(),
                      [](func::FuncOp func) { return true; }) != 1) {
+    llvm::errs() << "module0 must only have one function\n";
     return nullptr;
   }
   if (llvm::count_if(module1.getOps<func::FuncOp>(),
                      [](func::FuncOp func) { return true; }) != 1) {
+    llvm::errs() << "module1 must only have one function\n";
     return nullptr;
   }
 
@@ -292,10 +303,12 @@ mlir::mergeTwoModulesByMapping(ModuleOp module0, ModuleOp module1,
       });
   if (module0FuncCountWithEntryPoint == 1 &&
       module1FuncCountWithEntryPoint == 1) {
-    return mergeTwoModulesByOrder(module0, module1, context, mapping, true);
+    return mergeTwoModules(module0, module1, context, mapping, true);
   } else if (module0FuncCountWithEntryPoint == 0 &&
              module1FuncCountWithEntryPoint == 0) {
-    return mergeTwoModulesByOrder(module0, module1, context, mapping, false);
+    return mergeTwoModules(module0, module1, context, mapping, false);
   }
+  llvm::errs()
+      << "func0 and func1 must both have byteir.entry_point or both not have\n";
   return nullptr;
 }

@@ -523,7 +523,7 @@ struct DotGeneralLinalgExtBatchMatMulOpConversion
     if (lhsContractingDims[0] == rank - 2)
       layout[0] = 't';
     if (rhsContractingDims[0] == rank - 1)
-      layout[0] = 't';
+      layout[1] = 't';
 
     Location loc = op.getLoc();
     // Convert unsigned to signed. This works because signed and unsigned
