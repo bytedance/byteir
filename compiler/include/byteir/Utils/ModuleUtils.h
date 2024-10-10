@@ -41,6 +41,8 @@ constexpr llvm::StringRef getByteIREntryPointName() {
 OwningOpRef<ModuleOp> mergeTwoModulesByNameOrOrder(ModuleOp module0,
                                                    ModuleOp module1);
 
+// merge two modules into one, mapping describe how func0's outputs map to
+// func1's inputs
 OwningOpRef<ModuleOp> mergeTwoModulesByMapping(ModuleOp module0,
                                                ModuleOp module1,
                                                llvm::ArrayRef<int64_t> mapping);
