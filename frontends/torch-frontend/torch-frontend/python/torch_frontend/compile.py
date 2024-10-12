@@ -11,7 +11,7 @@ from torch_mlir.extras.fx_importer import FxImporter
 
 from . import ir
 from .passmanager import PassManager
-from ._mlir_libs._stablehlo import serialize_portable_artifact
+from ._mlir_libs._stablehlo import serialize_portable_artifact, get_current_version
 
 from .extra_shape_fn import byteir_extra_library
 
@@ -259,8 +259,13 @@ def compile(
     ############################################
     # serialize stablehlo to target version
     ############################################
+    from packaging import version
+    target_version = version.Version(output_type.split("+")[1])
+    current_version = version.Version(get_current_version())
+    if target_version > current_version:
+        target_version = current_version
     return serialize_portable_artifact(
-        module.operation.get_asm(), output_type.split("+")[1]
+        module.operation.get_asm(), str(target_version)
     )
 
 
@@ -380,6 +385,11 @@ def compile_dynamo_model(
     ############################################
     # serialize stablehlo to target version
     ############################################
+    from packaging import version
+    target_version = version.Version(output_type.split("+")[1])
+    current_version = version.Version(get_current_version())
+    if target_version > current_version:
+        target_version = current_version
     return serialize_portable_artifact(
-        module.operation.get_asm(), output_type.split("+")[1]
+        module.operation.get_asm(), str(target_version)
     )
