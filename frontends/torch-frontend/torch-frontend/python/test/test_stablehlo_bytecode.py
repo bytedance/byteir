@@ -9,6 +9,9 @@ def serialize_helper(module, inputs):
     stablehlo_bytecode = compile(module, inputs, "stablehlo+0.16.2")
     deserialize_str = deserialize_portable_artifact(stablehlo_bytecode)
     print(deserialize_str)
+    stablehlo_bytecode = compile(module, inputs, "stablehlo+10.0.0")
+    deserialize_str = deserialize_portable_artifact(stablehlo_bytecode)
+    print(deserialize_str)
 
 # ==============================================================================
 class SoftmaxModule(torch.nn.Module):
