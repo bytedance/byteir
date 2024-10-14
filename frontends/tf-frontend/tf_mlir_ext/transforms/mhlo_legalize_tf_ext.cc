@@ -23,6 +23,7 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/DeviceMappingInterface.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -626,6 +627,85 @@ public:
   }
 };
 
+class ConvertReshapeOp : public OpRewritePattern<TF::ReshapeOp> {
+public:
+  using OpRewritePattern<TF::ReshapeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::ReshapeOp reshapeOp,
+                                PatternRewriter &rewriter) const override {
+    auto loc = reshapeOp->getLoc();
+    auto input = reshapeOp.getTensor();
+    auto shape = reshapeOp.getShape();
+    auto output = reshapeOp.getOutput();
+    auto inputType = input.getType().dyn_cast<RankedTensorType>();
+    auto outputType = output.getType().dyn_cast<RankedTensorType>();
+    if (!inputType || !outputType) {
+      return failure();
+    }
+    if (inputType.hasStaticShape() || outputType.hasStaticShape()) {
+      return failure();
+    }
+    DenseIntElementsAttr shapeAttr;
+
+    if (!matchPattern(shape, m_Constant(&shapeAttr))) {
+      return failure();
+    }
+    SmallVector<int64_t> shapeVec;
+    shapeVec.reserve(shapeAttr.getNumElements());
+    for (auto intAttr : shapeAttr.getValues<IntegerAttr>()) {
+      shapeVec.push_back(intAttr.getInt());
+    }
+
+    int64_t negativeNum = 0;
+    if (llvm::all_of(shapeVec, [&negativeNum](int64_t s) {
+          if (s < 0) {
+            negativeNum++;
+          }
+          return s >= 0;
+        })) {
+      return failure();
+    }
+    if (negativeNum != 1) {
+      return rewriter.notifyMatchFailure(
+          reshapeOp, "const shape operand has multiple dynamic dims");
+    }
+    int64_t staticNum = 1;
+    for (auto s : shapeVec) {
+      if (s > 0) {
+        staticNum *= s;
+      }
+    }
+
+    Value shapeOf = rewriter.create<shape::ShapeOfOp>(loc, input);
+    reshapeOp.dump();
+    Value numberElements = rewriter.create<shape::NumElementsOp>(loc, shapeOf);
+    numberElements = rewriter.create<shape::IndexToSizeOp>(loc, numberElements);
+    Value staticElementsNum =
+        rewriter.create<shape::ConstSizeOp>(loc, staticNum);
+    Value dynamicSize =
+        rewriter.create<shape::DivOp>(loc, numberElements, staticElementsNum);
+    SmallVector<Value> newShapeVec;
+    newShapeVec.reserve(shapeAttr.getNumElements());
+    for (auto s : shapeVec) {
+      Value dimSize;
+      if (s > 0) {
+        dimSize = rewriter.create<shape::ConstSizeOp>(loc, s);
+      } else {
+        dimSize = dynamicSize;
+      }
+      newShapeVec.push_back(dimSize);
+    }
+    Value newShape = rewriter.create<shape::FromExtentsOp>(loc, newShapeVec);
+    auto newShapeType = RankedTensorType::get(
+        {static_cast<int64_t>(newShapeVec.size())}, rewriter.getIndexType());
+    newShape =
+        rewriter.create<shape::ToExtentTensorOp>(loc, newShapeType, newShape);
+    rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(reshapeOp, outputType,
+                                                        input, newShape);
+    return success();
+  }
+};
+
 class ConvertScfIfOp : public OpRewritePattern<scf::IfOp> {
 public:
   using OpRewritePattern<scf::IfOp>::OpRewritePattern;
@@ -675,6 +755,7 @@ void PopulateMhloLegalizeTfExtPatterns(MLIRContext *context,
   patterns->add(std::make_unique<ConvertBatchMatMulV2Op>(context));
   patterns->add(std::make_unique<ConvertRoundOp>(context));
   patterns->add(std::make_unique<ConvertTileOp>(context));
+  patterns->add(std::make_unique<ConvertReshapeOp>(context));
   // patterns->add(std::make_unique<ConvertScfIfOp>(context));
 }
 

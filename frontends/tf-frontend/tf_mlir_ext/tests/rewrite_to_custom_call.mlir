@@ -1,5 +1,5 @@
 // RUN: tf-ext-opt
-// -rewrite-to-custom-call="ops=softmax,log_softmax,gelu,erf,arg_max,arg_min,top_k,layer_norm,l2_norm,addn,one_hot,reshape,DynamicMaskStitch,DynamicPartition,DynamicStitch"
+// -rewrite-to-custom-call="ops=softmax,log_softmax,gelu,erf,arg_max,arg_min,top_k,layer_norm,l2_norm,addn,one_hot,DynamicMaskStitch,DynamicPartition,DynamicStitch"
 // %s | FileCheck %s
 
 func.func @softmax_case0(%arg0: tensor<100x100xf32>) -> tensor<100x100xf32> {
@@ -731,12 +731,3 @@ func.func @onehot_case0(%arg0: tensor<150xi32>) -> tensor<150x16xf32> {
 // tensor<150x16xf32> { CHECK: mhlo.custom_call CHECK-SAME: @byteir.one_hot
 // CHECK-SAME: byteir_attrs = {axis = 1 : i64, depth = 16 : i64, off_value =
 // 0.000000e+00 : f32, on_value = 1.000000e+00 : f32}
-
-func.func @reshape_case0(%arg0: tensor<?x24xf16>) -> tensor<?x24x1xf16> {
-  %cst = "tf.Const"() <{value = dense<[-1, 24, 1]> : tensor<3xi64>}> : () -> tensor<3xi64>
-  %0 = "tf.Reshape"(%arg0, %cst) : (tensor<?x24xf16>, tensor<3xi64>) -> tensor<?x24x1xf16>
-  return %0 : tensor<?x24x1xf16>
-}
-// CHECK-LABEL: func.func @reshape_case0
-// CHECK: mhlo.custom_call
-// CHECK-SAME: @byteir.reshape

@@ -63,7 +63,6 @@ namespace {
     cb(one_hot, OneHot, CALL_TARGET_NAME_PREFIX)          \
     cb(repeat, Repeat, CALL_TARGET_NAME_PREFIX)           \
     cb(non_zero, Where, CALL_TARGET_NAME_PREFIX)          \
-    cb(reshape, Reshape, CALL_TARGET_NAME_PREFIX)         \
     cb(DynamicMaskStitch, DynamicMaskStitch, CALL_TF_TARGET_NAME_PREFIX) \
     cb(DynamicPartition, DynamicPartition, CALL_TF_TARGET_NAME_PREFIX)   \
     cb(DynamicStitch, DynamicStitch, CALL_TF_TARGET_NAME_PREFIX)
@@ -88,8 +87,7 @@ namespace {
     cb(TF::ArgMaxOp, ArgMax)         \
     cb(TF::ErfOp, Erf)               \
     cb(TF::AddNOp, AddN)             \
-    cb(TF::OneHotOp, OneHot)         \
-    cb(TF::ReshapeOp, Reshape)
+    cb(TF::OneHotOp, OneHot)
 // clang-format on
 
 VALID_CUSTOM_CALL_OP(GEN_FUNCNAME) template <typename TF_OP> struct WrapName;
@@ -596,39 +594,6 @@ struct RewriteOneHot : public OpRewritePattern<TF::OneHotOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// Reshape Pattern
-//===----------------------------------------------------------------------===//
-struct RewriteReshape : public OpRewritePattern<TF::ReshapeOp> {
-  using OpRewritePattern<TF::ReshapeOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(TF::ReshapeOp op,
-                                PatternRewriter &rewriter) const override {
-    auto tensor = op.getTensor();
-    auto shape = op.getShape();
-    auto output = op.getOutput();
-    auto tensorType = dyn_cast<RankedTensorType>(tensor.getType());
-    auto outputType = dyn_cast<RankedTensorType>(output.getType());
-    if (!tensorType || !outputType) {
-      return failure();
-    }
-    if (tensorType.hasStaticShape() || outputType.hasStaticShape()) {
-      return failure();
-    }
-    mhlo::CustomCallOp customCallOp = rewriter.create<mlir::mhlo::CustomCallOp>(
-        op->getLoc(), op->getResults().getTypes(), op->getOperands(),
-        getReshapeNameWithPrefix(), false, rewriter.getStringAttr(""),
-        mhlo::CustomCallApiVersion{
-            mhlo::CustomCallApiVersion::API_VERSION_ORIGINAL},
-        rewriter.getArrayAttr(ArrayRef<Attribute>{}),
-        mhlo::CustomCallSchedule{mhlo::CustomCallSchedule::NONE}, nullptr,
-        nullptr, rewriter.getArrayAttr(ArrayRef<Attribute>{}));
-    customCallOp->setAttr(getByteIRAttrs(), getCleanAttr(op));
-    rewriter.replaceOp(op.getOperation(), customCallOp->getResults());
-
-    return success();
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // Repeat Pattern
 //===----------------------------------------------------------------------===//
 struct RewriteRepeat : public RewritePattern {
@@ -917,8 +882,6 @@ struct RewriteToCustomCallOpsPass
       // patterns with c++
       validCustomCallOpSet[getOneHotName()].emplace_back(
           std::make_unique<RewriteOneHot>(context, 1));
-      validCustomCallOpSet[getReshapeName()].emplace_back(
-          std::make_unique<RewriteReshape>(context, 1));
       validCustomCallOpSet[getAddNName()].emplace_back(
           std::make_unique<RewriteSimpleReplace<TF::AddNOp, false>>(context,
                                                                     1));
