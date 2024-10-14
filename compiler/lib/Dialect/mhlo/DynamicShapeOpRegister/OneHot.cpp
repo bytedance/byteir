@@ -15,11 +15,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
 #include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "byteir/Dialect/mhlo/Util/ShapeInferUtil.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/Support/Debug.h"
@@ -27,6 +29,44 @@
 #define DEBUG_TYPE "dynamic-shape-op-register"
 
 using namespace mlir;
+
+LogicalResult InsertOneHotShapeConstraints(Operation *op, OpBuilder &builder) {
+  builder.setInsertionPointAfter(op);
+  auto operand = op->getOperand(0);
+  auto result = op->getResult(0);
+  auto operandType = dyn_cast<RankedTensorType>(operand.getType());
+  auto resType = dyn_cast<RankedTensorType>(result.getType());
+  if (!operandType || !resType)
+    return failure();
+  auto inputShape = operandType.getShape();
+  auto outputShape = resType.getShape();
+  if (inputShape.size() == 0)
+    return failure();
+
+  DictionaryAttr attr = op->getAttrDictionary();
+  int64_t axis = attr.getAs<DictionaryAttr>(getCustomCallAttrName())
+                     .getAs<IntegerAttr>("axis")
+                     .getInt();
+  axis = (axis >= 0) ? axis : (axis + outputShape.size());
+  for (int64_t inputDim = 0, outputDim = 0; inputDim < inputShape.size();
+       ++inputDim, outputDim++) {
+    if (inputDim == axis) {
+      outputDim++;
+    }
+    Value oprSize =
+        builder.create<tensor::DimOp>(op->getLoc(), operand, inputDim);
+    Value resSize =
+        builder.create<tensor::DimOp>(op->getLoc(), result, outputDim);
+    builder.create<shape_ext::MeetOp>(op->getLoc(), oprSize, resSize);
+  }
+
+  return success();
+}
+
+void mlir::registerOneHotShapeConstraints() {
+  static InsertShapeConstraintRegistration shapeRegister(
+      getOneHotName(), InsertOneHotShapeConstraints);
+}
 
 void mlir::registerOneHotInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(

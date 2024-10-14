@@ -69,10 +69,6 @@ constexpr llvm::StringRef getOneHotName() {
   return CUSTOM_CALL_NAME_PREFIX "one_hot";
 }
 
-constexpr llvm::StringRef getReshapeName() {
-  return CUSTOM_CALL_NAME_PREFIX "reshape";
-}
-
 constexpr llvm::StringRef getAddNName() {
   return CUSTOM_CALL_NAME_PREFIX "addn";
 }

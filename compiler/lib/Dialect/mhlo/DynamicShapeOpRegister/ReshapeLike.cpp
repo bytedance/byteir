@@ -29,33 +29,6 @@
 
 using namespace mlir;
 
-namespace {
-
-// Correct negative shape to `ShapedType::kDynamic`
-// It is because mhlo allows a negative number, often `-1`, as dynamic
-// but in a real ShapedType, only kDynamic is allowed.
-ShapedTypeComponents correctNegativeShape(ShapedTypeComponents &old) {
-  if (!old.hasRank())
-    return old;
-
-  SmallVector<int64_t> shape;
-  shape.reserve(old.getDims().size());
-  bool hasNegative = false;
-  for (auto dim : old.getDims()) {
-    if (dim < 0) {
-      hasNegative = true;
-      shape.push_back(ShapedType::kDynamic);
-    } else {
-      shape.push_back(dim);
-    }
-  }
-
-  if (!hasNegative)
-    return old;
-  return ShapedTypeComponents(shape, old.getElementType(), old.getAttribute());
-}
-} // namespace
-
 LogicalResult InsertReshapeShapeConstraints(Operation *op, OpBuilder &builder) {
   builder.setInsertionPointAfter(op);
   SmallVector<Value> dimOfOperand, dimOfResult;
@@ -99,7 +72,7 @@ LogicalResult InsertReshapeShapeConstraints(Operation *op, OpBuilder &builder) {
   builder.create<shape_ext::MeetOp>(op->getLoc(), oprSize, resSize);
 
   return success();
-};
+}
 
 void mlir::registerReshapeShapeConstraints() {
   static InsertShapeConstraintRegistration shapeRegister(
@@ -115,25 +88,6 @@ void mlir::registerDynamicReshapeShapeConstraints() {
 void mlir::registerDynamicReshapeInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::DynamicReshapeOp::getOperationName(),
-      [](MLIRContext *context, std::optional<Location>,
-         ValueShapeRange operands, DictionaryAttr, OpaqueProperties properties,
-         RegionRange,
-         SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        mlir::ShapeAdaptor shapeAdaptor = operands.getValueAsShape(1);
-        if (!shapeAdaptor)
-          return failure();
-
-        ShapedTypeComponents resShape;
-        shapeAdaptor.getDims(resShape);
-        resShape = correctNegativeShape(resShape);
-        inferredReturnTypes.push_back(resShape);
-        return success();
-      });
-}
-
-void mlir::registerReshapeInferReturnTypeComponents() {
-  static InferReturnTypeComponentsRegistration shapeRegister(
-      getReshapeName(),
       [](MLIRContext *context, std::optional<Location> loc,
          ValueShapeRange operands, DictionaryAttr, OpaqueProperties properties,
          RegionRange,
