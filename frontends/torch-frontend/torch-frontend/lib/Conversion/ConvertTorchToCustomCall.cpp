@@ -1197,17 +1197,21 @@ public:
       return rewriter.notifyMatchFailure(
           op, "unimplemented: align_corners must be a constant bool");
     }
-    if (!align_corners)
-      return failure();
 
     std::vector<NamedAttribute> byteir_attrs;
     byteir_attrs.emplace_back(rewriter.getStringAttr("target_mode"),
                               rewriter.getStringAttr("size"));
     byteir_attrs.emplace_back(rewriter.getStringAttr("mode"),
                               rewriter.getStringAttr("linear"));
-    byteir_attrs.emplace_back(
-        rewriter.getStringAttr("coordinate_transformation_mode"),
-        rewriter.getStringAttr("align_corners"));
+    if (align_corners) {
+      byteir_attrs.emplace_back(
+          rewriter.getStringAttr("coordinate_transformation_mode"),
+          rewriter.getStringAttr("align_corners"));
+    } else {
+      byteir_attrs.emplace_back(
+          rewriter.getStringAttr("coordinate_transformation_mode"),
+          rewriter.getStringAttr("pytorch_half_pixel"));
+    }
 
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
