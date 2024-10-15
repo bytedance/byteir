@@ -29,6 +29,33 @@
 
 using namespace mlir;
 
+namespace {
+
+// Correct negative shape to `ShapedType::kDynamic`
+// It is because mhlo allows a negative number, often `-1`, as dynamic
+// but in a real ShapedType, only kDynamic is allowed.
+ShapedTypeComponents correctNegativeShape(ShapedTypeComponents &old) {
+  if (!old.hasRank())
+    return old;
+
+  SmallVector<int64_t> shape;
+  shape.reserve(old.getDims().size());
+  bool hasNegative = false;
+  for (auto dim : old.getDims()) {
+    if (dim < 0) {
+      hasNegative = true;
+      shape.push_back(ShapedType::kDynamic);
+    } else {
+      shape.push_back(dim);
+    }
+  }
+
+  if (!hasNegative)
+    return old;
+  return ShapedTypeComponents(shape, old.getElementType(), old.getAttribute());
+}
+} // namespace
+
 LogicalResult InsertReshapeShapeConstraints(Operation *op, OpBuilder &builder) {
   builder.setInsertionPointAfter(op);
   SmallVector<Value> dimOfOperand, dimOfResult;
@@ -88,48 +115,18 @@ void mlir::registerDynamicReshapeShapeConstraints() {
 void mlir::registerDynamicReshapeInferReturnTypeComponents() {
   static InferReturnTypeComponentsRegistration shapeRegister(
       mhlo::DynamicReshapeOp::getOperationName(),
-      [](MLIRContext *context, std::optional<Location> loc,
+      [](MLIRContext *context, std::optional<Location>,
          ValueShapeRange operands, DictionaryAttr, OpaqueProperties properties,
          RegionRange,
          SmallVectorImpl<ShapedTypeComponents> &inferredReturnTypes) {
-        auto input = operands[0];
-        ShapedType inputType = dyn_cast<ShapedType>(input.getType());
-        if (!inputType) {
-          LLVM_DEBUG(llvm::dbgs() << loc << ": get inputType failed\n");
-          return failure();
-        }
         mlir::ShapeAdaptor shapeAdaptor = operands.getValueAsShape(1);
-        if (!shapeAdaptor) {
+        if (!shapeAdaptor)
           return failure();
-        }
-        if (!inputType.hasStaticShape() && !shapeAdaptor.hasStaticShape()) {
-          LLVM_DEBUG(llvm::dbgs() << loc << ": shape is dynamic\n");
-          return failure();
-        }
-        llvm::SmallVector<int64_t> shape;
-        shapeAdaptor.getDims(shape);
-        int negativeNum = std::count_if(shape.begin(), shape.end(),
-                                        [](int64_t i) { return i < 0; });
-        if (negativeNum > 1) {
-          LLVM_DEBUG(llvm::dbgs() << loc << ": shape is dynamic\n");
-          return failure();
-        }
-        if (negativeNum == 1) {
-          int64_t product = inputType.getNumElements();
-          int64_t dynamicDim = product;
-          for (auto dim : shape) {
-            if (dim > 0) {
-              dynamicDim /= dim;
-            }
-          }
-          for (int64_t i = 0; i < shape.size(); ++i) {
-            if (shape[i] < 0) {
-              shape[i] = dynamicDim;
-            }
-          }
-        }
-        inferredReturnTypes.emplace_back(shape, inputType.getElementType());
 
+        ShapedTypeComponents resShape;
+        shapeAdaptor.getDims(resShape);
+        resShape = correctNegativeShape(resShape);
+        inferredReturnTypes.push_back(resShape);
         return success();
       });
 }
