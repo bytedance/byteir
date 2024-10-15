@@ -63,11 +63,11 @@ func.func @tile_right_dynamic(%arg0: tensor<1x64xf16>, %arg1: tensor<2xi32>) -> 
 // CHECK-LABEL:   %4 = mhlo.dynamic_reshape %3, %from_elements_1 : (tensor<?x1x?x64xf16>, tensor<2xindex>) -> tensor<1x?xf16>
 // CHECK-LABEL:   return %4 : tensor<1x?xf16>
 
-//func.func @reshape_case0(%arg0: tensor<?x24xf16>) -> tensor<?x24x1xf16> {
-//  %cst = "tf.Const"() <{value = dense<[-1, 24, 1]> : tensor<3xi64>}> : () -> tensor<3xi64>
-//  %0 = "tf.Reshape"(%arg0, %cst) : (tensor<?x24xf16>, tensor<3xi64>) -> tensor<?x24x1xf16>
-//  return %0 : tensor<?x24x1xf16>
-//}
+func.func @reshape_case0(%arg0: tensor<?x24xf16>) -> tensor<?x24x1xf16> {
+  %cst = "tf.Const"() <{value = dense<[-1, 24, 1]> : tensor<3xi64>}> : () -> tensor<3xi64>
+  %0 = "tf.Reshape"(%arg0, %cst) : (tensor<?x24xf16>, tensor<3xi64>) -> tensor<?x24x1xf16>
+  return %0 : tensor<?x24x1xf16>
+}
 // CHECK-LABEL: func.func @reshape_case0
 // CHECK-DGA:     %c1 = shape.const_size 1
 // CHECK-DGA:     %c24 = shape.const_size 24
