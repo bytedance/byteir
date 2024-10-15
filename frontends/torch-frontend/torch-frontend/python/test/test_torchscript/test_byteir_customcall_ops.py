@@ -287,6 +287,20 @@ def test_resize_bilinear():
     model = torch.jit.trace(UpsampleBilinear2dModule(), inputs)
     custom_test_helper(model, inputs, "byteir.resize")
 
+class UpsampleBilinear2dModule1(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        #FIXME: use torch.nn.interpolate to avoid torch.jit.trace
+        return torch.ops.aten.upsample_bilinear2d.vec(x, (15, 25), False, None)
+
+@pytest.mark.mhlo_tools
+def test_resize_bilinear_half_pixel():
+    inputs = [tu.randn(3, 3, 10, 20)]
+    model = torch.jit.trace(UpsampleBilinear2dModule1(), inputs)
+    custom_test_helper(model, inputs, "byteir.resize")
+
 # ==============================================================================
 
 class L2NormalizeModule(torch.nn.Module):
