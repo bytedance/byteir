@@ -130,7 +130,6 @@ constexpr llvm::StringRef getStridedSliceName() {
 constexpr llvm::StringRef getBatchMatMulName() {
   return TF_NAME_PREFIX "BatchMatMul";
 }
-
 } // namespace mlir
 
 #undef TF_NAME_PREFIX

@@ -34,6 +34,7 @@ void registerRealDynamicSliceInferReturnTypeComponents();
 void registerReduceInferReturnTypeComponents();
 void registerSoftmaxInferReturnTypeComponents();
 void registerAddNInferReturnTypeComponents();
+void registerOneHotInferReturnTypeComponents();
 void registerTorchIndexSelectInferReturnTypeComponents();
 void registerGeLUInferReturnTypeComponents();
 void registerLayerNormInferReturnTypeComponents();
@@ -49,6 +50,7 @@ inline void registerAllMhloInferReturnTypeComponents() {
   registerReduceInferReturnTypeComponents();
   registerSoftmaxInferReturnTypeComponents();
   registerAddNInferReturnTypeComponents();
+  registerOneHotInferReturnTypeComponents();
   registerTorchIndexSelectInferReturnTypeComponents();
   registerGeLUInferReturnTypeComponents();
   registerLayerNormInferReturnTypeComponents();
@@ -102,6 +104,7 @@ void registerDynamicPartitionShapeConstraints();
 void registerDynamicReshapeShapeConstraints();
 void registerEinsumShapeConstraints();
 void registerReshapeShapeConstraints();
+void registerOneHotShapeConstraints();
 
 inline void registerAllMhloShapeConstraints() {
   registerConcatenateShapeConstraints();
@@ -110,6 +113,7 @@ inline void registerAllMhloShapeConstraints() {
   registerDynamicReshapeShapeConstraints();
   registerEinsumShapeConstraints();
   registerReshapeShapeConstraints();
+  registerOneHotShapeConstraints();
 }
 
 } // namespace mlir

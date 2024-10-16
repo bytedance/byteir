@@ -67,6 +67,7 @@ def MhloLegalizeTfExt: Pass<"mhlo-legalize-tf-ext", "func::FuncOp"> {
     "mlir::TF::TensorFlowDialect",
     "mlir::mhlo::MhloDialect",
     "mlir::tensor::TensorDialect",
+    "mlir::shape::ShapeDialect",
     "mlir::scf::SCFDialect",
   ];
 }

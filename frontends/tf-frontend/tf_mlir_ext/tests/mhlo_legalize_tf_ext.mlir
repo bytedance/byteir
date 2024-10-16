@@ -62,3 +62,20 @@ func.func @tile_right_dynamic(%arg0: tensor<1x64xf16>, %arg1: tensor<2xi32>) -> 
 // CHECK-LABEL:   %3 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %from_elements) <{broadcast_dimensions = dense<[1, 3]> : tensor<2xi64>}> : (tensor<1x64xf16>, tensor<4xindex>) -> tensor<?x1x?x64xf16>
 // CHECK-LABEL:   %4 = mhlo.dynamic_reshape %3, %from_elements_1 : (tensor<?x1x?x64xf16>, tensor<2xindex>) -> tensor<1x?xf16>
 // CHECK-LABEL:   return %4 : tensor<1x?xf16>
+
+func.func @reshape_case0(%arg0: tensor<?x24xf16>) -> tensor<?x24x1xf16> {
+  %cst = "tf.Const"() <{value = dense<[-1, 24, 1]> : tensor<3xi64>}> : () -> tensor<3xi64>
+  %0 = "tf.Reshape"(%arg0, %cst) : (tensor<?x24xf16>, tensor<3xi64>) -> tensor<?x24x1xf16>
+  return %0 : tensor<?x24x1xf16>
+}
+// CHECK-LABEL: func.func @reshape_case0
+// CHECK-DGA:     %c1 = shape.const_size 1
+// CHECK-DGA:     %c24 = shape.const_size 24
+// CHECK-LABEL:   %0 = shape.shape_of %arg0 : tensor<?x24xf16> -> tensor<2xindex>
+// CHECK-LABEL:   %1 = shape.num_elements %0 : tensor<2xindex> -> index
+// CHECK-LABEL:   %2 = shape.index_to_size %1
+// CHECK-LABEL:   %3 = shape.div %2, %c24 : !shape.size, !shape.size -> !shape.size
+// CHECK-LABEL:   %4 = shape.from_extents %3, %c24, %c1 : !shape.size, !shape.size, !shape.size
+// CHECK-LABEL:   %5 = shape.to_extent_tensor %4 : !shape.shape -> tensor<3xindex>
+// CHECK-LABEL:   %6 = mhlo.dynamic_reshape %arg0, %5 : (tensor<?x24xf16>, tensor<3xindex>) -> tensor<?x24x1xf16>
+// CHECK-LABEL:   return %6 : tensor<?x24x1xf16>

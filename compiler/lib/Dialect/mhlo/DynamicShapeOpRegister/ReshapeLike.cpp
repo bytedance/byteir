@@ -17,6 +17,7 @@
 
 #include "byteir/Dialect/Shape/IR/ShapeExtOps.h"
 #include "byteir/Dialect/mhlo/DynamicShapeOpRegister/Register.h"
+#include "byteir/Dialect/mhlo/Util/CustomCallUtil.h"
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -98,7 +99,7 @@ LogicalResult InsertReshapeShapeConstraints(Operation *op, OpBuilder &builder) {
   builder.create<shape_ext::MeetOp>(op->getLoc(), oprSize, resSize);
 
   return success();
-};
+}
 
 void mlir::registerReshapeShapeConstraints() {
   static InsertShapeConstraintRegistration shapeRegister(
