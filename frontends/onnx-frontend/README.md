@@ -30,7 +30,7 @@ git submodule update --init --recursive $ONNX_MLIR_ROOT
 cd $ONNX_MLIR_ROOT && git apply $ONNX_FRONTEND_ROOT/third_party/patches/OnnxMlir*.patch
 cd $ONNX_OFFICIAL_ROOT && git apply $ONNX_FRONTEND_ROOT/third_party/patches/OnnxOfficial*.patch
 
-pip3 install lit>=14.0.0
+cd $ONNX_FRONTEND_ROOT
 python3 -m pip install -r requirements.txt
 ```
 
