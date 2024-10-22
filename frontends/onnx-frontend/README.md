@@ -4,6 +4,19 @@ ONNX-Frontend is a project to build customized onnx graph --> onnx dialect --> s
 
 ## Quick Start
 
+### Prerequisites
+```
+python >= 3.7
+gcc >= 6.4
+protobuf >= 4.21.12
+cmake >= 3.13.4
+make >= 4.2.1 or ninja >= 1.10.2
+java >= 1.11 (optional)
+```
+
+Look [here](https://github.com/onnx/onnx-mlir/blob/main/docs/Prerequisite.md) for help to set up the prerequisite software.
+
+
 ### Prepare
 ```
 git clone https://github.com/bytedance/byteir.git
@@ -18,10 +31,35 @@ cd $ONNX_MLIR_ROOT && git apply $ONNX_FRONTEND_ROOT/third_party/patches/OnnxMlir
 cd $ONNX_OFFICIAL_ROOT && git apply $ONNX_FRONTEND_ROOT/third_party/patches/OnnxOfficial*.patch
 
 pip3 install lit>=14.0.0
+python3 -m pip install -r requirements.txt
 ```
 
 ### Build onnx-frontend from source code and run
-First, build MLIR (llvm-project commit `b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc`) with cmake option `-DLLVM_ENABLE_RTTI=ON`.
+Firstly, build MLIR (llvm-project commit `b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc`) with cmake option `-DLLVM_ENABLE_RTTI=ON`.
+```
+git clone -n https://github.com/llvm/llvm-project.git
+cd llvm-project && git checkout b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc && cd ..
+```
+
+```
+mkdir llvm-project/build
+cd llvm-project/build
+
+cmake -G Ninja ../llvm \
+   -DLLVM_ENABLE_PROJECTS=mlir \
+   -DLLVM_TARGETS_TO_BUILD="host" \
+   -DCMAKE_BUILD_TYPE=Release \
+   -DLLVM_ENABLE_ASSERTIONS=ON \
+   -DLLVM_ENABLE_RTTI=ON \
+   -DLLVM_ENABLE_LIBEDIT=OFF
+
+cmake --build . -- ${MAKEFLAGS}
+cmake --build . --target check-mlir
+
+cd ../..
+MLIR_DIR=$(pwd)/llvm-project/build/lib/cmake/mlir
+```
+
 Then,
 ```
 mkdir $ONNX_FRONTEND_ROOT/build
@@ -30,9 +68,9 @@ cmake "-H$ONNX_FRONTEND_ROOT" \
       "-B$ONNX_FRONTEND_ROOT/build" \
       -GNinja \
       -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
-      -DPython3_ROOT_DIR=/usr/bin/python3.7 \
+      -DPython3_ROOT_DIR=$(which python3) \
       -DPY_VERSION=3 \
-      -DMLIR_DIR="${YOUR_MLIR_DIR}/lib/cmake/mlir" \
+      -DMLIR_DIR=${MLIR_DIR} \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_EXTERNAL_LIT=$(which lit)
 
