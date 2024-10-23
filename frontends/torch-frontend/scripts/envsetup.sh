@@ -33,7 +33,6 @@ function prepare_for_build_with_prebuilt() {
   pushd ${PROJ_DIR}
   # install requirements
   python3 -m pip install -r build-requirements.txt
-  # python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
 
   # initialize submodule
   git submodule update --init -f $TORCH_MLIR_ROOT
@@ -49,10 +48,11 @@ function prepare_for_build() {
   pushd ${PROJ_DIR}
   # install requirements
   python3 -m pip install -r build-requirements.txt
-  # python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
 
   # initialize submodule
   git submodule update --init --recursive -f $TORCH_MLIR_ROOT
 
   apply_patches
 }
+
+# python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html
