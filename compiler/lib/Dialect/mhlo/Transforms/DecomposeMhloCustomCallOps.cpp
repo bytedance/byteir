@@ -143,10 +143,11 @@ struct DecomposeByteIRArgMaxMin : public OpRewritePattern<mhlo::CustomCallOp> {
 
     RankedTensorType inType =
         cast<RankedTensorType>(op.getOperand(0).getType());
+    Type inElemType = inType.getElementType();
     RankedTensorType outType, outIndexType;
     if (op.getResults().size() == 1) {
       outIndexType = cast<RankedTensorType>(op.getResults()[0].getType());
-      outType = outIndexType.clone(inType.getElementType());
+      outType = outIndexType.clone(inElemType);
     } else if (op.getResults().size() == 2) {
       outType = cast<RankedTensorType>(op.getResults()[0].getType());
       outIndexType = cast<RankedTensorType>(op.getResults()[1].getType());
@@ -154,28 +155,62 @@ struct DecomposeByteIRArgMaxMin : public OpRewritePattern<mhlo::CustomCallOp> {
       return op.emitError("unsupported result size");
     }
 
-    if (!isa<mlir::FloatType>(inType.getElementType())) {
-      return op.emitError("only support float type");
+    if (!isa<mlir::FloatType, mlir::IntegerType>(inElemType)) {
+      return op.emitError("only support float or int type");
     }
 
     // create init values
     Value initValue;
     if (customCallName == getArgMaxName().str()) {
-      initValue = rewriter.create<mhlo::ConstantOp>(
-          op.getLoc(),
-          DenseElementsAttr::get(
-              RankedTensorType::get({}, inType.getElementType()),
-              {APFloat::getInf(cast<mlir::FloatType>(inType.getElementType())
-                                   .getFloatSemantics(),
-                               /*negative=*/true)}));
+      if (isa<mlir::FloatType>(inElemType)) {
+        initValue = rewriter.create<mhlo::ConstantOp>(
+            op.getLoc(),
+            DenseElementsAttr::get(
+                RankedTensorType::get({}, inElemType),
+                {APFloat::getInf(
+                    cast<mlir::FloatType>(inElemType).getFloatSemantics(),
+                    /*negative=*/true)}));
+      } else if (isa<mlir::IntegerType>(inElemType)) {
+        if (cast<mlir::IntegerType>(inElemType).isSignless() &&
+            inElemType.getIntOrFloatBitWidth() != 1) {
+          initValue = rewriter.create<mhlo::ConstantOp>(
+              op.getLoc(),
+              DenseElementsAttr::get(RankedTensorType::get({}, inElemType),
+                                     {APInt::getSignedMinValue(
+                                         inElemType.getIntOrFloatBitWidth())}));
+        } else {
+          initValue = rewriter.create<mhlo::ConstantOp>(
+              op.getLoc(),
+              DenseElementsAttr::get(
+                  RankedTensorType::get({}, inElemType),
+                  {APInt::getMinValue(inElemType.getIntOrFloatBitWidth())}));
+        }
+      }
     } else if (customCallName == getArgMinName().str()) {
-      initValue = rewriter.create<mhlo::ConstantOp>(
-          op.getLoc(),
-          DenseElementsAttr::get(
-              RankedTensorType::get({}, inType.getElementType()),
-              {APFloat::getInf(cast<mlir::FloatType>(inType.getElementType())
-                                   .getFloatSemantics(),
-                               /*negative=*/false)}));
+      if (isa<mlir::FloatType>(inElemType)) {
+        initValue = rewriter.create<mhlo::ConstantOp>(
+            op.getLoc(),
+            DenseElementsAttr::get(
+                RankedTensorType::get({}, inElemType),
+                {APFloat::getInf(
+                    cast<mlir::FloatType>(inElemType).getFloatSemantics(),
+                    /*negative=*/false)}));
+      } else if (isa<mlir::IntegerType>(inElemType)) {
+        if (cast<mlir::IntegerType>(inElemType).isSignless() &&
+            inElemType.getIntOrFloatBitWidth() != 1) {
+          initValue = rewriter.create<mhlo::ConstantOp>(
+              op.getLoc(),
+              DenseElementsAttr::get(RankedTensorType::get({}, inElemType),
+                                     {APInt::getSignedMaxValue(
+                                         inElemType.getIntOrFloatBitWidth())}));
+        } else {
+          initValue = rewriter.create<mhlo::ConstantOp>(
+              op.getLoc(),
+              DenseElementsAttr::get(
+                  RankedTensorType::get({}, inElemType),
+                  {APInt::getMaxValue(inElemType.getIntOrFloatBitWidth())}));
+        }
+      }
     } else {
       return op.emitError("unknown custom call name");
     }
@@ -206,8 +241,7 @@ struct DecomposeByteIRArgMaxMin : public OpRewritePattern<mhlo::CustomCallOp> {
     {
       Block &block = reduceOp.getBody().emplaceBlock();
       // Add block arguments
-      auto blockValArgumentType =
-          RankedTensorType::get({}, inType.getElementType());
+      auto blockValArgumentType = RankedTensorType::get({}, inElemType);
       auto blockIdxArgumentType =
           RankedTensorType::get({}, outIndexType.getElementType());
       auto compareResultType = RankedTensorType::get({}, rewriter.getI1Type());
@@ -224,6 +258,16 @@ struct DecomposeByteIRArgMaxMin : public OpRewritePattern<mhlo::CustomCallOp> {
 
       mhlo::ComparisonTypeAttr compareTypeAttr = mhlo::ComparisonTypeAttr::get(
           rewriter.getContext(), mhlo::ComparisonType::FLOAT);
+      if (isa<mlir::IntegerType>(inElemType)) {
+        if (cast<mlir::IntegerType>(inElemType).isSignless() &&
+            inElemType.getIntOrFloatBitWidth() != 1) {
+          compareTypeAttr = mhlo::ComparisonTypeAttr::get(
+              rewriter.getContext(), mhlo::ComparisonType::SIGNED);
+        } else {
+          compareTypeAttr = mhlo::ComparisonTypeAttr::get(
+              rewriter.getContext(), mhlo::ComparisonType::UNSIGNED);
+        }
+      }
       mhlo::ComparisonDirectionAttr compareGeDirectionAttr =
           mhlo::ComparisonDirectionAttr::get(rewriter.getContext(),
                                              mhlo::ComparisonDirection::GE);
