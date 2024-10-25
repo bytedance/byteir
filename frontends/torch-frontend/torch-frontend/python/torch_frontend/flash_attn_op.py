@@ -1,10 +1,11 @@
+from typing import List
 import torch
 import math
 
 @torch.library.custom_op("byteir::flash_attn_fwd", mutates_args=())
 def byteir_flash_attn_fwd(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, dropout_p: float, softmax_scale: float, causal: bool, return_softmax: bool
-) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
+) -> List[torch.Tensor]:
     sizes = q.shape
     batch_size = sizes[0]
     seqlen_q = sizes[1]
@@ -59,7 +60,7 @@ def byteir_flash_attn_fwd(q, k, v, dropout_p, softmax_scale, causal, return_soft
 @torch.library.custom_op("byteir::flash_attn_bwd", mutates_args=())
 def byteir_flash_attn_bwd(
     dout: torch.Tensor, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, out: torch.Tensor, softmax_lse: torch.Tensor, dropout_p: float, softmax_scale: float, causal: bool, rng_state: torch.Tensor
-) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
+) -> List[torch.Tensor]:
     sizes = q.shape
     batch_size = sizes[0]
     seqlen_q = sizes[1]
@@ -81,7 +82,7 @@ def byteir_flash_attn_bwd(
     return dq, dk, dv, softmax_d, dq_accum
 
 
-@torch.library.register_fake("byteir::byteir_flash_attn_bwd")
+@torch.library.register_fake("byteir::flash_attn_bwd")
 def byteir_flash_attn_bwd(
     dout, q, k, v, out, softmax_lse, dropout_p, softmax_scale, causal, rng_state
 ):
@@ -106,10 +107,10 @@ def byteir_flash_attn_bwd(
     return dq, dk, dv, softmax_d, dq_accum
 
 
-@torch.library.custom_op("byteir::flash_attn_kvcache", mutates_args())
+@torch.library.custom_op("byteir::flash_attn_kvcache", mutates_args=())
 def byteir_flash_attn_kvcache(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, kcache: torch.Tensor, vcache: torch.Tensor, seqlen_k: torch.Tensor, softmax_scale: float, causal: bool
-) -> (torch.Tensor, torch.Tensor):
+) -> List[torch.Tensor]:
     sizes = q.shape
     batch_size = sizes[0]
     seqlen_q = sizes[1]
