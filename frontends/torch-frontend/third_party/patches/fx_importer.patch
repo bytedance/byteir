@@ -1,5 +1,5 @@
 diff --git a/python/torch_mlir/extras/fx_importer.py b/python/torch_mlir/extras/fx_importer.py
-index 91d81de0..6f5e041f 100644
+index 99c8d3cf..5be5117d 100644
 --- a/python/torch_mlir/extras/fx_importer.py
 +++ b/python/torch_mlir/extras/fx_importer.py
 @@ -54,6 +54,10 @@ from torch._subclasses import (
@@ -13,7 +13,114 @@ index 91d81de0..6f5e041f 100644
  from torch.fx import (
      Graph,
      GraphModule,
-@@ -2096,6 +2100,8 @@ def _make_vtensor_literal_op(
+@@ -1614,6 +1618,61 @@ class GraphNodeImporter:
+         for i, value in enumerate(operation.results):
+             self.bind_node_value(node, value, i + bind_none)
+ 
++    def _import_torch_c10d_functional_op_overload(
++        self,
++        node: torch_fx.node,
++        schema,
++        loc: Location,
++    ):
++        import torch.distributed.distributed_c10d as c10d
++        def resolve_group_name(group_name: str) -> Tuple[str, List[int], int]:
++            group = torch._C._distributed_c10d._resolve_process_group(group_name)
++            group_rank = group.rank()
++            group_size = group.size()
++            global_group_ranks = c10d.get_process_group_ranks(group)
++            return group_name, global_group_ranks, group_size
++
++        operands = []
++        group_size, tag = None, None,
++        for i, parameter in enumerate(schema.arguments):
++            if parameter.name == "group_name":
++                if i < len(node.args):
++                    group_name = node.args[i]
++                else:
++                    assert parameter.name in node.kwargs
++                    group_name = node.kwargs[parameter.name]
++                tmp_tag, global_global_ranks, tmp_group_size = resolve_group_name(group_name)
++                if group_size is None:
++                    group_size = tmp_group_size
++                if tag is None:
++                    tag = tmp_tag
++                global_global_ranks = torch_fx.immutable_collections.immutable_list(global_global_ranks)
++                operands.append(self._import_argument(loc, tag, str))
++                operands.append(self._import_argument(loc, global_global_ranks, torch.ListType.ofInts()))
++                operands.append(self._import_argument(loc, group_size, int))
++            elif parameter.name == "group_size":
++                group_size = node.args[i] if i < len(node.args) else node.kwargs["group_size"]
++            elif parameter.name == "tag":
++                tag = node.args[i] if i < len(node.args) else node.kwargs["tag"]
++            else:
++                if i < len(node.args):
++                    operands.append(
++                        self._import_argument(loc, node.args[i], parameter.type)
++                    )
++                elif parameter.name in node.kwargs:
++                    operands.append(
++                        self._import_argument(
++                            loc, node.kwargs[parameter.name], parameter.type
++                        )
++                    )
++                else:
++                    operands.append(
++                        self._import_default_value(
++                            loc, parameter.default_value, parameter.type
++                        )
++                    )
++        return operands
++
+     def _import_torch_op_overload(
+         self,
+         loc: Location,
+@@ -1655,24 +1714,28 @@ class GraphNodeImporter:
+             self._multi_result_nodes.add(node)
+ 
+         # Unroll operands from formal parameters, args and kwargs.
+-        operands = []
+-        for i, parameter in enumerate(schema.arguments):
+-            if i < len(node.args):
+-                operands.append(
+-                    self._import_argument(loc, node.args[i], parameter.type)
+-                )
+-            elif parameter.name in node.kwargs:
+-                operands.append(
+-                    self._import_argument(
+-                        loc, node.kwargs[parameter.name], parameter.type
++        if "c10d_functional" in mlir_op_name:
++            mlir_op_name = mlir_op_name.replace("_c10d_functional", "c10d_functional")
++            operands = self._import_torch_c10d_functional_op_overload(node, schema, loc)
++        else:
++            operands = []
++            for i, parameter in enumerate(schema.arguments):
++                if i < len(node.args):
++                    operands.append(
++                        self._import_argument(loc, node.args[i], parameter.type)
+                     )
+-                )
+-            else:
+-                operands.append(
+-                    self._import_default_value(
+-                        loc, parameter.default_value, parameter.type
++                elif parameter.name in node.kwargs:
++                    operands.append(
++                        self._import_argument(
++                            loc, node.kwargs[parameter.name], parameter.type
++                        )
++                    )
++                else:
++                    operands.append(
++                        self._import_default_value(
++                            loc, parameter.default_value, parameter.type
++                        )
+                     )
+-                )
+ 
+         operation = _emit_operation(
+             mlir_op_name, result_types=result_types, operands=operands, loc=loc
+@@ -2057,6 +2120,8 @@ def _make_vtensor_literal_op(
  ) -> Operation:
      mapping = py_attr_tracker.track(tensor)
      if mapping.is_empty:
@@ -22,7 +129,7 @@ index 91d81de0..6f5e041f 100644
          # check support for bfloat16
          assert not (
              tensor.dtype == torch.bfloat16 and ml_dtypes is None
-@@ -2111,11 +2117,17 @@ def _make_vtensor_literal_op(
+@@ -2072,11 +2137,17 @@ def _make_vtensor_literal_op(
          # detach() which throws an error as we are operating in a FakeTensorMode, hence the simplest way to get this raw
          # buffer is via the indirection: Tensor -> list -> numpy array. This allows us to create a vtensor literal as
          # desired, but also limits which data types we can support in this function (see TORCH_DTYPE_TO_NPY_TYPE above)
