@@ -274,3 +274,12 @@ func.func @torch.aten.upsample_nearest2d.vec(%arg0: !torch.vtensor<[1,3,10,20],f
 // CHECK: stablehlo.custom_call
 // CHECK-SAME: @byteir.resize
 // CHECK-NOT: torch.aten.upsample_nearest2d.vec
+
+func.func @torch.triton.custom_op(%arg0: !torch.vtensor<[128,256],f32>, %arg1: !torch.vtensor<[128,256],f32>) -> !torch.vtensor<[128,256],f32> {
+  %0 = torch.operator "triton.custom_op"(%arg0, %arg1) : (!torch.vtensor<[128,256],f32>, !torch.vtensor<[128,256],f32>) -> (!torch.vtensor<[128,256],f32>)
+  return %0 : !torch.vtensor<[128,256],f32>
+}
+// CHECK-LABEL: func.func @torch.triton.custom_op
+// CHECK: stablehlo.custom_call
+// CHECK-SAME: @triton.custom_op
+// CHECK-NOT: torch.operator

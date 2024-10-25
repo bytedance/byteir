@@ -1043,6 +1043,14 @@ public:
   }
 };
 
+// torch.operator "byteir.flash_attn_kvcache"
+// operands: q, k, v, kcache, vcache, seqlen_k, softmax_scale, causal
+// results: out, softmax_lse
+//
+// CustomCall:
+// operands: q, k, v, kcache, vcache, seqlen_k
+// Attributes: softmax_scale, causal
+// results: out, softmax_lse
 class ConvertFlashAttnKVCacheOp : public OpConversionPattern<OperatorOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -1098,6 +1106,40 @@ public:
     Value softmaxLse = customCallOp.getResult(1);
     mlir::ValueRange results{out, softmaxLse};
     rewriter.replaceOp(op, results);
+    return success();
+  }
+};
+} // namespace
+
+namespace {
+class ConvertTritonOp : public OpConversionPattern<OperatorOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+
+  LogicalResult
+  matchAndRewrite(OperatorOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto opName = adaptor.getName();
+    if (!opName.starts_with("triton."))
+      return rewriter.notifyMatchFailure(op, "op name not match");
+
+    auto operands = adaptor.getOperands();
+    SmallVector<Type> resultTypes;
+    if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
+                                                resultTypes))) {
+      return op.emitError("could not convert output types");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(opName));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), resultTypes, operands, ArrayRef<NamedAttribute>{attrs});
+    rewriter.replaceOp(op, customCallOp.getResults());
     return success();
   }
 };
@@ -1392,6 +1434,7 @@ public:
     patterns.add<ConvertFlashAttnFwdOp>(typeConverter, context);
     patterns.add<ConvertFlashAttnBwdOp>(typeConverter, context);
     patterns.add<ConvertFlashAttnKVCacheOp>(typeConverter, context);
+    patterns.add<ConvertTritonOp>(typeConverter, context);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {
