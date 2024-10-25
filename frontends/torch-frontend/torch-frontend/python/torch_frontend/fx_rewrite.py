@@ -179,6 +179,51 @@ def AttnReplacement5(q, k, v, attn_mask, inv_scale):
     )
 
 
+# LLaMA aten attention op pattern
+def LLaMAAttnPattern(query, key, value, attn_mask, min_val, inv_scale, batch, num_head, fused_batch, seq_len, head_dim):
+    transpose_3 = torch.ops.aten.transpose.int(key, 2, 3)
+    expand_2 = torch.ops.aten.expand.default(query, [batch, num_head, seq_len, head_dim])
+    clone = torch.ops.aten.clone.default(expand_2, memory_format = torch.contiguous_format)
+    _unsafe_view_3 = torch.ops.aten._unsafe_view.default(clone, [fused_batch, seq_len, head_dim])
+    expand_3 = torch.ops.aten.expand.default(transpose_3, [batch, num_head, head_dim, seq_len])
+    clone_1 = torch.ops.aten.clone.default(expand_3, memory_format = torch.contiguous_format)
+    _unsafe_view_4 = torch.ops.aten._unsafe_view.default(clone_1, [fused_batch, head_dim, seq_len])
+    bmm = torch.ops.aten.bmm.default(_unsafe_view_3, _unsafe_view_4)
+    _unsafe_view_5 = torch.ops.aten._unsafe_view.default(bmm, [batch, num_head, seq_len, seq_len])
+    div = torch.ops.aten.div.Tensor(_unsafe_view_5, inv_scale)
+    add_5 = torch.ops.aten.add.Tensor(div, attn_mask)
+    maximum = torch.ops.aten.maximum.default(add_5, min_val)
+    _softmax = torch.ops.aten._softmax.default(maximum, -1, False)
+    _to_copy_10 = torch.ops.aten._to_copy.default(_softmax, dtype = torch.float16)
+    expand_4 = torch.ops.aten.expand.default(_to_copy_10, [batch, num_head, seq_len, seq_len])
+    view_8 = torch.ops.aten.view.default(expand_4, [fused_batch, seq_len, seq_len]);  expand_4 = None
+    expand_5 = torch.ops.aten.expand.default(value, [batch, num_head, seq_len, head_dim])
+    clone_2 = torch.ops.aten.clone.default(expand_5, memory_format = torch.contiguous_format)
+    _unsafe_view_6 = torch.ops.aten._unsafe_view.default(clone_2, [fused_batch, seq_len, head_dim])
+    bmm_1 = torch.ops.aten.bmm.default(view_8, _unsafe_view_6)
+    _unsafe_view_5 = torch.ops.aten._unsafe_view.default(bmm_1, [batch, num_head, seq_len, head_dim])
+    return _softmax, _unsafe_view_5
+
+
+def LLaMAAttnReplacement(query, key, value, attn_mask, min_val, inv_scale, batch, num_head, fused_batch, seq_len, head_dim):
+    # q, k, v needs to be transposed for flash attn v2 
+    query = query.transpose(1, 2)
+    key = key.transpose(1, 2)
+    value = value.transpose(1, 2)
+    out, q_pad, k_pad, v_pad, out_pad, softmax_lse, S_dmask, rng_state = torch.ops.byteir.flash_attn_fwd(
+        query,
+        key,
+        value,
+        0.0,
+        1.0/inv_scale,
+        True,
+        False
+    )
+    # output also needs to be transposed
+    out = out.transpose(1, 2)
+    return out, out
+
+
 def canonicalize_graph_before_replacement(gm):
     for n in gm.graph.nodes:
         if n.op == "call_module":
@@ -243,4 +288,5 @@ def fx_replace_attn_pattern(gm: torch.fx.GraphModule):
     torch.fx.replace_pattern(gm, AttnPattern3, AttnReplacement3)
     torch.fx.replace_pattern(gm, AttnPattern4, AttnReplacement4)
     torch.fx.replace_pattern(gm, AttnPattern5, AttnReplacement5)
+    torch.fx.replace_pattern(gm, LLaMAAttnPattern, LLaMAAttnReplacement)
     return gm

@@ -27,6 +27,7 @@ class AtenNonZeroModule(torch.nn.Module):
 def test_nonzero():
     inputs = (torch.tensor([1, 0, 0, 1, 1]),)
     prog = torch.export.export(AtenNonZeroModule(), inputs)
+    print(prog)
     module = compile_dynamo_model(prog, "raw")
     print(module.operation.get_asm())
 
@@ -38,9 +39,10 @@ class ViewDtypeModule(torch.nn.Module):
 
 def test_view_dtype():
     inputs = (torch.rand(4, 5),)
+    # note: torch==2.1.0's export has bug on view.dtype 
     prog = torch.export.export(ViewDtypeModule(), inputs)
     print(prog)
-    module = compile_dynamo_model(prog, "raw") # note: torch2.1 export has bug on view.dtype 
+    module = compile_dynamo_model(prog, "stablehlo")
     print(module.operation.get_asm())
 
 # ==============================================================================
@@ -60,5 +62,8 @@ def test_mlp():
     print(mlir_str)
     assert "dense_resource" not in mlir_str
 
+# ==============================================================================
+
 if __name__ == "__main__":
+    test_nonzero()
     test_view_dtype()

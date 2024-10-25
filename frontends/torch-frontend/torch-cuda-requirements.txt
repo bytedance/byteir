@@ -1,4 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 --pre
-torch==2.1.0+cu118
-torchvision==0.16.0+cu118
+torch==2.4.1+cu118
+torchvision==0.19.1+cu118

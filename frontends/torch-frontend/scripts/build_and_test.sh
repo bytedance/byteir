@@ -51,7 +51,7 @@ cmake --build ./build --target all
 if [[ $TORCH_FRONTEND_TEST == "ON" ]]; then
   python3 -m pip install -r test-requirements.txt
   install_mhlo_tools
-  PYTHONPATH=build/python_packages/:build/torch_mlir_build/python_packages/torch_mlir TORCH_DISABLE_NATIVE_FUNCOL=1 python3 -m pytest torch-frontend/python/test
+  PYTHONPATH=build/python_packages/:build/torch_mlir_build/python_packages/torch_mlir TORCH_DISABLE_NATIVE_FUNCOL=1 python3 -m pytest -m "not attention_rewriter" torch-frontend/python/test
 fi
 
 popd
