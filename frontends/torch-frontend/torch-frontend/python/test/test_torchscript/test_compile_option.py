@@ -37,3 +37,5 @@ def test_rewrite_entry_func_name():
     print(module_str)
     assert "func.func @main" in module_str
 
+if __name__ == "__main__":
+    test_debug()

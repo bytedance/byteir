@@ -29,6 +29,15 @@ function apply_patches() {
   popd
 }
 
+function apply_llvm_patches() {
+  pushd $TORCH_MLIR_ROOT/externals/llvm-project
+  git clean -fd .
+  for patch in ../../../llvm_patches/*; do
+    git apply $patch
+  done
+  popd
+}
+
 function prepare_for_build_with_prebuilt() {
   pushd ${PROJ_DIR}
   # install requirements
@@ -53,6 +62,7 @@ function prepare_for_build() {
   git submodule update --init --recursive -f $TORCH_MLIR_ROOT
 
   apply_patches
+  apply_llvm_patches
 }
 
 # python3 -m pip install --no-cache-dir torch==2.1.0+cu118 torchvision==0.16.0+cu118 -f https://download.pytorch.org/whl/torch_stable.html

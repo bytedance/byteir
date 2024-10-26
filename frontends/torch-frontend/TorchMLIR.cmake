@@ -39,7 +39,7 @@ function(build_torch_mlir)
   endif()
 
   execute_process(
-    COMMAND ${CMAKE_COMMAND} --build ${TORCH_MLIR_BUILD_PATH} --target TorchMLIRPythonModules
+    COMMAND ${CMAKE_COMMAND} --build ${TORCH_MLIR_BUILD_PATH} --target TorchMLIRPythonModules TorchMLIRJITIRImporterPybind
     RESULT_VARIABLE result
     WORKING_DIRECTORY ${TORCH_MLIR_SRC_PATH}
   )
