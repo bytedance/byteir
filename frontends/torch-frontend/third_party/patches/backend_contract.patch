@@ -1,5 +1,5 @@
 diff --git a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
-index 4542287a..4d4d997a 100644
+index 168e66ee..4f53aac5 100644
 --- a/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
 +++ b/lib/Dialect/Torch/Transforms/LowerToBackendContract.cpp
 @@ -10,6 +10,7 @@
@@ -69,3 +69,12 @@ index 4542287a..4d4d997a 100644
    if (decompose)
      markDecomposedOpsAsIllegal(context, target, backendLegalOpsSet);
    return target;
+@@ -564,6 +610,7 @@ static void markDecomposedOpsAsIllegal(MLIRContext *context,
+   target.addDynamicallyLegalOp<OperatorOp>(
+       [backendLegalOpsSet](OperatorOp opOp) {
+         auto opName = cast<StringAttr>(opOp->getAttr("name")).getValue();
+-        return backendLegalOpsSet.contains(opName);
++        return backendLegalOpsSet.contains(opName) ||
++               opName.starts_with("triton.");
+       });
+ }
