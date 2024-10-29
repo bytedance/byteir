@@ -275,6 +275,19 @@ func.func @torch.aten.upsample_nearest2d.vec(%arg0: !torch.vtensor<[1,3,10,20],f
 // CHECK-SAME: @byteir.resize
 // CHECK-NOT: torch.aten.upsample_nearest2d.vec
 
+func.func @torch.aten.upsample_nearest2d(%arg0: !torch.vtensor<[1,3,10,20],f32>) -> !torch.vtensor<[1,3,15,40],f32> {
+  %none = torch.constant.none
+  %int15 = torch.constant.int 15
+  %int40 = torch.constant.int 40
+  %output_size = torch.prim.ListConstruct %int15, %int40 : (!torch.int, !torch.int) -> !torch.list<int>
+  %0 = torch.aten.upsample_nearest2d %arg0, %output_size, %none, %none : !torch.vtensor<[1,3,10,20],f32>, !torch.list<int>, !torch.none, !torch.none -> !torch.vtensor<[1,3,15,40],f32>
+  return %0 : !torch.vtensor<[1,3,15,40],f32>
+}
+// CHECK-LABEL: func.func @torch.aten.upsample_nearest2d
+// CHECK: stablehlo.custom_call
+// CHECK-SAME: @byteir.resize
+// CHECK-NOT: torch.aten.upsample_nearest2d
+
 func.func @torch.triton.custom_op(%arg0: !torch.vtensor<[128,256],f32>, %arg1: !torch.vtensor<[128,256],f32>) -> !torch.vtensor<[128,256],f32> {
   %0 = torch.operator "triton.custom_op"(%arg0, %arg1) : (!torch.vtensor<[128,256],f32>, !torch.vtensor<[128,256],f32>) -> (!torch.vtensor<[128,256],f32>)
   return %0 : !torch.vtensor<[128,256],f32>

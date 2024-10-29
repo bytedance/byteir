@@ -273,6 +273,20 @@ def test_resize_nearest():
     model = torch.jit.trace(UpsampleNearest2dModule(), inputs)
     custom_test_helper(model, inputs, "byteir.resize")
 
+class UpsampleNearest2dModule1(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        #FIXME: use torch.nn.interpolate to avoid torch.jit.trace
+        return torch.ops.aten.upsample_nearest2d(x, (11, 25), None, None)
+
+@pytest.mark.mhlo_tools
+def test_resize_nearest():
+    inputs = [tu.randn(3, 3, 10, 20)]
+    model = torch.jit.trace(UpsampleNearest2dModule1(), inputs)
+    custom_test_helper(model, inputs, "byteir.resize")
+
 class UpsampleBilinear2dModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
