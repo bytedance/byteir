@@ -1,0 +1,295 @@
+diff --git a/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp b/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp
+index 6fc9a302..36ad5565 100644
+--- a/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp
++++ b/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp
+@@ -19,6 +19,171 @@ using namespace mlir;
+ namespace onnx_mlir {
+ 
+ namespace {
++Value getReduceSumIdentityValue(
++    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
++  return rewriter.create<stablehlo::ConstantOp>(
++      loc, rewriter.getZeroAttr(elemType));
++}
++
++SmallVector<int64_t> getReductionShape(ShapedType inputType,
++    const llvm::SmallVector<int64_t, 4> &axes, bool isKeepdims) {
++  SmallVector<int64_t> reduceShape;
++  llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
++  int64_t rank = inputType.getRank();
++
++  // Mark reduction axes.
++  llvm::SmallVector<bool, 4> isReductionAxis;
++  for (int64_t i = 0; i < rank; ++i) {
++    if (std::find(axes.begin(), axes.end(), i) != axes.end())
++      isReductionAxis.push_back(true);
++    else
++      isReductionAxis.push_back(false);
++  }
++
++  for (int64_t i = 0; i < rank; ++i) {
++    if (!isReductionAxis[i])
++      reduceShape.push_back(inputShape[i]);
++    else if (isKeepdims)
++      reduceShape.push_back(1);
++  }
++  return reduceShape;
++}
++
++int64_t getReductionFactor(
++    ShapedType inputType, const llvm::SmallVector<int64_t, 4> &axes) {
++  SmallVector<int64_t> reduceShape;
++  llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
++  int64_t rank = inputType.getRank();
++
++  // Mark reduction axes.
++  llvm::SmallVector<bool, 4> isReductionAxis;
++  for (int64_t i = 0; i < rank; ++i) {
++    if (std::find(axes.begin(), axes.end(), i) != axes.end())
++      isReductionAxis.push_back(true);
++    else
++      isReductionAxis.push_back(false);
++  }
++
++  int64_t reduceFactor = 1;
++
++  for (int64_t i = 0; i < rank; ++i)
++    if (isReductionAxis[i])
++      reduceFactor *= inputShape[i];
++  return reduceFactor;
++}
++
++Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
++    Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
++  int64_t rank = operand.getType().cast<RankedTensorType>().getRank();
++  // Mark reduction axes.
++  llvm::SmallVector<bool, 4> isReductionAxis;
++  for (int64_t i = 0; i < rank; ++i) {
++    if (std::find(axes.begin(), axes.end(), i) != axes.end())
++      isReductionAxis.push_back(true);
++    else
++      isReductionAxis.push_back(false);
++  }
++  Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, operand);
++  SmallVector<Value> dims;
++  for (int64_t i = 0; i < rank; i++) {
++    if (!isReductionAxis[i]) {
++      Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
++      dims.push_back(dim);
++    } else if (keepDims) {
++      Value dim = rewriter.create<arith::ConstantIndexOp>(loc, 1);
++      dims.push_back(dim);
++    }
++  }
++  Value reduceShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
++  reduceShapeValue = rewriter.create<shape::ToExtentTensorOp>(loc,
++      RankedTensorType::get({rank}, rewriter.getIndexType()), reduceShapeValue);
++  return reduceShapeValue;
++}
++
++// Create "stablehlo.reduce", "operand" is reduce input and "identity" is init
++// value, reduce from operand to operand[reduceIdx].
++template <typename BlockReduceOp>
++Value createReduce(Location loc, Value operand, Value identity,
++    SmallVector<int64_t> &reduceShape, llvm::SmallVector<int64_t, 4> axes,
++    PatternRewriter &rewriter, bool keepDims, ShapedType outputType) {
++  RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
++  Type reduceResultType =
++      RankedTensorType::get(reduceShape, operandType.getElementType());
++  stablehlo::ReduceOp reduce = rewriter.create<stablehlo::ReduceOp>(loc,
++      reduceResultType, operand, identity, rewriter.getI64TensorAttr(axes));
++
++  // setup "stablehlo.reduce"'s body
++  Region &region = reduce.getBody();
++  Block &block = region.emplaceBlock();
++  RankedTensorType blockArgumentType =
++      RankedTensorType::get({}, operandType.getElementType());
++  block.addArgument(blockArgumentType, loc);
++  block.addArgument(blockArgumentType, loc);
++  BlockArgument firstArgument = *block.args_begin();
++  BlockArgument secondArgument = *block.args_rbegin();
++  {
++    OpBuilder::InsertionGuard guard(rewriter);
++    rewriter.setInsertionPointToStart(&block);
++    Value reduceResult =
++        rewriter.create<BlockReduceOp>(loc, firstArgument, secondArgument);
++    rewriter.create<stablehlo::ReturnOp>(loc, reduceResult);
++  }
++  Value result = reduce.getResult(0);
++  if (keepDims) {
++    Value reduceShapeValue =
++        getReductionShapeValue(loc, rewriter, operand, axes, true);
++    result = rewriter.create<stablehlo::DynamicReshapeOp>(
++        loc, outputType, result, reduceShapeValue);
++  }
++  return result;
++}
++
++Value broadcast(
++    ConversionPatternRewriter &rewriter, Value input, TensorType outType) {
++  // Two tensors are “broadcastable” if the following rules hold:
++  //   - Each tensor has at least one dimension.
++  //   - When iterating over the dimension sizes, starting at the trailing
++  //   dimension, the dimension sizes must either be equal, one of them is 1, or
++  //   one of them does not exist.
++  Operation *op = input.getDefiningOp();
++  TensorType in_type = dyn_cast<TensorType>(input.getType());
++
++  if (in_type.getElementType() != outType.getElementType()) {
++    op->emitError("broadcast input and output element type not match");
++  }
++
++  ArrayRef<int64_t> inShape = in_type.getShape();
++  ArrayRef<int64_t> outShape = outType.getShape();
++
++  bool do_bcast = (inShape.size() != outShape.size());
++  SmallVector<int64_t> bcastDims;
++  for (size_t i = 0; i < inShape.size(); ++i) {
++    // iterating over the dimension sizes, starting at the trailing dimension
++    size_t outPos = outShape.size() - 1 - i;
++    size_t inPos = inShape.size() - 1 - i;
++    int64_t outDim = outShape[outPos];
++    int64_t inDim = inShape[inPos];
++    if (inDim == outDim) {
++      bcastDims.push_back(outPos);
++    } else if (inDim != outDim && inDim == 1) {
++      bcastDims.push_back(outPos);
++      do_bcast = true;
++    } else {
++      op->emitError("The size of tensor a (")
++          << inDim << ")"
++          << "must match the size of tensor b (" << outDim << ")"
++          << "at non-singleton dimension " << inPos;
++    }
++  }
++  std::reverse(bcastDims.begin(), bcastDims.end());
++  if (!do_bcast) {
++    return input;
++  }
++  auto bcast_attr = rewriter.getDenseI64ArrayAttr(bcastDims);
++  auto bcast_op = rewriter.create<stablehlo::BroadcastInDimOp>(
++      op->getLoc(), outType, input, bcast_attr);
++  return bcast_op.getResult();
++}
+ 
+ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
+     : public ConversionPattern {
+@@ -49,12 +214,118 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
+   }
+ };
+ 
++struct ONNXLayerNormalizationOpLoweringToStablehlo : public ConversionPattern {
++  ONNXLayerNormalizationOpLoweringToStablehlo(MLIRContext *ctx)
++      : ConversionPattern(
++            mlir::ONNXLayerNormalizationOp::getOperationName(), 1, ctx) {}
++
++  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
++      ConversionPatternRewriter &rewriter) const final {
++    // layernorm{axis, epsilon, stash_type}(x, scale, bias):
++    //   Mean = ReduceMean<axes=axis>(X)
++    //   D = Sub(X, Mean)
++    //   DD = Mul(D, D)
++    //   Var = ReduceMean<axes=axis>(DD)
++    //   VarEps = Add(Var, epsilon)
++    //   StdDev = Sqrt(VarEps)
++    //   InvStdDev = Reciprocal(StdDev)
++    //   Normalized = Mul(D, InvStdDev)
++    //   NormalizedScaled = Mul(Normalized, Scale)
++    //   Y = Add(NormalizedScaled, B)
++    //   return (Y, Mean, InvStdDev)
++    ONNXLayerNormalizationOpAdaptor operandAdaptor(
++        operands, op->getAttrDictionary());
++    Location loc = op->getLoc();
++
++    Value operand = operandAdaptor.getX();
++    Value scale = operandAdaptor.getScale();
++    Value bias = operandAdaptor.getB();
++    int axis = operandAdaptor.getAxis();
++    llvm::APFloat eps = operandAdaptor.getEpsilon();
++    int stash = operandAdaptor.getStashType();
++
++    auto inputTy = cast<RankedTensorType>(operand.getType());
++    auto scaleTy = cast<RankedTensorType>(scale.getType());
++    auto biasTy = cast<RankedTensorType>(bias.getType());
++    if (!inputTy.hasStaticShape()) {
++      return op->emitError("dynamic shaped input is not supported");
++    }
++
++    if (stash != 1) {
++      return op->emitError("non default stash type is not support");
++    }
++
++    auto inputShape = inputTy.getShape();
++    auto inputRank = inputTy.getRank();
++    auto scaleShape = scaleTy.getShape();
++    auto biasShape = biasTy.getShape();
++    int firstAxis = axis < 0 ? axis + inputRank : axis;
++    llvm::SmallVector<int64_t, 4> axes;
++    for (int64_t i = firstAxis; i < inputRank; ++i) {
++      axes.push_back(i);
++    }
++    const bool keepDims = true;
++    auto identity =
++        getReduceSumIdentityValue(rewriter, loc, inputTy.getElementType());
++    auto reducedShape = getReductionShape(
++        inputTy, axes, false); // NOTE: stable.reduce not keepdims
++    auto reducedShapeKeepDim = getReductionShape(inputTy, axes, true);
++    auto reduceOutputTy =
++        RankedTensorType::get(reducedShapeKeepDim, inputTy.getElementType());
++    auto reduceSum = createReduce<stablehlo::AddOp>(loc, operand, identity,
++        reducedShape, axes, rewriter, keepDims, reduceOutputTy);
++    int64_t reduceFactor = getReductionFactor(inputTy, axes);
++    Value reduceFactorValue =
++        getShapedFloat(loc, rewriter, reduceFactor, reduceSum);
++    auto Mean =
++        rewriter.create<stablehlo::DivOp>(loc, reduceSum, reduceFactorValue);
++    auto MeanBcast = broadcast(rewriter, Mean, inputTy);
++    auto D = rewriter.create<stablehlo::SubtractOp>(loc, operand, MeanBcast);
++    auto DD = rewriter.create<stablehlo::MulOp>(loc, D, D);
++    auto DDSum = createReduce<stablehlo::AddOp>(loc, DD, identity, reducedShape,
++        axes, rewriter, keepDims, reduceOutputTy);
++    auto Var = rewriter.create<stablehlo::DivOp>(loc, DDSum, reduceFactorValue);
++    auto epsTensor = getShapedFloat(loc, rewriter, eps, DDSum);
++    auto VarEps = rewriter.create<stablehlo::AddOp>(loc, Var, epsTensor);
++    Value StdDev = rewriter.create<stablehlo::SqrtOp>(loc, VarEps);
++    auto ones = getShapedFloat(loc, rewriter, 1.0f, StdDev);
++    auto InvStdDev = rewriter.create<stablehlo::DivOp>(loc, ones, StdDev);
++    auto InvStdDevBcast = broadcast(rewriter, InvStdDev, inputTy);
++    auto Normalized = rewriter.create<stablehlo::MulOp>(loc, D, InvStdDevBcast);
++    auto ScaleBcast = broadcast(rewriter, scale, inputTy);
++    auto NormalizedScaled =
++        rewriter.create<stablehlo::MulOp>(loc, Normalized, ScaleBcast);
++    auto BiasBcast = broadcast(rewriter, bias, inputTy);
++    auto Y =
++        rewriter.create<stablehlo::AddOp>(loc, NormalizedScaled, BiasBcast);
++
++    SmallVector<Value> newResults;
++    SmallVector<OpResult> orgResults = llvm::to_vector(op->getResults());
++    Value noneValue;
++    newResults.push_back(Y);
++    if (orgResults.size() < 2 || !orgResults[1]) {
++      newResults.push_back(noneValue);
++    } else {
++      newResults.push_back(Mean);
++    }
++    if (orgResults.size() < 3 || !orgResults[2]) {
++      newResults.push_back(noneValue);
++    } else {
++      newResults.push_back(InvStdDev);
++    }
++
++    rewriter.replaceOp(op, newResults);
++    return success();
++  }
++};
++
+ } // namespace
+ 
+ void populateLoweringONNXNormalizationOpToStablehloPattern(
+     RewritePatternSet &patterns, MLIRContext *ctx) {
+   patterns.insert<ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo>(
+       ctx);
++  patterns.insert<ONNXLayerNormalizationOpLoweringToStablehlo>(ctx);
+ }
+ 
+ } // namespace onnx_mlir
