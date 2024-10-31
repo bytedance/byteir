@@ -1,5 +1,5 @@
 diff --git a/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp b/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp
-index 6fc9a302..36ad5565 100644
+index 6fc9a302..de794aa9 100644
 --- a/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp
 +++ b/src/Conversion/ONNXToStablehlo/NN/Normalization.cpp
 @@ -19,6 +19,171 @@ using namespace mlir;
@@ -174,7 +174,7 @@ index 6fc9a302..36ad5565 100644
  
  struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
      : public ConversionPattern {
-@@ -49,12 +214,118 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
+@@ -49,6 +214,111 @@ struct ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo
    }
  };
  
@@ -286,9 +286,3 @@ index 6fc9a302..36ad5565 100644
  } // namespace
  
  void populateLoweringONNXNormalizationOpToStablehloPattern(
-     RewritePatternSet &patterns, MLIRContext *ctx) {
-   patterns.insert<ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo>(
-       ctx);
- }
- 
- } // namespace onnx_mlir
