@@ -122,6 +122,10 @@ def RewriteResize : Pat<
 //===----------------------------------------------------------------------===//
 // LayerNorm Pattern
 //===----------------------------------------------------------------------===//
+def RewriteONNXLayerNorm : Pat<
+  (ONNXLayerNormalizationOp $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr),
+  (NativeCodeCall<"createONNXLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4, $5)", 3> $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr)>;
+
 def RewriteLayerNorm : Pat<
   (ONNXAddOp
     (ONNXMulOp:$mul_result

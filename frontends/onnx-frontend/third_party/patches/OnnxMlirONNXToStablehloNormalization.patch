@@ -289,7 +289,6 @@ index 6fc9a302..36ad5565 100644
      RewritePatternSet &patterns, MLIRContext *ctx) {
    patterns.insert<ONNXBatchNormalizationInferenceModeOpLoweringToStablehlo>(
        ctx);
-+  patterns.insert<ONNXLayerNormalizationOpLoweringToStablehlo>(ctx);
  }
  
  } // namespace onnx_mlir

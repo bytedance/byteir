@@ -393,6 +393,45 @@ Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
   return output;
 }
 
+SmallVector<Value> createLayerNormImpl(PatternRewriter &rewriter, Location loc,
+                                       Value input, Value scale, Value B,
+                                       Attribute axis_attr,
+                                       Attribute epsilon_attr) {
+  RankedTensorType inputType =
+      dyn_cast_or_null<RankedTensorType>(input.getType());
+  assert(inputType != nullptr && "Input type must be ranked");
+  int64_t axis = cast<IntegerAttr>(axis_attr).getValue().getSExtValue();
+  if (axis < 0)
+    axis = inputType.getRank() + axis;
+  Value squeezedScale = createSqueezedValue(rewriter, loc, scale, axis);
+  Value squeezedB = createSqueezedValue(rewriter, loc, B, axis);
+  double eps = cast<FloatAttr>(epsilon_attr).getValue().convertToDouble();
+  std::string call_target_name = getLayerNormNameWithPrefix();
+  stablehlo::CustomCallOp customCallOp =
+      rewriter.create<mlir::stablehlo::CustomCallOp>(
+          loc, llvm::ArrayRef<Type>{inputType},
+          llvm::ArrayRef<Value>{input, squeezedScale, squeezedB},
+          call_target_name, false, rewriter.getStringAttr(""),
+          stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+          rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}), nullptr,
+          nullptr, rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("epsilon", rewriter.getF64FloatAttr(eps));
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+  Value nullValue;
+  return {customCallOp.getResults()[0], nullValue, nullValue};
+}
+
+SmallVector<Value> createONNXLayerNorm(PatternRewriter &rewriter, Location loc,
+                                       Value x, Value scale, Value B,
+                                       Attribute axis_attr,
+                                       Attribute epsilon_attr,
+                                       Attribute stash_type_attr) {
+  return createLayerNormImpl(rewriter, loc, x, scale, B, axis_attr,
+                             epsilon_attr);
+}
+
 Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
                       Value scale, Value B, Value axes,
                       Attribute epsilon_attr) {
@@ -693,6 +732,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteGeLU>(context));
     validOpSet[getGeLUName()].emplace_back(
         std::make_unique<RewriteGeLUWithoutLastMul>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteONNXLayerNorm>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNorm>(context));
     validOpSet[getLayerNormName()].emplace_back(
