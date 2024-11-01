@@ -157,6 +157,28 @@ func.func @test_layer_norm_squeeze(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32
 
 // -----
 
+func.func @test_onnx_layernorm_inference(%arg0: tensor<2x512x768xf32>, %arg1: tensor<768xf32>, %arg2: tensor<768xf32>) -> tensor<2x512x768xf32> {
+  %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, onnx_node_name = "LayerNormalization", stash_type = 1 : si64} : (tensor<2x512x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<2x512x768xf32>, none, none)
+  return %Y : tensor<2x512x768xf32>
+// CHECK-LABEL: @test_onnx_layernorm_inference
+// CHECK-SAME: (%[[PARAM_0:.+]] tensor<2x512x768xf32>, %[[PARAM_1:.+]]: tensor<768xf32>, %[[PARAM_2:.+]]: tensor<768xf32>) -> tensor<2x512x768xf32> {
+// CHECK-NEXT: %[[CUSTOM_CALL_RET:.+]] = stablehlo.custom_call @byteir.layer_norm(%arg0, %arg1, %arg2)
+// CHECK-NEXT: return %[[CUSTOM_CALL_RET]] : tensor<2x512x768xf32>
+}
+
+// -----
+
+func.func @test_onnx_layernorm_training(%arg0: tensor<2x512x768xf32>, %arg1: tensor<768xf32>, %arg2: tensor<768xf32>) -> (tensor<2x512x768xf32>, tensor<2x512x1xf32>, tensor<2x512x1xf32>) {
+  %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, onnx_node_name = "LayerNormalization", stash_type = 1 : si64} : (tensor<2x512x768xf32>, tensor<768xf32>, tensor<768xf32>) -> (tensor<2x512x768xf32>, tensor<2x512x1xf32>, tensor<2x512x1xf32>)
+  return %Y, %Mean, %InvStdDev : tensor<2x512x768xf32>, tensor<2x512x1xf32>, tensor<2x512x1xf32>
+// CHECK-LABEL: @test_onnx_layernorm_training
+// CHECK-SAME: (%[[PARAM_0:.+]] tensor<2x512x768xf32>, %[[PARAM_1:.+]]: tensor<768xf32>, %[[PARAM_2:.+]]: tensor<768xf32>) -> (tensor<2x512x768xf32>, tensor<2x512x1xf32>, tensor<2x512x1xf32>) {
+// CHECK-NEXT: %[[CUSTOM_CALL_RET:.+]]:3 = stablehlo.custom_call @byteir.layer_norm(%arg0, %arg1, %arg2)
+// CHECK-NEXT: return %[[CUSTOM_CALL_RET]]#0, %[[CUSTOM_CALL_RET]]#1, %[[CUSTOM_CALL_RET]]#2 : tensor<2x512x768xf32>, tensor<2x512x1xf32>, tensor<2x512x1xf32>
+}
+
+// -----
+
 func.func @test_erf(%arg0: tensor<3x2xf32>) -> tensor<3x2xf32> {
   %0 = "onnx.Erf"(%arg0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
   return %0 : tensor<3x2xf32>

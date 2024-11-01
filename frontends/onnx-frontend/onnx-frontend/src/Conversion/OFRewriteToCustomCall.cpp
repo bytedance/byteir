@@ -393,10 +393,34 @@ Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
   return output;
 }
 
-SmallVector<Value> createLayerNormImpl(PatternRewriter &rewriter, Location loc,
-                                       Value input, Value scale, Value B,
-                                       Attribute axis_attr,
-                                       Attribute epsilon_attr) {
+Type getReductionResultType(ShapedType inputType, const int64_t firstAxis,
+                            const bool isKeepdims) {
+  SmallVector<int64_t> reduceShape;
+  llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
+  int64_t rank = inputType.getRank();
+
+  // Mark reduction axes.
+  llvm::SmallVector<bool, 4> isReductionAxis;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (i >= firstAxis)
+      isReductionAxis.push_back(true);
+    else
+      isReductionAxis.push_back(false);
+  }
+
+  for (int64_t i = 0; i < rank; ++i) {
+    if (!isReductionAxis[i])
+      reduceShape.push_back(inputShape[i]);
+    else if (isKeepdims)
+      reduceShape.push_back(1);
+  }
+  return RankedTensorType::get(reduceShape, inputType.getElementType());
+}
+
+SmallVector<Value>
+createONNXLayerNormImpl(PatternRewriter &rewriter, Location loc, Value input,
+                        Value scale, Value B, Attribute axis_attr,
+                        Attribute epsilon_attr, bool isTraining = false) {
   RankedTensorType inputType =
       dyn_cast_or_null<RankedTensorType>(input.getType());
   assert(inputType != nullptr && "Input type must be ranked");
@@ -407,9 +431,16 @@ SmallVector<Value> createLayerNormImpl(PatternRewriter &rewriter, Location loc,
   Value squeezedB = createSqueezedValue(rewriter, loc, B, axis);
   double eps = cast<FloatAttr>(epsilon_attr).getValue().convertToDouble();
   std::string call_target_name = getLayerNormNameWithPrefix();
+  SmallVector<Type> returnTypes;
+  returnTypes.push_back(inputType);
+  if (isTraining) {
+    auto reduceResType = getReductionResultType(inputType, axis, true);
+    returnTypes.push_back(reduceResType);
+    returnTypes.push_back(reduceResType);
+  }
   stablehlo::CustomCallOp customCallOp =
       rewriter.create<mlir::stablehlo::CustomCallOp>(
-          loc, llvm::ArrayRef<Type>{inputType},
+          loc, returnTypes,
           llvm::ArrayRef<Value>{input, squeezedScale, squeezedB},
           call_target_name, false, rewriter.getStringAttr(""),
           stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
@@ -419,17 +450,27 @@ SmallVector<Value> createLayerNormImpl(PatternRewriter &rewriter, Location loc,
   attrs.setAttr("epsilon", rewriter.getF64FloatAttr(eps));
   attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
   customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
-  Value nullValue;
-  return {customCallOp.getResults()[0], nullValue, nullValue};
+  if (isTraining) {
+    return customCallOp.getResults();
+  } else {
+    Value nullValue;
+    return {customCallOp.getResults()[0], nullValue, nullValue};
+  }
 }
 
-SmallVector<Value> createONNXLayerNorm(PatternRewriter &rewriter, Location loc,
-                                       Value x, Value scale, Value B,
-                                       Attribute axis_attr,
-                                       Attribute epsilon_attr,
-                                       Attribute stash_type_attr) {
-  return createLayerNormImpl(rewriter, loc, x, scale, B, axis_attr,
-                             epsilon_attr);
+SmallVector<Value>
+createONNXLayerNormTraining(PatternRewriter &rewriter, Location loc, Value x,
+                            Value scale, Value B, Attribute axis_attr,
+                            Attribute epsilon_attr, Attribute stash_type_attr) {
+  return createONNXLayerNormImpl(rewriter, loc, x, scale, B, axis_attr,
+                                 epsilon_attr, /*isTraining*/ true);
+}
+
+SmallVector<Value> createONNXLayerNormInference(
+    PatternRewriter &rewriter, Location loc, Value x, Value scale, Value B,
+    Attribute axis_attr, Attribute epsilon_attr, Attribute stash_type_attr) {
+  return createONNXLayerNormImpl(rewriter, loc, x, scale, B, axis_attr,
+                                 epsilon_attr, /*isTraining*/ false);
 }
 
 Value createLayerNorm(PatternRewriter &rewriter, Location loc, Value input,
@@ -733,7 +774,9 @@ struct OFRewriteToCustomCallPass
     validOpSet[getGeLUName()].emplace_back(
         std::make_unique<RewriteGeLUWithoutLastMul>(context));
     validOpSet[getLayerNormName()].emplace_back(
-        std::make_unique<RewriteONNXLayerNorm>(context));
+        std::make_unique<RewriteONNXLayerNormTraining>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteONNXLayerNormInference>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNorm>(context));
     validOpSet[getLayerNormName()].emplace_back(

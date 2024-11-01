@@ -122,9 +122,20 @@ def RewriteResize : Pat<
 //===----------------------------------------------------------------------===//
 // LayerNorm Pattern
 //===----------------------------------------------------------------------===//
-def RewriteONNXLayerNorm : Pat<
-  (ONNXLayerNormalizationOp $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr),
-  (NativeCodeCall<"createONNXLayerNorm($_builder, $_loc, $0, $1, $2, $3, $4, $5)", 3> $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr)>;
+def LayerNormNeedFullResults : Constraint<CPred<"(!onnx_mlir::isNoneValue($0) && !$0.use_empty()) || (!onnx_mlir::isNoneValue($1) && !$1.use_empty())">, "onnx layernrom requires full results: y, mean, inv">;
+def LayerNormNeedOneResult: Constraint<CPred<"(onnx_mlir::isNoneValue($0) || $0.use_empty()) && (onnx_mlir::isNoneValue($1) && $1.use_empty())">, "onnx layernorm only requires one result: y">;
+
+def RewriteONNXLayerNormTraining : Pat<
+  (ONNXLayerNormalizationOp:$results $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr),
+  (NativeCodeCall<"createONNXLayerNormTraining($_builder, $_loc, $0, $1, $2, $3, $4, $5)", 3> $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr),
+  [(LayerNormNeedFullResults $results__1, $results__2),
+  ]>;
+
+def RewriteONNXLayerNormInference : Pat<
+  (ONNXLayerNormalizationOp:$results $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr),
+  (NativeCodeCall<"createONNXLayerNormInference($_builder, $_loc, $0, $1, $2, $3, $4, $5)", 3> $x, $scale, $B, $axis_attr, $epsilon_attr, $stash_type_attr),
+  [(LayerNormNeedOneResult $results__1, $results__2),
+  ]>;
 
 def RewriteLayerNorm : Pat<
   (ONNXAddOp
