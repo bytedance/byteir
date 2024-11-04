@@ -18,13 +18,11 @@
 #include "byteir/Transforms/GraphClusteringByDevice.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "mlir/Pass/Pass.h"
-
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
 
 using namespace mlir;
 
@@ -57,14 +55,18 @@ struct TestGraphClusteringByDeviceOpNum
 
   void runOnOperation() override {
     ModuleOp m = getOperation();
+    MLIRContext *ctx = &getContext();
+
     auto validateSubGraphFn = [&](llvm::ArrayRef<Operation *> ops) -> bool {
-      return ops.size() >= opNum;
+      return ops.size() >= static_cast<size_t>(opNum);
     };
 
-    if (failed(GraphClustingByDevice(
-            m, "device", "test", "__byteir_test_device__", false, false,
-            GraphClusteringAlgo::kGreedy,
-            /*enableMultiGraph=*/true, validateSubGraphFn))) {
+    PassManager pm(ctx);
+    pm.addPass(createGraphClusteringByDevicePass(
+        "device", "test", "__byteir_test_device__", false, false,
+        GraphClusteringAlgo::kGreedy, /*enableMultiGraph=*/true,
+        validateSubGraphFn));
+    if (failed(pm.run(m))) {
       signalPassFailure();
     }
   }
