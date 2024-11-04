@@ -1,0 +1,23 @@
+diff --git a/src/Conversion/ONNXToStablehlo/Tensor/Gather.cpp b/src/Conversion/ONNXToStablehlo/Tensor/Gather.cpp
+index 46937a9f..781f5981 100644
+--- a/src/Conversion/ONNXToStablehlo/Tensor/Gather.cpp
++++ b/src/Conversion/ONNXToStablehlo/Tensor/Gather.cpp
+@@ -64,11 +64,16 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
+       Value indicesShape = rewriter.create<shape::ShapeOfOp>(loc, indices);
+       Value axisDimSizeIndexValue =
+           rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+-      Value axisDimSizeValue = rewriter.create<arith::IndexCastOp>(
++      axisDimSize = rewriter.create<arith::IndexCastOp>(
+           loc, indicesType.getElementType(), axisDimSizeIndexValue);
++      axisDimSize = rewriter.create<tensor::FromElementsOp>(loc, axisDimSize);
++      axisDimSize = rewriter.create<stablehlo::ReshapeOp>(loc,
++          RankedTensorType::get(
++              SmallVector<int64_t>{}, indicesType.getElementType()),
++          axisDimSize);
+       axisDimSize =
+           rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
+-              axisDimSizeValue, indicesShape, rewriter.getI64TensorAttr({}));
++              axisDimSize, indicesShape, rewriter.getI64TensorAttr({}));
+     }
+     Value greaterOp = rewriter.create<stablehlo::CompareOp>(
+         loc, indices, zero, stablehlo::ComparisonDirection::LT);
