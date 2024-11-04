@@ -659,45 +659,12 @@ void createCalls(MLIRContext *context,
   }
 }
 
-struct GraphClusteringByDevicePass
-    : public GraphClusteringByDeviceBase<GraphClusteringByDevicePass> {
-
-  explicit GraphClusteringByDevicePass(std::string attrName, std::string device,
-                                       std::string deviceAnchorName,
-                                       bool dupNonSplat, bool dupOutputs,
-                                       GraphClusteringAlgo clusterAlgo,
-                                       bool enableMultiGraph)
-      : GraphClusteringByDeviceBase<
-            GraphClusteringByDevicePass>::GraphClusteringByDeviceBase() {
-    this->attrName = attrName;
-    this->device = device;
-    this->deviceAnchorName = deviceAnchorName;
-    this->dupNonSplat = dupNonSplat;
-    this->dupOutputs = dupOutputs;
-    this->clusterAlgo = clusterAlgo;
-    this->enableMultiGraph = enableMultiGraph;
-  }
-
-  void runOnOperation() override;
-};
-
-void GraphClusteringByDevicePass::runOnOperation() {
-  ModuleOp moduleOp = getOperation();
-  MLIRContext *context = &getContext();
-  if (failed(GraphClustingByDevice(moduleOp, attrName, device, deviceAnchorName,
-                                   dupNonSplat, dupOutputs, clusterAlgo,
-                                   enableMultiGraph))) {
-    signalPassFailure();
-  }
-}
-
-} // namespace
-
-mlir::LogicalResult mlir::GraphClustingByDevice(
-    ModuleOp moduleOp, std::string attrName, std::string device,
-    std::string deviceAnchorName, bool dupNonSplat, bool dupOutputs,
-    GraphClusteringAlgo clusterAlgo, bool enableMultiGraph,
-    ValidateSubGraphFn validateSubGraphFn) {
+mlir::LogicalResult
+GraphClustingByDevice(ModuleOp moduleOp, std::string attrName,
+                      std::string device, std::string deviceAnchorName,
+                      bool dupNonSplat, bool dupOutputs,
+                      GraphClusteringAlgo clusterAlgo, bool enableMultiGraph,
+                      ValidateSubGraphFn validateSubGraphFn) {
   MLIRContext *context = moduleOp.getContext();
   SmallVector<func::FuncOp, 4> originalFuncs;
   const auto isResultUsedByReturnOp =
@@ -826,14 +793,50 @@ mlir::LogicalResult mlir::GraphClustingByDevice(
   return success();
 }
 
+struct GraphClusteringByDevicePass
+    : public GraphClusteringByDeviceBase<GraphClusteringByDevicePass> {
+
+  explicit GraphClusteringByDevicePass(std::string attrName, std::string device,
+                                       std::string deviceAnchorName,
+                                       bool dupNonSplat, bool dupOutputs,
+                                       GraphClusteringAlgo clusterAlgo,
+                                       bool enableMultiGraph,
+                                       ValidateSubGraphFn validateSubGraphFn)
+      : GraphClusteringByDeviceBase<
+            GraphClusteringByDevicePass>::GraphClusteringByDeviceBase() {
+    this->attrName = attrName;
+    this->device = device;
+    this->deviceAnchorName = deviceAnchorName;
+    this->dupNonSplat = dupNonSplat;
+    this->dupOutputs = dupOutputs;
+    this->clusterAlgo = clusterAlgo;
+    this->enableMultiGraph = enableMultiGraph;
+    this->validateSubGraphFn = validateSubGraphFn;
+  }
+
+  void runOnOperation() override;
+
+  ValidateSubGraphFn validateSubGraphFn = nullptr;
+};
+
+void GraphClusteringByDevicePass::runOnOperation() {
+  ModuleOp moduleOp = getOperation();
+  MLIRContext *context = &getContext();
+  if (failed(GraphClustingByDevice(moduleOp, attrName, device, deviceAnchorName,
+                                   dupNonSplat, dupOutputs, clusterAlgo,
+                                   enableMultiGraph, validateSubGraphFn))) {
+    signalPassFailure();
+  }
+}
+
+} // namespace
+
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createGraphClusteringByDevicePass(std::string attrName,
-                                        std::string device,
-                                        std::string deviceAnchorName,
-                                        bool dupNonSplat, bool dupOutputs,
-                                        GraphClusteringAlgo clusterAlgo,
-                                        bool enableMultiGraph) {
+mlir::createGraphClusteringByDevicePass(
+    std::string attrName, std::string device, std::string deviceAnchorName,
+    bool dupNonSplat, bool dupOutputs, GraphClusteringAlgo clusterAlgo,
+    bool enableMultiGraph, ValidateSubGraphFn validateSubGraphFn) {
   return std::make_unique<GraphClusteringByDevicePass>(
       attrName, device, deviceAnchorName, dupNonSplat, dupOutputs, clusterAlgo,
-      enableMultiGraph);
+      enableMultiGraph, validateSubGraphFn);
 }

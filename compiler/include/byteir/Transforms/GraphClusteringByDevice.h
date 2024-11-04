@@ -31,29 +31,20 @@ constexpr StringRef getHostAnchorName() { return "__byteir_host_device__"; }
 
 using ValidateSubGraphFn = std::function<bool(llvm::ArrayRef<Operation *>)>;
 
-// This the implemention of clusting subgraph for device. The
-// `validateSubGraphFn` function is used to verify each candidate subgraph. If
-// it is a `nullptr`, all candidate subgraphs are valid.This pass usually only
-// retain the largest valid subgraph. If the `enableMultiGraph` is set to true,
-// will retain all valid subgraphs.
-mlir::LogicalResult
-GraphClustingByDevice(ModuleOp moduleOp, std::string attrName,
-                      std::string device, std::string deviceAnchorName,
-                      bool dupNonSplat, bool dupOutputs,
-                      GraphClusteringAlgo clusterAlgo, bool enableMultiGraph,
-                      ValidateSubGraphFn validateSubGraphFn = nullptr);
-
 // Currently the usage of the pass is limited and it may not work correctly in
 // non-tensor level dialects. Before this pass, user need to add `device = host`
 // attribute to those operations that could only be run on host. Then this pass
 // will cluster the host ops and their recursive producers into a host function,
 // the other ops will be clustered into a device function.
+// This the implemention of clusting subgraph for device. The
+// `validateSubGraphFn` function is used to verify each candidate subgraph.
 std::unique_ptr<OperationPass<ModuleOp>> createGraphClusteringByDevicePass(
     std::string attrName = "device", std::string device = "test",
     std::string deviceAnchorName = "__byteir_test_device__",
     bool dupNonSplat = false, bool dupOutputs = false,
     GraphClusteringAlgo clusterAlgo = GraphClusteringAlgo::kFallback,
-    bool enableMultiGraph = false);
+    bool enableMultiGraph = false,
+    ValidateSubGraphFn validateSubGraphFn = nullptr);
 
 } // namespace mlir
 
