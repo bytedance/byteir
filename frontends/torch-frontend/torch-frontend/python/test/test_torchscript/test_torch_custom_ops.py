@@ -117,3 +117,6 @@ def test_flash_attn():
     optimized_model = torch.compile(model, backend=flash_attn_compile_fx)
     output = optimized_model(q, k, v)
     output.sum().backward()
+
+if __name__ == "__main__":
+    test_flash_attn()
