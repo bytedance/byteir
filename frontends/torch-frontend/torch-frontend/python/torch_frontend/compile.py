@@ -40,6 +40,10 @@ MATH_CUSTOM_OPS = [
     "math.cosh",
     "math.erf",
     "math.trunc",
+    "math.exp2",
+    "math.copysign",
+    "math.ldexp",
+    "math.signbit",
 ]
 
 BYTEIR_CUSTOM_OPS = [
@@ -60,6 +64,7 @@ CUSTOM_OP_MAP = {
     "byteir.topk": ["aten.topk"],
     "byteir.non_zero": ["aten.nonzero"],
     "byteir.resize": ["aten.upsample_nearest2d.vec"],
+    # math custom ops
     "math.asin": ["aten.asin"],
     "math.asinh": ["aten.asinh"],
     "math.sinh": ["aten.sinh"],
@@ -70,6 +75,10 @@ CUSTOM_OP_MAP = {
     "math.cosh": ["aten.cosh"],
     "math.erf": ["aten.erf"],
     "math.trunc": ["aten.trunc"],
+    "math.exp2": ["aten.exp2"],
+    "math.copysign": ["aten.copysign.Tensor"],
+    "math.ldexp": ["aten.ldexp.Tensor"],
+    "math.signbit": ["aten.signbit"],
     # torch.operator
     "byteir.flash_attn_fwd": ["byteir.flash_attn_fwd"],
     "byteir.flash_attn_kvcache": ["byteir.flash_attn_kvcache"],

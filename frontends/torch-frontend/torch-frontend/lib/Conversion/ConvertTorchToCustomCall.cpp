@@ -1489,6 +1489,10 @@ void mlir::populateMathToCustomCallPattern(
   CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenCoshOp, "math.cosh");
   CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenErfOp, "math.erf");
   CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenTruncOp, "math.trunc");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenExp2Op, "math.exp2");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenCopysignTensorOp, "math.copysign");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenLdexpTensorOp, "math.ldexp");
+  CONVERT_MATH_TO_CUSTOM_CALL_PATTERN(AtenSignbitOp, "math.signbit");
 #undef CONVERT_MATH_TO_CUSTOM_CALL_PATTERN
 }
 
