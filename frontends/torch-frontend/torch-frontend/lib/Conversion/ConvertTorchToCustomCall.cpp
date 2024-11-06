@@ -709,110 +709,7 @@ public:
 };
 } // namespace
 
-// AtenNllLossForwardOp
-// output, weight = torch.aten.nll_loss_forward(input, target)
 namespace {
-class ConvertAtenNllLossForwardOp
-    : public OpConversionPattern<AtenNllLossForwardOp> {
-public:
-  using OpConversionPattern::OpConversionPattern;
-
-  LogicalResult
-  matchAndRewrite(AtenNllLossForwardOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value input = adaptor.getSelf();
-    Value target = adaptor.getTarget();
-    Value weight = adaptor.getWeight();
-
-    int64_t reduction;
-    if (!matchPattern(op.getReduction(), m_TorchConstantInt(&reduction)))
-      return rewriter.notifyMatchFailure(op, "reduction must be constant");
-
-    int64_t ignoreIndex;
-    if (!matchPattern(op.getIgnoreIndex(), m_TorchConstantInt(&ignoreIndex)))
-      return rewriter.notifyMatchFailure(op, "ignore_index must be constant");
-
-    if (!isa<mlir::torch::Torch::NoneType>(weight.getType()))
-      return rewriter.notifyMatchFailure(
-          op, "Unimplemented, the weight operand is not incorporated.");
-
-    SmallVector<Value> bufferArgs({input, target});
-    SmallVector<Type> resultTypes;
-    if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
-                                                resultTypes))) {
-      return op.emitError("could not convert output types");
-    }
-
-    std::vector<NamedAttribute> byteir_attrs;
-    byteir_attrs.emplace_back(rewriter.getStringAttr("reduction"),
-                              rewriter.getI64IntegerAttr(reduction));
-    byteir_attrs.emplace_back(rewriter.getStringAttr("ignore_index"),
-                              rewriter.getI64IntegerAttr(ignoreIndex));
-
-    auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getNllLossForwardName()));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                       rewriter.getDictionaryAttr(byteir_attrs));
-
-    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-    rewriter.replaceOp(op, customCallOp->getResults());
-    return success();
-  }
-};
-
-// AtenNllLossBackwardOp
-// result = nll_loss_backward(grad_output, input, target)
-class ConvertAtenNllLossBackwardOp
-    : public OpConversionPattern<AtenNllLossBackwardOp> {
-public:
-  using OpConversionPattern::OpConversionPattern;
-
-  LogicalResult
-  matchAndRewrite(AtenNllLossBackwardOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    Value grad_out = adaptor.getGradOutput();
-    Value input = adaptor.getSelf();
-    Value target = adaptor.getTarget();
-    Value weight = adaptor.getWeight();
-    Value total_weight = adaptor.getTotalWeight();
-
-    int64_t reduction;
-    if (!matchPattern(op.getReduction(), m_TorchConstantInt(&reduction)))
-      return rewriter.notifyMatchFailure(op, "reduction must be constant");
-
-    int64_t ignoreIndex;
-    if (!matchPattern(op.getIgnoreIndex(), m_TorchConstantInt(&ignoreIndex)))
-      return rewriter.notifyMatchFailure(op, "ignore_index must be constant");
-
-    if (!isa<mlir::torch::Torch::NoneType>(weight.getType()))
-      return rewriter.notifyMatchFailure(
-          op, "Unimplemented, the weight operand is not incorporated.");
-
-    SmallVector<Value> bufferArgs({grad_out, input, target, total_weight});
-    RankedTensorType resultType = cast<RankedTensorType>(
-        getTypeConverter()->convertType(op->getResult(0).getType()));
-
-    std::vector<NamedAttribute> byteir_attrs;
-    byteir_attrs.emplace_back(rewriter.getStringAttr("reduction"),
-                              rewriter.getI64IntegerAttr(reduction));
-    byteir_attrs.emplace_back(rewriter.getStringAttr("ignore_index"),
-                              rewriter.getI64IntegerAttr(ignoreIndex));
-
-    auto attrs = getDefaultAttrs(rewriter);
-    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(getNllLossBackwardName()));
-    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
-                       rewriter.getDictionaryAttr(byteir_attrs));
-
-    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), resultType, bufferArgs, ArrayRef<NamedAttribute>{attrs});
-    rewriter.replaceOp(op, customCallOp->getResults());
-    return success();
-  }
-};
-
 // torch.operator "byteir.l2_norm"
 // operands: input, dims, eps
 class ConvertByteIRL2NormOp : public OpConversionPattern<OperatorOp> {
@@ -838,7 +735,7 @@ public:
     if (!matchPattern(op.getOperand(1), m_TorchListOfConstantInts(dims))) {
       return op.emitError("dims must be a list of int");
     }
-    for (int64_t i = 0; i < dims.size(); i++) {
+    for (size_t i = 0; i < dims.size(); i++) {
       if (dims[i] < 0)
         dims[i] += rank;
     }
@@ -1429,15 +1326,6 @@ public:
           typeConverter, context);
       target.addIllegalOp<AtenUpsampleBilinear2dVecOp>();
       patterns.add<ConvertAtenUpsampleBilinear2dVecOp>(typeConverter, context);
-    }
-
-    if (validCustomCallOpsSet.contains("byteir.nll_loss_forward")) {
-      target.addIllegalOp<AtenNllLossForwardOp>();
-      patterns.add<ConvertAtenNllLossForwardOp>(typeConverter, context);
-    }
-    if (validCustomCallOpsSet.contains("byteir.nll_loss_backward")) {
-      target.addIllegalOp<AtenNllLossBackwardOp>();
-      patterns.add<ConvertAtenNllLossBackwardOp>(typeConverter, context);
     }
 
     populateMathToCustomCallPattern(target, typeConverter, patterns,

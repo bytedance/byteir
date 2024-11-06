@@ -156,6 +156,21 @@ def test_attention():
 
 # ==============================================================================
 
+# class NllLossStaticModule(torch.nn.Module):
+#     # Here the 2nd index is ignored.
+#     def forward(self, x, y):
+#         return torch.ops.aten.nll_loss_forward(
+#             x, target=y, weight=None, reduction=0, ignore_index=2
+#         )
+
+# def test_nll_loss_forward():
+#     inputs = [tu.rand(2, 3), tu.randint(low=0, high=3, size=(2,))]
+#     module = compile(NllLossStaticModule(), inputs, "stablehlo", verbose=True, debug=torch_frontend.DebugType(1))
+#     numerical_test_helper(module, inputs, model(*inputs))
+
+
+# ==============================================================================
+
 class VarDimModule(torch.nn.Module):
     def forward(self, x):
         return torch.var(x, dim=1)
