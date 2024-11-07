@@ -165,7 +165,8 @@ class NllLossStaticModule(torch.nn.Module):
 
 def test_nll_loss_forward():
     inputs = [tu.rand(2, 3), tu.randint(low=0, high=3, size=(2,))]
-    module = compile(NllLossStaticModule(), inputs, "stablehlo")
+    model = NllLossStaticModule()
+    module = compile(model, inputs, "stablehlo")
     numerical_test_helper(module, inputs, model(*inputs))
 
 # ==============================================================================
