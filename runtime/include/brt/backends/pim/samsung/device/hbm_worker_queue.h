@@ -42,9 +42,9 @@ public:
   explicit HBMPIMWorkQueue(const std::string &name = "HBMPIM")
       : WorkQueue(name) {
     mem = make_shared<MultiChannelMemorySystem>(
-        "/home/csgrad/amirnass/byteir/runtime/external/pimlib/ini/"
+        "/root/share/github/byteir/runtime/external/pimlib/ini/"
         "HBM2_samsung_2M_16B_x64.ini",
-        "/home/csgrad/amirnass/byteir/runtime/external/pimlib/"
+        "/root/share/github/byteir/runtime/external/pimlib/"
         "system_hbm_64ch.ini",
         ".", "example_app", 256 * 64 * 2);
     // shared_ptr<MultiChannelMemorySystem> mem =

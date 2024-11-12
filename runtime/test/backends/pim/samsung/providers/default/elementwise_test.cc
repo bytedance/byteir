@@ -56,8 +56,7 @@ using namespace brt::test;
 using namespace mlir;
 using namespace std;
 
-static std::string test_file_add_2 =
-    "/home/csgrad/amirnass/byteir/runtime/test/test_files/add_hbmpim.mlir";
+static std::string test_file_add_2 = "test/test_files/add_hbmpim.mlir";
 
 TEST(HBMOpKerenlTest, AddOp2) {
   ByREBuilder byre_builder;

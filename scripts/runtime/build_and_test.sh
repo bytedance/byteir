@@ -2,10 +2,14 @@
 
 set -e
 
-while [[ $# -gt 1 ]]; do
+while [[ $# -gt 0 ]]; do
   case $1 in
     --cuda)
       BRT_USE_CUDA=ON
+      shift
+      ;;
+    --pim)
+      BRT_USE_HBMPIM=ON
       shift
       ;;
     --asan)
@@ -45,6 +49,7 @@ INSTALL_DIR="$BUILD_DIR/install"
 
 # build options
 BRT_USE_CUDA=${BRT_USE_CUDA:-OFF}
+BRT_USE_HBMPIM=${BRT_USE_HBMPIM:-OFF}
 BRT_ENABLE_ASAN=${BRT_ENABLE_ASAN:-OFF}
 BRT_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS:-OFF}
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
@@ -67,7 +72,8 @@ cmake -GNinja \
   -Dbrt_USE_CUDA=${BRT_USE_CUDA} \
   -Dbrt_ENABLE_FLASH_ATTENSION=${BRT_ENABLE_FLASH_ATTENSION} \
   -Dbrt_ENABLE_ASAN=${BRT_ENABLE_ASAN} \
-  -Dbrt_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS}
+  -Dbrt_ENABLE_PYTHON_BINDINGS=${BRT_ENABLE_PYTHON_BINDINGS} \
+  -Dbrt_USE_HBMPIM=${BRT_USE_HBMPIM}
 
 cmake --build "$BUILD_DIR" --target all --target install
 
