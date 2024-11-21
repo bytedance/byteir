@@ -24,7 +24,6 @@ pybind11
 wheel
 setuptools
 cmake
-ninja
 pyyaml
 packaging
 
