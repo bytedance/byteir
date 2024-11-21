@@ -821,7 +821,6 @@ struct GraphClusteringByDevicePass
 
 void GraphClusteringByDevicePass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
-  MLIRContext *context = &getContext();
   if (failed(GraphClustingByDevice(moduleOp, attrName, device, deviceAnchorName,
                                    dupNonSplat, dupOutputs, clusterAlgo,
                                    enableMultiGraph, validateSubGraphFn))) {
