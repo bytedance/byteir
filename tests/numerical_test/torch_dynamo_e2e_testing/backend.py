@@ -18,7 +18,8 @@ if "BYTEIR_RUNTIME_PATH" in os.environ:
 import brt
 import byteir
 
-from torch_frontend import compile, DebugType, BYTEIR_CUSTOM_OPS, GENERIC_CUSTOM_OPS
+import torch_frontend
+from torch_frontend import BYTEIR_CUSTOM_OPS, GENERIC_CUSTOM_OPS
 from torch_frontend import (
     list_decomposed_ops,
     preprocess_fx_graph,
@@ -94,8 +95,8 @@ def byteir_compile_fx_inner(
     compile_type = "stablehlo"
     backend_legal_ops = BYTEIR_CUSTOM_OPS + GENERIC_CUSTOM_OPS
     with maybe_disable_fake_tensor_mode():
-        compiled_graph = compile(
-            fx_graph, inputs, compile_type, backend_legal_ops=backend_legal_ops
+        compiled_graph = torch_frontend.compile_dynamo_model(
+            fx_graph, compile_type, backend_legal_ops=backend_legal_ops, verbose=True
         )
     # print(compiled_graph)
 

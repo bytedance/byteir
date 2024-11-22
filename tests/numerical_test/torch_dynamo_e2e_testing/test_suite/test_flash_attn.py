@@ -1,6 +1,7 @@
 import torch
 from ..backend import byteir_compile_fx
 
+# ==============================================================================
 
 class FlashAttnModel(torch.nn.Module):
     def __init__(self):
@@ -41,6 +42,7 @@ def test_flash_attn_unit():
     torch.testing.assert_close(k.grad, k_clone.grad)
     torch.testing.assert_close(v.grad, v_clone.grad)
 
+# ==============================================================================
 
 class FlashAttnFunctionalModel(torch.nn.Module):
     def __init__(self):
@@ -79,6 +81,7 @@ def test_flash_attn_functional_unit():
     torch.testing.assert_close(k.grad, k_clone.grad)
     torch.testing.assert_close(v.grad, v_clone.grad)
 
+# ==============================================================================
 
 class FlashAttnKVCacheModel(torch.nn.Module):
     def __init__(self):
