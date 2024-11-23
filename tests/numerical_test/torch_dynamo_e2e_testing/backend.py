@@ -18,7 +18,8 @@ if "BYTEIR_RUNTIME_PATH" in os.environ:
 import brt
 import byteir
 
-from torch_frontend import compile, DebugType, BYTEIR_CUSTOM_OPS, GENERIC_CUSTOM_OPS
+import torch_frontend
+from torch_frontend import BYTEIR_CUSTOM_OPS, GENERIC_CUSTOM_OPS
 from torch_frontend import (
     list_decomposed_ops,
     preprocess_fx_graph,
@@ -94,19 +95,19 @@ def byteir_compile_fx_inner(
     compile_type = "stablehlo"
     backend_legal_ops = BYTEIR_CUSTOM_OPS + GENERIC_CUSTOM_OPS
     with maybe_disable_fake_tensor_mode():
-        compiled_graph = compile(
-            fx_graph, inputs, compile_type, backend_legal_ops=backend_legal_ops
+        compiled_graph = torch_frontend.compile_dynamo_model(
+            fx_graph, compile_type, backend_legal_ops=backend_legal_ops
         )
     # print(compiled_graph)
 
     model_name = "test"
-    TEMP_FOLDER = "./temp"
+    TEMP_FOLDER = "./local_test"
     category_name = f"{category}_{next(g_graph_id)}"
     os.makedirs(TEMP_FOLDER, exist_ok=True)
     os.makedirs(TEMP_FOLDER + f"/{model_name}_{category_name}", exist_ok=True)
-    mlir_file_name = f"{TEMP_FOLDER}/{model_name}_{category_name}.{compile_type}.mlir"
+    mlir_file_name = f"{TEMP_FOLDER}/{model_name}_{category_name}/{model_name}_{category_name}.{compile_type}.mlir"
     output_mlir_file_name = (
-        f"{TEMP_FOLDER}/{model_name}_{category}/{model_name}_{category_name}.rt.mlir"
+        f"{TEMP_FOLDER}/{model_name}_{category_name}/{model_name}_{category_name}.rt.mlir"
     )
     with open(mlir_file_name, "w+") as fout:
         compiled_graph.operation.print(file=fout, large_elements_limit=None)
@@ -115,7 +116,7 @@ def byteir_compile_fx_inner(
         byteir.compile(
             mlir_file_name,
             output_mlir_file_name,
-            entry_func="forward",
+            entry_func="main",
             target="cuda_with_ait",
         )
 

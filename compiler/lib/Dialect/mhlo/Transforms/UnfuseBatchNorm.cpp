@@ -79,12 +79,14 @@ Value materializeEpsilon(Operation *op, FloatAttr epsilon_attr,
     APFloat epsilon_float = epsilon_attr.getValue();
     auto status = epsilon_float.convert(
         fp_type.getFloatSemantics(), APFloat::rmNearestTiesToEven, &loses_info);
-    if ((status & (~APFloat::opInexact)) != APFloat::opOK) {
-      op->emitWarning() << "Could not convert batch_norm epsilon to target fp "
-                           "type: opStatus = "
-                        << static_cast<int>(status);
-      return nullptr;
-    }
+    (void)status;
+    // if ((status & (~APFloat::opInexact)) != APFloat::opOK) {
+    //   op->emitWarning() << "Could not convert batch_norm epsilon to target fp
+    //   "
+    //                        "type: opStatus = "
+    //                     << static_cast<int>(status);
+    //   return nullptr;
+    // }
     if (loses_info) {
       op->emitWarning("Conversion of epsilon loses precision");
     }
