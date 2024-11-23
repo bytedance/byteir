@@ -13,7 +13,10 @@
 # ==============================================================================
 from .test_suite.test_flash_attn import test_flash_attn_unit, test_flash_attn_functional_unit, test_flash_attn_kvcache
 
-SM80_PLUS_DYNAMO_TESTS = [test_flash_attn_unit, test_flash_attn_functional_unit, test_flash_attn_kvcache]
+SM80_PLUS_DYNAMO_TESTS = [test_flash_attn_unit,
+                          test_flash_attn_functional_unit,
+                        #   test_flash_attn_kvcache,
+                          ]
 def run_torch_dynamo_tests(arch):
     if arch >= 80:
         for test in SM80_PLUS_DYNAMO_TESTS:

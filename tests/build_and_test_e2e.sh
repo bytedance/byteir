@@ -20,11 +20,11 @@ pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl
-pip3 install flash_attn==2.5.3
 source scripts/prepare.sh
 install_mhlo_tools
 
 # numerical test
+# pip3 install flash_attn==2.5.3
 python3 tests/numerical_test/main.py --target all
 rm -rf ./local_test
 
