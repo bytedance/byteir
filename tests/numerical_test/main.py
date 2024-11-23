@@ -141,7 +141,7 @@ def main():
 
     results = []
     if args.target == "all":
-        for target in ["cpu", "cuda", "cuda_with_ait"]:#, "dynamo"]:
+        for target in ["cpu", "cuda", "cuda_with_ait", "dynamo"]:
             results += run(target, args.filter, args.workdir)
     else:
         results += run(args.target, args.filter, args.workdir, mode=args.mode, verbose=args.verbose)

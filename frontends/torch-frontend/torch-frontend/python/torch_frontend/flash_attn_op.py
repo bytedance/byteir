@@ -40,13 +40,13 @@ def byteir_flash_attn_fwd(q, k, v, dropout_p, softmax_scale, causal, return_soft
     softmax_lse = torch.empty(
         (batch_size, num_heads, seqlen_q), dtype=torch.float, device="meta"
     )
-    p = None
-    if return_softmax:
-        p = torch.empty(
-            (batch_size, num_heads, seqlen_q, seqlen_k),
-            dtype=torch.float,
-            device="meta",
-        )
+    # p = None
+    # if return_softmax:
+    p = torch.empty(
+        (batch_size, num_heads, seqlen_q, seqlen_k),
+        dtype=torch.float,
+        device="meta",
+    )
     q_padded = q
     k_padded = k
     v_padded = v

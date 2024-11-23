@@ -116,7 +116,7 @@ def byteir_compile_fx_inner(
         byteir.compile(
             mlir_file_name,
             output_mlir_file_name,
-            entry_func="forward",
+            entry_func="main",
             target="cuda_with_ait",
         )
 
