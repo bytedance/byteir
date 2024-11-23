@@ -159,7 +159,7 @@ def byteir_compile_fx(model_: torch.fx.GraphModule, example_inputs_):
 
     def partition_fn(graph, joint_inputs, **kwargs):
         joint_graph_passes(graph)
-        return min_cut_rematerialization_partition(c
+        return min_cut_rematerialization_partition(
             graph, joint_inputs, **kwargs, compiler="inductor"
         )
 
