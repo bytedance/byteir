@@ -141,6 +141,8 @@ def _get_aten_ops_by_map(backend_legal_ops: Sequence[str]):
     for op in backend_legal_ops:
         if op in CUSTOM_OP_MAP:
             aten_ops += CUSTOM_OP_MAP[op]
+        else:
+            aten_ops.append(op)
     return aten_ops
 
 def compile(
