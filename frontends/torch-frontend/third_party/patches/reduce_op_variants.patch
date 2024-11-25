@@ -1,16 +1,15 @@
 diff --git a/lib/Dialect/Torch/Transforms/ReduceOpVariants.cpp b/lib/Dialect/Torch/Transforms/ReduceOpVariants.cpp
-index 84780e04..d7321ae3 100644
+index 84780e04..b2617737 100644
 --- a/lib/Dialect/Torch/Transforms/ReduceOpVariants.cpp
 +++ b/lib/Dialect/Torch/Transforms/ReduceOpVariants.cpp
-@@ -446,7 +446,10 @@ struct ReduceOpVariantsPass
+@@ -444,9 +444,7 @@ struct ReduceOpVariantsPass
+         }
+       }
        if (op->hasTrait<Torch::OpTrait::HasValueSemantics>() ||
-           (isa<OperatorOp>(op) &&
-            operatorOpHasValueSemantics(cast<OperatorOp>(op),
+-          (isa<OperatorOp>(op) &&
+-           operatorOpHasValueSemantics(cast<OperatorOp>(op),
 -                                       extraLibraryModuleSymTable))) {
-+                                       extraLibraryModuleSymTable)) ||
-+          (isa<OperatorOp>(op) &&
-+           op->getAttrOfType<StringAttr>("name").getValue().starts_with(
-+               "triton."))) {
++          isa<OperatorOp>(op)) {
          auto hasValueSemantics = [](Type t) {
            // TODO: Make this an allowlist based on a closed torch dialect
            // type system.
