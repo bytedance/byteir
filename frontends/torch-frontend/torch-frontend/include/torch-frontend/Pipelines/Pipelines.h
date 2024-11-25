@@ -36,6 +36,10 @@ void createTorchFunctionToTorchPipeline(
     OpPassManager &pm,
     const torch::Torch::TorchLoweringPipelineOptions &options);
 
+void createTorchDynamoExportToTorchPipeline(
+    OpPassManager &pm,
+    const torch::Torch::TorchLoweringPipelineOptions &options);
+
 inline void registerTorchToStablehloPipeline() {
   PassPipelineRegistration<torch::Torch::TorchLoweringPipelineOptions>(
       "torch-to-stablehlo-pipeline",
@@ -56,5 +60,13 @@ inline void registerTorchFunctionToTorchPipeline() {
       "Torch frontend torch function to torch pipeline.",
       createTorchFunctionToTorchPipeline);
 }
+
+inline void registerTorchDynamoExportToTorchPipeline() {
+  PassPipelineRegistration<torch::Torch::TorchLoweringPipelineOptions>(
+      "torch-dynamo-export-to-torch-pipeline",
+      "Torch frontend torch dynamo export to torch pipeline.",
+      createTorchDynamoExportToTorchPipeline);
+}
+
 } // namespace torch_frontend
 } // namespace mlir
