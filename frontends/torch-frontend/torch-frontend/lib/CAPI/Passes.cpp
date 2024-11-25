@@ -25,6 +25,7 @@ void torchFrontendRegisterAllPipelines() {
   mlir::torch_frontend::registerTorchToStablehloPipeline();
   mlir::torch_frontend::registerTorchscriptToTorchPipeline();
   mlir::torch_frontend::registerTorchFunctionToTorchPipeline();
+  mlir::torch_frontend::registerTorchDynamoExportToTorchPipeline();
 }
 
 void torchFrontendRegisterConversionPasses() {

@@ -334,8 +334,6 @@ def compile_dynamo_model(
     ############################################
     extra_library_file_name = _get_extra_library_file(backend_legal_ops)
     with module.context:
-        # We still need torch-function-to-torch-pipeline help us do something, e.g.,
-        # decompose ops, like aten.addmm, aten.t and so on.
         option_string = (
             "{shape-dtype-refine=false"
             + " backend-legal-ops="
@@ -345,7 +343,7 @@ def compile_dynamo_model(
             + "}"
         )
         pm = PassManager.parse(
-            f"builtin.module(torch-function-to-torch-pipeline{option_string})"
+            f"builtin.module(torch-dynamo-export-to-torch-pipeline{option_string})"
         )
         if debug != DebugType.NO_DEBUG:
             pm.enable_ir_printing(**debug_parameters)
