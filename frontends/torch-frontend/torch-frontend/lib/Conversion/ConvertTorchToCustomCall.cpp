@@ -1029,7 +1029,7 @@ public:
     for (size_t i = 0, e = op->getNumOperands(); i < e; i++) {
       if (isa<Torch::BoolType>(op.getOperand(i).getType())) {
         bool value;
-        if (!matchPattern(op.getOperand(i), m_TorchConstantBool(&value))) {
+        if (matchPattern(op.getOperand(i), m_TorchConstantBool(&value))) {
           bufferAttrs.push_back(rewriter.getBoolAttr(value));
         } else {
           return rewriter.notifyMatchFailure(
@@ -1037,7 +1037,7 @@ public:
         }
       } else if (isa<Torch::IntType>(op.getOperand(i).getType())) {
         int64_t value;
-        if (!matchPattern(op.getOperand(i), m_TorchConstantInt(&value))) {
+        if (matchPattern(op.getOperand(i), m_TorchConstantInt(&value))) {
           bufferAttrs.push_back(rewriter.getI64IntegerAttr(value));
         } else {
           return rewriter.notifyMatchFailure(op,
@@ -1045,7 +1045,7 @@ public:
         }
       } else if (isa<Torch::FloatType>(op.getOperand(i).getType())) {
         double value;
-        if (!matchPattern(op.getOperand(i), m_TorchConstantFloat(&value))) {
+        if (matchPattern(op.getOperand(i), m_TorchConstantFloat(&value))) {
           bufferAttrs.push_back(rewriter.getF64FloatAttr(value));
         } else {
           return rewriter.notifyMatchFailure(

@@ -79,10 +79,6 @@ CUSTOM_OP_MAP = {
     "math.copysign": ["aten.copysign.Tensor"],
     "math.ldexp": ["aten.ldexp.Tensor"],
     "math.signbit": ["aten.signbit"],
-    # torch.operator
-    "byteir.flash_attn_fwd": ["byteir.flash_attn_fwd"],
-    "byteir.flash_attn_kvcache": ["byteir.flash_attn_kvcache"],
-    "byteir.flash_attn_bwd": ["byteir.flash_attn_bwd"],
 }
 
 # ops which should not be decomposed by torch-mlir 
@@ -145,8 +141,6 @@ def _get_aten_ops_by_map(backend_legal_ops: Sequence[str]):
     for op in backend_legal_ops:
         if op in CUSTOM_OP_MAP:
             aten_ops += CUSTOM_OP_MAP[op]
-        else:
-            print(f"Warning: unknown custom op {op}")
     return aten_ops
 
 def compile(

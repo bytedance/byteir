@@ -27,23 +27,25 @@ def test_triton_custom_op():
 # ==============================================================================
 
 @torch.library.custom_op("custom::add", mutates_args=())
-def custom_add(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    return a + b
+def custom_add(a: torch.Tensor, c: int, b: torch.Tensor) -> torch.Tensor:
+    return a + b + c
 
 @torch.library.register_fake("custom::add")
-def custom_add_fake_impl(a, b):
+def custom_add_fake_impl(a, c, b):
     return a + b
 
 class CustomAddMod(torch.nn.Module):
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        return custom_add(x, y)
+        return custom_add(x, 2, y)
 
 def test_custom_op():
     example_inputs = (torch.randn(10, 10), torch.randn(10, 10))
     prog = torch.export.export(CustomAddMod(), args=example_inputs)
     print(prog)
-    module = compile_dynamo_model(prog, "stablehlo", backend_legal_ops=GENERIC_CUSTOM_OPS+["custom.add"])
+    module = compile_dynamo_model(prog, "stablehlo", backend_legal_ops=GENERIC_CUSTOM_OPS+["custom.add"], verbose=True)
+    print(module.operation.get_asm())
     assert "stablehlo.custom_call @custom.add" in module.operation.get_asm()
+    assert "byteir_attrs = {custom_attrs = [2]}" in module.operation.get_asm()
 
 if __name__ == "__main__":
     test_custom_op()
