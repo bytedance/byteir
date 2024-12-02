@@ -1051,6 +1051,14 @@ public:
           return rewriter.notifyMatchFailure(
               op, "only support constant float input");
         }
+      } else if (isa<Torch::StringType>(op.getOperand(i).getType())) {
+        std::string value;
+        if (matchPattern(op.getOperand(i), m_TorchConstantStr(value))) {
+          bufferAttrs.push_back(rewriter.getStringAttr(value));
+        } else {
+          return rewriter.notifyMatchFailure(op,
+                                             "only support constant str input");
+        }
       } else if (isa<Torch::ValueTensorType>(op.getOperand(i).getType())) {
         bufferArgs.push_back(adaptor.getOperands()[i]);
       } else {
@@ -1244,6 +1252,15 @@ public:
   matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
+
+    SmallVector<Value> bufferArgs;
+    if constexpr (std::is_same_v<AtenOpT, AtenCopysignTensorOp> ||
+                  std::is_same_v<AtenOpT, AtenLdexpTensorOp>) {
+      bufferArgs.push_back(adaptor.getSelf());
+      bufferArgs.push_back(adaptor.getOther());
+    } else {
+      bufferArgs.push_back(adaptor.getSelf());
+    }
     Type resultType =
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
             op.getResult().getType());
@@ -1259,7 +1276,7 @@ public:
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), TypeRange{resultType}, ValueRange{input},
+        op->getLoc(), TypeRange{resultType}, bufferArgs,
         ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
