@@ -1150,13 +1150,6 @@ public:
     // TODO: if result have dynamic shape, should lowering to target_mode=scale
     if (!resultType.hasStaticShape())
       return failure();
-    if constexpr (std::is_same_v<OP, AtenUpsampleNearest2dOp>) {
-      if (!isa<Torch::NoneType>(adaptor.getScalesH().getType()) ||
-          !isa<Torch::NoneType>(adaptor.getScalesW().getType())) {
-        // FIXME: check shape inference when scales_h or scales_w is not None.
-        return failure();
-      }
-    }
 
     std::vector<NamedAttribute> byteir_attrs;
     byteir_attrs.emplace_back(rewriter.getStringAttr("target_mode"),
@@ -1183,17 +1176,24 @@ public:
   }
 };
 
-// aten.upsample_bilinear2d.vec
-class ConvertAtenUpsampleBilinear2dVecOp
-    : public OpConversionPattern<AtenUpsampleBilinear2dVecOp> {
+// aten.upsample_bilinear2d.vec && aten.upsample_bilinear2d
+template <typename OP>
+class ConvertAtenUpsampleBilinear2dOp : public OpConversionPattern<OP> {
 public:
-  using OpConversionPattern<AtenUpsampleBilinear2dVecOp>::OpConversionPattern;
+  using OpConversionPattern<OP>::OpConversionPattern;
+  using OpAdaptor = typename OP::Adaptor;
   LogicalResult
-  matchAndRewrite(AtenUpsampleBilinear2dVecOp op, OpAdaptor adaptor,
+  matchAndRewrite(OP op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    Value input = adaptor.getInput();
+    Value input;
+    if constexpr (std::is_same_v<OP, AtenUpsampleBilinear2dOp>) {
+      input = adaptor.getSelf();
+    } else {
+      input = adaptor.getInput();
+    }
     RankedTensorType resultType = cast<RankedTensorType>(
-        getTypeConverter()->convertType(op.getResult().getType()));
+        OpConversionPattern<OP>::getTypeConverter()->convertType(
+            op.getResult().getType()));
 
     // TODO: if result have dynamic shape, should lowering to target_mode=scale
     if (!resultType.hasStaticShape())
@@ -1387,8 +1387,13 @@ public:
       target.addIllegalOp<AtenUpsampleNearest2dVecOp>();
       patterns.add<ConvertAtenUpsampleNearest2dOp<AtenUpsampleNearest2dVecOp>>(
           typeConverter, context);
+      target.addIllegalOp<AtenUpsampleBilinear2dOp>();
+      patterns.add<ConvertAtenUpsampleBilinear2dOp<AtenUpsampleBilinear2dOp>>(
+          typeConverter, context);
       target.addIllegalOp<AtenUpsampleBilinear2dVecOp>();
-      patterns.add<ConvertAtenUpsampleBilinear2dVecOp>(typeConverter, context);
+      patterns
+          .add<ConvertAtenUpsampleBilinear2dOp<AtenUpsampleBilinear2dVecOp>>(
+              typeConverter, context);
     }
 
     populateMathToCustomCallPattern(target, typeConverter, patterns,
