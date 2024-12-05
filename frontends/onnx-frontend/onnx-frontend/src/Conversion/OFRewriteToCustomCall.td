@@ -28,6 +28,7 @@ def IsOneSizeElements : Constraint<And<[
 def TrueBoolAttr : Constraint<CPred<"$0.getValue() == true">, "this BoolAttr should be true">;
 def SameTwoValuesOrAttrs : Constraint<CPred<"$0 == $1">, "two values or attrs are actually the same">;
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">, "value has exactly one use">;
+def HasMultiUse : Constraint<CPred<"!$0.hasOneUse()">, "value has multi use">;
 
 def isScalarConstantTensor :
     Constraint<CPred<"onnx_mlir::isScalarConstantTensor($_self)">,
@@ -223,6 +224,32 @@ def RewriteLayerNormWithoutLastAdd : Pat<
    (isScalarConstantTensor:$axes_0), (isScalarConstantTensor:$axes_1),
    (SameTwoIntegerScalarConstantValues $axes_0, $axes_1),
    (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+  ]>;
+
+def RewriteLayerNormWithoutLastMulAdd : Pat<
+  (ONNXDivOp:$results
+    (ONNXSubOp:$input_zero_mean_0
+      $input,
+      (ONNXReduceMeanOp $input, $axes_0, $_, $_)
+    ),
+    (ONNXSqrtOp
+      (ONNXAddOp
+        (ONNXReduceMeanOp
+          (ONNXMulOp
+            $input_zero_mean_1,
+            $input_zero_mean_1
+          ), $axes_1, $_, $_
+        ),
+        (ONNXConstantOp $_, $epsilon_attr, $_, $_, $_, $_, $_, $_)
+      )
+    )
+  ),
+  (NativeCodeCall<"createLayerNormWithoutLastMulAdd($_builder, $_loc, $0, $1, $2)"> $input, $axes_0, $epsilon_attr),
+  [(IsOneSizeElements $epsilon_attr),
+   (isScalarConstantTensor:$axes_0), (isScalarConstantTensor:$axes_1),
+   (SameTwoIntegerScalarConstantValues $axes_0, $axes_1),
+   (SameTwoValuesOrAttrs $input_zero_mean_0, $input_zero_mean_1),
+   (HasMultiUse $results__0),
   ]>;
 
 //===----------------------------------------------------------------------===//

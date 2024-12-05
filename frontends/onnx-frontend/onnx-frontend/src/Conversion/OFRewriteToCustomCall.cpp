@@ -375,6 +375,26 @@ Value createResize(PatternRewriter &rewriter, Location loc, Value input,
 // LayerNorm
 //===----------------------------------------------------------------------===//
 
+// NOTE: This method already exists in upstream llvm. Replace this once
+// upgrading llvm.
+TypedAttr getOneAttr(PatternRewriter &rewriter, Type type) {
+  if (llvm::isa<FloatType>(type))
+    return rewriter.getFloatAttr(type, 1.0);
+  if (llvm::isa<IndexType>(type))
+    return rewriter.getIndexAttr(1);
+  if (llvm::dyn_cast<IntegerType>(type))
+    return rewriter.getIntegerAttr(
+        type, APInt(llvm::cast<IntegerType>(type).getWidth(), 1));
+  if (llvm::isa<RankedTensorType, VectorType>(type)) {
+    auto vtType = llvm::cast<ShapedType>(type);
+    auto element = getOneAttr(rewriter, vtType.getElementType());
+    if (!element)
+      return {};
+    return DenseElementsAttr::get(vtType, element);
+  }
+  return {};
+}
+
 Value createSqueezedValue(PatternRewriter &rewriter, Location loc, Value input,
                           int axis) {
   RankedTensorType inputType =
@@ -515,6 +535,24 @@ Value createLayerNormWithoutLastAdd(PatternRewriter &rewriter, Location loc,
                                     Attribute epsilon_attr) {
   Attribute zero = rewriter.getZeroAttr(scale.getType());
   Value B = rewriter.create<ONNXConstantOp>(loc, Attribute(), zero);
+  return createLayerNorm(rewriter, loc, input, scale, B, axes, epsilon_attr);
+}
+
+Value createLayerNormWithoutLastMulAdd(PatternRewriter &rewriter, Location loc,
+                                       Value input, Value axes,
+                                       Attribute epsilon_attr) {
+  auto inputType = llvm::cast<ShapedType>(input.getType());
+  auto axesValue = onnx_mlir::getElementAttributeFromONNXValue(axes)
+                       .getValues<APInt>()[0]
+                       .getSExtValue();
+  if (axesValue < 0)
+    axesValue += inputType.getRank();
+  auto biasType = RankedTensorType::get({inputType.getShape()[axesValue]},
+                                        inputType.getElementType());
+  Attribute zero = rewriter.getZeroAttr(biasType);
+  Attribute one = getOneAttr(rewriter, biasType);
+  Value B = rewriter.create<ONNXConstantOp>(loc, Attribute(), zero);
+  Value scale = rewriter.create<ONNXConstantOp>(loc, Attribute(), one);
   return createLayerNorm(rewriter, loc, input, scale, B, axes, epsilon_attr);
 }
 
@@ -783,6 +821,8 @@ struct OFRewriteToCustomCallPass
         std::make_unique<RewriteLayerNormWithNoneEps>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteLayerNormWithoutLastAdd>(context));
+    validOpSet[getLayerNormName()].emplace_back(
+        std::make_unique<RewriteLayerNormWithoutLastMulAdd>(context));
     validOpSet[getLayerNormName()].emplace_back(
         std::make_unique<RewriteInstanceNorm>(context));
     validOpSet[getOneHotName()].emplace_back(
