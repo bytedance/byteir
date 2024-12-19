@@ -44,8 +44,11 @@ struct SetRepeatOutBatchSizePattern : public RewritePattern {
     if (!(op->getName().getStringRef() == "tf.Repeat"))
       return failure();
 
-    RankedTensorType outType =
-        dyn_cast<RankedTensorType>(op->getResult(0).getType());
+    auto output = op->getResult(0);
+    if (!output)
+      return failure();
+
+    RankedTensorType outType = dyn_cast<RankedTensorType>(output.getType());
     if (!outType)
       return failure();
     llvm::SmallVector<int64_t> outShape;
@@ -59,7 +62,30 @@ struct SetRepeatOutBatchSizePattern : public RewritePattern {
       return failure();
     }
     auto newOutType = outType.clone(outShape);
-    op->getResult(0).setType(newOutType);
+    output.setType(newOutType);
+
+    for (auto &use : output.getUses()) {
+      auto *user = use.getOwner();
+      uint64_t index = use.getOperandNumber();
+      if (!user || !llvm::isa<func::ReturnOp>(user)) {
+        continue;
+      }
+      auto funcOp = user->getParentOfType<func::FuncOp>();
+      if (!funcOp)
+        continue;
+      auto funcType = funcOp.getFunctionType();
+      auto inputTypes = funcType.getInputs();
+      auto resultTypes = funcType.getResults();
+      llvm::SmallVector<Type> newInputTypes(inputTypes.begin(),
+                                            inputTypes.end());
+      llvm::SmallVector<Type> newOutputTypes(resultTypes.begin(),
+                                             resultTypes.end());
+      assert(index < resultTypes.size());
+      newOutputTypes[index] = newOutType;
+      auto newFuncType =
+          rewriter.getFunctionType(newInputTypes, newOutputTypes);
+      funcOp.setFunctionType(newFuncType);
+    }
 
     return success();
   }
