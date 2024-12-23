@@ -47,3 +47,13 @@ func.func @several_ops(%arg0: tensor<?x4xf32> {byteir.static_shape = [8, 4]}, %a
   return %3 : tensor<?x4xf32>
 // CHECK-NEXT: return %2 : tensor<8x4xf32>
 }
+
+// CHECK-LABEL: func.func @tf_StridedSlice(%arg0: tensor<50x60x16xf16>) -> tensor<10x60x16xf16> {
+func.func @tf_StridedSlice(%arg0 : tensor<50x60x16xf16>) -> tensor<?x60x16xf16> {
+  %0 = mhlo.constant dense<11> : tensor<1xi32>
+  %1 = mhlo.constant dense<1> : tensor<1xi32>
+// CHECK: %2 = mhlo.custom_call @tf.StridedSlice(%arg0, %1, %0, %1) {backend_config = "", byteir_attrs = {begin_mask = 0 : i64, ellipsis_mask = 0 : i64, end_mask = 0 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 0 : i64}} : (tensor<50x60x16xf16>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<10x60x16xf16>
+  %2 = mhlo.custom_call @tf.StridedSlice(%arg0, %1, %0, %1) {backend_config = "", byteir_attrs = {begin_mask = 0 : i64, ellipsis_mask = 0 : i64, end_mask = 0 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 0 : i64}} : (tensor<50x60x16xf16>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<?x60x16xf16>
+// CHECK-NEXT: return %2 : tensor<10x60x16xf16>
+  return %2 : tensor<?x60x16xf16>
+}
