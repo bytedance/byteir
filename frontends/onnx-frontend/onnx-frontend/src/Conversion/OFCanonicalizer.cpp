@@ -48,7 +48,11 @@ struct OFCanonicalizerPass
   void runOnOperation() override {
     ModuleOp module = getOperation();
     // Canonicalization
-    LogicalResult converged = applyPatternsAndFoldGreedily(module, patterns);
+    // TODO: revert this after bump llvm version after 2024-12-22
+    GreedyRewriteConfig config;
+    config.useTopDownTraversal = true;
+    LogicalResult converged =
+        applyPatternsAndFoldGreedily(module, patterns, config);
     // Canonicalization is best-effort. Non-convergence is not a pass failure.
     if (testConvergence && failed(converged))
       signalPassFailure();

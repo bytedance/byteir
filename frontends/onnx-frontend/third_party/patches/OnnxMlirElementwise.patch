@@ -1,5 +1,5 @@
 diff --git a/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp b/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp
-index b5b58f2b..8b32b1a5 100644
+index b5b58f2b..35a2ca28 100644
 --- a/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp
 +++ b/src/Conversion/ONNXToStablehlo/Math/Elementwise.cpp
 @@ -81,6 +81,11 @@ struct StablehloDialectOp<ONNXNegOp> {
@@ -14,7 +14,36 @@ index b5b58f2b..8b32b1a5 100644
  template <>
  struct StablehloDialectOp<ONNXPowOp> {
    using Op = stablehlo::PowOp;
-@@ -444,6 +449,7 @@ void populateLoweringONNXElementwiseOpToStablehloPattern(
+@@ -288,6 +293,28 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLeakyReluOp>
+   }
+ };
+ 
++// ONNXRoundOp(x) is implemented using Stablehlo round_nearest_even(x, 0)
++template <>
++struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXRoundOp>
++    : public ConversionPattern {
++  ONNXElementwiseUnaryOpLoweringToStablehlo(MLIRContext *ctx)
++      : ConversionPattern(ONNXRoundOp::getOperationName(), 1, ctx) {}
++  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
++      ConversionPatternRewriter &rewriter) const final {
++    Location loc = op->getLoc();
++    ONNXRoundOpAdaptor adaptor(operands, op->getAttrDictionary());
++    Value inp = adaptor.getX();
++    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
++    if (inpType == nullptr)
++      return failure();
++    Type resultType = *op->result_type_begin();
++    Value resultOp =
++        rewriter.create<stablehlo::RoundNearestEvenOp>(loc, resultType, inp);
++    rewriter.replaceOp(op, resultOp);
++    return success();
++  }
++};
++
+ template <>
+ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXCastOp>
+     : public ConversionPattern {
+@@ -444,10 +471,12 @@ void populateLoweringONNXElementwiseOpToStablehloPattern(
        ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLeakyReluOp>,
        ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLogOp>,
        ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXNegOp>,
@@ -22,3 +51,8 @@ index b5b58f2b..8b32b1a5 100644
        ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXSigmoidOp>,
        ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXSinOp>,
        ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXSqrtOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXReluOp>,
++      ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXRoundOp>,
+       ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXTanhOp>,
+       ONNXElementwiseCompareBinaryOpLoweringToStablehlo<ONNXEqualOp>,
+       ONNXElementwiseCompareBinaryOpLoweringToStablehlo<ONNXGreaterOp>,
