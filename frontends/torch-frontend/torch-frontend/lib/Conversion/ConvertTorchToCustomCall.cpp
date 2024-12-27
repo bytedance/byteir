@@ -1009,18 +1009,67 @@ public:
 } // namespace
 
 namespace {
-class ConvertTritonOp : public OpConversionPattern<OperatorOp> {
+class ConvertGenericCustomOp : public OpConversionPattern<OperatorOp> {
 public:
-  using OpConversionPattern::OpConversionPattern;
-
+  ConvertGenericCustomOp(const TypeConverter &typeConverter,
+                         MLIRContext *context, PatternBenefit benefit,
+                         llvm::StringSet<> validCustomCallOpsSet)
+      : OpConversionPattern<OperatorOp>(typeConverter, context, benefit),
+        validCustomCallOpsSet(validCustomCallOpsSet) {}
   LogicalResult
   matchAndRewrite(OperatorOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto opName = adaptor.getName();
-    if (!opName.starts_with("triton."))
+    if (!validCustomCallOpsSet.contains(opName) &&
+        !opName.starts_with("triton."))
       return rewriter.notifyMatchFailure(op, "op name not match");
 
-    auto operands = adaptor.getOperands();
+    SmallVector<Value> bufferArgs;
+    SmallVector<Attribute> bufferAttrs;
+    for (size_t i = 0, e = op->getNumOperands(); i < e; i++) {
+      if (isa<Torch::BoolType>(op.getOperand(i).getType())) {
+        bool value;
+        if (matchPattern(op.getOperand(i), m_TorchConstantBool(&value))) {
+          bufferAttrs.push_back(rewriter.getBoolAttr(value));
+        } else {
+          return rewriter.notifyMatchFailure(
+              op, "only support constant bool input");
+        }
+      } else if (isa<Torch::IntType>(op.getOperand(i).getType())) {
+        int64_t value;
+        if (matchPattern(op.getOperand(i), m_TorchConstantInt(&value))) {
+          bufferAttrs.push_back(rewriter.getI64IntegerAttr(value));
+        } else {
+          return rewriter.notifyMatchFailure(op,
+                                             "only support constant int input");
+        }
+      } else if (isa<Torch::FloatType>(op.getOperand(i).getType())) {
+        double value;
+        if (matchPattern(op.getOperand(i), m_TorchConstantFloat(&value))) {
+          bufferAttrs.push_back(rewriter.getF64FloatAttr(value));
+        } else {
+          return rewriter.notifyMatchFailure(
+              op, "only support constant float input");
+        }
+      } else if (isa<Torch::StringType>(op.getOperand(i).getType())) {
+        std::string value;
+        if (matchPattern(op.getOperand(i), m_TorchConstantStr(value))) {
+          bufferAttrs.push_back(rewriter.getStringAttr(value));
+        } else {
+          return rewriter.notifyMatchFailure(op,
+                                             "only support constant str input");
+        }
+      } else if (isa<Torch::ValueTensorType>(op.getOperand(i).getType())) {
+        bufferArgs.push_back(adaptor.getOperands()[i]);
+      } else {
+        return rewriter.notifyMatchFailure(op, "unsupported input");
+      }
+    }
+    for (size_t i = 0, e = op->getNumResults(); i < e; i++) {
+      if (!isa<Torch::ValueTensorType>(op.getResult(i).getType())) {
+        return rewriter.notifyMatchFailure(op, "unsupported result");
+      }
+    }
     SmallVector<Type> resultTypes;
     if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
                                                 resultTypes))) {
@@ -1028,17 +1077,22 @@ public:
     }
 
     std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("custom_attrs"),
+                              rewriter.getArrayAttr(bufferAttrs));
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
-                       rewriter.getStringAttr(opName));
+                       rewriter.getStringAttr(adaptor.getName()));
     attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), resultTypes, operands, ArrayRef<NamedAttribute>{attrs});
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>{attrs});
     rewriter.replaceOp(op, customCallOp.getResults());
     return success();
   }
+
+private:
+  llvm::StringSet<> validCustomCallOpsSet;
 };
 } // namespace
 
@@ -1096,13 +1150,6 @@ public:
     // TODO: if result have dynamic shape, should lowering to target_mode=scale
     if (!resultType.hasStaticShape())
       return failure();
-    if constexpr (std::is_same_v<OP, AtenUpsampleNearest2dOp>) {
-      if (!isa<Torch::NoneType>(adaptor.getScalesH().getType()) ||
-          !isa<Torch::NoneType>(adaptor.getScalesW().getType())) {
-        // FIXME: check shape inference when scales_h or scales_w is not None.
-        return failure();
-      }
-    }
 
     std::vector<NamedAttribute> byteir_attrs;
     byteir_attrs.emplace_back(rewriter.getStringAttr("target_mode"),
@@ -1129,17 +1176,24 @@ public:
   }
 };
 
-// aten.upsample_bilinear2d.vec
-class ConvertAtenUpsampleBilinear2dVecOp
-    : public OpConversionPattern<AtenUpsampleBilinear2dVecOp> {
+// aten.upsample_bilinear2d.vec && aten.upsample_bilinear2d
+template <typename OP>
+class ConvertAtenUpsampleBilinear2dOp : public OpConversionPattern<OP> {
 public:
-  using OpConversionPattern<AtenUpsampleBilinear2dVecOp>::OpConversionPattern;
+  using OpConversionPattern<OP>::OpConversionPattern;
+  using OpAdaptor = typename OP::Adaptor;
   LogicalResult
-  matchAndRewrite(AtenUpsampleBilinear2dVecOp op, OpAdaptor adaptor,
+  matchAndRewrite(OP op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    Value input = adaptor.getInput();
+    Value input;
+    if constexpr (std::is_same_v<OP, AtenUpsampleBilinear2dOp>) {
+      input = adaptor.getSelf();
+    } else {
+      input = adaptor.getInput();
+    }
     RankedTensorType resultType = cast<RankedTensorType>(
-        getTypeConverter()->convertType(op.getResult().getType()));
+        OpConversionPattern<OP>::getTypeConverter()->convertType(
+            op.getResult().getType()));
 
     // TODO: if result have dynamic shape, should lowering to target_mode=scale
     if (!resultType.hasStaticShape())
@@ -1198,6 +1252,15 @@ public:
   matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getSelf();
+
+    SmallVector<Value> bufferArgs;
+    if constexpr (std::is_same_v<AtenOpT, AtenCopysignTensorOp> ||
+                  std::is_same_v<AtenOpT, AtenLdexpTensorOp>) {
+      bufferArgs.push_back(adaptor.getSelf());
+      bufferArgs.push_back(adaptor.getOther());
+    } else {
+      bufferArgs.push_back(adaptor.getSelf());
+    }
     Type resultType =
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
             op.getResult().getType());
@@ -1213,7 +1276,7 @@ public:
                        rewriter.getDictionaryAttr(byteir_attrs));
 
     auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
-        op->getLoc(), TypeRange{resultType}, ValueRange{input},
+        op->getLoc(), TypeRange{resultType}, bufferArgs,
         ArrayRef<NamedAttribute>(attrs));
     rewriter.replaceOp(op, customCallOp->getResults());
     return success();
@@ -1324,8 +1387,13 @@ public:
       target.addIllegalOp<AtenUpsampleNearest2dVecOp>();
       patterns.add<ConvertAtenUpsampleNearest2dOp<AtenUpsampleNearest2dVecOp>>(
           typeConverter, context);
+      target.addIllegalOp<AtenUpsampleBilinear2dOp>();
+      patterns.add<ConvertAtenUpsampleBilinear2dOp<AtenUpsampleBilinear2dOp>>(
+          typeConverter, context);
       target.addIllegalOp<AtenUpsampleBilinear2dVecOp>();
-      patterns.add<ConvertAtenUpsampleBilinear2dVecOp>(typeConverter, context);
+      patterns
+          .add<ConvertAtenUpsampleBilinear2dOp<AtenUpsampleBilinear2dVecOp>>(
+              typeConverter, context);
     }
 
     populateMathToCustomCallPattern(target, typeConverter, patterns,
@@ -1337,11 +1405,12 @@ public:
     patterns.add<ConvertDynamicMaskStitchCustomOp>(typeConverter, context);
 
     target.addIllegalOp<OperatorOp>();
-    patterns.add<ConvertByteIRL2NormOp>(typeConverter, context);
-    patterns.add<ConvertFlashAttnFwdOp>(typeConverter, context);
-    patterns.add<ConvertFlashAttnBwdOp>(typeConverter, context);
-    patterns.add<ConvertFlashAttnKVCacheOp>(typeConverter, context);
-    patterns.add<ConvertTritonOp>(typeConverter, context);
+    patterns.add<ConvertByteIRL2NormOp>(typeConverter, context, 1000);
+    patterns.add<ConvertFlashAttnFwdOp>(typeConverter, context, 1000);
+    patterns.add<ConvertFlashAttnBwdOp>(typeConverter, context, 1000);
+    patterns.add<ConvertFlashAttnKVCacheOp>(typeConverter, context, 1000);
+    patterns.add<ConvertGenericCustomOp>(typeConverter, context, 1,
+                                         validCustomCallOpsSet);
 
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns)))) {

@@ -287,7 +287,7 @@ def test_resize_nearest():
     model = torch.jit.trace(UpsampleNearest2dModule1(), inputs)
     custom_test_helper(model, inputs, "byteir.resize")
 
-class UpsampleBilinear2dModule(torch.nn.Module):
+class UpsampleBilinear2dVecModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
     
@@ -298,10 +298,10 @@ class UpsampleBilinear2dModule(torch.nn.Module):
 @pytest.mark.mhlo_tools
 def test_resize_bilinear():
     inputs = [tu.randn(3, 3, 10, 20)]
-    model = torch.jit.trace(UpsampleBilinear2dModule(), inputs)
+    model = torch.jit.trace(UpsampleBilinear2dVecModule(), inputs)
     custom_test_helper(model, inputs, "byteir.resize")
 
-class UpsampleBilinear2dModule1(torch.nn.Module):
+class UpsampleBilinear2dVecModule1(torch.nn.Module):
     def __init__(self):
         super().__init__()
     
@@ -312,7 +312,21 @@ class UpsampleBilinear2dModule1(torch.nn.Module):
 @pytest.mark.mhlo_tools
 def test_resize_bilinear_half_pixel():
     inputs = [tu.randn(3, 3, 10, 20)]
-    model = torch.jit.trace(UpsampleBilinear2dModule1(), inputs)
+    model = torch.jit.trace(UpsampleBilinear2dVecModule1(), inputs)
+    custom_test_helper(model, inputs, "byteir.resize")
+
+class UpsampleBilinear2dModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        #FIXME: use torch.nn.interpolate to avoid torch.jit.trace
+        return torch.ops.aten.upsample_bilinear2d(x, (11, 25), True, None, None)
+
+@pytest.mark.mhlo_tools
+def test_resize_bilinear_1():
+    inputs = [tu.randn(3, 3, 10, 20)]
+    model = torch.jit.trace(UpsampleBilinear2dModule(), inputs)
     custom_test_helper(model, inputs, "byteir.resize")
 
 # ==============================================================================

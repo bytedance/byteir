@@ -24,6 +24,7 @@
 #include "torch-frontend/Transforms/Passes.h"
 #include "torch-mlir/Conversion/TorchToArith/TorchToArith.h"
 #include "torch-mlir/Conversion/TorchToStablehlo/TorchToStablehlo.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
 using namespace mlir;
@@ -99,7 +100,7 @@ void mlir::torch_frontend::createTorchscriptToTorchPipeline(
 
 void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
     OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
-  // remove useless ops
+  // Remove useless ops
   pm.addNestedPass<func::FuncOp>(createEliminateUselessOpPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
@@ -120,4 +121,28 @@ void mlir::torch_frontend::createTorchFunctionToTorchPipeline(
   pm.addPass(Torch::createLowerToBackendContractPass(
       options.maxIterations, options.decompose, options.shapeDtypeRefine,
       options.backendLegalOps, options.extraLibrary));
+}
+
+void mlir::torch_frontend::createTorchDynamoExportToTorchPipeline(
+    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+  // Remove useless ops
+  pm.addNestedPass<func::FuncOp>(createEliminateUselessOpPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
+  // Rewrite custum ops to Torch.CustomOp
+  pm.addNestedPass<func::FuncOp>(createRewriteCustomOp());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
+  // Fuse Torch Ops
+  pm.addPass(createCSEPass());
+  pm.addNestedPass<func::FuncOp>(createFuseOpOnTorch({}));
+
+  pm.addNestedPass<func::FuncOp>(
+      Torch::createReduceOpVariantsPass(options.extraLibrary));
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  if (options.decompose) {
+    pm.addNestedPass<func::FuncOp>(
+        Torch::createDecomposeComplexOpsPass(options.backendLegalOps));
+    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  }
 }

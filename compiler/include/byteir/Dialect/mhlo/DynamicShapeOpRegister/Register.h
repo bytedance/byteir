@@ -39,6 +39,7 @@ void registerTorchIndexSelectInferReturnTypeComponents();
 void registerGeLUInferReturnTypeComponents();
 void registerLayerNormInferReturnTypeComponents();
 void registerBatchMatMulInferReturnTypeComponents();
+void registerStridedSliceInferReturnTypeComponents();
 
 inline void registerAllMhloInferReturnTypeComponents() {
   registerConvolutionInferReturnTypeComponents();
@@ -55,6 +56,7 @@ inline void registerAllMhloInferReturnTypeComponents() {
   registerGeLUInferReturnTypeComponents();
   registerLayerNormInferReturnTypeComponents();
   registerBatchMatMulInferReturnTypeComponents();
+  registerStridedSliceInferReturnTypeComponents();
 }
 
 //===----------------------------------------------------------------------===//
@@ -84,6 +86,7 @@ void registerDynamicBroadcastInDimReifyReturnTypeShapes();
 void registerSoftmaxReifyReturnTypeShapes();
 void registerTorchIndexSelectReifyReturnTypeShapes();
 void registerGeLUReifyReturnTypeShapes();
+void registerStridedSliceReifyReturnTypeShapes();
 
 inline void registerAllMhloReifyReturnTypeShapes() {
   registerDotReifyReturnTypeShapes();
@@ -93,6 +96,7 @@ inline void registerAllMhloReifyReturnTypeShapes() {
   registerSoftmaxReifyReturnTypeShapes();
   registerTorchIndexSelectReifyReturnTypeShapes();
   registerGeLUReifyReturnTypeShapes();
+  registerStridedSliceReifyReturnTypeShapes();
 }
 
 //===----------------------------------------------------------------------===//

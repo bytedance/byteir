@@ -5,6 +5,7 @@ from torch_frontend import compile, MATH_CUSTOM_OPS
 def custom_test_helper(model, inputs, custom_op_name):
     mlir_module = compile(model, inputs, "stablehlo", backend_legal_ops=MATH_CUSTOM_OPS)
     mlir_str = mlir_module.operation.get_asm()
+    print(mlir_str)
     compare_str = "stablehlo.custom_call @{}".format(custom_op_name)
     assert compare_str in mlir_str
 
@@ -32,7 +33,7 @@ class CopysignModule(torch.nn.Module):
     def forward(self, x, y):
         return torch.copysign(x, y)
 
-def test_exp2():
+def test_copysign():
     custom_test_helper(CopysignModule(), [torch.rand(3, 4), torch.rand(3, 4)], "math.copysign")
 
 # ==============================================================================
