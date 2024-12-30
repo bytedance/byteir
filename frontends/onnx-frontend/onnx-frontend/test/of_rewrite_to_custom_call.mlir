@@ -144,7 +144,7 @@ func.func @test_layer_norm_without_last_muladd(%arg0: tensor<1x3xf32>) -> tensor
   %970 = "onnx.Mul"(%969, %526) {onnx_node_name = "Mul_545"} : (tensor<1x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
   // onnx.Add is folded here
   return %970 : tensor<1x3xf32>
-// CHECK-LABEL:  @test_layer_norm_without_last_add(%arg0: tensor<1x3xf32>) -> tensor<1x3xf32> {
+// CHECK-LABEL:  @test_layer_norm_without_last_muladd(%arg0: tensor<1x3xf32>) -> tensor<1x3xf32> {
 // CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
 // CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3xf32>
 // CHECK-NEXT:   %2 = stablehlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
