@@ -1,0 +1,25 @@
+diff --git a/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp b/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp
+index b00edc4a..4454ee76 100644
+--- a/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp
++++ b/src/Dialect/ONNX/ONNXOps/Tensor/Pad.cpp
+@@ -45,9 +45,17 @@ LogicalResult ONNXPadOpShapeHelper::computeShape() {
+   // Calculate output dimension sizes.
+   for (uint64_t i = 0; i < dataRank; i++) {
+     // Get begin/end pads.
+-    SymbolIndexExpr padBegin(createIE->getIntFromArrayAsSymbol(padsOperand, i));
+-    SymbolIndexExpr padEnd(
+-        createIE->getIntFromArrayAsSymbol(padsOperand, i + dataRank));
++    auto padBeginIE = createIE->getIntFromArrayAsSymbol(padsOperand, i);
++    if (padBeginIE.isUndefined()) {
++      return failure();
++    }
++    SymbolIndexExpr padBegin(padBeginIE);
++    auto padEndIE =
++        createIE->getIntFromArrayAsSymbol(padsOperand, i + dataRank);
++    if (padEndIE.isUndefined()) {
++      return failure();
++    }
++    SymbolIndexExpr padEnd(padEndIE);
+     if (padBegin.isUndefined() || padEnd.isUndefined())
+       return op->emitError("pad parameter could not be processed");
+     // Get input dim.

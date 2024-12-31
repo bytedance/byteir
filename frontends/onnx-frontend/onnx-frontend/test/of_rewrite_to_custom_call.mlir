@@ -128,6 +128,31 @@ func.func @test_layer_norm_without_last_add(%arg0: tensor<1x3xf32>) -> tensor<1x
 
 // -----
 
+func.func @test_layer_norm_without_last_muladd(%arg0: tensor<1x3xf32>) -> tensor<1x3xf32> {
+  %550 = "onnx.Constant"() {value = dense<2.000000e+00> : tensor<f32>} : () -> tensor<f32>
+  %551 = "onnx.Constant"() {value = dense<9.99999974E-6> : tensor<f32>} : () -> tensor<f32>
+  %526 = "onnx.Constant"() {value = dense<[0.15, 0.2, 0.25]> : tensor<3xf32>} : () -> tensor<3xf32>
+  %c1 = onnx.Constant dense<-1> : tensor<1xi64>
+  %c2 = onnx.Constant dense<-1> : tensor<1xi64>
+  %963 = "onnx.ReduceMean"(%arg0, %c1) : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<1x1xf32>
+  %964 = "onnx.Sub"(%arg0, %963) {onnx_node_name = "Sub_537"} : (tensor<1x3xf32>, tensor<1x1xf32>) -> tensor<1x3xf32>
+  %965 = "onnx.Mul"(%964, %964) : (tensor<1x3xf32>, tensor<1x3xf32>) -> tensor<1x3xf32>
+  %966 = "onnx.ReduceMean"(%965, %c2) : (tensor<1x3xf32>, tensor<1xi64>) -> tensor<1x1xf32>
+  %967 = "onnx.Add"(%966, %551) {onnx_node_name = "Add_542"} : (tensor<1x1xf32>, tensor<f32>) -> tensor<1x1xf32>
+  %968 = "onnx.Sqrt"(%967) {onnx_node_name = "Sqrt_543"} : (tensor<1x1xf32>) -> tensor<1x1xf32>
+  %969 = "onnx.Div"(%964, %968) {onnx_node_name = "Div_544"} : (tensor<1x3xf32>, tensor<1x1xf32>) -> tensor<1x3xf32>
+  %970 = "onnx.Mul"(%969, %526) {onnx_node_name = "Mul_545"} : (tensor<1x3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
+  // onnx.Add is folded here
+  return %970 : tensor<1x3xf32>
+// CHECK-LABEL:  @test_layer_norm_without_last_muladd(%arg0: tensor<1x3xf32>) -> tensor<1x3xf32> {
+// CHECK-DAG:    [[VAR_0_:%.+]] = onnx.Constant dense<[1.500000e-01, 2.000000e-01, 2.500000e-01]> : tensor<3xf32>
+// CHECK-DAG:    [[VAR_1_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3xf32>
+// CHECK-NEXT:   %2 = stablehlo.custom_call @byteir.layer_norm(%arg0, [[VAR_0_]], [[VAR_1_]]) {byteir_attrs = {axis = [1], epsilon = 9.9999997473787516E-6 : f64}} : (tensor<1x3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3xf32>
+// CHECK-NEXT:   return %2 : tensor<1x3xf32>
+}
+
+// -----
+
 func.func @test_layer_norm_squeeze(%arg0: tensor<2x4x3xf32>) -> tensor<2x4x3xf32> {
   %c1 = onnx.Constant dense<-1> : tensor<1xi64>
   %c2 = onnx.Constant dense<-1> : tensor<1xi64>
