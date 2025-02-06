@@ -61,10 +61,10 @@ struct ConvertScatterToInsertSlice
     }
     auto constSiVal = constSiOp.getValue();
     if (auto denseSi = dyn_cast<DenseElementsAttr>(constSiVal)) {
-      auto siVal = denseSi.getValues<int64_t>();
+      auto siVal = denseSi.getValues<APInt>();
       if (siVal.size() > 1) {
-        int64_t step = siVal[1] - siVal[0];
-        for (int64_t i = 2; i < siVal.size(); ++i) {
+        auto step = siVal[1] - siVal[0];
+        for (size_t i = 2; i < siVal.size(); ++i) {
           if (siVal[i] - siVal[0] != i * step) {
             return failure();
           }
