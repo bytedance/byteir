@@ -54,6 +54,24 @@ struct ConvertScatterToInsertSlice
       return failure();
     }
 
+    // validate scatter indices, only support SliceScatter-liked op.
+    auto constSiOp = op.getScatterIndices().getDefiningOp<mhlo::ConstantOp>();
+    if (!constSiOp) {
+      return failure();
+    }
+    auto constSiVal = constSiOp.getValue();
+    if (auto denseSi = dyn_cast<DenseElementsAttr>(constSiVal)) {
+      auto siVal = denseSi.getValues<APInt>();
+      if (siVal.size() > 1) {
+        auto step = siVal[1] - siVal[0];
+        for (size_t i = 2; i < siVal.size(); ++i) {
+          if (siVal[i] - siVal[0] != i * step) {
+            return failure();
+          }
+        }
+      }
+    }
+
     auto inputs = op.getInputs();
     Value input =
         llvm::cast<mlir::TypedValue<mlir::RankedTensorType>>(*inputs.begin());
