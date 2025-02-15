@@ -1,0 +1,16 @@
+diff --git a/src/Dialect/ONNX/Rewrite.cpp b/src/Dialect/ONNX/Rewrite.cpp
+index 4c070dbf..43729bfd 100644
+--- a/src/Dialect/ONNX/Rewrite.cpp
++++ b/src/Dialect/ONNX/Rewrite.cpp
+@@ -511,6 +511,11 @@ struct PropagateConstantScalingInAttentionLayerPattern
+     if (!onnxMatMulOp)
+       return rewriter.notifyMatchFailure(genericOp,
+           "The first operand of Div/Mul is not produced by MatMulOp");
++
++    if (!lhsOMOp.hasOneUse())
++      return rewriter.notifyMatchFailure(genericOp,
++          "The value of the first operand of Div/Mul has multi uses");
++
+     Value lhs = onnxMatMulOp.getA();
+     Value rhs = onnxMatMulOp.getB();
+     // The second operand of Div/Mul is a scalar constant.
