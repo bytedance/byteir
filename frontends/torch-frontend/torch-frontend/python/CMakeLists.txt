@@ -37,6 +37,9 @@ declare_mlir_python_sources(TorchFrontendPythonSources.TopLevel
     tools/compiler.py
     tools/gen_extra_library.py
     tools/extra_fn.mlir
+
+    utils/__init__.py
+    utils/jit_transforms.py
 )
 
 ################################################################################
