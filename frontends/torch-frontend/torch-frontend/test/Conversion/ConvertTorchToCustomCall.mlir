@@ -158,6 +158,18 @@ func.func @torch.aten.topk(%arg0: !torch.vtensor<[3,10],f32>) -> (!torch.vtensor
 // CHECK: byteir_attrs = {axis = [1], k = 3 : i64, sorted = true}
 // CHECH-NOT: torch.aten.topk
 
+func.func @torch.aten.sort(%arg0: !torch.vtensor<[3,10],f32>) -> (!torch.vtensor<[3,10],f32>, !torch.vtensor<[3,10],si64>) {
+  %int1 = torch.constant.int 1
+  %true = torch.constant.bool true
+  %values, %indices = torch.aten.sort %arg0, %int1, %true : !torch.vtensor<[3,10],f32>, !torch.int, !torch.bool -> !torch.vtensor<[3,10],f32>, !torch.vtensor<[3,10],si64>
+  return %values, %indices : !torch.vtensor<[3,10],f32>, !torch.vtensor<[3,10],si64>
+}
+// CHECK-LABEL: func.func @torch.aten.sort
+// CHECK: stablehlo.custom_call
+// CHECK-SAME: @byteir.top_k
+// CHECK: byteir_attrs = {axis = [1], k = 10 : i64, sorted = true}
+// CHECH-NOT: torch.aten.sort
+
 func.func @torch.custom.dynamic_partition(%arg0: !torch.vtensor<[10,5],f32>, %arg1: !torch.vtensor<[10],si64>) -> (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>) {
   %value0, %value1 = "torch.custom_op"(%arg0, %arg1) {custom_op_attrs = {num_partitions = 2 : i64}, custom_op_name = "dynamic_partition"} : (!torch.vtensor<[10,5],f32>, !torch.vtensor<[10],si64>) -> (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>)
   return %value0, %value1 : !torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>

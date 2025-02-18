@@ -150,6 +150,18 @@ def test_topk():
     inputs = [tu.randn(3, 4)]
     custom_test_helper(TopKModule(), inputs, "byteir.top_k")
 
+class SortModule(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        return torch.sort(x, dim=-1, descending=True)
+
+@pytest.mark.mhlo_tools
+def test_sort():
+    inputs = [tu.randn(3, 10)]
+    custom_test_helper(SortModule(), inputs, "byteir.top_k")
+
 # ==============================================================================
 
 class MaxDimModule(torch.nn.Module):
