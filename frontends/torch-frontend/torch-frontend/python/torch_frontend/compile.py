@@ -61,7 +61,7 @@ CUSTOM_OP_MAP = {
     "byteir.arg_max": ["aten.max.dim"],
     "byteir.arg_min": ["aten.min.dim"],
     "byteir.one_hot": ["aten.one_hot"],
-    "byteir.topk": ["aten.topk"],
+    "byteir.topk": ["aten.topk", "aten.sort"],
     "byteir.non_zero": ["aten.nonzero"],
     "byteir.resize": ["aten.upsample_nearest2d.vec"],
     # math custom ops

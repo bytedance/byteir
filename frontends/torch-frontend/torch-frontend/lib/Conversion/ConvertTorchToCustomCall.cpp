@@ -521,8 +521,8 @@ public:
 };
 } // namespace
 
-// torch.aten.topk
 namespace {
+// aten.topk => byteir.top_k
 class ConvertAtenTopkOp : public OpConversionPattern<AtenTopkOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -570,6 +570,65 @@ public:
                               rewriter.getI64ArrayAttr({dim}));
     byteir_attrs.emplace_back(rewriter.getStringAttr("sorted"),
                               rewriter.getBoolAttr(sorted));
+
+    auto attrs = getDefaultAttrs(rewriter);
+    attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
+                       rewriter.getStringAttr(getTopKName()));
+    attrs.emplace_back(rewriter.getStringAttr(getCustomCallAttrName()),
+                       rewriter.getDictionaryAttr(byteir_attrs));
+
+    auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
+        op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>(attrs));
+    rewriter.replaceOp(op, customCallOp->getResults());
+    return success();
+  }
+};
+
+// aten.sort => byteir.top_k
+class ConvertAtenSortOp : public OpConversionPattern<AtenSortOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(AtenSortOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getSelf();
+    auto inputType = cast<RankedTensorType>(input.getType());
+    SmallVector<Value> bufferArgs({input});
+    SmallVector<Type> resultTypes;
+    if (failed(getTypeConverter()->convertTypes(op.getResultTypes(),
+                                                resultTypes))) {
+      return op.emitError("could not convert output types");
+    }
+    int64_t dim;
+    if (!matchPattern(op.getDim(), m_TorchConstantInt(&dim))) {
+      return rewriter.notifyMatchFailure(op, "unimplemented: "
+                                             "dim is not constant int");
+    }
+    dim = toPositiveDim(dim, inputType.getRank());
+    if (!isValidDim(dim, inputType.getRank())) {
+      return rewriter.notifyMatchFailure(op, "invalid dim detected");
+    }
+    bool descending;
+    if (!matchPattern(op.getDescending(), m_TorchConstantBool(&descending))) {
+      return rewriter.notifyMatchFailure(op, "unimplemented: "
+                                             "descending is not constant bool");
+    }
+    if (descending == false) {
+      return rewriter.notifyMatchFailure(op,
+                                         "unsupported: descending == false");
+    }
+    int64_t k = inputType.getDimSize(dim);
+    if (k == ShapedType::kDynamic) {
+      return rewriter.notifyMatchFailure(op, "sorted dim must be static");
+    }
+
+    std::vector<NamedAttribute> byteir_attrs;
+    byteir_attrs.emplace_back(rewriter.getStringAttr("k"),
+                              rewriter.getI64IntegerAttr(k));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("axis"),
+                              rewriter.getI64ArrayAttr({dim}));
+    byteir_attrs.emplace_back(rewriter.getStringAttr("sorted"),
+                              rewriter.getBoolAttr(true));
 
     auto attrs = getDefaultAttrs(rewriter);
     attrs.emplace_back(rewriter.getStringAttr("call_target_name"),
@@ -1375,6 +1434,8 @@ public:
     if (validCustomCallOpsSet.contains("byteir.topk")) {
       target.addIllegalOp<AtenTopkOp>();
       patterns.add<ConvertAtenTopkOp>(typeConverter, context);
+      target.addIllegalOp<AtenSortOp>();
+      patterns.add<ConvertAtenSortOp>(typeConverter, context);
     }
     if (validCustomCallOpsSet.contains("byteir.non_zero")) {
       target.addIllegalOp<AtenNonzeroOp>();
