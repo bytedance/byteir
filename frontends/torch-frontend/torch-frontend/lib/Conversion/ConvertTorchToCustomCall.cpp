@@ -613,10 +613,6 @@ public:
       return rewriter.notifyMatchFailure(op, "unimplemented: "
                                              "descending is not constant bool");
     }
-    if (descending == false) {
-      return rewriter.notifyMatchFailure(op,
-                                         "unsupported: descending == false");
-    }
     int64_t k = inputType.getDimSize(dim);
     if (k == ShapedType::kDynamic) {
       return rewriter.notifyMatchFailure(op, "sorted dim must be static");
@@ -638,7 +634,18 @@ public:
 
     auto customCallOp = rewriter.create<stablehlo::CustomCallOp>(
         op->getLoc(), resultTypes, bufferArgs, ArrayRef<NamedAttribute>(attrs));
-    rewriter.replaceOp(op, customCallOp->getResults());
+    Value values = customCallOp->getResults()[0];
+    Value indices = customCallOp->getResults()[1];
+    if (descending == false) {
+      values = rewriter.create<stablehlo::ReverseOp>(
+          op->getLoc(), values.getType(), values,
+          rewriter.getDenseI64ArrayAttr({dim}));
+      indices = rewriter.create<stablehlo::ReverseOp>(
+          op->getLoc(), indices.getType(), indices,
+          rewriter.getDenseI64ArrayAttr({dim}));
+    }
+    rewriter.replaceOp(op, {values, indices});
+
     return success();
   }
 };
