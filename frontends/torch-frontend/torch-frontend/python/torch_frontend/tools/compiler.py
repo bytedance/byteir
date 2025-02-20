@@ -80,6 +80,9 @@ def compile_torchscript(args):
         sample_inputs_placeholder.append(TensorPlaceholder(shape, dtype_str_to_torch_dtype(dtype)))
 
     ts_model = torch.jit.load(args.model_path, map_location="cpu")
+    if args.enable_jit_rewrite:
+      torch_frontend.utils.replace_copy_fill_with_slice_scatter(ts_model.graph)
+
     module = torch_frontend.compile(ts_model, sample_inputs_placeholder, args.output_type, verbose=args.verbose, debug=torch_frontend.DebugType(1))
     if len(args.output_file_path) != 0:
       with open(args.output_file_path, "w") as f:
@@ -102,6 +105,7 @@ def main():
     parser.add_argument("--output_type", type=str, default="stablehlo", choices=["raw", "torch", "stablehlo"])
     parser.add_argument("--elide", default=False, action="store_true")
     parser.add_argument("--verbose", default=False, action="store_true")
+    parser.add_argument("--enable_jit_rewrite", default=False, action="store_true")
     parser.add_argument(
         "--input_name_and_shapes",
         nargs="+",
