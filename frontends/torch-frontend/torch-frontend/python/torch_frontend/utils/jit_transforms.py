@@ -44,11 +44,10 @@ def _nslice_slice_or_select_copy(graph, pattern):
         )
     else:
         # for select + copy_
-        zero = graph.insertConstant(0)
         one = graph.insertConstant(1)
         end = graph.create("aten::add", [start, one], 1)
         end.output().setType(torch._C.IntType.get())
-        unsqueeze = graph.create("aten::unsqueeze", [sc_input2, zero], 1)
+        unsqueeze = graph.create("aten::unsqueeze", [sc_input2, dim], 1)
         slice_scatter = graph.create(
             "aten::slice_scatter",
             [sc_input1, unsqueeze.output(), dim, start, end.output(), one],
@@ -91,19 +90,24 @@ def _nslice_slice_or_select_fill(graph, pattern):
     sc_input1 = pattern[0].inputsAt(0)
 
     # build src.
+    one = graph.insertConstant(1)
     none = graph.insertConstant(None)
     zeros = graph.create(
         "aten::zeros_like", [sc_input1, none, none, none, none, none], 1
     )
+
+    fill = pattern[-1]
+    value = fill.inputsAt(1)
+    fill_value = graph.create("aten::add", [zeros.output(), value, one], 1)
+
     target_dim = pattern[-2].inputsAt(1)
     start = pattern[-2].inputsAt(2)
-    one = graph.insertConstant(1)
     # for slice + fill_
     if pattern[-2].kind() == "aten::slice":
         end = pattern[-2].inputsAt(3)
         step = pattern[-2].inputsAt(4)
         sc_input2 = graph.create(
-            "aten::slice", [zeros.output(), target_dim, start, end, step], 1
+            "aten::slice", [fill_value.output(), target_dim, start, end, step], 1
         )
         slice_scatter = graph.create(
             "aten::slice_scatter",
@@ -115,7 +119,9 @@ def _nslice_slice_or_select_fill(graph, pattern):
         end = graph.create("aten::add", [start, one], 1)
         end.output().setType(torch._C.IntType.get())
         sc_input2 = graph.create(
-            "aten::slice", [zeros.output(), target_dim, start, end.output(), one], 1
+            "aten::slice",
+            [fill_value.output(), target_dim, start, end.output(), one],
+            1,
         )
         slice_scatter = graph.create(
             "aten::slice_scatter",
@@ -125,8 +131,10 @@ def _nslice_slice_or_select_fill(graph, pattern):
         graph.insertNode(end)
 
     graph.insertNode(zeros)
+    graph.insertNode(fill_value)
     graph.insertNode(sc_input2)
     graph.insertNode(slice_scatter)
+
     graph.lint()
 
     return slice_scatter, graph
@@ -269,7 +277,8 @@ def replace_copy_fill_with_slice_scatter(graph):
                         user.replaceInput(idx, slice_scatter.output())
 
         for old_node in reversed(pattern):
-            old_node.destroy()
+            if len(old_node.output().uses()) == 0:
+                old_node.destroy()
         graph.lint()
 
     # 2. do rewrite.
