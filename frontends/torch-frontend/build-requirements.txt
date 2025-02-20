@@ -26,4 +26,5 @@ setuptools
 cmake
 pyyaml
 packaging
+lit
 

@@ -34,6 +34,7 @@ def get_torch_frontend_version_and_generate_versoin_file(input_version_txt_path,
     return torch_frontend_ver
 
 TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER = check_env_flag("TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER", True)
+TORCH_FRONTEND_BUILD_DIR = os.getenv("TORCH_FRONTEND_BUILD_DIR", "build").split('/')[-1]
 
 setup_path = os.path.abspath(os.path.dirname(__file__))
 root_path = os.path.abspath(setup_path + "/../../")
@@ -80,7 +81,7 @@ class CustomBuild(build_ext):
   def build_torch_frontend(self):
     python_package_dir = os.path.join(
       root_path,
-      "build",
+      TORCH_FRONTEND_BUILD_DIR,
       "python_packages",
       "torch_frontend",
     )
@@ -94,7 +95,7 @@ class CustomBuild(build_ext):
   def build_torch_mlir(self):
     python_package_dir = os.path.join(
       root_path,
-      "build",
+      TORCH_FRONTEND_BUILD_DIR,
       "torch_mlir_build",
       "python_packages",
       "torch_mlir",
