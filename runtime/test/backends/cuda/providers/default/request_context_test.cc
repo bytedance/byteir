@@ -15,6 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "brt/backends/cpu/providers/default/cpu_provider.h"
+#include "brt/backends/cuda/device/common/cuda_call.h"
 #include "brt/backends/cuda/device/cuda_allocator.h"
 #include "brt/backends/cuda/device/cuda_device_api.h"
 #include "brt/backends/cuda/providers/default/cuda_provider.h"
@@ -432,4 +434,75 @@ TEST(CUDARequestContextTest, WeightSetting) {
   // dealloc
   cudaFree(d_weight_0);
   cudaFree(d_arg_0);
+}
+
+TEST(SessionTest, GPUDynamicShape) {
+  Session session;
+  int device_id;
+  BRT_CUDA_CHECK(cudaGetDevice(&device_id));
+  session.SetExecDevice(DeviceType::CUDA, device_id);
+  session.AddDeviceAPI(DeviceType::CUDA, GetCudaDeviceAPI());
+  auto status_cpu_allocator = CPUAllocatorFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cpu_allocator);
+  auto status_cuda_allocator = CUDAAllocatorFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cuda_allocator);
+  auto status_cpu = NaiveCPUExecutionProviderFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cpu);
+  auto status_cuda = DefaultCUDAExecutionProviderFactory(&session);
+  BRT_TEST_CHECK_STATUS(status_cuda);
+
+  std::string file_name = "test/test_files/DynamicShapes/MLP/entry.mlir";
+  auto status_load = session.Load(file_name, "byre");
+  BRT_TEST_CHECK_STATUS(status_load);
+
+  std::unique_ptr<RequestContext> request;
+  auto status_request = session.NewRequestContext(&request);
+  std::srand(std::time(0));
+  BRT_TEST_CHECK_STATUS(status_request);
+  for (size_t t = 0; t < 10; ++t) {
+    int64_t N = 1024 - t;
+    // arg 0 & 1 is weight
+    // add weight offset in SetShape & SetType & GetShape ..
+    BRT_TEST_CHECK_STATUS(request->SetShape(2, {N, 10}));
+    BRT_TEST_CHECK_STATUS(request->SetShape(3, {N, 20}));
+    BRT_TEST_CHECK_STATUS(request->SetShape(4, {N, 20}));
+
+    request->FinishIOBinding();
+    // subtract the weight offset.
+    // TODO: refine this APIs to unify the input(SetShape/GetArg...)
+    float *i0 = static_cast<float *>(request->GetArg(0)),
+          *i1 = static_cast<float *>(request->GetArg(1)),
+          *o0 = static_cast<float *>(request->GetArg(2));
+
+    // float i_val_0 = rand() % 10 / 10.0 - 0.5;
+    // float i_val_1 = rand() % 10 / 10.0 - 0.5;
+    // float w_val_0 = rand() % 10 / 10.0 - 0.5;
+    // float w_val_1 = rand() % 10 / 10.0 - 0.5;
+    float i_val_0 = rand() % 10 - 5;
+    float i_val_1 = rand() % 10 - 5;
+    float w_val_0 = rand() % 10 - 5;
+    float w_val_1 = rand() % 10 - 5;
+
+    // weight offset = idx + io_cnt
+    float *w0 = static_cast<float *>(request->GetArg(3));
+    float *w1 = static_cast<float *>(request->GetArg(4));
+
+    AssignCUDABuffer(i0, N * 10, i_val_0);
+    AssignCUDABuffer(i1, N * 20, i_val_1);
+    AssignCUDABuffer(w0, 10 * 20, w_val_0);
+    AssignCUDABuffer(w1, 20, w_val_1);
+
+    auto status_run = session.Run(*request);
+    BRT_TEST_CHECK_STATUS(status_run);
+    auto status_sync = request->Sync();
+    BRT_TEST_CHECK_STATUS(status_sync);
+
+    float result = w_val_0 * 10 * i_val_0 + w_val_1;
+    if (result < 0)
+      result = 0;
+    // llvm::outs() << "relu = " << result << ", ";
+    result += i_val_1;
+    // llvm::outs() << "result = " << result << "\n";
+    CheckResult(o0, N * 20, result);
+  }
 }

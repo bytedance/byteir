@@ -143,6 +143,7 @@ using CurandOpKernelIfaceTraits =
  *   struct ConcreateOpImpl {
  *     ConcreateOpImpl(const OpAccessor&);
  *     void Execute(args..., cudaStream_t);
+ *     optional<void ProluguePerExecute(const OpAccessor&)>;
  *   };
  *   using ConcreteOp = CudaOpKernel<ConcreateOpImpl, Arguments...>;
  */
@@ -153,6 +154,7 @@ BRT_DEF_OP_KERNEL_WRPPER(CudaOpKernel,
  *   struct ConcreateOpImpl {
  *     ConcreateOpImpl(const OpAccessor&);
  *     void Execute(args..., cublasHandle_t, cudaStream_t);
+ *     optional<void ProluguePerExecute(const OpAccessor&)>;
  *   };
  *   using ConcreteOp = CublasOpKernel<ConcreateOpImpl, Arguments...>;
  */
@@ -163,6 +165,7 @@ BRT_DEF_OP_KERNEL_WRPPER(CublasOpKernel,
  *   struct ConcreateOpImpl {
  *     ConcreateOpImpl(const OpAccessor&);
  *     void Execute(args..., cudnnHandle_t, cudaStream_t);
+ *     optional<void ProluguePerExecute(const OpAccessor&)>;
  *   };
  *   using ConcreteOp = CudnnOpKernel<ConcreateOpImpl, Arguments...>;
  */
@@ -173,6 +176,7 @@ BRT_DEF_OP_KERNEL_WRPPER(CudnnOpKernel,
  *   struct ConcreateOpImpl {
  *     ConcreateOpImpl(const OpAccessor&);
  *     void Execute(args..., void* workspace, cudaStream_t);
+ *     optional<void ProluguePerExecute(const OpAccessor&)>;
  *     size_t GetWorkspaceSize(const ExecutionContext &);
  *   };
  *   using ConcreteOp = CudaOpKernelWithWorkspace<ConcreateOpImpl, Arguments...>;
