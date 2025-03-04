@@ -31,6 +31,8 @@ template <typename T> class MatmulImpl {
 public:
   explicit MatmulImpl(const OpAccessor &accessor);
 
+  void ProloguePerExecute(const OpAccessor &);
+
   void Execute(const T *a_val, const T *b_val, T *c_val, cublasHandle_t handle,
                cudaStream_t stream);
 
