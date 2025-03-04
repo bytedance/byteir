@@ -699,4 +699,91 @@ void StaticBRTExecutionPlan::IterateOpKernels(
   }
 }
 
+MultiStreamExecutionPlan::MultiStreamExecutionPlan(ByREHandle &graph)
+    : StaticBRTExecutionPlan(graph) {}
+
+void MultiStreamExecutionPlan::PartitionOpKernels(PartitionGraphMethod method) {
+  int64_t max_stream_id_ = 0;
+  for (auto kernel : compute_op_kernels_) {
+    int stream_id = method(kernel);
+    max_stream_id_ = std::max(max_stream_id_, stream_id);
+    kernel_stream_map_[kernel] = stream_id;
+  }
+
+  num_streams_ = max_stream_id_ + 1;
+  logical_streams_.resize(num_streams_);
+  cuda_streams_.resize(num_streams_);
+
+  for (auto kernel : compute_op_kernels_) {
+    int stream_id = kernel_stream_map_[kernel];
+    logical_streams_[stream_id].push_back(kernel);
+  }
+
+  for (int i = 0; i < num_streams_; ++i) {
+    cudaStreamCreate(&cuda_streams_[i]);
+  }
+}
+
+void MultiStreamExecutionPlan::AnalyzeStreamDependency() {
+  for (int i = 0; i < num_streams_; ++i) {
+    for (auto kernel : logical_streams_[i]) {
+      for (auto dep_index : kernel->GetDependencyList()) {
+        auto dep_kernel = op_kernels_[dep_index];
+        int dep_stream_id = kernel_stream_map_[dep_kernel];
+        if (dep_stream_id != i) {
+          if (kernel_to_event_index.find(dep_kernel) ==
+              kernel_to_event_index.end()) {
+            kernel_to_event_index[dep_kernel] = event_list.size();
+            event_list.push_back(cudaEvent_t());
+          }
+          if (kernel_to_wait_events.find(kernel) ==
+              kernel_to_wait_events.end()) {
+            kernel_to_wait_events[kernel] = {};
+          }
+          kernel_to_wait_events[kernel].push_back(
+              kernel_to_event_index[dep_kernel]);
+        }
+      }
+    }
+  }
+}
+
+void MultiStreamExecutionPlan::Run(const ExecutionContext &context) {
+  context.event_listener_manager->SignalEvent<Events::BeforeExecutionPlanRun>(
+      {});
+
+  std::vector<ExecutionContext> stream_contexts(num_streams_, context);
+  for (int i = 0; i < num_streams_; ++i) {
+    stream_contexts[i].stream = cuda_streams_[i];
+  }
+
+  for (auto op : shape_op_kernels_) {
+    common::Status status = op->Run(context);
+    if (!status.IsOK()) {
+      return status;
+    }
+  }
+
+  for (auto op : compute_op_kernels_) {
+    int stream_id = kernel_stream_map_[op];
+    if (kernel_to_wait_events.find(op) != kernel_to_wait_events.end()) {
+      for (auto event_index : kernel_to_wait_events[op]) {
+        cudaStreamWaitEvent(cuda_streams_[stream_id], event_list[event_index],
+                            0);
+      }
+    }
+    common::Status status = op->Run(stream_contexts[stream_id]);
+    if (!status.IsOK()) {
+      return status;
+    }
+    if (kernel_to_event_index.find(op) != kernel_to_event_index.end()) {
+      cudaEventCreate(&event_list[kernel_to_event_index[op]]);
+      cudaEventRecord(event_list[kernel_to_event_index[op]],
+                      cuda_streams_[stream_id]);
+    }
+  }
+
+  context.event_listener_manager->SignalEvent<Events::AfterExecutionPlanRun>(
+      {});
+
 } // namespace brt
