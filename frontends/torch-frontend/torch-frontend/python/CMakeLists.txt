@@ -103,6 +103,6 @@ add_mlir_python_modules(TorchFrontendPythonModules
 
 add_custom_target(
   torch_frontend_python_pack
-  COMMAND TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER} ${Python3_EXECUTABLE} "${TORCH_FRONTEND_SRC_ROOT}/torch-frontend/python/setup.py" "bdist_wheel"
+  COMMAND TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER} TORCH_FRONTEND_BUILD_DIR=${CMAKE_BINARY_DIR} ${Python3_EXECUTABLE} "${TORCH_FRONTEND_SRC_ROOT}/torch-frontend/python/setup.py" "bdist_wheel"
   DEPENDS TorchFrontendPythonModules
 )
