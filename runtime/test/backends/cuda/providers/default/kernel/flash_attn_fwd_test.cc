@@ -41,6 +41,22 @@ using namespace brt;
 using namespace brt::cuda;
 using namespace brt::test;
 
+namespace {
+__half abs(__half value) {
+  return __float2half(std::fabs(__half2float(
+      value))); // Convert to float, apply fabs, convert back to __half
+}
+
+std::ostream &operator<<(std::ostream &os, const __half &value) {
+  // convert __half to float and print
+  return os << __half2float(value);
+}
+
+bool operator>(const __half &a, float b) {
+  return __half2float(a) > b; // convert __half to float and compare
+}
+} // namespace
+
 TEST(SM80CUDATestFlashAttnFwd, Basic) {
 
   size_t b = 1;
