@@ -132,6 +132,7 @@ public:
         std::holds_alternative<int64_t>(dimSizeOr)) {
       int64_t index = std::get<int64_t>(indexOr);
       int64_t dimSize = std::get<int64_t>(dimSizeOr);
+      index = (index > dimSize) ? dimSize : index;
       if (reverse) {
         return (index >= 0) ? (dimSize - 1 - index) : (-1 - index);
       } else {
