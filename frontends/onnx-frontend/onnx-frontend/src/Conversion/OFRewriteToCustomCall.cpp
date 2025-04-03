@@ -573,6 +573,16 @@ bool isSplatFPCloseTo(Attribute attr, double value, double eps = 1e-5) {
     return false;
   if (!elementsAttr.isSplat())
     return false;
+
+  auto dtype = elementsAttr.getElementType();
+  auto bitwidth = dtype.getIntOrFloatBitWidth();
+  if (bitwidth <= 8) {
+    eps = std::max(fabs(eps), 1e-2);
+  }
+  else if (bitwidth == 16) {
+    eps = std::max(fabs(eps), 1e-3);
+  }
+
   double diff =
       elementsAttr.getSplatValue<FloatAttr>().getValueAsDouble() - value;
   return fabs(diff) < eps;
