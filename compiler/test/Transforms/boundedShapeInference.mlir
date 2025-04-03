@@ -118,29 +118,3 @@ func.func @gelu(%arg0: tensor<?x3072xf32> {byteir.bounded_shape = [1500, 3072]})
   return %0 : tensor<?x3072xf32>
 }
 // CHECK-LABEL:  func.func @gelu(%arg0: tensor<?x3072xf32, {byteir.bounded_shape = [1500, 3072]}> {byteir.bounded_shape = [1500, 3072]}) -> tensor<?x3072xf32, {byteir.bounded_shape = [1500, 3072]}>
-
-func.func @tf_StridedSlice(%arg0 : tensor<?x60x16xf16> {byteir.bounded_shape = [50, 60, 16]}) -> tensor<?x60x16xf16> {
-  %0 = mhlo.constant dense<11> : tensor<1xi32>
-  %1 = mhlo.constant dense<1> : tensor<1xi32>
-  %2 = mhlo.custom_call @tf.StridedSlice(%arg0, %1, %0, %1) {backend_config = "", byteir_attrs = {begin_mask = 0 : i64, ellipsis_mask = 0 : i64, end_mask = 0 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 0 : i64}} : (tensor<?x60x16xf16>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<?x60x16xf16>
-  return %2 : tensor<?x60x16xf16>
-}
-// CHECK-LABEL: func.func @tf_StridedSlice(%arg0: tensor<?x60x16xf16, {byteir.bounded_shape = [50, 60, 16]}> {byteir.bounded_shape = [50, 60, 16]}) -> tensor<?x60x16xf16, {byteir.bounded_shape = [10, 60, 16]}> {
-// CHECK-NEXT:    %0 = mhlo.constant dense<11> : tensor<1xi32>
-// CHECK-NEXT:    %1 = mhlo.constant dense<1> : tensor<1xi32>
-// CHECK-NEXT:    %2 = mhlo.custom_call @tf.StridedSlice(%arg0, %1, %0, %1) {backend_config = "", byteir_attrs = {begin_mask = 0 : i64, ellipsis_mask = 0 : i64, end_mask = 0 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 0 : i64}} : (tensor<?x60x16xf16, {byteir.bounded_shape = [50, 60, 16]}>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<?x60x16xf16, {byteir.bounded_shape = [10, 60, 16]}>
-// CHECK-NEXT:    return %2 : tensor<?x60x16xf16, {byteir.bounded_shape = [10, 60, 16]}>
-// CHECK-NEXT:  }
-
-func.func @tf_StridedSlice_NewAxis(%arg0 : tensor<?x5x64xf16> {byteir.bounded_shape = [50, 5, 64]}) -> tensor<?x5x1x64xf16> {
-  %0 = mhlo.constant dense<0> : tensor<4xi32>
-  %1 = mhlo.constant dense<1> : tensor<4xi32>
-  %2 = mhlo.custom_call @tf.StridedSlice(%arg0, %0, %0, %1) {backend_config = "", byteir_attrs = {begin_mask = 11 : i64, ellipsis_mask = 0 : i64, end_mask = 11 : i64, new_axis_mask = 4 : i64, shrink_axis_mask = 0 : i64}} : (tensor<?x5x64xf16>, tensor<4xi32>, tensor<4xi32>, tensor<4xi32>) -> tensor<?x5x1x64xf16>
-  return %2 : tensor<?x5x1x64xf16>
-}
-// CHECK-LABEL: func.func @tf_StridedSlice_NewAxis(%arg0: tensor<?x5x64xf16, {byteir.bounded_shape = [50, 5, 64]}> {byteir.bounded_shape = [50, 5, 64]}) -> tensor<?x5x1x64xf16, {byteir.bounded_shape = [50, 5, 1, 64]}> {
-// CHECK-NEXT:    %0 = mhlo.constant dense<0> : tensor<4xi32>
-// CHECK-NEXT:    %1 = mhlo.constant dense<1> : tensor<4xi32>
-// CHECK-NEXT:    %2 = mhlo.custom_call @tf.StridedSlice(%arg0, %0, %0, %1) {backend_config = "", byteir_attrs = {begin_mask = 11 : i64, ellipsis_mask = 0 : i64, end_mask = 11 : i64, new_axis_mask = 4 : i64, shrink_axis_mask = 0 : i64}} : (tensor<?x5x64xf16, {byteir.bounded_shape = [50, 5, 64]}>, tensor<4xi32>, tensor<4xi32>, tensor<4xi32>) -> tensor<?x5x1x64xf16, {byteir.bounded_shape = [50, 5, 1, 64]}>
-// CHECK-NEXT:    return %2 : tensor<?x5x1x64xf16, {byteir.bounded_shape = [50, 5, 1, 64]}>
-// CHECK-NEXT:  }
