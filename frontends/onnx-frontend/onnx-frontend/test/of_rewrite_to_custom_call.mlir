@@ -235,6 +235,23 @@ func.func @test_gelu(%37: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
 
 // -----
 
+func.func @test_gelu_fp16(%97 : tensor<16x5638x3072xf16>) -> tensor<16x5638x3072xf16> {
+  %19 = onnx.Constant dense<5.000000e-01> : tensor<f16>
+  %20 = onnx.Constant dense<1.000000e+00> : tensor<f16>
+  %21 = "onnx.Constant"() {value = dense<1.414060e+00> : tensor<f16>} : () -> tensor<f16>
+  %98 = "onnx.Div"(%97, %21) {onnx_node_name = "Div"} : (tensor<16x5638x3072xf16>, tensor<f16>) -> tensor<16x5638x3072xf16>
+  %99 = "onnx.Erf"(%98) {onnx_node_name = "Erf"} : (tensor<16x5638x3072xf16>) -> tensor<16x5638x3072xf16>
+  %100 = "onnx.Add"(%99, %20) {onnx_node_name = "Add"} : (tensor<16x5638x3072xf16>, tensor<f16>) -> tensor<16x5638x3072xf16>
+  %101 = "onnx.Mul"(%97, %100) {onnx_node_name = "Mul"} : (tensor<16x5638x3072xf16>, tensor<16x5638x3072xf16>) -> tensor<16x5638x3072xf16>
+  %102 = "onnx.Mul"(%101, %19) {onnx_node_name = "Mul_1"} : (tensor<16x5638x3072xf16>, tensor<f16>) -> tensor<16x5638x3072xf16>
+  return %102 : tensor<16x5638x3072xf16>
+}
+// CHECK-LABEL:  @test_gelu_fp16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<16x5638x3072xf16>) -> tensor<16x5638x3072xf16> {
+// CHECK-NEXT: [[VAR_0_:%.+]] = stablehlo.custom_call @byteir.gelu([[PARAM_0_]]) {byteir_attrs = {approximate = "erf"}} : (tensor<16x5638x3072xf16>) -> tensor<16x5638x3072xf16>
+
+// -----
+
 func.func @test_gelu_without_last_mul(%arg0: tensor<1x3x5x5xf32>, %arg1: tensor<1x3x5x5xf32>) -> tensor<1x3x5x5xf32> {
   %38 = "onnx.Constant"() {value = dense<0.000000e+00> : tensor<f32>} : () -> tensor<f32>
   %39 = "onnx.Add"(%arg0, %38) : (tensor<1x3x5x5xf32>, tensor<f32>) -> tensor<1x3x5x5xf32>
