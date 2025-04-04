@@ -62,6 +62,16 @@ func.func @negative_stride_indice_StridedSlice(%arg0: tensor<10x20x30x40x50x60xf
 // CHECK: mhlo.slice
 // CHECK: mhlo.reshape
 
+func.func @remove_StridedSlice(%arg0: tensor<2x34xi32>) -> tensor<2x34xi32> {
+  %0 = "tf.Const"() <{value = dense<[63, 63]> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %1 = "tf.Const"() <{value = dense<[0, 63]> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %2 = "tf.Const"() <{value = dense<1> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %3 = "tf.StridedSlice"(%arg0, %0, %1, %2) <{begin_mask = 3 : i64, ellipsis_mask = 0 : i64, end_mask = 1 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 0 : i64}> {device = ""} : (tensor<2x34xi32>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<2x34xi32>
+  return %3 : tensor<2x34xi32>
+}
+// CHECK-LABEL: remove_StridedSlice
+// CHECK: return %arg0 : tensor<2x34xi32>
+
 func.func @dynamic_shape_to_sataic_shapeStridedSlice(%arg0: tensor<?x?x40xf16>) -> tensor<11x2x40xf16> {
   %0 = "tf.Const"() {value = dense<[2, 6, 100]>: tensor<3xi32>} : () -> tensor<3xi32>
   %1 = "tf.Const"() {value = dense<[11, 8, 99]> : tensor<3xi32>} : () -> tensor<3xi32>
