@@ -55,8 +55,8 @@ inline void registerAllMhloInferReturnTypeComponents() {
   registerTorchIndexSelectInferReturnTypeComponents();
   registerGeLUInferReturnTypeComponents();
   registerLayerNormInferReturnTypeComponents();
-  registerBatchMatMulInferReturnTypeComponents();
-  registerStridedSliceInferReturnTypeComponents();
+  // registerBatchMatMulInferReturnTypeComponents();
+  // registerStridedSliceInferReturnTypeComponents();
 }
 
 //===----------------------------------------------------------------------===//
@@ -72,7 +72,7 @@ inline void registerAllMhloInferBoundedReturnTypeComponents() {
   registerDynamicPartitionInferBoundedReturnTypeComponents();
   registerNonZeroInferBoundedReturnTypeComponents();
   registerScatterNdInferBoundedReturnTypeComponents();
-  registerStridedSliceInferBoundedReturnTypeComponents();
+  // registerStridedSliceInferBoundedReturnTypeComponents();
   registerRepeatInferBoundedReturnTypeComponents();
 }
 
@@ -96,7 +96,7 @@ inline void registerAllMhloReifyReturnTypeShapes() {
   registerSoftmaxReifyReturnTypeShapes();
   registerTorchIndexSelectReifyReturnTypeShapes();
   registerGeLUReifyReturnTypeShapes();
-  registerStridedSliceReifyReturnTypeShapes();
+  // registerStridedSliceReifyReturnTypeShapes();
 }
 
 //===----------------------------------------------------------------------===//
