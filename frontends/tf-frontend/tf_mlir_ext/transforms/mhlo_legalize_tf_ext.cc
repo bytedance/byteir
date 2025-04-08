@@ -407,9 +407,10 @@ public:
         sizes[i] = 1;
         auto dimSizeOr = getDimSize(rewriter, loc, input, i);
         auto beginOr = getIndex(rewriter, loc, beginValue, strideIdx);
+        beginOr = normalizeIndex(rewriter, loc, dimSizeOr, beginOr);
         auto endOr = shapeBinary<shape::AddOp>(rewriter, loc, beginOr, 1);
-        begins[i] = normalizeIndex(rewriter, loc, dimSizeOr, beginOr);
-        ends[i] = normalizeIndex(rewriter, loc, dimSizeOr, endOr);
+        begins[i] = beginOr;
+        ends[i] = endOr;
         continue;
       }
 

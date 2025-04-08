@@ -28,6 +28,17 @@ func.func @begin_end_mask_StridedSlice(%arg0: tensor<20x30x40xf16>) -> tensor<18
 // CHECK-LABEL: begin_end_mask_StridedSlice
 // CHECK: mhlo.slice
 
+func.func @shrink_mask_StridedSlice(%arg0: tensor<32x1027xf16>) -> tensor<32xf16> {
+  %0 = "tf.Const"() <{value = dense<[0, -1]> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %1 = "tf.Const"() <{value = dense<0> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %2 = "tf.Const"() <{value = dense<1> : tensor<2xi32>}> : () -> tensor<2xi32>
+  %3 = "tf.StridedSlice"(%arg0, %0, %1, %2) <{begin_mask = 1 : i64, ellipsis_mask = 0 : i64, end_mask = 1 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 2 : i64}> {device = ""} : (tensor<32x1027xf16>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<32xf16>
+  return %3 : tensor<32xf16>
+}
+// CHECK-LABEL: shrink_mask_StridedSlice
+// CHECK: mhlo.slice
+// CHECK: mhlo.reshape
+
 func.func @shrink_newaxis_mask_StridedSlice(%arg0: tensor<20x30x40xf16>) -> tensor<20x40x1xf16> {
   %0 = "tf.Const"() {value = dense<[0, 8, 0, 9]>: tensor<4xi32>} : () -> tensor<4xi32>
   %1 = "tf.Const"() {value = dense<[0, 0, 0, 3]> : tensor<4xi32>} : () -> tensor<4xi32>
