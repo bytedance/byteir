@@ -143,13 +143,16 @@ private:
 
 // Utilities
 
-// Get Tensor as uniuqe Index, from the ith argument of OpKernelInfo
+// Get Tensor as unique Index, from the ith argument of OpKernelInfo
 size_t GetTensorIndexFromOpArgIndex(const OpKernelInfo &, unsigned int i);
 
-// Get Tensor as uniuqe Index, from MLIR Value
+// Get Tensor as unique Index, from MLIR Value
 size_t GetTensorIndexFromMLIRValue(const OpKernelInfo &, mlir::Value val);
 
-// Get Scalar as uniuqe Index, from MLIR Value
+// Get Scalar as unique Index, from the ith argument of OpKernelInfo
+size_t GetScalarIndexFromOpArgIndex(const OpKernelInfo &, unsigned int i);
+
+// Get Scalar as unique Index, from MLIR Value
 size_t GetScalarIndexFromMLIRValue(const OpKernelInfo &, mlir::Value val);
 
 // Get Rank of MLIR Value, of ith argument of OpKernelInfo
