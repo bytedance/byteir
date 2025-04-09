@@ -1,6 +1,6 @@
 # ByteIR项目
 
-[English](README.md) | 中文
+[English](README.md) | 中文 | [日本語](README-ja_jp.md)
 
 ByteIR项目是字节跳动的模型编译解决方案。ByteIR包括编译器、运行时和前端，并提供端到端的模型编译解决方案。
 尽管所有的ByteIR组件（编译器/运行时/前端）一起提供端到端的解决方案，并且都在同一个代码库下，但每个组件在技术上都可以独立运行。
