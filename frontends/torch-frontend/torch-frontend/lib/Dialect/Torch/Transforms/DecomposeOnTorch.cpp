@@ -258,12 +258,17 @@ public:
     auto keyTy = cast<BaseTensorType>(key.getType());
     Value val = op.getValue();
     auto valTy = cast<BaseTensorType>(val.getType());
-
     auto resTy = cast<BaseTensorType>(op.getType());
+
     if (!queryTy.hasDtype() || !keyTy.hasDtype() || !valTy.hasDtype() ||
         !resTy.hasDtype())
       return op.emitError("Types of Q, K, V and result "
                           "are expected to have dtype.");
+
+    if (!queryTy.hasSizes() || !keyTy.hasSizes() || !valTy.hasSizes() ||
+        !resTy.hasSizes())
+      return op.emitError("Types of Q, K, V and result "
+                          "are expected to have shape.");
 
     if (!isa<mlir::FloatType>(queryTy.getDtype()) ||
         !isa<mlir::FloatType>(keyTy.getDtype()) ||
@@ -292,36 +297,34 @@ public:
         return op.emitError("attn_mask must be a tensor of "
                             "boolean or float");
       }
-
+      if (!maskTy.hasSizes()) {
+        return op.emitError("attn_mask must have shape");
+      }
       if (isCausal)
         return op.emitError("attn_mask and is_causal must be set exclusively.");
     }
-
-    if (!keyTy.hasSizes())
-      return op.emitError("K must be a ranked tensor.");
-
-    SmallVector<int64_t, 6> transShape(keyTy.getSizes());
-    int64_t tmp = transShape.end()[-2];
-    transShape.end()[-2] = transShape.end()[-1];
-    transShape.end()[-1] = tmp;
-    auto transTy = keyTy.getWithSizesAndDtype(llvm::ArrayRef(transShape),
-                                              keyTy.getOptionalDtype());
-
     Value minusOne = rewriter.create<Torch::ConstantIntOp>(
         loc, rewriter.getI64IntegerAttr(-1));
     Value minusTwo = rewriter.create<Torch::ConstantIntOp>(
         loc, rewriter.getI64IntegerAttr(-2));
-    Value transTensor = rewriter.create<AtenTransposeIntOp>(loc, transTy, key,
-                                                            minusOne, minusTwo);
     Value one =
         rewriter.create<ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+    Value zero = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(0));
+    Value none = rewriter.create<Torch::ConstantNoneOp>(loc);
 
-    if (!queryTy.hasSizes())
-      return op.emitError("Q must be a ranked tensor.");
-    SmallVector<int64_t, 6> qkShape(queryTy.getSizes());
+    SmallVector<int64_t, 6> transShape(keyTy.getSizes());
+    std::swap(transShape.end()[-1], transShape.end()[-2]);
+    auto transTy = keyTy.getWithSizesAndDtype(llvm::ArrayRef(transShape),
+                                              keyTy.getOptionalDtype());
+    Value transTensor = rewriter.create<AtenTransposeIntOp>(loc, transTy, key,
+                                                            minusOne, minusTwo);
+
+    SmallVector<int64_t, 6> qkShape(resTy.getSizes());
+    qkShape.end()[-2] = queryTy.getSizes().end()[-2];
     qkShape.end()[-1] = transShape.end()[-1];
-    auto qkTy = queryTy.getWithSizesAndDtype(llvm::ArrayRef(qkShape),
-                                             queryTy.getDtype());
+    auto qkTy = cast<BaseTensorType>(queryTy.getWithSizesAndDtype(
+        llvm::ArrayRef(qkShape), queryTy.getDtype()));
     Value qkTensor =
         rewriter.create<AtenMatmulOp>(loc, qkTy, query, transTensor);
 
@@ -334,14 +337,9 @@ public:
       scale = rewriter.create<AtenDivOp>(loc, one, sqrtVal);
     }
 
-    auto noneSizeFloatType =
-        queryTy.getWithSizesAndDtype(std::nullopt, queryTy.getDtype());
     Value scaledQKTensor =
         rewriter.create<AtenMulScalarOp>(loc, qkTy, qkTensor, scale);
 
-    Value none = rewriter.create<Torch::ConstantNoneOp>(loc);
-    Value zero = rewriter.create<Torch::ConstantIntOp>(
-        loc, rewriter.getI64IntegerAttr(0));
     Value maskedTensor = scaledQKTensor;
     if (maskTy && isa<mlir::FloatType>(maskTy.getDtype())) {
       maskedTensor = rewriter.create<AtenAddTensorOp>(loc, qkTy, scaledQKTensor,
@@ -355,8 +353,11 @@ public:
           loc, Torch::ListType::get(firstDimSizeOfMask.getType()),
           ValueRange({firstDimSizeOfMask, secondDimSizeOfMask}));
       Value dtypeInt = rewriter.create<PrimDtypeOp>(loc, scaledQKTensor);
-      Value zeros = rewriter.create<AtenZerosOp>(
-          loc, noneSizeFloatType, dimList, dtypeInt, none, none, none);
+      auto zerosTy = cast<BaseTensorType>(qkTy.getWithSizesAndDtype(
+          llvm::ArrayRef<int64_t>{qkShape.end()[-2], qkShape.end()[-1]},
+          qkTy.getDtype()));
+      Value zeros = rewriter.create<AtenZerosOp>(loc, zerosTy, dimList,
+                                                 dtypeInt, none, none, none);
       if (isCausal) {
         auto noneSizeBoolType =
             queryTy.getWithSizesAndDtype(std::nullopt, rewriter.getI1Type());
@@ -366,17 +367,20 @@ public:
             none, none);
         mask = rewriter.create<AtenTrilOp>(loc, ones.getType(), ones, zero);
       }
+      maskTy = cast<BaseTensorType>(mask.getType());
 
-      Value notMask =
-          rewriter.create<AtenLogicalNotOp>(loc, mask.getType(), mask);
+      Value notMask = rewriter.create<AtenLogicalNotOp>(loc, maskTy, mask);
       auto dType = cast<mlir::FloatType>(queryTy.getDtype());
       Value minimalVal = rewriter.create<Torch::ConstantFloatOp>(
-          loc, llvm::APFloat::getInf(dType.getFloatSemantics(), true));
+          loc, rewriter.getFloatAttr(
+                   rewriter.getF64Type(),
+                   llvm::APFloat::getInf(dType.getFloatSemantics(), true)
+                       .convertToDouble()));
 
-      maskTy = cast<BaseTensorType>(zeros.getType());
-
-      mask = rewriter.create<AtenMaskedFill_ScalarOp>(loc, maskTy, zeros,
-                                                      notMask, minimalVal);
+      mask = rewriter.create<AtenMaskedFillScalarOp>(
+          loc,
+          maskTy.getWithSizesAndDtype(maskTy.getSizes(), zerosTy.getDtype()),
+          zeros, notMask, minimalVal);
       maskedTensor = rewriter.create<AtenAddTensorOp>(loc, qkTy, scaledQKTensor,
                                                       mask, one);
     }
