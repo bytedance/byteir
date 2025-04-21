@@ -348,3 +348,38 @@ def test_expand_as():
     inputs = [tu.tensor(1.0), tu.randn(3, 4).to(torch.int64)]
     module = compile(ExpandAsModule1(), inputs, "stablehlo")
     numerical_test_helper(module, inputs, ExpandAsModule1()(*inputs))
+
+# ==============================================================================
+# scaled_dot_product_attention
+
+class AttentionModule(torch.nn.Module):
+    def forward(self, q, k, v, attn_mask=None):
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
+
+class AttentionModuleWithCausalMask(torch.nn.Module):
+    def forward(self, q, k, v):
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True)
+
+
+def test_sdpa():
+    inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5)]
+    module = compile(AttentionModule(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModule()(*inputs))
+
+    inputs = [tu.randn(1, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5)]
+    module = compile(AttentionModule(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModule()(*inputs))
+
+def test_sdpa_with_mask():
+    inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5), torch.randint(0, 2, size=(16, 2, 3, 3)).bool()]
+    module = compile(AttentionModule(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModule()(*inputs))
+
+    inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5), tu.randn(16, 2, 3, 3)]
+    module = compile(AttentionModule(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModule()(*inputs))
+
+def test_sdpa_with_causal_mask():
+    inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5)]
+    module = compile(AttentionModuleWithCausalMask(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModuleWithCausalMask()(*inputs))

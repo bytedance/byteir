@@ -359,10 +359,10 @@ public:
       Value zeros = rewriter.create<AtenZerosOp>(loc, zerosTy, dimList,
                                                  dtypeInt, none, none, none);
       if (isCausal) {
-        auto noneSizeBoolType =
-            queryTy.getWithSizesAndDtype(std::nullopt, rewriter.getI1Type());
         Value ones = rewriter.create<AtenOnesOp>(
-            loc, noneSizeBoolType, dimList,
+            loc,
+            qkTy.getWithSizesAndDtype(zerosTy.getSizes(), rewriter.getI1Type()),
+            dimList,
             getDtypeIntValueForType(rewriter, loc, rewriter.getI1Type()), none,
             none, none);
         mask = rewriter.create<AtenTrilOp>(loc, ones.getType(), ones, zero);
