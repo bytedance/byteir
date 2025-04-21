@@ -353,7 +353,11 @@ def test_expand_as():
 # scaled_dot_product_attention
 
 class AttentionModule(torch.nn.Module):
-    def forward(self, q, k, v, attn_mask=None):
+    def forward(self, q, k, v):
+        return torch.nn.functional.scaled_dot_product_attention(q, k, v)
+
+class AttentionModuleWithMask(torch.nn.Module):
+    def forward(self, q, k, v, attn_mask):
         return torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
 
 class AttentionModuleWithCausalMask(torch.nn.Module):
@@ -372,12 +376,12 @@ def test_sdpa():
 
 def test_sdpa_with_mask():
     inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5), torch.randint(0, 2, size=(16, 2, 3, 3)).bool()]
-    module = compile(AttentionModule(), inputs, "stablehlo")
-    numerical_test_helper(module, inputs, AttentionModule()(*inputs))
+    module = compile(AttentionModuleWithMask(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModuleWithMask()(*inputs))
 
     inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5), tu.randn(16, 2, 3, 3)]
-    module = compile(AttentionModule(), inputs, "stablehlo")
-    numerical_test_helper(module, inputs, AttentionModule()(*inputs))
+    module = compile(AttentionModuleWithMask(), inputs, "stablehlo")
+    numerical_test_helper(module, inputs, AttentionModuleWithMask()(*inputs))
 
 def test_sdpa_with_causal_mask():
     inputs = [tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 4), tu.randn(16, 2, 3, 5)]
