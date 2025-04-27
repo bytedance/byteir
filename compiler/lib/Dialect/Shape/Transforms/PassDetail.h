@@ -24,6 +24,10 @@
 // forward dialects for conversions
 namespace mlir {
 
+namespace arith {
+class ArithDialect;
+} // namespace arith
+
 namespace tensor {
 class TensorDialect;
 } // namespace tensor

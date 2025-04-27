@@ -13,6 +13,7 @@ add_byteir_dialect_library(MLIRShapeExt
 )
 
 add_byteir_dialect_library(ByteIRShapePasses
+  Transforms/InsertInputShapeConstraint.cpp
   Transforms/InsertTieShape.cpp
   Transforms/ResolveShapeConstraint.cpp
   Transforms/SetAssumingAlwaysTrue.cpp

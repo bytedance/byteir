@@ -1,4 +1,4 @@
-//===- Passes.h ---------------------------------------------------- C++ --===//
+//===- InsertInputShapeConstraint.h -------------------------------- C++ --===//
 //
 // Copyright 2022 ByteDance Ltd. and/or its affiliates. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,20 +15,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef BYTEIR_DIALECT_SHAPE_PASSES_H
-#define BYTEIR_DIALECT_SHAPE_PASSES_H
+#ifndef BYTEIR_DIALECT_SHAPE_TRANSFORMS_INSERTINPUTSHAPECONSTRAINT_H
+#define BYTEIR_DIALECT_SHAPE_TRANSFORMS_INSERTINPUTSHAPECONSTRAINT_H
 
-#include "byteir/Dialect/Shape/Transforms/InsertInputShapeConstraint.h"
-#include "byteir/Dialect/Shape/Transforms/InsertTieShape.h"
-#include "byteir/Dialect/Shape/Transforms/ResolveShapeConstraint.h"
-#include "byteir/Dialect/Shape/Transforms/SetAssumingAlwaysTrue.h"
+#include "mlir/Pass/Pass.h"
+#include <memory>
 
 namespace mlir {
+namespace func {
+class FuncOp;
+} // namespace func
 
-/// Generate the code for registering transforms passes.
-#define GEN_PASS_REGISTRATION
-#include "byteir/Dialect/Shape/Passes.h.inc"
+std::unique_ptr<OperationPass<func::FuncOp>>
+createInsertInputShapeConstraintPass(llvm::StringRef mode = "");
 
 } // namespace mlir
 
-#endif // BYTEIR_DIALECT_SHAPE_PASSES_H
+#endif // BYTEIR_DIALECT_SHAPE_TRANSFORMS_INSERTINPUTSHAPECONSTRAINT_H
