@@ -22,6 +22,25 @@ include "mlir/Pass/PassBase.td"
 include "byteir/Dialect/Shape/IR/ShapeExtBase.td"
 
 //===----------------------------------------------------------------------===//
+// InsertInputShapeConstraint
+//===----------------------------------------------------------------------===//
+
+def InsertInputShapeConstraint : Pass<"insert-input-shape-constraint", "mlir::func::FuncOp"> {
+  let summary = "Insert input shape constraint by MeetOp";
+  let constructor = "mlir::createInsertInputShapeConstraintPass()";
+  let dependentDialects = [
+    "mlir::mhlo::MhloDialect",
+    "mlir::shape_ext::ShapeExtDialect",
+    "mlir::tensor::TensorDialect",
+    "mlir::arith::ArithDialect",
+  ];
+  let options = [
+    Option<"mode", "mode", "std::string", /*default=*/"",
+            "String attribute to describe how to insert shape constraint">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ResolveShapeConstraint
 //===----------------------------------------------------------------------===//
 
