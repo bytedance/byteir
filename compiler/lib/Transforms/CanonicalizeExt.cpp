@@ -126,11 +126,36 @@ LogicalResult foldShapeBroadcast(shape::BroadcastOp op,
   }
   return failure();
 }
+
+LogicalResult reduceBroadcastOperands(shape::BroadcastOp op,
+                                      PatternRewriter &rewriter) {
+  auto resultShape = dyn_cast<ShapedType>(op.getResult().getType());
+  if (!resultShape || !resultShape.hasStaticShape())
+    return failure();
+  SmallVector<Value> newOperands;
+  for (auto operand : op.getShapes()) {
+    if (auto constShape = operand.getDefiningOp<shape::ConstShapeOp>()) {
+      if (cast<ShapedType>(constShape.getType()).getDimSize(0) <
+          resultShape.getDimSize(0)) {
+        if (isSplatValue(constShape.getShape(), 1)) {
+          continue;
+        }
+      }
+    }
+    newOperands.push_back(operand);
+  }
+  if (newOperands.size() == op.getShapes().size())
+    return failure();
+  rewriter.replaceOpWithNewOp<shape::BroadcastOp>(op, op.getType(),
+                                                  newOperands);
+  return success();
+}
 } // namespace
 
 // FIXME: this pattern should move to shape dialect
 void mlir::shape::populateCanonicalizeExtPatterns(RewritePatternSet &patterns) {
   patterns.add(foldShapeBroadcast);
+  patterns.add(reduceBroadcastOperands);
 }
 
 namespace {

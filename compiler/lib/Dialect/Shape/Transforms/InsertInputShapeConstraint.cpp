@@ -21,6 +21,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include <string>
 
@@ -62,6 +63,29 @@ struct InsertInputShapeConstraintPass
           builder.create<shape_ext::MeetOp>(loc, dim, firstDynamicBatch);
         }
       }
+    } else if (mode == "replace-shape-of") {
+      funcOp.walk([&](shape::ShapeOfOp op) {
+        Value arg = op.getArg();
+        auto tensorType = cast<RankedTensorType>(arg.getType());
+        OpBuilder builder(op);
+        llvm::SmallVector<Value> dims;
+        for (int64_t i = 0; i < tensorType.getRank(); i++) {
+          dims.push_back(builder.create<tensor::DimOp>(op->getLoc(), arg, i));
+        }
+        Value shape =
+            builder.create<tensor::FromElementsOp>(op->getLoc(), dims);
+        op.getResult().replaceAllUsesWith(shape);
+        op->erase();
+      });
+    } else if (mode == "merge-tensor-dim") {
+      funcOp.walk([&](shape_ext::MeetOp op) {
+        Value lhs = op.getArg0();
+        Value rhs = op.getArg1();
+        if (lhs != rhs) {
+          lhs.replaceAllUsesWith(rhs);
+        }
+        op->erase();
+      });
     } else {
       funcOp->emitOpError("unknown mode: ") << mode;
       return signalPassFailure();
