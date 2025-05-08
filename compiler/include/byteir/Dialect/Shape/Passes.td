@@ -33,6 +33,7 @@ def InsertInputShapeConstraint : Pass<"insert-input-shape-constraint", "mlir::fu
     "mlir::shape_ext::ShapeExtDialect",
     "mlir::tensor::TensorDialect",
     "mlir::arith::ArithDialect",
+    "mlir::scf::SCFDialect",
   ];
   let options = [
     Option<"mode", "mode", "std::string", /*default=*/"",

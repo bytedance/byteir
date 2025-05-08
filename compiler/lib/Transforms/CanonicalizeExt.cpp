@@ -150,12 +150,43 @@ LogicalResult reduceBroadcastOperands(shape::BroadcastOp op,
                                                   newOperands);
   return success();
 }
+
+LogicalResult foldShapeDiv(shape::DivOp op, PatternRewriter &rewriter) {
+  auto rhs = op.getRhs();
+  if (auto constSize = rhs.getDefiningOp<shape::ConstSizeOp>()) {
+    if (constSize.getValue() == 1) {
+      rewriter.replaceOp(op, op.getLhs());
+      return success();
+    }
+  } else if (auto constSize = rhs.getDefiningOp<arith::ConstantOp>()) {
+    if (auto attr = dyn_cast<IntegerAttr>(constSize.getValue())) {
+      if (attr.getValue() == 1) {
+        rewriter.replaceOp(op, op.getLhs());
+        return success();
+      }
+    }
+  }
+  return failure();
+}
+
+LogicalResult foldShapeEQ(shape::ShapeEqOp op, PatternRewriter &rewriter) {
+  if (llvm::all_of(op.getShapes(),
+                   [&](Value shape) { return shape == op.getShapes()[0]; })) {
+    rewriter.replaceOp(op, rewriter.create<arith::ConstantOp>(
+                               op.getLoc(), rewriter.getBoolAttr(true)));
+    return success();
+  }
+  return failure();
+}
+
 } // namespace
 
 // FIXME: this pattern should move to shape dialect
 void mlir::shape::populateCanonicalizeExtPatterns(RewritePatternSet &patterns) {
   patterns.add(foldShapeBroadcast);
   patterns.add(reduceBroadcastOperands);
+  patterns.add(foldShapeDiv);
+  patterns.add(foldShapeEQ);
 }
 
 namespace {

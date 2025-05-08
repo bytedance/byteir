@@ -21,6 +21,7 @@
 #include "mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include <string>
@@ -85,6 +86,37 @@ struct InsertInputShapeConstraintPass
           lhs.replaceAllUsesWith(rhs);
         }
         op->erase();
+      });
+    } else if (mode == "rewrite-broadcast-with-if") {
+      funcOp.walk([&](mhlo::DynamicBroadcastInDimOp op) {
+        OpBuilder builder(op);
+        Location loc = op.getLoc();
+        if (llvm::isa<RankedTensorType>(op.getType()) &&
+            op.getType() == op.getOperand().getType()) {
+          auto bcastDims =
+              llvm::to_vector(op.getBroadcastDimensions().getValues<int64_t>());
+          auto seq = llvm::to_vector(llvm::seq<int64_t>(
+              0, cast<RankedTensorType>(op.getType()).getRank()));
+          if (bcastDims == seq) {
+            Value shapeOf =
+                builder.create<shape::ShapeOfOp>(loc, op.getOperand());
+            Value eq = builder.create<shape::ShapeEqOp>(
+                loc, ValueRange{shapeOf, op.getOutputDimensions()});
+            auto ifOp = builder.create<scf::IfOp>(loc, TypeRange{op.getType()},
+                                                  eq, true);
+
+            builder.setInsertionPointToStart(&ifOp.getThenRegion().front());
+            builder.create<scf::YieldOp>(loc, ValueRange{op.getOperand()});
+
+            builder.setInsertionPointToStart(&ifOp.getElseRegion().front());
+            auto newBcast = builder.clone(*op.getOperation());
+            builder.create<scf::YieldOp>(loc,
+                                         ValueRange{newBcast->getResult(0)});
+
+            op.getResult().replaceAllUsesWith(ifOp->getResult(0));
+            op->erase();
+          }
+        }
       });
     } else {
       funcOp->emitOpError("unknown mode: ") << mode;

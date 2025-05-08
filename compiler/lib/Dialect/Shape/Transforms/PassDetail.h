@@ -32,6 +32,10 @@ namespace tensor {
 class TensorDialect;
 } // namespace tensor
 
+namespace scf {
+class SCFDialect;
+} // namespace scf
+
 namespace shape {
 class ShapeDialect;
 } // namespace shape
