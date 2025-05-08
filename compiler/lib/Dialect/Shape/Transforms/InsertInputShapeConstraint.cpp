@@ -64,7 +64,7 @@ struct InsertInputShapeConstraintPass
           builder.create<shape_ext::MeetOp>(loc, dim, firstDynamicBatch);
         }
       }
-    } else if (mode == "replace-shape-of") {
+    } else if (mode == "legalize-shape-of") {
       funcOp.walk([&](shape::ShapeOfOp op) {
         Value arg = op.getArg();
         auto tensorType = cast<RankedTensorType>(arg.getType());
@@ -78,15 +78,18 @@ struct InsertInputShapeConstraintPass
         op.getResult().replaceAllUsesWith(shape);
         op->erase();
       });
-    } else if (mode == "merge-tensor-dim") {
+    } else if (mode == "resolve-shape-meet") {
       funcOp.walk([&](shape_ext::MeetOp op) {
         Value lhs = op.getArg0();
         Value rhs = op.getArg1();
         if (lhs != rhs) {
-          lhs.replaceAllUsesWith(rhs);
+          lhs.replaceUsesWithIf(rhs, [](OpOperand &use) {
+            return !llvm::isa<shape_ext::MeetOp>(use.getOwner());
+          });
         }
-        op->erase();
       });
+    } else if (mode == "remove-shape-meet") {
+      funcOp.walk([&](shape_ext::MeetOp op) { op->erase(); });
     } else if (mode == "rewrite-broadcast-with-if") {
       funcOp.walk([&](mhlo::DynamicBroadcastInDimOp op) {
         OpBuilder builder(op);
