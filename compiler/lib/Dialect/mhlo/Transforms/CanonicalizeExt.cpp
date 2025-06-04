@@ -2182,6 +2182,121 @@ struct CanonicalizeBroadcastToBroadcastInDim
   }
 };
 
+template <typename Op, typename ElementType = Type, typename ValType,
+          typename FuncType>
+static Attribute ReduceConstFolder(mhlo::ReduceOp *op,
+                                   ArrayRef<SplatElementsAttr> attrs,
+                                   ValType reduceCnt) {
+  if (!attrs[0] || !attrs[1])
+    return {};
+  auto splatInput = attrs[0];
+  ShapedType type = cast<ShapedType>(op->getResults()[0].getType());
+  Type etype = type.getElementType();
+  auto signedInput = addSign(splatInput.getSplatValue<ValType>(), etype);
+  auto signedReduceCnt = addSign(reduceCnt, etype);
+  FailureOr<decltype(signedInput)> result;
+  if (std::is_same_v<Op, mhlo::AddOp>) {
+    result = FailureOr<decltype(signedInput)>(
+        std::multiplies<FuncType>()(signedInput, signedReduceCnt));
+  } else if (std::is_same_v<Op, mhlo::MulOp>) {
+    result = FailureOr<decltype(signedInput)>(
+        Pow<FuncType>()(signedInput, signedReduceCnt));
+  } else if (std::is_same_v<Op, mhlo::MaxOp> ||
+             std::is_same_v<Op, mhlo::MinOp>) {
+    result = FailureOr<decltype(signedInput)>(signedInput);
+  } else {
+    return {};
+  }
+  return succeeded(result) ? SplatElementsAttr::get(type, *result)
+                           : Attribute();
+}
+
+template <typename RegionOp>
+struct FoldReduceOp : public OpRewritePattern<mhlo::ReduceOp> {
+  using OpRewritePattern<mhlo::ReduceOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::ReduceOp op,
+                                PatternRewriter &rewriter) const override {
+    if (isRegularReduceOp<RegionOp>(op)) {
+      auto input = op.getInputs()[0].getDefiningOp<mhlo::ConstantOp>();
+      auto initValue = op.getInitValues()[0].getDefiningOp<mhlo::ConstantOp>();
+      if (!input || !initValue) {
+        return failure();
+      }
+      // Only covers the case of both attrs being splats
+      SplatElementsAttr splatInput =
+          dyn_cast<SplatElementsAttr>(input.getValue());
+      SplatElementsAttr splaInitValue =
+          dyn_cast<SplatElementsAttr>(initValue.getValue());
+      auto type = cast<ShapedType>(op.getResults()[0].getType());
+      if (!splatInput || !splaInitValue || !type || !type.hasStaticShape()) {
+        return failure();
+      }
+      auto inputShape = cast<ShapedType>(splatInput.getType()).getShape();
+      auto reduceDims =
+          llvm::to_vector(op.getDimensions().getValues<int64_t>());
+      if (!reduceDims.size()) {
+        return failure();
+      }
+      int64_t reduceCntInt = 1;
+      for (const auto &dim : reduceDims) {
+        reduceCntInt *= inputShape[dim];
+      }
+      Attribute result;
+      if (isa<FloatType>(type.getElementType())) {
+        APFloat reduceCnt(static_cast<float>(reduceCntInt));
+        bool loses_info;
+        auto status = reduceCnt.convert(
+            dyn_cast<FloatType>(type.getElementType()).getFloatSemantics(),
+            APFloat::rmNearestTiesToEven, &loses_info);
+        if ((status & (~APFloat::opInexact)) != APFloat::opOK) {
+          op->emitWarning() << "Could not convert reduceCnt to target fp "
+                               "type: opStatus = "
+                            << static_cast<int>(status);
+          return failure();
+        }
+        result = ReduceConstFolder<RegionOp, FloatType, APFloat, APFloat>(
+            &op, ArrayRef<SplatElementsAttr>{splatInput, splaInitValue},
+            reduceCnt);
+      } else if (isa<IntegerType>(type.getElementType())) {
+        APInt reduceCnt(splatInput.getSplatValue<APInt>().getBitWidth(),
+                        static_cast<uint64_t>(reduceCntInt));
+        result = ReduceConstFolder<RegionOp, IntegerType, APInt, APSInt>(
+            &op, ArrayRef<SplatElementsAttr>{splatInput, splaInitValue},
+            reduceCnt);
+      }
+      if (!result) {
+        return failure();
+      }
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, result);
+      return success();
+    }
+    return failure();
+  }
+};
+
+struct DotGeneralZero : public OpRewritePattern<mhlo::DotGeneralOp> {
+  using OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
+                                PatternRewriter &rewriter) const override {
+    auto lhs = op.getLhs().getDefiningOp<mhlo::ConstantOp>();
+    auto rhs = op.getRhs().getDefiningOp<mhlo::ConstantOp>();
+    auto type = cast<ShapedType>(op.getType());
+    if (lhs && isZeroAttribute(lhs.getValue())) {
+      auto resizeSplat =
+          cast<SplatElementsAttr>(lhs.getValue()).resizeSplat(type);
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, resizeSplat);
+      return success();
+    }
+    if (rhs && isZeroAttribute(rhs.getValue())) {
+      auto resizeSplat =
+          cast<SplatElementsAttr>(rhs.getValue()).resizeSplat(type);
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, resizeSplat);
+      return success();
+    }
+    return failure();
+  }
+};
+
 } // namespace
 
 void mlir::mhlo::populateFoldMultiplyZeroPattern(RewritePatternSet &patterns) {
@@ -2201,6 +2316,11 @@ void mlir::mhlo::populateFoldLargeBinaryOpPatterns(
   patterns.add<FoldLargeBinaryOp<mhlo::PowOp, Pow>>(ctx);
   patterns.add<FoldLargeCompareOp>(ctx);
   patterns.add<FoldClampOp>(ctx);
+  patterns.add<FoldReduceOp<mhlo::AddOp>>(ctx);
+  patterns.add<FoldReduceOp<mhlo::MulOp>>(ctx);
+  patterns.add<FoldReduceOp<mhlo::MaxOp>>(ctx);
+  patterns.add<FoldReduceOp<mhlo::MinOp>>(ctx);
+  patterns.add<DotGeneralZero>(ctx);
 }
 
 void mlir::mhlo::populateConvertOpPattern(RewritePatternSet &patterns,
