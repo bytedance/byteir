@@ -315,4 +315,12 @@ def RewriteOneHot : Pat<
   (ONNXOneHotOp:$output $indices, $depth, $values, $axis),
   (NativeCodeCall<"createOneHot($_builder, $_loc, $0, $1, $2, $3, $4)"> $indices, $depth, $values, $axis, $output)>;
 
+//===----------------------------------------------------------------------===//
+// TopK Pattern
+//===----------------------------------------------------------------------===//
+
+def RewriteTopK : Pat<
+  (ONNXTopKOp:$output $X, $K, $axis, $largest, $sorted),
+  (NativeCodeCall<"createTopK($_builder, $_loc, $0, $1, $2, $3, $4, $5)", 2> $X, $K, $axis, $largest, $sorted, $output)>;
+
 #endif // ONNX_FRONTEND_SRC_CONVERSION_OF_CUSTOM_CALL_TD
