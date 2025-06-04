@@ -27,6 +27,7 @@ CUSTOM_CALL_OPS = [
     "quantize",
     "resize",
     "softmax",
+    "top_k",
 ]
 class TestBase:
     def setup_base(self, tmpdir_factory, dir):
@@ -46,7 +47,7 @@ class TestBase:
         # cmd_opts.append("-mlir-print-op-generic")
         if onnx_frontend_option != "":
             cmd_opts.append(onnx_frontend_option)
-        
+
         # cmd_opts.append(f"-o={stablehlo_ir_path}")
         p = subprocess.run(
             cmd_opts, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)

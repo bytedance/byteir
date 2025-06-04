@@ -277,3 +277,169 @@ class TestOpsTensor(TestBase):
         )
         input_shape_dtype = []
         self.run(model_filename="constant_of_shape_2.onnx", model_onnx_pb=proto, input_shape_dtype=input_shape_dtype)
+
+    def test_scatter_elements_1d_basic(self):
+        """Test basic ScatterElements operation with 1D tensors."""
+        input_shape_dtype = [
+            ["data", (8,), "float32"],
+            ["indices", (4,), "int64"],
+            ["updates", (4,), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (8,), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype, axis=0)
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], dtype=np.float32),
+            "indices": np.array([4, 3, 1, 7], dtype=np.int64),
+            "updates": np.array([9.0, 10.0, 11.0, 12.0], dtype=np.float32),
+        }
+        self.run(model_filename="scatter_elements_1d_basic.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)
+
+    def test_scatter_elements_2d_axis0(self):
+        """Test ScatterElements with 2D tensors along axis 0."""
+        input_shape_dtype = [
+            ["data", (3, 3), "float32"],
+            ["indices", (2, 3), "int64"],
+            ["updates", (2, 3), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (3, 3), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype, axis=0)
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.array([[1.0, 2.0, 3.0],
+                             [4.0, 5.0, 6.0],
+                             [7.0, 8.0, 9.0]], dtype=np.float32),
+            "indices": np.array([[1, 0, 2],
+                                [0, 2, 1]], dtype=np.int64),
+            "updates": np.array([[1.1, 2.1, 3.1],
+                                [4.1, 5.1, 6.1]], dtype=np.float32),
+        }
+        self.run(model_filename="scatter_elements_2d_axis0.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)
+
+    def test_scatter_elements_2d_axis1(self):
+        """Test ScatterElements with 2D tensors along axis 1."""
+        input_shape_dtype = [
+            ["data", (3, 3), "float32"],
+            ["indices", (3, 2), "int64"],
+            ["updates", (3, 2), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (3, 3), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype, axis=1)
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.array([[1.0, 2.0, 3.0],
+                             [4.0, 5.0, 6.0],
+                             [7.0, 8.0, 9.0]], dtype=np.float32),
+            "indices": np.array([[1, 2],
+                                [0, 1],
+                                [2, 0]], dtype=np.int64),
+            "updates": np.array([[1.1, 2.1],
+                                [3.1, 4.1],
+                                [5.1, 6.1]], dtype=np.float32),
+        }
+        self.run(model_filename="scatter_elements_2d_axis1.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)
+
+    def test_scatter_elements_3d(self):
+        """Test ScatterElements with 3D tensors."""
+        input_shape_dtype = [
+            ["data", (2, 3, 3), "float32"],
+            ["indices", (2, 1, 3), "int64"],
+            ["updates", (2, 1, 3), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (2, 3, 3), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype, axis=1)
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.random.rand(2, 3, 3).astype(np.float32),
+            "indices": np.array([[[1, 0, 2]], [[2, 1, 0]]], dtype=np.int64),
+            "updates": np.random.rand(2, 1, 3).astype(np.float32),
+        }
+        self.run(model_filename="scatter_elements_3d.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)
+
+    def test_scatter_elements_negative_indices(self):
+        """Test ScatterElements with negative indices."""
+        input_shape_dtype = [
+            ["data", (5,), "float32"],
+            ["indices", (3,), "int64"],
+            ["updates", (3,), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (5,), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype, axis=0)
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=np.float32),
+            "indices": np.array([-1, -3, 1], dtype=np.int64),  # -1 -> 4, -3 -> 2
+            "updates": np.array([10.0, 20.0, 30.0], dtype=np.float32),
+        }
+        self.run(model_filename="scatter_elements_negative_indices.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)
+
+    def test_scatter_elements_reduction_add(self):
+        """Test ScatterElements with reduction='add'."""
+        input_shape_dtype = [
+            ["data", (5,), "float32"],
+            ["indices", (5,), "int64"],
+            ["updates", (5,), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (5,), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype,
+                          axis=0, reduction="add")
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=np.float32),
+            "indices": np.array([1, 1, 3, 2, 3], dtype=np.int64),  # Duplicates at 1 and 3
+            "updates": np.array([10.0, 20.0, 30.0, 40.0, 50.0], dtype=np.float32),
+        }
+        self.run(model_filename="scatter_elements_reduction_add.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)
+
+    def test_scatter_elements_reduction_mul(self):
+        """Test ScatterElements with reduction='mul'."""
+        input_shape_dtype = [
+            ["data", (5,), "float32"],
+            ["indices", (3,), "int64"],
+            ["updates", (3,), "float32"],
+        ]
+        output_shape_dtype = [
+            ["output", (5,), "float32"],
+        ]
+        proto = build_onnx("ScatterElements", input_shape_dtype, output_shape_dtype,
+                          axis=0, reduction="mul")
+
+        np.random.seed(0)
+        input_data = {
+            "data": np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=np.float32),
+            "indices": np.array([0, 2, 2], dtype=np.int64),  # Duplicate at index 2
+            "updates": np.array([2.0, 3.0, 4.0], dtype=np.float32),
+        }
+        self.run(model_filename="scatter_elements_reduction_mul.onnx",
+                 model_onnx_pb=proto,
+                 input_data=input_data)

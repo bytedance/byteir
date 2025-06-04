@@ -44,7 +44,8 @@ namespace {
     func(one_hot, OneHot)          \
     func(quantize, Quantize)       \
     func(resize, Resize)           \
-    func(softmax, Softmax)
+    func(softmax, Softmax)         \
+    func(top_k, TopK)
 
 // generate get name function name, function name contains onnx op name,
 // return byteir custom call target op name
@@ -721,6 +722,47 @@ Value createOneHot(PatternRewriter &rewriter, Location loc, Value indices,
   return customCallOp.getResults()[0];
 }
 
+//===----------------------------------------------------------------------===//
+// TopK Pattern
+//===----------------------------------------------------------------------===//
+SmallVector<Value> createTopK(PatternRewriter &rewriter, Location loc,
+                              Value input, Value k, IntegerAttr axis_attr,
+                              IntegerAttr largest_attr, IntegerAttr sorted_attr,
+                              Value output, Value indices) {
+  RankedTensorType inputType =
+      dyn_cast_or_null<RankedTensorType>(input.getType());
+  assert(inputType != nullptr && "TopK input type must be ranked");
+  ONNXConstantOp kOp = k.getDefiningOp<ONNXConstantOp>();
+  assert(kOp && "onnx.OneHot's depth should be constant");
+  ElementsAttr kAttr = dyn_cast<ElementsAttr>(kOp.getValueAttr());
+  int64_t int_k = kAttr.getValues<APInt>()[0].getSExtValue();
+  int64_t axis = axis_attr.getSInt();
+  // canonicalize axis to be positive
+  if (axis < 0) {
+    axis = inputType.getRank() + axis;
+  }
+  int largest = largest_attr.getValue().getZExtValue();
+  assert(largest == 1 && "only support topk in descending order");
+  int sorted = sorted_attr.getValue().getZExtValue();
+
+  std::string call_target_name = getTopKNameWithPrefix();
+  stablehlo::CustomCallOp customCallOp =
+      rewriter.create<mlir::stablehlo::CustomCallOp>(
+          loc, llvm::ArrayRef<Type>{output.getType(), indices.getType()},
+          llvm::ArrayRef<Value>{input}, call_target_name, false,
+          rewriter.getStringAttr(""),
+          stablehlo::CustomCallApiVersion::API_VERSION_ORIGINAL,
+          rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}), nullptr,
+          nullptr, rewriter.getArrayAttr(llvm::ArrayRef<mlir::Attribute>{}));
+  DictionaryAttrWrapper attrs(rewriter.getContext());
+  attrs.setAttr("axis", rewriter.getI64ArrayAttr({axis}));
+  attrs.setAttr("k", rewriter.getI64IntegerAttr(int_k));
+  attrs.setAttr("sorted", rewriter.getBoolAttr(sorted));
+  customCallOp->setAttr(BYTEIR_ATTRS, getCleanAttr(attrs));
+
+  return customCallOp.getResults();
+}
+
 #include "onnx-frontend/src/Conversion/OFRewriteToCustomCall.inc"
 
 //===----------------------------------------------------------------------===//
@@ -845,6 +887,8 @@ struct OFRewriteToCustomCallPass
     validOpSet[getErfName()].emplace_back(
         std::make_unique<RewriteSimpleReplace<ONNXErfOp, ONNXErfOpAdaptor>>(
             context, 1));
+    validOpSet[getTopKName()].emplace_back(
+        std::make_unique<RewriteTopK>(context));
 
     RewritePatternSet patterns(context);
     for (auto op : opSet) {
