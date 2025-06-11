@@ -4,6 +4,7 @@ from byteir.passmanager import PassManager
 from byteir.utils import get_gpu_type
 
 from .ait_cache import AITCache
+from .tit_cache import TITCache
 
 from pathlib import Path
 from shutil import copyfile, copymode
@@ -55,7 +56,8 @@ class IRProcessor:
                  enable_tf32 = False,
                  compile_parallelism = 1,
                  disable_byteir_ait_cache = False,
-                 verbose = False):
+                 verbose = False,
+                 device = "cuda"):
         self.job_name = job_name
         self.workdir = workdir
         self.module = None
@@ -65,11 +67,10 @@ class IRProcessor:
             self.pool = multiprocessing.Pool(compile_parallelism)
         else:
             self.pool = None
-        self.byteir_cache = AITCache()
         self.verbose = verbose
-        self.disable_byteir_ait_cache = disable_byteir_ait_cache
-        if not disable_byteir_ait_cache:
-            self.byteir_cache.load_or_create_cache()
+        #TODO: signature rename
+        self.disable_byteir_cache = disable_byteir_ait_cache
+        self.device = device
 
     def _get_builder(self, func, subgraph_name, backend="ait"):
         assert func != None
@@ -77,6 +78,9 @@ class IRProcessor:
         if backend == "ait":
             from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
             return AITBuilder(func, workdir=self.workdir, subgraph_name=subgraph_name, enable_tf32=self.enable_tf32)
+        elif backend == "triton":
+            from byteir.dialects.cat.ir_translator.tit_builder import TRITONTBuilder
+            return TRITONTBuilder(func, workdir=self.workdir, subgraph_name=subgraph_name, enable_tf32=self.enable_tf32, device=self.device)
         else:
             raise RuntimeError(f"Unsupported runtime backend {backend}")
 
@@ -100,6 +104,9 @@ class IRProcessor:
         return self.module
 
     def ait_opt_pass(self, output_dir):
+        self.byteir_cache = AITCache()
+        if not self.disable_byteir_cache:
+            self.byteir_cache.load_or_create_cache()
         funcNameArg = []
         aitLibPathArg = []
 
@@ -141,7 +148,7 @@ class IRProcessor:
         print("compilation finished in {}s".format(t_ed-t_st))
 
         # update byteir cache
-        if not self.disable_byteir_ait_cache:
+        if not self.disable_byteir_cache:
             for key, lib_path in libs_to_add_to_cache.items():
                 self.byteir_cache.add(gpu_type, key, lib_path, override=False)
             self.byteir_cache._save()
@@ -151,6 +158,99 @@ class IRProcessor:
             pm = PassManager.parse("builtin.module(func.func(gen-ait-config{{func-names={} ait-lib-paths={}}}))".format(",".join(funcNameArg), ",".join(aitLibPathArg)))
             pm.run(self.module.operation)
             _print_verbose(self.module, "// IR Dump After Gen AIT Config:") if self.verbose else ...
+
+        return self.module
+    
+    def triton_opt_pass(self, output_dir):
+
+        def decouple_triton_args(triton_args):
+            func_name_args = []
+            ptx_path_args = []
+            gridsize_x_args = []
+            gridsize_y_args = []
+            gridsize_z_args = []
+            blocksize_x_args = []
+            blocksize_y_args = []
+            blocksize_z_args = []
+            for func_name,ptx_path,gridsize,blocksize in triton_args:
+                func_name_args.append(func_name)
+                ptx_path_args.append(ptx_path)
+                gridsize_x_args.append(str(gridsize[0]))
+                gridsize_y_args.append(str(gridsize[1]))
+                gridsize_z_args.append(str(gridsize[2]))
+                #TODO: blocksize is 1d for now, need to check
+                blocksize_x_args.append(str(blocksize))
+                blocksize_y_args.append(str(1))
+                blocksize_z_args.append(str(1))
+            return func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args
+
+        self.pool=None
+
+        self.byteir_cache = TITCache()
+        if not self.disable_byteir_cache:
+            self.byteir_cache.load_or_create_cache()
+        triton_args = []
+
+        gpu_type = get_gpu_type()
+        if gpu_type == None:
+            raise RuntimeError("No gpu found in this machine! cannot perform triton-opt-pass")
+        work_items = [] # work items of FuncOp
+        
+        for func in self.module.body.operations:
+            if BYTEIR_CAT_ATTR not in func.attributes:
+                continue
+            output_ptx_path = os.path.join(output_dir, func.name.value + ".ptx")
+            hash_str = func_hash_str(func, gpu_type)
+            # TODO: gridsize order need to be checked 
+            # gridsize form (x,y,z), blocksize form (x,y,z)
+            cached_argv = self.byteir_cache.find(gpu_type, hash_str)
+            if cached_argv:
+                cache_ptx,gridsize,blocksize = cached_argv
+                print(f"func {func.name.value} cache hit")
+                copyfile(cache_ptx, output_ptx_path)
+                copymode(cache_ptx, output_ptx_path)
+                triton_args.append((func.name.value,output_ptx_path, gridsize, blocksize))
+            else:
+                work_items.append(func)
+
+        # compile and benchmark
+        print("compile triton module using {} processes".format(min(len(work_items), self.compile_parallelism)))
+        print("\n".join([str(func) for func in work_items]))
+        t_st = time.time()
+        
+        new_args = []
+        for func in work_items:
+            output_ptx_path = os.path.join(output_dir, func.name.value + ".ptx")
+            if self.pool:
+                new_args.append(self.pool.apply_async(_parallel_tit_compile, 
+                    (self.workdir, func, output_ptx_path, self.enable_tf32)))
+            else:
+                new_args.append(_parallel_tit_compile(self.workdir, func, output_ptx_path, self.enable_tf32))
+                
+        if self.pool:
+            self.pool.close()
+            self.pool.join()
+        
+        for func,output_ptx_path,gridsize,blocksize in new_args:
+            triton_args.append((func.name.value,output_ptx_path, gridsize, blocksize))
+            self.byteir_cache.load_or_create_cache()
+            self.byteir_cache.add(gpu_type, func_hash_str(func, gpu_type), (output_ptx_path, gridsize, blocksize), override=False)
+            self.byteir_cache._save()
+            self.byteir_cache.close_cache()
+                
+        t_ed = time.time()
+        print("compilation finished in {}s".format(t_ed-t_st))
+
+        func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args = decouple_triton_args(triton_args)
+        
+        with self.module.context:
+            pm_str="builtin.module(func.func(gen-tit-config{{func-names={} tit-ptx-paths={} gridsize-x-args={} gridsize-y-args={} gridsize-z-args={} blocksize-x-args={} blocksize-y-args={} blocksize-z-args={}}}))".format(",".join(func_name_args), ",".join(ptx_path_args), ",".join(gridsize_x_args), ",".join(gridsize_y_args), ",".join(gridsize_z_args), ",".join(blocksize_x_args), ",".join(blocksize_y_args), ",".join(blocksize_z_args))
+            print(pm_str)
+            pm = PassManager.parse(pm_str)
+            exit
+            pm.run(self.module.operation)
+            _print_verbose(self.module, "// IR Dump After Gen AIT Config:") if self.verbose else ...
+
 
         return self.module
 
@@ -177,10 +277,26 @@ class IRProcessor:
 
 
 def _parallel_ait_compile(workdir: str, func: FuncOp, output_lib_path, enable_tf32):
+
+    def touch_blank_file(file_path):
+        with open(file_path, 'w') as f:
+            pass
     # os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
     from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
-    builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
+    # builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
+    # builder.compile()
+    # builder.benchmark()
+    # copyfile(builder.ait_module_path, output_lib_path)
+    # copymode(builder.ait_module_path, output_lib_path)
+    touch_blank_file(output_lib_path)
+
+def _parallel_tit_compile(workdir: str, func: FuncOp, output_ptx_path, enable_tf32):
+
+    # os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
+    from byteir.dialects.cat.ir_translator.tit_builder import TITBuilder
+    builder = TITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
     builder.compile()
-    builder.benchmark()
-    copyfile(builder.ait_module_path, output_lib_path)
-    copymode(builder.ait_module_path, output_lib_path)
+    blockSize,gridsize=builder.blocksize,builder.gridsize
+    copyfile(builder.tit_module_path, output_ptx_path)
+    copymode(builder.tit_module_path, output_ptx_path)
+    return func,output_ptx_path,gridsize,blockSize

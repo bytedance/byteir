@@ -164,7 +164,7 @@ def detect_gpu_arch_with_nvidia_smi():
             "sm_70": ["V100"],
             "sm_75": ["T4", "Quadro T2000"],
             "sm_80": ["PG509", "A100", "A10", "RTX 30", "A30", "RTX 40", "A16"],
-            "sm_90": ["H100"],
+            "sm_90": ["H100","H800"],
         }
         for sm, names in sm_names.items():
             if any(name in stdout for name in names):

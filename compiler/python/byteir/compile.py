@@ -287,6 +287,122 @@ def _compile_cuda_with_ait(
             raise ValueError("module asm has be changed after byre serialization")
 
 
+@register_byteir_compiler_backend(target="cuda_with_triton", device="cuda")
+def _compile_cuda_with_triton(
+    compile_options: CompileOptions,
+) -> None:
+    from .dialects.cat import IRProcessor
+
+    target = "cuda"
+    module = compile_options.module
+    entry_func = compile_options.entry_func
+    gpu_arch = compile_options.gpu_arch
+    verbose = compile_options.verbose
+    name = compile_options.name
+    enable_tf32 = compile_options.enable_tf32
+    parallelism = compile_options.parallelism
+    disable_byteir_ait_cache = compile_options.disable_byteir_ait_cache
+
+    output_file_dir = compile_options.output_dir
+    output_file_prefix = compile_options.output_file_prefix
+    output_type = compile_options.output_type
+    useBarePtrCallConv = True # all tensor must have static shapes if True
+
+    context = module.context
+
+    entry_func_str = "entry-func={}".format(entry_func)
+    target_str = "target={}".format(target)
+
+    with context:
+        PassManager().parse("builtin.module(hlo-graph-opt{" + entry_func_str + " " + target_str + "})").run(module.operation)
+        _print_verbose(module, "// IR Dump After Hlo Graph Opt:") if verbose else ...
+
+    processor = IRProcessor(name, 
+                            "./workspace",
+                            enable_tf32=enable_tf32,
+                            compile_parallelism=parallelism,
+                            disable_byteir_ait_cache=disable_byteir_ait_cache,
+                            verbose=verbose)
+    processor.module = module
+
+    processor.preprocess_pass()
+    processor.cat_opt_pass(anchor_only=False)
+
+    with context:
+        pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op})")
+        pm.run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Hlo Fusion Opt (with Cat):") if verbose else ...
+    print(processor.module)
+    # not generate ait lib .so for cat functions
+    processor.triton_opt_pass(output_file_dir)
+    module = processor.module
+
+    with context:
+        PassManager.parse("builtin.module(linalg-tensor-opt)").run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Linalg Tensor Opt:") if verbose else ...
+    with context:
+        if enable_tf32:
+            PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types enable-tf32 {}}})".format(entry_func_str)).run(processor.module.operation)
+        else:
+            PassManager.parse("builtin.module(byre-tensor-opt{{append-arg-types {}}})".format(entry_func_str)).run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Byre Tensor Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(byteir-bufferize-opt)").run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After ByteIR Bufferize Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(linalg-memref-opt)").run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Linalg Memref Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(scf-opt)").run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After SCF Opt:") if verbose else ...
+    with context:
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(gpu-opt{use-bare-ptr-memref-call-conv=true  device-file-name="+ output_file_prefix + ".ptx" + "})").run(module.operation)
+        else:
+            PassManager.parse("builtin.module(gpu-opt{device-file-name=" + output_file_prefix + ".ptx" + "})").run(module.operation)
+        _print_verbose(processor.module, "// IR Dump After GPU Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(inline)").run(processor.module.operation)
+        PassManager.parse("builtin.module(func.func(lccl-to-byre))").run(module.operation)
+        PassManager.parse("builtin.module(func.func(gpu-launch-func-to-byre))").run(processor.module.operation)
+        PassManager.parse("builtin.module(func.func(set-op-space{" + entry_func_str + " space={}".format(target) +  "}))").run(processor.module.operation)
+        PassManager.parse("builtin.module(set-arg-space{" + entry_func_str + " all-space={}".format(target) + "})").run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Set Space Opt:") if verbose else ...
+    with context:
+        PassManager.parse("builtin.module(byre-opt{append-arg-types " + entry_func_str + "})").run(processor.module.operation)
+        _print_verbose(processor.module, "// IR Dump After Byre Opt:") if verbose else ...
+
+    # create device module
+    module_str = processor.module.operation.get_asm(print_generic_op_form=True)
+    device_module = ir.Module.parse(module_str, context)
+    with context:
+        if useBarePtrCallConv:
+            PassManager.parse("builtin.module(nvvm-codegen{use-bare-ptr-memref-call-conv=true " + f" gpu-arch={gpu_arch}" + "})").run(device_module.operation)
+        else:
+            PassManager.parse("builtin.module(nvvm-codegen{" + f" gpu-arch= {gpu_arch}" + "})").run(device_module.operation)
+        _print_verbose(device_module, "// IR Dump After NVVM Codegen:") if verbose else ...
+    # write to output device ptx
+    byteir.translate_to_ptx(device_module, output_file_dir + "/" + output_file_prefix, gpu_arch)
+
+    # create host module
+    with context:
+        PassManager.parse("builtin.module(byre-host)").run(processor.module.operation)
+        PassManager.parse("builtin.module(remove-module-tag{attr-name=gpu.container_module})").run(module.operation)
+        PassManager.parse("builtin.module(remove-module-tag{attr-name=torch.debug_module_name})").run(module.operation)
+        _print_verbose(processor.module, "// IR Dump After Byre Host:") if verbose else ...
+    
+    output_host_mlir_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIR.value)
+    output_host_mlirbc_path = os.path.join(output_file_dir, output_file_prefix + "." + OutputType.MLIRBC.value)
+    # write to output host mlir file
+    with open(output_host_mlir_path, "w") as f:
+        f.write(module.operation.get_asm())
+    if output_type is OutputType.MLIRBC:
+        byteir.serialize_byre(module, compile_options.byre_serial_version, output_host_mlirbc_path)
+        deserialized_module = byteir.deserialize_byre(open(output_host_mlirbc_path, "rb").read(), context)
+        if (module.operation.get_asm() != deserialized_module.operation.get_asm()):
+            raise ValueError("module asm has be changed after byre serialization")
+
+
 @register_byteir_compiler_backend(target="cpu", device="cpu")
 def _compile_cpu(
     compile_options: CompileOptions,
