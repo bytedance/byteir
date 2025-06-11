@@ -156,6 +156,33 @@ def GenAITConfig : Pass<"gen-ait-config", "func::FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// ToTIT
+//===----------------------------------------------------------------------===//
+
+def GenTITConfig : Pass<"gen-tit-config", "func::FuncOp"> {
+  let summary = "Generate TIT configuration";
+  let constructor = "mlir::createGenTITConfigPass()";
+  let options = [
+    ListOption<"funcNames", "func-names", "std::string",
+               "names of all cat func for TIT backends.">,
+    ListOption<"titPtxPaths", "tit-ptx-paths", "std::string",
+               "paths to all TIT-generated .ptx files">,
+    ListOption<"gridsizeXArgs", "gridsize-x-args", "std::string",
+               "gridsize x args for TIT backends.">,
+    ListOption<"gridsizeYArgs", "gridsize-y-args", "std::string",
+               "gridsize y args for TIT backends.">,
+    ListOption<"gridsizeZArgs", "gridsize-z-args", "std::string",
+               "gridsize z args for TIT backends.">,
+    ListOption<"blocksizeXArgs", "blocksize-x-args", "std::string",
+               "blocksize x args for TIT backends.">,
+    ListOption<"blocksizeYArgs", "blocksize-y-args", "std::string",
+               "blocksize y args for TIT backends.">,
+    ListOption<"blocksizeZArgs", "blocksize-z-args", "std::string",
+               "blocksize z args for TIT backends.">,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ToByre
 //===----------------------------------------------------------------------===//
 

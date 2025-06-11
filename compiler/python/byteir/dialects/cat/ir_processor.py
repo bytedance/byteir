@@ -249,7 +249,7 @@ class IRProcessor:
             pm = PassManager.parse(pm_str)
             exit
             pm.run(self.module.operation)
-            _print_verbose(self.module, "// IR Dump After Gen AIT Config:") if self.verbose else ...
+            _print_verbose(self.module, "// IR Dump After Gen TIT Config:") if self.verbose else ...
 
 
         return self.module
