@@ -242,7 +242,8 @@ class IRProcessor:
         print("compilation finished in {}s".format(t_ed-t_st))
 
         func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args = decouple_triton_args(triton_args)
-        
+        ptx_path_args= [os.path.split(path)[-1] for path in ptx_path_args]
+
         with self.module.context:
             pm_str="builtin.module(func.func(gen-tit-config{{func-names={} tit-ptx-paths={} gridsize-x-args={} gridsize-y-args={} gridsize-z-args={} blocksize-x-args={} blocksize-y-args={} blocksize-z-args={}}}))".format(",".join(func_name_args), ",".join(ptx_path_args), ",".join(gridsize_x_args), ",".join(gridsize_y_args), ",".join(gridsize_z_args), ",".join(blocksize_x_args), ",".join(blocksize_y_args), ",".join(blocksize_z_args))
             print(pm_str)
