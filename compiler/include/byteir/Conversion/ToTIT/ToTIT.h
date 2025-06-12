@@ -27,8 +27,6 @@ class FuncOp;
 } // namespace func
 class ModuleOp;
 
-constexpr StringRef getByteIRTITOpKernelName() { return "TITOp"; }
-
 std::unique_ptr<OperationPass<func::FuncOp>>
 createGenTITConfigPass(ArrayRef<std::string> funcNames = {""},
                        ArrayRef<std::string> titPtxPaths = {""},
