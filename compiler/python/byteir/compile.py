@@ -332,7 +332,6 @@ def _compile_cuda_with_triton(
         pm = PassManager().parse("builtin.module(hlo-fusion-opt{outline-single-elemwise-op outline-cat-op})")
         pm.run(processor.module.operation)
         _print_verbose(processor.module, "// IR Dump After Hlo Fusion Opt (with Cat):") if verbose else ...
-    print(processor.module)
     # not generate ait lib .so for cat functions
     processor.triton_opt_pass(output_file_dir)
     module = processor.module
