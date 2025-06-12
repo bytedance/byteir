@@ -40,16 +40,18 @@ static LogicalResult AttachTITConfigToAttr(
     const std::string &blocksizeYArg,
     const std::string &blocksizeZArg) {
   
-  addGenericFuncAttrs(func, getByteIRTITOpKernelName().str());
   
   std::string device_name;
+  std::string byreKernelName;
   if (titPtxPath.find(".ptx") != std::string::npos) {
     device_name = "cuda";
+    byreKernelName="PTXOp";
   }
 
-  if (device_name.empty()) {
+  if (device_name.empty()|| byreKernelName.empty()) {
     return func.emitError("Invalid device type for TIT configuration");
   }
+  addGenericFuncAttrs(func, byreKernelName);
 
   mlir::OpBuilder opBuilder(func);
   llvm::StringMap<mlir::Attribute> titConfig;

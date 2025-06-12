@@ -278,18 +278,13 @@ class IRProcessor:
 
 
 def _parallel_ait_compile(workdir: str, func: FuncOp, output_lib_path, enable_tf32):
-
-    def touch_blank_file(file_path):
-        with open(file_path, 'w') as f:
-            pass
     # os.environ["CUDA_VISIBLE_DEVICES"]=str(os.getpid() % available_cuda_device_num)
     from byteir.dialects.cat.ir_translator.ait_builder import AITBuilder
-    # builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
-    # builder.compile()
-    # builder.benchmark()
-    # copyfile(builder.ait_module_path, output_lib_path)
-    # copymode(builder.ait_module_path, output_lib_path)
-    touch_blank_file(output_lib_path)
+    builder = AITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
+    builder.compile()
+    builder.benchmark()
+    copyfile(builder.ait_module_path, output_lib_path)
+    copymode(builder.ait_module_path, output_lib_path)
 
 def _parallel_tit_compile(workdir: str, func: FuncOp, output_ptx_path, enable_tf32):
 
