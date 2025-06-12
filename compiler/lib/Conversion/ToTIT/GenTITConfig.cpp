@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "byteir/Conversion/ToTIT/ToTIT.h"
+#include "byteir/Dialect/Byre/Common.h"
 #include "byteir/Dialect/mhlo/Transforms/HloFuser.h"
 #include "byteir/Utils/FuncUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -28,32 +29,61 @@
 using namespace mlir;
 
 namespace {
-static void AttachTITConfigToAttr(func::FuncOp func,
-                                  const std::string &titPtxPath,
-                                  const std::string &gridsizeXArg,
-                                  const std::string &gridsizeYArg,
-                                  const std::string &gridsizeZArg,
-                                  const std::string &blocksizeXArg,
-                                  const std::string &blocksizeYArg,
-                                  const std::string &blocksizeZArg
-                                ) {
+
+static LogicalResult AttachTITConfigToAttr(
+    func::FuncOp func,
+    const std::string &titPtxPath,
+    const std::string &gridsizeXArg,
+    const std::string &gridsizeYArg,
+    const std::string &gridsizeZArg,
+    const std::string &blocksizeXArg,
+    const std::string &blocksizeYArg,
+    const std::string &blocksizeZArg) {
+  
   addGenericFuncAttrs(func, getByteIRTITOpKernelName().str());
+  
+  std::string device_name;
+  if (titPtxPath.find(".ptx") != std::string::npos) {
+    device_name = "cuda";
+  }
+
+  if (device_name.empty()) {
+    return func.emitError("Invalid device type for TIT configuration");
+  }
 
   mlir::OpBuilder opBuilder(func);
-  func->setAttr("tit_ptx_file",
-                opBuilder.getStringAttr(titPtxPath));
-  func->setAttr("gridsize_x",
-                opBuilder.getStringAttr(gridsizeXArg));
-  func->setAttr("gridsize_y",
-                opBuilder.getStringAttr(gridsizeYArg));
-  func->setAttr("gridsize_z",
-                opBuilder.getStringAttr(gridsizeZArg));
-  func->setAttr("blocksize_x",
-                opBuilder.getStringAttr(blocksizeXArg));
-  func->setAttr("blocksize_y",
-                opBuilder.getStringAttr(blocksizeYArg));
-  func->setAttr("blocksize_z",
-                opBuilder.getStringAttr(blocksizeZArg));
+  llvm::StringMap<mlir::Attribute> titConfig;
+
+  // Attach the Byre Tensor Info
+  titConfig["call_convention"] = opBuilder.getStringAttr("bare_ptr");
+  titConfig["device"] = opBuilder.getStringAttr(device_name);
+  titConfig["device_file_name"] = opBuilder.getStringAttr(titPtxPath);
+
+
+  llvm::StringMap<llvm::StringRef> gpuLaunchArgs = {
+      {"BlockSize.x", blocksizeXArg},
+      {"BlockSize.y", blocksizeYArg},
+      {"BlockSize.z", blocksizeZArg},
+      {"GridSize.x", gridsizeXArg},
+      {"GridSize.y", gridsizeYArg},
+      {"GridSize.z", gridsizeZArg}};
+
+  for (auto &kv : gpuLaunchArgs) {
+    int val;
+    if (kv.second.getAsInteger(0, val)) {
+      return func.emitError("Invalid integer format for ") << kv.first();
+    }
+    if (val <= 0) {
+      return func.emitError("Value must be positive for ") << kv.first();
+    }
+    titConfig[kv.first()] = opBuilder.getI32IntegerAttr(val);
+  }
+
+  for (auto &kv : titConfig) {
+    func->setAttr(byre::getByrePrefix() + kv.first().str(), kv.second);
+  }
+
+  return success();
 }
 
 struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
@@ -83,8 +113,13 @@ struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
     if (!func->hasAttr(getByteIRCatFusionAttrName()))
       return;
     for (size_t i = 0; i < funcNames.size(); ++i)
-      if (func.getSymName() == funcNames[i])
-        AttachTITConfigToAttr(func, titPtxPaths[i], gridsizeXArgs[i], gridsizeYArgs[i], gridsizeZArgs[i], blocksizeXArgs[i], blocksizeYArgs[i], blocksizeZArgs[i]);
+      if (func.getSymName() == funcNames[i]) {
+        if (failed(AttachTITConfigToAttr(func, titPtxPaths[i], gridsizeXArgs[i], 
+                gridsizeYArgs[i], gridsizeZArgs[i], blocksizeXArgs[i], 
+                blocksizeYArgs[i], blocksizeZArgs[i]))) {
+          return signalPassFailure();
+        }
+      }
   }
 };
 
