@@ -246,7 +246,6 @@ class IRProcessor:
 
         with self.module.context:
             pm_str="builtin.module(func.func(gen-tit-config{{func-names={} tit-ptx-paths={} gridsize-x-args={} gridsize-y-args={} gridsize-z-args={} blocksize-x-args={} blocksize-y-args={} blocksize-z-args={}}}))".format(",".join(func_name_args), ",".join(ptx_path_args), ",".join(gridsize_x_args), ",".join(gridsize_y_args), ",".join(gridsize_z_args), ",".join(blocksize_x_args), ",".join(blocksize_y_args), ",".join(blocksize_z_args))
-            print(pm_str)
             pm = PassManager.parse(pm_str)
             exit
             pm.run(self.module.operation)
