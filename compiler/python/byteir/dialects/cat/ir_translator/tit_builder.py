@@ -128,6 +128,7 @@ class TITBuilder:
             f.write(self.tit_kernel.kernel_ptx(self.subgraph_name))
         self.gridsize = self.tit_kernel.gridsize
         self.blocksize = self.tit_kernel.blocksize
+        self.smemsize = self.tit_kernel.smemsize
 
     def _gen_runtime_tensor(self, tensor: Tensor):
         shape = tensor.shape()

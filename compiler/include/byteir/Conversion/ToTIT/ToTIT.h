@@ -30,6 +30,7 @@ class ModuleOp;
 std::unique_ptr<OperationPass<func::FuncOp>>
 createGenTITConfigPass(ArrayRef<std::string> funcNames = {""},
                        ArrayRef<std::string> titPtxPaths = {""},
+                       ArrayRef<std::string> smemsizeArgs = {""},
                        ArrayRef<std::string> gridsizeXArgs = {""},
                        ArrayRef<std::string> gridsizeYArgs = {""},
                        ArrayRef<std::string> gridsizeZArgs = {""},

@@ -167,6 +167,8 @@ def GenTITConfig : Pass<"gen-tit-config", "func::FuncOp"> {
                "names of all cat func for TIT backends.">,
     ListOption<"titPtxPaths", "tit-ptx-paths", "std::string",
                "paths to all TIT-generated .ptx files">,
+    ListOption<"smemsizeArgs", "smemsize-args", "std::string",
+               "smemsize args for TIT backends.">,
     ListOption<"gridsizeXArgs", "gridsize-x-args", "std::string",
                "gridsize x args for TIT backends.">,
     ListOption<"gridsizeYArgs", "gridsize-y-args", "std::string",

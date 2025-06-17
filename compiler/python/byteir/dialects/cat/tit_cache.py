@@ -81,7 +81,7 @@ class TITCache:
             value = "{:0>16}.ptx".format(self.idx) 
             self.idx += 1
             self.cache[IDX_KEY] = self.idx
-            self.cache[gpu_type][key] = (value, argv[1], argv[2])
+            self.cache[gpu_type][key] = (value, argv[1], argv[2],argv[3])
             ptx_path = argv[0]
             copyfile(ptx_path, os.path.join(self.cache_dir, value))
             copymode(ptx_path, os.path.join(self.cache_dir, value))
@@ -90,8 +90,8 @@ class TITCache:
         if gpu_type not in self.cache:
             return None
         if key in self.cache[gpu_type]:
-            lib_path, grid_size, block_size = self.cache[gpu_type][key]
-            return os.path.join(self.cache_dir, lib_path), grid_size, block_size
+            lib_path, gridsize, blocksize,smemsize = self.cache[gpu_type][key]
+            return os.path.join(self.cache_dir, lib_path), gridsize, blocksize,smemsize
         else:
             return None
 

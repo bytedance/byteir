@@ -33,6 +33,7 @@ namespace {
 static LogicalResult AttachTITConfigToAttr(
     func::FuncOp func,
     const std::string &titPtxPath,
+    const std::string &smemsizeArg,
     const std::string &gridsizeXArg,
     const std::string &gridsizeYArg,
     const std::string &gridsizeZArg,
@@ -63,6 +64,7 @@ static LogicalResult AttachTITConfigToAttr(
 
 
   llvm::StringMap<llvm::StringRef> gpuLaunchArgs = {
+      {"SharedMemorySize", smemsizeArg},
       {"BlockSize.x", blocksizeXArg},
       {"BlockSize.y", blocksizeYArg},
       {"BlockSize.z", blocksizeZArg},
@@ -92,6 +94,7 @@ struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
   GenTITConfigPass(
       ArrayRef<std::string> funcNames,
       ArrayRef<std::string> titPtxPaths,
+      ArrayRef<std::string> smemsizeArgs,
       ArrayRef<std::string> gridsizeXArgs,
       ArrayRef<std::string> gridsizeYArgs,
       ArrayRef<std::string> gridsizeZArgs,
@@ -102,6 +105,7 @@ struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
       : GenTITConfigBase() {
     this->funcNames = funcNames;
     this->titPtxPaths = titPtxPaths;
+    this->smemsizeArgs = smemsizeArgs;
     this->gridsizeXArgs = gridsizeXArgs;
     this->gridsizeYArgs = gridsizeYArgs;
     this->gridsizeZArgs = gridsizeZArgs;
@@ -116,7 +120,7 @@ struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
       return;
     for (size_t i = 0; i < funcNames.size(); ++i)
       if (func.getSymName() == funcNames[i]) {
-        if (failed(AttachTITConfigToAttr(func, titPtxPaths[i], gridsizeXArgs[i], 
+        if (failed(AttachTITConfigToAttr(func, titPtxPaths[i], smemsizeArgs[i], gridsizeXArgs[i], 
                 gridsizeYArgs[i], gridsizeZArgs[i], blocksizeXArgs[i], 
                 blocksizeYArgs[i], blocksizeZArgs[i]))) {
           return signalPassFailure();
@@ -131,6 +135,7 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::createGenTITConfigPass(
   ArrayRef<std::string> funcNames,
   ArrayRef<std::string> titPtxPaths,
+  ArrayRef<std::string> smemsizeArgs,
   ArrayRef<std::string> gridsizeXArgs,
   ArrayRef<std::string> gridsizeYArgs,
   ArrayRef<std::string> gridsizeZArgs,
@@ -138,5 +143,5 @@ mlir::createGenTITConfigPass(
   ArrayRef<std::string> blocksizeYArgs,
   ArrayRef<std::string> blocksizeZArgs
 ) {
-  return std::make_unique<GenTITConfigPass>(funcNames, titPtxPaths, gridsizeXArgs, gridsizeYArgs, gridsizeZArgs, blocksizeXArgs, blocksizeYArgs, blocksizeZArgs);
+  return std::make_unique<GenTITConfigPass>(funcNames, titPtxPaths,smemsizeArgs, gridsizeXArgs, gridsizeYArgs, gridsizeZArgs, blocksizeXArgs, blocksizeYArgs, blocksizeZArgs);
 }

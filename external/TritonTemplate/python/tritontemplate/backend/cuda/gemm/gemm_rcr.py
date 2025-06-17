@@ -6,6 +6,12 @@ def gen_grid_gemm_rcr(M, N, BLOCK_SIZE_M, BLOCK_SIZE_N):
     return (
         triton.cdiv(M, BLOCK_SIZE_M)*triton.cdiv(N, BLOCK_SIZE_N),1,1)
 
+# smem_size=val*dtype_size*num_stage
+smem_demand_per_stage ={
+    'gemm_rcr_bias': 128*128*2,
+    'gemm_rcr': 128*128*2,
+} 
+
 @triton.jit
 def gemm_rcr_bias(
     a_ptr, b_ptr,  bias_ptr, c_ptr,
@@ -112,3 +118,4 @@ def gemm_rcr(
     c_ptrs = c_ptr + stride_c0 * offs_cm[:, None] + stride_c1 * offs_cn[None, :]
     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
     tl.store(c_ptrs, accumulator, mask=c_mask)
+
