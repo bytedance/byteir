@@ -172,7 +172,8 @@ class IRProcessor:
             blocksize_x_args = []
             blocksize_y_args = []
             blocksize_z_args = []
-            for func_name,ptx_path,gridsize,blocksize in triton_args:
+            smemsize_args = []
+            for func_name,ptx_path,gridsize,blocksize,smem_size in triton_args:
                 func_name_args.append(func_name)
                 ptx_path_args.append(ptx_path)
                 gridsize_x_args.append(str(gridsize[0]))
@@ -182,7 +183,8 @@ class IRProcessor:
                 blocksize_x_args.append(str(blocksize))
                 blocksize_y_args.append(str(1))
                 blocksize_z_args.append(str(1))
-            return func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args
+                smemsize_args.append(str(smem_size))
+            return func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args,smemsize_args
 
         self.pool=None
 
@@ -205,11 +207,11 @@ class IRProcessor:
             # gridsize form (x,y,z), blocksize form (x,y,z)
             cached_argv = self.byteir_cache.find(gpu_type, hash_str)
             if cached_argv:
-                cache_ptx,gridsize,blocksize = cached_argv
+                cache_ptx,gridsize,blocksize,smemsize = cached_argv
                 print(f"func {func.name.value} cache hit")
                 copyfile(cache_ptx, output_ptx_path)
                 copymode(cache_ptx, output_ptx_path)
-                triton_args.append((func.name.value,output_ptx_path, gridsize, blocksize))
+                triton_args.append((func.name.value,output_ptx_path, gridsize, blocksize,smemsize))
             else:
                 work_items.append(func)
 
@@ -231,23 +233,22 @@ class IRProcessor:
             self.pool.close()
             self.pool.join()
         
-        for func,output_ptx_path,gridsize,blocksize in new_args:
-            triton_args.append((func.name.value,output_ptx_path, gridsize, blocksize))
+        for func,output_ptx_path,gridsize,blocksize,smemsize in new_args:
+            triton_args.append((func.name.value,output_ptx_path, gridsize, blocksize,smemsize))
             self.byteir_cache.load_or_create_cache()
-            self.byteir_cache.add(gpu_type, func_hash_str(func, gpu_type), (output_ptx_path, gridsize, blocksize), override=False)
+            self.byteir_cache.add(gpu_type, func_hash_str(func, gpu_type), (output_ptx_path, gridsize, blocksize,smemsize), override=False)
             self.byteir_cache._save()
             self.byteir_cache.close_cache()
                 
         t_ed = time.time()
         print("compilation finished in {}s".format(t_ed-t_st))
 
-        func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args = decouple_triton_args(triton_args)
+        func_name_args, ptx_path_args, gridsize_x_args, gridsize_y_args, gridsize_z_args, blocksize_x_args, blocksize_y_args, blocksize_z_args,smemsize_args = decouple_triton_args(triton_args)
         ptx_path_args= [os.path.split(path)[-1] for path in ptx_path_args]
 
         with self.module.context:
-            pm_str="builtin.module(func.func(gen-tit-config{{func-names={} tit-ptx-paths={} gridsize-x-args={} gridsize-y-args={} gridsize-z-args={} blocksize-x-args={} blocksize-y-args={} blocksize-z-args={}}}))".format(",".join(func_name_args), ",".join(ptx_path_args), ",".join(gridsize_x_args), ",".join(gridsize_y_args), ",".join(gridsize_z_args), ",".join(blocksize_x_args), ",".join(blocksize_y_args), ",".join(blocksize_z_args))
+            pm_str="builtin.module(func.func(gen-tit-config{{func-names={} tit-ptx-paths={} smemsize-args={} gridsize-x-args={} gridsize-y-args={} gridsize-z-args={} blocksize-x-args={} blocksize-y-args={} blocksize-z-args={}}}))".format(",".join(func_name_args), ",".join(ptx_path_args),",".join(smemsize_args), ",".join(gridsize_x_args), ",".join(gridsize_y_args), ",".join(gridsize_z_args), ",".join(blocksize_x_args), ",".join(blocksize_y_args), ",".join(blocksize_z_args))
             pm = PassManager.parse(pm_str)
-            exit
             pm.run(self.module.operation)
             _print_verbose(self.module, "// IR Dump After Gen TIT Config:") if self.verbose else ...
 
@@ -291,7 +292,7 @@ def _parallel_tit_compile(workdir: str, func: FuncOp, output_ptx_path, enable_tf
     from byteir.dialects.cat.ir_translator.tit_builder import TITBuilder
     builder = TITBuilder(func, workdir=workdir, subgraph_name=func.name.value, enable_tf32=enable_tf32)
     builder.compile()
-    blockSize,gridsize=builder.blocksize,builder.gridsize
+    blockSize,gridsize,smemsize=builder.blocksize,builder.gridsize,builder.smemsize
     copyfile(builder.tit_module_path, output_ptx_path)
     copymode(builder.tit_module_path, output_ptx_path)
-    return func,output_ptx_path,gridsize,blockSize
+    return func,output_ptx_path,gridsize,blockSize,smemsize

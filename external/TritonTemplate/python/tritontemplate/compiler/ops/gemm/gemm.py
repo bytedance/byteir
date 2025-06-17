@@ -14,7 +14,7 @@ _supported_activations = ['relu',None]
 
 _exec_metadata = {
     'num_warps': 4,
-    'num_stages': 3,
+    'num_stages': 1,
 }
 
 class Gemm(Operation):

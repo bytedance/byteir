@@ -39,8 +39,6 @@ class IntImm(int, BaseType):
     def divisibility(self) -> Optional[int]:
         return self._attrs.get('divisibility')
     
-
-
     # set divisibility:
     # @divisibility.setter
     # def divisibility(self, value: Optional[int]):
