@@ -50,12 +50,12 @@ class Gemm(Operation):
         else:
             raise NotImplementedError(f'layout {self.layout} not supported')
         return [Tensor(shape=[M,N],dtype=self._attrs['inputs'][0].dtype)]
+    
     def _gen_signature_divisiability(self):
         signature_metadata={}
         divisiability={1:[],16:[]}
         for i,input in enumerate(self._attrs['inputs']+self._attrs['outputs']):
             if isinstance(input,Tensor):
-
                 try:
                     sptype='*'+dtype_str_to_triton_signature(input.dtype)
                 except KeyError:
@@ -80,12 +80,14 @@ class Gemm(Operation):
             const_metadata['M']=M
             const_metadata['N']=N
             const_metadata['K']=K
-            const_metadata['stride_a0']=K
-            const_metadata['stride_a1']=1
-            const_metadata['stride_b0']=N
-            const_metadata['stride_b1']=1
-            const_metadata['stride_c0']=N
-            const_metadata['stride_c1']=1
+            const_metadata['stride_am']=K
+            const_metadata['stride_ak']=1
+            const_metadata['stride_bn']=K
+            const_metadata['stride_bk']=1
+            const_metadata['stride_cm']=N
+            const_metadata['stride_cn']=1
+            if self.is_bias:
+                const_metadata['stride_biasn']=1
         else:
             raise NotImplementedError(f'layout {self.layout} not supported')
         
@@ -112,6 +114,6 @@ class Gemm(Operation):
         triton_compiled_kernel=triton.compile(fn=triton_kernel,signature=signature,constants=constants,num_warps=num_warps,num_stages=num_stages,configs=[config],debug=False)
 
         exec_grid=gen_grid(constants['M'],constants['N'],constants['BLOCK_SIZE_M'],constants['BLOCK_SIZE_N'])
-        return TritonExecutor(triton_compiled_kernel,exec_grid,get_warpsize(target_name))
+        return TritonExecutor(triton_compiled_kernel,exec_grid,get_warpsize(target_name),constants)
 
 
