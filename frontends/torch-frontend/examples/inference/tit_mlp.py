@@ -10,11 +10,16 @@ from brt_backend import BRTBackend
 class MLP(nn.Module):
     def __init__(self):
         super().__init__()
-        self.linear1 = nn.Linear(256, 256,dtype=torch.float16)
+        self.linear1 = nn.Linear(256, 512,dtype=torch.float16)
+        self.linear2 = nn.Linear(512, 256,dtype=torch.float16)
+        self.linear3 = nn.Linear(256, 128,dtype=torch.float16)
 
     def forward(self, x):
         x = self.linear1(x)
-        # x = torch.nn.functional.relu(x)
+        x = torch.nn.functional.relu(x)
+        x = self.linear2(x)
+        x = torch.nn.functional.relu(x)
+        x = self.linear3(x)
         return x
 
 workspace = "./workspace"
@@ -47,3 +52,4 @@ with torch.no_grad():
         diff=torch.abs(torch_outputs-byteir_outputs)
         print("diff:",diff)
         raise e
+    print("byteir tit backend success")

@@ -72,7 +72,6 @@ inline common::Status ComputeDrv(const void *func, void **args,
   dim3 *grid = static_cast<dim3 *>(args[0]);
   dim3 *block = static_cast<dim3 *>(args[1]);
   size_t *shared_size = static_cast<size_t *>(args[2]);
-  //TODO: unsafe operation?
   CUfunction hFunc=reinterpret_cast<CUfunction>(const_cast<void *>(func));
 
   //extend the shared memory
