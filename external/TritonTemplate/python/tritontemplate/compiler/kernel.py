@@ -4,7 +4,8 @@ import triton
 from tritontemplate.compiler.utils import get_device_max_shared_memory,get_cuda_device_name
 
 class TritonExecutor:
-    def __init__(self,triton_kernel:triton.compiler.compiler.CompiledKernel,grid_size:Sequence[int],warp_size:int=32):
+    def __init__(self,triton_kernel:triton.compiler.compiler.CompiledKernel,grid_size:Sequence[int],warp_size:int=32,constants:dict=None):
+        self.call_constants = constants
         self.triton_kernel = triton_kernel
         self.gridsize = grid_size
         self.blocksize = triton_kernel.num_warps * warp_size
