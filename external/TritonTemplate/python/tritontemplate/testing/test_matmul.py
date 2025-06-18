@@ -19,7 +19,7 @@ def gen_gemm_rcr_bias_relu(M, N, K):
         layout='rcr',
         is_bias=True,
         is_transpose=False,
-        activation=None,
+        activation='relu',
     )
 
     kernel = compile_kernel(gemm_op, device='cuda')
@@ -61,11 +61,11 @@ def test_gemm_rcr_bias_relu(M, N, K):
         triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']),
     )
     triton_aot=gemm_rcr_bias_relu(A,B,Bias)
-    gemm_rcr_bias_kernel[grid](A,B,Bias,c_triton, M, N, K,A.stride(0),A.stride(1),B.stride(0),B.stride(1),c_triton.stride(0),c_triton.stride(1),Bias.stride(0),64,64,64,None)
+    gemm_rcr_bias_kernel[grid](A,B,Bias,c_triton, M, N, K,A.stride(0),A.stride(1),B.stride(0),B.stride(1),c_triton.stride(0),c_triton.stride(1),Bias.stride(0),128,128,128,'relu')
     
     assert torch.allclose(c_triton, triton_aot, atol=1e-2, rtol=1e-2), \
         f"Outputs mismatch standard for M={M}, N={N}, K={K}\n"
-    c=torch.nn.functional.linear(A,B,bias=Bias)
+    c=torch.nn.functional.relu(torch.nn.functional.linear(A,B,bias=Bias))
     assert torch.allclose(c, triton_aot, atol=1e-2, rtol=1e-2), \
         f"Outputs mismatch standard for M={M}, N={N}, K={K}\n"
 
