@@ -10,9 +10,9 @@ from brt_backend import BRTBackend
 class MLP(nn.Module):
     def __init__(self):
         super().__init__()
-        self.linear1 = nn.Linear(256, 512,dtype=torch.float16)
-        self.linear2 = nn.Linear(512, 256,dtype=torch.float16)
-        self.linear3 = nn.Linear(256, 128,dtype=torch.float16)
+        self.linear1 = nn.Linear(256, 512,dtype=torch.float32)
+        self.linear2 = nn.Linear(512, 256,dtype=torch.float32)
+        self.linear3 = nn.Linear(256, 128,dtype=torch.float32)
 
     def forward(self, x):
         x = self.linear1(x)
@@ -25,8 +25,9 @@ class MLP(nn.Module):
 workspace = "./workspace"
 os.makedirs(workspace, exist_ok=True)
 with torch.no_grad():
+    torch.backends.cuda.matmul.allow_tf32=False
     model = MLP().cuda().eval()
-    inputs = [torch.randn(128, 256, dtype=torch.float16).cuda()]
+    inputs = [torch.randn(128, 256, dtype=torch.float32).cuda()]
     traced_model = torch.jit.trace(model, inputs)
 
     stablehlo_file = workspace + "/model.stablehlo.mlir"

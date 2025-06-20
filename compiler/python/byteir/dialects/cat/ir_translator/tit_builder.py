@@ -122,6 +122,7 @@ class TITBuilder:
             op=result,
             device=self.device,
             workdir=self.workdir,
+            enable_tf32=self.enable_tf32,
         )
         # kernel rename
         with open(self.tit_module_path, "w") as f:

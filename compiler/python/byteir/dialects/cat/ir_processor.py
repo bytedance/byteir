@@ -179,7 +179,6 @@ class IRProcessor:
                 gridsize_x_args.append(str(gridsize[0]))
                 gridsize_y_args.append(str(gridsize[1]))
                 gridsize_z_args.append(str(gridsize[2]))
-                #TODO: blocksize is 1d for now, need to check
                 blocksize_x_args.append(str(blocksize))
                 blocksize_y_args.append(str(1))
                 blocksize_z_args.append(str(1))

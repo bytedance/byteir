@@ -25,13 +25,16 @@ def gemm_rcr_bias(
     stride_biasn: tl.constexpr,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr,
-    ACTIVATION: tl.constexpr # 'relu' or None
+    ACTIVATION: tl.constexpr, # 'relu' or None
+    enable_tf32: tl.constexpr,
 ):
     """
     Kernel for GEMM RCR (Row-Col-Row) + Bias + ReLU.
     A (M, K) @ B (N, K)^T + Bias (N) -> C (M, N)
     B is stored as (N, K) but accessed as if it's (K, N) for the matmul.
     """
+    # _TF32_ASM: tl.constexpr = "cvt.rna.tf32.f32 $0, $1;"
+    # DTYPE: tl.constexpr = k.dtype.element_ty
     pid = tl.program_id(axis=0)
     num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
     num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
@@ -49,8 +52,10 @@ def gemm_rcr_bias(
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
         a = tl.load(a_ptrs, mask=(offs_k[None, :] + k * BLOCK_SIZE_K < K) & (offs_am[:, None] < M), other=0.0)
         b = tl.load(b_ptrs, mask=(offs_k[None, :] + k * BLOCK_SIZE_K < K) & (offs_bn[:, None] < N), other=0.0)
-
-        accumulator += tl.dot(a, tl.trans(b))
+        # if enable_tf32 and DTYPE == tl.float32:
+        #     a = tl.inline_asm_elementwise(_TF32_ASM, "=r, r", [a], dtype=tl.float32, is_pure=True, pack=1)
+        #     b = tl.inline_asm_elementwise(_TF32_ASM, "=r, r", [b], dtype=tl.float32, is_pure=True, pack=1)
+        accumulator += tl.dot(a, tl.trans(b),allow_tf32=enable_tf32)
 
         a_ptrs += BLOCK_SIZE_K * stride_ak
         b_ptrs += BLOCK_SIZE_K * stride_bk 
@@ -84,7 +89,8 @@ def gemm_rcr(
     stride_cm: tl.constexpr, stride_cn: tl.constexpr,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr,
-    ACTIVATION: tl.constexpr # 'relu' or None
+    ACTIVATION: tl.constexpr, # 'relu' or None
+    enable_tf32: tl.constexpr,
 ):
     """
     Kernel for GEMM RCR (Row-Col-Row) + ReLU.

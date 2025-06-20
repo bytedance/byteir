@@ -23,7 +23,6 @@ class Gemm(Operation):
         inputs: List[Tensor],
         layout: str,
         is_bias: bool = False,
-        is_transpose: bool = False,
         outputs: Optional[List[Tensor]] = None,
         activation: Optional[str] = None,
         name: Optional[str] = None,
@@ -34,7 +33,6 @@ class Gemm(Operation):
         super().__init__(inputs, outputs, name)
         self.layout = layout
         self.is_bias= is_bias
-        self._attrs['is_transpose'] = is_transpose
         self._attrs['activation'] = activation
         self._attrs['inputs'] = inputs
         self._attrs['outputs'] = outputs if outputs is not None else self._induce_output_shape()
@@ -42,7 +40,6 @@ class Gemm(Operation):
     
     def _induce_output_shape(self):
         # TODO: support transpose, by swap A,B
-        assert not self._attrs['is_transpose'], 'transpose not supported'
         if self.layout == 'rcr':
             M,N,K = self._attrs['inputs'][0].shape[0],self._attrs['inputs'][1].shape[0],self._attrs['inputs'][0].shape[1]
         elif self.layout == 'rrr':
@@ -71,9 +68,17 @@ class Gemm(Operation):
 
         return signature_metadata,divisiability
 
-    def _gen_constants(self):
+    def _gen_constants(self,enable_tf32):
         const_metadata={}
         const_metadata['ACTIVATION'] = self._attrs['activation']
+
+        any_float32=False
+        for input in self._attrs['inputs']:
+            if input.dtype == 'float32':
+                any_float32=True
+                break
+
+        const_metadata['enable_tf32'] = True if (enable_tf32 and any_float32) else False
         if self.layout == 'rcr':
             input=self._attrs['inputs']
             M,N,K=input[0].shape[0],input[1].shape[0],input[0].shape[1]
@@ -99,13 +104,14 @@ class Gemm(Operation):
     def _gen_exec_metadata(self):
         return _exec_metadata.copy()
 
-    def compile(self,target_name,workdir)->TritonExecutor:
+    #TODO:enable_tf32 https://github.com/triton-lang/triton/issues/4574
+    def compile(self,target_name,workdir,enable_tf32: bool = False,)->TritonExecutor:
         triton_kernel_name=f'gemm_{self.layout}'+ ('' if not self.is_bias else '_bias')
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),triton_kernel_name)
         gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),f'gen_grid_gemm_{self.layout}')
 
         signature,divisiability=self._gen_signature_divisiability()
-        constants=self._gen_constants()
+        constants=self._gen_constants(enable_tf32)
         exec_metadata=self._gen_exec_metadata()
 
         num_warps=exec_metadata['num_warps']

@@ -11,10 +11,11 @@ def compile_kernel(
     op: compiler.base.Operation,
     device: str='cuda',
     workdir: str='./workshop',
+    enable_tf32: bool=False
 )->TritonExecutor:
     try:
         _ = importlib.import_module(f'tritontemplate.backend.{device}')
     except ModuleNotFoundError:
         raise ModuleNotFoundError(f'Target {device} not found')
-    return op.compile(device, workdir)
+    return op.compile(device, workdir,enable_tf32)
     
