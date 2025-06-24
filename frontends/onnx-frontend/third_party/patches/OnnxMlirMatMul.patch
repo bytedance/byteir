@@ -1,0 +1,320 @@
+diff --git a/src/Conversion/ONNXToStablehlo/Math/MatMul.cpp b/src/Conversion/ONNXToStablehlo/Math/MatMul.cpp
+index 667860b7..2bc47f25 100644
+--- a/src/Conversion/ONNXToStablehlo/Math/MatMul.cpp
++++ b/src/Conversion/ONNXToStablehlo/Math/MatMul.cpp
+@@ -44,13 +44,13 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
+     ShapedType outputShapedType = outputType.cast<ShapedType>();
+     Type elementType = outputShapedType.getElementType();
+
+-    if (llvm::any_of(outputShapedType.getShape(), ShapedType::isDynamic))
+-      return rewriter.notifyMatchFailure(
+-          op, "dynamic dimensions not supported");
+-
+     Value A(operandAdaptor.getA()), B(operandAdaptor.getB());
+-    auto aRank = A.getType().cast<ShapedType>().getShape().size();
+-    auto bRank = B.getType().cast<ShapedType>().getShape().size();
++    auto aType = A.getType().cast<ShapedType>();
++    auto bType = B.getType().cast<ShapedType>();
++    auto aOriginalShape = aType.getShape();
++    auto bOriginalShape = bType.getShape();
++    auto aRank = aOriginalShape.size();
++    auto bRank = bOriginalShape.size();
+     // Size all the arrays to padded length.
+     int paddedRank = std::max(aRank, bRank);
+     paddedRank = std::max(paddedRank, 2);
+@@ -60,6 +60,21 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
+     llvm::BitVector bPadDims = shapeHelper.bPadDims;
+
+     DimsExpr outputDims = shapeHelper.getOutputDims();
++
++    // Create shape computation helper
++    auto getDimValue = [&](Value shape, int64_t dim) -> Value {
++      return rewriter.create<shape::GetExtentOp>(loc, shape, dim);
++    };
++    // Helper to create shape tensor from dimensions
++    auto createShapeTensor = [&](const SmallVector<Value> &dims) -> Value {
++      Type shapeType = RankedTensorType::get(
++          {static_cast<int64_t>(dims.size())}, rewriter.getIndexType());
++      Value newShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
++      newShapeValue = rewriter.create<shape::ToExtentTensorOp>(
++          loc, shapeType, newShapeValue);
++      return newShapeValue;
++    };
++
+     llvm::SmallVector<int64_t, 4> aShapeList;
+     llvm::SmallVector<int64_t, 4> bShapeList;
+     llvm::SmallVector<int64_t, 4> outputShapeList;
+@@ -70,17 +85,65 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
+
+     llvm::SmallVector<int64_t, 4> aShape;
+     llvm::SmallVector<int64_t, 4> bShape;
++    SmallVector<Value> aShapeValues;
++    SmallVector<Value> bShapeValues;
++
++    Value aShapeValue = rewriter.create<shape::ShapeOfOp>(loc, A);
++    Value bShapeValue = rewriter.create<shape::ShapeOfOp>(loc, B);
+
+     for (int64_t i = 0; i < paddedRank - 2; i++) {
+-      aShape.push_back(getLiteralValue(outputDims[i]));
+-      bShape.push_back(getLiteralValue(outputDims[i]));
++      if (outputDims[i].isLiteral()) {
++        int64_t dimValue = getLiteralValue(outputDims[i]);
++        aShape.push_back(dimValue);
++        bShape.push_back(dimValue);
++        aShapeValues.push_back(
++            rewriter.create<arith::ConstantIndexOp>(loc, dimValue));
++        bShapeValues.push_back(
++            rewriter.create<arith::ConstantIndexOp>(loc, dimValue));
++      } else {
++        aShape.push_back(ShapedType::kDynamic);
++        bShape.push_back(ShapedType::kDynamic);
++        if (!aPadDims[i]) {
++          aShapeValues.push_back(getDimValue(aShapeValue, i));
++          bShapeValues.push_back(getDimValue(aShapeValue, i));
++        } else {
++          aShapeValues.push_back(getDimValue(bShapeValue, i));
++          bShapeValues.push_back(getDimValue(bShapeValue, i));
++        }
++      }
+     }
+-    if (!aPadDims[paddedRank - 2])
++    if (!aPadDims[paddedRank - 2]) {
+       aShape.push_back(aShapeList[paddedRank - 2]);
++      if (aDims[paddedRank - 2].isLiteral()) {
++        aShapeValues.push_back(rewriter.create<arith::ConstantIndexOp>(
++            loc, aShapeList[paddedRank - 2]));
++      } else {
++        aShapeValues.push_back(getDimValue(aShapeValue, paddedRank - 2));
++      }
++    }
+     aShape.push_back(aShapeList[paddedRank - 1]);
++    if (aDims[paddedRank - 1].isLiteral()) {
++      aShapeValues.push_back(rewriter.create<arith::ConstantIndexOp>(
++          loc, aShapeList[paddedRank - 1]));
++    } else {
++      aShapeValues.push_back(getDimValue(aShapeValue, paddedRank - 1));
++    }
+     bShape.push_back(bShapeList[paddedRank - 2]);
+-    if (!bPadDims[paddedRank - 1])
++    if (bDims[paddedRank - 2].isLiteral()) {
++      bShapeValues.push_back(rewriter.create<arith::ConstantIndexOp>(
++          loc, bShapeList[paddedRank - 2]));
++    } else {
++      bShapeValues.push_back(getDimValue(bShapeValue, paddedRank - 2));
++    }
++    if (!bPadDims[paddedRank - 1]) {
+       bShape.push_back(bShapeList[paddedRank - 1]);
++      if (bDims[paddedRank - 1].isLiteral()) {
++        bShapeValues.push_back(rewriter.create<arith::ConstantIndexOp>(
++            loc, bShapeList[paddedRank - 1]));
++      } else {
++        bShapeValues.push_back(getDimValue(bShapeValue, paddedRank - 1));
++      }
++    }
+
+     Type outputAType = RankedTensorType::get(aShape, elementType);
+     Type outputBType = RankedTensorType::get(bShape, elementType);
+@@ -90,19 +153,51 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
+
+     Value broadcastedA;
+     {
+-      SmallVector<int64_t, 4> broadcastDimensions =
+-          llvm::to_vector<4>(llvm::seq<int64_t>(
+-              paddedRank - oneDPadA - aRank, paddedRank - oneDPadA));
+-      broadcastedA = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(
+-          loc, outputAType, A, rewriter.getI64VectorAttr(broadcastDimensions));
++      if (aShape.size() == aOriginalShape.size() &&
++          llvm::equal(aShape, aOriginalShape)) {
++        broadcastedA = A;
++      } else {
++        SmallVector<int64_t, 4> broadcastDimensions =
++            llvm::to_vector<4>(llvm::seq<int64_t>(
++                paddedRank - oneDPadA - aRank, paddedRank - oneDPadA));
++        // Check if we need dynamic broadcast
++        bool needsDynamicBroadcast = llvm::any_of(
++            aShape, [](int64_t dim) { return dim == ShapedType::kDynamic; });
++        if (needsDynamicBroadcast) {
++          Value broadcastedAShapeValue = createShapeTensor(aShapeValues);
++          broadcastedA =
++              rewriter.createOrFold<stablehlo::DynamicBroadcastInDimOp>(loc,
++                  outputAType, A, broadcastedAShapeValue,
++                  rewriter.getI64VectorAttr(broadcastDimensions));
++        } else {
++          broadcastedA = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(loc,
++              outputAType, A, rewriter.getI64VectorAttr(broadcastDimensions));
++        }
++      }
+     }
+     Value broadcastedB;
+     {
+-      SmallVector<int64_t, 4> broadcastDimensions =
+-          llvm::to_vector<4>(llvm::seq<int64_t>(
+-              paddedRank - oneDPadB - bRank, paddedRank - oneDPadB));
+-      broadcastedB = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(
+-          loc, outputBType, B, rewriter.getI64VectorAttr(broadcastDimensions));
++      if (bShape.size() == bOriginalShape.size() &&
++          llvm::equal(bShape, bOriginalShape)) {
++        broadcastedB = B;
++      } else {
++        SmallVector<int64_t, 4> broadcastDimensions =
++            llvm::to_vector<4>(llvm::seq<int64_t>(
++                paddedRank - oneDPadB - bRank, paddedRank - oneDPadB));
++        // Check if we need dynamic broadcast
++        bool needsDynamicBroadcast = llvm::any_of(
++            bShape, [](int64_t dim) { return dim == ShapedType::kDynamic; });
++        if (needsDynamicBroadcast) {
++          Value broadcastedBShapeValue = createShapeTensor(bShapeValues);
++          broadcastedB =
++              rewriter.createOrFold<stablehlo::DynamicBroadcastInDimOp>(loc,
++                  outputBType, B, broadcastedBShapeValue,
++                  rewriter.getI64VectorAttr(broadcastDimensions));
++        } else {
++          broadcastedB = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(loc,
++              outputBType, B, rewriter.getI64VectorAttr(broadcastDimensions));
++        }
++      }
+     }
+     Value dotProduct;
+     if (paddedRank > 2)
+diff --git a/test/mlir/conversion/onnx_to_stablehlo/Math/MatMul.mlir b/test/mlir/conversion/onnx_to_stablehlo/Math/MatMul.mlir
+index 65aa094b..f9448c4a 100644
+--- a/test/mlir/conversion/onnx_to_stablehlo/Math/MatMul.mlir
++++ b/test/mlir/conversion/onnx_to_stablehlo/Math/MatMul.mlir
+@@ -7,10 +7,8 @@ func.func @test_onnx_to_matmul2d(%arg0 : tensor<4x8xf32>, %arg1 : tensor<8x16xf3
+
+ // CHECK-LABEL:  func.func @test_onnx_to_matmul2d
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<4x16xf32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_0_]], dims = [0, 1] : (tensor<4x8xf32>) -> tensor<4x8xf32>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [0, 1] : (tensor<8x16xf32>) -> tensor<8x16xf32>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dot [[VAR_0_]], [[VAR_1_]] : (tensor<4x8xf32>, tensor<8x16xf32>) -> tensor<4x16xf32>
+-// CHECK:           return [[VAR_2_]] : tensor<4x16xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot [[PARAM_0_]], [[PARAM_1_]] : (tensor<4x8xf32>, tensor<8x16xf32>) -> tensor<4x16xf32>
++// CHECK:           return [[VAR_0_]] : tensor<4x16xf32>
+ // CHECK:         }
+
+ // -----
+@@ -22,10 +20,8 @@ func.func @test_onnx_to_matmul3d(%arg0 : tensor<100x4x8xf32>, %arg1 : tensor<100
+
+ // CHECK-LABEL:  func.func @test_onnx_to_matmul3d
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<100x8x16xf32>) -> tensor<100x4x16xf32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_0_]], dims = [0, 1, 2] : (tensor<100x4x8xf32>) -> tensor<100x4x8xf32>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [0, 1, 2] : (tensor<100x8x16xf32>) -> tensor<100x8x16xf32>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dot_general [[VAR_0_]], [[VAR_1_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<100x4x8xf32>, tensor<100x8x16xf32>) -> tensor<100x4x16xf32>
+-// CHECK:           return [[VAR_2_]] : tensor<100x4x16xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot_general [[PARAM_0_]], [[PARAM_1_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<100x4x8xf32>, tensor<100x8x16xf32>) -> tensor<100x4x16xf32>
++// CHECK:           return [[VAR_0_]] : tensor<100x4x16xf32>
+ // CHECK:         }
+
+ // -----
+@@ -37,10 +33,9 @@ func.func @test_onnx_to_matmul3dbcast(%arg0 : tensor<100x4x8xf32>, %arg1 : tenso
+
+ // CHECK-LABEL:  func.func @test_onnx_to_matmul3dbcast
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<100x4x8xf32>, [[PARAM_1_:%.+]]: tensor<8x16xf32>) -> tensor<100x4x16xf32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_0_]], dims = [0, 1, 2] : (tensor<100x4x8xf32>) -> tensor<100x4x8xf32>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [1, 2] : (tensor<8x16xf32>) -> tensor<100x8x16xf32>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dot_general [[VAR_0_]], [[VAR_1_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<100x4x8xf32>, tensor<100x8x16xf32>) -> tensor<100x4x16xf32>
+-// CHECK:           return [[VAR_2_]] : tensor<100x4x16xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [1, 2] : (tensor<8x16xf32>) -> tensor<100x8x16xf32>
++// CHECK:           [[VAR_1_:%.+]] = stablehlo.dot_general [[PARAM_0_]], [[VAR_0_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<100x4x8xf32>, tensor<100x8x16xf32>) -> tensor<100x4x16xf32>
++// CHECK:           return [[VAR_1_]] : tensor<100x4x16xf32>
+ // CHECK:         }
+
+ // -----
+@@ -52,10 +47,8 @@ func.func @test_onnx_1d(%arg0 : tensor<6xf32>, %arg1 : tensor<6xf32>) -> tensor<
+
+ // CHECK-LABEL:  func.func @test_onnx_1d
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<6xf32>, [[PARAM_1_:%.+]]: tensor<6xf32>) -> tensor<f32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_0_]], dims = [0] : (tensor<6xf32>) -> tensor<6xf32>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [0] : (tensor<6xf32>) -> tensor<6xf32>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dot [[VAR_0_]], [[VAR_1_]] : (tensor<6xf32>, tensor<6xf32>) -> tensor<f32>
+-// CHECK:           return [[VAR_2_]] : tensor<f32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot [[PARAM_0_]], [[PARAM_1_]] : (tensor<6xf32>, tensor<6xf32>) -> tensor<f32>
++// CHECK:           return [[VAR_0_]] : tensor<f32>
+ // CHECK:         }
+
+ // -----
+@@ -67,10 +60,8 @@ func.func @test_onnx_12d(%arg0 : tensor<6xf32>, %arg1 : tensor<6x2xf32>) -> tens
+
+ // CHECK-LABEL:  func.func @test_onnx_12d
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<6xf32>, [[PARAM_1_:%.+]]: tensor<6x2xf32>) -> tensor<2xf32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_0_]], dims = [0] : (tensor<6xf32>) -> tensor<6xf32>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [0, 1] : (tensor<6x2xf32>) -> tensor<6x2xf32>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dot [[VAR_0_]], [[VAR_1_]] : (tensor<6xf32>, tensor<6x2xf32>) -> tensor<2xf32>
+-// CHECK:           return [[VAR_2_]] : tensor<2xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot [[PARAM_0_]], [[PARAM_1_]] : (tensor<6xf32>, tensor<6x2xf32>) -> tensor<2xf32>
++// CHECK:           return [[VAR_0_]] : tensor<2xf32>
+ // CHECK:         }
+
+ // -----
+@@ -82,8 +73,67 @@ func.func @test_onnx_21d(%arg0 : tensor<2x6xf32>, %arg1 : tensor<6xf32>) -> tens
+
+ // CHECK-LABEL:  func.func @test_onnx_21d
+ // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x6xf32>, [[PARAM_1_:%.+]]: tensor<6xf32>) -> tensor<2xf32> {
+-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_0_]], dims = [0, 1] : (tensor<2x6xf32>) -> tensor<2x6xf32>
+-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [0] : (tensor<6xf32>) -> tensor<6xf32>
+-// CHECK:           [[VAR_2_:%.+]] = stablehlo.dot [[VAR_0_]], [[VAR_1_]] : (tensor<2x6xf32>, tensor<6xf32>) -> tensor<2xf32>
+-// CHECK:           return [[VAR_2_]] : tensor<2xf32>
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot [[PARAM_0_]], [[PARAM_1_]] : (tensor<2x6xf32>, tensor<6xf32>) -> tensor<2xf32>
++// CHECK:           return [[VAR_0_]] : tensor<2xf32>
++// CHECK:         }
++
++// -----
++
++func.func @test_matmul_dynamic_batch(%arg0: tensor<?x3x4xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<?x3x5xf32> {
++  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x3x4xf32>, tensor<?x4x5xf32>) -> tensor<?x3x5xf32>
++  return %0 : tensor<?x3x5xf32>
++}
++
++// CHECK-LABEL:  func.func @test_matmul_dynamic_batch
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x4xf32>, [[PARAM_1_:%.+]]: tensor<?x4x5xf32>) -> tensor<?x3x5xf32> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot_general [[PARAM_0_]], [[PARAM_1_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<?x3x4xf32>, tensor<?x4x5xf32>) -> tensor<?x3x5xf32>
++// CHECK:           return [[VAR_0_]] : tensor<?x3x5xf32>
++// CHECK:         }
++
++// -----
++
++func.func @test_matmul_dynamic_2d(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
++  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
++  return %0 : tensor<?x?xf32>
++}
++
++// CHECK-LABEL:  func.func @test_matmul_dynamic_2d
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.dot [[PARAM_0_]], [[PARAM_1_]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
++// CHECK:           return [[VAR_0_]] : tensor<?x?xf32>
++// CHECK:         }
++
++// -----
++
++func.func @test_matmul_broadcast_dynamic(%arg0: tensor<3x4xf32>, %arg1: tensor<?x4x5xf32>) -> tensor<?x3x5xf32> {
++  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<3x4xf32>, tensor<?x4x5xf32>) -> tensor<?x3x5xf32>
++  return %0 : tensor<?x3x5xf32>
++}
++
++// CHECK-LABEL:  func.func @test_matmul_broadcast_dynamic
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf32>, [[PARAM_1_:%.+]]: tensor<?x4x5xf32>) -> tensor<?x3x5xf32> {
++// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
++// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
++// CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
++// CHECK-DAG:       [[VAR_0_:%.+]] = shape.shape_of [[PARAM_1_]] : tensor<?x4x5xf32> -> tensor<3xindex>
++// CHECK:           [[VAR_1_:%.+]] = shape.get_extent [[VAR_0_]], [[CST_0_]] : tensor<3xindex>, index -> index
++// CHECK:           [[VAR_2_:%.+]] = shape.from_extents [[VAR_1_]], [[CST_3_]], [[CST_4_]] : index, index, index
++// CHECK:           [[VAR_3_:%.+]] = shape.to_extent_tensor [[VAR_2_]] : !shape.shape -> tensor<3xindex>
++// CHECK:           [[VAR_4_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_0_]], [[VAR_3_]], dims = [1, 2] : (tensor<3x4xf32>, tensor<3xindex>) -> tensor<?x3x4xf32>
++// CHECK:           [[VAR_5_:%.+]] = stablehlo.dot_general [[VAR_4_]], [[PARAM_1_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<?x3x4xf32>, tensor<?x4x5xf32>) -> tensor<?x3x5xf32>
++// CHECK:           return [[VAR_5_]] : tensor<?x3x5xf32>
++// CHECK:         }
++
++// -----
++
++func.func @test_matmul_mid_dynamic(%arg0: tensor<1x?x768xf16>, %arg1: tensor<768x3072xf16>) -> tensor<1x?x3072xf16> {
++  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x?x768xf16>, tensor<768x3072xf16>) -> tensor<1x?x3072xf16>
++  return %0 : tensor<1x?x3072xf16>
++}
++
++// CHECK-LABEL:  func.func @test_matmul_mid_dynamic
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?x768xf16>, [[PARAM_1_:%.+]]: tensor<768x3072xf16>) -> tensor<1x?x3072xf16> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.broadcast_in_dim [[PARAM_1_]], dims = [1, 2] : (tensor<768x3072xf16>) -> tensor<1x768x3072xf16>
++// CHECK:           [[VAR_1_:%.+]] = stablehlo.dot_general [[PARAM_0_]], [[VAR_0_]], batching_dims = [0] x [0], contracting_dims = [2] x [1] : (tensor<1x?x768xf16>, tensor<1x768x3072xf16>) -> tensor<1x?x3072xf16>
++// CHECK:           return [[VAR_1_]] : tensor<1x?x3072xf16>
+ // CHECK:         }

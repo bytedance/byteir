@@ -1,0 +1,437 @@
+diff --git a/src/Conversion/ONNXToStablehlo/CMakeLists.txt b/src/Conversion/ONNXToStablehlo/CMakeLists.txt
+index 690c58ef..2001f9dc 100644
+--- a/src/Conversion/ONNXToStablehlo/CMakeLists.txt
++++ b/src/Conversion/ONNXToStablehlo/CMakeLists.txt
+@@ -65,6 +65,7 @@ add_onnx_mlir_library(OMONNXToStablehlo
+   Tensor/Pad.cpp
+   Tensor/Reshape.cpp
+   Tensor/ScatterND.cpp
++  Tensor/ScatterElements.cpp
+   Tensor/Shape.cpp
+   Tensor/Slice.cpp
+   Tensor/Split.cpp
+diff --git a/src/Conversion/ONNXToStablehlo/ConvertONNXToStablehlo.cpp b/src/Conversion/ONNXToStablehlo/ConvertONNXToStablehlo.cpp
+index 74ea09a3..6389c8cf 100644
+--- a/src/Conversion/ONNXToStablehlo/ConvertONNXToStablehlo.cpp
++++ b/src/Conversion/ONNXToStablehlo/ConvertONNXToStablehlo.cpp
+@@ -50,6 +50,7 @@ void populateONNXToStablehloConversionPattern(
+   populateLoweringONNXPadOpToStablehloPattern(patterns, ctx);
+   populateLoweringONNXReshapeOpToStablehloPattern(patterns, ctx);
+   populateLoweringONNXScatterNDOpToStablehloPattern(patterns, ctx);
++  populateLoweringONNXScatterElementsOpToStablehloPattern(patterns, ctx);
+   populateLoweringONNXShapeOpToStablehloPattern(patterns, ctx);
+   populateLoweringONNXSliceOpToStablehloPattern(patterns, ctx);
+   populateLoweringONNXSplitOpToStablehloPattern(patterns, ctx);
+diff --git a/src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp b/src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp
+index 832e72b9..5e71ca05 100644
+--- a/src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp
++++ b/src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp
+@@ -199,6 +205,8 @@ void populateLoweringONNXReshapeOpToStablehloPattern(
+     RewritePatternSet &, MLIRContext *);
+ void populateLoweringONNXScatterNDOpToStablehloPattern(
+     RewritePatternSet &, MLIRContext *);
++void populateLoweringONNXScatterElementsOpToStablehloPattern(
++    RewritePatternSet &, MLIRContext *);
+ void populateLoweringONNXShapeOpToStablehloPattern(
+     RewritePatternSet &, MLIRContext *);
+ void populateLoweringONNXSliceOpToStablehloPattern(
+diff --git a/src/Conversion/ONNXToStablehlo/Tensor/ScatterElements.cpp b/src/Conversion/ONNXToStablehlo/Tensor/ScatterElements.cpp
+new file mode 100644
+index 00000000..0cafefa3
+--- /dev/null
++++ b/src/Conversion/ONNXToStablehlo/Tensor/ScatterElements.cpp
+@@ -0,0 +1,200 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++//===--------- ScatterElements.cpp - Lowering ScatterElements Op ----------===//
++//
++// Copyright 2025
++//
++// =============================================================================
++//
++// This file lowers the ONNX ScatterElements Operator to Stablehlo dialect.
++//
++//===----------------------------------------------------------------------===//
++
++#include "src/Conversion/ONNXToStablehlo/DialectBuilder.hpp"
++#include "src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp"
++#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
++
++using namespace mlir;
++
++namespace onnx_mlir {
++
++struct ONNXScatterElementsOpLoweringToStablehlo
++    : public OpConversionPattern<ONNXScatterElementsOp> {
++  ONNXScatterElementsOpLoweringToStablehlo(MLIRContext *ctx)
++      : OpConversionPattern(ctx) {}
++
++  LogicalResult matchAndRewrite(ONNXScatterElementsOp scatterElementsOp,
++      ONNXScatterElementsOpAdaptor operandAdaptor,
++      ConversionPatternRewriter &rewriter) const final {
++    Operation *op = scatterElementsOp.getOperation();
++    Location loc = ONNXLoc<ONNXScatterElementsOp>(op);
++
++    // Get operands
++    Value data = operandAdaptor.getData();
++    Value indices = operandAdaptor.getIndices();
++    Value updates = operandAdaptor.getUpdates();
++
++    // Get attributes
++    int64_t axis = scatterElementsOp.getAxis();
++    StringRef reductionStr = scatterElementsOp.getReduction();
++
++    // Get types
++    ShapedType dataType = data.getType().cast<ShapedType>();
++    ShapedType indicesType = indices.getType().cast<ShapedType>();
++    ShapedType updatesType = updates.getType().cast<ShapedType>();
++
++    if (!dataType.hasRank() || !indicesType.hasRank() ||
++        !updatesType.hasRank()) {
++      return failure();
++    }
++
++    int64_t rank = dataType.getRank();
++
++    // Normalize negative axis
++    if (axis < 0) {
++      axis += rank;
++    }
++
++    if (axis < 0 || axis >= rank) {
++      return failure();
++    }
++
++    // Convert indices to i64 if they're i32
++    if (indicesType.getElementType().isInteger(32)) {
++      auto i64Type =
++          RankedTensorType::get(indicesType.getShape(), rewriter.getI64Type());
++      indices = rewriter.create<stablehlo::ConvertOp>(loc, i64Type, indices);
++      indicesType = i64Type;
++    }
++
++    // Create a zero constant for comparison
++    Value zero = getShapedZero(loc, rewriter, indices);
++
++    auto cond = rewriter.create<stablehlo::CompareOp>(
++        loc, indices, zero, stablehlo::ComparisonDirection::LT);
++
++    Value rankValue =
++        getShapedInt(loc, rewriter, dataType.getDimSize(axis), indices);
++
++    // Add axisSize to indices where they are negative
++    auto addAxisSize =
++        rewriter.create<stablehlo::AddOp>(loc, indices, rankValue);
++
++    // Select between original indices and adjusted indices based on condition
++    Value normalizedIndices =
++        rewriter.create<stablehlo::SelectOp>(loc, cond, addAxisSize, indices);
++
++    // Generate iota tensors for coordinates
++    SmallVector<Value> iotaTensors;
++    for (int64_t i = 0; i < rank; ++i) {
++      if (i != axis) {
++        auto iotaType = RankedTensorType::get(
++            indicesType.getShape(), rewriter.getI64Type());
++        int64_t iotaDim = i; // Use i directly instead of (i < axis) ? i : i - 1
++        auto iota = rewriter.create<stablehlo::IotaOp>(loc, iotaType, iotaDim);
++        iotaTensors.push_back(iota);
++      }
++    }
++
++    // Build full coordinate tensors
++    SmallVector<Value> allCoords;
++    int64_t iotaIdx = 0;
++    for (int64_t i = 0; i < rank; ++i) {
++      if (i == axis) {
++        allCoords.push_back(normalizedIndices);
++      } else {
++        allCoords.push_back(iotaTensors[iotaIdx]);
++        iotaIdx++;
++      }
++    }
++
++    // Expand each coordinate tensor to add a new dimension
++    SmallVector<Value> expandedCoords;
++    for (Value coord : allCoords) {
++      auto originalShape = indicesType.getShape();
++      SmallVector<int64_t> expandedShape(
++          originalShape.begin(), originalShape.end());
++      expandedShape.push_back(1);
++      auto expandedType = RankedTensorType::get(
++          expandedShape, coord.getType().cast<ShapedType>().getElementType());
++      Value expanded =
++          rewriter.create<stablehlo::ReshapeOp>(loc, expandedType, coord);
++      expandedCoords.push_back(expanded);
++    }
++
++    // Concatenate along the new dimension
++    int64_t concatDim = indicesType.getRank();
++    Value stackedCoords = rewriter.create<stablehlo::ConcatenateOp>(
++        loc, expandedCoords, concatDim);
++
++    // Reshape to [..., rank] format expected by scatter
++    auto coordsShape = indicesType.getShape().vec();
++    coordsShape.push_back(rank);
++    auto fullCoordsType =
++        RankedTensorType::get(coordsShape, rewriter.getI64Type());
++    Value fullCoords = rewriter.create<stablehlo::ReshapeOp>(
++        loc, fullCoordsType, stackedCoords);
++
++    // Set up scatter dimension numbers
++    auto scatterDimensionNumbers =
++        stablehlo::ScatterDimensionNumbersAttr::get(rewriter.getContext(),
++            /*updateWindowDims=*/{},
++            /*insertedWindowDims=*/llvm::to_vector(llvm::seq<int64_t>(0, rank)),
++            /*scatterDimsToOperandDims=*/
++            llvm::to_vector(llvm::seq<int64_t>(0, rank)),
++            /*indexVectorDim=*/indicesType.getRank());
++
++    // Create the scatter operation
++    rewriter.setInsertionPoint(op);
++    auto scatterOp = rewriter.create<stablehlo::ScatterOp>(loc, dataType, data,
++        fullCoords, updates, scatterDimensionNumbers,
++        /*indicesAreSorted=*/false,
++        /*uniqueIndices=*/false);
++
++    // Create the scatter region for the reduction operation
++    Block &scatterBlock = scatterOp.getUpdateComputation().emplaceBlock();
++
++    Type elementType = dataType.getElementType();
++    auto blockArgumentType = RankedTensorType::get({}, elementType);
++    scatterBlock.addArgument(blockArgumentType, loc);
++    scatterBlock.addArgument(blockArgumentType, loc);
++
++    {
++      OpBuilder::InsertionGuard guard(rewriter);
++      rewriter.setInsertionPointToStart(&scatterBlock);
++      Value block_res;
++      if (reductionStr == "none" || reductionStr.empty()) {
++        block_res = scatterBlock.getArgument(1);
++      } else if (reductionStr == "add") {
++        block_res = rewriter.create<stablehlo::AddOp>(
++            loc, scatterBlock.getArgument(0), scatterBlock.getArgument(1));
++      } else if (reductionStr == "mul") {
++        block_res = rewriter.create<stablehlo::MulOp>(
++            loc, scatterBlock.getArgument(0), scatterBlock.getArgument(1));
++      } else if (reductionStr == "max") {
++        block_res = rewriter.create<stablehlo::MaxOp>(
++            loc, scatterBlock.getArgument(0), scatterBlock.getArgument(1));
++      } else if (reductionStr == "min") {
++        block_res = rewriter.create<stablehlo::MinOp>(
++            loc, scatterBlock.getArgument(0), scatterBlock.getArgument(1));
++      } else {
++        op->emitError("Unsupported reduction mode: " + reductionStr);
++        return failure();
++      }
++
++      rewriter.create<stablehlo::ReturnOp>(loc, block_res);
++    }
++
++    rewriter.replaceOp(op, scatterOp.getResults());
++    return success();
++  }
++};
++
++void populateLoweringONNXScatterElementsOpToStablehloPattern(
++    RewritePatternSet &patterns, MLIRContext *ctx) {
++  patterns.insert<ONNXScatterElementsOpLoweringToStablehlo>(ctx);
++}
++
++} // namespace onnx_mlir
+diff --git a/test/mlir/conversion/onnx_to_stablehlo/Tensor/ScatterElements.mlir b/test/mlir/conversion/onnx_to_stablehlo/Tensor/ScatterElements.mlir
+new file mode 100644
+index 00000000..55b296a2
+--- /dev/null
++++ b/test/mlir/conversion/onnx_to_stablehlo/Tensor/ScatterElements.mlir
+@@ -0,0 +1,187 @@
++// RUN: onnx-mlir-opt --convert-onnx-to-stablehlo %s -split-input-file | FileCheck %s
++
++// Test ONNXScatterElementsOp lowering to StableHLO scatter
++
++// -----
++
++func.func @test_scatter_elements_none(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi64>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {
++  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "none"} : (tensor<3x3xf32>, tensor<2x3xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++  return %0 : tensor<3x3xf32>
++
++// CHECK-LABEL:  func.func @test_scatter_elements_none
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x3xf32>, [[PARAM_1_:%.+]]: tensor<2x3xi64>, [[PARAM_2_:%.+]]: tensor<2x3xf32>) -> tensor<3x3xf32> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0> : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.compare  LT, [[PARAM_1_]], [[VAR_0_]],  NOTYPE : (tensor<2x3xi64>, tensor<2x3xi64>) -> tensor<2x3xi1>
++// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<3> : tensor<2x3xi64>
++// CHECK:           [[VAR_3_:%.+]] = stablehlo.add [[PARAM_1_]], [[VAR_2_]] : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.select [[VAR_1_]], [[VAR_3_]], [[PARAM_1_]] : tensor<2x3xi1>, tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.iota dim = 1 : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.reshape [[VAR_4_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.reshape [[VAR_5_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK:           [[VAR_8_:%.+]] = stablehlo.concatenate [[VAR_6_]], [[VAR_7_]], dim = 2 : (tensor<2x3x1xi64>, tensor<2x3x1xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_9_:%.+]] = stablehlo.reshape [[VAR_8_]] : (tensor<2x3x2xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_10_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_9_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             stablehlo.return %arg4 : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<2x3x2xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++// CHECK:           return [[VAR_10_]] : tensor<3x3xf32>
++// CHECK:         }
++}
++
++// -----
++
++func.func @test_scatter_elements_add(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi64>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {
++  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "add"} : (tensor<3x3xf32>, tensor<2x3xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++  return %0 : tensor<3x3xf32>
++
++// CHECK-LABEL:  func.func @test_scatter_elements_add
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x3xf32>, [[PARAM_1_:%.+]]: tensor<2x3xi64>, [[PARAM_2_:%.+]]: tensor<2x3xf32>) -> tensor<3x3xf32> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0> : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.compare  LT, [[PARAM_1_]], [[VAR_0_]],  NOTYPE : (tensor<2x3xi64>, tensor<2x3xi64>) -> tensor<2x3xi1>
++// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<3> : tensor<2x3xi64>
++// CHECK:           [[VAR_3_:%.+]] = stablehlo.add [[PARAM_1_]], [[VAR_2_]] : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.select [[VAR_1_]], [[VAR_3_]], [[PARAM_1_]] : tensor<2x3xi1>, tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.iota dim = 1 : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.reshape [[VAR_4_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.reshape [[VAR_5_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK:           [[VAR_8_:%.+]] = stablehlo.concatenate [[VAR_6_]], [[VAR_7_]], dim = 2 : (tensor<2x3x1xi64>, tensor<2x3x1xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_9_:%.+]] = stablehlo.reshape [[VAR_8_]] : (tensor<2x3x2xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_10_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_9_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             [[VAR_11_:%.+]] = stablehlo.add %arg3, %arg4 : tensor<f32>
++// CHECK:             stablehlo.return [[VAR_11_]] : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<2x3x2xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++// CHECK:           return [[VAR_10_]] : tensor<3x3xf32>
++// CHECK:         }
++}
++
++// -----
++
++func.func @test_scatter_elements_axis1(%arg0: tensor<3x3xf32>, %arg1: tensor<3x2xi64>, %arg2: tensor<3x2xf32>) -> tensor<3x3xf32> {
++  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 1 : si64, reduction = "none"} : (tensor<3x3xf32>, tensor<3x2xi64>, tensor<3x2xf32>) -> tensor<3x3xf32>
++  return %0 : tensor<3x3xf32>
++
++// CHECK-LABEL:  func.func @test_scatter_elements_axis1
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x3xf32>, [[PARAM_1_:%.+]]: tensor<3x2xi64>, [[PARAM_2_:%.+]]: tensor<3x2xf32>) -> tensor<3x3xf32> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0> : tensor<3x2xi64>
++// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.compare  LT, [[PARAM_1_]], [[VAR_0_]],  NOTYPE : (tensor<3x2xi64>, tensor<3x2xi64>) -> tensor<3x2xi1>
++// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<3> : tensor<3x2xi64>
++// CHECK:           [[VAR_3_:%.+]] = stablehlo.add [[PARAM_1_]], [[VAR_2_]] : tensor<3x2xi64>
++// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.select [[VAR_1_]], [[VAR_3_]], [[PARAM_1_]] : tensor<3x2xi1>, tensor<3x2xi64>
++// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.iota dim = 0 : tensor<3x2xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.reshape [[VAR_5_]] : (tensor<3x2xi64>) -> tensor<3x2x1xi64>
++// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.reshape [[VAR_4_]] : (tensor<3x2xi64>) -> tensor<3x2x1xi64>
++// CHECK:           [[VAR_8_:%.+]] = stablehlo.concatenate [[VAR_6_]], [[VAR_7_]], dim = 2 : (tensor<3x2x1xi64>, tensor<3x2x1xi64>) -> tensor<3x2x2xi64>
++// CHECK:           [[VAR_9_:%.+]] = stablehlo.reshape [[VAR_8_]] : (tensor<3x2x2xi64>) -> tensor<3x2x2xi64>
++// CHECK:           [[VAR_10_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_9_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             stablehlo.return %arg4 : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<3x2x2xi64>, tensor<3x2xf32>) -> tensor<3x3xf32>
++// CHECK:           return [[VAR_10_]] : tensor<3x3xf32>
++// CHECK:         }
++}
++
++// -----
++
++func.func @test_scatter_elements_i32_indices(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi32>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {
++  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "none"} : (tensor<3x3xf32>, tensor<2x3xi32>, tensor<2x3xf32>) -> tensor<3x3xf32>
++  return %0 : tensor<3x3xf32>
++
++// CHECK-LABEL:  func.func @test_scatter_elements_i32_indices
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x3xf32>, [[PARAM_1_:%.+]]: tensor<2x3xi32>, [[PARAM_2_:%.+]]: tensor<2x3xf32>) -> tensor<3x3xf32> {
++// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.convert [[PARAM_1_]] : (tensor<2x3xi32>) -> tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0> : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.compare  LT, [[VAR_0_]], [[VAR_1_]],  NOTYPE : (tensor<2x3xi64>, tensor<2x3xi64>) -> tensor<2x3xi1>
++// CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.constant dense<3> : tensor<2x3xi64>
++// CHECK:           [[VAR_4_:%.+]] = stablehlo.add [[VAR_0_]], [[VAR_3_]] : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.select [[VAR_2_]], [[VAR_4_]], [[VAR_0_]] : tensor<2x3xi1>, tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.iota dim = 1 : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.reshape [[VAR_5_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK-DAG:       [[VAR_8_:%.+]] = stablehlo.reshape [[VAR_6_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK:           [[VAR_9_:%.+]] = stablehlo.concatenate [[VAR_7_]], [[VAR_8_]], dim = 2 : (tensor<2x3x1xi64>, tensor<2x3x1xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_10_:%.+]] = stablehlo.reshape [[VAR_9_]] : (tensor<2x3x2xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_11_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_10_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             stablehlo.return %arg4 : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<2x3x2xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++// CHECK:           return [[VAR_11_]] : tensor<3x3xf32>
++// CHECK:         }
++}
++
++// -----
++
++func.func @test_scatter_elements_mul(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi64>, %arg2: tensor<2x3xf32>) -> tensor<3x3xf32> {
++  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "mul"} : (tensor<3x3xf32>, tensor<2x3xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++  return %0 : tensor<3x3xf32>
++
++// CHECK-LABEL:  func.func @test_scatter_elements_mul
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x3xf32>, [[PARAM_1_:%.+]]: tensor<2x3xi64>, [[PARAM_2_:%.+]]: tensor<2x3xf32>) -> tensor<3x3xf32> {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0> : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.compare  LT, [[PARAM_1_]], [[VAR_0_]],  NOTYPE : (tensor<2x3xi64>, tensor<2x3xi64>) -> tensor<2x3xi1>
++// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<3> : tensor<2x3xi64>
++// CHECK:           [[VAR_3_:%.+]] = stablehlo.add [[PARAM_1_]], [[VAR_2_]] : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.select [[VAR_1_]], [[VAR_3_]], [[PARAM_1_]] : tensor<2x3xi1>, tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.iota dim = 1 : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.reshape [[VAR_4_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.reshape [[VAR_5_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK:           [[VAR_8_:%.+]] = stablehlo.concatenate [[VAR_6_]], [[VAR_7_]], dim = 2 : (tensor<2x3x1xi64>, tensor<2x3x1xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_9_:%.+]] = stablehlo.reshape [[VAR_8_]] : (tensor<2x3x2xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_10_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_9_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             [[VAR_11_:%.+]] = stablehlo.multiply %arg3, %arg4 : tensor<f32>
++// CHECK:             stablehlo.return [[VAR_11_]] : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<2x3x2xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++// CHECK:           return [[VAR_10_]] : tensor<3x3xf32>
++// CHECK:         }
++}
++
++// -----
++
++func.func @test_scatter_elements_min_max(%arg0: tensor<3x3xf32>, %arg1: tensor<2x3xi64>, %arg2: tensor<2x3xf32>) -> (tensor<3x3xf32>, tensor<3x3xf32>) {
++  %0 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "min"} : (tensor<3x3xf32>, tensor<2x3xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++  %1 = "onnx.ScatterElements"(%arg0, %arg1, %arg2) {axis = 0 : si64, reduction = "max"} : (tensor<3x3xf32>, tensor<2x3xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++  return %0, %1 : tensor<3x3xf32>, tensor<3x3xf32>
++
++// CHECK-LABEL:  func.func @test_scatter_elements_min_max
++// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x3xf32>, [[PARAM_1_:%.+]]: tensor<2x3xi64>, [[PARAM_2_:%.+]]: tensor<2x3xf32>) -> (tensor<3x3xf32>, tensor<3x3xf32>) {
++// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0> : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.compare  LT, [[PARAM_1_]], [[VAR_0_]],  NOTYPE : (tensor<2x3xi64>, tensor<2x3xi64>) -> tensor<2x3xi1>
++// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<3> : tensor<2x3xi64>
++// CHECK:           [[VAR_3_:%.+]] = stablehlo.add [[PARAM_1_]], [[VAR_2_]] : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.select [[VAR_1_]], [[VAR_3_]], [[PARAM_1_]] : tensor<2x3xi1>, tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.iota dim = 1 : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.reshape [[VAR_4_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK-DAG:       [[VAR_7_:%.+]] = stablehlo.reshape [[VAR_5_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK:           [[VAR_8_:%.+]] = stablehlo.concatenate [[VAR_6_]], [[VAR_7_]], dim = 2 : (tensor<2x3x1xi64>, tensor<2x3x1xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_9_:%.+]] = stablehlo.reshape [[VAR_8_]] : (tensor<2x3x2xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_10_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_9_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             [[VAR_22_:%.+]] = stablehlo.minimum %arg3, %arg4 : tensor<f32>
++// CHECK:             stablehlo.return [[VAR_22_]] : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<2x3x2xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++// CHECK:           [[VAR_11_:%.+]] = stablehlo.constant dense<0> : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_12_:%.+]] = stablehlo.compare  LT, [[PARAM_1_]], [[VAR_11_]],  NOTYPE : (tensor<2x3xi64>, tensor<2x3xi64>) -> tensor<2x3xi1>
++// CHECK-DAG:       [[VAR_13_:%.+]] = stablehlo.constant dense<3> : tensor<2x3xi64>
++// CHECK:           [[VAR_14_:%.+]] = stablehlo.add [[PARAM_1_]], [[VAR_13_]] : tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_15_:%.+]] = stablehlo.select [[VAR_12_]], [[VAR_14_]], [[PARAM_1_]] : tensor<2x3xi1>, tensor<2x3xi64>
++// CHECK-DAG:       [[VAR_16_:%.+]] = stablehlo.iota dim = 1 : tensor<2x3xi64>
++// CHECK-NOT: separator of consecutive DAGs
++// CHECK-DAG:       [[VAR_17_:%.+]] = stablehlo.reshape [[VAR_15_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK-DAG:       [[VAR_18_:%.+]] = stablehlo.reshape [[VAR_16_]] : (tensor<2x3xi64>) -> tensor<2x3x1xi64>
++// CHECK:           [[VAR_19_:%.+]] = stablehlo.concatenate [[VAR_17_]], [[VAR_18_]], dim = 2 : (tensor<2x3x1xi64>, tensor<2x3x1xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_20_:%.+]] = stablehlo.reshape [[VAR_19_]] : (tensor<2x3x2xi64>) -> tensor<2x3x2xi64>
++// CHECK:           [[VAR_21_:%.+]] = "stablehlo.scatter"([[PARAM_0_]], [[VAR_20_]], [[PARAM_2_]]) ({
++// CHECK:           ^bb0(%arg3: tensor<f32>, %arg4: tensor<f32>):
++// CHECK:             [[VAR_22_1_:%.+]] = stablehlo.maximum %arg3, %arg4 : tensor<f32>
++// CHECK:             stablehlo.return [[VAR_22_1_]] : tensor<f32>
++// CHECK:           }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<inserted_window_dims = [0, 1], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 2>, unique_indices = false} : (tensor<3x3xf32>, tensor<2x3x2xi64>, tensor<2x3xf32>) -> tensor<3x3xf32>
++// CHECK:           return [[VAR_10_]], [[VAR_21_]] : tensor<3x3xf32>, tensor<3x3xf32>
++// CHECK:         }
++}
+\ No newline at end of file
