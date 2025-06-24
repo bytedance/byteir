@@ -72,24 +72,25 @@ inline common::Status ComputeDrv(const void *func, void **args,
   dim3 *grid = static_cast<dim3 *>(args[0]);
   dim3 *block = static_cast<dim3 *>(args[1]);
   size_t *shared_size = static_cast<size_t *>(args[2]);
-  CUfunction hFunc=reinterpret_cast<CUfunction>(const_cast<void *>(func));
+  CUfunction hFunc = reinterpret_cast<CUfunction>(const_cast<void *>(func));
 
-  //extend the shared memory
+  // extend the shared memory
   int shared_optin;
-  int device_id=-1;
+  int device_id = -1;
   BRT_CUDA_CHECK(cudaGetDevice(&device_id));
-  BRT_CUDA_CHECK(cudaDeviceGetAttribute(&shared_optin, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id));
-  
-  if (shared_optin>49152&&(*shared_size)>49152){
+  BRT_CUDA_CHECK(cudaDeviceGetAttribute(
+      &shared_optin, cudaDevAttrMaxSharedMemoryPerBlockOptin, device_id));
+
+  if (shared_optin > 49152 && (*shared_size) > 49152) {
     BRT_CU_CHECK(cuFuncSetCacheConfig(hFunc, CU_FUNC_CACHE_PREFER_SHARED));
-    BRT_CU_CHECK(cuFuncSetAttribute(hFunc, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES, shared_optin));
+    BRT_CU_CHECK(cuFuncSetAttribute(
+        hFunc, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES, shared_optin));
   }
 
   void **kernel_args = args + 3;
-  return BRT_CU_CALL(
-      cuLaunchKernel(hFunc,
-                     (*grid).x, (*grid).y, (*grid).z, (*block).x, (*block).y,
-                     (*block).z, *shared_size, stream, kernel_args, 0));
+  return BRT_CU_CALL(cuLaunchKernel(hFunc, (*grid).x, (*grid).y, (*grid).z,
+                                    (*block).x, (*block).y, (*block).z,
+                                    *shared_size, stream, kernel_args, 0));
 }
 
 inline common::Status ComputeHost(const void *func, void **args,

@@ -31,25 +31,20 @@ using namespace mlir;
 namespace {
 
 static LogicalResult AttachTITConfigToAttr(
-    func::FuncOp func,
-    const std::string &titPtxPath,
-    const std::string &smemsizeArg,
-    const std::string &gridsizeXArg,
-    const std::string &gridsizeYArg,
-    const std::string &gridsizeZArg,
-    const std::string &blocksizeXArg,
-    const std::string &blocksizeYArg,
+    func::FuncOp func, const std::string &titPtxPath,
+    const std::string &smemsizeArg, const std::string &gridsizeXArg,
+    const std::string &gridsizeYArg, const std::string &gridsizeZArg,
+    const std::string &blocksizeXArg, const std::string &blocksizeYArg,
     const std::string &blocksizeZArg) {
-  
-  
+
   std::string device_name;
   std::string byreKernelName;
   if (titPtxPath.find(".ptx") != std::string::npos) {
     device_name = "cuda";
-    byreKernelName="PTXOp";
+    byreKernelName = "PTXOp";
   }
 
-  if (device_name.empty()|| byreKernelName.empty()) {
+  if (device_name.empty() || byreKernelName.empty()) {
     return func.emitError("Invalid device type for TIT configuration");
   }
   addGenericFuncAttrs(func, byreKernelName);
@@ -62,14 +57,10 @@ static LogicalResult AttachTITConfigToAttr(
   titConfig["device"] = opBuilder.getStringAttr(device_name);
   titConfig["device_file_name"] = opBuilder.getStringAttr(titPtxPath);
 
-
   llvm::StringMap<llvm::StringRef> gpuLaunchArgs = {
-      {"SharedMemorySize", smemsizeArg},
-      {"BlockSize.x", blocksizeXArg},
-      {"BlockSize.y", blocksizeYArg},
-      {"BlockSize.z", blocksizeZArg},
-      {"GridSize.x", gridsizeXArg},
-      {"GridSize.y", gridsizeYArg},
+      {"SharedMemorySize", smemsizeArg}, {"BlockSize.x", blocksizeXArg},
+      {"BlockSize.y", blocksizeYArg},    {"BlockSize.z", blocksizeZArg},
+      {"GridSize.x", gridsizeXArg},      {"GridSize.y", gridsizeYArg},
       {"GridSize.z", gridsizeZArg}};
 
   for (auto &kv : gpuLaunchArgs) {
@@ -91,17 +82,15 @@ static LogicalResult AttachTITConfigToAttr(
 }
 
 struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
-  GenTITConfigPass(
-      ArrayRef<std::string> funcNames,
-      ArrayRef<std::string> titPtxPaths,
-      ArrayRef<std::string> smemsizeArgs,
-      ArrayRef<std::string> gridsizeXArgs,
-      ArrayRef<std::string> gridsizeYArgs,
-      ArrayRef<std::string> gridsizeZArgs,
-      ArrayRef<std::string> blocksizeXArgs,
-      ArrayRef<std::string> blocksizeYArgs,
-      ArrayRef<std::string> blocksizeZArgs
-      )
+  GenTITConfigPass(ArrayRef<std::string> funcNames,
+                   ArrayRef<std::string> titPtxPaths,
+                   ArrayRef<std::string> smemsizeArgs,
+                   ArrayRef<std::string> gridsizeXArgs,
+                   ArrayRef<std::string> gridsizeYArgs,
+                   ArrayRef<std::string> gridsizeZArgs,
+                   ArrayRef<std::string> blocksizeXArgs,
+                   ArrayRef<std::string> blocksizeYArgs,
+                   ArrayRef<std::string> blocksizeZArgs)
       : GenTITConfigBase() {
     this->funcNames = funcNames;
     this->titPtxPaths = titPtxPaths;
@@ -120,8 +109,9 @@ struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
       return;
     for (size_t i = 0; i < funcNames.size(); ++i)
       if (func.getSymName() == funcNames[i]) {
-        if (failed(AttachTITConfigToAttr(func, titPtxPaths[i], smemsizeArgs[i], gridsizeXArgs[i], 
-                gridsizeYArgs[i], gridsizeZArgs[i], blocksizeXArgs[i], 
+        if (failed(AttachTITConfigToAttr(
+                func, titPtxPaths[i], smemsizeArgs[i], gridsizeXArgs[i],
+                gridsizeYArgs[i], gridsizeZArgs[i], blocksizeXArgs[i],
                 blocksizeYArgs[i], blocksizeZArgs[i]))) {
           return signalPassFailure();
         }
@@ -131,17 +121,13 @@ struct GenTITConfigPass : public GenTITConfigBase<GenTITConfigPass> {
 
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::createGenTITConfigPass(
-  ArrayRef<std::string> funcNames,
-  ArrayRef<std::string> titPtxPaths,
-  ArrayRef<std::string> smemsizeArgs,
-  ArrayRef<std::string> gridsizeXArgs,
-  ArrayRef<std::string> gridsizeYArgs,
-  ArrayRef<std::string> gridsizeZArgs,
-  ArrayRef<std::string> blocksizeXArgs,
-  ArrayRef<std::string> blocksizeYArgs,
-  ArrayRef<std::string> blocksizeZArgs
-) {
-  return std::make_unique<GenTITConfigPass>(funcNames, titPtxPaths,smemsizeArgs, gridsizeXArgs, gridsizeYArgs, gridsizeZArgs, blocksizeXArgs, blocksizeYArgs, blocksizeZArgs);
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::createGenTITConfigPass(
+    ArrayRef<std::string> funcNames, ArrayRef<std::string> titPtxPaths,
+    ArrayRef<std::string> smemsizeArgs, ArrayRef<std::string> gridsizeXArgs,
+    ArrayRef<std::string> gridsizeYArgs, ArrayRef<std::string> gridsizeZArgs,
+    ArrayRef<std::string> blocksizeXArgs, ArrayRef<std::string> blocksizeYArgs,
+    ArrayRef<std::string> blocksizeZArgs) {
+  return std::make_unique<GenTITConfigPass>(
+      funcNames, titPtxPaths, smemsizeArgs, gridsizeXArgs, gridsizeYArgs,
+      gridsizeZArgs, blocksizeXArgs, blocksizeYArgs, blocksizeZArgs);
 }

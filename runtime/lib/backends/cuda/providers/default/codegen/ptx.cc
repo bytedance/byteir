@@ -139,7 +139,7 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
     BRT_THROW_EX(std::runtime_error, "no BlockSize.x attr");
   }
 
-  size_t shared_size=0;
+  size_t shared_size = 0;
   int gx = static_cast<int>(info.GetOperation()
                                 ->getAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)
                                 .getInt()),
@@ -169,10 +169,11 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
                               ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)
                               .getInt());
   }
-  if(info.GetOperation()->hasAttrOfType<IntegerAttr>(SHARED_SIZE_ATTR)){
-    shared_size=static_cast<int>(info.GetOperation()
-                              ->getAttrOfType<IntegerAttr>(SHARED_SIZE_ATTR)
-                              .getInt());
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(SHARED_SIZE_ATTR)) {
+    shared_size =
+        static_cast<int>(info.GetOperation()
+                             ->getAttrOfType<IntegerAttr>(SHARED_SIZE_ATTR)
+                             .getInt());
   }
 
   std::vector<int> ranks;

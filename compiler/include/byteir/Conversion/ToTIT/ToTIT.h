@@ -36,8 +36,7 @@ createGenTITConfigPass(ArrayRef<std::string> funcNames = {""},
                        ArrayRef<std::string> gridsizeZArgs = {""},
                        ArrayRef<std::string> blocksizeXArgs = {""},
                        ArrayRef<std::string> blocksizeYArgs = {""},
-                       ArrayRef<std::string> blocksizeZArgs = {""}
-                       );
+                       ArrayRef<std::string> blocksizeZArgs = {""});
 
 } // namespace mlir
 
