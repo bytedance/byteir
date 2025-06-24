@@ -67,7 +67,15 @@ class Gemm(Operation):
                 raise NotImplementedError(f'input {input} not supported')
 
         return signature_metadata,divisiability
-
+    
+    @staticmethod
+    def _block_size(x):
+        if x>=128:
+            return 128
+        elif x<=32:
+            return 32
+        return triton.next_power_of_2(x)
+    
     def _gen_constants(self,enable_tf32):
         const_metadata={}
         const_metadata['ACTIVATION'] = self._attrs['activation']
@@ -96,9 +104,9 @@ class Gemm(Operation):
         else:
             raise NotImplementedError(f'layout {self.layout} not supported')
         
-        const_metadata['BLOCK_SIZE_M']= 128 if M>=128 else triton.next_power_of_2(M)
-        const_metadata['BLOCK_SIZE_N']= 128 if N>=128 else triton.next_power_of_2(N)
-        const_metadata['BLOCK_SIZE_K']= 128 if K>=128 else triton.next_power_of_2(K)
+        const_metadata['BLOCK_SIZE_M']= self._block_size(M)
+        const_metadata['BLOCK_SIZE_N']= self._block_size(N)
+        const_metadata['BLOCK_SIZE_K']= self._block_size(K)
         return const_metadata
     
     def _gen_exec_metadata(self):
