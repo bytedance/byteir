@@ -1,8 +1,11 @@
 import triton
 import triton.language as tl
+from tritontemplate.backend.cuda.utils.activation import *
 
 def gen_grid_gemm_rcr(M, N, BLOCK_SIZE_M, BLOCK_SIZE_N):
-    
+    """
+    Generates the grid for a GEMM kernel.
+    """
     return (
         triton.cdiv(M, BLOCK_SIZE_M)*triton.cdiv(N, BLOCK_SIZE_N),1,1)
 
@@ -67,7 +70,7 @@ def gemm_rcr_bias(
         accumulator = accumulator + bias_vals[None, :] 
 
     if ACTIVATION == 'relu':
-        accumulator = tl.maximum(accumulator, 0)
+        accumulator = relu(accumulator)
 
     offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
     offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
@@ -121,7 +124,7 @@ def gemm_rcr(
         b_ptrs += BLOCK_SIZE_K * stride_bk 
 
     if ACTIVATION == 'relu':
-        accumulator = tl.maximum(accumulator, 0)
+        accumulator = relu(accumulator)
 
     offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
     offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)

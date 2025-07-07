@@ -39,7 +39,6 @@ class Gemm(Operation):
         
     
     def _induce_output_shape(self):
-        # TODO: support transpose, by swap A,B
         if self.layout == 'rcr':
             M,N,K = self._attrs['inputs'][0].shape[0],self._attrs['inputs'][1].shape[0],self._attrs['inputs'][0].shape[1]
         elif self.layout == 'rrr':
@@ -97,6 +96,21 @@ class Gemm(Operation):
             const_metadata['stride_ak']=1
             const_metadata['stride_bn']=K
             const_metadata['stride_bk']=1
+            const_metadata['stride_cm']=N
+            const_metadata['stride_cn']=1
+            if self.is_bias:
+                const_metadata['stride_biasn']=1
+        elif self.layout == 'rrr':
+            input=self._attrs['inputs']
+            M,K,N=input[0].shape[0],input[1].shape[0],input[1].shape[1]
+            print(M,K,N)
+            const_metadata['M']=M
+            const_metadata['N']=N
+            const_metadata['K']=K
+            const_metadata['stride_am']=K
+            const_metadata['stride_ak']=1
+            const_metadata['stride_bk']=N
+            const_metadata['stride_bn']=1
             const_metadata['stride_cm']=N
             const_metadata['stride_cn']=1
             if self.is_bias:
