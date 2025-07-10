@@ -2,6 +2,8 @@ from abc import ABC,abstractmethod
 from pprint import pformat
 from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
+from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
+
 class BaseType(ABC):
     def __init__(self) -> None:
         super().__init__()
@@ -109,3 +111,35 @@ class Operation(BaseType):
     def compile(self,target_name,workdir):
         raise NotImplementedError
 
+ 
+    def _gen_tensor_signature_divisiability(self,tensors_names:List[str]):
+        signature_metadata={}
+        divisiability={1:[],16:[]}
+        tensor_obj=[]
+        for tensor_name in tensors_names:
+            tensor_obj+=self._attrs[tensor_name]
+        for i,input in enumerate(tensor_obj):
+            if isinstance(input,Tensor):
+                try:
+                    sptype='*'+dtype_str_to_triton_signature(input.dtype)
+                except KeyError:
+                    raise KeyError(f'dtype {input.dtype} not supported')
+                signature_metadata[i]=sptype
+                # the ptr from torch is 16-byte aligned
+                if divisiability.get(16,None) is None:
+                    divisiability[16]=[i]
+                else:
+                    divisiability[16].append(i)
+            else:
+                raise NotImplementedError(f'input {input} not supported')
+
+        return signature_metadata,divisiability
+
+    @staticmethod
+    def _block_size(x):
+        if x<=32:
+            return 32
+        elif x<=64:
+            return 64
+        else:
+            return 128

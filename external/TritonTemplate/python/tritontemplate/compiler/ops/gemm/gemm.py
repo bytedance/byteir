@@ -35,10 +35,10 @@ class Gemm(Operation):
         self.is_bias= is_bias
         self._attrs['activation'] = activation
         self._attrs['inputs'] = inputs
-        self._attrs['outputs'] = outputs if outputs is not None else self._induce_output_shape()
+        self._attrs['outputs'] = outputs if outputs is not None else self._deduce_output_shape()
         
     
-    def _induce_output_shape(self):
+    def _deduce_output_shape(self):
         if self.layout == 'rcr':
             M,N,K = self._attrs['inputs'][0].shape[0],self._attrs['inputs'][1].shape[0],self._attrs['inputs'][0].shape[1]
         elif self.layout == 'rrr':
@@ -47,33 +47,6 @@ class Gemm(Operation):
             raise NotImplementedError(f'layout {self.layout} not supported')
         return [Tensor(shape=[M,N],dtype=self._attrs['inputs'][0].dtype)]
     
-    def _gen_signature_divisiability(self):
-        signature_metadata={}
-        divisiability={1:[],16:[]}
-        for i,input in enumerate(self._attrs['inputs']+self._attrs['outputs']):
-            if isinstance(input,Tensor):
-                try:
-                    sptype='*'+dtype_str_to_triton_signature(input.dtype)
-                except KeyError:
-                    raise KeyError(f'dtype {input.dtype} not supported')
-                signature_metadata[i]=sptype
-                # the ptr from torch is 16-byte aligned
-                if divisiability.get(16,None) is None:
-                    divisiability[16]=[i]
-                else:
-                    divisiability[16].append(i)
-            else:
-                raise NotImplementedError(f'input {input} not supported')
-
-        return signature_metadata,divisiability
-    
-    @staticmethod
-    def _block_size(x):
-        if x>=128:
-            return 128
-        elif x<=32:
-            return 32
-        return triton.next_power_of_2(x)
     
     def _gen_constants(self,enable_tf32):
         const_metadata={}
@@ -103,7 +76,6 @@ class Gemm(Operation):
         elif self.layout == 'rrr':
             input=self._attrs['inputs']
             M,K,N=input[0].shape[0],input[1].shape[0],input[1].shape[1]
-            print(M,K,N)
             const_metadata['M']=M
             const_metadata['N']=N
             const_metadata['K']=K
@@ -132,7 +104,7 @@ class Gemm(Operation):
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),triton_kernel_name)
         gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),f'gen_grid_gemm_{self.layout}')
 
-        signature,divisiability=self._gen_signature_divisiability()
+        signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
         constants=self._gen_constants(enable_tf32)
         exec_metadata=self._gen_exec_metadata()
 

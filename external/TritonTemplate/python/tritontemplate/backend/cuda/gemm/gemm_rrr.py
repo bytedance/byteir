@@ -58,12 +58,12 @@ def gemm_rrr_bias(
         b_ptrs += BLOCK_SIZE_K * stride_bk
 
 
-    if bias_ptr is not None:
-        offs_bias_n = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-        bias_ptrs = bias_ptr + offs_bias_n * stride_biasn
-        bias_vals = tl.load(bias_ptrs, mask=offs_bias_n < N, other=0.0)
+    
+    offs_bias_n = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    bias_ptrs = bias_ptr + offs_bias_n * stride_biasn
+    bias_vals = tl.load(bias_ptrs, mask=offs_bias_n < N, other=0.0)
 
-        accumulator = accumulator + bias_vals[None, :]
+    accumulator = accumulator + bias_vals[None, :]
 
 
     if ACTIVATION == 'relu':
