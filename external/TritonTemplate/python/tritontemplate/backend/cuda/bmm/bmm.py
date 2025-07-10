@@ -3,7 +3,7 @@ import triton.language as tl
 
 def gen_grid_bmm(batch_size,M, N, BLOCK_SIZE_M, BLOCK_SIZE_N):
     """
-    Generates the grid for a GEMM kernel.
+    Generates the grid for a Batch GEMM kernel.
     """
     return (batch_size,triton.cdiv(M, BLOCK_SIZE_M) * triton.cdiv(N, BLOCK_SIZE_N), 1)
 
@@ -87,8 +87,6 @@ def bmm_bias(
     accumulator+=bias
 
     tl.store(c_ptr+c_ptrs_offs,accumulator,mask=c_mask)
-
-     
 
 
 @triton.jit

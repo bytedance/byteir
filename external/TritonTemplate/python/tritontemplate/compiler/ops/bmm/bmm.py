@@ -50,7 +50,7 @@ class Bmm(Operation):
         if self._attrs['outputs'] is None:
             self._attrs['outputs'] = [Tensor(shape=res_shape,dtype=self._attrs['inputs'][0].dtype)]
         else:
-            assert self._attrs['outputs'][0].shape == res_shape
+            assert self._attrs['outputs'][0].shape == res_shape, f"output shape {self._attrs['outputs'][0].shape} not match {res_shape}"
 
     def _gen_constants(self,enable_tf32):
         const_metadata={}
@@ -90,6 +90,7 @@ class Bmm(Operation):
         triton_kernel_name=f'bmm'+ ('' if not self.is_bias else '_bias')
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.bmm'),triton_kernel_name)
         gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.bmm'),f'gen_grid_bmm')
+        
         signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
         constants=self._gen_constants(enable_tf32)
         exec_metadata=self._gen_exec_metadata()

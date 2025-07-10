@@ -80,8 +80,8 @@ def test_bmm_bias(format, batch_size, M, N, K, stype):
     a = torch.randn(batch_size, M, K, dtype=dtype, device='cuda')
     b = torch.randn(batch_size, K, N, dtype=dtype, device='cuda')
     bias = torch.randn(batch_size,M, N, dtype=dtype, device='cuda')
-    c_triton = torch.empty(batch_size, M, N, dtype=dtype, device='cuda')
-    c_ttemplate = torch.empty(batch_size, M, N, dtype=dtype, device='cuda')
+    c_triton_jit = torch.empty(batch_size, M, N, dtype=dtype, device='cuda')
+    c_triton_aot = torch.empty(batch_size, M, N, dtype=dtype, device='cuda')
       
     c_torch= torch.bmm(a, b)+bias
 
@@ -97,11 +97,11 @@ def test_bmm_bias(format, batch_size, M, N, K, stype):
         b=b.transpose(1,2).contiguous()
         is_trans_b=True
     test_kernel=gen_bmm_bias(format,batch_size,M,N,K,stype)
-    test_kernel(a,b,bias,c_ttemplate)
-    bmm_bias_kernel[grid](a,b,bias,c_triton,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*bias.stride(),*c_triton.stride(),64,64,64,False)
+    test_kernel(a,b,bias,c_triton_aot)
+    bmm_bias_kernel[grid](a,b,bias,c_triton_jit,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*bias.stride(),*c_triton_jit.stride(),64,64,64,False)
     print(*b.stride())
-    torch.testing.assert_close(c_ttemplate,c_triton,atol=1e-2,rtol=1e-2)  
-    torch.testing.assert_close(c_ttemplate,c_torch,atol=1e-2,rtol=1e-2)
+    torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=1e-2,rtol=1e-2)  
+    torch.testing.assert_close(c_triton_aot,c_torch,atol=1e-2,rtol=1e-2)
 
 @pytest.mark.parametrize('format', FORMATS)
 @pytest.mark.parametrize(
@@ -118,8 +118,8 @@ def test_bmm(format, batch_size, M, N, K, stype):
 
     a = torch.randn(batch_size, M, K, dtype=dtype, device='cuda')
     b = torch.randn(batch_size, K, N, dtype=dtype, device='cuda')
-    c_triton = torch.randn(batch_size, M, N, dtype=dtype, device='cuda')
-    c_ttemplate = torch.randn(batch_size, M, N, dtype=dtype, device='cuda')
+    c_triton_jit = torch.randn(batch_size, M, N, dtype=dtype, device='cuda')
+    c_triton_aot = torch.randn(batch_size, M, N, dtype=dtype, device='cuda')
 
     c_torch= torch.bmm(a, b)
     grid = lambda META: (
@@ -135,9 +135,9 @@ def test_bmm(format, batch_size, M, N, K, stype):
         is_trans_b=True
 
 
-    bmm_kernel[grid](a,b,c_triton,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*c_triton.stride(),64,64,64,False)
+    bmm_kernel[grid](a,b,c_triton_jit,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*c_triton_jit.stride(),64,64,64,False)
     kernel=gen_bmm(format,batch_size,M,N,K,stype)
-    kernel(a,b,c_ttemplate)
-    torch.testing.assert_close(c_ttemplate,c_triton,atol=1e-2,rtol=1e-2)
-    torch.testing.assert_close(c_ttemplate,c_torch,atol=1e-2,rtol=1e-2)
+    kernel(a,b,c_triton_aot)
+    torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=1e-2,rtol=1e-2)
+    torch.testing.assert_close(c_triton_aot,c_torch,atol=1e-2,rtol=1e-2)
 

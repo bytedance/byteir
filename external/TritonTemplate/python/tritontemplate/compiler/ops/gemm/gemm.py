@@ -7,8 +7,9 @@ from tritontemplate.compiler.base import IntImm, Tensor, Operation
 from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
 from tritontemplate.compiler.kernel import TritonExecutor
 from tritontemplate.compiler.utils import get_warpsize
+from tritontemplate.backend.cuda.utils.utils import shape2stride
 
-_supported_layouts = ['rcr','rrr']
+_supported_layouts = ['rcr','rrr','ccr','crr']
 _supported_activations = ['relu',None]
 
 
@@ -35,19 +36,31 @@ class Gemm(Operation):
         self.is_bias= is_bias
         self._attrs['activation'] = activation
         self._attrs['inputs'] = inputs
-        self._attrs['outputs'] = outputs if outputs is not None else self._deduce_output_shape()
+        self._attrs['outputs'] = outputs 
+        self._deduce_output_shape()
         
     
     def _deduce_output_shape(self):
-        if self.layout == 'rcr':
-            M,N,K = self._attrs['inputs'][0].shape[0],self._attrs['inputs'][1].shape[0],self._attrs['inputs'][0].shape[1]
-        elif self.layout == 'rrr':
-            M,K,N = self._attrs['inputs'][0].shape[0],self._attrs['inputs'][1].shape[0],self._attrs['inputs'][0].shape[1]
+
+        is_transpose_a=self.layout[0]=='c'
+        is_transpose_b=self.layout[1]=='c'
+        M=self._attrs['inputs'][0].shape[1] if is_transpose_a else self._attrs['inputs'][0].shape[0]
+        K=self._attrs['inputs'][0].shape[0] if is_transpose_a else self._attrs['inputs'][0].shape[1]
+        N=self._attrs['inputs'][1].shape[0] if is_transpose_b else self._attrs['inputs'][1].shape[1]
+
+
+        self._attrs['M'] = M
+        self._attrs['K'] = K
+        self._attrs['N'] = N
+        self._attrs['is_transpose_a'] = is_transpose_a
+        self._attrs['is_transpose_b'] = is_transpose_b
+
+        res_shape=[M,N] if self.layout[2]=='r' else [N,M]
+        if self._attrs['outputs'] is None:
+            self._attrs['outputs'] = [Tensor(shape=res_shape,dtype=self._attrs['inputs'][0].dtype)]
         else:
-            raise NotImplementedError(f'layout {self.layout} not supported')
-        return [Tensor(shape=[M,N],dtype=self._attrs['inputs'][0].dtype)]
-    
-    
+            assert self._attrs['outputs'][0].shape == res_shape, f"output shape {self._attrs['outputs'][0].shape} not match {res_shape}"
+
     def _gen_constants(self,enable_tf32):
         const_metadata={}
         const_metadata['ACTIVATION'] = self._attrs['activation']
@@ -59,40 +72,26 @@ class Gemm(Operation):
                 break
 
         const_metadata['enable_tf32'] = True if (enable_tf32 and any_float32) else False
-        if self.layout == 'rcr':
-            input=self._attrs['inputs']
-            M,N,K=input[0].shape[0],input[1].shape[0],input[0].shape[1]
-            const_metadata['M']=M
-            const_metadata['N']=N
-            const_metadata['K']=K
-            const_metadata['stride_am']=K
-            const_metadata['stride_ak']=1
-            const_metadata['stride_bn']=K
-            const_metadata['stride_bk']=1
-            const_metadata['stride_cm']=N
-            const_metadata['stride_cn']=1
-            if self.is_bias:
-                const_metadata['stride_biasn']=1
-        elif self.layout == 'rrr':
-            input=self._attrs['inputs']
-            M,K,N=input[0].shape[0],input[1].shape[0],input[1].shape[1]
-            const_metadata['M']=M
-            const_metadata['N']=N
-            const_metadata['K']=K
-            const_metadata['stride_am']=K
-            const_metadata['stride_ak']=1
-            const_metadata['stride_bk']=N
-            const_metadata['stride_bn']=1
-            const_metadata['stride_cm']=N
-            const_metadata['stride_cn']=1
-            if self.is_bias:
-                const_metadata['stride_biasn']=1
-        else:
-            raise NotImplementedError(f'layout {self.layout} not supported')
+                
+        const_metadata['BLOCK_SIZE_M']= self._block_size(self._attrs['M'])
+        const_metadata['BLOCK_SIZE_N']= self._block_size(self._attrs['N'])
+        const_metadata['BLOCK_SIZE_K']= self._block_size(self._attrs['K'])
         
-        const_metadata['BLOCK_SIZE_M']= self._block_size(M)
-        const_metadata['BLOCK_SIZE_N']= self._block_size(N)
-        const_metadata['BLOCK_SIZE_K']= self._block_size(K)
+        input=self._attrs['inputs']
+        output=self._attrs['outputs']
+        const_metadata['M']=self._attrs['M']
+        const_metadata['N']=self._attrs['N']
+        const_metadata['K']=self._attrs['K']
+        
+        const_metadata['is_transpose_a']=self._attrs['is_transpose_a']
+        const_metadata['is_transpose_b']=self._attrs['is_transpose_b']
+        const_metadata['stride_a0'],const_metadata['stride_a1']=shape2stride(input[0].shape)
+        const_metadata['stride_b0'],const_metadata['stride_b1']=shape2stride(input[1].shape)
+        
+        if self.is_bias:
+            const_metadata['stride_bias0']=1
+
+        const_metadata['stride_c0'],const_metadata['stride_c1']=shape2stride(output[0].shape)
         return const_metadata
     
     def _gen_exec_metadata(self):
@@ -100,9 +99,9 @@ class Gemm(Operation):
 
     #TODO:enable_tf32 https://github.com/triton-lang/triton/issues/4574
     def compile(self,target_name,workdir,enable_tf32: bool = False,)->TritonExecutor:
-        triton_kernel_name=f'gemm_{self.layout}'+ ('' if not self.is_bias else '_bias')
+        triton_kernel_name=f'gemm'+ ('' if not self.is_bias else '_bias')
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),triton_kernel_name)
-        gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),f'gen_grid_gemm_{self.layout}')
+        gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),f'gen_grid_gemm')
 
         signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
         constants=self._gen_constants(enable_tf32)
