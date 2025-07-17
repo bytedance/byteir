@@ -6,8 +6,8 @@ from tritontemplate.compiler.base import IntImm,Tensor
 from tritontemplate.compiler.ops.bmm import Bmm
 from tritontemplate.compiler.compiler import compile_kernel
 
-from tritontemplate.backend.cuda.bmm.bmm import bmm_bias as bmm_bias_kernel
-from tritontemplate.backend.cuda.bmm.bmm import bmm as bmm_kernel
+from tritontemplate.backend.cuda.bmm import bmm_bias as bmm_bias_kernel
+from tritontemplate.backend.cuda.bmm import bmm as bmm_kernel
 
 def gen_bmm_bias(format, batch_size, M, N, K, stype):
     if format[0]=='r':
@@ -99,7 +99,6 @@ def test_bmm_bias(format, batch_size, M, N, K, stype):
     test_kernel=gen_bmm_bias(format,batch_size,M,N,K,stype)
     test_kernel(a,b,bias,c_triton_aot)
     bmm_bias_kernel[grid](a,b,bias,c_triton_jit,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*bias.stride(),*c_triton_jit.stride(),64,64,64,False)
-    print(*b.stride())
     torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=1e-2,rtol=1e-2)  
     torch.testing.assert_close(c_triton_aot,c_torch,atol=1e-2,rtol=1e-2)
 

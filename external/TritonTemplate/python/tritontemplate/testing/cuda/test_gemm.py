@@ -2,8 +2,8 @@ import torch
 import pytest
 import triton
 
-from tritontemplate.backend.cuda.gemm.gemm import gemm_bias as gemm_bias_kernel
-from tritontemplate.backend.cuda.gemm.gemm import gemm as gemm_kernel
+from tritontemplate.backend.cuda.gemm import gemm_bias as gemm_bias_kernel
+from tritontemplate.backend.cuda.gemm import gemm as gemm_kernel
 from tritontemplate.compiler.base import IntImm, Tensor
 from tritontemplate.compiler.ops.gemm import Gemm
 from tritontemplate.compiler.compiler import compile_kernel
