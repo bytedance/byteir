@@ -181,6 +181,8 @@ def test_gemm_relu(format, M, N, K, stype):
     kernel = gen_gemm(format, M, N, K, stype)
     kernel(A, B, c_triton_aot)
 
-    assert torch.allclose(c_triton_aot, c_triton_jit, atol=1e-2, rtol=1e-2)
-    assert torch.allclose(pytorch_result, c_triton_jit, atol=1e-2, rtol=1e-2)
+    atol = 1e-2 if dtype == torch.float16 else 1e-4
+    rtol = 1e-2 if dtype == torch.float16 else 1e-4
+    assert torch.allclose(c_triton_aot, c_triton_jit, atol=atol, rtol=rtol)
+    assert torch.allclose(pytorch_result, c_triton_jit, atol=atol, rtol=rtol)
 

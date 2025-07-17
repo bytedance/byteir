@@ -99,8 +99,12 @@ def test_bmm_bias(format, batch_size, M, N, K, stype):
     test_kernel=gen_bmm_bias(format,batch_size,M,N,K,stype)
     test_kernel(a,b,bias,c_triton_aot)
     bmm_bias_kernel[grid](a,b,bias,c_triton_jit,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*bias.stride(),*c_triton_jit.stride(),64,64,64,False)
-    torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=1e-2,rtol=1e-2)  
-    torch.testing.assert_close(c_triton_aot,c_torch,atol=1e-2,rtol=1e-2)
+    
+    atol = 1e-2 if dtype == torch.float16 else 1e-4
+    rtol = 1e-2 if dtype == torch.float16 else 1e-4
+    
+    torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=atol,rtol=rtol)  
+    torch.testing.assert_close(c_triton_aot,c_torch,atol=atol,rtol=rtol)
 
 @pytest.mark.parametrize('format', FORMATS)
 @pytest.mark.parametrize(
@@ -137,6 +141,10 @@ def test_bmm(format, batch_size, M, N, K, stype):
     bmm_kernel[grid](a,b,c_triton_jit,batch_size,M,N,K,is_trans_a,*a.stride(),is_trans_b,*b.stride(),*c_triton_jit.stride(),64,64,64,False)
     kernel=gen_bmm(format,batch_size,M,N,K,stype)
     kernel(a,b,c_triton_aot)
-    torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=1e-2,rtol=1e-2)
-    torch.testing.assert_close(c_triton_aot,c_torch,atol=1e-2,rtol=1e-2)
+
+    atol = 1e-2 if dtype == torch.float16 else 1e-4
+    rtol = 1e-2 if dtype == torch.float16 else 1e-4
+    
+    torch.testing.assert_close(c_triton_aot,c_triton_jit,atol=atol,rtol=rtol)
+    torch.testing.assert_close(c_triton_aot,c_torch,atol=atol,rtol=rtol)
 
