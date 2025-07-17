@@ -35,8 +35,6 @@ class Gemm(Operation):
         self.layout = layout
         self.is_bias= is_bias
         self._attrs['activation'] = activation
-        self._attrs['inputs'] = inputs
-        self._attrs['outputs'] = outputs 
         self._deduce_output_shape()
         
     

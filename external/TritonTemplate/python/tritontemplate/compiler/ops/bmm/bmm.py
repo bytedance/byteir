@@ -27,8 +27,6 @@ class Bmm(Operation):
         super().__init__(inputs, outputs,name)
         self.layout = layout
         self.is_bias = is_bias
-        self._attrs['inputs'] = inputs
-        self._attrs['outputs'] = outputs
         self._deduce_output_shape()
 
     def _deduce_output_shape(self):

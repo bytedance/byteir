@@ -85,15 +85,13 @@ class Operation(BaseType):
     def __init__(
         self,
         inputs: List[BaseType],
-        outputs: Optional[List[BaseType]],
+        outputs: Optional[List[BaseType]] = None,
         name: Optional[str] = None,
     ) -> None:
         super().__init__()
         self._attrs['inputs'] = inputs
-        if name is not None:
-            self._attrs['name'] = name
-        if outputs is not None:
-            self._attrs['outputs'] = outputs
+        self._attrs['outputs'] = outputs
+        self._attrs['name'] = name
 
     @property
     def name(self) -> Optional[str]:

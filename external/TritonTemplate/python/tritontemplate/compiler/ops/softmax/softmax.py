@@ -20,8 +20,6 @@ class Softmax(Operation):
         super().__init__(inputs, outputs, name)
         assert dim == len(inputs[0].shape)-1, f'only support last axis now'
         self._attrs['dim'] = dim
-        self._attrs['inputs'] = inputs
-        self._attrs['outputs'] = outputs 
         self._attrs['enable_online'] = enable_online
 
         self._deduce_output_shape()

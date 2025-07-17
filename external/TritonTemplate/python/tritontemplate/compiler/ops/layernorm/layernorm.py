@@ -28,8 +28,6 @@ class Layernorm(Operation):
         assert axis == len(inputs[0].shape)-1, f'only support last axis now'
         self._attrs['axis'] = axis
         self._attrs['eps'] = eps
-        self._attrs['inputs'] = inputs
-        self._attrs['outputs'] = outputs 
 
         self._deduce_output_shape()
     
