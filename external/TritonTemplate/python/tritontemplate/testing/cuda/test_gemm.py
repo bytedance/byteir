@@ -21,7 +21,7 @@ def gen_gemm_bias(format, M, N, K, stype):
     C=Tensor(name='C',dtype=stype,shape=[M,N])
     gemm_op=Gemm(
         inputs=[A,B,Bias],
-        outputs=[C],
+        outputs=None,
         layout=format,
         is_bias=True, 
         activation='relu',
@@ -41,7 +41,7 @@ def gen_gemm(format, M, N, K, stype):
     C=Tensor(name='C',dtype=stype,shape=[M,N])
     gemm_op=Gemm(
         inputs=[A,B],
-        outputs=[C],
+        outputs=None,
         layout=format,
         is_bias=False, 
         activation='relu',

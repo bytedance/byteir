@@ -46,8 +46,8 @@ def layernorm(x_ptr,y_ptr,M:tl.constexpr,N:tl.constexpr,stride_x0:tl.constexpr,s
 @triton.jit
 def layernorm_weight_bias(
     x_ptr,
-    bias_ptr,
     weight_ptr,
+    bias_ptr,
     y_ptr,
     M: tl.constexpr,
     N: tl.constexpr,

@@ -22,7 +22,7 @@ def gen_bmm_bias(format, batch_size, M, N, K, stype):
     C=Tensor(name='C',dtype=stype,shape=[batch_size,M,N])
     bmm_op=Bmm(
         inputs=[A,B,Bias],
-        outputs=[C],
+        outputs=None,
         layout=format,
         is_bias=True
     )
@@ -41,7 +41,7 @@ def gen_bmm(format, batch_size, M, N, K, stype):
     C=Tensor(name='C',dtype=stype,shape=[batch_size,M,N])
     bmm_op=Bmm(
         inputs=[A,B],
-        outputs=[C],
+        outputs=None,
         layout=format,
         is_bias=False
     )

@@ -68,7 +68,7 @@ static LogicalResult AttachTITConfigToAttr(
     if (kv.second.getAsInteger(0, val)) {
       return func.emitError("Invalid integer format for ") << kv.first();
     }
-    if (val <= 0) {
+    if (val < 0) {
       return func.emitError("Value must be positive for ") << kv.first();
     }
     titConfig[kv.first()] = opBuilder.getI32IntegerAttr(val);

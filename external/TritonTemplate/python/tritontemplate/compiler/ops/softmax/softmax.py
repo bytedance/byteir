@@ -12,7 +12,7 @@ from tritontemplate.backend.cuda.utils.utils import shape2stride
 
 _exec_metadata = {
     'num_warps': 4,
-    'num_stages': 1,
+    'num_stages': 3,
 }
 
 class Softmax(Operation):
@@ -21,7 +21,6 @@ class Softmax(Operation):
         assert dim == len(inputs[0].shape)-1, f'only support last axis now'
         self._attrs['dim'] = dim
         self._attrs['enable_online'] = enable_online
-
         self._deduce_output_shape()
 
     def _deduce_output_shape(self):

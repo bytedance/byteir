@@ -28,7 +28,6 @@ def softmax(x_ptr, y_ptr, M: tl.constexpr, N: tl.constexpr,stride_x0:tl.constexp
         elem = tl.load(x_ptr + offsets_M[:, None] * stride_x0 + offsets_N[None, :] * stride_x1, mask=mask_M[:, None] & mask_N[None, :], other=-float('inf'))
         max_ele = tl.maximum(max_ele,tl.max(elem, axis=1))
 
-
     y_sum = tl.zeros((BLOCK_SIZE_M, ), dtype=tl.float32)
 
     for i in tl.static_range(NUM_BLOCK_N):

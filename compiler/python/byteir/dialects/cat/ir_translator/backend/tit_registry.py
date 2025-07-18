@@ -110,8 +110,12 @@ def _dispatch_cat_bmm_ccr_add(op, inputs):
 
 @TRITONTemplateIRTranslator.register("cat.softmax")
 def _dispatch_cat_softmax(op, inputs):
+    shaped_type = ir.ShapedType(op.result.type)
+    shape = shaped_type.shape
+    dtype = mlir_type_to_torch_str(shaped_type.element_type)
+    outputs=[Tensor(shape=shape,dtype=dtype,name='output_0')]
     dim = mlir_attr_to_pyobj(op.attributes["dim"])
-    Y = tit_ops.Softmax(inputs=inputs,dim=dim,enable_online=True)
+    Y = tit_ops.Softmax(inputs=inputs,dim=dim,outputs=outputs,enable_online=True)
     return [Y]
 
 @TRITONTemplateIRTranslator.register("cat.layernorm")

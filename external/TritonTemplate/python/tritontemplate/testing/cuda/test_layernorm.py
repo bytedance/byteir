@@ -16,13 +16,13 @@ def gen_layernorm(with_weight_bias,batch,seq_len,hidden_size,stype):
         B=Tensor(name='B',shape=(hidden_size,),dtype=stype)
         op=Layernorm(
             inputs=[X,W,B],
-            outputs=[Y],
+            outputs=None,
             axis=2,
             eps=1e-5)
     else:
         op=Layernorm(
             inputs=[X],
-            outputs=[Y],
+            outputs=None,
             axis=2,
             eps=1e-5)
     return op

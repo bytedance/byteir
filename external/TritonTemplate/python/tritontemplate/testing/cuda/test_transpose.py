@@ -31,7 +31,7 @@ TENSOR4D_PARAMS = [
 def gen_transpose_10(M,N,stype):
     X = Tensor([M, N], stype)
     Y = Tensor([N, M], stype)
-    op = Transpose([X], '10', [Y])
+    op = Transpose([X], '10', outputs=None)
     return op
 
 @pytest.mark.parametrize(
@@ -63,7 +63,7 @@ def test_transpose10(M, N, stype):
 def gen_transpose_0213(D0,D1,D2,D3,stype):
     X = Tensor([D0, D1, D2, D3], stype)
     Y = Tensor([D0, D2, D1, D3], stype)
-    op = Transpose([X], '0213', [Y])
+    op = Transpose([X], '0213', None)
     return op
 
 @pytest.mark.parametrize(
