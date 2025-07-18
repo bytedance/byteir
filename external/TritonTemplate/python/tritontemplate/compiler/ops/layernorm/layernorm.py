@@ -19,14 +19,14 @@ class Layernorm(Operation):
     def __init__(
         self,
         inputs: List[Tensor],# [x,bias(beta),weight(gamma)]
-        axis:int,
+        axises:List[int],
         eps:float = 1e-5,
         outputs: Optional[List[Tensor]] = None,
         name: Optional[str] = None,
     ) -> None:
         super().__init__(inputs, outputs, name)
-        assert axis == len(inputs[0].shape)-1, f'only support last axis now'
-        self._attrs['axis'] = axis
+        assert len(axises)==1 and axises[0] == len(inputs[0].shape)-1, f'Only last axis normalization is supported (axis={axis}, input shape={inputs[0].shape})'
+        self._attrs['axis'] = axises[0]
         self._attrs['eps'] = eps
 
         self._deduce_output_shape()

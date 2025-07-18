@@ -9,7 +9,7 @@ from tritontemplate.compiler.kernel import TritonExecutor
 from tritontemplate.compiler.utils import get_warpsize
 from tritontemplate.backend.cuda.utils.utils import shape2stride
 
-_supported_methods = ['10','0213']
+_supported_permutations = ['10','0213']
 
 _exec_metadata = {
     'num_warps': 4,
@@ -19,19 +19,19 @@ _exec_metadata = {
 class Transpose(Operation):
     def __init__(self,
                 inputs: List[Tensor],
-                method: str,
+                permutation: str,
                 outputs: Optional[List[Tensor]] = None,
                 name: Optional[str] = None):
         super().__init__(inputs, outputs, name)
-        assert method in _supported_methods, f"Unsupported method {method}"
-        self._attrs['method'] = method
+        assert permutation in _supported_permutations, f"Unsupported permutation {permutation}"
+        self._attrs['permutation'] = permutation
 
         self._deduce_output_shape()
 
     def _deduce_output_shape(self):
         input_shape = self._attrs['inputs'][0].shape
         output_shape = []
-        for i in self._attrs['method']:
+        for i in self._attrs['permutation']:
             output_shape.append(input_shape[int(i)])
         if self._attrs['outputs'] is None:
             self._attrs['outputs'] = [Tensor(output_shape, self._attrs['inputs'][0].dtype)]
@@ -84,19 +84,19 @@ class Transpose(Operation):
     
     
     def compile(self, target_name, workdir, enable_tf32)->TritonExecutor:
-        triton_kernel_name= 'transpose_' + self._attrs['method']
+        triton_kernel_name= 'transpose_' + self._attrs['permutation']
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.transpose'),triton_kernel_name)
         signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
         exec_metadata=self._gen_exec_metadata()
 
-        if self._attrs['method'] == '10':
+        if self._attrs['permutation'] == '10':
             constants=self._gen_constants_10()
             exec_grid = self._gen_grid_10(target_name,constants)
-        elif self._attrs['method'] == '0213':
+        elif self._attrs['permutation'] == '0213':
             constants=self._gen_constants_0213()
             exec_grid = self._gen_grid_0213(target_name,constants)
         else:
-            raise ValueError(f"Unsupported method {self._attrs['method']}")
+            raise ValueError(f"Unsupported permutation {self._attrs['permutation']}")
         
         num_warps=exec_metadata['num_warps']
         num_stages=exec_metadata['num_stages']

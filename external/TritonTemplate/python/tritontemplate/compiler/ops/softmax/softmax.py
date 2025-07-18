@@ -32,7 +32,9 @@ class Softmax(Operation):
         self._attrs['N']= N
 
         if self._attrs['outputs'] is None:
-            self._attrs['outputs'] = [Tensor(shape=self._attrs['inputs'][0].shape,dtype=self._attrs['inputs'][0].dtype)]
+            # Return float32
+            self._attrs['outputs'] = [Tensor(shape=self._attrs['inputs'][0].shape,dtype='float32')]
+            # self._attrs['outputs'] = [Tensor(shape=self._attrs['inputs'][0].shape,dtype=self._attrs['inputs'][0].dtype)]
 
     def _gen_constants(self):
         const_metadata={}
