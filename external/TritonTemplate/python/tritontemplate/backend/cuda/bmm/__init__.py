@@ -1,0 +1,1 @@
+from tritontemplate.backend.cuda.bmm.bmm import bmm,bmm_bias, gen_grid_bmm

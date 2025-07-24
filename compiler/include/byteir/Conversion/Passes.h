@@ -35,6 +35,7 @@
 #include "byteir/Conversion/ToLLVM/ToLLVM.h"
 #include "byteir/Conversion/ToLinalg/ToLinalg.h"
 #include "byteir/Conversion/ToPTX/ToPTX.h"
+#include "byteir/Conversion/ToTIT/ToTIT.h"
 
 namespace mlir {
 

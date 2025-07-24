@@ -37,6 +37,7 @@ using namespace mlir;
 
 #define FILE_NAME_ATTR "device_file_name"
 #define KERNEL_NAME_ATTR "kernel_name"
+#define SHARED_SIZE_ATTR "SharedMemorySize"
 #define GRID_SIZE_X_ATTR "GridSize.x"
 #define GRID_SIZE_Y_ATTR "GridSize.y"
 #define GRID_SIZE_Z_ATTR "GridSize.z"
@@ -138,6 +139,7 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
     BRT_THROW_EX(std::runtime_error, "no BlockSize.x attr");
   }
 
+  size_t shared_size = 0;
   int gx = static_cast<int>(info.GetOperation()
                                 ->getAttrOfType<IntegerAttr>(GRID_SIZE_X_ATTR)
                                 .getInt()),
@@ -167,6 +169,12 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
                               ->getAttrOfType<IntegerAttr>(BLOCK_SIZE_Z_ATTR)
                               .getInt());
   }
+  if (info.GetOperation()->hasAttrOfType<IntegerAttr>(SHARED_SIZE_ATTR)) {
+    shared_size =
+        static_cast<int>(info.GetOperation()
+                             ->getAttrOfType<IntegerAttr>(SHARED_SIZE_ATTR)
+                             .getInt());
+  }
 
   std::vector<int> ranks;
   if (info.GetOperation()->hasAttrOfType<ArrayAttr>(ARG_RANKS_ATTR)) {
@@ -181,7 +189,7 @@ PTXOpKernel::PTXOpKernel(const OpKernelInfo &info)
   auto num_arg = GetOpArgNum(info_);
   impl_->grid = dim3(gx, gy, gz);
   impl_->block = dim3(bx, by, bz);
-  impl_->shared_size = 0;
+  impl_->shared_size = shared_size;
   impl_->arg_reserve_size = 3; // initial 3 for grid/block/shared_size
 
   // store tensor meta
