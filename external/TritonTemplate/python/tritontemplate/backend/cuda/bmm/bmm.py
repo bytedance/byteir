@@ -1,11 +1,14 @@
 import triton
 import triton.language as tl
 
-def gen_grid_bmm(batch_size,M, N, BLOCK_SIZE_M, BLOCK_SIZE_N):
+def gen_grid_bmm(batch_size:int,M:int, N:int, BLOCK_SIZE_M:int, BLOCK_SIZE_N:int):
     """
     Generates the grid for a Batch GEMM kernel.
     """
     return (batch_size,triton.cdiv(M, BLOCK_SIZE_M) * triton.cdiv(N, BLOCK_SIZE_N), 1)
+
+def gen_smem_size_bmm(BLOCK_SIZE_M:int, BLOCK_SIZE_K:int, BLOCK_SIZE_N:int,num_stages:int):
+    return (BLOCK_SIZE_N*BLOCK_SIZE_K+BLOCK_SIZE_K*BLOCK_SIZE_M)*num_stages
 
 @triton.jit
 def bmm_bias(

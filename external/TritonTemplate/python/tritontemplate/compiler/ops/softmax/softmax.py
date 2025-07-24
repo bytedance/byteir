@@ -7,7 +7,7 @@ import triton
 from tritontemplate.compiler.base import IntImm, Tensor, Operation
 from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
 from tritontemplate.compiler.kernel import TritonExecutor
-from tritontemplate.compiler.utils import get_warpsize
+from tritontemplate.compiler.utils import get_warpsize,get_cuda_device_max_shared_memory
 from tritontemplate.backend.cuda.utils.utils import shape2stride
 
 _exec_metadata = {
@@ -35,7 +35,7 @@ class Softmax(Operation):
             self._attrs['outputs'] = [Tensor(shape=self._attrs['inputs'][0].shape,dtype='float32')]
             # self._attrs['outputs'] = [Tensor(shape=self._attrs['inputs'][0].shape,dtype=self._attrs['inputs'][0].dtype)]
 
-    def _gen_constants(self):
+    def _gen_constants(self,num_stages,func_gen_smem_size):
         const_metadata={}
         const_metadata['M']= self._attrs['M']
         const_metadata['N']= self._attrs['N']
@@ -46,6 +46,7 @@ class Softmax(Operation):
 
         const_metadata['BLOCK_SIZE_M'] = self._block_size(self._attrs['M'])
         const_metadata['BLOCK_SIZE_N'] = self._block_size(self._attrs['N'])
+        self._shrink_shared_mem(func_gen_smem_size,const_metadata,get_cuda_device_max_shared_memory(),num_stages)
         
         return const_metadata
     
@@ -56,12 +57,15 @@ class Softmax(Operation):
         triton_kernel_name= 'online_softmax' if self._attrs['enable_online'] else 'softmax'
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.softmax'),triton_kernel_name)
         gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.softmax'),f'gen_grid_softmax')
+        func_gen_smem_size=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.softmax'),f'gen_smem_size_softmax')
         signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
-        constants=self._gen_constants()
+
         exec_metadata=self._gen_exec_metadata()
 
         num_warps=exec_metadata['num_warps']
         num_stages=exec_metadata['num_stages']
+
+        constants=self._gen_constants(num_stages,func_gen_smem_size)
         config = triton.compiler.instance_descriptor(divisible_by_16=divisiability[16], equal_to_1=divisiability[1])
         triton_compiled_kernel=triton.compile(fn=triton_kernel,signature=signature,constants=constants,num_warps=num_warps,num_stages=num_stages,configs=[config],debug=False)
 

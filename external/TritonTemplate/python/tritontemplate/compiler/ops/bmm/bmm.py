@@ -5,7 +5,7 @@ import triton
 from tritontemplate.compiler.base import IntImm, Tensor, Operation
 from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
 from tritontemplate.compiler.kernel import TritonExecutor
-from tritontemplate.compiler.utils import get_warpsize
+from tritontemplate.compiler.utils import get_warpsize, get_cuda_device_max_shared_memory
 from tritontemplate.backend.cuda.utils.utils import shape2stride
 
 _supported_layouts = ['rcr','rrr','crr','ccr']
@@ -50,7 +50,7 @@ class Bmm(Operation):
         else:
             assert self._attrs['outputs'][0].shape == res_shape, f"output shape {self._attrs['outputs'][0].shape} not match {res_shape}"
 
-    def _gen_constants(self,enable_tf32):
+    def _gen_constants(self,enable_tf32,num_stages, func_gen_smem_size):
         const_metadata={}
         any_float32=False
         for input in self._attrs['inputs']:
@@ -60,6 +60,8 @@ class Bmm(Operation):
         const_metadata['BLOCK_SIZE_M']= self._block_size(self._attrs['M'])
         const_metadata['BLOCK_SIZE_N']= self._block_size(self._attrs['N'])
         const_metadata['BLOCK_SIZE_K']= self._block_size(self._attrs['K'])
+
+        self._shrink_shared_mem(func_gen_smem_size,const_metadata,get_cuda_device_max_shared_memory(),num_stages)
         
         const_metadata['enable_tf32'] = True if (enable_tf32 and any_float32) else False
         input=self._attrs['inputs']
@@ -88,13 +90,15 @@ class Bmm(Operation):
         triton_kernel_name=f'bmm'+ ('' if not self.is_bias else '_bias')
         triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.bmm'),triton_kernel_name)
         gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.bmm'),f'gen_grid_bmm')
+        func_gen_smem_size=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.bmm'),f'gen_smem_size_bmm')
         
-        signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
-        constants=self._gen_constants(enable_tf32)
         exec_metadata=self._gen_exec_metadata()
 
         num_warps=exec_metadata['num_warps']
         num_stages=exec_metadata['num_stages']
+
+        signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
+        constants=self._gen_constants(enable_tf32,num_stages,func_gen_smem_size)
         config = triton.compiler.instance_descriptor(divisible_by_16=divisiability[16], equal_to_1=divisiability[1])
 
         triton_compiled_kernel=triton.compile(fn=triton_kernel,signature=signature,constants=constants,num_warps=num_warps,num_stages=num_stages,configs=[config],debug=False)

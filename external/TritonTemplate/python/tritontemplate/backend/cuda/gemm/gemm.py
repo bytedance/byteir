@@ -2,18 +2,15 @@ import triton
 import triton.language as tl
 from tritontemplate.backend.cuda.utils.activation import *
 
-def gen_grid_gemm(M, N, BLOCK_SIZE_M, BLOCK_SIZE_N):
+def gen_grid_gemm(M:int, N:int, BLOCK_SIZE_M:int, BLOCK_SIZE_N:int):
     """
     Generates the grid for a GEMM kernel.
     """
     return (
         triton.cdiv(M, BLOCK_SIZE_M)*triton.cdiv(N, BLOCK_SIZE_N),1,1)
 
-# smem_size=val*dtype_size*num_stage
-smem_demand_per_stage ={
-    'gemm_bias': 128*128*2,
-    'gemm': 128*128*2,
-} 
+def gen_smem_size_gemm(BLOCK_SIZE_M:int, BLOCK_SIZE_K:int, BLOCK_SIZE_N:int,num_stages:int):
+    return (BLOCK_SIZE_N*BLOCK_SIZE_K+BLOCK_SIZE_K*BLOCK_SIZE_M)*num_stages
 
 @triton.jit
 def gemm_bias(

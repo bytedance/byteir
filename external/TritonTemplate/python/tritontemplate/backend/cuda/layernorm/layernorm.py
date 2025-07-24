@@ -1,9 +1,12 @@
 import triton
 import triton.language as tl
 
-def gen_grid_layernorm(M,BLOCK_SIZE_M):
+def gen_grid_layernorm(M:int,BLOCK_SIZE_M:int):
     grid = (triton.cdiv(M, BLOCK_SIZE_M),1,1)
     return grid
+
+def gen_smem_size_layernorm(BLOCK_SIZE_M:int, BLOCK_SIZE_N:int,num_stages:int):
+    return (BLOCK_SIZE_N*BLOCK_SIZE_M)*num_stages
 
 @triton.jit
 def layernorm(x_ptr,y_ptr,M:tl.constexpr,N:tl.constexpr,stride_x0:tl.constexpr,stride_x1:tl.constexpr,stride_y0:tl.constexpr,stride_y1:tl.constexpr,BLOCK_SIZE_M:tl.constexpr,BLOCK_SIZE_N:tl.constexpr,eps:tl.constexpr=1e-5):

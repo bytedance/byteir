@@ -186,3 +186,5 @@ def test_gemm_relu(format, M, N, K, stype):
     assert torch.allclose(c_triton_aot, c_triton_jit, atol=atol, rtol=rtol)
     assert torch.allclose(pytorch_result, c_triton_jit, atol=atol, rtol=rtol)
 
+
+test_gemm_relu('rcr', 128, 128, 128, 'float32')

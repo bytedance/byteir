@@ -17,13 +17,13 @@ def gen_layernorm(with_weight_bias,batch,seq_len,hidden_size,stype):
         op=Layernorm(
             inputs=[X,W,B],
             outputs=None,
-            axis=2,
+            axises=[2],
             eps=1e-5)
     else:
         op=Layernorm(
             inputs=[X],
             outputs=None,
-            axis=2,
+            axises=[2],
             eps=1e-5)
     return op
 
@@ -72,10 +72,10 @@ def test_layernorm(batch,seq_len,hidden_size,stype,format):
         weight = torch.randn(hidden_size,dtype=dtype,device='cuda')
         bias = torch.randn(hidden_size,dtype=dtype,device='cuda')
         y_torch = torch.nn.functional.layer_norm(x,(N,),weight,bias,eps=1e-5)
-        kernel_layernorm_weight_bias[grid](x,bias,weight,y_triton_jit,M,N,N,1,N,1,1,1,64,64,1e-5)
+        kernel_layernorm_weight_bias[grid](x,weight,bias,y_triton_jit,M,N,N,1,N,1,1,1,64,64,1e-5)
         kernel = gen_layernorm(True,batch,seq_len,hidden_size,stype)
         kernel_aot = compile_kernel(kernel)
-        kernel_aot(x,bias,weight,y_triton_aot)
+        kernel_aot(x,weight,bias,y_triton_aot)
 
     atol = 1e-2 if dtype == torch.float16 else 1e-4
     rtol = 1e-2 if dtype == torch.float16 else 1e-4
