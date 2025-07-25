@@ -149,10 +149,7 @@ def bmm(
             b_mask= (offs_k[:,None]+BLOCK_SIZE_K*k<K) & (offs_bn[None,:]<N)
         b=tl.load(b_ptrs,mask=b_mask)
 
-        # if is_transpose_a:
-        #     a=tl.trans(a)
-        # if is_transpose_b:
-        #     b=tl.trans(b)
+
         accumulator += tl.dot(a, b, allow_tf32=enable_tf32)
 
         a_ptrs+=BLOCK_SIZE_K*stride_ak

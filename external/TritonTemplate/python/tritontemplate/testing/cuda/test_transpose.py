@@ -1,6 +1,7 @@
 import torch
 import pytest
 import triton
+import os
 
 from tritontemplate.backend.cuda.transpose import transpose_10 as kernel_transpose_10
 from tritontemplate.backend.cuda.transpose import transpose_0213 as kernel_transpose_0213
@@ -14,19 +15,31 @@ FORMATS = [
     'transpose_0213',
 ]
 
-MATRIX_PARAMS = [
-    (256,128,'float16'),
-    (255,257,'float32'),
-    (127,129,'float16'),
-    (2304,768,'float16'),
-]
+if os.environ.get('GITHUB_CI_TEST'):
+    MATRIX_PARAMS = [
+        (256,128,'float16'),
+        (255,257,'float32'),
+    ]
+else:
+    MATRIX_PARAMS = [
+        (256,128,'float16'),
+        (255,257,'float32'),
+        (127,129,'float16'),
+        (2304,768,'float16'),
+    ]
 
-TENSOR4D_PARAMS = [
-    (16, 64, 128, 32, 'float16'),
-    (4, 127, 255, 63, 'float32'),
-    (8, 256, 512, 64, 'float16'),
-    (8, 1024,8,96, 'float16'),
-]
+if os.environ.get('GITHUB_CI_TEST'):
+    TENSOR4D_PARAMS = [
+        (16, 64, 128, 32, 'float16'),
+        (4, 127, 255, 63, 'float32'),
+    ]
+else:
+    TENSOR4D_PARAMS = [
+        (16, 64, 128, 32, 'float16'),
+        (4, 127, 255, 63, 'float32'),
+        (8, 256, 512, 64, 'float16'),
+        (8, 1024,8,96, 'float16'),
+    ]
 
 def gen_transpose_10(M,N,stype):
     X = Tensor([M, N], stype)

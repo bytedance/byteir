@@ -149,7 +149,6 @@ class Operation(BaseType):
         sig = dict(inspect.signature(func_gen_smem_size).parameters)
         keys = [key for key in sig.keys() if key != "num_stages" and key != "size_dtype"]
         sig.update({"num_stages": num_stages, "size_dtype": size_dtype})
-        print(keys)
         for key in keys:
             sig[key] = const_metadata[key]
 

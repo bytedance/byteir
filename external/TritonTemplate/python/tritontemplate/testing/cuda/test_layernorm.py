@@ -1,6 +1,7 @@
 import torch
 import pytest
 import triton
+import os
 
 from tritontemplate.backend.cuda.layernorm import layernorm as kernel_layernorm
 from tritontemplate.backend.cuda.layernorm import layernorm_weight_bias as kernel_layernorm_weight_bias
@@ -27,19 +28,25 @@ def gen_layernorm(with_weight_bias,batch,seq_len,hidden_size,stype):
             eps=1e-5)
     return op
 
-MATRIX_PARAMS = [
-    (2, 128, 31, 'float32'),
-    (128, 2, 31, 'float16'),
-    (128, 128, 31, 'float32'),
-    (128, 31, 32, 'float16'),
-    (128, 128, 128, 'float32'),
-    (128, 257, 512, 'float16'),
-    (128, 512, 257, 'float32'),
-    (127, 256, 256, 'float16'),
-    (128, 511, 512, 'float32'),
-    (256, 128, 255, 'float16'),
-    (1, 256, 256, 'float32'),
-]
+if os.environ.get('GITHUB_CI_TEST'):
+    MATRIX_PARAMS = [
+        (128, 128, 31, 'float32'),
+        (128, 2, 31, 'float16'),
+    ]
+else:
+    MATRIX_PARAMS = [
+        (2, 128, 31, 'float32'),
+        (128, 2, 31, 'float16'),
+        (128, 128, 31, 'float32'),
+        (128, 31, 32, 'float16'),
+        (128, 128, 128, 'float32'),
+        (128, 257, 512, 'float16'),
+        (128, 512, 257, 'float32'),
+        (127, 256, 256, 'float16'),
+        (128, 511, 512, 'float32'),
+        (256, 128, 255, 'float16'),
+        (1, 256, 256, 'float32'),
+    ]
 FORMATS = ['layernorm','layernorm_weight_bias']
 
 @pytest.mark.parametrize('batch,seq_len,hidden_size,stype',MATRIX_PARAMS)
