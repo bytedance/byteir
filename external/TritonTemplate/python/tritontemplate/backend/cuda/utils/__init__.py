@@ -1,0 +1,1 @@
+from tritontemplate.backend.cuda.utils.utils import shape2stride

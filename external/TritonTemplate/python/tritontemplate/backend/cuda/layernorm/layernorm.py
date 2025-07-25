@@ -1,9 +1,12 @@
 import triton
 import triton.language as tl
 
-def gen_grid_layernorm(M,BLOCK_SIZE_M):
+def gen_grid_layernorm(M:int,BLOCK_SIZE_M:int):
     grid = (triton.cdiv(M, BLOCK_SIZE_M),1,1)
     return grid
+
+def gen_smem_size_layernorm(BLOCK_SIZE_M:int, BLOCK_SIZE_N:int,num_stages:int,size_dtype:int):
+    return BLOCK_SIZE_M*2*4*2
 
 @triton.jit
 def layernorm(x_ptr,y_ptr,M:tl.constexpr,N:tl.constexpr,stride_x0:tl.constexpr,stride_x1:tl.constexpr,stride_y0:tl.constexpr,stride_y1:tl.constexpr,BLOCK_SIZE_M:tl.constexpr,BLOCK_SIZE_N:tl.constexpr,eps:tl.constexpr=1e-5):
@@ -19,7 +22,7 @@ def layernorm(x_ptr,y_ptr,M:tl.constexpr,N:tl.constexpr,stride_x0:tl.constexpr,s
     ex = tl.zeros((BLOCK_SIZE_M, ), dtype=tl.float32)
     varx = tl.zeros((BLOCK_SIZE_M, ), dtype=tl.float32)
 
-    for i in tl.static_range(NUM_BLOCK_N):
+    for i in range(NUM_BLOCK_N):
         offsets_N = tl.arange(0, BLOCK_SIZE_N) + i*BLOCK_SIZE_N
         mask_N = offsets_N < N
         x_offsets = offsets_M[:, None] * stride_x0 + offsets_N[None, :]* stride_x1
@@ -32,7 +35,7 @@ def layernorm(x_ptr,y_ptr,M:tl.constexpr,N:tl.constexpr,stride_x0:tl.constexpr,s
     varx = varx / N
     varx -= (ex * ex)
     normized = tl.sqrt(varx + eps)
-    for i in tl.static_range(NUM_BLOCK_N):
+    for i in range(NUM_BLOCK_N):
         offsets_N = tl.arange(0, BLOCK_SIZE_N) + i*BLOCK_SIZE_N
         mask_N = offsets_N < N
         x_offsets = offsets_M[:, None] * stride_x0 + offsets_N[None, :]* stride_x1
@@ -72,7 +75,7 @@ def layernorm_weight_bias(
     ex = tl.zeros((BLOCK_SIZE_M, ), dtype=tl.float32)
     varx = tl.zeros((BLOCK_SIZE_M, ), dtype=tl.float32)
 
-    for i in tl.static_range(NUM_BLOCK_N):
+    for i in range(NUM_BLOCK_N):
         offsets_N = tl.arange(0, BLOCK_SIZE_N) + i*BLOCK_SIZE_N
         mask_N = offsets_N < N
         x_offsets = offsets_M[:, None] * stride_x0 + offsets_N[None, :] * stride_x1
@@ -85,7 +88,7 @@ def layernorm_weight_bias(
     varx = varx / N
     varx -= (ex * ex)
     normized = tl.sqrt(varx + eps)
-    for i in tl.static_range(NUM_BLOCK_N):
+    for i in range(NUM_BLOCK_N):
         offsets_N = tl.arange(0, BLOCK_SIZE_N) + i*BLOCK_SIZE_N
         mask_N = offsets_N < N
         x_offsets = offsets_M[:, None] * stride_x0 + offsets_N[None, :] * stride_x1

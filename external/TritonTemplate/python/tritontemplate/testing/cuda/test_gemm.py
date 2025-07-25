@@ -1,6 +1,7 @@
 import torch
 import pytest
 import triton
+import os
 
 from tritontemplate.backend.cuda.gemm import gemm_bias as gemm_bias_kernel
 from tritontemplate.backend.cuda.gemm import gemm as gemm_kernel
@@ -52,19 +53,25 @@ def gen_gemm(format, M, N, K, stype):
 
 
 FORMATS = ['rcr','rrr','ccr','crr']
-MATRIX_PARAMS = [
-    (2, 128, 31, 'float32'),
-    (128, 2, 31, 'float16'),
-    (128, 128, 31, 'float32'),
-    (128, 31, 2, 'float16'),
-    (128, 128, 128, 'float32'),
-    (128, 257, 512, 'float16'),
-    (128, 512, 257, 'float32'),
-    (127, 256, 256, 'float16'),
-    (128, 511, 512, 'float32'),
-    (256, 128, 255, 'float16'),
-    (1, 256, 256, 'float32'),
-]
+if os.environ.get('GITHUB_CI_TEST'):
+    MATRIX_PARAMS = [
+        (128, 128, 31, 'float32'),
+        (128, 2, 31, 'float16'),
+    ]
+else:
+    MATRIX_PARAMS = [
+        (2, 128, 31, 'float32'),
+        (128, 2, 31, 'float16'),
+        (128, 128, 31, 'float32'),
+        (128, 31, 2, 'float16'),
+        (128, 128, 128, 'float32'),
+        (128, 257, 512, 'float16'),
+        (128, 512, 257, 'float32'),
+        (127, 256, 256, 'float16'),
+        (128, 511, 512, 'float32'),
+        (256, 128, 255, 'float16'),
+        (1, 256, 256, 'float32'),
+    ]
 
 @pytest.mark.parametrize('format', FORMATS)
 @pytest.mark.parametrize(
@@ -119,20 +126,27 @@ def test_gemm_bias_relu(format, M, N, K, stype):
     assert torch.allclose(c_triton_aot, c_triton_jit, atol=1e-2, rtol=1e-2)
     assert torch.allclose(pytorch_result, c_triton_jit, atol=1e-2, rtol=1e-2)
 
+
 FORMATS = ['rcr','rrr','ccr','crr']
-MATRIX_PARAMS = [
-    (2, 128, 31, 'float32'),
-    (128, 2, 31, 'float16'),
-    (128, 128, 31, 'float32'),
-    (128, 31, 2, 'float16'),
-    (128, 128, 128, 'float32'),
-    (128, 257, 512, 'float16'),
-    (128, 512, 257, 'float32'),
-    (127, 256, 256, 'float16'),
-    (128, 511, 512, 'float32'),
-    (256, 128, 255, 'float16'),
-    (1, 256, 256, 'float32'),
-]
+if os.environ.get('GITHUB_CI_TEST'):
+    MATRIX_PARAMS = [
+        (128, 128, 31, 'float32'),
+        (128, 2, 31, 'float16'),
+    ]
+else:
+    MATRIX_PARAMS = [
+        (2, 128, 31, 'float32'),
+        (128, 2, 31, 'float16'),
+        (128, 128, 31, 'float32'),
+        (128, 31, 2, 'float16'),
+        (128, 128, 128, 'float32'),
+        (128, 257, 512, 'float16'),
+        (128, 512, 257, 'float32'),
+        (127, 256, 256, 'float16'),
+        (128, 511, 512, 'float32'),
+        (256, 128, 255, 'float16'),
+        (1, 256, 256, 'float32'),
+    ]
 
 @pytest.mark.parametrize('format', FORMATS)
 @pytest.mark.parametrize(

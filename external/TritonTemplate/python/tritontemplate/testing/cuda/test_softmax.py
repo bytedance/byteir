@@ -1,6 +1,7 @@
 import torch
 import pytest
 import triton
+import os
 
 from tritontemplate.backend.cuda.softmax import softmax as kernel_softmax
 from tritontemplate.backend.cuda.softmax import online_softmax as kernel_online_softmax
@@ -24,18 +25,24 @@ FORMATS = [
     'softmax',
     'online_softmax',
 ]
-MATRIX_PARAMS = [
-    (128, 16, 8, 255), 
-    (64, 8, 8, 255), 
-    (64, 16, 2, 66), 
-    (128, 16, 8, 257), 
-    (128, 8, 4, 127), 
-    (128, 8, 8, 63), 
-    (64, 8, 4, 129), 
-    (128, 8, 4, 255), 
-    (64, 8, 4, 63), 
-    (64, 8, 2, 255)
+if os.environ.get('GITHUB_CI_TEST'):
+    MATRIX_PARAMS = [
+        (64, 8, 8, 255), 
+        (64, 16, 2, 66), 
     ]
+else:
+    MATRIX_PARAMS = [
+        (128, 16, 8, 255), 
+        (64, 8, 8, 255), 
+        (64, 16, 2, 66), 
+        (128, 16, 8, 257), 
+        (128, 8, 4, 127), 
+        (128, 8, 8, 63), 
+        (64, 8, 4, 129), 
+        (128, 8, 4, 255), 
+        (64, 8, 4, 63), 
+        (64, 8, 2, 255)
+        ]
 
 @pytest.mark.parametrize('hidden_dim, num_heads, batch, seqlen', MATRIX_PARAMS)
 @pytest.mark.parametrize('format', FORMATS)

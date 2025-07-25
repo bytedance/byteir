@@ -1,2 +1,2 @@
-from tritontemplate.backend.cuda.transpose.transpose_10 import transpose_10,gen_grid_transpose_10
-from tritontemplate.backend.cuda.transpose.transpose_0213 import transpose_0213,gen_grid_transpose_0213
+from tritontemplate.backend.cuda.transpose.transpose_10 import transpose_10,gen_grid_transpose_10, gen_smem_size_transpose_10
+from tritontemplate.backend.cuda.transpose.transpose_0213 import transpose_0213,gen_grid_transpose_0213, gen_smem_size_transpose_0213

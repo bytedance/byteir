@@ -1,16 +1,18 @@
 import subprocess
+import torch
 
 _TARGET2WARPSIZE={
     'cuda':32,
 }
 
 _DEVICE_MAX_SHARED_MEMORY={
-    "NVIDIA H800": 227 * 1024,
-    "NVIDIA H100": 227 * 1024,
-    "NVIDIA A100": 164 * 1024,
-    "NVIDIA A800": 164 * 1024,
-    "NVIDIA V100": 96 * 1024,
-    "NVIDIA T4": 64 * 1024,
+    "8.0" : 163*1024,
+    "8.6" : 99*1024,
+    "8.7" : 163*1024,
+    "8.9" : 99*1024,
+    "9." : 227*1024,
+    "10." : 227*1024,
+    "12." : 99*1024,
 }
 
 def get_cuda_device_name(idx=0):
@@ -25,9 +27,10 @@ def get_warpsize(target_name):
     except KeyError:
         raise KeyError(f'target {target_name} not supported')
     
-def get_device_max_shared_memory(target_name):
-    try:
-        return _DEVICE_MAX_SHARED_MEMORY[target_name]
-    except KeyError:
-        raise KeyError(f'target {target_name} not supported, please add max smem size info')
-    
+def get_cuda_device_max_shared_memory():
+    compute_capability = torch.cuda.get_device_capability()
+    if compute_capability[0] == 8:
+        return _DEVICE_MAX_SHARED_MEMORY[str(compute_capability[0])+"."+str(compute_capability[1])]
+    elif compute_capability[0] < 8:
+        raise KeyError(f'cuda compute capability {compute_capability} does not support triton')
+    return _DEVICE_MAX_SHARED_MEMORY[str(compute_capability[0])+"."]

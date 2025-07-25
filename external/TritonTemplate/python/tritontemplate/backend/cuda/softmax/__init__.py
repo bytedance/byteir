@@ -1,1 +1,1 @@
-from tritontemplate.backend.cuda.softmax.softmax import softmax,online_softmax,gen_grid_softmax
+from tritontemplate.backend.cuda.softmax.softmax import softmax,online_softmax,gen_grid_softmax,gen_smem_size_softmax

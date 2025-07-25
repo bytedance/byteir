@@ -10,6 +10,9 @@ def gen_grid_transpose_10(M, N, BLOCK_SIZE_M, BLOCK_SIZE_N):
         triton.cdiv(N, BLOCK_SIZE_N),
         1)
 
+def gen_smem_size_transpose_10(BLOCK_SIZE_M:int, BLOCK_SIZE_N:int,num_stages:int,size_dtype:int):
+    return (BLOCK_SIZE_N*BLOCK_SIZE_M)*num_stages*size_dtype
+
 @triton.jit
 def transpose_10(
     x_ptr, y_ptr, 

@@ -1,6 +1,7 @@
 from abc import ABC,abstractmethod
 from pprint import pformat
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union, Callable
+import inspect
 
 from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
 
@@ -141,3 +142,27 @@ class Operation(BaseType):
             return 64
         else:
             return 128
+        
+    @staticmethod
+    def _shrink_shared_mem(func_gen_smem_size:Callable,const_metadata:Dict, dev_smem_size:int,num_stages:int,size_dtype:int):
+
+        sig = dict(inspect.signature(func_gen_smem_size).parameters)
+        keys = [key for key in sig.keys() if key != "num_stages" and key != "size_dtype"]
+        sig.update({"num_stages": num_stages, "size_dtype": size_dtype})
+        for key in keys:
+            sig[key] = const_metadata[key]
+
+        it = 0
+        len_keys = len(keys)
+        tolerance = len_keys
+        while tolerance and dev_smem_size<func_gen_smem_size(**sig):
+            if sig[keys[it]]>32:
+                sig[keys[it]]//=2
+            else:
+                tolerance-=1
+            it = (it+1)%len_keys
+        for key in keys:
+            val = sig[key]
+            if val < 32:
+                raise ValueError(f'Shrinking resulted in block size < 32. The exec_params = {sig}')
+            const_metadata[key] = val
