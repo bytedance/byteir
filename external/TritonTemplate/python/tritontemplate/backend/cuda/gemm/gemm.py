@@ -9,8 +9,9 @@ def gen_grid_gemm(M:int, N:int, BLOCK_SIZE_M:int, BLOCK_SIZE_N:int):
     return (
         triton.cdiv(M, BLOCK_SIZE_M)*triton.cdiv(N, BLOCK_SIZE_N),1,1)
 
-def gen_smem_size_gemm(BLOCK_SIZE_M:int, BLOCK_SIZE_K:int, BLOCK_SIZE_N:int,num_stages:int):
-    return (BLOCK_SIZE_N*BLOCK_SIZE_K+BLOCK_SIZE_K*BLOCK_SIZE_M)*num_stages
+def gen_smem_size_gemm(BLOCK_SIZE_M:int, BLOCK_SIZE_K:int, BLOCK_SIZE_N:int,num_stages:int,size_dtype:int):
+    # not exactly predict, just an upper bound
+    return max((BLOCK_SIZE_N*BLOCK_SIZE_K+BLOCK_SIZE_K*BLOCK_SIZE_M)*num_stages*size_dtype,(BLOCK_SIZE_M*BLOCK_SIZE_N)*4)
 
 @triton.jit
 def gemm_bias(
@@ -47,7 +48,7 @@ def gemm_bias(
 
     if is_transpose_a:
         # A(K,M)
-        a_ptrs = a_ptr + offs_k[:, None] * stride_a0 + offs_am[None, :] * stride_a1
+        a_ptrs = a_ptr + offs_k[None,:] * stride_a0 + offs_am[:,None] * stride_a1
         stride_ak = stride_a0
     else:
         # A(M,K)
@@ -56,7 +57,7 @@ def gemm_bias(
     
     if is_transpose_b:
         # B(N,K)
-        b_ptrs = b_ptr + offs_bn[:, None] * stride_b0 + offs_k[None, :] * stride_b1
+        b_ptrs = b_ptr + offs_bn[None,:]* stride_b0 + offs_k[:,None] * stride_b1
         stride_bk = stride_b1
     else:
         # B(K,N)
@@ -64,23 +65,26 @@ def gemm_bias(
         stride_bk = stride_b0
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
 
-    for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
+
+    num_k_block:tl.constexpr = (K+BLOCK_SIZE_K-1)//BLOCK_SIZE_K
+
+    for k in range(0, num_k_block):
         if is_transpose_a:
-            a_mask = (offs_k[:, None] + BLOCK_SIZE_K * k < K) & (offs_am[None, :] < M)
+            a_mask = (offs_k[None, :] + BLOCK_SIZE_K * k < K) & (offs_am[:, None] < M)
         else:
             a_mask = (offs_am[:, None] < M) & (offs_k[None, :] + BLOCK_SIZE_K * k < K)
         a = tl.load(a_ptrs, mask=a_mask, other=0.0)
 
         if is_transpose_b:
-            b_mask = (offs_bn[:, None] < N) & (offs_k[None, :] + BLOCK_SIZE_K * k < K)
+            b_mask = (offs_bn[None,:] < N) & (offs_k[:,None] + BLOCK_SIZE_K * k < K)
         else:
             b_mask = (offs_k[:, None] + BLOCK_SIZE_K * k < K) & (offs_bn[None, :] < N)
         b = tl.load(b_ptrs, mask=b_mask, other=0.0)
         
-        if is_transpose_a:
-            a = tl.trans(a)
-        if is_transpose_b:
-            b = tl.trans(b)
+        # if is_transpose_a:
+        #     a = tl.trans(a)
+        # if is_transpose_b:
+        #     b = tl.trans(b)
         accumulator += tl.dot(a, b, allow_tf32=enable_tf32)
 
         a_ptrs += BLOCK_SIZE_K * stride_ak
@@ -131,9 +135,11 @@ def gemm(
     offs_bn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
     offs_k = tl.arange(0, BLOCK_SIZE_K)
 
+    num_k_block:tl.constexpr = (K+BLOCK_SIZE_K-1)//BLOCK_SIZE_K
+
     if is_transpose_a:
         # A(K,M)
-        a_ptrs = a_ptr + offs_k[:, None] * stride_a0 + offs_am[None, :] * stride_a1
+        a_ptrs = a_ptr + offs_k[None,:] * stride_a0 + offs_am[:,None] * stride_a1
         stride_ak = stride_a0
     else:
         # A(M,K)
@@ -142,7 +148,7 @@ def gemm(
     
     if is_transpose_b:
         # B(N,K)
-        b_ptrs = b_ptr + offs_bn[:, None] * stride_b0 + offs_k[None, :] * stride_b1
+        b_ptrs = b_ptr + offs_bn[None,:] * stride_b0 + offs_k[:,None] * stride_b1
         stride_bk = stride_b1
     else:
         # B(K,N)
@@ -150,23 +156,23 @@ def gemm(
         stride_bk = stride_b0
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
 
-    for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
+    for k in range(0, num_k_block):
         if is_transpose_a:
-            a_mask = (offs_k[:, None] + BLOCK_SIZE_K * k < K) & (offs_am[None, :] < M)
+            a_mask = (offs_k[None,:] + BLOCK_SIZE_K * k < K) & (offs_am[:,None] < M)
         else:
             a_mask = (offs_am[:, None] < M) & (offs_k[None, :] + BLOCK_SIZE_K * k < K)
         a = tl.load(a_ptrs, mask=a_mask, other=0.0)
 
         if is_transpose_b:
-            b_mask = (offs_bn[:, None] < N) & (offs_k[None, :] + BLOCK_SIZE_K * k < K)
+            b_mask = (offs_bn[None,:] < N) & (offs_k[:,None] + BLOCK_SIZE_K * k < K)
         else:
             b_mask = (offs_k[:, None] + BLOCK_SIZE_K * k < K) & (offs_bn[None, :] < N)
         b = tl.load(b_ptrs, mask=b_mask, other=0.0)
         
-        if is_transpose_a:
-            a = tl.trans(a)
-        if is_transpose_b:
-            b = tl.trans(b)
+        # if is_transpose_a:
+        #     a = tl.trans(a)
+        # if is_transpose_b:
+        #     b = tl.trans(b)
         accumulator += tl.dot(a, b, allow_tf32=enable_tf32)
 
         a_ptrs += BLOCK_SIZE_K * stride_ak

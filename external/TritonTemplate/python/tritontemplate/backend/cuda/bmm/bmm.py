@@ -7,8 +7,8 @@ def gen_grid_bmm(batch_size:int,M:int, N:int, BLOCK_SIZE_M:int, BLOCK_SIZE_N:int
     """
     return (batch_size,triton.cdiv(M, BLOCK_SIZE_M) * triton.cdiv(N, BLOCK_SIZE_N), 1)
 
-def gen_smem_size_bmm(BLOCK_SIZE_M:int, BLOCK_SIZE_K:int, BLOCK_SIZE_N:int,num_stages:int):
-    return (BLOCK_SIZE_N*BLOCK_SIZE_K+BLOCK_SIZE_K*BLOCK_SIZE_M)*num_stages
+def gen_smem_size_bmm(BLOCK_SIZE_M:int, BLOCK_SIZE_K:int, BLOCK_SIZE_N:int,num_stages:int,size_dtype:int):
+    return max((BLOCK_SIZE_N*BLOCK_SIZE_K+BLOCK_SIZE_K*BLOCK_SIZE_M)*num_stages*size_dtype,(BLOCK_SIZE_M*BLOCK_SIZE_N)*4)
 
 @triton.jit
 def bmm_bias(
@@ -43,7 +43,7 @@ def bmm_bias(
     
     if is_transpose_a:
         # A(B,K,M)
-        a_ptrs = a_ptr+stride_a0*batch_id+stride_a1*offs_k[:,None]+stride_a2*offs_am[None,:]
+        a_ptrs = a_ptr+stride_a0*batch_id+stride_a1*offs_k[None,:]+stride_a2*offs_am[:,None]
         stride_ak=stride_a1
     else:
         # A(B,M,K)
@@ -52,7 +52,7 @@ def bmm_bias(
     
     if is_transpose_b:
         # B(B,N,K)
-        b_ptrs = b_ptr+stride_b0*batch_id+stride_b1*offs_bn[:,None]+stride_b2*offs_k[None,:]
+        b_ptrs = b_ptr+stride_b0*batch_id+stride_b1*offs_bn[None,:]+stride_b2*offs_k[:,None]
         stride_bk=stride_b2
     else:
         # B(B,K,N)
@@ -62,20 +62,16 @@ def bmm_bias(
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
         if is_transpose_a:
-            a_mask= (offs_k[:,None]+BLOCK_SIZE_K*k<K) & (offs_am[None,:]<M)
+            a_mask= (offs_k[None,:]+BLOCK_SIZE_K*k<K) & (offs_am[:,None]<M)
         else:
             a_mask= (offs_am[:,None]<M) & (offs_k[None,:]+BLOCK_SIZE_K*k<K)
         a=tl.load(a_ptrs,mask=a_mask)
         if is_transpose_b:
-            b_mask= (offs_bn[:,None]<N) & (offs_k[None,:]+BLOCK_SIZE_K*k<K)
+            b_mask= (offs_bn[None,:]<N) & (offs_k[:,None]+BLOCK_SIZE_K*k<K)
         else:
             b_mask= (offs_k[:,None]+BLOCK_SIZE_K*k<K) & (offs_bn[None,:]<N)
         b=tl.load(b_ptrs,mask=b_mask)
 
-        if is_transpose_a:
-            a=tl.trans(a)
-        if is_transpose_b:
-            b=tl.trans(b)
         accumulator += tl.dot(a, b, allow_tf32=enable_tf32)
 
         a_ptrs+=BLOCK_SIZE_K*stride_ak
@@ -124,7 +120,7 @@ def bmm(
     
     if is_transpose_a:
         # A(B,K,M)
-        a_ptrs = a_ptr+stride_a0*batch_id+stride_a1*offs_k[:,None]+stride_a2*offs_am[None,:]
+        a_ptrs = a_ptr+stride_a0*batch_id+stride_a1*offs_k[None,:]+stride_a2*offs_am[:,None]
         stride_ak=stride_a1
     else:
         # A(B,M,K)
@@ -133,7 +129,7 @@ def bmm(
     
     if is_transpose_b:
         # B(B,N,K)
-        b_ptrs = b_ptr+stride_b0*batch_id+stride_b1*offs_bn[:,None]+stride_b2*offs_k[None,:]
+        b_ptrs = b_ptr+stride_b0*batch_id+stride_b1*offs_bn[None,:]+stride_b2*offs_k[:,None]
         stride_bk=stride_b2
     else:
         # B(B,K,N)
@@ -143,20 +139,20 @@ def bmm(
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
         if is_transpose_a:
-            a_mask= (offs_k[:,None]+BLOCK_SIZE_K*k<K) & (offs_am[None,:]<M)
+            a_mask= (offs_k[None,:]+BLOCK_SIZE_K*k<K) & (offs_am[:,None]<M)
         else:
             a_mask= (offs_am[:,None]<M) & (offs_k[None,:]+BLOCK_SIZE_K*k<K)
         a=tl.load(a_ptrs,mask=a_mask)
         if is_transpose_b:
-            b_mask= (offs_bn[:,None]<N) & (offs_k[None,:]+BLOCK_SIZE_K*k<K)
+            b_mask= (offs_bn[None,:]<N) & (offs_k[:,None]+BLOCK_SIZE_K*k<K)
         else:
             b_mask= (offs_k[:,None]+BLOCK_SIZE_K*k<K) & (offs_bn[None,:]<N)
         b=tl.load(b_ptrs,mask=b_mask)
 
-        if is_transpose_a:
-            a=tl.trans(a)
-        if is_transpose_b:
-            b=tl.trans(b)
+        # if is_transpose_a:
+        #     a=tl.trans(a)
+        # if is_transpose_b:
+        #     b=tl.trans(b)
         accumulator += tl.dot(a, b, allow_tf32=enable_tf32)
 
         a_ptrs+=BLOCK_SIZE_K*stride_ak

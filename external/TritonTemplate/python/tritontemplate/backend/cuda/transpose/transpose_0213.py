@@ -7,8 +7,8 @@ def gen_grid_transpose_0213(D0:int, D1:int, D2:int, D3:int, BLOCK_SIZE_D1:int, B
     """
     return (D0 * D3, triton.cdiv(D2, BLOCK_SIZE_D2), triton.cdiv(D1, BLOCK_SIZE_D1))
 
-def gen_smem_size_transpose_0213(BLOCK_SIZE_D1:int, BLOCK_SIZE_D2:int,num_stages:int):
-    return (BLOCK_SIZE_D1*BLOCK_SIZE_D2)*num_stages
+def gen_smem_size_transpose_0213(BLOCK_SIZE_D1:int, BLOCK_SIZE_D2:int,num_stages:int,size_dtype:int):
+    return (BLOCK_SIZE_D1*BLOCK_SIZE_D2)*num_stages*size_dtype
 
 #TODO: rewrite for contiguous D3 reading and storing
 @triton.jit

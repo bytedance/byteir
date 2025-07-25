@@ -4,7 +4,7 @@ import importlib
 import triton
 
 from tritontemplate.compiler.base import IntImm, Tensor, Operation
-from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
+from tritontemplate.compiler.dtype import get_dtype_size
 from tritontemplate.compiler.kernel import TritonExecutor
 from tritontemplate.compiler.utils import get_warpsize,get_cuda_device_max_shared_memory
 from tritontemplate.backend.cuda.utils import shape2stride
@@ -15,7 +15,7 @@ _supported_activations = ['relu',None]
 
 _exec_metadata = {
     'num_warps': 4,
-    'num_stages': 1,
+    'num_stages': 3,
 }
 
 class Gemm(Operation):
@@ -74,7 +74,7 @@ class Gemm(Operation):
         const_metadata['BLOCK_SIZE_M']= self._block_size(self._attrs['M'])
         const_metadata['BLOCK_SIZE_N']= self._block_size(self._attrs['N'])
         const_metadata['BLOCK_SIZE_K']= self._block_size(self._attrs['K'])
-        self._shrink_shared_mem(func_gen_smem_size,const_metadata,get_cuda_device_max_shared_memory(),num_stages)
+        self._shrink_shared_mem(func_gen_smem_size,const_metadata,get_cuda_device_max_shared_memory(),num_stages,get_dtype_size(self._attrs['inputs'][0].dtype))
 
         input=self._attrs['inputs']
         output=self._attrs['outputs']

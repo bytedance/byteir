@@ -8,8 +8,8 @@ def gen_grid_softmax(M:int, BLOCK_SIZE_M:int):
     return (
         triton.cdiv(M, BLOCK_SIZE_M),1,1)
 
-def gen_smem_size_softmax(BLOCK_SIZE_M:int, BLOCK_SIZE_N:int,num_stages:int):
-    return (BLOCK_SIZE_N*BLOCK_SIZE_M)*num_stages
+def gen_smem_size_softmax(BLOCK_SIZE_M:int, BLOCK_SIZE_N:int,num_stages:int,size_dtype:int):
+    return (BLOCK_SIZE_M)*2*4
 
 @triton.jit
 def softmax(x_ptr, y_ptr, M: tl.constexpr, N: tl.constexpr,stride_x0:tl.constexpr,stride_x1:tl.constexpr, stride_y0:tl.constexpr, stride_y1:tl.constexpr, BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr):

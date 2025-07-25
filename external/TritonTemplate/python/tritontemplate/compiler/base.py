@@ -144,24 +144,26 @@ class Operation(BaseType):
             return 128
         
     @staticmethod
-    def _shrink_shared_mem(func_gen_smem_size:Callable,const_metadata:Dict, dev_smem_size:int,num_stages:int):
+    def _shrink_shared_mem(func_gen_smem_size:Callable,const_metadata:Dict, dev_smem_size:int,num_stages:int,size_dtype:int):
 
         sig = dict(inspect.signature(func_gen_smem_size).parameters)
-        keys = [key for key in sig if key != "num_stages"]
-        sig['num_stages'] = num_stages
+        keys = [key for key in sig.keys() if key != "num_stages" and key != "size_dtype"]
+        sig.update({"num_stages": num_stages, "size_dtype": size_dtype})
+        print(keys)
         for key in keys:
             sig[key] = const_metadata[key]
 
         it = 0
         len_keys = len(keys)
-        while dev_smem_size<func_gen_smem_size(**sig):
-            sig[keys[it]]>>=1
-            it = (it+1)%len_keys
-            print(sig)
-
-        for key in keys:
-            if sig[key] >= 32:
-                const_metadata[key] = sig[key]
+        tolerance = len_keys
+        while tolerance and dev_smem_size<func_gen_smem_size(**sig):
+            if sig[keys[it]]>32:
+                sig[keys[it]]//=2
             else:
-                raise ValueError(f'Init num_stages and BLOCK_SIZE ares too large to execute, the exec_params = {sig}')
-
+                tolerance-=1
+            it = (it+1)%len_keys
+        for key in keys:
+            val = sig[key]
+            if val < 32:
+                raise ValueError(f'Shrinking resulted in block size < 32. The exec_params = {sig}')
+            const_metadata[key] = val
