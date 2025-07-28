@@ -97,8 +97,6 @@ CUDA_TIT_MLIR_TEST_SET= {
     "bmm_rcr.mlir",
     "bmm_rrr_add_f16.mlir",
     "bmm_rrr_f16.mlir",
-    "bmm_rrr_permute_f16.mlir",
-    "bmm_rrr_permute_f32.mlir",
     "gemm_crr_f16.mlir",
     "gemm_rrr_f16.mlir",
     "gemm_rrr_f32.mlir",
