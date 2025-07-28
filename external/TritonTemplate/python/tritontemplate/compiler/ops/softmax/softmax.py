@@ -12,7 +12,7 @@ from tritontemplate.backend.cuda.utils.utils import shape2stride
 
 _exec_metadata = {
     'num_warps': 4,
-    'num_stages': 3,
+    'num_stages': 2,
 }
 
 class Softmax(Operation):

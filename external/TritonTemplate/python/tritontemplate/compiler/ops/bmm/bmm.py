@@ -12,7 +12,7 @@ _supported_layouts = ['rcr','rrr','crr','ccr']
 
 _exec_metadata = {
     'num_warps': 4,
-    'num_stages': 3,
+    'num_stages': 2,
 }
 
 class Bmm(Operation):

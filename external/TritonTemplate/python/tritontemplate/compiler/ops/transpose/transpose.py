@@ -13,7 +13,7 @@ _supported_permutations = ['10','0213']
 
 _exec_metadata = {
     'num_warps': 4,
-    'num_stages': 1,
+    'num_stages': 2,
 }
 
 class Transpose(Operation):

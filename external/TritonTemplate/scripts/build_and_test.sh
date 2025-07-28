@@ -3,10 +3,17 @@
 set -e
 set -x
 
+TRITON_BUILD=ON
+TRITON_TEST=ON
+
 while [[ $# -gt 0 ]]; do
   case $1 in
     --no-test)
       TRITON_TEST=OFF
+      shift
+      ;;
+    --no-build)
+      TRITON_BUILD=OFF
       shift
       ;;
     *)
@@ -15,6 +22,7 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
 
 TRITON_TEST=${TRITON_TEST:-ON}
 
@@ -26,10 +34,12 @@ ROOT_PROJ_DIR="$CUR_DIR/.."
 # path to python
 PYTHON_PATH="$ROOT_PROJ_DIR/python"
 
-pushd "$PYTHON_PATH"
-    # install tritontemplate
-    python3 -m pip install -e .
-popd
+if [[ $TRITON_BUILD == "ON" ]]; then
+    pushd "$PYTHON_PATH"
+        # install tritontemplate
+        python3 -m pip install -e .
+    popd
+fi
 
 # path to python tests
 TEST_DIR="$ROOT_PROJ_DIR/python/tritontemplate/testing/cuda"

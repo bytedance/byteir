@@ -17,9 +17,11 @@ pip3 install -r $ROOT_PROJ_DIR/frontends/torch-frontend/torch-cuda-requirements.
 bash frontends/torch-frontend/scripts/build_and_test.sh --no-test
 
 pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl
+pip3 install $ROOT_PROJ_DIR/external/TritonTemplate
 pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl
+
 source scripts/prepare.sh
 install_mhlo_tools
 
