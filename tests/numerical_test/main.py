@@ -25,14 +25,13 @@ from torch_e2e_testing.registry import (
     GLOBAL_TORCH_TEST_REGISTRY_NAMES,
 )
 from testset import CPU_MLIR_TEST_DIR, CUDA_MLIR_TEST_DIR
-from testset import CPU_ALL_SET, CUDA_ALL_SET, CUDA_AIT_ALL_SET, CUDA_AIT_SM80PLUS_SET, CUDA_TIT_MLIR_TEST_SET
+from testset import CPU_ALL_SET, CUDA_ALL_SET, CUDA_AIT_ALL_SET, CUDA_AIT_SM80PLUS_SET
 
 ##### TEST SET CONFIG #######
 TEST_SET = {
     "cpu": CPU_ALL_SET,
     "cuda": CUDA_ALL_SET,
     "cuda_with_ait": CUDA_AIT_ALL_SET,
-    "cuda_with_triton": CUDA_TIT_MLIR_TEST_SET,
 }
 
 def get_local_gpu_arch():
@@ -94,7 +93,6 @@ def parse_args():
             "cpu",
             "cuda",
             "cuda_with_ait",
-            "cuda_with_triton",
             "dynamo",
             "native_torch",
         ],
@@ -143,7 +141,7 @@ def main():
 
     results = []
     if args.target == "all":
-        for target in ["cpu", "cuda", "cuda_with_ait", "cuda_with_triton", "dynamo"]:
+        for target in ["cpu", "cuda", "cuda_with_ait", "dynamo"]:
             results += run(target, args.filter, args.workdir)
     else:
         results += run(args.target, args.filter, args.workdir, mode=args.mode, verbose=args.verbose)

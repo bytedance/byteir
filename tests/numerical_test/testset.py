@@ -91,17 +91,3 @@ CUDA_AIT_SM80PLUS_SET = {
 }
 
 CUDA_AIT_ALL_SET = CUDA_AIT_MLIR_TEST_SET | CUDA_AIT_TORCH_TEST_SET
-
-##### CUDA TRITONTEMPLATE TEST SET #######
-CUDA_TIT_MLIR_TEST_SET= {
-    "bmm_rcr.mlir",
-    "bmm_rrr_add_f16.mlir",
-    "bmm_rrr_f16.mlir",
-    "gemm_crr_f16.mlir",
-    "gemm_rrr_f16.mlir",
-    "gemm_rrr_f32.mlir",
-    "layernorm.mlir",
-    "softmax.mlir",
-    "transpose2d.mlir",
-    "transpose2013.mlir",
-}
