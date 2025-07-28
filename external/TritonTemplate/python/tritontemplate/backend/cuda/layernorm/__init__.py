@@ -1,1 +1,3 @@
 from tritontemplate.backend.cuda.layernorm.layernorm import layernorm,layernorm_weight_bias, gen_grid_layernorm,gen_smem_size_layernorm
+gen_grid_layernorm_weight_bias = gen_grid_layernorm
+gen_smem_size_layernorm_weight_bias = gen_smem_size_layernorm

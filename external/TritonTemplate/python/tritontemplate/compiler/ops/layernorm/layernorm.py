@@ -7,13 +7,7 @@ import triton
 from tritontemplate.compiler.base import IntImm, Tensor, Operation
 from tritontemplate.compiler.dtype import get_dtype_size
 from tritontemplate.compiler.kernel import TritonExecutor
-from tritontemplate.compiler.utils import get_warpsize, get_cuda_device_max_shared_memory
-from tritontemplate.backend.cuda.utils.utils import shape2stride
-
-_exec_metadata = {
-    'num_warps': 4,
-    'num_stages': 2,
-}
+from tritontemplate.compiler.utils import get_cuda_device_max_shared_memory
 
 class Layernorm(Operation):
     def __init__(
@@ -30,6 +24,8 @@ class Layernorm(Operation):
         self._attrs['eps'] = eps
 
         self._deduce_output_shape()
+        self._backend_module_name = 'layernorm'
+        self._kernel_name = self._backend_module_name + ('_weight_bias' if self._attrs['with_weight_bias'] else '')
     
     def _deduce_output_shape(self):
         M = prod(self._attrs['inputs'][0].shape[:-1])
@@ -40,7 +36,7 @@ class Layernorm(Operation):
         if self._attrs['outputs'] is None:
             self._attrs['outputs'] = [Tensor(shape=self._attrs['inputs'][0].shape,dtype=self._attrs['inputs'][0].dtype)]
 
-    def _gen_constants(self,num_stages,func_gen_smem_size):
+    def _gen_constants(self,enable_tf32,num_stages,func_gen_smem_size):
         const_metadata={}
         const_metadata['M']= self._attrs['M']
         const_metadata['N']= self._attrs['N']
@@ -62,26 +58,11 @@ class Layernorm(Operation):
         return const_metadata
     
     def _gen_exec_metadata(self):
-        return _exec_metadata.copy()
+        return  {
+            'num_warps': 4,
+            'num_stages': 2,
+        }
     
     def compile(self, target_name, workdir,enable_tf32)->TritonExecutor:
-        triton_kernel_name= 'layernorm_weight_bias' if self._attrs['with_weight_bias'] else 'layernorm'
-        triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.layernorm'),triton_kernel_name)
-        gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.layernorm'),f'gen_grid_layernorm')
-        func_gen_smem_size=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.layernorm'),f'gen_smem_size_layernorm')
-
-        signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
-
-        exec_metadata=self._gen_exec_metadata()
-
-        num_warps=exec_metadata['num_warps']
-        num_stages=exec_metadata['num_stages']
-
-        constants=self._gen_constants(num_stages,func_gen_smem_size)
-        config = config = triton.compiler.instance_descriptor(divisible_by_16=divisiability[16], equal_to_1=divisiability[1])
-        triton_compiled_kernel=triton.compile(fn=triton_kernel,signature=signature,constants=constants,num_warps=num_warps,num_stages=num_stages,configs=[config],debug=False)
-
-        exec_grid=gen_grid(constants['M'],constants['BLOCK_SIZE_M'])
-        return TritonExecutor(triton_compiled_kernel,exec_grid,get_warpsize(target_name),constants)
-            
+        return super().compile(target_name,workdir,enable_tf32)            
         

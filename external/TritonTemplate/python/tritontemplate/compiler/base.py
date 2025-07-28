@@ -2,7 +2,11 @@ from abc import ABC,abstractmethod
 from pprint import pformat
 from typing import Any, Dict, Iterable, List, Optional, Set, Union, Callable
 import inspect
+import importlib
 
+from tritontemplate.compiler.utils import get_warpsize,get_cuda_device_max_shared_memory
+from tritontemplate.compiler.dtype import get_dtype_size
+from tritontemplate.compiler.kernel import TritonExecutor
 from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
 
 class BaseType(ABC):
@@ -105,10 +109,43 @@ class Operation(BaseType):
     @property
     def outputs(self) -> Optional[List[Tensor]]:
         return self._attrs['outputs']
+
     
-    @abstractmethod
-    def compile(self,target_name,workdir):
-        raise NotImplementedError
+    def _gen_exec_grid(self,gen_grid,constants):
+        sig = dict(inspect.signature(gen_grid).parameters)
+        sig = {k:constants[k] for k in sig.keys()}
+        return gen_grid(**sig)
+    
+    def compile(self, target_name, workdir, enable_tf32: bool = False) -> TritonExecutor:
+
+        kernel_name = self._kernel_name
+        backend_module = self._backend_module_name
+        triton_kernel = getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.{backend_module}'), kernel_name)
+        gen_grid = getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.{backend_module}'), f'gen_grid_{kernel_name}')
+        func_gen_smem_size = getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.{backend_module}'), f'gen_smem_size_{kernel_name}')
+        
+        exec_metadata = self._gen_exec_metadata()
+        num_warps = exec_metadata['num_warps']
+        num_stages = exec_metadata['num_stages']
+        
+        signature, divisiability = self._gen_tensor_signature_divisiability(['inputs', 'outputs'])
+        constants = self._gen_constants(enable_tf32, num_stages, func_gen_smem_size)
+        
+        import triton
+        config = triton.compiler.instance_descriptor(divisible_by_16=divisiability[16], equal_to_1=divisiability[1])
+        triton_compiled_kernel = triton.compile(
+            fn=triton_kernel,
+            signature=signature,
+            constants=constants,
+            num_warps=num_warps,
+            num_stages=num_stages,
+            configs=[config],
+            debug=False
+        )
+        
+        exec_grid = self._gen_exec_grid(gen_grid, constants)
+        return TritonExecutor(triton_compiled_kernel, exec_grid, get_warpsize(target_name), constants)
+
 
  
     def _gen_tensor_signature_divisiability(self,tensors_names:List[str]):
