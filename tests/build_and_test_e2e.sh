@@ -20,7 +20,6 @@ pip3 install $ROOT_PROJ_DIR/external/AITemplate/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/compiler/build/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/runtime/python/dist/*.whl
 pip3 install $ROOT_PROJ_DIR/frontends/torch-frontend/build/torch-frontend/python/dist/*.whl
-
 source scripts/prepare.sh
 install_mhlo_tools
 
