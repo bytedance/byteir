@@ -8,10 +8,10 @@ class TritonExecutor:
         self.call_constants = constants
         self.triton_kernel = triton_kernel
         self.gridsize = grid_size
-        self.blocksize = triton_kernel.num_warps * warp_size
+        self.blocksize = triton_kernel.metadata.num_warps * warp_size
         self.warpsize = warp_size
-        self.name = triton_kernel.metadata['name']
-        self.smemsize = triton_kernel.shared
+        self.name = triton_kernel.metadata.name
+        self.smemsize = triton_kernel.metadata.shared
 
         self.device_name = get_cuda_device_name()
         assert self.smemsize <= get_cuda_device_max_shared_memory(), \
@@ -19,7 +19,7 @@ class TritonExecutor:
 
 
     def __call__(self, *args, **kwds):
-        return self.triton_kernel[self.gridsize](*args, **kwds)
+        return self.triton_kernel[self.gridsize](*args,*self.call_constants, **kwds)
     
     def kernel_ptx(self,func_name:str):
         ptx = self.triton_kernel.asm['ptx']

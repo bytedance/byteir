@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tritontemplate"
-version = "0.0.1"  # You'll need to get this from _libinfo.py differently
+version = "0.0.2"  
 description = "TritonTemplate: Make Flex Triton Templates for AI"
 requires-python = ">=3.7,<4"
 dependencies = [
-    "triton==2.1.0",
+    "triton>=3.3.0",
     "torch>=2.1.0",
     "numpy<2",
     "pytest",

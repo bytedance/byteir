@@ -132,19 +132,27 @@ class Operation(BaseType):
         constants = self._gen_constants(enable_tf32, num_stages, func_gen_smem_size)
         
         import triton
-        config = triton.compiler.instance_descriptor(divisible_by_16=divisiability[16], equal_to_1=divisiability[1])
+        attrs = {(v,): [["tt.divisibility", 16]] for v in divisiability[16]}
+        signature = {triton_kernel.arg_names[i]: s for i, s in signature.items()}
+        constexprs ={}
+        constexprs_id={}
+        constexprs_entry = []
+        for key in constants:
+            signature[key] = 'constexpr'
+            constexprs[(triton_kernel.arg_names.index(key),)] = constants[key]
+            constexprs_id[constants[key]] = triton_kernel.arg_names.index(key)
+            constexprs_entry.append(constants[key])
+
+        constexprs_entry.sort(key=lambda x: constexprs_id[x])
+
+        src = triton.compiler.ASTSource(fn=triton_kernel, constexprs=constexprs, signature=signature, attrs=attrs)
         triton_compiled_kernel = triton.compile(
-            fn=triton_kernel,
-            signature=signature,
-            constants=constants,
-            num_warps=num_warps,
-            num_stages=num_stages,
-            configs=[config],
-            debug=False
+            src=src,
+            options=exec_metadata,
         )
         
         exec_grid = self._gen_exec_grid(gen_grid, constants)
-        return TritonExecutor(triton_compiled_kernel, exec_grid, get_warpsize(target_name), constants)
+        return TritonExecutor(triton_compiled_kernel, exec_grid, get_warpsize(target_name), constexprs_entry)
 
 
  
