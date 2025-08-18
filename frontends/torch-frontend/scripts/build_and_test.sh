@@ -45,8 +45,9 @@ cmake -S . \
       -DCMAKE_C_COMPILER=clang-11 \
       -DCMAKE_CXX_COMPILER=clang++-11 \
       -DTORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER=${TORCH_FRONTEND_ENABLE_JIT_IR_IMPORTER} \
-      # -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable" \
       -DPython3_EXECUTABLE=$(which python3)
+
+# -DCMAKE_CXX_FLAGS="-Wno-unused-but-set-parameter -Wno-unused-but-set-variable" \
 
 cmake --build ./build --target all
 
