@@ -116,6 +116,108 @@ struct DecomposeByteIRSoftmax : public OpRewritePattern<mhlo::CustomCallOp> {
   }
 };
 
+struct DecomposeByteIRL2Norm : public OpRewritePattern<mhlo::CustomCallOp> {
+  using OpRewritePattern<mhlo::CustomCallOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::CustomCallOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getCallTargetName() != getL2NormName()) {
+      return failure();
+    }
+
+    Value operand = op.getOperand(0);
+    RankedTensorType inType = cast<RankedTensorType>(operand.getType());
+    mlir::FloatType fpType = cast<FloatType>(inType.getElementType());
+
+    DictionaryAttr byteirAttrs =
+        cast<DictionaryAttr>(op->getAttr(getCustomCallAttrName()));
+    if (!byteirAttrs)
+      return failure();
+    auto axisAttr = cast<ArrayAttr>(byteirAttrs.get("axis"));
+    if (axisAttr.size() != 1) {
+      return op->emitError("only support 1 axis");
+    }
+    auto axis = cast<IntegerAttr>(axisAttr[0]).getInt();
+
+    auto epsAttr = cast<FloatAttr>(byteirAttrs.get("epsilon"));
+    APFloat eps = epsAttr.getValue();
+    bool losesInfo;
+    auto status = eps.convert(fpType.getFloatSemantics(),
+                              APFloat::rmNearestTiesToEven, &losesInfo);
+    if (losesInfo) {
+      op->emitRemark("loses info when eps convert to input type");
+    }
+    epsAttr = rewriter.getFloatAttr(fpType, eps);
+
+    bool epsOutsideSqrt = false;
+    if (byteirAttrs.contains("eps_outside_sqrt")) {
+      epsOutsideSqrt =
+          cast<BoolAttr>(byteirAttrs.get("eps_outside_sqrt")).getValue();
+    }
+
+    Value pow2 = rewriter.create<mhlo::MulOp>(op.getLoc(), operand, operand);
+    Value reduce;
+    {
+      SmallVector<int64_t> reduceResultShape(inType.getShape());
+      reduceResultShape.erase(reduceResultShape.begin() + axis);
+      RankedTensorType reduceResultType =
+          RankedTensorType::get(reduceResultShape, fpType);
+
+      Value initValue = rewriter.create<mhlo::ConstantOp>(
+          op.getLoc(), DenseElementsAttr::get(
+                           RankedTensorType::get({}, fpType),
+                           {APFloat::getZero(fpType.getFloatSemantics())}));
+      auto reduceOp = rewriter.create<mhlo::ReduceOp>(
+          op.getLoc(), reduceResultType, pow2, initValue,
+          rewriter.getI64TensorAttr({axis}));
+
+      Block &block = reduceOp.getBody().emplaceBlock();
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+      auto blockValArgumentType =
+          RankedTensorType::get({}, inType.getElementType());
+      block.addArgument(blockValArgumentType, op->getLoc());
+      block.addArgument(blockValArgumentType, op->getLoc());
+      auto *firstValArg = block.args_begin();
+      auto *secondValArg = std::next(firstValArg);
+      Value result = rewriter.create<mhlo::AddOp>(op->getLoc(), *firstValArg,
+                                                  *secondValArg);
+      rewriter.create<mhlo::ReturnOp>(op->getLoc(), result);
+
+      reduce = reduceOp.getResults()[0];
+    }
+
+    Value epsValue = rewriter.create<mhlo::ConstantOp>(
+        op.getLoc(),
+        DenseElementsAttr::get(RankedTensorType::get({}, fpType), epsAttr));
+    epsValue = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        op.getLoc(), reduce.getType(), epsValue,
+        rewriter.create<shape::ShapeOfOp>(op.getLoc(), reduce),
+        rewriter.getI64TensorAttr({}));
+    Value sqrt;
+    if (epsOutsideSqrt) {
+      sqrt = rewriter.create<mhlo::SqrtOp>(op.getLoc(), reduce);
+      sqrt = rewriter.create<mhlo::MaxOp>(op.getLoc(), sqrt, epsValue);
+    } else {
+      sqrt = rewriter.create<mhlo::MaxOp>(op.getLoc(), reduce, epsValue);
+      sqrt = rewriter.create<mhlo::SqrtOp>(op.getLoc(), sqrt);
+    }
+
+    SmallVector broadcastDim =
+        llvm::to_vector(llvm::seq<int64_t>(0, inType.getRank()));
+    broadcastDim.erase(broadcastDim.begin() + axis);
+    Value broadcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        op->getLoc(), inType, sqrt,
+        rewriter.create<shape::ShapeOfOp>(op.getLoc(), operand),
+        rewriter.getI64TensorAttr(broadcastDim));
+
+    Value result =
+        rewriter.create<mhlo::DivOp>(op->getLoc(), operand, broadcast);
+    rewriter.replaceOp(op, result);
+    return success();
+  }
+};
+
 struct DecomposeByteIRArgMaxMin : public OpRewritePattern<mhlo::CustomCallOp> {
   DecomposeByteIRArgMaxMin(MLIRContext *context, llvm::StringRef customCallName)
       : OpRewritePattern<mhlo::CustomCallOp>(context),
@@ -339,6 +441,9 @@ struct DecomposeMhloCustomCallOpsPass
     }
     if (!legalOpsSet.contains(getSoftmaxName())) {
       patterns.add<DecomposeByteIRSoftmax>(context);
+    }
+    if (!legalOpsSet.contains(getL2NormName())) {
+      patterns.add<DecomposeByteIRL2Norm>(context);
     }
     if (!legalOpsSet.contains(getArgMaxName())) {
       patterns.add<DecomposeByteIRArgMaxMin>(context, getArgMaxName());
