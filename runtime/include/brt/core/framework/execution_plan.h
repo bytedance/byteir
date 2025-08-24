@@ -105,7 +105,7 @@ protected:
  * It selects ExecutionProviders based ranking.
  */
 
-class StaticBRTExecutionPlan final : public ExecutionPlan {
+class StaticBRTExecutionPlan : public ExecutionPlan {
 public:
   StaticBRTExecutionPlan(brt::ir::ByREHandle &);
 
@@ -161,5 +161,47 @@ private:
   std::vector<OpKernel *> shape_op_kernels_;
   std::vector<OpKernel *> compute_op_kernels_;
 };
+
+class MultiStreamExecutionPlan : public StaticBRTExecutionPlan {
+
+public:
+  MultiStreamExecutionPlan(brt::ir::ByREHandle &);
+
+  common::Status ProloguePerSession(
+      const std::unordered_map<std::string, std::unique_ptr<IAllocator>>
+          &allocators,
+      const std::vector<std::unique_ptr<ExecutionProvider>> &providers,
+      const Device dev, const DeviceAPI *device_api) override;
+
+  common::Status EpiloguePerSession() override;
+
+  void CreateWorkQueue(std::unique_ptr<WorkQueue> *wq, int rank = 0) override;
+
+  void CreateExecutinFrame(std::unique_ptr<ExecutionFrame> *frame) override;
+
+  common::Status ProloguePerFrame(const ExecutionContext &) override;
+  common::Status EpiloguePerFrame(const ExecutionContext &) override;
+
+  common::Status Run(const ExecutionContext &) override;
+
+  using PartitionGraphMethod = std::function<int(OpKernel *kernel)>;
+
+  void SetPartitionGraphMethod(PartitionGraphMethod method) {
+    partition_graph_method_ = method;
+  }
+
+private:
+  std::unordered_map<OpKernel *, int> kernel_stream_map_;
+  std::vector<std::vector<OpKernel *>> logical_streams_;
+  std::vector<cudaStream_t> cuda_streams_;
+
+  void PartitionOpKernels(PartitionGraphMethod method);
+  std::unordered_map<OpKernel *, int64_t> kernel_to_event_index;
+  std::unordered_map<OpKernel *, std::vector<int64_t>> kernel_to_wait_events;
+  std::vector<cudaEvent_t> event_list_;
+
+  void AnalyzeStreamDependency();
+
+  int max_stream_num_;
 
 } // namespace brt
