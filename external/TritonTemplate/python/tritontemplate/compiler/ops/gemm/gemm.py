@@ -4,19 +4,14 @@ import importlib
 import triton
 
 from tritontemplate.compiler.base import IntImm, Tensor, Operation
-from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
+from tritontemplate.compiler.dtype import get_dtype_size
 from tritontemplate.compiler.kernel import TritonExecutor
-from tritontemplate.compiler.utils import get_warpsize
-from tritontemplate.backend.cuda.utils.utils import shape2stride
+from tritontemplate.compiler.utils import get_warpsize,get_cuda_device_max_shared_memory
+from tritontemplate.backend.cuda.utils import shape2stride
 
 _supported_layouts = ['rcr','rrr','ccr','crr']
 _supported_activations = ['relu',None]
 
-
-_exec_metadata = {
-    'num_warps': 4,
-    'num_stages': 1,
-}
 
 class Gemm(Operation):
     def __init__(
@@ -36,7 +31,9 @@ class Gemm(Operation):
         self.is_bias= is_bias
         self._attrs['activation'] = activation
         self._deduce_output_shape()
-        
+        self._backend_module_name = 'gemm'
+        self._kernel_name = self._backend_module_name + ('' if not self.is_bias else '_bias')
+
     
     def _deduce_output_shape(self):
 
@@ -59,7 +56,7 @@ class Gemm(Operation):
         else:
             assert self._attrs['outputs'][0].shape == res_shape, f"output shape {self._attrs['outputs'][0].shape} not match {res_shape}"
 
-    def _gen_constants(self,enable_tf32):
+    def _gen_constants(self,enable_tf32,num_stages, func_gen_smem_size):
         const_metadata={}
         const_metadata['ACTIVATION'] = self._attrs['activation']
 
@@ -74,7 +71,8 @@ class Gemm(Operation):
         const_metadata['BLOCK_SIZE_M']= self._block_size(self._attrs['M'])
         const_metadata['BLOCK_SIZE_N']= self._block_size(self._attrs['N'])
         const_metadata['BLOCK_SIZE_K']= self._block_size(self._attrs['K'])
-        
+        self._shrink_shared_mem(func_gen_smem_size,const_metadata,get_cuda_device_max_shared_memory(),num_stages,get_dtype_size(self._attrs['inputs'][0].dtype))
+
         input=self._attrs['inputs']
         output=self._attrs['outputs']
         const_metadata['M']=self._attrs['M']
@@ -93,24 +91,11 @@ class Gemm(Operation):
         return const_metadata
     
     def _gen_exec_metadata(self):
-        return _exec_metadata.copy()
+        return {
+            'num_warps': 4,
+            'num_stages': 2,
+        }
 
     #TODO:enable_tf32 https://github.com/triton-lang/triton/issues/4574
     def compile(self,target_name,workdir,enable_tf32: bool = False,)->TritonExecutor:
-        triton_kernel_name=f'gemm'+ ('' if not self.is_bias else '_bias')
-        triton_kernel=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),triton_kernel_name)
-        gen_grid=getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.gemm'),f'gen_grid_gemm')
-
-        signature,divisiability=self._gen_tensor_signature_divisiability(['inputs','outputs'])
-        constants=self._gen_constants(enable_tf32)
-        exec_metadata=self._gen_exec_metadata()
-
-        num_warps=exec_metadata['num_warps']
-        num_stages=exec_metadata['num_stages']
-        config = triton.compiler.instance_descriptor(divisible_by_16=divisiability[16], equal_to_1=divisiability[1])
-        triton_compiled_kernel=triton.compile(fn=triton_kernel,signature=signature,constants=constants,num_warps=num_warps,num_stages=num_stages,configs=[config],debug=False)
-
-        exec_grid=gen_grid(constants['M'],constants['N'],constants['BLOCK_SIZE_M'],constants['BLOCK_SIZE_N'])
-        return TritonExecutor(triton_compiled_kernel,exec_grid,get_warpsize(target_name),constants)
-
-
+        return super().compile(target_name,workdir,enable_tf32)

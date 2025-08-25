@@ -1,7 +1,12 @@
 from abc import ABC,abstractmethod
 from pprint import pformat
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union, Callable
+import inspect
+import importlib
 
+from tritontemplate.compiler.utils import get_warpsize,get_cuda_device_max_shared_memory
+from tritontemplate.compiler.dtype import get_dtype_size
+from tritontemplate.compiler.kernel import TritonExecutor
 from tritontemplate.compiler.dtype import dtype_str_to_triton_signature
 
 class BaseType(ABC):
@@ -104,10 +109,51 @@ class Operation(BaseType):
     @property
     def outputs(self) -> Optional[List[Tensor]]:
         return self._attrs['outputs']
+
     
-    @abstractmethod
-    def compile(self,target_name,workdir):
-        raise NotImplementedError
+    def _gen_exec_grid(self,gen_grid,constants):
+        sig = dict(inspect.signature(gen_grid).parameters)
+        sig = {k:constants[k] for k in sig.keys()}
+        return gen_grid(**sig)
+    
+    def compile(self, target_name, workdir, enable_tf32: bool = False) -> TritonExecutor:
+
+        kernel_name = self._kernel_name
+        backend_module = self._backend_module_name
+        triton_kernel = getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.{backend_module}'), kernel_name)
+        gen_grid = getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.{backend_module}'), f'gen_grid_{kernel_name}')
+        func_gen_smem_size = getattr(importlib.import_module(f'tritontemplate.backend.{target_name}.{backend_module}'), f'gen_smem_size_{kernel_name}')
+        
+        exec_metadata = self._gen_exec_metadata()
+        num_warps = exec_metadata['num_warps']
+        num_stages = exec_metadata['num_stages']
+        
+        signature, divisiability = self._gen_tensor_signature_divisiability(['inputs', 'outputs'])
+        constants = self._gen_constants(enable_tf32, num_stages, func_gen_smem_size)
+        
+        import triton
+        attrs = {(v,): [["tt.divisibility", 16]] for v in divisiability[16]}
+        signature = {triton_kernel.arg_names[i]: s for i, s in signature.items()}
+        constexprs ={}
+        constexprs_id={}
+        constexprs_entry = []
+        for key in constants:
+            signature[key] = 'constexpr'
+            constexprs[(triton_kernel.arg_names.index(key),)] = constants[key]
+            constexprs_id[constants[key]] = triton_kernel.arg_names.index(key)
+            constexprs_entry.append(constants[key])
+
+        constexprs_entry.sort(key=lambda x: constexprs_id[x])
+
+        src = triton.compiler.ASTSource(fn=triton_kernel, constexprs=constexprs, signature=signature, attrs=attrs)
+        triton_compiled_kernel = triton.compile(
+            src=src,
+            options=exec_metadata,
+        )
+        
+        exec_grid = self._gen_exec_grid(gen_grid, constants)
+        return TritonExecutor(triton_compiled_kernel, exec_grid, get_warpsize(target_name), constexprs_entry)
+
 
  
     def _gen_tensor_signature_divisiability(self,tensors_names:List[str]):
@@ -141,3 +187,27 @@ class Operation(BaseType):
             return 64
         else:
             return 128
+        
+    @staticmethod
+    def _shrink_shared_mem(func_gen_smem_size:Callable,const_metadata:Dict, dev_smem_size:int,num_stages:int,size_dtype:int):
+
+        sig = dict(inspect.signature(func_gen_smem_size).parameters)
+        keys = [key for key in sig.keys() if key != "num_stages" and key != "size_dtype"]
+        sig.update({"num_stages": num_stages, "size_dtype": size_dtype})
+        for key in keys:
+            sig[key] = const_metadata[key]
+
+        it = 0
+        len_keys = len(keys)
+        tolerance = len_keys
+        while tolerance and dev_smem_size<func_gen_smem_size(**sig):
+            if sig[keys[it]]>32:
+                sig[keys[it]]//=2
+            else:
+                tolerance-=1
+            it = (it+1)%len_keys
+        for key in keys:
+            val = sig[key]
+            if val < 32:
+                raise ValueError(f'Shrinking resulted in block size < 32. The exec_params = {sig}')
+            const_metadata[key] = val

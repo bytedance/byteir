@@ -1,5 +1,6 @@
 import torch
 import pytest
+import os
 
 import triton
 from tritontemplate.compiler.base import IntImm,Tensor
@@ -50,19 +51,25 @@ def gen_bmm(format, batch_size, M, N, K, stype):
 
 
 FORMATS = ['rcr','rrr','ccr','crr']
-MATRIX_PARAMS = [
-    (2, 2, 128, 31, 'float32'),
-    (2, 128, 2, 31, 'float16'),
-    (2, 128, 128, 31, 'float32'),
-    (2, 31, 128, 2, 'float16'),
-    (2, 129, 128, 128, 'float32'),
-    (2, 128, 257, 512, 'float16'),
-    (2, 128, 512, 257, 'float32'),
-    (2, 127, 256, 256, 'float16'),
-    (2, 128, 511, 512, 'float32'),
-    (2, 256, 128, 255, 'float16'),
-    (2, 1, 256, 256, 'float32'),
-]
+if os.environ.get('GITHUB_CI_TEST'):
+    MATRIX_PARAMS = [
+        (2, 128, 128, 31, 'float32'),
+        (2, 128, 257, 512, 'float16'),
+    ]
+else:
+    MATRIX_PARAMS = [
+        (2, 2, 128, 31, 'float32'),
+        (2, 128, 2, 31, 'float16'),
+        (2, 128, 128, 31, 'float32'),
+        (2, 31, 128, 2, 'float16'),
+        (2, 129, 128, 128, 'float32'),
+        (2, 128, 257, 512, 'float16'),
+        (2, 128, 512, 257, 'float32'),
+        (2, 127, 256, 256, 'float16'),
+        (2, 128, 511, 512, 'float32'),
+        (2, 256, 128, 255, 'float16'),
+        (2, 1, 256, 256, 'float32'),
+    ]
 
 @pytest.mark.parametrize('format', FORMATS)
 @pytest.mark.parametrize(

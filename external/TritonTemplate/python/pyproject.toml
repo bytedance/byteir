@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tritontemplate"
+version = "0.0.2"  
+description = "TritonTemplate: Make Flex Triton Templates for AI"
+requires-python = ">=3.7,<4"
+dependencies = [
+    "triton>=3.3.0",
+    "torch>=2.1.0",
+    "numpy<2",
+    "pytest",
+]
+
+[project.optional-dependencies]
+# Add any optional dependencies here if needed
+
+[tool.setuptools]
+zip-safe = true
+packages = ["tritontemplate"]
+
+# Note: For package_data, you'll need to either:
+# 1. List all files explicitly here, or
+# 2. Keep a minimal setup.py just for the file listing logic
+# Here's an example of explicit package data:
+[tool.setuptools.package-data]
+tritontemplate = [
+    "backend/*.py",
+    "utils/*.py",
+    "compiler/*.py"
+]

@@ -43,6 +43,9 @@ jobs:
       - name: Run build and test
         run: ./scripts/compiler/build_and_test.sh
         shell: bash
+      - name: Run build and test TritonTemplate
+        run: ./external/TritonTemplate/scripts/build_and_test.sh
+        shell: bash
       - name: Run E2E testcases and check different
         run: ./compiler/scripts/gen_testcases_and_check_diff.sh
         shell: bash
