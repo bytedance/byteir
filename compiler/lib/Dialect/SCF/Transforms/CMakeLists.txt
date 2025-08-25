@@ -1,5 +1,6 @@
 add_byteir_dialect_library(ByteIRSCFPasses
   ForallCollapsing.cpp
+  ForallTiling.cpp
   FuseNestedForall.cpp
   InsertTrivialSCFLoop.cpp
   TilingInterfaceToSCFFor.cpp
