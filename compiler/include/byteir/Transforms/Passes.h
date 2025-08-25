@@ -34,6 +34,7 @@
 #include "byteir/Transforms/MemoryPlanning.h"
 #include "byteir/Transforms/ModuleTag.h"
 #include "byteir/Transforms/RemoveFuncBody.h"
+#include "byteir/Transforms/ReorderMemrefCopy.h"
 #include "byteir/Transforms/RewriteOpToStdCall.h"
 #include "byteir/Transforms/SetArgShape.h"
 #include "byteir/Transforms/SetSpace.h"
