@@ -12,7 +12,7 @@ ByteIR Compiler has developed multiple passes to support GPU backends.
 ### InsertTrivialSCFLoop Pass
 
 This pass simply inserts a trivial scf ForOp for scalar computation.
-It is typically used to simplify a pass pipeline without checking whether scalar computation later. 
+It is typically used to simplify a pass pipeline without checking for scalar computation later. 
 Note the effect of this pass will be removed after the scf canonicalizer.  
 
 ```
@@ -47,7 +47,7 @@ func.func @scalar_func(%arg0: memref<f32>) -> memref<f32> {
 ```
 
 ### ConvertFuncToGPU Pass
-This pass convert a FuncOp in a loop form into a GPUFuncOp in a SIMT form. 
+This pass converts a FuncOp in a loop form into a GPUFuncOp in a SIMT form. 
 Some loops with annotation in the source FuncOp are transformed into a SIMT statement. 
 
 ```

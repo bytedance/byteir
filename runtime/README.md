@@ -60,7 +60,7 @@ python3 setup.py bdist_wheel
 ```
 
 ### Testing
-#### Linux/Max
+#### Linux/Mac
 ```bash
 cd ./runtime/build
 ./bin/brt_test_all

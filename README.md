@@ -35,7 +35,7 @@ ByteIR Compiler is an MLIR-based compiler for CPU/GPU/ASIC.
 
 ## [Runtime](runtime/README.md)
 
-ByteIR Runtime is a common, lightweight runtime, capable to serving both existing kernels and ByteIR compiler generated kernels.
+ByteIR Runtime is a common, lightweight runtime, capable of serving both existing kernels and ByteIR compiler generated kernels.
 
 ## [Frontends](frontends/README.md)
 
