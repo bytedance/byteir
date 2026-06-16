@@ -1,5 +1,5 @@
 # ByteIR Compiler for Torch 2.0 Training
-ByteIR is a well optmized compiler for PyTorch 2.0. This doc will introduce our practice on accelerating PyTorch 2.0 on NVGPU by compilation technology.
+ByteIR is a well optimized compiler for PyTorch 2.0. This doc will introduce our practice on accelerating PyTorch 2.0 on NVGPU by compilation technology.
 
 ## Overview
 Overview of our compilation pipeline:
@@ -27,14 +27,14 @@ Codegen  AITemplate  Runtime Library
 
 ## Prepare Materials
 ### Environment
-We recommond the following environment for building:  
+We recommend the following environment for building:  
 * cuda>=11.8
 * python>=3.9
 * gcc>=8.5 or clang>=7  
 
 Or use our **[Dockerfile](../../../docker/Dockerfile)** to build an docker image.
 ### Build ByteIR Components
-See each components' README to build themself:  
+See each components' README to build themselves:  
 * [Torch Frontend](../README.md)
 * [ByteIR Compiler](../../../compiler/README.md)
 * [ByteIR Runtime](../../../runtime/README.md)

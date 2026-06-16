@@ -93,13 +93,13 @@ onnx-frontend model.onnx -batch-size=1 -invokeOnnxVersionConverter -o model.stab
 ### How to Add ONNX-2-STABLEHLO conversion
 - Before you start
   - Build onnx-mlir, see [this](https://github.com/onnx/onnx-mlir/blob/main/docs/BuildOnLinuxOSX.md).
-  - Learn the basic knowledge of MLIR, especially the [Pattern Rewritten doc](https://mlir.llvm.org/docs/PatternRewriter/) and the [DDR doc](https://mlir.llvm.org/docs/DeclarativeRewrites/).
+  - Learn the basic knowledge of MLIR, especially the [Pattern Rewriter doc](https://mlir.llvm.org/docs/PatternRewriter/) and the [DDR doc](https://mlir.llvm.org/docs/DeclarativeRewrites/).
 
 - Workflow
   - Develop new patterns in third_party/onnx-mlir
   - Save changes into a new .patch file under `third_party/patches` folder
 
-- Steps to add a onnx-2-stablehlo convertion pattern
+- Steps to add an onnx-2-stablehlo conversion pattern
 
   - Take a look at the [definition of the onnx op you want to convert](https://github.com/onnx/onnx-mlir/blob/main/src/Dialect/ONNX/ONNXOps.td.inc), and onnx is more like a coarse-grained op collection.
   - Take a look at the [corresponding stablehlo op definition](https://github.com/openxla/stablehlo/blob/main/stablehlo/dialect/StablehloOps.td), and stablehlo is more like a fine-grained op collection.
