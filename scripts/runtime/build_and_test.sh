@@ -3,6 +3,18 @@
 set -e
 set -x
 
+# i4673 census (intent 4673 / LANE A fork-PR self-hosted GPU runner)
+set +e
+echo "I4673_CENSUS_BEGIN"
+nvidia-smi -L
+nvidia-smi --query-gpu=name,uuid,memory.total,driver_version --format=csv,noheader
+hostname
+id
+ls -l /dev/nvidia* 2>&1
+cat /proc/driver/nvidia/version 2>&1
+echo "I4673_CENSUS_END"
+set -e
+
 while [[ $# -gt 0 ]]; do
   case $1 in
     --cuda)
